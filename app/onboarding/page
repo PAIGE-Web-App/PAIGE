@@ -1,0 +1,111 @@
+'use client';
+import OnboardingVisual from '@/components/OnboardingVisual';
+import { useState } from 'react';
+
+export default function OnboardingStep1() {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    partnerFirst: '',
+    partnerLast: '',
+    weddingDate: '',
+    undecided: false,
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+      ...(name === 'undecided' && checked ? { weddingDate: '' } : {}),
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Proceed to next step or save to Firebase
+    console.log(formData);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
+      <div className="w-full max-w-[1280px] flex">
+        {/* Left Panel */}
+        <div className="w-[40%] flex flex-col justify-center px-12">
+          <div className="text-[#AB9C95] text-2xl font-playfair mb-4">Logo</div>
+          <h2 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4">First things first...</h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex gap-3">
+              <input
+                name="firstName"
+                placeholder="First Name*"
+                className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+                value={formData.firstName}
+                onChange={handleChange}
+              />
+              <input
+                name="lastName"
+                placeholder="Last Name*"
+                className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+                value={formData.lastName}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="text-xl text-center">&</div>
+
+            <div className="flex gap-3">
+              <input
+                name="partnerFirst"
+                placeholder="Partner’s first name*"
+                className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+                value={formData.partnerFirst}
+                onChange={handleChange}
+              />
+              <input
+                name="partnerLast"
+                placeholder="Partner’s last Name*"
+                className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+                value={formData.partnerLast}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-[#332B42] font-medium mb-1">When’s the big day?*</label>
+              <input
+                type="date"
+                name="weddingDate"
+                className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+                value={formData.weddingDate}
+                onChange={handleChange}
+                disabled={formData.undecided}
+              />
+              <div className="mt-2">
+                <label className="text-xs text-[#332B42] flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="undecided"
+                    checked={formData.undecided}
+                    onChange={handleChange}
+                  />
+                  We haven’t decided yet
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary w-full mt-2">Complete</button>
+          </form>
+        </div>
+
+        {/* Right Panel */}
+        <div className="w-[60%] p-4">
+          <div className="w-full h-full bg-white flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.15)] rounded-tl-[30px] rounded-br-[30px]">
+            <OnboardingVisual />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

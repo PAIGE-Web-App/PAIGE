@@ -1,0 +1,326 @@
+// components/EditContactModal.tsx
+import React, { useState, useEffect } from "react";
+import { X, Trash2 } from "lucide-react";
+import { doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { db } from "../lib/firebase"; // Assuming firebase.ts is in the lib folder
+import { getCategoryStyle } from "../utils/categoryStyle"; // Import for avatar color
+import SelectField from "./SelectField"; // Keep SelectField if used elsewhere, otherwise remove
+import toast from "react-hot-toast"; // Import toast for notifications
+import FormField from "./FormField"; // Import FormField
+import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories"; // Ensure these are imported
+import CategorySelectField from "./CategorySelectField"; // Import the new CategorySelectField
+
+interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  category: string;
+  website?: string;
+  avatarColor?: string;
+  userId: string;
+  orderIndex?: number; // Ensure orderIndex is part of the interface
+}
+
+interface EditContactModalProps {
+  contact: Contact;
+  userId: string;
+  onClose: () => void;
+  onSave: (updatedContact: Contact) => void;
+  onDelete: (deletedId: string) => void;
+}
+
+// Helper to get a random avatar color (if needed, though contact.avatarColor should be preferred)
+function getRandomAvatarColor() {
+  const avatarColors = [
+    "#4B3E6E", "#3C5A99", "#264653", "#2A9D8F", "#1D3557", "#6D597A",
+    "#7D4F50", "#5D3A00", "#3A405A", "#4A5759", "#2E4057", "#3E3E3E"
+  ];
+  return avatarColors[Math.floor(Math.random() * avatarColors.length)];
+}
+
+export default function EditContactModal({
+  contact,
+  userId,
+  onClose,
+  onSave,
+  onDelete,
+}: EditContactModalProps) {
+  const [formData, setFormData] = useState({
+    name: contact.name || "",
+    email: contact.email || "",
+    phone: contact.phone || "",
+    category: contact.category || "",
+    website: contact.website || "",
+    avatarColor: contact.avatarColor || getRandomAvatarColor(), // Use existing or generate new
+    userId: userId,
+    orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0, // Explicitly include orderIndex
+  });
+
+  const [customCategory, setCustomCategory] = useState(
+    contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
+      ? contact.category // If existing category is not a default, assume it's custom
+      : ""
+  );
+  // Removed categoryOptions state as it's now managed within CategorySelectField
+  const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>({}); // Added category and customCategory errors
+  const [confirmDelete, setConfirmDelete] = useState(false); // Track delete confirmation state
+
+  // Removed Effect to load categories (now handled by CategorySelectField)
+
+  // Update formData when contact prop changes (e.g., if selected contact changes in parent)
+  useEffect(() => {
+    setFormData({
+      name: contact.name || "",
+      email: contact.email || "",
+      phone: contact.phone || "",
+      category: contact.category || "",
+      website: contact.website || "",
+      avatarColor: contact.avatarColor || getRandomAvatarColor(),
+      userId: userId,
+      orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
+    });
+    // Set customCategory if the current contact's category is not a default one
+    setCustomCategory(
+      contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
+        ? contact.category
+        : ""
+    );
+    setErrors({}); // Clear errors when contact changes
+    setConfirmDelete(false); // Reset delete confirmation
+  }, [contact, userId]);
+
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setErrors((prevErrors) => {
+      const newErrors = { ...prevErrors };
+      if (newErrors[name as keyof typeof newErrors]) {
+        delete newErrors[name as keyof typeof newErrors];
+      }
+      return newErrors;
+    });
+  };
+
+  const handleCustomCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomCategory(e.target.value);
+    setErrors((prevErrors) => {
+      const newErrors = { ...prevErrors };
+      if (newErrors.customCategory) {
+        delete newErrors.customCategory;
+      }
+      return newErrors;
+    });
+  };
+
+  const validate = () => {
+    const newErrors: { email?: string; phone?: string; name?: string; category?: string; customCategory?: string } = {};
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required.";
+    }
+    if (!formData.category.trim()) {
+      newErrors.category = "Category is required.";
+    }
+    if (formData.category === "Other" && !customCategory.trim()) {
+      newErrors.customCategory = "Custom category is required.";
+    }
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Invalid email format.";
+    }
+    if (formData.phone && !/^\+?[0-9\s\-()]{7,20}$/.test(formData.phone)) {
+      newErrors.phone = "Invalid phone number format.";
+    }
+    // Only require one of phone or email if both are empty
+    if (!formData.phone.trim() && !formData.email.trim()) {
+      newErrors.phone = "Either phone or email must be provided";
+      newErrors.email = "Either phone or email must be provided";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) {
+      toast.error("Please correct the errors in the form.");
+      return;
+    }
+
+    let categoryToSave = formData.category;
+    // If 'Other' is selected and customCategory is provided, use customCategory
+    if (formData.category === "Other" && customCategory.trim()) {
+      categoryToSave = customCategory.trim();
+      // Save the new custom category to Firestore if it doesn't exist
+      await saveCategoryIfNew(categoryToSave, userId);
+    }
+    // No need for the else if block here, as CategorySelectField handles category options internally
+
+    // Determine the avatarColor to save
+    const categoryStyle = getCategoryStyle(categoryToSave);
+    const finalAvatarColor = categoryStyle?.backgroundColor || null;
+
+
+    const updatedContact: Contact = {
+      ...contact, // Preserve existing contact properties like ID and userId
+      name: formData.name,
+      email: formData.email.trim() || null, // Set to null if empty or whitespace
+      phone: formData.phone.trim() || null, // Set to null if empty or whitespace
+      category: categoryToSave,
+      website: formData.website.trim() || null, // Set to null if empty or whitespace
+      avatarColor: finalAvatarColor, // Use the safely determined color
+      orderIndex: formData.orderIndex, // Explicitly include orderIndex from formData
+      userId: formData.userId, // Ensure userId is explicitly included
+    };
+
+    try {
+      const contactRef = doc(db, "contacts", contact.id);
+      await updateDoc(contactRef, updatedContact); // Use updateDoc for partial updates
+      onSave(updatedContact); // Pass the fully updated contact back to parent
+      toast.success("Contact updated successfully!");
+      onClose();
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      toast.error("Failed to update contact. Please try again.");
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      if (contact.id && userId) {
+        await deleteDoc(doc(db, "contacts", contact.id));
+        onDelete(contact.id);
+        toast.success("Contact deleted!");
+        onClose(); // Close modal after successful deletion
+      } else {
+        toast.error("Contact ID or User ID is missing. Cannot delete.");
+      }
+    } catch (error: any) {
+      console.error("Error deleting contact:", error);
+      toast.error(`Failed to delete contact: ${error.message}`);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-[5px] p-6 w-[400px] relative font-work">
+      <button
+        onClick={onClose}
+        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+        title="Close"
+      >
+        <X size={20} />
+      </button>
+      <h2 className="text-lg font-playfair text-[#332B42] mb-2">Edit Contact</h2>
+      <div className="flex flex-col items-center mb-4">
+        <div
+          className="h-8 w-8 flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
+          style={{ backgroundColor: formData.avatarColor || '#364257' }} // Add a fallback color for display
+        >
+          {formData.name
+            ? formData.name.split(" ").map((n) => n[0]).join("").toUpperCase()
+            : "?"}
+        </div>
+
+        {(formData.category !== "Other" || customCategory.trim() !== "") && (
+          <div
+            className={`inline-block text-xs font-medium px-3 py-1 rounded-full mt-2 ${getCategoryStyle(
+              formData.category === "Other" ? customCategory.trim() : formData.category
+            )}`}
+          >
+            {formData.category === "Other" ? customCategory.trim() : formData.category}
+          </div>
+        )}
+      </div>
+
+      {confirmDelete && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Are you sure? </strong>
+          <span className="block sm:inline">All chat history will be lost :(</span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <FormField
+          label="Name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter name"
+          error={errors.name}
+        />
+
+        <FormField
+          label="Email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="Enter email"
+          error={errors.email}
+        />
+
+        <FormField
+          label="Phone Number"
+          name="phone"
+          value={formData.phone}
+          onChange={handleChange}
+          placeholder="Enter phone number"
+          error={errors.phone}
+        />
+        <FormField
+          label="Website"
+          name="website"
+          value={formData.website}
+          onChange={handleChange}
+          placeholder="Enter website"
+        />
+
+        <FormField
+          label="Channel"
+          name="channel"
+          value={formData.channel}
+          onChange={handleChange}
+          placeholder="e.g., Instagram"
+        />
+
+        {/* Replaced SelectField and conditional FormField with CategorySelectField */}
+        <CategorySelectField
+          userId={userId}
+          value={formData.category}
+          customCategoryValue={customCategory}
+          onChange={handleChange} // This handles the main category dropdown change
+          onCustomCategoryChange={handleCustomCategoryChange} // This handles the custom category input change
+          error={errors.category}
+          customCategoryError={errors.customCategory}
+          label="Category"
+          placeholder="Select a Category"
+        />
+      </div>
+
+      <div className="flex justify-between items-center gap-2 mt-4">
+        <button
+          onClick={() => {
+            if (!confirmDelete) {
+              setConfirmDelete(true); // Show confirmation message
+            } else {
+              handleDelete(); // User confirmed, proceed with deletion
+            }
+          }}
+          className={`px-4 py-2 text-sm rounded-[5px] border ${
+            confirmDelete
+              ? "bg-red-600 text-white"
+              : "border-red-600 text-red-600 bg-white"
+          }`}
+        >
+          {confirmDelete ? "Confirm Deletion" : "Delete"}
+        </button>
+
+        <button
+          onClick={handleSubmit}
+          className="btn-primary"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
