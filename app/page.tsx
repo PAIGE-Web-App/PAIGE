@@ -1,11 +1,11 @@
 // app/page.tsx
 "use client";
-import { getAuth, onAuthStateChanged, User } from "firebase/auth"; // Import User type
-import { doc, getDoc, setDoc } from "firebase/firestore"; // Corrected: Changed '=' to 'from'
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
 import AddContactModal from "../components/AddContactModal";
-import { getAllContacts } from "../lib/getContacts"; // Keep this for initial load
-import { useEffect, useRef, useState, useMemo, useCallback } from "react"; // Core React hooks for component logic
+import { getAllContacts } from "../lib/getContacts";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import TopNav from "../components/TopNav";
@@ -20,17 +20,16 @@ import {
   query,
   where,
   orderBy,
-  onSnapshot, // Import onSnapshot
+  onSnapshot,
   addDoc,
-  writeBatch, // Import writeBatch for batch updates
+  writeBatch,
 } from "firebase/firestore";
-// MODIFIED: Changed WandSparkples to WandSparkles
-import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File } from "lucide-react"; // Added WandSparkles
+import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft } from "lucide-react"; // Added ArrowLeft for mobile back button
 
-import CategoryPill from "../components/CategoryPill"; // Corrected import path from CategoryP2ill to CategoryPill
+import CategoryPill from "../components/CategoryPill";
 import SelectField from "../components/SelectField";
-import { AnimatePresence, motion } from "framer-motion"; // Corrected import statement
-import OnboardingModal from "../components/OnboardingModal"; // Import the new OnboardingModal
+import { AnimatePresence, motion } from "framer-motion";
+import OnboardingModal from "../components/OnboardingModal";
 
 
 interface Message {
@@ -41,7 +40,7 @@ interface Message {
   contactId: string;
   createdAt: Date;
   userId: string;
-  attachments?: { name: string; }[]; // Added attachments property
+  attachments?: { name: string; }[];
 }
 
 interface Contact {
@@ -53,9 +52,10 @@ interface Contact {
   website?: string;
   avatarColor?: string;
   userId: string;
-  orderIndex?: number; // Added for drag-and-drop ordering (still used for default sorting)
+  orderIndex?: number;
 }
 
+// Helper function to format dates relatively (moved outside component)
 const getRelativeDate = (date: Date): string => {
   const today = new Date();
   const yesterday = new Date(today);
@@ -84,12 +84,11 @@ const getRelativeDate = (date: Date): string => {
   }
 };
 
-// Simple EmojiPicker Component
+// Simple EmojiPicker Component (moved outside component)
 const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string) => void; onClose: () => void }) => {
-  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '�', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
 
   return (
-    // Removed positioning and width classes from here, they will be applied to the motion.div wrapper
     <div className="p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 flex flex-wrap gap-1">
       {emojis.map((emoji, index) => (
         <button
@@ -97,7 +96,7 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
           className="p-1 text-lg hover:bg-gray-100 rounded"
           onClick={() => {
             onEmojiSelect(emoji);
-            onClose(); // Close picker after selection
+            onClose();
           }}
         >
           {emoji}
@@ -107,37 +106,33 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
   );
 };
 
-// Updated triggerGmailImport to accept userId as the first argument
-// MODIFIED: Added default empty array to contacts parameter
+// Updated triggerGmailImport to accept userId as the first argument (moved outside component)
 const triggerGmailImport = async (userId: string, contacts: Contact[] = []) => {
   try {
-    console.log("triggerGmailImport: Sending request to /api/start-gmail-import with userId and contacts:", { userId, contacts }); // ADDED LOG
+    console.log("triggerGmailImport: Sending request to /api/start-gmail-import with userId and contacts:", { userId, contacts });
     const response = await fetch("/api/start-gmail-import", {
       method: "POST",
-      // Include userId in the body if your API expects it, otherwise it's just for context
       body: JSON.stringify({ userId, contacts }),
       headers: { "Content-Type": "application/json" },
     });
 
     if (!response.ok) {
       console.error("Gmail import failed");
-      // You might want to add more specific error handling based on response status
     } else {
-      console.log("Gmail import request sent successfully."); // ADDED LOG
+      console.log("Gmail import request sent successfully.");
       const data = await response.json();
-      console.log("Gmail import response:", data); // ADDED LOG
+      console.log("Gmail import response:", data);
     }
   } catch (err) {
     console.error("Gmail import error:", err);
-    toast.error("An error occurred during Gmail import."); // Added toast for user feedback
+    toast.error("An error occurred during Gmail import.");
   }
 };
 
 
-
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null); // Corrected type to Contact | null
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
@@ -147,31 +142,23 @@ export default function Home() {
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseInitialized, setFirebaseInitialized] = useState(false);
-  const [loadingAuth, setLoadingAuth] = useState(true); // State to track auth loading
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // Changed to an array for multiple files
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false); // New state for onboarding modal
-  const [currentStep, setCurrentStep] = useState<number>(1); // used by OnboardingModal
-  const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]); // Corrected type to Contact[]
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
 
-  
-
-
-  // New states for filtering and sorting
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]); // Changed to string array for multi-select
-  // Changed default sort option to 'name-asc' since custom order is removed
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('name-asc');
-  // MODIFIED: Corrected to use useState for Map
   const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
-  const [showFilters, setShowFilters] = useState(false); // New state to toggle filter visibility
-  const filterPopoverRef = useRef<HTMLDivElement>(null); // Ref for the filter popover
-  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for the end of messages for auto-scrolling
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // New state for emoji picker visibility
-  const emojiPickerRef = useRef<HTMLDivElement>(null); // Ref for the emoji picker popover
+  const [showFilters, setShowFilters] = useState(false);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
-
-  // Declare textareaRef here, at the top level of the component
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
@@ -185,22 +172,40 @@ export default function Home() {
     : null;
 
   const messagesCollection = collection(db, "messages");
-  const contactsCollection = collection(db, "contacts"); // Reference to contacts collection
-  const [messages, setMessages] = useState<Message[]>([]); // Correctly declared here
-  const [selectedChannel, setSelectedChannel] = useState("Gmail"); // Correctly declared here
+  const contactsCollection = collection(db, "contacts");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
-  // Listen for Firebase Auth state changes
+  // State to manage mobile view: true when message panel is active, false for contact list
+  const [isMessageViewActiveOnMobile, setIsMessageViewActiveOnMobile] = useState(false);
+
+  // Determine if it's a mobile view (less than md breakpoint)
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's 'md' breakpoint is 768px
+    };
+
+    // Set initial value
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(getAuth(), async (user) => {
-    if (!user) { // Added return here to prevent further execution if no user
-      setLoadingAuth(false); // Auth state determined, no user logged in
+    if (!user) {
+      setLoadingAuth(false);
       setCurrentUser(null);
       return;
     }
     setCurrentUser(user);
-    setFirebaseInitialized(true); // Firebase is now initialized and user is set
+    setFirebaseInitialized(true);
 
     const urlParams = new URLSearchParams(window.location.search);
     const gmailSuccess = urlParams.get("gmailAuth") === "success";
@@ -210,28 +215,26 @@ export default function Home() {
 
     if (userSnap.exists()) {
       const data = userSnap.data();
-      const completed = data.onboarded; // Changed from onboardingComplete to onboarded
+      const completed = data.onboarded;
 
       if (completed) {
         if (gmailSuccess) {
-          // MODIFIED: Pass an empty array as contacts if none are available here
           await triggerGmailImport(user.uid, []);
         }
-        setShowOnboardingModal(false); // Changed from setShowOnboarding to setShowOnboardingModal
+        setShowOnboardingModal(false);
       } else {
-        setShowOnboardingModal(true); // Changed from setShowOnboarding to setShowOnboardingModal
+        setShowOnboardingModal(true);
       }
     } else {
-      setShowOnboardingModal(true); // Changed from setShowOnboarding to setShowOnboardingModal
+      setShowOnboardingModal(true);
     }
-    setLoadingAuth(false); // Auth state determined
+    setLoadingAuth(false);
   });
 
   return () => unsubscribe();
 }, []);
 
 
-  // NEW: useEffect to handle onboarding status and Gmail auth redirects
   useEffect(() => {
       const checkOnboardingStatus = async () => {
       if (currentUser && firebaseInitialized) {
@@ -243,32 +246,25 @@ export default function Home() {
           onboarded = userDocSnap.data()?.onboarded || false;
         }
 
-        console.log("DEBUG useEffect: Onboarding status read from Firestore:", onboarded); // <<< THIS ONE
-        console.log("DEBUG useEffect: showOnboardingModal before update:", showOnboardingModal); // <<< THIS ONE
-
         if (!onboarded) {
           setShowOnboardingModal(true);
-          console.log("DEBUG useEffect: Setting showOnboardingModal to TRUE."); // <<< THIS ONE
         } else {
           setShowOnboardingModal(false);
-          console.log("DEBUG useEffect: Setting showOnboardingModal to FALSE."); // <<< THIS ONE
         }
       }
     };
 
     checkOnboardingStatus();
-}, [currentUser, firebaseInitialized]); // Dependencies
+}, [currentUser, firebaseInitialized]);
 
-  // Load contacts in real-time using onSnapshot when currentUser is available
   useEffect(() => {
     let unsubscribeContacts: () => void;
     if (currentUser) {
       setContactsLoading(true);
-      console.log("Fetching contacts for userId:", currentUser.uid); // DEBUG LOG ADDED
       const q = query(
         contactsCollection,
         where("userId", "==", currentUser.uid),
-        orderBy("orderIndex", "asc") // Order by orderIndex for consistent default sorting
+        orderBy("orderIndex", "asc")
       );
 
       unsubscribeContacts = onSnapshot(q, (snapshot) => {
@@ -283,11 +279,11 @@ export default function Home() {
             website: data.website,
             avatarColor: data.avatarColor,
             userId: data.userId,
-            orderIndex: data.orderIndex !== undefined ? data.orderIndex : index, // Ensure orderIndex is always present
+            orderIndex: data.orderIndex !== undefined ? data.orderIndex : index,
           };
         });
         setContacts(fetchedContacts);
-        // Only set selected contact if it's not already set or if the previously selected one was deleted
+        // Only set selected contact if none is selected or the current one is deleted/filtered out
         if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
           setSelectedContact(fetchedContacts[0] || null);
         }
@@ -307,12 +303,12 @@ export default function Home() {
         unsubscribeContacts();
       }
     };
-  }, [currentUser]); // Depend only on currentUser to re-run listener
+  }, [currentUser]);
 
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!currentUser) return; // Use currentUser from state
+      if (!currentUser) return;
 
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
       if (userDoc.exists()) {
@@ -336,13 +332,12 @@ export default function Home() {
       }
     };
 
-    if (!loadingAuth) { // Only fetch user data after auth state is determined
+    if (!loadingAuth) {
       fetchUserData();
     }
   }, [currentUser, loadingAuth]);
 
 
-  // THIS useEffect WAS NESTED, NOW IT'S A TOP-LEVEL HOOK
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -350,14 +345,13 @@ export default function Home() {
     }
   }, [input]);
 
-  // NEW useEffect for building contactLastMessageMap (listens to all user messages)
   useEffect(() => {
       let unsubscribeAllMessages: () => void;
       if (currentUser) {
           const qAllMessages = query(
               messagesCollection,
               where("userId", "==", currentUser.uid),
-              orderBy("createdAt", "desc") // Order by createdAt descending to easily find the latest
+              orderBy("createdAt", "desc")
           );
 
           unsubscribeAllMessages = onSnapshot(qAllMessages, (snapshot) => {
@@ -367,7 +361,6 @@ export default function Home() {
                   const contactId = data.contactId;
                   const createdAt = data.createdAt.toDate();
 
-                  // Only update if this message is newer than the one already recorded for this contact
                   if (!latestTimestamps.has(contactId) || latestTimestamps.get(contactId)! < createdAt) {
                       latestTimestamps.set(contactId, createdAt);
                   }
@@ -375,16 +368,15 @@ export default function Home() {
               setContactLastMessageMap(latestTimestamps);
           });
       } else {
-          setContactLastMessageMap(new Map()); // Clear map if no user
+          setContactLastMessageMap(new Map());
       }
       return () => {
           if (unsubscribeAllMessages) {
               unsubscribeAllMessages();
           }
       };
-  }, [currentUser]); // Only re-run when currentUser changes
+  }, [currentUser]);
 
-  // Existing useEffect for messages (for selected contact chat history)
   useEffect(() => {
     let unsubscribe: () => void;
     if (selectedContact && currentUser) {
@@ -406,10 +398,14 @@ export default function Home() {
             contactId: data.contactId,
             createdAt: data.createdAt.toDate(),
             userId: data.userId,
-            attachments: data.attachments || [], // Include attachments
+            attachments: data.attachments || [],
           };
         });
         setMessages(fetchedMessages);
+        // Scroll to bottom when new messages arrive
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
       });
     } else {
       setMessages([]);
@@ -421,19 +417,17 @@ export default function Home() {
     };
   }, [selectedContact, currentUser]);
 
-  // Handle clicks outside the filter popover
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
         setShowFilters(false);
       }
-      // Close emoji picker if click is outside
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
         setShowEmojiPicker(false);
       }
     };
 
-    if (showFilters || showEmojiPicker) { // Listen for clicks if either popover is open
+    if (showFilters || showEmojiPicker) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -442,43 +436,37 @@ export default function Home() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showFilters, showEmojiPicker]); // Depend on both states
+  }, [showFilters, showEmojiPicker]);
 
-  // New useEffect to show toast when files are added
   useEffect(() => {
-    // Only show toast if the number of files has increased
-    if (selectedFiles.length > 0) { // Simpler check: if any files are selected
+    if (selectedFiles.length > 0) {
       toast.success(`Selected ${selectedFiles.length} file(s).`);
     }
-    // No need to track previous count with a ref here, as the toast is simpler.
-  }, [selectedFiles]); // Depend on selectedFiles array
+  }, [selectedFiles]);
 
-  // Effect to scroll to the bottom of messages when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "auto" }); // Changed behavior to "auto"
-    }
-  }, [messages]);
+  // This useEffect is now redundant as scrolling is handled in the message fetching useEffect
+  // useEffect(() => {
+  //   if (messagesEndRef.current) {
+  //     messagesEndRef.current.scrollIntoView({ behavior: "auto" });
+  //   }
+  // }, [messages]);
 
-  // NEW: Effect to prevent body scrolling when modal is open
   useEffect(() => {
-    if (isAdding || isEditing || showOnboardingModal) { // Include showOnboardingModal
+    if (isAdding || isEditing || showOnboardingModal) {
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = ''; // Reset to default (usually 'auto' or '')
+      document.body.style.overflow = '';
     }
 
-    // Cleanup function to ensure overflow is reset when component unmounts
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isAdding, isEditing, showOnboardingModal]); // Dependencies: re-run when isAdding, isEditing, or showOnboardingModal changes
+  }, [isAdding, isEditing, showOnboardingModal]);
 
 
   const handleSend = async () => {
-    if (!input.trim() && selectedFiles.length === 0 || !selectedContact || !currentUser) return; // Allow sending if only file is present
+    if ((!input.trim() && selectedFiles.length === 0) || !selectedContact || !currentUser) return;
 
-    // Map selectedFiles to a simpler format for storage
     const attachmentsToStore = selectedFiles.map(file => ({ name: file.name }));
 
     const newMessage: Message = {
@@ -488,11 +476,11 @@ export default function Home() {
         hour: "numeric",
         minute: "2-digit",
       }),
-      body: input.trim(), // Message body is just the text input
+      body: input.trim(),
       contactId: selectedContact.id,
       createdAt: new Date(),
       userId: currentUser.uid,
-      attachments: attachmentsToStore, // Always pass an array, even if empty
+      attachments: attachmentsToStore,
     };
 
     try {
@@ -501,14 +489,13 @@ export default function Home() {
         createdAt: newMessage.createdAt,
       });
       setInput("");
-      setSelectedFiles([]); // Clear selected files after sending
+      setSelectedFiles([]);
     } catch (error: any) {
       toast.error(`Failed to send message: ${error.message}`);
       console.error("Error sending message:", error);
     }
   };
 
-  // Handler for file input change
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const newFiles = Array.from(event.target.files);
@@ -517,20 +504,17 @@ export default function Home() {
         const uniqueNewFiles = newFiles.filter(
           (newFile) => !prevFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
         );
-        // Toast moved here for immediate feedback upon selection
         if (uniqueNewFiles.length > 0) {
             toast.success(`Selected ${uniqueNewFiles.length} file(s).`);
         }
         return [...prevFiles, ...uniqueNewFiles];
       });
     }
-    // Clear the input value to allow selecting the same file again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  // Function to remove a specific selected file
   const handleRemoveFile = (fileToRemove: File) => {
     setSelectedFiles((prevFiles) =>
       prevFiles.filter((file) => file !== fileToRemove)
@@ -538,26 +522,22 @@ export default function Home() {
     toast(`Removed file: ${fileToRemove.name}`);
   };
 
-  // Function to add emoji to input
   const handleEmojiSelect = (emoji: string) => {
     setInput((prevInput) => prevInput + emoji);
   };
 
 
-  // Computed property for displayed contacts based on search, filter, and sort
   const displayContacts = useMemo(() => {
       let currentContacts = searchQuery.trim() && fuse
           ? fuse.search(searchQuery).map((result) => result.item)
-          : contacts; // Start with the full contacts state
+          : contacts;
 
-      // Apply category filter (now handles multiple selected categories)
       if (selectedCategoryFilter.length > 0) {
           currentContacts = currentContacts.filter(contact =>
               selectedCategoryFilter.includes(contact.category)
           );
       }
 
-      // Apply sorting based on the selected sortOption
       if (sortOption === 'name-asc') {
           return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
       } else if (sortOption === 'name-desc') {
@@ -567,46 +547,35 @@ export default function Home() {
               const aTime = contactLastMessageMap.get(a.id);
               const bTime = contactLastMessageMap.get(b.id);
 
-              // Prioritize contacts with messages. If one has messages and the other doesn't,
-              // the one with messages comes first.
               if (aTime && !bTime) return -1;
-              if (!aTime && !bTime) return a.name.localeCompare(b.name); // Both no messages, sort by name
-              if (!aTime && bTime) return 1; // A has no messages, B has messages, B comes first
+              if (!aTime && !bTime) return a.name.localeCompare(b.name);
+              if (!aTime && bTime) return 1;
 
-              // If both have messages, sort by most recent (descending)
               return (bTime?.getTime() || 0) - (aTime?.getTime() || 0);
           });
       }
-      // Default to sorting by name ascending if no specific sort option is matched
-      // or if the initial 'custom-order' is no longer available.
       return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
   }, [contacts, searchQuery, fuse, selectedCategoryFilter, sortOption, contactLastMessageMap]);
 
 
-  // Category options for the filter dropdown (now just strings for checkboxes)
   const allCategories = useMemo(() => {
       const categories = new Set<string>();
       contacts.forEach(contact => {
           categories.add(contact.category);
       });
-      // Sort categories alphabetically, excluding 'All' as it's not a real category
       return Array.from(categories).sort();
   }, [contacts]);
 
-  // Handler for multi-select category checkboxes
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategoryFilter((prevSelected) => {
       if (prevSelected.includes(category)) {
-        // If already selected, remove it
         return prevSelected.filter((cat) => cat !== category);
       } else {
-        // If not selected, add it
         return [...prevSelected, category];
       }
     });
   }, []);
 
-  // Handlers to clear filters/sorts (for the upcoming pills)
   const handleClearCategoryFilter = useCallback((categoryToClear: string) => {
     setSelectedCategoryFilter((prev) => prev.filter(cat => cat !== categoryToClear));
   }, []);
@@ -621,12 +590,10 @@ export default function Home() {
   }, []);
 
 
-  // Show a loading state for the entire page if authentication is still loading
   if (loadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
         <div className="flex flex-col items-center">
-          {/* Slick Loading Animation */}
           <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-[#332B42] text-lg font-playfair">Loading application...</p>
         </div>
@@ -634,7 +601,6 @@ export default function Home() {
     );
   }
 
-  // If not authenticated, redirect to login (or show a login prompt)
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
@@ -643,14 +609,9 @@ export default function Home() {
     );
   }
 
-  // Debugging log before passing to TopNav
-  console.log("App/page.tsx: Passing userName to TopNav:", userName);
-  console.log("App/page.tsx: Passing userId to TopNav:", currentUser?.uid || null);
-
-
   return (
     <>
-      <TopNav userName={userName} userId={currentUser?.uid || null} /> {/* Pass userName and userId */}
+      <TopNav userName={userName} userId={currentUser?.uid || null} />
    <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
   {daysLeft !== null ? (
     `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
@@ -676,14 +637,20 @@ export default function Home() {
         className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen"
         style={{ maxHeight: "calc(100vh - 100px)" }}
       >
+        {/* Main Content Area - Responsive Flex Container */}
         <div
-  className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden flex-row transition-opacity duration-500 ease-in-out ${
-    contactsLoading ? "opacity-0" : "opacity-100"
-  }`}
-  style={{ maxHeight: "100%" }}
->
-          <aside className="w-full max-w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative"
->
+          className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden flex-row md:flex-row transition-opacity duration-500 ease-in-out ${
+            contactsLoading ? "opacity-0" : "opacity-100"
+          }`}
+          style={{ maxHeight: "100%" }}
+        >
+          {/* Left Panel (Contact List) */}
+          <aside
+            className={`w-full md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0
+              ${isMobile && selectedContact ? 'hidden' : 'block'}
+            `} // Hide on mobile if contact is selected
+            style={{ maxHeight: "100%", overflowY: "auto" }}
+          >
             {contactsLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-[#F3F2F0] z-10">
                 <div className="text-[#332B42] text-xs font-medium animate-pulse">Loading contacts...</div>
@@ -691,7 +658,6 @@ export default function Home() {
             ) : (
               <>
                 <div className="flex items-center gap-4 mb-4 relative">
-                  {/* Filter Button */}
                   <button
                     onClick={() => setShowFilters(!showFilters)}
                     className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
@@ -722,8 +688,7 @@ export default function Home() {
                       className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
                     />
                   </div>
-                  {/* Conditionally render the Add Contact button */}
-                  {contacts.length > 0 && ( // Only show if at least one contact is present
+                  {contacts.length > 0 && (
                     <button
                       onClick={() => setIsAdding(true)}
                       className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
@@ -732,11 +697,10 @@ export default function Home() {
                     </button>
                   )}
 
-                  {/* Filter and Sort Controls - Conditionally rendered as a popover */}
                   <AnimatePresence>
                     {showFilters && (
                       <motion.div
-                        ref={filterPopoverRef} // Apply ref here
+                        ref={filterPopoverRef}
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
@@ -766,7 +730,6 @@ export default function Home() {
                               value={sortOption}
                               onChange={(e) => setSortOption(e.target.value)}
                               options={[
-                                  // Removed custom order option
                                   { value: 'name-asc', label: 'Name (A-Z)' },
                                   { value: 'name-desc', label: 'Name (Z-A)' },
                                   { value: 'recent-desc', label: 'Most recent conversations' },
@@ -777,7 +740,6 @@ export default function Home() {
                   </AnimatePresence>
                 </div>
 
-                {/* Applied Filters and Sorts as Pills */}
                 {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {selectedCategoryFilter.map((category) => (
@@ -792,7 +754,7 @@ export default function Home() {
                       <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
                         Sort: {
                           sortOption === 'name-desc' ? 'Name (Z-A)' :
-                          sortOption === 'recent-desc' ? 'Most recent' : '' // Removed custom order text
+                          sortOption === 'recent-desc' ? 'Most recent' : ''
                         }
                         <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
                           <X className="w-3 h-3" />
@@ -827,7 +789,12 @@ export default function Home() {
                               ? "bg-[#EBE3DD] border-[#A85C36]"
                               : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
                             }`}
-                          onClick={() => setSelectedContact(contact)}
+                          onClick={() => {
+                            setSelectedContact(contact);
+                            if (isMobile) { // Activate message view on mobile
+                              setIsMessageViewActiveOnMobile(true);
+                            }
+                          }}
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -867,17 +834,34 @@ export default function Home() {
           </aside>
 
 
+          {/* Center Panel (Message Area) */}
           <section
-            className="flex flex-col flex-1 bg-white relative"
+            className={`flex flex-col flex-1 bg-white relative
+              ${isMobile && !selectedContact ? 'hidden' : 'block'}
+              ${isMobile && selectedContact ? 'absolute inset-0 z-20' : ''}
+            `} // Show on mobile only if contact is selected
             style={{ maxHeight: "100%" }}
           >
             {" "}
             {selectedContact ? (
               <>
+                {/* Fixed Header */}
                 <div
-                  className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95]"
+                  className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center"
                 >
-                  <div className="flex justify-between items-start">
+                  {isMobile && ( // Back button for mobile
+                    <button
+                      onClick={() => {
+                        setSelectedContact(null); // Deselect contact
+                        setIsMessageViewActiveOnMobile(false); // Go back to contact list
+                      }}
+                      className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                      aria-label="Back to contacts"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="flex-1 flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
@@ -885,14 +869,14 @@ export default function Home() {
                         </h4>
                         <CategoryPill category={selectedContact.category} />
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5"> {/* Added flex-wrap */}
                         {selectedContact.email && (
                           <a
                             href={`mailto:${selectedContact.email}`}
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <Mail className="w-3 h-3" />
-                            {selectedContact.email}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span> {/* Truncate for small screens */}
                           </a>
                         )}
                         {selectedContact.phone && (
@@ -901,7 +885,7 @@ export default function Home() {
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <Phone className="w-3 h-3" />
-                            {selectedContact.phone}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span> {/* Truncate for small screens */}
                           </a>
                         )}
                         {selectedContact.website && (
@@ -912,7 +896,7 @@ export default function Home() {
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <span>🌐</span>
-                            {selectedContact.website}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span> {/* Truncate for small screens */}
                           </a>
                         )}
                       </div>
@@ -925,6 +909,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+                {/* Scrollable Message Area */}
                 <div
                   className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 space-y-4 relative"
                 >
@@ -980,7 +965,6 @@ export default function Home() {
                                 </div>
                                 <div className="whitespace-pre-wrap text-[13px]">{msg.body}</div>
                                 {msg.attachments && msg.attachments.length > 0 && (
-                                  // Apply w-[95%] to the container of attachment pills
                                   <div className="flex flex-wrap gap-1 mt-2 w-[95%]">
                                     {msg.attachments.map((attachment, attIndex) => (
                                       <button
@@ -997,15 +981,16 @@ export default function Home() {
                               </div>
                             </div>
                           ))}
-                          <div ref={messagesEndRef} /> {/* Element to scroll into view */}
+                          <div ref={messagesEndRef} />
                         </div>
                       ));
                     })()
                   )}
                 </div>
+                {/* Fixed Bottom Section - Message Input */}
                 <div
-                  className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10 sticky bottom-0" // Re-added border-t and border-[#AB9C95] here
-                  style={{ minHeight: "120px", borderTopWidth: "0.5px" }} // Added borderTopWidth
+                  className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10 sticky bottom-0"
+                  style={{ minHeight: "120px", borderTopWidth: "0.5px" }}
                 >
                   <div className="px-3 pt-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -1032,14 +1017,14 @@ export default function Home() {
                         className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none"
                         style={{ minHeight: "3rem" }}
                       />
-                      {selectedFiles.length > 0 && ( // Iterate over selectedFiles
-                        <div className="flex flex-wrap gap-2 mt-2 mb-2"> {/* Use flex-wrap for multiple pills */}
+                      {selectedFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 mb-2">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                              <File className="w-3 h-3" /> {/* Lucide File icon */}
+                              <File className="w-3 h-3" />
                               <span>{file.name}</span>
                               <button
-                                onClick={() => handleRemoveFile(file)} // Pass the file to remove
+                                onClick={() => handleRemoveFile(file)}
                                 className="ml-1 text-[#A85C36] hover:text-[#784528]"
                               >
                                 <X className="w-3 h-3" />
@@ -1064,63 +1049,60 @@ export default function Home() {
                     </div>
                   </div>
                   <div
-                    className="flex justify-between items-center px-3 py-3 border-t border-[#AB9C95]" // This border is for the button area
+                    className="flex justify-between items-center px-3 py-3 border-t border-[#AB9C95]"
                     style={{ borderTopWidth: "0.5px" }}
                   >
-                    <div className="flex items-center gap-4 relative"> {/* New div for grouping, made relative for popover */}
+                    <div className="flex items-center gap-4 relative">
                       <button
                         onClick={async () => {
                           const generated = await generateDraft(selectedContact);
                           setInput(generated);
                         }}
                         disabled={loading}
-                        className="btn-secondary" // Replaced inline styles with btn-secondary
-                        title="Generate a draft message using AI" // Added title
+                        className="btn-secondary"
+                        title="Generate a draft message using AI"
                       >
                         {loading ? (
                           "Drafting..."
                         ) : (
                           <>
-                            <WandSparkles className="w-4 h-4" /> {/* MODIFIED: Changed WandSparkples to WandSparkles */}
+                            <WandSparkles className="w-4 h-4" />
                             Draft AI Message
                           </>
                         )}
                       </button>
-                      {/* Attachment and Emoji Icons - Adjusted padding and replaced SVGs with Lucide icons */}
                       <input
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileChange}
-                        className="hidden" // Hide the actual file input
-                        multiple // Allow multiple files
+                        className="hidden"
+                        multiple
                       />
                       <button
-                        onClick={() => fileInputRef.current?.click()} // Trigger click on hidden input
+                        onClick={() => fileInputRef.current?.click()}
                         className="icon-button"
                         aria-label="Attach File"
-                        title="Click to Upload File(s)" // Added title
+                        title="Click to Upload File(s)"
                       >
-                        <FileUp className="w-4 h-4" /> {/* Replaced SVG with Lucide FileUp, changed color */}
+                        <FileUp className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)} // Toggle emoji picker visibility
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                         className="icon-button"
                         aria-label="Add Emoji"
                         title="Add an emoji to your message"
                       >
-                        <SmilePlus className="w-4 h-4" /> {/* Replaced SVG with Lucide SmilePlus, changed color */}
+                        <SmilePlus className="w-4 h-4" />
                       </button>
-                      {/* Emoji Picker Popover */}
                       <AnimatePresence>
                         {showEmojiPicker && (
                           <motion.div
-                            ref={emojiPickerRef} // Apply ref here
+                            ref={emojiPickerRef}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
-                            // Applied positioning and width classes directly to motion.div
-                            className="absolute bottom-full left-0 mb-2 w-64" // Changed width to w-64
+                            className="absolute bottom-full left-0 mb-2 w-64"
                           >
                             <EmojiPicker onEmojiSelect={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />
                           </motion.div>
@@ -1129,23 +1111,21 @@ export default function Home() {
                     </div>
                     <button
                       onClick={handleSend}
-                      disabled={!input.trim() && selectedFiles.length === 0} // Disabled when input is empty AND no file is selected
-                      className="btn-primary flex items-center gap-1" // Use btn-primary class and add flex for icon
-                      title="Send Message" // Added title
+                      disabled={!input.trim() && selectedFiles.length === 0}
+                      className="btn-primary flex items-center gap-1"
+                      title="Send Message"
                     >
-                      Send <MoveRight className="w-4 h-4" /> {/* Replaced text with Lucide MoveRight */}
+                      Send <MoveRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              // New content for when no messages are present
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white">
-                {/* Replaced placeholder with the actual wine.png image */}
                 <img
-                  src="/wine.png" // Path to the new image
+                  src="/wine.png"
                   alt="Champagne Cheers"
-                  className="mb-4 w-48 h-48" // Fixed dimensions for consistency
+                  className="mb-4 w-48 h-48"
                 />
                 <h2 className="text-xl font-semibold text-[#332B42] font-playfair mb-2">
                   Cheers to your next chapter.
@@ -1155,24 +1135,24 @@ export default function Home() {
                 </p>
                 <button
                   className="btn-primary"
-                  onClick={() => setShowOnboardingModal(true)} // Open onboarding modal
+                  onClick={() => setShowOnboardingModal(true)}
                 >
                   Set up your unified inbox
                 </button>
-                {/* Removed the "See it in action" link */}
               </div>
             )}
           </section>
         </div>
+        {/* Right Panel (To-do Items) - Hidden on mobile */}
         <aside
-          className="w-1/4 bg-[#ECE9E5] rounded-[5px] border border-[#AB9C95] p-4"
+          className="hidden md:block w-1/4 bg-[#ECE9E5] rounded-[5px] border border-[#AB9C95] p-4"
           style={{ maxHeight: "100%", overflowY: "auto" }}
         >
           <h3 className="font-semibold mb-2">To-do Items</h3>
           <div className="text-sm text-gray-500">No to-dos yet.</div>
         </aside>
       </div>
-      {/* Edit Contact Modal - only render if currentUser is available */}
+      {/* Edit Contact Modal */}
       {isEditing && selectedContact && currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <EditContactModal
@@ -1180,7 +1160,6 @@ export default function Home() {
             userId={currentUser.uid}
             onClose={() => setIsEditing(false)}
             onSave={(updated) => {
-              // OPTIMISTIC UPDATE: Update local state immediately, onSnapshot will reconcile
               setContacts((prev) =>
                 prev.map((c) => (c.id === updated.id ? updated : c))
               );
@@ -1190,7 +1169,6 @@ export default function Home() {
             onDelete={(deletedId: string) => {
               setDeletingContactId(deletedId);
               setTimeout(() => {
-                // OPTIMISTIC UPDATE: Update local state immediately, onSnapshot will reconcile
                 setContacts((prev) =>
                   prev.filter((c) => c.id !== deletedId)
                 );
@@ -1202,14 +1180,14 @@ export default function Home() {
           />
         </div>
       )}
-      {/* Add Contact Modal - only render if currentUser is available */}
+      {/* Add Contact Modal */}
       {isAdding && currentUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <AddContactModal
-            userId={currentUser.uid} // Pass userId to AddContactModal
+            userId={currentUser.uid}
             onClose={() => setIsAdding(false)}
             onSave={(newContact) => {
-              setSelectedContact(newContact); // Still set selectedContact to the newly added contact
+              setSelectedContact(newContact);
               setIsAdding(false);
             }}
           />
@@ -1219,7 +1197,7 @@ export default function Home() {
         <OnboardingModal
           userId={currentUser.uid}
           onClose={() => setShowOnboardingModal(false)}
-          onComplete={async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => { // Corrected type to Contact[]
+          onComplete={async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => {
             setLastOnboardedContacts(onboardedContacts);
             console.log("page.tsx: OnboardingModal onComplete triggered. Received contacts:", onboardedContacts);
             console.log("page.tsx: OnboardingModal onComplete triggered. Received selectedChannels:", selectedChannelsFromModal);
@@ -1228,24 +1206,20 @@ export default function Home() {
               setSelectedContact(onboardedContacts[0]);
             }
 
-            // --- IMPORTANT NEW LINE: Update user's onboarding status in Firestore ---
             if (currentUser) {
                 const userDocRef = doc(db, 'users', currentUser.uid);
                 await setDoc(userDocRef, { onboarded: true }, { merge: true });
                 console.log("page.tsx: User marked as onboarded in Firestore.");
             }
-            // --- END IMPORTANT NEW LINE ---
 
-            setShowOnboardingModal(false); // This closes the modal!
+            setShowOnboardingModal(false);
 
-            // --- UPDATED BLOCK: Trigger Gmail import via reusable function ---
             if (selectedChannelsFromModal.includes('Gmail') && currentUser) {
               console.log("OnboardingModal: OnComplete triggered. Calling triggerGmailImport.");
               console.log("OnboardingModal: Contacts for Gmail import:", onboardedContacts);
               console.log("OnboardingModal: Selected channels for Gmail import:", selectedChannelsFromModal);
-              await triggerGmailImport(currentUser.uid, onboardedContacts); // Use onboardedContacts
+              await triggerGmailImport(currentUser.uid, onboardedContacts);
             }
-            // --- END UPDATED BLOCK ---
                 }}
         />
       )}

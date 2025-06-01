@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase"; // Assuming firebase.ts is in the lib folder
-import { getCategoryStyle } from "../utils/categoryStyle"; // Import for avatar color
-import SelectField from "./SelectField"; // Keep SelectField if used elsewhere, otherwise remove
-import toast from "react-hot-toast"; // Import toast for notifications
-import FormField from "./FormField"; // Import FormField
-import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories"; // Ensure these are imported
-import CategorySelectField from "./CategorySelectField"; // Import the new CategorySelectField
+import { db } from "../lib/firebase";
+import { getCategoryStyle } from "../utils/categoryStyle";
+import SelectField from "./SelectField";
+import toast from "react-hot-toast";
+import FormField from "./FormField";
+import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
+import CategorySelectField from "./CategorySelectField";
 
 interface Contact {
   id: string;
@@ -19,7 +19,7 @@ interface Contact {
   website?: string;
   avatarColor?: string;
   userId: string;
-  orderIndex?: number; // Ensure orderIndex is part of the interface
+  orderIndex?: number;
 }
 
 interface EditContactModalProps {
@@ -30,7 +30,7 @@ interface EditContactModalProps {
   onDelete: (deletedId: string) => void;
 }
 
-// Helper to get a random avatar color (if needed, though contact.avatarColor should be preferred)
+// Moved outside the component
 function getRandomAvatarColor() {
   const avatarColors = [
     "#4B3E6E", "#3C5A99", "#264653", "#2A9D8F", "#1D3557", "#6D597A",
@@ -52,23 +52,19 @@ export default function EditContactModal({
     phone: contact.phone || "",
     category: contact.category || "",
     website: contact.website || "",
-    avatarColor: contact.avatarColor || getRandomAvatarColor(), // Use existing or generate new
+    avatarColor: contact.avatarColor || getRandomAvatarColor(),
     userId: userId,
-    orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0, // Explicitly include orderIndex
+    orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
   });
 
   const [customCategory, setCustomCategory] = useState(
     contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
-      ? contact.category // If existing category is not a default, assume it's custom
+      ? contact.category
       : ""
   );
-  // Removed categoryOptions state as it's now managed within CategorySelectField
-  const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>({}); // Added category and customCategory errors
-  const [confirmDelete, setConfirmDelete] = useState(false); // Track delete confirmation state
+  const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Removed Effect to load categories (now handled by CategorySelectField)
-
-  // Update formData when contact prop changes (e.g., if selected contact changes in parent)
   useEffect(() => {
     setFormData({
       name: contact.name || "",
@@ -80,14 +76,13 @@ export default function EditContactModal({
       userId: userId,
       orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
     });
-    // Set customCategory if the current contact's category is not a default one
     setCustomCategory(
       contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
         ? contact.category
         : ""
     );
-    setErrors({}); // Clear errors when contact changes
-    setConfirmDelete(false); // Reset delete confirmation
+    setErrors({});
+    setConfirmDelete(false);
   }, [contact, userId]);
 
 
@@ -132,7 +127,6 @@ export default function EditContactModal({
     if (formData.phone && !/^\+?[0-9\s\-()]{7,20}$/.test(formData.phone)) {
       newErrors.phone = "Invalid phone number format.";
     }
-    // Only require one of phone or email if both are empty
     if (!formData.phone.trim() && !formData.email.trim()) {
       newErrors.phone = "Either phone or email must be provided";
       newErrors.email = "Either phone or email must be provided";
@@ -148,35 +142,31 @@ export default function EditContactModal({
     }
 
     let categoryToSave = formData.category;
-    // If 'Other' is selected and customCategory is provided, use customCategory
     if (formData.category === "Other" && customCategory.trim()) {
       categoryToSave = customCategory.trim();
-      // Save the new custom category to Firestore if it doesn't exist
       await saveCategoryIfNew(categoryToSave, userId);
     }
-    // No need for the else if block here, as CategorySelectField handles category options internally
 
-    // Determine the avatarColor to save
     const categoryStyle = getCategoryStyle(categoryToSave);
     const finalAvatarColor = categoryStyle?.backgroundColor || null;
 
 
     const updatedContact: Contact = {
-      ...contact, // Preserve existing contact properties like ID and userId
+      ...contact,
       name: formData.name,
-      email: formData.email.trim() || null, // Set to null if empty or whitespace
-      phone: formData.phone.trim() || null, // Set to null if empty or whitespace
+      email: formData.email.trim() || null,
+      phone: formData.phone.trim() || null,
       category: categoryToSave,
-      website: formData.website.trim() || null, // Set to null if empty or whitespace
-      avatarColor: finalAvatarColor, // Use the safely determined color
-      orderIndex: formData.orderIndex, // Explicitly include orderIndex from formData
-      userId: formData.userId, // Ensure userId is explicitly included
+      website: formData.website.trim() || null,
+      avatarColor: finalAvatarColor,
+      orderIndex: formData.orderIndex,
+      userId: formData.userId,
     };
 
     try {
       const contactRef = doc(db, "contacts", contact.id);
-      await updateDoc(contactRef, updatedContact); // Use updateDoc for partial updates
-      onSave(updatedContact); // Pass the fully updated contact back to parent
+      await updateDoc(contactRef, updatedContact);
+      onSave(updatedContact);
       toast.success("Contact updated successfully!");
       onClose();
     } catch (error) {
@@ -191,7 +181,7 @@ export default function EditContactModal({
         await deleteDoc(doc(db, "contacts", contact.id));
         onDelete(contact.id);
         toast.success("Contact deleted!");
-        onClose(); // Close modal after successful deletion
+        onClose();
       } else {
         toast.error("Contact ID or User ID is missing. Cannot delete.");
       }
@@ -202,7 +192,7 @@ export default function EditContactModal({
   };
 
   return (
-    <div className="bg-white rounded-[5px] p-6 w-[400px] relative font-work">
+    <div className="bg-white rounded-[5px] p-6 w-full max-w-md md:w-[400px] relative max-h-[90vh] overflow-y-auto font-work"> {/* Adjusted width and added max-height/overflow */}
       <button
         onClick={onClose}
         className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
@@ -214,7 +204,7 @@ export default function EditContactModal({
       <div className="flex flex-col items-center mb-4">
         <div
           className="h-8 w-8 flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-          style={{ backgroundColor: formData.avatarColor || '#364257' }} // Add a fallback color for display
+          style={{ backgroundColor: formData.avatarColor || '#364257' }}
         >
           {formData.name
             ? formData.name.split(" ").map((n) => n[0]).join("").toUpperCase()
@@ -282,13 +272,12 @@ export default function EditContactModal({
           placeholder="e.g., Instagram"
         />
 
-        {/* Replaced SelectField and conditional FormField with CategorySelectField */}
         <CategorySelectField
           userId={userId}
           value={formData.category}
           customCategoryValue={customCategory}
-          onChange={handleChange} // This handles the main category dropdown change
-          onCustomCategoryChange={handleCustomCategoryChange} // This handles the custom category input change
+          onChange={handleChange}
+          onCustomCategoryChange={handleCustomCategoryChange}
           error={errors.category}
           customCategoryError={errors.customCategory}
           label="Category"
@@ -300,9 +289,9 @@ export default function EditContactModal({
         <button
           onClick={() => {
             if (!confirmDelete) {
-              setConfirmDelete(true); // Show confirmation message
+              setConfirmDelete(true);
             } else {
-              handleDelete(); // User confirmed, proceed with deletion
+              handleDelete();
             }
           }}
           className={`px-4 py-2 text-sm rounded-[5px] border ${
