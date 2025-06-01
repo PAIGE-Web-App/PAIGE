@@ -14,6 +14,7 @@ import EditContactModal from "../components/EditContactModal";
 import { getCategoryStyle } from "../utils/categoryStyle";
 import toast from "react-hot-toast";
 import { db } from "../lib/firebase";
+import Link from "next/link";
 
 import {
   collection,
@@ -24,12 +25,13 @@ import {
   addDoc,
   writeBatch,
 } from "firebase/firestore";
-import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft } from "lucide-react"; // Added ArrowLeft for mobile back button
+import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList } from "lucide-react";
 
 import CategoryPill from "../components/CategoryPill";
 import SelectField from "../components/SelectField";
 import { AnimatePresence, motion } from "framer-motion";
 import OnboardingModal from "../components/OnboardingModal";
+import RightDashboardPanel from "../components/RightDashboardPanel"; // Import the new component
 
 
 interface Message {
@@ -55,7 +57,18 @@ interface Contact {
   orderIndex?: number;
 }
 
-// Helper function to format dates relatively (moved outside component)
+interface TodoItem {
+  id: string;
+  name: string;
+  deadline?: Date;
+  note?: string;
+  category?: string;
+  contactId?: string;
+  isCompleted: boolean;
+  userId: string;
+  createdAt: Date;
+}
+
 const getRelativeDate = (date: Date): string => {
   const today = new Date();
   const yesterday = new Date(today);
@@ -84,9 +97,8 @@ const getRelativeDate = (date: Date): string => {
   }
 };
 
-// Simple EmojiPicker Component (moved outside component)
 const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string) => void; onClose: () => void }) => {
-  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '�', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '�', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
 
   return (
     <div className="p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 flex flex-wrap gap-1">
@@ -106,7 +118,6 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
   );
 };
 
-// Updated triggerGmailImport to accept userId as the first argument (moved outside component)
 const triggerGmailImport = async (userId: string, contacts: Contact[] = []) => {
   try {
     console.log("triggerGmailImport: Sending request to /api/start-gmail-import with userId and contacts:", { userId, contacts });
@@ -173,24 +184,26 @@ export default function Home() {
 
   const messagesCollection = collection(db, "messages");
   const contactsCollection = collection(db, "contacts");
+  // const todoItemsCollection = collection(db, "todoItems"); // No longer needed here, moved to RightDashboardPanel
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
-  // State to manage mobile view: true when message panel is active, false for contact list
   const [isMessageViewActiveOnMobile, setIsMessageViewActiveOnMobile] = useState(false);
-
-  // Determine if it's a mobile view (less than md breakpoint)
   const [isMobile, setIsMobile] = useState(false);
+
+  // const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo'); // Moved to RightDashboardPanel
+  // const [todoItems, setTodoItems] = useState<TodoItem[]>([]); // Moved to RightDashboardPanel
+  // const [selectedTodoSubCategory, setSelectedTodoSubCategory] = useState<'all' | 'shared' | 'my'>('all'); // Moved to RightDashboardPanel
+
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Tailwind's 'md' breakpoint is 768px
+      setIsMobile(window.innerWidth < 768);
     };
 
-    // Set initial value
     handleResize();
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -283,7 +296,6 @@ export default function Home() {
           };
         });
         setContacts(fetchedContacts);
-        // Only set selected contact if none is selected or the current one is deleted/filtered out
         if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
           setSelectedContact(fetchedContacts[0] || null);
         }
@@ -305,6 +317,8 @@ export default function Home() {
     };
   }, [currentUser]);
 
+  // useEffect for todoItems and selectedTodoSubCategory are now in RightDashboardPanel.tsx
+  // No longer needed here.
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -402,7 +416,6 @@ export default function Home() {
           };
         });
         setMessages(fetchedMessages);
-        // Scroll to bottom when new messages arrive
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
@@ -443,13 +456,6 @@ export default function Home() {
       toast.success(`Selected ${selectedFiles.length} file(s).`);
     }
   }, [selectedFiles]);
-
-  // This useEffect is now redundant as scrolling is handled in the message fetching useEffect
-  // useEffect(() => {
-  //   if (messagesEndRef.current) {
-  //     messagesEndRef.current.scrollIntoView({ behavior: "auto" });
-  //   }
-  // }, [messages]);
 
   useEffect(() => {
     if (isAdding || isEditing || showOnboardingModal) {
@@ -525,6 +531,12 @@ export default function Home() {
   const handleEmojiSelect = (emoji: string) => {
     setInput((prevInput) => prevInput + emoji);
   };
+
+  // handleAddNewTodo and handleToggleTodoComplete are now in RightDashboardPanel.tsx
+  // No longer needed here.
+
+  // filteredTodoItems is now in RightDashboardPanel.tsx
+  // No longer needed here.
 
 
   const displayContacts = useMemo(() => {
@@ -648,7 +660,7 @@ export default function Home() {
           <aside
             className={`w-full md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0
               ${isMobile && selectedContact ? 'hidden' : 'block'}
-            `} // Hide on mobile if contact is selected
+            `}
             style={{ maxHeight: "100%", overflowY: "auto" }}
           >
             {contactsLoading ? (
@@ -791,7 +803,7 @@ export default function Home() {
                             }`}
                           onClick={() => {
                             setSelectedContact(contact);
-                            if (isMobile) { // Activate message view on mobile
+                            if (isMobile) {
                               setIsMessageViewActiveOnMobile(true);
                             }
                           }}
@@ -837,9 +849,8 @@ export default function Home() {
           {/* Center Panel (Message Area) */}
           <section
             className={`flex flex-col flex-1 bg-white relative
-              ${isMobile && !selectedContact ? 'hidden' : 'block'}
-              ${isMobile && selectedContact ? 'absolute inset-0 z-20' : ''}
-            `} // Show on mobile only if contact is selected
+              ${isMobile && selectedContact && isMessageViewActiveOnMobile ? 'absolute inset-0 z-20' : 'hidden md:flex'}
+            `}
             style={{ maxHeight: "100%" }}
           >
             {" "}
@@ -849,11 +860,11 @@ export default function Home() {
                 <div
                   className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center"
                 >
-                  {isMobile && ( // Back button for mobile
+                  {isMobile && (
                     <button
                       onClick={() => {
-                        setSelectedContact(null); // Deselect contact
-                        setIsMessageViewActiveOnMobile(false); // Go back to contact list
+                        setSelectedContact(null);
+                        setIsMessageViewActiveOnMobile(false);
                       }}
                       className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
                       aria-label="Back to contacts"
@@ -869,14 +880,14 @@ export default function Home() {
                         </h4>
                         <CategoryPill category={selectedContact.category} />
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5"> {/* Added flex-wrap */}
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         {selectedContact.email && (
                           <a
                             href={`mailto:${selectedContact.email}`}
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <Mail className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span> {/* Truncate for small screens */}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
                           </a>
                         )}
                         {selectedContact.phone && (
@@ -885,7 +896,7 @@ export default function Home() {
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <Phone className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span> {/* Truncate for small screens */}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
                           </a>
                         )}
                         {selectedContact.website && (
@@ -896,7 +907,7 @@ export default function Home() {
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
                           >
                             <span>🌐</span>
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span> {/* Truncate for small screens */}
+                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span>
                           </a>
                         )}
                       </div>
@@ -1143,14 +1154,8 @@ export default function Home() {
             )}
           </section>
         </div>
-        {/* Right Panel (To-do Items) - Hidden on mobile */}
-        <aside
-          className="hidden md:block w-1/4 bg-[#ECE9E5] rounded-[5px] border border-[#AB9C95] p-4"
-          style={{ maxHeight: "100%", overflowY: "auto" }}
-        >
-          <h3 className="font-semibold mb-2">To-do Items</h3>
-          <div className="text-sm text-gray-500">No to-dos yet.</div>
-        </aside>
+        {/* Right Panel Container - Now a flex row */}
+        {currentUser && <RightDashboardPanel currentUser={currentUser} contacts={contacts} />}
       </div>
       {/* Edit Contact Modal */}
       {isEditing && selectedContact && currentUser && (
