@@ -171,7 +171,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         <button
           onClick={() => setRightPanelSelection('favorites')}
           className={`p-2 rounded-[5px] transition-colors flex items-center justify-center
-            ${rightPanelSelection === 'favorites' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#E0DBD7]'}
+            ${rightPanelSelection === 'favorites' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#E0DBD7'}
           `}
           title="Favorites (Vendors)"
         >
@@ -181,38 +181,48 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
       {/* Content Area for Right Panel - Right Column of Right Panel */}
       <aside
-        className="flex-1 bg-[#ECE9E5] p-4 overflow-y-auto"
+        className="flex-1 bg-[#DEDBDB] p-4 overflow-y-auto"
         style={{ maxHeight: '100%' }}
       >
         {/* Conditional Content based on rightPanelSelection */}
         {rightPanelSelection === 'todo' && (
           <div className="flex flex-col h-full">
-            <h3 className="font-semibold mb-2 text-[#332B42]">To-do Items</h3>
-            <div className="flex justify-around bg-white border border-[#AB9C95] rounded-[5px] mb-4 p-1">
-              <button
-                onClick={() => setSelectedTodoSubCategory('all')}
-                className={`flex-1 text-center px-3 py-2 rounded-[5px] text-sm font-medium transition-colors
-                  ${selectedTodoSubCategory === 'all' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}
-                `}
-              >
-                All To-do
-              </button>
-              <button
-                onClick={() => setSelectedTodoSubCategory('shared')}
-                className={`flex-1 text-center px-3 py-2 rounded-[5px] text-sm font-medium transition-colors
-                  ${selectedTodoSubCategory === 'shared' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}
-                `}
-              >
-                Shared To-do
-              </button>
-              <button
-                onClick={() => setSelectedTodoSubCategory('my')}
-                className={`flex-1 text-center px-3 py-2 rounded-[5px] text-sm font-medium transition-colors
-                  ${selectedTodoSubCategory === 'my' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}
-                `}
-              >
-                My To-do
-              </button>
+            {/* Wrapper div for the header and tabs with the desired background color */}
+            <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4">
+              <h3 className="font-playfair text-lg font-semibold px-4 pt-4 mb-2 text-[#332B42]">To-do Items</h3>
+              {/* Tabs container - removed border-b from here as it's now on active button */}
+              <div className="flex border-b border-[#AB9C95] px-4"> {/* Added px-4 for horizontal alignment */}
+                <button
+                  onClick={() => setSelectedTodoSubCategory('all')}
+                  className={`flex-1 text-center py-2 transition-colors
+                    ${selectedTodoSubCategory === 'all'
+                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs' // Active tab styling: 12px, medium, no background
+                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal' // Inactive tab styling: 12px, regular
+                    }`}
+                >
+                  All To-do
+                </button>
+                <button
+                  onClick={() => setSelectedTodoSubCategory('shared')}
+                  className={`flex-1 text-center py-2 transition-colors
+                    ${selectedTodoSubCategory === 'shared'
+                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs' // Active tab styling
+                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal' // Inactive tab styling
+                    }`}
+                >
+                  Shared To-do
+                </button>
+                <button
+                  onClick={() => setSelectedTodoSubCategory('my')}
+                  className={`flex-1 text-center py-2 transition-colors
+                    ${selectedTodoSubCategory === 'my'
+                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs' // Active tab styling
+                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal' // Inactive tab styling
+                    }`}
+                >
+                  My To-do
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
