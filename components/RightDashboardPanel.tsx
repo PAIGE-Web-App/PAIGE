@@ -133,6 +133,23 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
   };
 
+  // Placeholder functions for adding/editing details
+  const handleAddDeadline = (todoId: string) => {
+    toast(`Functionality to add/edit deadline for ${todoId} coming soon!`);
+    // In a real app, you'd open a modal or inline editor here
+  };
+
+  const handleAddNote = (todoId: string) => {
+    toast(`Functionality to add/edit note for ${todoId} coming soon!`);
+    // In a real app, you'd open a modal or inline editor here
+  };
+
+  const handleAddCategory = (todoId: string) => {
+    toast(`Functionality to add/edit category for ${todoId} coming soon!`);
+    // In a real app, you'd open a category selection modal/dropdown here
+  };
+
+
   // Filtered To-Do items based on selectedTodoSubCategory
   const filteredTodoItems = useMemo(() => {
     if (selectedTodoSubCategory === 'all') {
@@ -188,10 +205,23 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         {rightPanelSelection === 'todo' && (
           <div className="flex flex-col h-full">
             {/* Wrapper div for the header and tabs with the desired background color */}
-            <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4">
-              <h3 className="font-playfair text-lg font-semibold px-4 pt-4 mb-2 text-[#332B42]">To-do Items</h3>
+            <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95]">
+              <div className="flex justify-between items-center px-4 pt-4 mb-2">
+                <div className="flex items-center gap-2"> {/* New div to group title and view all */}
+                  <h3 className="font-playfair text-lg font-medium text-[#332B42]">To-do Items</h3>
+                  <Link href="/todo" className="text-xs text-[#364257] hover:text-[#A85C36] font-medium no-underline">
+                    View all
+                  </Link>
+                </div>
+                <button
+                  onClick={handleAddNewTodo}
+                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                >
+                  + New To-do Item
+                </button>
+              </div>
               {/* Tabs container - removed border-b from here as it's now on active button */}
-              <div className="flex border-b border-[#AB9C95] px-4"> {/* Added px-4 for horizontal alignment */}
+              <div className="flex border-b border-[#AB9C95] px-4">
                 <button
                   onClick={() => setSelectedTodoSubCategory('all')}
                   className={`flex-1 text-center py-2 transition-colors
@@ -234,7 +264,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
               ) : (
                 <div className="space-y-3">
                   {filteredTodoItems.map((todo) => (
-                    <div key={todo.id} className="flex items-start gap-2 p-2 border border-[#AB9C95] rounded-[5px] bg-white">
+                    <div key={todo.id} className="flex items-start gap-2 py-2">
                       <button
                         onClick={() => handleToggleTodoComplete(todo)}
                         className="flex-shrink-0 p-1 text-[#A85C36] hover:text-[#784528]"
@@ -245,24 +275,51 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                         <p className={`text-sm font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''}`}>
                           {todo.name}
                         </p>
-                        {todo.deadline && (
-                          <p className="text-xs text-gray-500">
+                        {/* Conditional rendering for Deadline */}
+                        {todo.deadline ? (
+                          <p className="text-xs text-[#364257]">
                             Deadline: {todo.deadline.toLocaleDateString()}
                           </p>
+                        ) : (
+                          <button
+                            onClick={() => handleAddDeadline(todo.id)}
+                            className="text-xs text-[#364257] underline text-left p-0 bg-transparent border-none"
+                          >
+                            Add Deadline
+                          </button>
                         )}
-                        {todo.note && (
-                          <p className="text-xs text-gray-500 italic">
+                        {/* Conditional rendering for Note */}
+                        {todo.note ? (
+                          <p className="text-xs text-[#364257] italic">
                             Note: {todo.note}
                           </p>
+                        ) : (
+                          <button
+                            onClick={() => handleAddNote(todo.id)}
+                            className="text-xs text-[#364257] underline italic text-left p-0 bg-transparent border-none"
+                          >
+                            Click to add note
+                          </button>
                         )}
-                        {todo.category && (
-                          <CategoryPill category={todo.category} />
-                        )}
-                        {todo.contactId && (
-                          <p className="text-xs text-gray-500">
-                            Contact: {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-1 mt-1">
+                          {/* Conditional rendering for Category */}
+                          {todo.category ? (
+                            <CategoryPill category={todo.category} />
+                          ) : (
+                            <button
+                              onClick={() => handleAddCategory(todo.id)}
+                              className="text-xs text-[#364257] underline text-left p-0 bg-transparent border-none"
+                            >
+                              Add Category
+                            </button>
+                          )}
+                          {/* Contact information */}
+                          {todo.contactId && (
+                            <span className="text-xs text-[#364257]">
+                              {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button className="flex-shrink-0 p-1 text-[#7A7A7A] hover:text-[#332B42]">
                         <MoreHorizontal size={18} />
@@ -271,17 +328,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                   ))}
                 </div>
               )}
-              <div className="flex justify-between items-center mt-4">
-                <button
-                  onClick={handleAddNewTodo}
-                  className="text-xs text-[#A85C36] hover:text-[#784528] font-medium flex items-center gap-1"
-                >
-                  + New To-do Item
-                </button>
-                <Link href="/todo" className="text-xs text-[#364257] hover:text-[#A85C36] font-medium no-underline">
-                  View all
-                </Link>
-              </div>
             </div>
           </div>
         )}
