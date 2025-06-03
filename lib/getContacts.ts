@@ -1,6 +1,6 @@
 // lib/getContacts.ts
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "./firebase"; // Assuming firebase.ts is in the same lib folder
+import { db, getUserCollectionRef } from "./firebase"; // Import getUserCollectionRef
 
 interface Contact {
   id: string;
@@ -14,7 +14,12 @@ interface Contact {
 }
 
 export const getAllContacts = async (userId: string) => {
-  const contactsCollection = collection(db, "contacts");
+  // --- FIX: Use getUserCollectionRef for user-specific contacts ---
+  const contactsCollection = getUserCollectionRef<Contact>("contacts", userId);
+  // --- END FIX ---
+
+  // The where("userId", "==", userId) is now redundant due to the path,
+  // but keeping it adds an extra layer of data integrity.
   const q = query(contactsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map((doc) => ({

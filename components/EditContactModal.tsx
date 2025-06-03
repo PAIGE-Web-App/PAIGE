@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import { getCategoryStyle } from "../utils/categoryStyle";
 import SelectField from "./SelectField";
 import toast from "react-hot-toast";
@@ -19,6 +19,7 @@ interface Contact {
   website?: string;
   avatarColor?: string;
   userId: string;
+  channel?: string; // Added channel field
   orderIndex?: number;
 }
 
@@ -52,6 +53,7 @@ export default function EditContactModal({
     phone: contact.phone || "",
     category: contact.category || "",
     website: contact.website || "",
+    channel: contact.channel || "", // Initialize channel
     avatarColor: contact.avatarColor || getRandomAvatarColor(),
     userId: userId,
     orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
@@ -72,6 +74,7 @@ export default function EditContactModal({
       phone: contact.phone || "",
       category: contact.category || "",
       website: contact.website || "",
+      channel: contact.channel || "", // Update channel on contact change
       avatarColor: contact.avatarColor || getRandomAvatarColor(),
       userId: userId,
       orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
@@ -158,13 +161,15 @@ export default function EditContactModal({
       phone: formData.phone.trim() || null,
       category: categoryToSave,
       website: formData.website.trim() || null,
+      channel: formData.channel.trim() || null, // Include channel in updated contact
       avatarColor: finalAvatarColor,
       orderIndex: formData.orderIndex,
       userId: formData.userId,
     };
 
     try {
-      const contactRef = doc(db, "contacts", contact.id);
+      // Use getUserCollectionRef to get the correct document path
+      const contactRef = doc(getUserCollectionRef( "contacts", userId), contact.id);
       await updateDoc(contactRef, updatedContact);
       onSave(updatedContact);
       toast.success("Contact updated successfully!");
@@ -178,7 +183,8 @@ export default function EditContactModal({
   const handleDelete = async () => {
     try {
       if (contact.id && userId) {
-        await deleteDoc(doc(db, "contacts", contact.id));
+        // Use getUserCollectionRef to get the correct document path for deletion
+        await deleteDoc(doc(getUserCollectionRef("contacts", userId), contact.id));
         onDelete(contact.id);
         toast.success("Contact deleted!");
         onClose();

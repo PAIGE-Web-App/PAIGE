@@ -9,20 +9,23 @@ import {
   addDoc,
   doc,
   setDoc,
-  deleteDoc, // Import deleteDoc
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  getDocs,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, getUserCollectionRef } from '../lib/firebase'; // Import getUserCollectionRef
 import { User } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
-import { CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Check, Copy, Trash2 } from 'lucide-react'; // Import Copy and Trash2
+import { CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Check, Copy, Trash2, ListFilter, Plus } from 'lucide-react';
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField';
 import { getAllCategories, saveCategoryIfNew } from '../lib/firebaseCategories';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Define necessary interfaces (can be moved to a types file if preferred)
+// Define necessary interfaces
 interface TodoItem {
   id: string;
   name: string;
@@ -33,6 +36,16 @@ interface TodoItem {
   isCompleted: boolean;
   userId: string;
   createdAt: Date;
+  orderIndex: number;
+  listId: string;
+}
+
+interface TodoList {
+  id: string;
+  name: string;
+  userId: string;
+  createdAt: Date;
+  orderIndex: number;
 }
 
 interface Contact {
@@ -49,39 +62,47 @@ interface Contact {
 
 interface RightDashboardPanelProps {
   currentUser: User;
-  contacts: Contact[]; // Pass contacts down for linking todo items
+  contacts: Contact[];
 }
 
-const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts }) => {
-  const todoItemsCollection = collection(db, 'todoItems');
+// Helper function to reorder an array
+const reorder = (list: TodoItem[], startIndex: number, endIndex: number): TodoItem[] => {
+  const result = Array.from(list);
+  const [removed] = result.splice(startIndex, 1);
+  result.splice(endIndex, 0, removed);
+  return result;
+};
 
+// Removed global collection references as getUserCollectionRef will be used directly
+
+const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts }) => {
+  // State declarations remain the same
   const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
-  const [selectedTodoSubCategory, setSelectedTodoSubCategory] = useState<'all' | 'shared' | 'my'>('all');
+  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [editingDeadlineId, setEditingDeadlineId] = useState<string | null>(null);
   const [editingDeadlineValue, setEditingDeadlineValue] = useState<string | null>(null);
-
-  // New states for note editing
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteValue, setEditingNoteValue] = useState<string | null>(null);
-
-  // New states for category editing
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryValue, setEditingCategoryValue] = useState<string | null>(null);
   const [editingCustomCategoryValue, setEditingCustomCategoryValue] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<string[]>([]);
-
-  // State for the "New Task" dropdown
   const [showAddTaskDropdown, setShowAddTaskDropdown] = useState(false);
   const addTaskDropdownRef = useRef<HTMLDivElement>(null);
-
-  // States for editing task name
   const [editingTaskNameId, setEditingTaskNameId] = useState<string | null>(null);
   const [editingTaskNameValue, setEditingTaskNameValue] = useState<string | null>(null);
-
-  // State for the open three-dot menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
+  const [sortOption, setSortOption] = useState<'myOrder' | 'date' | 'title'>('myOrder');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
+  const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
+  const [dropIndicatorPosition, setDropIndicatorPosition] = useState<{ id: string | null, position: 'top' | 'bottom' | null }>({ id: null, position: null });
+  const [showNewListInput, setShowNewListInput] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const newListInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch all categories for the dropdown
   useEffect(() => {
@@ -94,31 +115,156 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
   }, [currentUser]);
 
-  // Effect to fetch To-Do items
+  // Effect to manage default "My To-do" list and fetch all lists
   useEffect(() => {
-    let unsubscribeTodoItems: () => void;
-    if (currentUser && rightPanelSelection === 'todo') {
+    let unsubscribeTodoLists: () => void;
+
+    const userId = currentUser?.uid;
+
+    if (userId) {
+      // Use getUserCollectionRef for todoLists
+      const todoListsCollectionRef = getUserCollectionRef<TodoList>("todoLists", userId);
       const q = query(
-        todoItemsCollection,
-        where('userId', '==', currentUser.uid),
+        todoListsCollectionRef,
+        where('userId', '==', userId),
+        orderBy('orderIndex', 'asc'),
         orderBy('createdAt', 'asc')
       );
 
-      unsubscribeTodoItems = onSnapshot(q, (snapshot) => {
+      unsubscribeTodoLists = onSnapshot(q, async (snapshot) => {
+        const fetchedLists: TodoList[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            userId: data.userId,
+            createdAt: data.createdAt.toDate(),
+            orderIndex: data.orderIndex || 0,
+          };
+        });
+        setTodoLists(fetchedLists);
+
+        const currentSelectedListExists = fetchedLists.some(list => list.id === selectedListId);
+
+        if (!selectedListId || !currentSelectedListExists) {
+          let myTodoList = fetchedLists.find(list => list.name === 'My To-do');
+
+          if (!myTodoList) {
+            const newMyTodoList: Omit<TodoList, 'id'> = {
+              name: 'My To-do',
+              userId: userId,
+              createdAt: new Date(),
+              orderIndex: 0,
+            };
+            try {
+              const docRef = await addDoc(getUserCollectionRef("todoLists", userId), newMyTodoList); // Use getUserCollectionRef
+              myTodoList = { ...newMyTodoList, id: docRef.id };
+              toast.success('Created "My To-do" list!');
+            } catch (error) {
+              console.error('Error creating "My To-do" list:', error);
+              toast.error('Failed to create "My To-do" list.');
+            }
+          }
+          if (myTodoList && myTodoList.id !== selectedListId) {
+            setSelectedListId(myTodoList.id);
+          } else if (fetchedLists.length > 0 && !myTodoList && fetchedLists[0].id !== selectedListId) {
+            setSelectedListId(fetchedLists[0].id);
+          }
+        }
+      }, (error) => {
+        console.error('Error fetching To-do lists:', error);
+        toast.error('Failed to load To-do lists.');
+      });
+    }
+
+    return () => {
+      if (unsubscribeTodoLists) {
+        unsubscribeTodoLists();
+      }
+    };
+  }, [currentUser?.uid, selectedListId]); // Depend on selectedListId to react to changes
+
+  // Effect to fetch To-Do items based on selectedListId
+  useEffect(() => {
+    let unsubscribeTodoItems: () => void;
+    if (currentUser && rightPanelSelection === 'todo' && selectedListId) {
+      // Use getUserCollectionRef for todoItems
+      const todoItemsCollectionRef = getUserCollectionRef<TodoItem>("todoItems", currentUser.uid);
+      const q = query(
+        todoItemsCollectionRef,
+        where('userId', '==', currentUser.uid),
+        where('listId', '==', selectedListId),
+        orderBy('orderIndex', 'asc'),
+        orderBy('createdAt', 'asc')
+      );
+
+      unsubscribeTodoItems = onSnapshot(q, async (snapshot) => {
         const fetchedTodoItems: TodoItem[] = snapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
             name: data.name,
-            deadline: data.deadline?.toDate(), // Convert Firestore Timestamp to Date
+            deadline: data.deadline?.toDate(),
             note: data.note,
             category: data.category,
             contactId: data.contactId,
             isCompleted: data.isCompleted,
             userId: data.userId,
             createdAt: data.createdAt.toDate(),
+            orderIndex: data.orderIndex || 0,
+            listId: data.listId || '',
           };
         });
+
+        // --- Migration Logic for old tasks without listId ---
+        const batch = writeBatch(db);
+        let needsBatchCommit = false;
+        const myTodoList = todoLists.find(list => list.name === 'My To-do');
+
+        if (myTodoList) {
+          const tasksWithoutListIdQuery = query(
+            getUserCollectionRef("todoItems", currentUser.uid), // Use getUserCollectionRef
+            where('userId', '==', currentUser.uid),
+            where('listId', '==', null)
+          );
+          const tasksWithoutListIdSnapshot = await getDocs(tasksWithoutListIdQuery);
+
+          tasksWithoutListIdSnapshot.forEach(docSnap => {
+            const taskData = docSnap.data();
+            if (!taskData.listId) {
+              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id); // Use getUserCollectionRef
+              batch.update(taskRef, { listId: myTodoList.id });
+              needsBatchCommit = true;
+            }
+          });
+
+          const tasksWithEmptyListIdQuery = query(
+            getUserCollectionRef("todoItems", currentUser.uid), // Use getUserCollectionRef
+            where('userId', '==', currentUser.uid),
+            where('listId', '==', '')
+          );
+          const tasksWithEmptyListIdSnapshot = await getDocs(tasksWithEmptyListIdQuery);
+
+          tasksWithEmptyListIdSnapshot.forEach(docSnap => {
+            const taskData = docSnap.data();
+            if (taskData.listId === '') {
+              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id); // Use getUserCollectionRef
+              batch.update(taskRef, { listId: myTodoList.id });
+              needsBatchCommit = true;
+            }
+          });
+        }
+
+        if (needsBatchCommit) {
+          try {
+            await batch.commit();
+            console.log('Migrated old tasks to "My To-do" list.');
+          } catch (error) {
+            console.error('Error migrating old tasks:', error);
+          }
+        }
+        // --- End Migration Logic ---
+
         setTodoItems(fetchedTodoItems);
       }, (error) => {
         console.error('Error fetching To-Do items:', error);
@@ -132,9 +278,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         unsubscribeTodoItems();
       }
     };
-  }, [currentUser, rightPanelSelection]);
+  }, [currentUser, rightPanelSelection, selectedListId, todoLists]); // Depend on todoLists for migration logic
 
-  // Effect to close dropdowns when clicking outside
+  // Effect to close dropdowns and input when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Close "New Task" dropdown
@@ -146,10 +292,21 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       const clickedElement = event.target as HTMLElement;
       if (
         openMenuId !== null &&
-        !clickedElement.closest('.todo-item-menu-container') && // Check if click is inside the menu container
-        !clickedElement.closest('.more-horizontal-button') // Check if click is on the MoreHorizontal button itself
+        !clickedElement.closest('.todo-item-menu-container') &&
+        !clickedElement.closest('.more-horizontal-button')
       ) {
         setOpenMenuId(null);
+      }
+
+      // Close sort menu if open and click is outside
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+
+      // Close new list input if open and click is outside
+      if (showNewListInput && newListInputRef.current && !newListInputRef.current.contains(event.target as Node)) {
+        setShowNewListInput(false);
+        setNewListName(''); // Clear input on close
       }
     };
 
@@ -157,7 +314,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showAddTaskDropdown, openMenuId]);
+  }, [showAddTaskDropdown, openMenuId, showSortMenu, showNewListInput]);
 
   // Function to handle adding a new To-Do item
   const handleAddNewTodo = async () => {
@@ -165,32 +322,83 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       toast.error('You must be logged in to add a To-Do item.');
       return;
     }
+    if (!selectedListId) {
+      toast.error('Please select a list before adding a task.');
+      return;
+    }
+
+    // Calculate the next orderIndex for the current list
+    const maxOrderIndex = todoItems.length > 0 ? Math.max(...todoItems.map(item => item.orderIndex)) : -1;
+
     const newTodo: TodoItem = {
       id: uuidv4(),
       name: 'New To-do Item (Click to Edit)',
       isCompleted: false,
       userId: currentUser.uid,
       createdAt: new Date(),
+      orderIndex: maxOrderIndex + 1,
+      listId: selectedListId, // Assign to the currently selected list
     };
 
     try {
-      await addDoc(todoItemsCollection, {
+      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), { // Use getUserCollectionRef
         ...newTodo,
-        createdAt: newTodo.createdAt, // Store as Firestore Timestamp
+        createdAt: newTodo.createdAt,
       });
       toast.success('New To-do item added!');
     } catch (error: any) {
       console.error('Error adding To-do item:', error);
       toast.error(`Failed to add To-do item: ${error.message}`);
     } finally {
-      setShowAddTaskDropdown(false); // Close dropdown after adding
+      setShowAddTaskDropdown(false);
+    }
+  };
+
+  // Function to handle creating a new list
+  const handleCreateNewList = async () => {
+    if (!currentUser) {
+      toast.error('You must be logged in to create a new list.');
+      return;
+    }
+    const trimmedListName = newListName.trim();
+    if (!trimmedListName) {
+      toast.error('List name cannot be empty.');
+      return;
+    }
+
+    // Check if a list with this name already exists for the user
+    const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedListName.toLowerCase());
+    if (existingList) {
+      toast.error('A list with this name already exists.');
+      return;
+    }
+
+    // Calculate the next orderIndex for lists
+    const maxListOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
+
+    const newList: Omit<TodoList, 'id'> = {
+      name: trimmedListName,
+      userId: currentUser.uid,
+      createdAt: new Date(),
+      orderIndex: maxListOrderIndex + 1,
+    };
+
+    try {
+      const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList); // Use getUserCollectionRef
+      toast.success(`List "${trimmedListName}" created!`);
+      setNewListName('');
+      setShowNewListInput(false);
+      setSelectedListId(docRef.id); // Automatically select the new list
+    } catch (error: any) {
+      console.error('Error creating new list:', error);
+      toast.error(`Failed to create new list: ${error.message}`);
     }
   };
 
   // Function to toggle To-Do item completion
   const handleToggleTodoComplete = async (todo: TodoItem) => {
     try {
-      const todoRef = doc(db, 'todoItems', todo.id);
+      const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id); // Use getUserCollectionRef
       await setDoc(todoRef, { isCompleted: !todo.isCompleted }, { merge: true });
       toast.success(`To-do item marked as ${todo.isCompleted ? 'incomplete' : 'complete'}!`);
     } catch (error: any) {
@@ -201,7 +409,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // Function to handle showing the deadline input
   const handleAddDeadline = (todo: TodoItem) => {
-    if (todo.isCompleted) return; // Prevent editing if completed
+    if (todo.isCompleted) return;
     setEditingDeadlineId(todo.id);
     setEditingDeadlineValue(todo.deadline ? todo.deadline.toISOString().slice(0, 16) : '');
   };
@@ -221,7 +429,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
 
     try {
-      const todoRef = doc(db, 'todoItems', todoId);
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
       await setDoc(todoRef, { deadline: newDeadline }, { merge: true });
       toast.success('Deadline updated!');
     } catch (error: any) {
@@ -241,7 +449,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // Functions for note editing
   const handleAddNote = (todo: TodoItem) => {
-    if (todo.isCompleted) return; // Prevent editing if completed
+    if (todo.isCompleted) return;
     setEditingNoteId(todo.id);
     setEditingNoteValue(todo.note || '');
   };
@@ -253,7 +461,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
 
     try {
-      const todoRef = doc(db, 'todoItems', todoId);
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
       await setDoc(todoRef, { note: editingNoteValue?.trim() || null }, { merge: true });
       toast.success(`Note ${editingNoteValue?.trim() ? 'updated' : 'removed'}!`);
     } catch (error: any) {
@@ -272,14 +480,13 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // New functions for category editing
   const handleEditCategory = (todo: TodoItem) => {
-    if (todo.isCompleted) return; // Prevent editing if completed
+    if (todo.isCompleted) return;
     setEditingCategoryId(todo.id);
     setEditingCategoryValue(todo.category || '');
-    // If the category is not a default one, assume it's a custom one
     const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue", "Wedding Planner", "Officiant", "Baker", "Dress Shop", "Suit/Tux Rental", "Hair Stylist", "Makeup Artist", "Musician", "Stationery", "Transportation", "Rentals", "Favors", "Jeweler", "Videographer"];
     if (todo.category && !defaultCategories.includes(todo.category) && allCategories.includes(todo.category)) {
-      setEditingCategoryValue("Other"); // Set dropdown to "Other"
-      setEditingCustomCategoryValue(todo.category); // Set custom input value
+      setEditingCategoryValue("Other");
+      setEditingCustomCategoryValue(todo.category);
     } else {
       setEditingCustomCategoryValue("");
     }
@@ -288,7 +495,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const handleCategoryDropdownChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setEditingCategoryValue(e.target.value);
     if (e.target.value !== "Other") {
-      setEditingCustomCategoryValue(""); // Clear custom category if not "Other"
+      setEditingCustomCategoryValue("");
     }
   }, []);
 
@@ -305,19 +512,19 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     let finalCategory: string | null = editingCategoryValue;
 
     if (editingCategoryValue === "--remove--") {
-      finalCategory = null; // Set to null to remove the category
+      finalCategory = null;
     } else if (editingCategoryValue === "Other") {
       finalCategory = editingCustomCategoryValue?.trim() || "";
       if (!finalCategory) {
         toast.error("Custom category name is required.");
         return;
       }
-      await saveCategoryIfNew(finalCategory, currentUser.uid); // Save new custom category
+      await saveCategoryIfNew(finalCategory, currentUser.uid);
     }
 
     try {
-      const todoRef = doc(db, 'todoItems', todoId);
-      await setDoc(todoRef, { category: finalCategory }, { merge: true }); // Use finalCategory directly
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
+      await setDoc(todoRef, { category: finalCategory }, { merge: true });
       toast.success(`Category ${finalCategory ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating category:', error);
@@ -344,7 +551,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     const trimmedName = editingTaskNameValue?.trim();
     if (!trimmedName) {
       toast.error('Task name cannot be empty.');
-      // Revert to original name if empty
       const originalTodo = todoItems.find(item => item.id === todoId);
       if (originalTodo) {
         setEditingTaskNameValue(originalTodo.name);
@@ -353,7 +559,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       return;
     }
     try {
-      const todoRef = doc(db, 'todoItems', todoId);
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
       await setDoc(todoRef, { name: trimmedName }, { merge: true });
       toast.success('Task name updated!');
     } catch (error: any) {
@@ -371,24 +577,29 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       toast.error('You must be logged in to clone a To-Do item.');
       return;
     }
+    if (!selectedListId) {
+      toast.error('Cannot clone task: no list selected.');
+      return;
+    }
 
-    // Calculate a new createdAt date that is slightly after the original todo's createdAt
-    // This ensures the cloned item appears directly below the original when sorted by createdAt
-    const newCreatedAt = new Date(todo.createdAt.getTime() + 1); // Add 1 millisecond
+    const newCreatedAt = new Date(todo.createdAt.getTime() + 1);
+    const maxOrderIndex = todoItems.length > 0 ? Math.max(...todoItems.map(item => item.orderIndex)) : -1;
 
-    const clonedTodo: Omit<TodoItem, 'id'> = { // Omit 'id' as it will be generated by addDoc
+    const clonedTodo: Omit<TodoItem, 'id'> = {
       name: `Clone of ${todo.name}`,
-      deadline: todo.deadline || null, // Convert undefined to null
-      note: todo.note || null,         // Convert undefined to null
-      category: todo.category || null, // Convert undefined to null
-      contactId: todo.contactId || null, // Convert undefined to null
-      isCompleted: false, // Cloned items are not completed
+      deadline: todo.deadline || null,
+      note: todo.note || null,
+      category: todo.category || null,
+      contactId: todo.contactId || null,
+      isCompleted: false,
       userId: currentUser.uid,
-      createdAt: newCreatedAt, // Use the new calculated creation date
+      createdAt: newCreatedAt,
+      orderIndex: maxOrderIndex + 1,
+      listId: selectedListId, // Cloned item goes to the currently selected list
     };
 
     try {
-      await addDoc(todoItemsCollection, {
+      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), { // Use getUserCollectionRef
         ...clonedTodo,
         createdAt: clonedTodo.createdAt,
       });
@@ -397,7 +608,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       console.error('Error cloning To-do item:', error);
       toast.error(`Failed to clone To-do item: ${error.message}`);
     } finally {
-      setOpenMenuId(null); // Close menu after action
+      setOpenMenuId(null);
     }
   };
 
@@ -408,26 +619,198 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       return;
     }
     try {
-      await deleteDoc(doc(db, 'todoItems', todoId));
+      await deleteDoc(doc(getUserCollectionRef("todoItems", currentUser.uid), todoId)); // Use getUserCollectionRef
       toast.success('To-do item deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting To-do item:', error);
       toast.error(`Failed to delete To-do item: ${error.message}`);
     } finally {
-      setOpenMenuId(null); // Close menu after action
+      setOpenMenuId(null);
     }
   };
 
+  // Function to handle sort option selection
+  const handleSortOptionSelect = (option: 'myOrder' | 'date' | 'title') => {
+    setSortOption(option);
+    setShowSortMenu(false);
+  };
 
-  // Filtered To-Do items based on selectedTodoSubCategory
-  const filteredTodoItems = useMemo(() => {
-    if (selectedTodoSubCategory === 'all') {
-      return todoItems;
+  // Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    setDraggedTodoId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+    e.currentTarget.classList.add('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    e.preventDefault();
+    if (draggedTodoId !== id) {
+      setDragOverTodoId(id);
     }
-    // Placeholder for 'shared' and 'my' logic - currently returns empty for simplicity
-    // You would implement actual filtering based on 'shared' or 'my' properties on TodoItem
-    return [];
-  }, [todoItems, selectedTodoSubCategory]);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('bg-[#EBE3DD]');
+    setDragOverTodoId(null);
+    setDropIndicatorPosition({ id: null, position: null });
+  };
+
+  const handleItemDragOver = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (draggedTodoId === id) {
+      setDropIndicatorPosition({ id: null, position: null });
+      setDragOverTodoId(null);
+      return;
+    }
+
+    setDragOverTodoId(id);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    const halfHeight = rect.height / 2;
+
+    if (mouseY < halfHeight) {
+      setDropIndicatorPosition({ id: id, position: 'top' });
+    } else {
+      setDropIndicatorPosition({ id: id, position: 'bottom' });
+    }
+  };
+
+  const handleListDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (!draggedTodoId) {
+      setDropIndicatorPosition({ id: null, position: null });
+      return;
+    }
+
+    if (dragOverTodoId === null) {
+      if (filteredTodoItems.length > 0) {
+        const lastItem = filteredTodoItems[filteredTodoItems.length - 1];
+        if (draggedTodoId !== lastItem.id) {
+          setDropIndicatorPosition({ id: lastItem.id, position: 'bottom' });
+        } else {
+          setDropIndicatorPosition({ id: null, position: null });
+        }
+      } else {
+        setDropIndicatorPosition({ id: null, position: 'top' });
+      }
+    }
+  };
+
+  const handleListDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+
+    if (dragOverTodoId) {
+      const prevDragOverElement = document.getElementById(`todo-item-${dragOverTodoId}`);
+      if (prevDragOverElement) {
+        prevDragOverElement.classList.remove('bg-[#EBE3DD]');
+      }
+    }
+    setDropIndicatorPosition({ id: null, position: null });
+    setDraggedTodoId(null);
+    setDragOverTodoId(null);
+
+    if (!draggedTodoId) {
+      return;
+    }
+
+    if (sortOption !== 'myOrder') {
+      setSortOption('myOrder');
+    }
+
+    const orderedItems = [...todoItems].sort((a, b) => a.orderIndex - b.orderIndex);
+    const draggedIndex = orderedItems.findIndex(item => item.id === draggedTodoId);
+
+    if (draggedIndex === -1) {
+      return;
+    }
+
+    let finalDropIndex: number;
+
+    if (dropIndicatorPosition.id === null) {
+      if (filteredTodoItems.length === 0) {
+        finalDropIndex = 0;
+      } else {
+        finalDropIndex = orderedItems.length;
+      }
+    } else {
+      const dropTargetIndex = orderedItems.findIndex(item => item.id === dropIndicatorPosition.id);
+
+      if (dropTargetIndex === -1) {
+        finalDropIndex = orderedItems.length;
+      } else {
+        if (dropIndicatorPosition.position === 'top') {
+          finalDropIndex = dropTargetIndex;
+        } else {
+          finalDropIndex = dropTargetIndex + 1;
+        }
+      }
+    }
+
+    if (draggedIndex < finalDropIndex) {
+      finalDropIndex--;
+    }
+
+    if (draggedIndex === finalDropIndex) {
+      return;
+    }
+
+    const newOrderedItems = reorder(orderedItems, draggedIndex, finalDropIndex);
+
+    const batch = writeBatch(db);
+    newOrderedItems.forEach((item, index) => {
+      if (item.orderIndex !== index) {
+        const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), item.id); // Use getUserCollectionRef
+        batch.update(todoRef, { orderIndex: index });
+      }
+    });
+
+    try {
+      await batch.commit();
+      toast.success('To-do item reordered!');
+    } catch (error: any) {
+      console.error('Error reordering To-do item:', error);
+      toast.error(`Failed to reorder To-do item: ${error.message}`);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
+    if (dragOverTodoId) {
+      const prevDragOverElement = document.getElementById(`todo-item-${dragOverTodoId}`);
+      if (prevDragOverElement) {
+        prevDragOverElement.classList.remove('bg-[#EBE3DD]');
+      }
+    }
+    setDraggedTodoId(null);
+    setDragOverTodoId(null);
+    setDropIndicatorPosition({ id: null, position: null });
+  };
+
+
+  // Filtered To-Do items based on selectedListId and sortOption
+  const filteredTodoItems = useMemo(() => {
+    let items = [...todoItems];
+
+    if (sortOption === 'date') {
+      items.sort((a, b) => {
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return a.deadline.getTime() - b.deadline.getTime();
+      });
+    } else if (sortOption === 'title') {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return items;
+  }, [todoItems, sortOption]);
 
   return (
     <div
@@ -482,107 +865,204 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                     View all
                   </Link>
                 </div>
-                {/* New Task Button with Dropdown */}
-                <div className="relative" ref={addTaskDropdownRef}>
-                  <button
-                    onClick={() => setShowAddTaskDropdown(!showAddTaskDropdown)}
-                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
-                  >
-                    + New Task
-                  </button>
-                  <AnimatePresence>
-                    {showAddTaskDropdown && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-10 flex flex-col min-w-[180px]"
-                      >
-                        <button
-                          onClick={handleAddNewTodo}
-                          className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                {/* Sort and New Task buttons */}
+                <div className="flex items-center gap-2">
+                  {/* Sort Icon with Dropdown */}
+                  <div className="relative" ref={sortMenuRef}>
+                    <button
+                      onClick={() => setShowSortMenu(!showSortMenu)}
+                      className="p-1 rounded-[5px] border border-[#AB9C95] text-[#332B42] hover:bg-[#E0DBD7] flex items-center justify-center"
+                      title="Sort To-do Items"
+                    >
+                      <ListFilter className="w-4 h-4" />
+                    </button>
+                    <AnimatePresence>
+                      {showSortMenu && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-10 flex flex-col min-w-[120px]"
                         >
-                          Add Individual Task
-                        </button>
-                        <button
-                          onClick={() => {
-                            toast.info("CSV upload functionality coming soon!");
-                            setShowAddTaskDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                          <button
+                            onClick={() => handleSortOptionSelect('myOrder')}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'myOrder' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                          >
+                            My Order
+                          </button>
+                          <button
+                            onClick={() => handleSortOptionSelect('date')}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'date' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                          >
+                            Date
+                          </button>
+                          <button
+                            onClick={() => handleSortOptionSelect('title')}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'title' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                          >
+                            Title
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* New Task Button with Dropdown */}
+                  <div className="relative" ref={addTaskDropdownRef}>
+                    <button
+                      onClick={() => setShowAddTaskDropdown(!showAddTaskDropdown)}
+                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                    >
+                      + New Task
+                    </button>
+                    <AnimatePresence>
+                      {showAddTaskDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-10 flex flex-col min-w-[180px]"
                         >
-                          Upload Tasks (CSV)
-                        </button>
-                        <button
-                          onClick={() => {
-                            toast.info("AI template generation coming soon!");
-                            setShowAddTaskDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
-                        >
-                          Generate from Template (AI)
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                          <button
+                            onClick={handleAddNewTodo}
+                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                          >
+                            Add Individual Task
+                          </button>
+                          <button
+                            onClick={() => {
+                              toast.info("CSV upload functionality coming soon!");
+                              setShowAddTaskDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                          >
+                            Upload Tasks (CSV)
+                          </button>
+                          <button
+                            onClick={() => {
+                              toast.info("AI template generation coming soon!");
+                              setShowAddTaskDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                          >
+                            Generate from Template (AI)
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               </div>
-              {/* Tabs container - removed border-b from here as it's now on active button */}
-              <div className="flex border-b border-[#AB9C95] px-4">
+              {/* Tabs container */}
+              <div className="flex border-b border-[#AB9C95] px-4 overflow-x-auto whitespace-nowrap">
+                {todoLists.map((list) => (
+                  <button
+                    key={list.id}
+                    onClick={() => setSelectedListId(list.id)}
+                    className={`flex-1 text-center py-2 px-3 transition-colors text-xs
+                      ${selectedListId === list.id
+                        ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium'
+                        : 'text-[#332B42] hover:bg-[#E0DBD7] font-normal'
+                      }`}
+                  >
+                    {list.name}
+                  </button>
+                ))}
                 <button
-                  onClick={() => setSelectedTodoSubCategory('all')}
-                  className={`flex-1 text-center py-2 transition-colors
-                    ${selectedTodoSubCategory === 'all'
-                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs'
-                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal'
-                    }`}
+                  onClick={() => setShowNewListInput(true)}
+                  className="flex-shrink-0 py-2 px-3 transition-colors text-xs text-[#332B42] hover:bg-[#E0DBD7] font-normal flex items-center gap-1"
                 >
-                  All To-do
-                </button>
-                <button
-                  onClick={() => setSelectedTodoSubCategory('shared')}
-                  className={`flex-1 text-center py-2 transition-colors
-                    ${selectedTodoSubCategory === 'shared'
-                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs'
-                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal'
-                    }`}
-                >
-                  Shared To-do
-                </button>
-                <button
-                  onClick={() => setSelectedTodoSubCategory('my')}
-                  className={`flex-1 text-center py-2 transition-colors
-                    ${selectedTodoSubCategory === 'my'
-                      ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium text-xs'
-                      : 'text-[#332B42] hover:bg-[#E0DBD7] text-xs font-normal'
-                    }`}
-                >
-                  My To-do
+                  <Plus size={14} /> New List
                 </button>
               </div>
+              {/* New List Input */}
+              <AnimatePresence>
+                {showNewListInput && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="px-4 py-2 bg-[#F3F2F0] border-t border-[#AB9C95] flex items-center gap-2"
+                  >
+                    <input
+                      ref={newListInputRef}
+                      type="text"
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateNewList();
+                        } else if (e.key === 'Escape') {
+                          setShowNewListInput(false);
+                          setNewListName('');
+                        }
+                      }}
+                      placeholder="Enter new list name"
+                      className="flex-1 text-sm border border-[#AB9C95] rounded-[5px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#A85C36]"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleCreateNewList}
+                      className="btn-primary text-xs px-3 py-1"
+                    >
+                      Create
+                    </button>
+                    <button
+                      onClick={() => { setShowNewListInput(false); setNewListName(''); }}
+                      className="btn-primary-inverse text-xs px-3 py-1"
+                    >
+                      Cancel
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Removed p-3 from this container. Individual tasks will have their own padding and border. */}
-            <div className="flex-1 overflow-y-auto">
+            <div
+              className="flex-1 overflow-y-auto"
+              onDragOver={handleListDragOver}
+              onDrop={handleListDrop}
+            >
               {filteredTodoItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center text-gray-500 text-sm py-8">
                   <img src="/To_Do_Items.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
-                  <p>Add a To-do item</p>
+                  <p>Add a To-do item to this list</p>
                 </div>
               ) : (
                 <div className="space-y-0">
-                  <AnimatePresence initial={false}> {/* initial={false} prevents exit animations on initial render */}
+                  <AnimatePresence initial={false}>
                     {filteredTodoItems.map((todo) => (
                       <motion.div
                         key={todo.id}
-                        layout // Enables smooth layout transitions (position changes)
-                        initial={{ opacity: 0, y: 50 }} // Start from below and faded out
-                        animate={{ opacity: 1, y: 0 }} // Animate to normal position and full opacity
-                        exit={{ opacity: 0, y: 50 }} // Animate out by sliding down and fading out
-                        transition={{ duration: 0.3, ease: "easeOut" }} // Smooth transition
-                        className="flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]" // Changed items-center to items-start for top alignment
+                        id={`todo-item-${todo.id}`}
+                        layout
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -50, scale: 0.8 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
+                          ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
+                          ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
+                          ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
+                        `}
+                        draggable={sortOption === 'myOrder'}
+                        onDragStart={(e) => handleDragStart(e, todo.id)}
+                        onDragEnter={(e) => handleDragEnter(e, todo.id)}
+                        onDragLeave={handleDragLeave}
+                        onDragOver={(e) => handleItemDragOver(e, todo.id)}
+                        onDragEnd={handleDragEnd}
                       >
+                        {/* Visual Drop Indicator */}
+                        {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'top' && (
+                          <div className="absolute left-0 right-0 -top-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
+                        )}
+                        {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'bottom' && (
+                          <div className="absolute left-0 right-0 -bottom-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
+                        )}
+
                         <button
                           onClick={() => handleToggleTodoComplete(todo)}
                           className="flex-shrink-0 p-1 flex items-center justify-center"
@@ -606,17 +1086,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   handleUpdateTaskName(todo.id);
-                                  e.currentTarget.blur(); // Remove focus from the input
+                                  e.currentTarget.blur();
                                 }
                               }}
                               className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
                               autoFocus
-                              disabled={todo.isCompleted} // Disable if completed
+                              disabled={todo.isCompleted}
                             />
                           ) : (
                             <p
                               className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
-                              onClick={todo.isCompleted ? undefined : () => { // Prevent editing if completed
+                              onClick={todo.isCompleted ? undefined : () => {
                                 setEditingTaskNameId(todo.id);
                                 setEditingTaskNameValue(todo.name);
                               }}
@@ -634,19 +1114,19 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                                 onChange={(e) => setEditingDeadlineValue(e.target.value)}
                                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                                 autoFocus
-                                disabled={todo.isCompleted} // Disable if completed
+                                disabled={todo.isCompleted}
                               />
                               <button
                                 onClick={() => handleUpdateDeadline(todo.id)}
                                 className="btn-primary text-xs px-2 py-1"
-                                disabled={todo.isCompleted} // Disable if completed
+                                disabled={todo.isCompleted}
                               >
                                 Update
                               </button>
-                              <button
+                               <button
                                 onClick={handleCancelDeadline}
                                 className="btn-primary-inverse text-xs px-2 py-1"
-                                disabled={todo.isCompleted} // Disable if completed
+                                disabled={todo.isCompleted}
                               >
                                 Cancel
                               </button>
@@ -659,7 +1139,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                             <button
                               onClick={() => handleAddDeadline(todo)}
                               className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`}
-                              disabled={todo.isCompleted} // Disable if completed
+                              disabled={todo.isCompleted}
                             >
                               Add Deadline
                             </button>
@@ -674,20 +1154,20 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                                 rows={2}
                                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
                                 autoFocus
-                                disabled={todo.isCompleted} // Disable if completed
+                                disabled={todo.isCompleted}
                               />
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleUpdateNote(todo.id)}
                                   className="btn-primary text-xs px-2 py-1"
-                                  disabled={todo.isCompleted} // Disable if completed
+                                  disabled={todo.isCompleted}
                                 >
                                   Update
                                 </button>
                                 <button
                                   onClick={handleCancelNote}
                                   className="btn-primary-inverse text-xs px-2 py-1"
-                                  disabled={todo.isCompleted} // Disable if completed
+                                  disabled={todo.isCompleted}
                                 >
                                   Cancel
                                 </button>
@@ -701,7 +1181,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                                 display: '-webkit-box',
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: 'vertical',
-                                whiteSpace: 'pre-wrap' // Ensure wrapping for long text
+                                whiteSpace: 'pre-wrap'
                               }}
                               onClick={() => handleAddNote(todo)}
                             >
@@ -711,7 +1191,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                             <button
                               onClick={() => handleAddNote(todo)}
                               className={`text-xs font-normal text-[#364257] underline italic text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`}
-                              disabled={todo.isCompleted} // Disable if completed
+                              disabled={todo.isCompleted}
                             >
                               Click to add note
                             </button>
@@ -726,10 +1206,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                                   customCategoryValue={editingCustomCategoryValue || ''}
                                   onChange={handleCategoryDropdownChange}
                                   onCustomCategoryChange={handleCustomCategoryInputChange}
-                                  label="" // Label is not needed here as it's inline
+                                  label=""
                                   placeholder="Select Category"
-                                  allowRemoval={true} // Allow removing category
-                                  disabled={todo.isCompleted} // Disable if completed
+                                  allowRemoval={true}
+                                  disabled={todo.isCompleted}
                                 />
                                 {editingCategoryValue === "Other" && (
                                   <input
@@ -738,21 +1218,21 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                                     onChange={handleCustomCategoryInputChange}
                                     placeholder="Enter custom category"
                                     className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
-                                    disabled={todo.isCompleted} // Disable if completed
+                                    disabled={todo.isCompleted}
                                   />
                                 )}
                                 <div className="flex gap-2 mt-1">
                                   <button
                                     onClick={() => handleUpdateCategory(todo.id)}
                                     className="btn-primary text-xs px-2 py-1"
-                                    disabled={todo.isCompleted} // Disable if completed
+                                    disabled={todo.isCompleted}
                                   >
                                     Update
                                   </button>
                                   <button
                                     onClick={handleCancelCategory}
                                     className="btn-primary-inverse text-xs px-2 py-1"
-                                    disabled={todo.isCompleted} // Disable if completed
+                                    disabled={todo.isCompleted}
                                   >
                                     Cancel
                                   </button>
@@ -760,17 +1240,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                               </div>
                             ) : todo.category ? (
                               <button
-                                onClick={() => handleEditCategory(todo)} // Make the pill clickable
+                                onClick={() => handleEditCategory(todo)}
                                 className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none ${todo.isCompleted ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                disabled={todo.isCompleted} // Disable if completed
+                                disabled={todo.isCompleted}
                               >
                                 <CategoryPill category={todo.category} />
                               </button>
                             ) : (
                               <button
                                 onClick={() => handleEditCategory(todo)}
-                                className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none ${todo.isCompleted ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                disabled={todo.isCompleted} // Disable if completed
+                                className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none ${todo.isCompleted ? 'text-gray-500' : ''}`}
+                                disabled={todo.isCompleted}
                               >
                                 Add Category
                               </button>
@@ -787,7 +1267,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                         <div className="relative flex-shrink-0 todo-item-menu-container">
                           <button
                             onClick={(e) => {
-                              e.stopPropagation(); // Prevent event bubbling that might close the menu immediately
+                              e.stopPropagation();
                               setOpenMenuId(openMenuId === todo.id ? null : todo.id);
                             }}
                             className={`flex-shrink-0 p-1 text-[#7A7A7A] more-horizontal-button ${todo.isCompleted ? 'opacity-70 cursor-not-allowed' : 'hover:text-[#332B42]'}`}

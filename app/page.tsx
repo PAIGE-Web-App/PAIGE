@@ -1,6 +1,6 @@
 // app/page.tsx
 "use client";
-import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { getAuth, onAuthStateChanged, User, signInWithCustomToken } from "firebase/auth"; // Removed signInAnonymously
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
 import AddContactModal from "../components/AddContactModal";
@@ -13,11 +13,11 @@ import { useDraftMessage } from "../hooks/useDraftMessage";
 import EditContactModal from "../components/EditContactModal";
 import { getCategoryStyle } from "../utils/categoryStyle";
 import toast from "react-hot-toast";
-import { db } from "../lib/firebase";
+import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import Link from "next/link";
 
 import {
-  collection,
+  collection, // Keep if still needed for other root collections, otherwise remove
   query,
   where,
   orderBy,
@@ -33,6 +33,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import OnboardingModal from "../components/OnboardingModal";
 import RightDashboardPanel from "../components/RightDashboardPanel"; // Import the new component
 
+// Declare global variables provided by the Canvas environment
+declare const __app_id: string;
+declare const __firebase_config: string;
+declare const __initial_auth_token: string | undefined; // Make it optional
 
 interface Message {
   id: string;
@@ -98,7 +102,7 @@ const getRelativeDate = (date: Date): string => {
 };
 
 const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string) => void; onClose: () => void }) => {
-  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '�', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '🥹', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
 
   return (
     <div className="p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 flex flex-wrap gap-1">
@@ -152,13 +156,14 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [firebaseInitialized, setFirebaseInitialized] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
+  const [error, setError] = useState<string | null>(null); // State to hold authentication errors
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('name-asc');
@@ -182,20 +187,12 @@ export default function Home() {
       })
     : null;
 
-  const messagesCollection = collection(db, "messages");
-  const contactsCollection = collection(db, "contacts");
-  // const todoItemsCollection = collection(db, "todoItems"); // No longer needed here, moved to RightDashboardPanel
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
   const [isMessageViewActiveOnMobile, setIsMessageViewActiveOnMobile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo'); // Moved to RightDashboardPanel
-  // const [todoItems, setTodoItems] = useState<TodoItem[]>([]); // Moved to RightDashboardPanel
-  // const [selectedTodoSubCategory, setSelectedTodoSubCategory] = useState<'all' | 'shared' | 'my'>('all'); // Moved to RightDashboardPanel
 
 
   useEffect(() => {
@@ -208,75 +205,81 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
+  // Main Firebase Initialization and Authentication Effect
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(getAuth(), async (user) => {
-    if (!user) {
-      setLoadingAuth(false);
-      setCurrentUser(null);
-      return;
-    }
-    setCurrentUser(user);
-    setFirebaseInitialized(true);
+    const auth = getAuth(); // Get auth instance from the initialized app in lib/firebase.ts
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const gmailSuccess = urlParams.get("gmailAuth") === "success";
-
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
-
-    if (userSnap.exists()) {
-      const data = userSnap.data();
-      const completed = data.onboarded;
-
-      if (completed) {
-        if (gmailSuccess) {
-          await triggerGmailImport(user.uid, []);
-        }
-        setShowOnboardingModal(false);
-      } else {
-        setShowOnboardingModal(true);
-      }
-    } else {
-      setShowOnboardingModal(true);
-    }
-    setLoadingAuth(false);
-  });
-
-  return () => unsubscribe();
-}, []);
-
-
-  useEffect(() => {
-      const checkOnboardingStatus = async () => {
-      if (currentUser && firebaseInitialized) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        let onboarded = false;
-        if (userDocSnap.exists()) {
-          onboarded = userDocSnap.data()?.onboarded || false;
-        }
-
-        if (!onboarded) {
-          setShowOnboardingModal(true);
+    const signIn = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+          console.log('page.tsx: Signed in with custom token.');
         } else {
-          setShowOnboardingModal(false);
+          console.warn('page.tsx: __initial_auth_token is NOT defined. Cannot sign in. Ensure Canvas environment is set up correctly.');
+          setError('Authentication token missing. Please ensure your Canvas environment is correctly configured.');
         }
+      } catch (e) {
+        console.error('page.tsx: Firebase sign-in error:', e);
+        setError(`Authentication failed: ${(e as Error).message}`);
+      } finally {
+        setIsAuthReady(true);
+        setLoadingAuth(false);
       }
     };
 
-    checkOnboardingStatus();
-}, [currentUser, firebaseInitialized]);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      setIsAuthReady(true);
+      setLoadingAuth(false);
 
+      console.log('page.tsx: Auth state changed. User:', user ? user.uid : 'No user');
+      console.log('page.tsx: __app_id:', typeof __app_id !== 'undefined' ? __app_id : 'NOT_DEFINED');
+      console.log('page.tsx: __initial_auth_token:', typeof __initial_auth_token !== 'undefined' ? 'DEFINED' : 'NOT_DEFINED');
+
+      if (user) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const gmailSuccess = urlParams.get("gmailAuth") === "success";
+
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          const completed = data.onboarded;
+
+          if (completed) {
+            if (gmailSuccess) {
+              await triggerGmailImport(user.uid, []);
+            }
+            setShowOnboardingModal(false);
+          } else {
+            setShowOnboardingModal(true);
+          }
+        } else {
+          setShowOnboardingModal(true);
+        }
+      }
+    });
+
+    signIn();
+
+    return () => unsubscribeAuth();
+  }, []);
+
+
+  // Contacts Listener
   useEffect(() => {
     let unsubscribeContacts: () => void;
-    if (currentUser) {
+    if (isAuthReady && currentUser?.uid) {
       setContactsLoading(true);
+      const userId = currentUser.uid;
+
+      const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", userId);
+      console.log('page.tsx: Contacts Collection Path:', contactsCollectionRef.path);
+
       const q = query(
-        contactsCollection,
-        where("userId", "==", currentUser.uid),
+        contactsCollectionRef,
+        where("userId", "==", userId),
         orderBy("orderIndex", "asc")
       );
 
@@ -300,8 +303,9 @@ export default function Home() {
           setSelectedContact(fetchedContacts[0] || null);
         }
         setContactsLoading(false);
+        console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
       }, (error) => {
-        console.error("Error fetching contacts:", error);
+        console.error("page.tsx: Error fetching contacts:", error);
         setContactsLoading(false);
         toast.error("Failed to load contacts.");
       });
@@ -315,14 +319,12 @@ export default function Home() {
         unsubscribeContacts();
       }
     };
-  }, [currentUser]);
+  }, [isAuthReady, currentUser]);
 
-  // useEffect for todoItems and selectedTodoSubCategory are now in RightDashboardPanel.tsx
-  // No longer needed here.
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!currentUser) return;
+      if (!isAuthReady || !currentUser) return;
 
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
       if (userDoc.exists()) {
@@ -349,7 +351,7 @@ export default function Home() {
     if (!loadingAuth) {
       fetchUserData();
     }
-  }, [currentUser, loadingAuth]);
+  }, [currentUser, loadingAuth, isAuthReady]);
 
 
   useEffect(() => {
@@ -359,12 +361,17 @@ export default function Home() {
     }
   }, [input]);
 
+  // All Messages Listener
   useEffect(() => {
       let unsubscribeAllMessages: () => void;
-      if (currentUser) {
+      if (isAuthReady && currentUser?.uid) {
+          const userId = currentUser.uid;
+          const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
+          console.log('page.tsx: All Messages Collection Path:', messagesCollectionRef.path);
+
           const qAllMessages = query(
-              messagesCollection,
-              where("userId", "==", currentUser.uid),
+              messagesCollectionRef,
+              where("userId", "==", userId),
               orderBy("createdAt", "desc")
           );
 
@@ -380,6 +387,10 @@ export default function Home() {
                   }
               });
               setContactLastMessageMap(latestTimestamps);
+              console.log(`page.tsx: Fetched ${snapshot.docs.length} all messages for last message map.`);
+          }, (err) => {
+            console.error('page.tsx: Error fetching all messages for last message map:', err);
+            toast.error(`Failed to load message history: ${(err as Error).message}`);
           });
       } else {
           setContactLastMessageMap(new Map());
@@ -389,15 +400,20 @@ export default function Home() {
               unsubscribeAllMessages();
           }
       };
-  }, [currentUser]);
+  }, [isAuthReady, currentUser]);
 
+  // Selected Contact Messages Listener
   useEffect(() => {
     let unsubscribe: () => void;
-    if (selectedContact && currentUser) {
+    if (isAuthReady && selectedContact && currentUser?.uid) {
+      const userId = currentUser.uid;
+      const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
+      console.log('page.tsx: Selected Contact Messages Collection Path:', messagesCollectionRef.path);
+
       const q = query(
-        messagesCollection,
+        messagesCollectionRef,
         where("contactId", "==", selectedContact.id),
-        where("userId", "==", currentUser.uid),
+        where("userId", "==", userId),
         orderBy("createdAt", "asc")
       );
 
@@ -419,6 +435,10 @@ export default function Home() {
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
+        console.log(`page.tsx: Fetched ${fetchedMessages.length} messages for selected contact.`);
+      }, (err) => {
+        console.error('page.tsx: Error fetching selected contact messages:', err);
+        toast.error(`Failed to load messages for contact: ${(err as Error).message}`);
       });
     } else {
       setMessages([]);
@@ -428,7 +448,7 @@ export default function Home() {
         unsubscribe();
       }
     };
-  }, [selectedContact, currentUser]);
+  }, [isAuthReady, selectedContact, currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -490,15 +510,17 @@ export default function Home() {
     };
 
     try {
-      await addDoc(messagesCollection, {
+      const messagesCollectionRef = getUserCollectionRef<Message>("messages", currentUser.uid);
+      await addDoc(messagesCollectionRef, {
         ...newMessage,
         createdAt: newMessage.createdAt,
       });
       setInput("");
       setSelectedFiles([]);
+      console.log("page.tsx: Message sent successfully.");
     } catch (error: any) {
       toast.error(`Failed to send message: ${error.message}`);
-      console.error("Error sending message:", error);
+      console.error("page.tsx: Error sending message:", error);
     }
   };
 
@@ -531,12 +553,6 @@ export default function Home() {
   const handleEmojiSelect = (emoji: string) => {
     setInput((prevInput) => prevInput + emoji);
   };
-
-  // handleAddNewTodo and handleToggleTodoComplete are now in RightDashboardPanel.tsx
-  // No longer needed here.
-
-  // filteredTodoItems is now in RightDashboardPanel.tsx
-  // No longer needed here.
 
 
   const displayContacts = useMemo(() => {
@@ -613,10 +629,13 @@ export default function Home() {
     );
   }
 
-  if (!currentUser) {
+  // Display an error if authentication token is missing and no current user
+  if (!currentUser && !loadingAuth && error) { // Added !loadingAuth and error check
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
-        <p className="text-[#332B42] text-lg font-playfair">Please log in to access the dashboard.</p>
+        <p className="text-[#332B42] text-lg font-playfair">
+          {error}
+        </p>
       </div>
     );
   }
@@ -1193,7 +1212,6 @@ export default function Home() {
             onClose={() => setIsAdding(false)}
             onSave={(newContact) => {
               setSelectedContact(newContact);
-              setIsAdding(false);
             }}
           />
         </div>

@@ -305,7 +305,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
         exit={{ y: "100vh", x: "-50%", left: "50%" }}
         transition={{ type: "spring", stiffness: 200, damping: 30 }}
         className="relative w-full h-[95vh] rounded-t-[15px] bg-[#F3F2F0] flex overflow-hidden
-                   md:w-[90vw] md:max-w-[1000px] md:h-[90vh] md:rounded-[15px] md:top-auto md:left-auto md:transform-none" // Desktop styles
+                   md:h-full md:rounded-[15px] md:top-auto md:left-auto md:transform-none" // Removed md:w and md:max-w, changed md:h to md:h-full to ensure full width on desktop
       >
         <div className="flex flex-1 h-full flex-col md:flex-row"> {/* Changed to flex-col on mobile */}
           {/* Left Sidebar (Steps) - Responsive */}
