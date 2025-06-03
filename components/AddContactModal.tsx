@@ -132,7 +132,7 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
       category: finalCategory,
       website: formData.website.trim() || null,
       avatarColor: avatarColor,
-      orderIndex: Date.now(),
+      orderIndex: -new Date().getTime(), // Changed to a negative timestamp for sorting to the top
       userId: userId,
     };
 

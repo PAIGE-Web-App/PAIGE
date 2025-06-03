@@ -25,13 +25,14 @@ import {
   addDoc,
   writeBatch,
 } from "firebase/firestore";
-import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList } from "lucide-react";
+import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react"; // Added Users icon for contacts tab
 
 import CategoryPill from "../components/CategoryPill";
 import SelectField from "../components/SelectField";
 import { AnimatePresence, motion } from "framer-motion";
 import OnboardingModal from "../components/OnboardingModal";
 import RightDashboardPanel from "../components/RightDashboardPanel"; // Import the new component
+import BottomNavBar from "../components/BottomNavBar"; // NEW: Import the BottomNavBar component
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -71,6 +72,8 @@ interface TodoItem {
   isCompleted: boolean;
   userId: string;
   createdAt: Date;
+  orderIndex: number;
+  listId: string;
 }
 
 const getRelativeDate = (date: Date): string => {
@@ -191,8 +194,8 @@ export default function Home() {
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
-  const [isMessageViewActiveOnMobile, setIsMessageViewActiveOnMobile] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts'); // NEW: State for active mobile tab
 
 
   useEffect(() => {
@@ -299,6 +302,7 @@ export default function Home() {
           };
         });
         setContacts(fetchedContacts);
+        // Only update selectedContact if the current one is deleted or if none is selected
         if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
           setSelectedContact(fetchedContacts[0] || null);
         }
@@ -612,10 +616,18 @@ export default function Home() {
     setSelectedCategoryFilter([]);
   }, []);
 
-
   const handleClearSortOption = useCallback(() => {
     setSortOption('name-asc');
   }, []);
+
+  // Function to handle tab changes from BottomNavBar
+  const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo') => {
+    setActiveMobileTab(tab);
+    // If switching to messages and no contact is selected, default to the first one
+    if (tab === 'messages' && !selectedContact && contacts.length > 0) {
+      setSelectedContact(contacts[0]);
+    }
+  }, [selectedContact, contacts]);
 
 
   if (loadingAuth) {
@@ -665,21 +677,21 @@ export default function Home() {
 
 
       <div
-        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen"
-        style={{ maxHeight: "calc(100vh - 100px)" }}
+        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col" // flex-col for mobile stacking, md:flex-row for desktop
+        style={{ maxHeight: "calc(100vh - 100px)" }} // Adjusted for TopNav height
       >
         {/* Main Content Area - Responsive Flex Container */}
         <div
-          className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden flex-row md:flex-row transition-opacity duration-500 ease-in-out ${
-            contactsLoading ? "opacity-0" : "opacity-100"
-          }`}
+          className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden transition-opacity duration-500 ease-in-out
+            ${contactsLoading ? "opacity-0" : "opacity-100"}
+            ${isMobile ? 'flex-col' : 'flex-row'} `} // Stacks vertically on mobile
           style={{ maxHeight: "100%" }}
         >
           {/* Left Panel (Contact List) */}
           <aside
-            className={`w-full md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0
-              ${isMobile && selectedContact ? 'hidden' : 'block'}
-            `}
+            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full
+              ${isMobile && activeMobileTab !== 'contacts' ? 'hidden' : 'block'}
+            `} // Conditional display for mobile
             style={{ maxHeight: "100%", overflowY: "auto" }}
           >
             {contactsLoading ? (
@@ -823,7 +835,7 @@ export default function Home() {
                           onClick={() => {
                             setSelectedContact(contact);
                             if (isMobile) {
-                              setIsMessageViewActiveOnMobile(true);
+                              setActiveMobileTab('messages'); // Switch to messages tab on contact select
                             }
                           }}
                         >
@@ -867,9 +879,9 @@ export default function Home() {
 
           {/* Center Panel (Message Area) */}
           <section
-            className={`flex flex-col flex-1 bg-white relative
-              ${isMobile && selectedContact && isMessageViewActiveOnMobile ? 'absolute inset-0 z-20' : 'hidden md:flex'}
-            `}
+            className={`flex flex-col flex-1 bg-white relative w-full
+              ${isMobile && activeMobileTab !== 'messages' ? 'hidden' : 'block'}
+            `} // Conditional display for mobile
             style={{ maxHeight: "100%" }}
           >
             {" "}
@@ -883,7 +895,7 @@ export default function Home() {
                     <button
                       onClick={() => {
                         setSelectedContact(null);
-                        setIsMessageViewActiveOnMobile(false);
+                        setActiveMobileTab('contacts'); // Go back to contacts tab
                       }}
                       className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
                       aria-label="Back to contacts"
@@ -1173,8 +1185,12 @@ export default function Home() {
             )}
           </section>
         </div>
-        {/* Right Panel Container - Now a flex row */}
-        {currentUser && <RightDashboardPanel currentUser={currentUser} contacts={contacts} />}
+        {/* Right Panel Container - Now conditionally rendered and takes full width on mobile */}
+        {currentUser && (
+          <div className={`md:w-[380px] w-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}> {/* Conditional display for mobile */}
+            <RightDashboardPanel currentUser={currentUser} contacts={contacts} />
+          </div>
+        )}
       </div>
       {/* Edit Contact Modal */}
       {isEditing && selectedContact && currentUser && (
@@ -1193,10 +1209,13 @@ export default function Home() {
             onDelete={(deletedId: string) => {
               setDeletingContactId(deletedId);
               setTimeout(() => {
-                setContacts((prev) =>
-                  prev.filter((c) => c.id !== deletedId)
-                );
-                setSelectedContact(null);
+                const remainingContacts = contacts.filter((c) => c.id !== deletedId);
+                setContacts(remainingContacts);
+                if (remainingContacts.length > 0) {
+                  setSelectedContact(remainingContacts[0]); // Select the first remaining contact
+                } else {
+                  setSelectedContact(null); // No contacts left, set to null
+                }
                 setDeletingContactId(null);
                 setIsEditing(false);
               }, 300);
@@ -1245,6 +1264,9 @@ export default function Home() {
             }
                 }}
         />
+      )}
+      {isMobile && currentUser && ( // Render BottomNavBar only on mobile and if user is logged in
+        <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
     </>
   );

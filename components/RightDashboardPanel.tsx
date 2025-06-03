@@ -14,16 +14,25 @@ import {
   writeBatch,
   getDocs,
 } from 'firebase/firestore';
-import { db, getUserCollectionRef } from '../lib/firebase'; // Import getUserCollectionRef
+import { db, getUserCollectionRef } from '../lib/firebase';
 import { User } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
-import { CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Check, Copy, Trash2, ListFilter, Plus } from 'lucide-react';
+import {
+  CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Check, Copy, Trash2, ListFilter, Plus, MoveRight,
+  ChevronDown, ChevronUp
+} from 'lucide-react';
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField';
 import { getAllCategories, saveCategoryIfNew } from '../lib/firebaseCategories';
 import { AnimatePresence, motion } from 'framer-motion';
+import MoveTaskModal from './MoveTaskModal';
+import TodoItemComponent from './TodoItemComponent';
+import ListMenuDropdown from './ListMenuDropdown';
+import DeleteListConfirmationModal from './DeleteListConfirmationModal';
+import UpgradePlanModal from './UpgradePlanModal';
+import Banner from './Banner';
 
 // Define necessary interfaces
 interface TodoItem {
@@ -73,27 +82,20 @@ const reorder = (list: TodoItem[], startIndex: number, endIndex: number): TodoIt
   return result;
 };
 
-// Removed global collection references as getUserCollectionRef will be used directly
+// Define the maximum number of lists for a "Starter" tier user
+const STARTER_TIER_MAX_LISTS = 3;
 
 const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts }) => {
-  // State declarations remain the same
+  // State declarations
   const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
-  const [editingDeadlineId, setEditingDeadlineId] = useState<string | null>(null);
-  const [editingDeadlineValue, setEditingDeadlineValue] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteValue, setEditingNoteValue] = useState<string | null>(null);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryValue, setEditingCategoryValue] = useState<string | null>(null);
-  const [editingCustomCategoryValue, setEditingCustomCategoryValue] = useState<string | null>(null);
+  const [listTaskCounts, setListTaskCounts] = useState<Map<string, number>>(new Map()); // NEW: State for task counts per list
+
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [showAddTaskDropdown, setShowAddTaskDropdown] = useState(false);
   const addTaskDropdownRef = useRef<HTMLDivElement>(null);
-  const [editingTaskNameId, setEditingTaskNameId] = useState<string | null>(null);
-  const [editingTaskNameValue, setEditingTaskNameValue] = useState<string | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<'myOrder' | 'date' | 'title'>('myOrder');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -103,6 +105,31 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const [showNewListInput, setShowNewListInput] = useState(false);
   const [newListName, setNewListName] = useState('');
   const newListInputRef = useRef<HTMLInputElement>(null);
+  const [showMoveTaskModal, setShowMoveTaskModal] = useState<boolean>(false);
+  const [taskToMove, setTaskToMove] = useState<TodoItem | null>(null);
+  const [showCompletedTasks, setShowCompletedTasks] = useState<boolean>(false); // New state for completed tasks section
+
+  // State for list renaming
+  const [editingListNameId, setEditingListNameId] = useState<string | null>(null);
+  const [editingListNameValue, setEditingListNameValue] = useState<string | null>(null);
+  const [openListMenuId, setOpenListMenuId] = useState<string | null>(null); // State for list's three-dot menu
+
+  // New states for delete confirmation modal
+  const [showDeleteListModal, setShowDeleteListModal] = useState<boolean>(false);
+  const [listToConfirmDelete, setListToConfirmDelete] = useState<TodoList | null>(null);
+
+  // New state for upgrade modal
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false); // Controls visibility of the upgrade modal
+  const [showListLimitBanner, setShowListLimitBanner] = useState<boolean>(true); // Controls visibility of the banner
+
+
+  // Ref for each list's more button
+  const listButtonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+
+  // Check if the user has reached the list limit
+  // This now checks if adding *one more* list would exceed the limit
+  const willReachListLimit = todoLists.length >= STARTER_TIER_MAX_LISTS;
+
 
   // Fetch all categories for the dropdown
   useEffect(() => {
@@ -122,7 +149,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     const userId = currentUser?.uid;
 
     if (userId) {
-      // Use getUserCollectionRef for todoLists
       const todoListsCollectionRef = getUserCollectionRef<TodoList>("todoLists", userId);
       const q = query(
         todoListsCollectionRef,
@@ -157,7 +183,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
               orderIndex: 0,
             };
             try {
-              const docRef = await addDoc(getUserCollectionRef("todoLists", userId), newMyTodoList); // Use getUserCollectionRef
+              const docRef = await addDoc(getUserCollectionRef("todoLists", userId), newMyTodoList);
               myTodoList = { ...newMyTodoList, id: docRef.id };
               toast.success('Created "My To-do" list!');
             } catch (error) {
@@ -182,13 +208,44 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         unsubscribeTodoLists();
       }
     };
-  }, [currentUser?.uid, selectedListId]); // Depend on selectedListId to react to changes
+  }, [currentUser?.uid, selectedListId]);
+
+  // NEW: Effect to fetch all To-Do items for task counts
+  useEffect(() => {
+    let unsubscribeAllTodoItems: () => void;
+    if (currentUser?.uid) {
+      const userId = currentUser.uid;
+      const allTodoItemsCollectionRef = getUserCollectionRef<TodoItem>("todoItems", userId);
+      const qAll = query(allTodoItemsCollectionRef, where('userId', '==', userId));
+
+      unsubscribeAllTodoItems = onSnapshot(qAll, (snapshot) => {
+        const counts = new Map<string, number>();
+        snapshot.docs.forEach(docSnap => {
+          const data = docSnap.data();
+          const listId = data.listId;
+          if (listId) {
+            counts.set(listId, (counts.get(listId) || 0) + 1);
+          }
+        });
+        setListTaskCounts(counts);
+      }, (error) => {
+        console.error('Error fetching all To-Do items for counts:', error);
+      });
+    } else {
+      setListTaskCounts(new Map());
+    }
+    return () => {
+      if (unsubscribeAllTodoItems) {
+        unsubscribeAllTodoItems();
+      }
+    };
+  }, [currentUser?.uid]);
+
 
   // Effect to fetch To-Do items based on selectedListId
   useEffect(() => {
     let unsubscribeTodoItems: () => void;
     if (currentUser && rightPanelSelection === 'todo' && selectedListId) {
-      // Use getUserCollectionRef for todoItems
       const todoItemsCollectionRef = getUserCollectionRef<TodoItem>("todoItems", currentUser.uid);
       const q = query(
         todoItemsCollectionRef,
@@ -223,8 +280,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
         if (myTodoList) {
           const tasksWithoutListIdQuery = query(
-            getUserCollectionRef("todoItems", currentUser.uid), // Use getUserCollectionRef
-            where('userId', '==', currentUser.uid),
+            getUserCollectionRef("todoItems", currentUser.uid),
             where('listId', '==', null)
           );
           const tasksWithoutListIdSnapshot = await getDocs(tasksWithoutListIdQuery);
@@ -232,14 +288,14 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           tasksWithoutListIdSnapshot.forEach(docSnap => {
             const taskData = docSnap.data();
             if (!taskData.listId) {
-              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id); // Use getUserCollectionRef
+              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id);
               batch.update(taskRef, { listId: myTodoList.id });
               needsBatchCommit = true;
             }
           });
 
           const tasksWithEmptyListIdQuery = query(
-            getUserCollectionRef("todoItems", currentUser.uid), // Use getUserCollectionRef
+            getUserCollectionRef("todoItems", currentUser.uid),
             where('userId', '==', currentUser.uid),
             where('listId', '==', '')
           );
@@ -248,7 +304,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           tasksWithEmptyListIdSnapshot.forEach(docSnap => {
             const taskData = docSnap.data();
             if (taskData.listId === '') {
-              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id); // Use getUserCollectionRef
+              const taskRef = doc(getUserCollectionRef("todoItems", currentUser.uid), docSnap.id);
               batch.update(taskRef, { listId: myTodoList.id });
               needsBatchCommit = true;
             }
@@ -278,7 +334,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         unsubscribeTodoItems();
       }
     };
-  }, [currentUser, rightPanelSelection, selectedListId, todoLists]); // Depend on todoLists for migration logic
+  }, [currentUser, rightPanelSelection, selectedListId, todoLists]);
 
   // Effect to close dropdowns and input when clicking outside
   useEffect(() => {
@@ -288,25 +344,33 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         setShowAddTaskDropdown(false);
       }
 
-      // Close "MoreHorizontal" menu if open and click is outside
-      const clickedElement = event.target as HTMLElement;
-      if (
-        openMenuId !== null &&
-        !clickedElement.closest('.todo-item-menu-container') &&
-        !clickedElement.closest('.more-horizontal-button')
-      ) {
-        setOpenMenuId(null);
-      }
-
       // Close sort menu if open and click is outside
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
         setShowSortMenu(false);
       }
 
       // Close new list input if open and click is outside
+      // Only hide and clear if the click was outside AND not on the "Add" button itself
       if (showNewListInput && newListInputRef.current && !newListInputRef.current.contains(event.target as Node)) {
-        setShowNewListInput(false);
-        setNewListName(''); // Clear input on close
+        const targetElement = event.target as HTMLElement;
+        const addButton = targetElement.closest('.btn-primary'); // Check if the clicked element or its parent is the "Add" button
+        if (!addButton || addButton.textContent !== 'Add') { // Ensure it's the specific Add button for new list
+            setShowNewListInput(false);
+            setNewListName(''); // Clear input on close
+        }
+      }
+
+      // Close list menu if open and click is outside
+      const clickedElement = event.target as HTMLElement;
+      // Check if the click was outside any open list menu and its corresponding button
+      if (openListMenuId !== null) {
+        const menuElement = document.getElementById(`list-menu-${openListMenuId}`);
+        const buttonElement = listButtonRefs.current[openListMenuId];
+
+        if (menuElement && !menuElement.contains(clickedElement) &&
+            buttonElement && !buttonElement.contains(clickedElement)) {
+          setOpenListMenuId(null);
+        }
       }
     };
 
@@ -314,7 +378,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showAddTaskDropdown, openMenuId, showSortMenu, showNewListInput]);
+  }, [showAddTaskDropdown, showSortMenu, showNewListInput, openListMenuId]);
 
   // Function to handle adding a new To-Do item
   const handleAddNewTodo = async () => {
@@ -341,7 +405,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     };
 
     try {
-      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), { // Use getUserCollectionRef
+      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
         ...newTodo,
         createdAt: newTodo.createdAt,
       });
@@ -356,13 +420,24 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // Function to handle creating a new list
   const handleCreateNewList = async () => {
+    console.log('handleCreateNewList called'); // Debug log
     if (!currentUser) {
       toast.error('You must be logged in to create a new list.');
+      // Do NOT clear input or hide input field here.
       return;
     }
+    // Check if adding this new list would exceed the limit
+    if (todoLists.length + 1 > STARTER_TIER_MAX_LISTS) { // This condition checks if the *next* list would exceed the limit
+      setShowUpgradeModal(true);
+      setNewListName(''); // Clear input if modal is shown
+      setShowNewListInput(false); // Hide input if modal is shown
+      return;
+    }
+
     const trimmedListName = newListName.trim();
     if (!trimmedListName) {
       toast.error('List name cannot be empty.');
+      // Do NOT clear input or hide input field here.
       return;
     }
 
@@ -370,6 +445,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedListName.toLowerCase());
     if (existingList) {
       toast.error('A list with this name already exists.');
+      // Do NOT clear input or hide input field here.
       return;
     }
 
@@ -384,195 +460,224 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     };
 
     try {
-      const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList); // Use getUserCollectionRef
+      // Capture the docRef here
+      const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList);
       toast.success(`List "${trimmedListName}" created!`);
-      setNewListName('');
-      setShowNewListInput(false);
       setSelectedListId(docRef.id); // Automatically select the new list
+      setNewListName(''); // Clear input ONLY on success
+      setShowNewListInput(false); // Hide input ONLY on success
     } catch (error: any) {
       console.error('Error creating new list:', error);
       toast.error(`Failed to create new list: ${error.message}`);
+      // If an error occurs during addDoc, the input and field should remain.
     }
   };
 
-  // Function to toggle To-Do item completion
-  const handleToggleTodoComplete = async (todo: TodoItem) => {
+  // Function to handle renaming a list
+  const handleRenameList = useCallback(async (listId: string) => {
+    if (!currentUser) {
+      toast.error('You must be logged in to rename a list.');
+      return;
+    }
+    const trimmedName = editingListNameValue?.trim();
+    if (!trimmedName) {
+      toast.error('List name cannot be empty.');
+      // Revert to original name if empty
+      const originalList = todoLists.find(list => list.id === listId);
+      if (originalList) {
+        setEditingListNameValue(originalList.name);
+      }
+      setEditingListNameId(null);
+      return;
+    }
+
+    // Check for duplicate name
+    const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedName.toLowerCase() && list.id !== listId);
+    if (existingList) {
+      toast.error('A list with this name already exists.');
+      const originalList = todoLists.find(list => list.id === listId);
+      if (originalList) {
+        setEditingListNameValue(originalList.name);
+      }
+      setEditingListNameId(null);
+      return;
+    }
+
     try {
-      const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id); // Use getUserCollectionRef
+      const listRef = doc(getUserCollectionRef("todoLists", currentUser.uid), listId);
+      await updateDoc(listRef, { name: trimmedName });
+      toast.success('List renamed successfully!');
+    } catch (error: any) {
+      console.error('Error renaming list:', error);
+      toast.error(`Failed to rename list: ${error.message}`);
+    } finally {
+      setEditingListNameId(null);
+      setEditingListNameValue(null);
+    }
+  }, [currentUser, editingListNameValue, todoLists]);
+
+  // Helper function to execute the actual deletion of a list and its tasks
+  const executeDeleteList = useCallback(async (listId: string) => {
+    if (!currentUser) {
+      toast.error('You must be logged in to delete a list.');
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Delete all tasks associated with this list
+      const tasksToDeleteQuery = query(
+        getUserCollectionRef("todoItems", currentUser.uid),
+        where('listId', '==', listId)
+      );
+      const tasksSnapshot = await getDocs(tasksToDeleteQuery);
+      tasksSnapshot.forEach(taskDoc => {
+        batch.delete(doc(getUserCollectionRef("todoItems", currentUser.uid), taskDoc.id));
+      });
+
+      // 2. Delete the list itself
+      const listRef = doc(getUserCollectionRef("todoLists", currentUser.uid), listId);
+      batch.delete(listRef);
+
+      await batch.commit();
+      toast.success('List and its tasks deleted successfully!');
+
+      // If the deleted list was the currently selected one, select another list
+      if (selectedListId === listId) {
+        const remainingLists = todoLists.filter(list => list.id !== listId);
+        if (remainingLists.length > 0) {
+          setSelectedListId(remainingLists[0].id);
+        } else {
+          setSelectedListId(null); // No lists left
+        }
+      }
+    } catch (error: any) {
+      console.error('Error deleting list:', error);
+      toast.error(`Failed to delete list: ${error.message}`);
+    } finally {
+      setOpenListMenuId(null);
+    }
+  }, [currentUser, selectedListId, todoLists]);
+
+
+  // Function to handle deleting a list (initial click handler)
+  const handleDeleteList = useCallback(async (listId: string) => {
+    if (!currentUser) {
+      toast.error('You must be logged in to delete a list.');
+      return;
+    }
+
+    const listToDelete = todoLists.find(list => list.id === listId);
+    if (!listToDelete) return;
+
+    // Check if there are any tasks associated with this list
+    const tasksQuery = query(
+      getUserCollectionRef("todoItems", currentUser.uid),
+      where('listId', '==', listId)
+    );
+    const tasksSnapshot = await getDocs(tasksQuery);
+
+    if (tasksSnapshot.size > 0) {
+      // If tasks exist, show the confirmation modal
+      setListToConfirmDelete(listToDelete);
+      setShowDeleteListModal(true);
+      setOpenListMenuId(null); // Close the dropdown menu
+    } else {
+      // If no tasks, proceed with direct deletion
+      executeDeleteList(listId);
+    }
+  }, [currentUser, todoLists, executeDeleteList]);
+
+
+  // Function to toggle To-Do item completion
+  const handleToggleTodoComplete = useCallback(async (todo: TodoItem) => {
+    try {
+      const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
       await setDoc(todoRef, { isCompleted: !todo.isCompleted }, { merge: true });
       toast.success(`To-do item marked as ${todo.isCompleted ? 'incomplete' : 'complete'}!`);
     } catch (error: any) {
       console.error('Error toggling To-Do item completion:', error);
-      toast.error(`Failed to update To-Do item: ${error.message}`);
+      toast.error(`Failed to update To-do item: ${error.message}`);
     }
-  };
+  }, []);
 
-  // Function to handle showing the deadline input
-  const handleAddDeadline = (todo: TodoItem) => {
-    if (todo.isCompleted) return;
-    setEditingDeadlineId(todo.id);
-    setEditingDeadlineValue(todo.deadline ? todo.deadline.toISOString().slice(0, 16) : '');
-  };
-
-  // Function to handle updating the deadline
-  const handleUpdateDeadline = async (todoId: string) => {
-    let newDeadline: Date | null = null;
-
-    if (editingDeadlineValue) {
-      const date = new Date(editingDeadlineValue);
-      if (!isNaN(date.getTime())) {
-        newDeadline = date;
-      } else {
-        toast.error('Invalid date or time format.');
-        return;
-      }
-    }
-
-    try {
-      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
-      await setDoc(todoRef, { deadline: newDeadline }, { merge: true });
-      toast.success('Deadline updated!');
-    } catch (error: any) {
-      console.error('Error updating deadline:', error);
-      toast.error(`Failed to update deadline: ${error.message}`);
-    } finally {
-      setEditingDeadlineId(null);
-      setEditingDeadlineValue(null);
-    }
-  };
-
-  // Function to handle canceling deadline edit
-  const handleCancelDeadline = () => {
-    setEditingDeadlineId(null);
-    setEditingDeadlineValue(null);
-  };
-
-  // Functions for note editing
-  const handleAddNote = (todo: TodoItem) => {
-    if (todo.isCompleted) return;
-    setEditingNoteId(todo.id);
-    setEditingNoteValue(todo.note || '');
-  };
-
-  const handleUpdateNote = async (todoId: string) => {
+  // Function to handle updating the deadline (now called from TodoItemComponent)
+  const handleUpdateDeadline = useCallback(async (todoId: string, newDeadline: Date | null) => {
     if (!currentUser) {
       toast.error('User not authenticated.');
       return;
     }
-
     try {
-      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
-      await setDoc(todoRef, { note: editingNoteValue?.trim() || null }, { merge: true });
-      toast.success(`Note ${editingNoteValue?.trim() ? 'updated' : 'removed'}!`);
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      await setDoc(todoRef, { deadline: newDeadline }, { merge: true });
+      toast.success('Deadline updated!');
+    }  catch (error: any) {
+      console.error('Error updating deadline:', error);
+      toast.error(`Failed to update deadline: ${error.message}`);
+    }
+  }, [currentUser]);
+
+  // Functions for note editing (now called from TodoItemComponent)
+  const handleUpdateNote = useCallback(async (todoId: string, newNote: string | null) => {
+    if (!currentUser) {
+      toast.error('User not authenticated.');
+      return;
+    }
+    try {
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      await setDoc(todoRef, { note: newNote }, { merge: true });
+      toast.success(`Note ${newNote ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating note:', error);
       toast.error(`Failed to update note: ${error.message}`);
-    } finally {
-      setEditingNoteId(null);
-      setEditingNoteValue(null);
     }
-  };
+  }, [currentUser]);
 
-  const handleCancelNote = () => {
-    setEditingNoteId(null);
-    setEditingNoteValue(null);
-  };
-
-  // New functions for category editing
-  const handleEditCategory = (todo: TodoItem) => {
-    if (todo.isCompleted) return;
-    setEditingCategoryId(todo.id);
-    setEditingCategoryValue(todo.category || '');
-    const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue", "Wedding Planner", "Officiant", "Baker", "Dress Shop", "Suit/Tux Rental", "Hair Stylist", "Makeup Artist", "Musician", "Stationery", "Transportation", "Rentals", "Favors", "Jeweler", "Videographer"];
-    if (todo.category && !defaultCategories.includes(todo.category) && allCategories.includes(todo.category)) {
-      setEditingCategoryValue("Other");
-      setEditingCustomCategoryValue(todo.category);
-    } else {
-      setEditingCustomCategoryValue("");
-    }
-  };
-
-  const handleCategoryDropdownChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setEditingCategoryValue(e.target.value);
-    if (e.target.value !== "Other") {
-      setEditingCustomCategoryValue("");
-    }
-  }, []);
-
-  const handleCustomCategoryInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditingCustomCategoryValue(e.target.value);
-  }, []);
-
-  const handleUpdateCategory = async (todoId: string) => {
+  // Functions for category editing (now called from TodoItemComponent)
+  const handleUpdateCategory = useCallback(async (todoId: string, newCategory: string | null) => {
     if (!currentUser) {
       toast.error('User not authenticated.');
-      return;
     }
 
-    let finalCategory: string | null = editingCategoryValue;
-
-    if (editingCategoryValue === "--remove--") {
-      finalCategory = null;
-    } else if (editingCategoryValue === "Other") {
-      finalCategory = editingCustomCategoryValue?.trim() || "";
-      if (!finalCategory) {
-        toast.error("Custom category name is required.");
-        return;
-      }
-      await saveCategoryIfNew(finalCategory, currentUser.uid);
+    // Save new custom category if it's not null and not already in allCategories
+    if (newCategory && !allCategories.includes(newCategory)) {
+      await saveCategoryIfNew(newCategory, currentUser.uid);
     }
 
     try {
-      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
-      await setDoc(todoRef, { category: finalCategory }, { merge: true });
-      toast.success(`Category ${finalCategory ? 'updated' : 'removed'}!`);
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      await setDoc(todoRef, { category: newCategory }, { merge: true });
+      toast.success(`Category ${newCategory ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating category:', error);
       toast.error(`Failed to update category: ${error.message}`);
-    } finally {
-      setEditingCategoryId(null);
-      setEditingCategoryValue(null);
-      setEditingCustomCategoryValue(null);
     }
-  };
+  }, [currentUser, allCategories]);
 
-  const handleCancelCategory = () => {
-    setEditingCategoryId(null);
-    setEditingCategoryValue(null);
-    setEditingCustomCategoryValue(null);
-  };
-
-  // Function to handle updating the task name
-  const handleUpdateTaskName = async (todoId: string) => {
+  // Function to handle updating the task name (now called from TodoItemComponent)
+  const handleUpdateTaskName = useCallback(async (todoId: string, newName: string) => {
     if (!currentUser) {
       toast.error('User not authenticated.');
       return;
     }
-    const trimmedName = editingTaskNameValue?.trim();
+    const trimmedName = newName.trim();
     if (!trimmedName) {
       toast.error('Task name cannot be empty.');
-      const originalTodo = todoItems.find(item => item.id === todoId);
-      if (originalTodo) {
-        setEditingTaskNameValue(originalTodo.name);
-      }
-      setEditingTaskNameId(null);
       return;
     }
     try {
-      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId); // Use getUserCollectionRef
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
       await setDoc(todoRef, { name: trimmedName }, { merge: true });
       toast.success('Task name updated!');
     } catch (error: any) {
       console.error('Error updating task name:', error);
       toast.error(`Failed to update task name: ${error.message}`);
-    } finally {
-      setEditingTaskNameId(null);
-      setEditingTaskNameValue(null);
     }
-  };
+  }, [currentUser]);
 
   // Function to clone a To-Do item
-  const handleCloneTodo = async (todo: TodoItem) => {
+  const handleCloneTodo = useCallback(async (todo: TodoItem) => {
     if (!currentUser) {
       toast.error('You must be logged in to clone a To-Do item.');
       return;
@@ -582,6 +687,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       return;
     }
 
+    // Adjust createdAt to ensure unique order or slight delay for Firestore order
     const newCreatedAt = new Date(todo.createdAt.getTime() + 1);
     const maxOrderIndex = todoItems.length > 0 ? Math.max(...todoItems.map(item => item.orderIndex)) : -1;
 
@@ -599,65 +705,126 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     };
 
     try {
-      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), { // Use getUserCollectionRef
+      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
         ...clonedTodo,
-        createdAt: clonedTodo.createdAt,
+        createdAt: clonedTodo.createdAt, // Ensure Firestore Timestamp conversion
       });
       toast.success('To-do item cloned successfully!');
     } catch (error: any) {
       console.error('Error cloning To-do item:', error);
       toast.error(`Failed to clone To-do item: ${error.message}`);
-    } finally {
-      setOpenMenuId(null);
     }
-  };
+  }, [currentUser, selectedListId, todoItems]);
 
   // Function to delete a To-Do item
-  const handleDeleteTodo = async (todoId: string) => {
+  const handleDeleteTodo = useCallback(async (todoId: string) => {
     if (!currentUser) {
       toast.error('You must be logged in to delete a To-Do item.');
       return;
     }
     try {
-      await deleteDoc(doc(getUserCollectionRef("todoItems", currentUser.uid), todoId)); // Use getUserCollectionRef
+      await deleteDoc(doc(getUserCollectionRef("todoItems", currentUser.uid), todoId));
       toast.success('To-do item deleted successfully!');
     } catch (error: any) {
-      console.error('Error deleting To-do item:', error);
-      toast.error(`Failed to delete To-do item: ${error.message}`);
-    } finally {
-      setOpenMenuId(null);
+      console.error('Error deleting To-Do item:', error);
+      toast.error(`Failed to delete To-Do item: ${error.message}`);
     }
-  };
+  }, [currentUser]);
+
+  // Function to handle moving a To-Do item to another list
+  const handleMoveTodoItem = useCallback(async (taskId: string, targetListId: string) => {
+    if (!currentUser?.uid) return;
+
+    try {
+      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), taskId);
+
+      // Get the current max orderIndex in the target list
+      const targetListItemsQuery = query(
+        getUserCollectionRef("todoItems", currentUser.uid),
+        where('listId', '==', targetListId),
+        orderBy('orderIndex', 'desc')
+      );
+      const targetListItemsSnapshot = await getDocs(targetListItemsQuery);
+      const maxOrderIndexInTarget = targetListItemsSnapshot.docs.length > 0
+        ? targetListItemsSnapshot.docs[0].data().orderIndex
+        : -1;
+
+      await updateDoc(todoRef, {
+        listId: targetListId,
+        orderIndex: maxOrderIndexInTarget + 1, // Place at the end of the new list
+      });
+      toast.success('To-do item moved successfully!');
+    } catch (error) {
+      console.error("Error moving todo item:", error);
+      toast.error("Failed to move to-do item.");
+    } finally {
+      setShowMoveTaskModal(false);
+      setTaskToMove(null);
+    }
+  }, [currentUser?.uid]);
+
 
   // Function to handle sort option selection
-  const handleSortOptionSelect = (option: 'myOrder' | 'date' | 'title') => {
+  const handleSortOptionSelect = useCallback((option: 'myOrder' | 'date' | 'title') => {
     setSortOption(option);
     setShowSortMenu(false);
-  };
+  }, []);
 
-  // Drag and Drop Handlers
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+
+  // Filtered To-Do items based on selectedListId and sortOption
+  const filteredTodoItems = useMemo(() => {
+    let items = [...todoItems];
+
+    const incompleteTasks = items.filter(item => !item.isCompleted);
+    const completedTasks = items.filter(item => item.isCompleted);
+
+    if (sortOption === 'date') {
+      incompleteTasks.sort((a, b) => {
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return a.deadline.getTime() - b.deadline.getTime();
+      });
+      completedTasks.sort((a, b) => {
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return a.deadline.getTime() - b.deadline.getTime();
+      });
+    } else if (sortOption === 'title') {
+      incompleteTasks.sort((a, b) => a.name.localeCompare(b.name));
+      completedTasks.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // For 'myOrder', they are already sorted by orderIndex from the Firestore query
+    // so no additional sort is needed here, just the separation.
+
+    return { incompleteTasks, completedTasks };
+  }, [todoItems, sortOption]);
+
+
+  // Drag and Drop Handlers (these remain in parent as they manage global drag state)
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, id: string) => {
     setDraggedTodoId(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
     e.currentTarget.classList.add('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
-  };
+  }, []);
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>, id: string) => {
     e.preventDefault();
     if (draggedTodoId !== id) {
       setDragOverTodoId(id);
     }
-  };
+  }, [draggedTodoId]);
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.remove('bg-[#EBE3DD]');
     setDragOverTodoId(null);
     setDropIndicatorPosition({ id: null, position: null });
-  };
+  }, []);
 
-  const handleItemDragOver = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+  const handleItemDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, id: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
@@ -678,9 +845,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     } else {
       setDropIndicatorPosition({ id: id, position: 'bottom' });
     }
-  };
+  }, [draggedTodoId]);
 
-  const handleListDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleListDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
@@ -690,8 +857,15 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
 
     if (dragOverTodoId === null) {
-      if (filteredTodoItems.length > 0) {
-        const lastItem = filteredTodoItems[filteredTodoItems.length - 1];
+      if (filteredTodoItems.incompleteTasks.length > 0) { // Check incomplete tasks for drop target
+        const lastItem = filteredTodoItems.incompleteTasks[filteredTodoItems.incompleteTasks.length - 1];
+        if (draggedTodoId !== lastItem.id) {
+          setDropIndicatorPosition({ id: lastItem.id, position: 'bottom' });
+        } else {
+          setDropIndicatorPosition({ id: null, position: null });
+        }
+      } else if (filteredTodoItems.completedTasks.length > 0) { // If no incomplete, check completed
+        const lastItem = filteredTodoItems.completedTasks[filteredTodoItems.completedTasks.length - 1];
         if (draggedTodoId !== lastItem.id) {
           setDropIndicatorPosition({ id: lastItem.id, position: 'bottom' });
         } else {
@@ -701,9 +875,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         setDropIndicatorPosition({ id: null, position: 'top' });
       }
     }
-  };
+  }, [draggedTodoId, dragOverTodoId, filteredTodoItems.incompleteTasks, filteredTodoItems.completedTasks]);
 
-  const handleListDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleListDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
 
     if (dragOverTodoId) {
@@ -724,6 +898,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       setSortOption('myOrder');
     }
 
+    // Combine all tasks for reordering, then filter
     const orderedItems = [...todoItems].sort((a, b) => a.orderIndex - b.orderIndex);
     const draggedIndex = orderedItems.findIndex(item => item.id === draggedTodoId);
 
@@ -734,7 +909,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     let finalDropIndex: number;
 
     if (dropIndicatorPosition.id === null) {
-      if (filteredTodoItems.length === 0) {
+      // Dropping into an empty list or at the very end
+      if (filteredTodoItems.incompleteTasks.length === 0 && filteredTodoItems.completedTasks.length === 0) {
         finalDropIndex = 0;
       } else {
         finalDropIndex = orderedItems.length;
@@ -753,20 +929,22 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       }
     }
 
+    // Adjust finalDropIndex if dragged item is being moved to a position after its original
     if (draggedIndex < finalDropIndex) {
       finalDropIndex--;
     }
 
     if (draggedIndex === finalDropIndex) {
-      return;
+      return; // No change in position
     }
 
     const newOrderedItems = reorder(orderedItems, draggedIndex, finalDropIndex);
 
     const batch = writeBatch(db);
     newOrderedItems.forEach((item, index) => {
+      // Only update if orderIndex has truly changed
       if (item.orderIndex !== index) {
-        const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), item.id); // Use getUserCollectionRef
+        const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), item.id);
         batch.update(todoRef, { orderIndex: index });
       }
     });
@@ -778,9 +956,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       console.error('Error reordering To-do item:', error);
       toast.error(`Failed to reorder To-do item: ${error.message}`);
     }
-  };
+  }, [draggedTodoId, dropIndicatorPosition, sortOption, todoItems, filteredTodoItems.incompleteTasks, filteredTodoItems.completedTasks, currentUser]);
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnd = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.currentTarget.classList.remove('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
     if (dragOverTodoId) {
       const prevDragOverElement = document.getElementById(`todo-item-${dragOverTodoId}`);
@@ -791,34 +969,16 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     setDraggedTodoId(null);
     setDragOverTodoId(null);
     setDropIndicatorPosition({ id: null, position: null });
-  };
+  }, [dragOverTodoId]);
 
-
-  // Filtered To-Do items based on selectedListId and sortOption
-  const filteredTodoItems = useMemo(() => {
-    let items = [...todoItems];
-
-    if (sortOption === 'date') {
-      items.sort((a, b) => {
-        if (!a.deadline && !b.deadline) return 0;
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
-        return a.deadline.getTime() - b.deadline.getTime();
-      });
-    } else if (sortOption === 'title') {
-      items.sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    return items;
-  }, [todoItems, sortOption]);
 
   return (
     <div
-      className="hidden md:flex flex-row w-1/4 rounded-[5px] border border-[#AB9C95] overflow-hidden"
+      className="hidden md:flex flex-row w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden" // Changed flex-1 to w-full h-full
       style={{ maxHeight: '100%' }}
     >
       {/* Vertical Navigation (Icons) - Main Panel Switcher - Left Column of Right Panel */}
-      <div className="flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2">
+      <div className="flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2 flex-shrink-0 w-[60px]"> {/* Added fixed width */}
         <button
           onClick={() => setRightPanelSelection('todo')}
           className={`p-2 rounded-[5px] transition-colors flex items-center justify-center
@@ -850,15 +1010,15 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
       {/* Content Area for Right Panel - Right Column of Right Panel */}
       <aside
-        className="flex-1 bg-[#DEDBDB] p-3 overflow-y-auto"
+        className="flex-1 bg-[#DEDBDB] p-3 overflow-y-auto w-full"
         style={{ maxHeight: '100%' }}
       >
         {/* Conditional Content based on rightPanelSelection */}
         {rightPanelSelection === 'todo' && (
           <div className="flex flex-col h-full">
             {/* Wrapper div for the header and tabs with the desired background color */}
-            <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95]">
-              <div className="flex justify-between items-center px-4 pt-4 mb-2">
+            <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95] p-3 md:p-4">
+              <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-playfair text-base font-medium text-[#332B42]">To-do Items</h3>
                   <Link href="/todo" className="text-xs text-[#364257] hover:text-[#A85C36] font-medium no-underline">
@@ -871,8 +1031,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                   <div className="relative" ref={sortMenuRef}>
                     <button
                       onClick={() => setShowSortMenu(!showSortMenu)}
-                      className="p-1 rounded-[5px] border border-[#AB9C95] text-[#332B42] hover:bg-[#E0DBD7] flex items-center justify-center"
-                      title="Sort To-do Items"
+                      className="p-1 rounded-[5px] text-[#7A7A7A] hover:text-[#332B42] border border-[#AB9C95] hover:bg-[#F3F2F0]"
+                      title="Sort tasks"
                     >
                       <ListFilter className="w-4 h-4" />
                     </button>
@@ -907,7 +1067,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                       )}
                     </AnimatePresence>
                   </div>
-
                   {/* New Task Button with Dropdown */}
                   <div className="relative" ref={addTaskDropdownRef}>
                     <button
@@ -927,65 +1086,106 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                         >
                           <button
                             onClick={handleAddNewTodo}
-                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
                           >
-                            Add Individual Task
+                            <Plus size={16} /> New To-do Item
                           </button>
-                          <button
-                            onClick={() => {
-                              toast.info("CSV upload functionality coming soon!");
-                              setShowAddTaskDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
-                          >
-                            Upload Tasks (CSV)
-                          </button>
-                          <button
-                            onClick={() => {
-                              toast.info("AI template generation coming soon!");
-                              setShowAddTaskDropdown(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
-                          >
-                            Generate from Template (AI)
-                          </button>
+                          {/* Add other options if needed in the future */}
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 </div>
               </div>
-              {/* Tabs container */}
-              <div className="flex border-b border-[#AB9C95] px-4 overflow-x-auto whitespace-nowrap">
+
+              {/* To-do Lists Tabs */}
+              <div className="flex px-1 overflow-x-auto pb-3 custom-scrollbar"> {/* Changed pb-0 to pb-3 */}
                 {todoLists.map((list) => (
-                  <button
-                    key={list.id}
-                    onClick={() => setSelectedListId(list.id)}
-                    className={`flex-1 text-center py-2 px-3 transition-colors text-xs
-                      ${selectedListId === list.id
-                        ? 'text-[#A85C36] border-b-[3px] border-[#A85C36] font-medium'
-                        : 'text-[#332B42] hover:bg-[#E0DBD7] font-normal'
-                      }`}
-                  >
-                    {list.name}
-                  </button>
+                  <div key={list.id} className="relative list-tab-wrapper">
+                    {editingListNameId === list.id ? (
+                      <input
+                        key={list.id} // Added key for proper re-rendering
+                        type="text"
+                        value={editingListNameValue || ''}
+                        onChange={(e) => setEditingListNameValue(e.target.value)}
+                        onBlur={() => handleRenameList(list.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur(); // This will trigger onBlur
+                          } else if (e.key === 'Escape') {
+                            setEditingListNameId(null);
+                            setEditingListNameValue(null);
+                          }
+                        }}
+                        className="text-sm border border-[#AB9C95] rounded-[5px] px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-[#A85C36] mr-2"
+                        autoFocus
+                      />
+                    ) : (
+                      <div
+                        onClick={() => setSelectedListId(list.id)}
+                        className={`
+                          flex items-center justify-between px-4 py-1 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out group relative cursor-pointer
+                          ${selectedListId === list.id
+                            ? 'bg-[#DEDBDB] text-[#332B42] rounded-t-[5px]'
+                            : 'bg-[#F3F2F0] text-[#364257] hover:bg-[#E0DBD7] border-b-2 border-transparent hover:border-[#AB9C95] rounded-t-[5px]'
+                          }
+                          mr-2
+                        `}
+                      >
+                        <span>{list.name}</span>
+                        {/* Display task count */}
+                        {listTaskCounts.has(list.id) && (
+                          <span className="ml-2 text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full">
+                            {listTaskCounts.get(list.id)}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenListMenuId(openListMenuId === list.id ? null : list.id);
+                          }}
+                          className="flex-shrink-0 p-1 rounded-full text-gray-500 hover:bg-gray-300 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          ref={el => listButtonRefs.current[list.id] = el}
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
+                    )}
+                    <AnimatePresence>
+                      {openListMenuId === list.id && (
+                        <ListMenuDropdown
+                          list={list}
+                          handleRenameList={handleRenameList}
+                          handleDeleteList={handleDeleteList}
+                          setEditingListNameId={setEditingListNameId}
+                          setEditingListNameValue={setEditingListNameValue}
+                          setOpenListMenuId={setOpenListMenuId}
+                          buttonRef={{ current: listButtonRefs.current[list.id] }}
+                        />
+                      )}
+                    </AnimatePresence>
+                  </div>
                 ))}
-                <button
-                  onClick={() => setShowNewListInput(true)}
-                  className="flex-shrink-0 py-2 px-3 transition-colors text-xs text-[#332B42] hover:bg-[#E0DBD7] font-normal flex items-center gap-1"
-                >
-                  <Plus size={14} /> New List
-                </button>
-              </div>
-              {/* New List Input */}
-              <AnimatePresence>
-                {showNewListInput && (
+                {/* New List Button / Input */}
+                {!showNewListInput ? (
+                  <button
+                    onClick={() => {
+                      // Always show the input field when the "New List" button is clicked
+                      setShowNewListInput(true);
+                    }}
+                    className="btn-primary-inverse px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap mr-2 transition-colors"
+                    title={willReachListLimit ? `You have reached the limit of ${STARTER_TIER_MAX_LISTS} lists.` : 'Create a new list'}
+                  >
+                    + New List
+                  </button>
+                ) : (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
+                    key="new-list-input-container" // Added key for proper re-rendering
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="px-4 py-2 bg-[#F3F2F0] border-t border-[#AB9C95] flex items-center gap-2"
+                    className="flex items-center gap-2 pr-2"
                   >
                     <input
                       ref={newListInputRef}
@@ -1000,15 +1200,15 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                           setNewListName('');
                         }
                       }}
-                      placeholder="Enter new list name"
-                      className="flex-1 text-sm border border-[#AB9C95] rounded-[5px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#A85C36]"
+                      placeholder="List name"
+                      className="text-sm border border-[#AB9C95] rounded-[5px] px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-[#A85C36]"
                       autoFocus
                     />
                     <button
                       onClick={handleCreateNewList}
                       className="btn-primary text-xs px-3 py-1"
                     >
-                      Create
+                      Add
                     </button>
                     <button
                       onClick={() => { setShowNewListInput(false); setNewListName(''); }}
@@ -1018,291 +1218,120 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                     </button>
                   </motion.div>
                 )}
-              </AnimatePresence>
+              </div>
             </div>
 
+            {/* Banner for list limit */}
+            <AnimatePresence>
+              {willReachListLimit && showListLimitBanner && ( // Conditionally render based on showListLimitBanner
+                <Banner
+                  message={`Your plan allows for a maximum of ${STARTER_TIER_MAX_LISTS} lists. Upgrade to create more!`}
+                  type="info"
+                  onDismiss={() => setShowListLimitBanner(false)}
+                />
+              )}
+            </AnimatePresence>
+
+
+            {/* Main To-Do Items Display Area */}
             <div
-              className="flex-1 overflow-y-auto"
+              className="flex-1 overflow-y-auto pt-2 px-1 md:px-0"
               onDragOver={handleListDragOver}
               onDrop={handleListDrop}
             >
-              {filteredTodoItems.length === 0 ? (
+              {filteredTodoItems.incompleteTasks.length === 0 && filteredTodoItems.completedTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center text-gray-500 text-sm py-8">
                   <img src="/To_Do_Items.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
                   <p>Add a To-do item to this list</p>
                 </div>
               ) : (
                 <div className="space-y-0">
-                  <AnimatePresence initial={false}>
-                    {filteredTodoItems.map((todo) => (
-                      <motion.div
-                        key={todo.id}
-                        id={`todo-item-${todo.id}`}
-                        layout
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -50, scale: 0.8 }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                        className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
-                          ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
-                          ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
-                          ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
-                        `}
-                        draggable={sortOption === 'myOrder'}
-                        onDragStart={(e) => handleDragStart(e, todo.id)}
-                        onDragEnter={(e) => handleDragEnter(e, todo.id)}
-                        onDragLeave={handleDragLeave}
-                        onDragOver={(e) => handleItemDragOver(e, todo.id)}
-                        onDragEnd={handleDragEnd}
+                  {/* Incomplete Tasks */}
+                  {filteredTodoItems.incompleteTasks.length > 0 && (
+                    <AnimatePresence initial={false}>
+                      {filteredTodoItems.incompleteTasks.map((todo) => (
+                        <TodoItemComponent
+                          key={todo.id}
+                          todo={todo}
+                          contacts={contacts}
+                          allCategories={allCategories}
+                          sortOption={sortOption}
+                          draggedTodoId={draggedTodoId}
+                          dragOverTodoId={dragOverTodoId}
+                          dropIndicatorPosition={dropIndicatorPosition}
+                          currentUser={currentUser}
+                          handleToggleTodoComplete={handleToggleTodoComplete}
+                          handleUpdateTaskName={handleUpdateTaskName}
+                          handleUpdateDeadline={handleUpdateDeadline}
+                          handleUpdateNote={handleUpdateNote}
+                          handleUpdateCategory={handleUpdateCategory}
+                          handleCloneTodo={handleCloneTodo}
+                          handleDeleteTodo={handleDeleteTodo}
+                          setTaskToMove={setTaskToMove}
+                          setShowMoveTaskModal={setShowMoveTaskModal}
+                          handleDragStart={handleDragStart}
+                          handleDragEnter={handleDragEnter}
+                          handleDragLeave={handleDragLeave}
+                          handleItemDragOver={handleItemDragOver}
+                          handleDragEnd={handleDragEnd}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  )}
+
+                  {/* Completed Tasks Section */}
+                  {filteredTodoItems.completedTasks.length > 0 && (
+                    <div className="mt-4 border-t border-[#AB9C95] pt-3">
+                      <button
+                        onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                        className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-1 hover:bg-[#F3F2F0] rounded-[5px]"
                       >
-                        {/* Visual Drop Indicator */}
-                        {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'top' && (
-                          <div className="absolute left-0 right-0 -top-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
-                        )}
-                        {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'bottom' && (
-                          <div className="absolute left-0 right-0 -bottom-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
-                        )}
-
-                        <button
-                          onClick={() => handleToggleTodoComplete(todo)}
-                          className="flex-shrink-0 p-1 flex items-center justify-center"
-                        >
-                          {todo.isCompleted ? (
-                            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center">
-                              <Check size={10} className="text-[#A85C36]" />
-                            </div>
-                          ) : (
-                            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]"></div>
-                          )}
-                        </button>
-                        <div className="flex-1">
-                          {/* Conditional rendering for Task Name */}
-                          {editingTaskNameId === todo.id ? (
-                            <input
-                              type="text"
-                              value={editingTaskNameValue || ''}
-                              onChange={(e) => setEditingTaskNameValue(e.target.value)}
-                              onBlur={() => handleUpdateTaskName(todo.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleUpdateTaskName(todo.id);
-                                  e.currentTarget.blur();
-                                }
-                              }}
-                              className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
-                              autoFocus
-                              disabled={todo.isCompleted}
-                            />
-                          ) : (
-                            <p
-                              className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
-                              onClick={todo.isCompleted ? undefined : () => {
-                                setEditingTaskNameId(todo.id);
-                                setEditingTaskNameValue(todo.name);
-                              }}
-                            >
-                              {todo.name}
-                            </p>
-                          )}
-
-                          {/* Conditional rendering for Deadline */}
-                          {editingDeadlineId === todo.id ? (
-                            <div className="flex items-center gap-2 mt-1">
-                              <input
-                                type="datetime-local"
-                                value={editingDeadlineValue || ''}
-                                onChange={(e) => setEditingDeadlineValue(e.target.value)}
-                                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                                autoFocus
-                                disabled={todo.isCompleted}
-                              />
-                              <button
-                                onClick={() => handleUpdateDeadline(todo.id)}
-                                className="btn-primary text-xs px-2 py-1"
-                                disabled={todo.isCompleted}
-                              >
-                                Update
-                              </button>
-                               <button
-                                onClick={handleCancelDeadline}
-                                className="btn-primary-inverse text-xs px-2 py-1"
-                                disabled={todo.isCompleted}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : todo.deadline ? (
-                            <p className={`text-xs font-normal text-[#364257] block mt-1 ${todo.isCompleted ? 'text-gray-500' : 'cursor-pointer hover:underline'}`} onClick={() => handleAddDeadline(todo)}>
-                              Deadline: {todo.deadline.toLocaleDateString()} {todo.deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          ) : (
-                            <button
-                              onClick={() => handleAddDeadline(todo)}
-                              className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`}
-                              disabled={todo.isCompleted}
-                            >
-                              Add Deadline
-                            </button>
-                          )}
-                          {/* Conditional rendering for Note */}
-                          {editingNoteId === todo.id ? (
-                            <div className="flex flex-col gap-1 mt-1">
-                              <textarea
-                                value={editingNoteValue || ''}
-                                onChange={(e) => setEditingNoteValue(e.target.value)}
-                                placeholder="Add a note..."
-                                rows={2}
-                                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
-                                autoFocus
-                                disabled={todo.isCompleted}
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleUpdateNote(todo.id)}
-                                  className="btn-primary text-xs px-2 py-1"
-                                  disabled={todo.isCompleted}
-                                >
-                                  Update
-                                </button>
-                                <button
-                                  onClick={handleCancelNote}
-                                  className="btn-primary-inverse text-xs px-2 py-1"
-                                  disabled={todo.isCompleted}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : todo.note ? (
-                            <p
-                              className={`text-xs font-normal text-[#364257] italic block mt-1 w-full ${todo.isCompleted ? 'text-gray-500' : 'cursor-pointer hover:underline'}`}
-                              style={{
-                                overflow: 'hidden',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                whiteSpace: 'pre-wrap'
-                              }}
-                              onClick={() => handleAddNote(todo)}
-                            >
-                              Note: {todo.note}
-                            </p>
-                          ) : (
-                            <button
-                              onClick={() => handleAddNote(todo)}
-                              className={`text-xs font-normal text-[#364257] underline italic text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`}
-                              disabled={todo.isCompleted}
-                            >
-                              Click to add note
-                            </button>
-                          )}
-                          <div className="flex items-center gap-1 mt-2">
-                            {/* Conditional rendering for Category */}
-                            {editingCategoryId === todo.id && currentUser ? (
-                              <div className="flex flex-col gap-1 w-full">
-                                <CategorySelectField
-                                  userId={currentUser.uid}
-                                  value={editingCategoryValue || ''}
-                                  customCategoryValue={editingCustomCategoryValue || ''}
-                                  onChange={handleCategoryDropdownChange}
-                                  onCustomCategoryChange={handleCustomCategoryInputChange}
-                                  label=""
-                                  placeholder="Select Category"
-                                  allowRemoval={true}
-                                  disabled={todo.isCompleted}
-                                />
-                                {editingCategoryValue === "Other" && (
-                                  <input
-                                    type="text"
-                                    value={editingCustomCategoryValue || ''}
-                                    onChange={handleCustomCategoryInputChange}
-                                    placeholder="Enter custom category"
-                                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
-                                    disabled={todo.isCompleted}
-                                  />
-                                )}
-                                <div className="flex gap-2 mt-1">
-                                  <button
-                                    onClick={() => handleUpdateCategory(todo.id)}
-                                    className="btn-primary text-xs px-2 py-1"
-                                    disabled={todo.isCompleted}
-                                  >
-                                    Update
-                                  </button>
-                                  <button
-                                    onClick={handleCancelCategory}
-                                    className="btn-primary-inverse text-xs px-2 py-1"
-                                    disabled={todo.isCompleted}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : todo.category ? (
-                              <button
-                                onClick={() => handleEditCategory(todo)}
-                                className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none ${todo.isCompleted ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                disabled={todo.isCompleted}
-                              >
-                                <CategoryPill category={todo.category} />
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleEditCategory(todo)}
-                                className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none ${todo.isCompleted ? 'text-gray-500' : ''}`}
-                                disabled={todo.isCompleted}
-                              >
-                                Add Category
-                              </button>
-                            )}
-                            {/* Contact information */}
-                            {todo.contactId && (
-                              <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
-                                {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {/* Three-dot menu */}
-                        <div className="relative flex-shrink-0 todo-item-menu-container">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(openMenuId === todo.id ? null : todo.id);
-                            }}
-                            className={`flex-shrink-0 p-1 text-[#7A7A7A] more-horizontal-button ${todo.isCompleted ? 'opacity-70 cursor-not-allowed' : 'hover:text-[#332B42]'}`}
-                            disabled={todo.isCompleted}
+                        Completed ({filteredTodoItems.completedTasks.length})
+                        {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                      <AnimatePresence>
+                        {showCompletedTasks && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                            className="overflow-hidden"
                           >
-                            <MoreHorizontal size={18} />
-                          </button>
-                          <AnimatePresence>
-                            {openMenuId === todo.id && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute right-0 mt-2 w-40 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-20 flex flex-col"
-                              >
-                                <button
-                                  onClick={() => handleCloneTodo(todo)}
-                                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-t-[3px]"
-                                >
-                                  <Copy size={16} /> Clone
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteTodo(todo.id)}
-                                  className="flex items-center gap-2 px-3 py-2 text-sm text-[#D63030] hover:bg-[#F3F2F0] rounded-b-[3px]"
-                                >
-                                  <Trash2 size={16} /> Delete
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                            <div className="space-y-0">
+                              {filteredTodoItems.completedTasks.map((todo) => (
+                                <TodoItemComponent
+                                  key={todo.id}
+                                  todo={todo}
+                                  contacts={contacts}
+                                  allCategories={allCategories}
+                                  sortOption={sortOption}
+                                  draggedTodoId={draggedTodoId}
+                                  dragOverTodoId={dragOverTodoId}
+                                  dropIndicatorPosition={dropIndicatorPosition}
+                                  currentUser={currentUser}
+                                  handleToggleTodoComplete={handleToggleTodoComplete}
+                                  handleUpdateTaskName={handleUpdateTaskName}
+                                  handleUpdateDeadline={handleUpdateDeadline}
+                                  handleUpdateNote={handleUpdateNote}
+                                  handleUpdateCategory={handleUpdateCategory}
+                                  handleCloneTodo={handleCloneTodo}
+                                  handleDeleteTodo={handleDeleteTodo}
+                                  setTaskToMove={setTaskToMove}
+                                  setShowMoveTaskModal={setShowMoveTaskModal}
+                                  handleDragStart={handleDragStart}
+                                  handleDragEnter={handleDragEnter}
+                                  handleDragLeave={handleDragLeave}
+                                  handleItemDragOver={handleItemDragOver}
+                                  handleDragEnd={handleDragEnd}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1321,6 +1350,41 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           </div>
         )}
       </aside>
+
+      {showMoveTaskModal && taskToMove && (
+        <MoveTaskModal
+          task={taskToMove}
+          todoLists={todoLists}
+          currentListId={taskToMove.listId}
+          onMove={handleMoveTodoItem}
+          onClose={() => {
+            setShowMoveTaskModal(false);
+            setTaskToMove(null);
+          }}
+        />
+      )}
+
+      {showDeleteListModal && listToConfirmDelete && (
+        <DeleteListConfirmationModal
+          list={listToConfirmDelete}
+          onConfirm={async () => {
+            await executeDeleteList(listToConfirmDelete.id);
+            setShowDeleteListModal(false);
+            setListToConfirmDelete(null);
+          }}
+          onClose={() => {
+            setShowDeleteListModal(false);
+            setListToConfirmDelete(null);
+          }}
+        />
+      )}
+
+      {showUpgradeModal && (
+        <UpgradePlanModal
+          maxLists={STARTER_TIER_MAX_LISTS}
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
     </div>
   );
 };

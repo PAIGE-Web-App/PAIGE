@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import FormField from "./FormField";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import CategorySelectField from "./CategorySelectField";
+import Banner from './Banner'; // NEW: Import the Banner component
 
 interface Contact {
   id: string;
@@ -229,10 +230,11 @@ export default function EditContactModal({
       </div>
 
       {confirmDelete && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">Are you sure? </strong>
-          <span className="block sm:inline">All chat history will be lost :(</span>
-        </div>
+        <Banner
+          message="Are you sure? All chat history will be lost :("
+          type="error"
+          // Removed onDismiss prop to make it not dismissable
+        />
       )}
 
       <div className="space-y-2">
