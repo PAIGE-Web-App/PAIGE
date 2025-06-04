@@ -21,8 +21,8 @@ import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import {
   CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Check, Copy, Trash2, ListFilter, Plus, MoveRight,
-  ChevronDown, ChevronUp
-} from 'lucide-react';
+  ChevronDown, ChevronUp, X, CircleCheck
+} from 'lucide-react'; // Added X for banner dismiss
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField';
 import { getAllCategories, saveCategoryIfNew } from '../lib/firebaseCategories';
@@ -32,7 +32,7 @@ import TodoItemComponent from './TodoItemComponent';
 import ListMenuDropdown from './ListMenuDropdown';
 import DeleteListConfirmationModal from './DeleteListConfirmationModal';
 import UpgradePlanModal from './UpgradePlanModal';
-import Banner from './Banner';
+// import Banner from './Banner'; // Commented out as we're including it directly for demonstration
 
 // Define necessary interfaces
 interface TodoItem {
@@ -84,6 +84,36 @@ const reorder = (list: TodoItem[], startIndex: number, endIndex: number): TodoIt
 
 // Define the maximum number of lists for a "Starter" tier user
 const STARTER_TIER_MAX_LISTS = 3;
+
+// Basic Banner component (for demonstration, in a real app this would be in its own file)
+interface BannerProps {
+  message: React.ReactNode; // Changed to React.ReactNode to allow clickable elements
+  type: 'info' | 'warning' | 'error';
+  onDismiss?: () => void;
+}
+
+const Banner: React.FC<BannerProps> = ({ message, type, onDismiss }) => {
+  const bgColor = type === 'info' ? 'bg-blue-100' : type === 'warning' ? 'bg-yellow-100' : 'bg-red-100';
+  const textColor = type === 'info' ? 'text-blue-800' : type === 'warning' ? 'text-yellow-800' : 'text-red-800';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={`relative ${bgColor} ${textColor} p-2 text-sm rounded-[5px] flex items-center justify-between mx-4 my-2`}
+    >
+      <p className="flex-1">{message}</p>
+      {onDismiss && (
+        <button onClick={onDismiss} className="ml-4 p-1 rounded-full hover:bg-opacity-75">
+          <X size={16} />
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
 
 const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts }) => {
   // State declarations
@@ -974,7 +1004,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   return (
     <div
-      className="hidden md:flex flex-row w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden" // Changed flex-1 to w-full h-full
+      className="hidden md:flex flex-row w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
       style={{ maxHeight: '100%' }}
     >
       {/* Vertical Navigation (Icons) - Main Panel Switcher - Left Column of Right Panel */}
@@ -1015,7 +1045,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       >
         {/* Conditional Content based on rightPanelSelection */}
         {rightPanelSelection === 'todo' && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full"> 
             {/* Wrapper div for the header and tabs with the desired background color */}
             <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95] p-3 md:p-4">
               <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
@@ -1224,18 +1254,34 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             {/* Banner for list limit */}
             <AnimatePresence>
               {willReachListLimit && showListLimitBanner && ( // Conditionally render based on showListLimitBanner
+                <div className="-mx-3">
                 <Banner
-                  message={`Your plan allows for a maximum of ${STARTER_TIER_MAX_LISTS} lists. Upgrade to create more!`}
+                  message={
+                    <>
+                      Your plan allows for a maximum of {STARTER_TIER_MAX_LISTS} lists.{' '}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault(); // Prevent default link behavior
+                          setShowUpgradeModal(true);
+                        }}
+                        className="underline text-blue-700 hover:text-blue-900"
+                      >
+                        Upgrade to create more!
+                      </a>
+                    </>
+                  }
                   type="info"
                   onDismiss={() => setShowListLimitBanner(false)}
                 />
+                </div>
               )}
             </AnimatePresence>
 
 
-            {/* Main To-Do Items Display Area */}
+            {/* Main To-Do Items Display Area - This will now ONLY contain incomplete tasks and be the scrollable part */}
             <div
-              className="flex-1 overflow-y-auto pt-2 px-1 md:px-0"
+              className="flex-1 overflow-y-auto pt-2 px-1 md:px-0" // Removed pb-16 as sticky footer is outside
               onDragOver={handleListDragOver}
               onDrop={handleListDrop}
             >
@@ -1278,65 +1324,72 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                       ))}
                     </AnimatePresence>
                   )}
-
-                  {/* Completed Tasks Section */}
-                  {filteredTodoItems.completedTasks.length > 0 && (
-                    <div className="mt-4 border-t border-[#AB9C95] pt-3">
-                      <button
-                        onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-                        className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-1 hover:bg-[#F3F2F0] rounded-[5px]"
-                      >
-                        Completed ({filteredTodoItems.completedTasks.length})
-                        {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </button>
-                      <AnimatePresence>
-                        {showCompletedTasks && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeOut' }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-0">
-                              {filteredTodoItems.completedTasks.map((todo) => (
-                                <TodoItemComponent
-                                  key={todo.id}
-                                  todo={todo}
-                                  contacts={contacts}
-                                  allCategories={allCategories}
-                                  sortOption={sortOption}
-                                  draggedTodoId={draggedTodoId}
-                                  dragOverTodoId={dragOverTodoId}
-                                  dropIndicatorPosition={dropIndicatorPosition}
-                                  currentUser={currentUser}
-                                  handleToggleTodoComplete={handleToggleTodoComplete}
-                                  handleUpdateTaskName={handleUpdateTaskName}
-                                  handleUpdateDeadline={handleUpdateDeadline}
-                                  handleUpdateNote={handleUpdateNote}
-                                  handleUpdateCategory={handleUpdateCategory}
-                                  handleCloneTodo={handleCloneTodo}
-                                  handleDeleteTodo={handleDeleteTodo}
-                                  setTaskToMove={setTaskToMove}
-                                  setShowMoveTaskModal={setShowMoveTaskModal}
-                                  handleDragStart={handleDragStart}
-                                  handleDragEnter={handleDragEnter}
-                                  handleDragLeave={handleDragLeave}
-                                  handleItemDragOver={handleItemDragOver}
-                                  handleDragEnd={handleDragEnd}
-                                />
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
+                  {/* Removed the Completed Tasks Section from here */}
                 </div>
               )}
             </div>
+
+            {/* COMPLETED TASKS SECTION - Moved OUTSIDE the main scrollable area for incomplete tasks */}
+            {filteredTodoItems.completedTasks.length > 0 && (
+              <div className="sticky bottom-0 z-10 bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-3">
+                <button
+                  onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+                  className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-3 md:px-4 hover:bg-[#F3F2F0] rounded-[5px]" // Changed px-1 to px-3 md:px-4
+                >
+                  <div className="flex items-center gap-2"> {/* Add this div for the icon and text */}
+                    <CircleCheck size={16} /> {/* Add the CircleCheck icon */}
+                    <span>Completed ({filteredTodoItems.completedTasks.length})</span>
+                  </div>
+                  {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                <AnimatePresence>
+                  {showCompletedTasks && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                      className="overflow-hidden max-h-[40vh] overflow-y-auto"
+                    >
+                      <div className="space-y-0">
+                        {filteredTodoItems.completedTasks.map((todo) => (
+                          <TodoItemComponent
+                            key={todo.id}
+                            todo={todo}
+                            contacts={contacts}
+                            allCategories={allCategories}
+                            sortOption={sortOption}
+                            draggedTodoId={draggedTodoId}
+                            dragOverTodoId={dragOverTodoId}
+                            dropIndicatorPosition={dropIndicatorPosition}
+                            currentUser={currentUser}
+                            handleToggleTodoComplete={handleToggleTodoComplete}
+                            handleUpdateTaskName={handleUpdateTaskName}
+                            handleUpdateDeadline={handleUpdateDeadline}
+                            handleUpdateNote={handleUpdateNote}
+                            handleUpdateCategory={handleUpdateCategory}
+                            handleCloneTodo={handleCloneTodo}
+                            handleDeleteTodo={handleDeleteTodo}
+                            setTaskToMove={setTaskToMove}
+                            setShowMoveTaskModal={setShowMoveTaskModal}
+                            handleDragStart={handleDragStart}
+                            handleDragEnter={handleDragEnter}
+                            handleDragLeave={handleDragLeave}
+                            handleItemDragOver={handleItemDragOver}
+                            handleDragEnd={handleDragEnd}
+                                                        className="px-3 md:px-4" // ADD THIS PROP TO THE TodoItemComponent
+
+                          />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         )}
+
 
         {rightPanelSelection === 'messages' && (
           <div className="text-sm text-gray-500 text-center py-8">

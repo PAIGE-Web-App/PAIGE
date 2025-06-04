@@ -60,6 +60,8 @@ interface TodoItemComponentProps {
   handleDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
   handleItemDragOver: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
   handleDragEnd: (e: React.DragEvent<HTMLDivElement>) => void;
+  className?: string; // ADD THIS LINE
+
 }
 
 const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
@@ -85,6 +87,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   handleDragLeave,
   handleItemDragOver,
   handleDragEnd,
+  className, 
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
@@ -268,12 +271,13 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     <motion.div
       key={todo.id}
       id={`todo-item-${todo.id}`}
-      layout // Keep layout for drag-and-drop smoothness
-      initial={{ opacity: 0 }} // Changed: Removed y-axis animation
-      animate={{ opacity: 1 }} // Changed: Removed y-axis animation
-      exit={{ opacity: 0, scale: 0.8 }} // Changed: Removed y-axis animation, kept scale for exit
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} `}
+      // APPLY THE CLASSNAME HERE:
+      className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${className || ''}`}
       draggable={sortOption === 'myOrder'}
       onDragStart={(e) => handleDragStart(e, todo.id)}
       onDragEnter={(e) => handleDragEnter(e, todo.id)}
