@@ -1,13 +1,13 @@
 // components/TodoItemComponent.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight,
+  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, // Renamed User to UserIcon
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField'; // Ensure this path is correct
 import toast from 'react-hot-toast';
-import { User } from 'firebase/auth'; // Import User type
+import { User } from 'firebase/auth'; // Import User type (this remains as is)
 
 // Define necessary interfaces - these should match your TodoItem and Contact interfaces
 // from RightDashboardPanel.tsx
@@ -23,6 +23,7 @@ interface TodoItem {
   createdAt: Date;
   orderIndex: number;
   listId: string;
+  completedAt?: Date;
 }
 
 interface Contact {
@@ -87,8 +88,9 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   handleDragLeave,
   handleItemDragOver,
   handleDragEnd,
-  className, 
+  className,
 }) => {
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
@@ -102,6 +104,17 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
 
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Debugging log: Check todo item properties when component renders
+  useEffect(() => {
+    if (todo.isCompleted) {
+      console.log(`TodoItemComponent: Todo ID: ${todo.id}, isCompleted: ${todo.isCompleted}, completedAt: ${todo.completedAt}`);
+      if (todo.completedAt && !(todo.completedAt instanceof Date)) {
+        console.error(`TodoItemComponent: completedAt for ID ${todo.id} is not a Date object:`, todo.completedAt);
+      }
+    }
+  }, [todo]);
+
 
   // Effect to manage click outside for "More" menu
   useEffect(() => {
@@ -325,6 +338,33 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
           >
             {todo.name}
           </p>
+        )}
+
+        {/* Conditional rendering for other details including "Completed On" */}
+        {(todo.deadline || todo.note || todo.category || todo.contactId || (todo.isCompleted && todo.completedAt)) && (
+          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+            {todo.deadline && (
+              <span className="flex items-center gap-1">
+                <Calendar size={12} /> {todo.deadline.toLocaleDateString()}
+              </span>
+            )}
+            {todo.note && (
+              <span className="flex items-center gap-1">
+                <Clipboard size={12} /> {todo.note}
+              </span>
+            )}
+            {todo.contactId && (
+              <span className="flex items-center gap-1">
+                <UserIcon size={12} /> {contacts.find(c => c.id === todo.contactId)?.name} {/* Use UserIcon here */}
+              </span>
+            )}
+            {todo.category && <CategoryPill category={todo.category} />}
+            {todo.isCompleted && todo.completedAt && ( // Display only if completed and has a date
+              <span className="flex items-center gap-1">
+                <CheckCircle size={12} /> Completed on {todo.completedAt.toLocaleDateString()}
+              </span>
+            )}
+          </div>
         )}
 
         {/* Conditional rendering for Deadline */}

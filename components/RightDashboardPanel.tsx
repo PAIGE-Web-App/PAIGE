@@ -47,6 +47,7 @@ interface TodoItem {
   createdAt: Date;
   orderIndex: number;
   listId: string;
+  completedAt?: Date; // Added completedAt to TodoItem interface
 }
 
 interface TodoList {
@@ -300,6 +301,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             createdAt: data.createdAt.toDate(),
             orderIndex: data.orderIndex || 0,
             listId: data.listId || '',
+            completedAt: data.completedAt?.toDate(), // Ensure completedAt is fetched and converted
           };
         });
 
@@ -620,17 +622,38 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   }, [currentUser, todoLists, executeDeleteList]);
 
 
-  // Function to toggle To-Do item completion
   const handleToggleTodoComplete = useCallback(async (todo: TodoItem) => {
-    try {
-      const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
-      await setDoc(todoRef, { isCompleted: !todo.isCompleted }, { merge: true });
-      toast.success(`To-do item marked as ${todo.isCompleted ? 'incomplete' : 'complete'}!`);
-    } catch (error: any) {
-      console.error('Error toggling To-Do item completion:', error);
-      toast.error(`Failed to update To-do item: ${error.message}`);
+  try {
+    const updatedIsCompleted = !todo.isCompleted;
+    let updatedCompletedAt: Date | null = null; // Initialize as null or undefined
+
+    if (updatedIsCompleted) {
+      updatedCompletedAt = new Date(); // Set to current time when completed
+    } else {
+      updatedCompletedAt = null; // Clear when uncompleted
     }
-  }, []);
+
+    const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
+    await setDoc(todoRef, {
+      isCompleted: updatedIsCompleted,
+      completedAt: updatedCompletedAt, // Add this line to update the completedAt field
+    }, { merge: true });
+
+    // Optimistically update the local state without re-fetching all todos
+    setTodoItems((prevTodoItems) => // Changed setTodos to setTodoItems
+      prevTodoItems.map((item) =>
+        item.id === todo.id
+          ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedCompletedAt }
+          : item
+      )
+    );
+
+    toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
+  } catch (error: any) {
+    console.error('Error toggling To-Do item completion:', error);
+    toast.error(`Failed to update To-do item: ${error.message}`);
+  }
+}, [setTodoItems]); // Changed setTodos to setTodoItems in dependency array
 
   // Function to handle updating the deadline (now called from TodoItemComponent)
   const handleUpdateDeadline = useCallback(async (todoId: string, newDeadline: Date | null) => {
@@ -1045,7 +1068,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       >
         {/* Conditional Content based on rightPanelSelection */}
         {rightPanelSelection === 'todo' && (
-          <div className="flex flex-col h-full"> 
+          <div className="flex flex-col h-full">
             {/* Wrapper div for the header and tabs with the desired background color */}
             <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95] p-3 md:p-4">
               <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
@@ -1377,7 +1400,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                             handleDragLeave={handleDragLeave}
                             handleItemDragOver={handleItemDragOver}
                             handleDragEnd={handleDragEnd}
-                                                        className="px-3 md:px-4" // ADD THIS PROP TO THE TodoItemComponent
+                            className="px-3 md:px-4" // ADD THIS PROP TO THE TodoItemComponent
 
                           />
                         ))}
