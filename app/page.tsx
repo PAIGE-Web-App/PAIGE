@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
 import AddContactModal from "../components/AddContactModal";
 import { getAllContacts } from "../lib/getContacts";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react"; // Corrected this line
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import TopNav from "../components/TopNav";
@@ -147,6 +147,48 @@ const triggerGmailImport = async (userId: string, contacts: Contact[] = []) => {
   }
 };
 
+// Skeleton component for contacts list
+const ContactsSkeleton = () => (
+  <div className="space-y-2 animate-pulse">
+    {[...Array(5)].map((_, i) => (
+      <div key={i} className="p-3 mb-3 rounded-[5px] border border-[#AB9C95] bg-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 min-w-[32px] min-h-[32px] rounded-full bg-gray-300"></div>
+          <div>
+            <div className="h-4 bg-gray-300 rounded w-24 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded w-16"></div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+// Skeleton component for messages
+const MessagesSkeleton = () => (
+  <div className="space-y-4 p-3 animate-pulse">
+    {/* Received Message Skeleton */}
+    <div
+      key="received-skeleton"
+      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_15px_0] mr-auto bg-gray-50"
+    >
+      <div className="h-3 rounded mb-1 bg-gray-200 w-1/2"></div>
+      <div className="h-4 rounded bg-gray-200 w-full"></div>
+      <div className="h-4 rounded mt-1 bg-gray-200 w-4/5"></div>
+    </div>
+
+    {/* Sent Message Skeleton */}
+    <div
+      key="sent-skeleton"
+      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_0_15px] ml-auto bg-gray-100"
+    >
+      <div className="h-3 rounded mb-1 bg-gray-200 w-2/3 ml-auto"></div>
+      <div className="h-4 rounded bg-gray-200 w-full"></div>
+      <div className="h-4 rounded mt-1 bg-gray-200 w-3/4 ml-auto"></div>
+    </div>
+  </div>
+);
+
 
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -154,7 +196,7 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
-  const { loading, generateDraft } = useDraftMessage();
+  const { loading, generateDraft, draftMessage, setDraftMessage } = useDraftMessage(selectedContact?.id || 'default');
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
@@ -167,7 +209,7 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null); // State to hold authentication errors
-
+  const [initialContactLoadComplete, setInitialContactLoadComplete] = useState(false); // ADD THIS LINE
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('name-asc');
   const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
@@ -191,6 +233,7 @@ export default function Home() {
     : null;
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false); // NEW: State for messages loading
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
@@ -307,10 +350,12 @@ export default function Home() {
           setSelectedContact(fetchedContacts[0] || null);
         }
         setContactsLoading(false);
+        setInitialContactLoadComplete(true); // ADD THIS LINE
         console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
       }, (error) => {
         console.error("page.tsx: Error fetching contacts:", error);
         setContactsLoading(false);
+        setInitialContactLoadComplete(true); // ADD THIS LINE (also set on error, meaning initial load attempt finished)
         toast.error("Failed to load contacts.");
       });
     } else {
@@ -410,6 +455,7 @@ export default function Home() {
   useEffect(() => {
     let unsubscribe: () => void;
     if (isAuthReady && selectedContact && currentUser?.uid) {
+      setMessagesLoading(true); // Set messages loading to true
       const userId = currentUser.uid;
       const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
       console.log('page.tsx: Selected Contact Messages Collection Path:', messagesCollectionRef.path);
@@ -436,16 +482,19 @@ export default function Home() {
           };
         });
         setMessages(fetchedMessages);
+        setMessagesLoading(false); // Set messages loading to false after fetch
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
         console.log(`page.tsx: Fetched ${fetchedMessages.length} messages for selected contact.`);
       }, (err) => {
         console.error('page.tsx: Error fetching selected contact messages:', err);
+        setMessagesLoading(false); // Set messages loading to false even on error
         toast.error(`Failed to load messages for contact: ${(err as Error).message}`);
       });
     } else {
       setMessages([]);
+      setMessagesLoading(false); // Ensure loading is false if no contact is selected
     }
     return () => {
       if (unsubscribe) {
@@ -475,11 +524,12 @@ export default function Home() {
     };
   }, [showFilters, showEmojiPicker]);
 
-  useEffect(() => {
-    if (selectedFiles.length > 0) {
-      toast.success(`Selected ${selectedFiles.length} file(s).`);
-    }
-  }, [selectedFiles]);
+  // REMOVED this useEffect as the toast is now handled directly in handleFileChange
+  // useEffect(() => {
+  //   if (selectedFiles.length > 0) {
+  //     toast.success(`Selected ${selectedFiles.length} file(s).`);
+  //   }
+  // }, [selectedFiles]);
 
   useEffect(() => {
     if (isAdding || isEditing || showOnboardingModal) {
@@ -532,15 +582,18 @@ export default function Home() {
     if (event.target.files && event.target.files.length > 0) {
       const newFiles = Array.from(event.target.files);
 
-      setSelectedFiles((prevFiles) => {
-        const uniqueNewFiles = newFiles.filter(
-          (newFile) => !prevFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
-        );
-        if (uniqueNewFiles.length > 0) {
-            toast.success(`Selected ${uniqueNewFiles.length} file(s).`);
-        }
-        return [...prevFiles, ...uniqueNewFiles];
-      });
+      // Determine unique new files based on current `selectedFiles` state
+      const uniqueNewFiles = newFiles.filter(
+        (newFile) => !selectedFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
+      );
+
+      // Update the state with the unique new files
+      setSelectedFiles((prevFiles) => [...prevFiles, ...uniqueNewFiles]);
+
+      // Show toast message only if new unique files were actually added
+      if (uniqueNewFiles.length > 0) {
+          toast.success(`Selected ${uniqueNewFiles.length} file(s).`);
+      }
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -641,16 +694,8 @@ export default function Home() {
     );
   }
 
-  // Display an error if authentication token is missing and no current user
-  if (!currentUser && !loadingAuth && error) { // Added !loadingAuth and error check
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
-        <p className="text-[#332B42] text-lg font-playfair">
-          {error}
-        </p>
-      </div>
-    );
-  }
+  // Removed the error display block for authentication token missing.
+  // The initial loading spinner already covers the loading state.
 
   return (
     <>
@@ -683,203 +728,220 @@ export default function Home() {
         {/* Main Content Area - Responsive Flex Container */}
         <div
           className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden transition-opacity duration-500 ease-in-out
-            ${contactsLoading ? "opacity-0" : "opacity-100"}
+            ${contactsLoading ? "opacity-100" : "opacity-100"}
             ${isMobile ? 'flex-col' : 'flex-row'} `} // Stacks vertically on mobile
           style={{ maxHeight: "100%" }}
         >
           {/* Left Panel (Contact List) */}
           <aside
-            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full
+            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
               ${isMobile && activeMobileTab !== 'contacts' ? 'hidden' : 'block'}
             `} // Conditional display for mobile
             style={{ maxHeight: "100%", overflowY: "auto" }}
           >
             {contactsLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-[#F3F2F0] z-10">
-                <div className="text-[#332B42] text-xs font-medium animate-pulse">Loading contacts...</div>
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="contacts-skeleton"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ContactsSkeleton />
+                </motion.div>
+              </AnimatePresence>
             ) : (
-              <>
-                <div className="flex items-center gap-4 mb-4 relative">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
-                    aria-label="Toggle Filters"
-                  >
-                    <Filter className="w-4 h-4" />
-                  </button>
-                  <div className="relative flex-1">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AB9C95]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="Search contacts..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
-                    />
-                  </div>
-                  {contacts.length > 0 && (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="contacts-list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                >
+                  {/* START of your existing contacts list content */}
+                  <div className="flex items-center gap-4 mb-4 relative">
                     <button
-                      onClick={() => setIsAdding(true)}
-                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
+                      aria-label="Toggle Filters"
                     >
-                      + Add Contact
+                      <Filter className="w-4 h-4" />
                     </button>
+                    <div className="relative flex-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AB9C95]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                        />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Search contacts..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
+                      />
+                    </div>
+                    {contacts.length > 0 && (
+                      <button
+                        onClick={() => setIsAdding(true)}
+                        className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                      >
+                        + Add Contact
+                      </button>
+                    )}
+
+                    <AnimatePresence>
+                      {showFilters && (
+                        <motion.div
+                          ref={filterPopoverRef}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
+                        >
+                            <div>
+                                <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {allCategories.map((category) => (
+                                        <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                value={category}
+                                                checked={selectedCategoryFilter.includes(category)}
+                                                onChange={() => handleCategoryChange(category)}
+                                                className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
+                                            />
+                                            {category}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <SelectField
+                                label="Sort by"
+                                name="sortOption"
+                                value={sortOption}
+                                onChange={(e) => setSortOption(e.target.value)}
+                                options={[
+                                    { value: 'name-asc', label: 'Name (A-Z)' },
+                                    { value: 'name-desc', label: 'Name (Z-A)' },
+                                    { value: 'recent-desc', label: 'Most recent conversations' },
+                                ]}
+                            />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {selectedCategoryFilter.map((category) => (
+                        <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                          Category: {category}
+                          <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {sortOption !== 'name-asc' && (
+                        <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                          Sort: {
+                            sortOption === 'name-desc' ? 'Name (Z-A)' :
+                            sortOption === 'recent-desc' ? 'Most recent' : ''
+                          }
+                          <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
                   )}
 
-                  <AnimatePresence>
-                    {showFilters && (
-                      <motion.div
-                        ref={filterPopoverRef}
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
-                      >
-                          <div>
-                              <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
-                              <div className="flex flex-wrap gap-2">
-                                  {allCategories.map((category) => (
-                                      <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
-                                          <input
-                                              type="checkbox"
-                                              value={category}
-                                              checked={selectedCategoryFilter.includes(category)}
-                                              onChange={() => handleCategoryChange(category)}
-                                              className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
-                                          />
-                                          {category}
-                                      </label>
-                                  ))}
+
+                  {displayContacts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-sm text-gray-500">Set up your unified inbox to add your contacts!</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {displayContacts.map((contact, index) => {
+                        const name = contact.name;
+                        const matchIndex = name.toLowerCase().indexOf(
+                          searchQuery.toLowerCase()
+                        );
+                        const before = name.slice(0, matchIndex);
+                        const match = name.slice(matchIndex, matchIndex + searchQuery.length);
+                        const after = name.slice(matchIndex + searchQuery.length);
+                        return (
+                          <div
+                            key={contact.id}
+                            className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
+                              ? "opacity-0"
+                              : "opacity-100"
+                              } ${selectedContact?.id === contact.id
+                                ? "bg-[#EBE3DD] border-[#A85C36]"
+                                : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
+                              }`}
+                            onClick={() => {
+                              setSelectedContact(contact);
+                              if (isMobile) {
+                                setActiveMobileTab('messages'); // Switch to messages tab on contact select
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
+                                style={{ backgroundColor: contact.avatarColor || "#364257" }}
+                              >
+                                {contact.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()}
                               </div>
-                          </div>
-                          <SelectField
-                              label="Sort by"
-                              name="sortOption"
-                              value={sortOption}
-                              onChange={(e) => setSortOption(e.target.value)}
-                              options={[
-                                  { value: 'name-asc', label: 'Name (A-Z)' },
-                                  { value: 'name-desc', label: 'Name (Z-A)' },
-                                  { value: 'recent-desc', label: 'Most recent conversations' },
-                              ]}
-                          />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {selectedCategoryFilter.map((category) => (
-                      <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                        Category: {category}
-                        <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                    {sortOption !== 'name-asc' && (
-                      <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                        Sort: {
-                          sortOption === 'name-desc' ? 'Name (Z-A)' :
-                          sortOption === 'recent-desc' ? 'Most recent' : ''
-                        }
-                        <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-
-                {displayContacts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="text-sm text-gray-500">Set up your unified inbox to add your contacts!</div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {displayContacts.map((contact, index) => {
-                      const name = contact.name;
-                      const matchIndex = name.toLowerCase().indexOf(
-                        searchQuery.toLowerCase()
-                      );
-                      const before = name.slice(0, matchIndex);
-                      const match = name.slice(matchIndex, matchIndex + searchQuery.length);
-                      const after = name.slice(matchIndex + searchQuery.length);
-                      return (
-                        <div
-                          key={contact.id}
-                          className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
-                            ? "opacity-0"
-                            : "opacity-100"
-                            } ${selectedContact?.id === contact.id
-                              ? "bg-[#EBE3DD] border-[#A85C36]"
-                              : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
-                            }`}
-                          onClick={() => {
-                            setSelectedContact(contact);
-                            if (isMobile) {
-                              setActiveMobileTab('messages'); // Switch to messages tab on contact select
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-                              style={{ backgroundColor: contact.avatarColor || "#364257" }}
-                            >
-                              {contact.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")
-                                .toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-[#332B42]">
-                                {matchIndex >= 0 ? (
-                                  <>
-                                    {before}
-                                    <mark className="bg-transparent text-[#A85C36] font-semibold">
-                                      {match}
-                                    </mark>
-                                    {after}
-                                  </>
-                                ) : (
-                                  name
-                                )}
+                              <div>
+                                <div className="text-sm font-medium text-[#332B42]">
+                                  {matchIndex >= 0 ? (
+                                    <>
+                                      {before}
+                                      <mark className="bg-transparent text-[#A85C36] font-semibold">
+                                        {match}
+                                      </mark>
+                                      {after}
+                                    </>
+                                  ) : (
+                                    name
+                                  )}
+                                </div>
+                                <CategoryPill category={contact.category} />
                               </div>
-                              <CategoryPill category={contact.category} />
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* END of your existing contacts list content */}
+                </motion.div>
+              </AnimatePresence>
             )}
           </aside>
 
 
           {/* Center Panel (Message Area) */}
           <section
-            className={`flex flex-col flex-1 bg-white relative w-full
+            className={`flex flex-col flex-1 bg-white relative w-full min-h-full
               ${isMobile && activeMobileTab !== 'messages' ? 'hidden' : 'block'}
             `} // Conditional display for mobile
             style={{ maxHeight: "100%" }}
@@ -955,78 +1017,110 @@ export default function Home() {
                 <div
                   className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 space-y-4 relative"
                 >
-                  {messages.length === 0 ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex flex-col items-center text-center text-[#7A7A7A] px-4">
-                        <img
-                          src="/Messages.svg"
-                          alt="Start conversation"
-                          className="w-24 h-24 mb-4 opacity-50"
-                        />
-                        <p>Send a message to start the conversation!</p>
-                      </div>
-                    </div>
-                  ) : (
-                    (() => {
-                      let lastDate: string | null = null;
-                      const messageGroups: { date: string; messages: Message[] }[] = [];
-
-                      messages.forEach((msg) => {
-                        const messageDate = getRelativeDate(msg.createdAt);
-                        if (messageDate !== lastDate) {
-                          lastDate = messageDate;
-                          messageGroups.push({ date: messageDate, messages: [msg] });
-                        } else {
-                          messageGroups[messageGroups.length - 1].messages.push(msg);
-                        }
-                      });
-
-                      return messageGroups.map((group, index) => (
-                        <div key={index}>
-                          <div className="flex items-center justify-center my-4">
-                            <div className="w-1/3 border-t border-[#AB9C95]"></div>
-                            <span className="mx-2 text-xs text-[#555] font-medium">
-                              {group.date}
-                            </span>
-                            <div className="w-1/3 border-t border-[#AB9C95]"></div>
-                          </div>
-                          {group.messages.map((msg) => (
-                            <div key={msg.id} className="mb-4">
-                              <div
-                                className={`max-w-[80%] px-3 py-2 text-left text-[#332B42] bg-white border rounded-[15px_15px_0_15px] ${
-                                  msg.via === selectedChannel
-                                    ? "ml-auto border-[#A85733]"
-                                    : "mr-auto border-[#AB9C95]"
-                                }`}
-                              >
-                                <div className="flex justify-between text-[11px] text-[#999] mb-1">
-                                  <span>{msg.timestamp}</span>
-                                  <span className="flex items-center gap-1">
-                                    Via <span className="font-medium">{msg.via}</span>
-                                  </span>
-                                </div>
-                                <div className="whitespace-pre-wrap text-[13px]">{msg.body}</div>
-                                {msg.attachments && msg.attachments.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-2 w-[95%]">
-                                    {msg.attachments.map((attachment, attIndex) => (
-                                      <button
-                                        key={attIndex}
-                                        onClick={() => toast(`Simulating download of: ${attachment.name}. Real download requires server-side storage.`)}
-                                        className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42] hover:bg-[#F8F6F4] cursor-pointer"
-                                      >
-                                        <File className="w-3 h-3" />
-                                        <span>{attachment.name}</span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          <div ref={messagesEndRef} />
+                  {messagesLoading ? (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key="messages-skeleton"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <MessagesSkeleton />
+                      </motion.div>
+                    </AnimatePresence>
+                  ) : messages.length === 0 ? (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key="no-messages-placeholder"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <div className="flex flex-col items-center text-center text-[#7A7A7A] px-4">
+                          <img
+                            src="/Messages.svg"
+                            alt="Start conversation"
+                            className="w-24 h-24 mb-4 opacity-50"
+                          />
+                          <p>Send a message to start the conversation!</p>
                         </div>
-                      ));
-                    })()
+                      </motion.div>
+                    </AnimatePresence>
+                  ) : (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key="actual-messages"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                      >
+                        {/* START of your existing messages mapping logic */}
+                        {(() => {
+                          let lastDate: string | null = null;
+                          const messageGroups: { date: string; messages: Message[] }[] = [];
+
+                          messages.forEach((msg) => {
+                            const messageDate = getRelativeDate(msg.createdAt);
+                            if (messageDate !== lastDate) {
+                              lastDate = messageDate;
+                              messageGroups.push({ date: messageDate, messages: [msg] });
+                            } else {
+                              messageGroups[messageGroups.length - 1].messages.push(msg);
+                            }
+                          });
+
+                          return messageGroups.map((group, index) => (
+                            <div key={index}>
+                              <div className="flex items-center justify-center my-4">
+                                <div className="w-1/3 border-t border-[#AB9C95]"></div>
+                                <span className="mx-2 text-xs text-[#555] font-medium">
+                                  {group.date}
+                                </span>
+                                <div className="w-1/3 border-t border-[#AB9C95]"></div>
+                              </div>
+                              {group.messages.map((msg) => (
+                                <div key={msg.id} className="mb-4">
+                                  <div
+                                    className={`max-w-[80%] px-3 py-2 text-left text-[#332B42] bg-white border rounded-[15px_15px_0_15px] ${
+                                      msg.via === selectedChannel
+                                        ? "ml-auto border-[#A85733]"
+                                        : "mr-auto border-[#AB9C95]"
+                                    }`}
+                                  >
+                                    <div className="flex justify-between text-[11px] text-[#999] mb-1">
+                                      <span>{msg.timestamp}</span>
+                                      <span className="flex items-center gap-1">
+                                        Via <span className="font-medium">{msg.via}</span>
+                                      </span>
+                                    </div>
+                                    <div className="whitespace-pre-wrap text-[13px]">{msg.body}</div>
+                                    {msg.attachments && msg.attachments.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-2 w-[95%]">
+                                        {msg.attachments.map((attachment, attIndex) => (
+                                          <button
+                                            key={attIndex}
+                                            onClick={() => toast(`Simulating download of: ${attachment.name}. Real download requires server-side storage.`)}
+                                            className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42] hover:bg-[#F8F6F4] cursor-pointer"
+                                          >
+                                            <File className="w-3 h-3" />
+                                            <span>{attachment.name}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              <div ref={messagesEndRef} />
+                            </div>
+                          ));
+                        })()}
+                        {/* END of your existing messages mapping logic */}
+                      </motion.div>
+                    </AnimatePresence>
                   )}
                 </div>
                 {/* Fixed Bottom Section - Message Input */}
@@ -1162,33 +1256,88 @@ export default function Home() {
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white">
-                <img
-                  src="/wine.png"
-                  alt="Champagne Cheers"
-                  className="mb-4 w-48 h-48"
-                />
-                <h2 className="text-xl font-semibold text-[#332B42] font-playfair mb-2">
-                  Cheers to your next chapter.
-                </h2>
-                <p className="text-sm text-[#364257] mb-4 text-center max-w-xs">
-                  Get ready to manage your wedding in one spot.
-                </p>
-                <button
-                  className="btn-primary"
-                  onClick={() => setShowOnboardingModal(true)}
+            ) : ( // This block runs when selectedContact is null
+          // Conditional rendering based on overall loading state and contact count
+          (loadingAuth || contactsLoading || !initialContactLoadComplete) ? (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="initial-messages-skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 flex flex-col justify-between bg-white"
+              >
+                {/* Placeholder for header */}
+                <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center h-[50px] min-h-[50px]"></div>
+                {/* Main content area skeleton */}
+                <div className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 space-y-4 relative">
+                    <MessagesSkeleton />
+                </div>
+                {/* Placeholder for input area */}
+                <div className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10 sticky bottom-0 min-h-[120px]"></div>
+              </motion.div>
+            </AnimatePresence>
+          ) : ( // All loading is complete (loadingAuth is false AND contactsLoading is false)
+            contacts.length === 0 ? (
+              // Only show "Cheers" if no contacts are present after loading
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="cheers-screen"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-white min-h-full"
                 >
-                  Set up your unified inbox
-                </button>
-              </div>
-            )}
+                  <img
+                    src="/wine.png"
+                    alt="Champagne Cheers"
+                    className="mb-4 w-48 h-48"
+                  />
+                  <h2 className="text-xl font-semibold text-[#332B42] font-playfair mb-2">
+                    Cheers to your next chapter.
+                  </h2>
+                  <p className="text-sm text-[#364257] mb-4 text-center max-w-xs">
+                    Get ready to manage your wedding in one spot.
+                  </p>
+                  <button
+                    className="btn-primary"
+                    onClick={() => setShowOnboardingModal(true)}
+                  >
+                    Set up your unified inbox
+                  </button>
+                </motion.div>
+              </AnimatePresence>
+            ) : (
+              // If contacts are loaded but none are selected, and there are contacts, show a "Select a contact" message
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="select-contact-message"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-white min-h-full"
+                >
+                  <MessageSquare className="w-16 h-16 text-[#7A7A7A] opacity-50 mb-4" />
+                  <p className="text-lg text-[#7A7A7A] font-medium">Select a contact to view messages</p>
+                </motion.div>
+              </AnimatePresence>
+            )
+          )
+        )}
           </section>
         </div>
         {/* Right Panel Container - Now conditionally rendered and takes full width on mobile */}
-        {currentUser && (
-          <div className={`md:w-[380px] w-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}> {/* Conditional display for mobile */}
+        {(currentUser && !loadingAuth) ? ( // Only render RightDashboardPanel if currentUser is available and not loading
+          <div className={`md:w-[380px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}> {/* Conditional display for mobile */}
             <RightDashboardPanel currentUser={currentUser} contacts={contacts} />
+          </div>
+        ) : (
+          // Placeholder for the right panel to prevent layout shift
+          <div className={`md:w-[380px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+            {/* You can add a subtle loading spinner or just keep it empty */}
           </div>
         )}
       </div>
