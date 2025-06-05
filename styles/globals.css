@@ -1,3 +1,11 @@
+html, body {
+  height: 100%;
+  /* Tailwind's Preflight typically sets margin/padding to 0,
+     but explicitly adding them ensures no browser defaults interfere. */
+  margin: 0;
+  padding: 0;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Work+Sans:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;

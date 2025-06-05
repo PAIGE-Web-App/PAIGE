@@ -13,7 +13,6 @@ import { useDraftMessage } from "../hooks/useDraftMessage"; // Reverted to relat
 import EditContactModal from "../components/EditContactModal"; // Reverted to relative path
 import { getCategoryStyle } from "../utils/categoryStyle"; // Reverted to relative path
 import { db, getUserCollectionRef } from "../lib/firebase"; // Reverted to relative path
-import { Toaster } from "react-hot-toast"; // Keep Toaster for the component
 import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
 import {
   collection,
@@ -738,7 +737,7 @@ export default function Home() {
         {/* Main Content Area - Responsive Flex Container */}
         
         <div
-          className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden transition-opacity duration-500 ease-in-out
+          className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden  transition-opacity duration-500 ease-in-out
             ${contactsLoading ? "opacity-100" : "opacity-100"}
             ${isMobile ? 'flex-col' : 'flex-row'} `} // Stacks vertically on mobile
           style={isMobile ? { height: 'calc(100vh - 200px)' } : { maxHeight: "calc(100vh - 100px)" }}
@@ -746,7 +745,7 @@ export default function Home() {
         >
           {/* Left Panel (Contact List) */}
           <aside
-            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
+            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full 
               ${isMobile && activeMobileTab !== 'contacts' ? 'hidden' : 'block'}
             `} // Conditional display for mobile
             style={{ maxHeight: "100%", overflowY: "auto" }}
@@ -1433,33 +1432,7 @@ export default function Home() {
       {isMobile && currentUser && ( // Render BottomNavBar only on mobile and if user is logged in
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
-      {/* Toaster component for custom toast notifications */}
-      <Toaster
-        position="top-right" // Changed position to top-right
-        toastOptions={{
-          style: {
-            backgroundColor: '#332B42', // Dark background
-            color: '#F3F2F0',        // Light text
-            borderRadius: '5px',
-            border: '1px solid #A85C36',
-            padding: '10px 15px',
-            fontSize: '14px',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-          },
-          success: {
-            iconTheme: {
-              primary: '#A85C36',
-              secondary: '#F3F2F0',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#A85C36',
-              secondary: '#F3F2F0',
-            },
-          },
-        }}
-      />
+      
     </>
   );
 }
