@@ -3,6 +3,8 @@
 import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth"; // Removed signInAnonymously, Added signOut
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
+import MessageArea from "../components/MessageArea"; // Assuming it's in the components folder
+
 import AddContactModal from "../components/AddContactModal"; // Reverted to relative path
 import { getAllContacts } from "../lib/getContacts"; // Reverted to relative path
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
@@ -26,7 +28,6 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react";
-
 import CategoryPill from "../components/CategoryPill"; // Reverted to relative path
 import SelectField from "../components/SelectField"; // Reverted to relative path
 import { AnimatePresence, motion } from "framer-motion";
@@ -189,6 +190,7 @@ export default function Home() {
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null); // State to hold authentication errors
   const [initialContactLoadComplete, setInitialContactLoadComplete] = useState(false); // ADD THIS LINE
+  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false); 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('name-asc');
   const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
@@ -199,6 +201,7 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
+const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, or an estimated pixel height like 60
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -218,8 +221,26 @@ export default function Home() {
   const [contactsLoading, setContactsLoading] = useState(true);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts'); // NEW: State for active mobile tab
+  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts'); // Default to 'contacts'
 
+ // Effect to finalize contactsLoading state
+  useEffect(() => {
+    // contactsLoading should only be set to false when:
+    // 1. We've either finished fetching contacts OR determined no user/contacts exist (initialContactLoadComplete is true).
+    // 2. The minimum display time for the skeleton has been met (minLoadTimeReached is true).
+    if (initialContactLoadComplete && minLoadTimeReached) {
+      setContactsLoading(false);
+    }
+  }, [initialContactLoadComplete, minLoadTimeReached]);
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinLoadTimeReached(true);
+    }, 500); // Display skeleton for at least 500ms
+
+    return () => clearTimeout(timer); // Cleanup the timer if component unmounts
+  }, []); // Run only once on component mount
 
   useEffect(() => {
     const handleResize = () => {
@@ -318,15 +339,15 @@ export default function Home() {
   };
 
 
-  // Contacts Listener
+   // Contacts Listener
   useEffect(() => {
     let unsubscribeContacts: () => void;
     if (isAuthReady && currentUser?.uid) {
-      setContactsLoading(true);
+      setContactsLoading(true); 
       const userId = currentUser.uid;
 
       const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", userId);
-      console.log('page.tsx: Contacts Collection Path:', contactsCollectionRef.path);
+      // console.log('page.tsx: Contacts Collection Path:', contactsCollectionRef.path); // Remove this log if not needed
 
       const q = query(
         contactsCollectionRef,
@@ -350,30 +371,39 @@ export default function Home() {
           };
         });
         setContacts(fetchedContacts);
-        // Only update selectedContact if the current one is deleted or if none is selected
         if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
           setSelectedContact(fetchedContacts[0] || null);
         }
-        setContactsLoading(false);
-        setInitialContactLoadComplete(true); // ADD THIS LINE
+        
+        // Mark data as loaded/determined
+        setInitialContactLoadComplete(true); 
         console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
+        // Note: setContactsLoading(false) will be handled by the new effect below
+        
       }, (error) => {
         console.error("page.tsx: Error fetching contacts:", error);
-        setContactsLoading(false);
-        setInitialContactLoadComplete(true); // ADD THIS LINE (also set on error, meaning initial load attempt finished)
-        showErrorToast("Failed to load contacts."); // USE CUSTOM TOAST
+        // Mark data as loaded/determined even on error
+        setInitialContactLoadComplete(true); 
+        showErrorToast("Failed to load contacts.");
+        // Note: setContactsLoading(false) will be handled by the new effect below
       });
     } else {
-      setContacts([]);
-      setSelectedContact(null);
-      setContactsLoading(false);
+      setContacts([]); 
+      setSelectedContact(null); 
+      
+      // If auth is fully resolved and no user, mark data as loaded/determined
+      if (!loadingAuth && isAuthReady && !currentUser) {
+        setInitialContactLoadComplete(true);
+      }
+      // contactsLoading will remain true until initialContactLoadComplete and minLoadTimeReached are both true.
     }
     return () => {
       if (unsubscribeContacts) {
         unsubscribeContacts();
       }
     };
-  }, [isAuthReady, currentUser]);
+  }, [isAuthReady, currentUser, loadingAuth]); // Removed selectedContact from dependencies earlier, good!
+
 
 
   useEffect(() => {
@@ -683,13 +713,25 @@ export default function Home() {
   }, []);
 
   // Function to handle tab changes from BottomNavBar
-  const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo') => {
-    setActiveMobileTab(tab);
-    // If switching to messages and no contact is selected, default to the first one
-    if (tab === 'messages' && !selectedContact && contacts.length > 0) {
-      setSelectedContact(contacts[0]);
-    }
-  }, [selectedContact, contacts]);
+const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo') => {
+  console.log('handleMobileTabChange called with tab:', tab); // ADD THIS LINE
+  setActiveMobileTab(tab);
+  // If switching to messages and no contact is currently selected, select the first one if available
+  if (tab === 'messages' && !selectedContact && contacts.length > 0) {
+    setSelectedContact(contacts[0]);
+  }
+  // If switching away from messages AND a contact is selected, you *might* want to clear it,
+  // but your current logic already clears it if switching to a non-message tab.
+  // The original logic was:
+  // if (tab !== 'messages' && selectedContact) {
+  //   setSelectedContact(null);
+  // }
+  // Let's refine this to only clear if moving from messages to contacts/todo
+  // if (activeMobileTab === 'messages' && tab !== 'messages') {
+  //   setSelectedContact(null);
+  // }
+  // Or simply keep your original logic which works.
+}, [selectedContact, contacts]);
 
 
   if (loadingAuth) {
@@ -705,6 +747,9 @@ export default function Home() {
 
   // Removed the error display block for authentication token missing.
   // The initial loading spinner already covers the loading state.
+  console.log('page.tsx Render: contactsLoading =', contactsLoading, 'contacts.length =', contacts.length);
+  console.log('page.tsx: isMobile:', isMobile);
+console.log('page.tsx: activeMobileTab:', activeMobileTab);
 
   return (
     <>
@@ -736,20 +781,15 @@ export default function Home() {
       >
         {/* Main Content Area - Responsive Flex Container */}
         
-        <div
-          className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden  transition-opacity duration-500 ease-in-out
-            ${contactsLoading ? "opacity-100" : "opacity-100"}
-            ${isMobile ? 'flex-col' : 'flex-row'} `} // Stacks vertically on mobile
-          style={isMobile ? { height: 'calc(100vh - 200px)' } : { maxHeight: "calc(100vh - 100px)" }}
-
-        >
+      <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}> {/* CORRECTED: Removed opacity logic here */}
+          
           {/* Left Panel (Contact List) */}
           <aside
-            className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full 
-              ${isMobile && activeMobileTab !== 'contacts' ? 'hidden' : 'block'}
-            `} // Conditional display for mobile
-            style={{ maxHeight: "100%", overflowY: "auto" }}
-          >
+    className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
+      ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
+    `}
+    style={{ maxHeight: '100%', overflowY: 'auto' }}
+  >
             {contactsLoading ? (
               <AnimatePresence mode="wait">
                 <motion.div
@@ -949,397 +989,33 @@ export default function Home() {
             )}
           </aside>
 
-
-          {/* Center Panel (Message Area) */}
+          
           <section
-            className={`flex flex-col flex-1 bg-white relative w-full min-h-full
-              ${isMobile && activeMobileTab !== 'messages' ? 'hidden' : 'block'}
-            `} // Conditional display for mobile
-            style={{ maxHeight: "100%" }}
-          >
-            {" "}
-            {selectedContact ? (
-              <>
-                {/* Fixed Header */}
-                <div
-                  className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center"
-                >
-                  {isMobile && (
-                    <button
-                      onClick={() => {
-                        setSelectedContact(null);
-                        setActiveMobileTab('contacts'); // Go back to contacts tab
-                      }}
-                      className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
-                      aria-label="Back to contacts"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                    </button>
-                  )}
-                  <div className="flex-1 flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                          {selectedContact.name}
-                        </h4>
-                        <CategoryPill category={selectedContact.category} />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        {selectedContact.email && (
-                          <a
-                            href={`mailto:${selectedContact.email}`}
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
-                          >
-                            <Mail className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
-                          </a>
-                        )}
-                        {selectedContact.phone && (
-                          <a
-                            href={`tel:${selectedContact.phone}`}
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
-                          >
-                            <Phone className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
-                          </a>
-                        )}
-                        {selectedContact.website && (
-                          <a
-                            href={selectedContact.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
-                          >
-                            <span>🌐</span>
-                            <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-                {/* Scrollable Message Area */}
-                <div
-                  className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 space-y-4 relative"
-                >
-                  {messagesLoading ? (
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key="messages-skeleton"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <MessagesSkeleton />
-                      </motion.div>
-                    </AnimatePresence>
-                  ) : messages.length === 0 ? (
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key="no-messages-placeholder"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                        className="absolute inset-0 flex items-center justify-center"
-                      >
-                        <div className="flex flex-col items-center text-center text-[#7A7A7A] px-4">
-                          <img
-                            src="/Messages.svg"
-                            alt="Start conversation"
-                            className="w-24 h-24 mb-4 opacity-50"
-                          />
-                          <p>Send a message to start the conversation!</p>
-                        </div>
-                      </motion.div>
-                    </AnimatePresence>
-                  ) : (
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key="actual-messages"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                      >
-                        {/* START of your existing messages mapping logic */}
-                        {(() => {
-                          let lastDate: string | null = null;
-                          const messageGroups: { date: string; messages: Message[] }[] = [];
+    className={`flex flex-col flex-1 bg-white relative w-full min-h-full
+          ${isMobile ? (activeMobileTab === 'messages' ? 'block' : 'hidden') : 'block'}
+    `}
+  >
+        <MessageArea
+            selectedContact={selectedContact}
+            currentUser={currentUser}
+            isAuthReady={isAuthReady}
+            contacts={contacts}
+            isMobile={isMobile}
+            setActiveMobileTab={setActiveMobileTab}
+            input={input}
+            setInput={setInput}
+            loading={loading}
+            generateDraft={generateDraft}
+            selectedFiles={selectedFiles}
+            setSelectedFiles={setSelectedFiles}
+            contactsLoading={contactsLoading}
+        />
+    </section>
+          
 
-                          messages.forEach((msg) => {
-                            const messageDate = getRelativeDate(msg.createdAt);
-                            if (messageDate !== lastDate) {
-                              lastDate = messageDate;
-                              messageGroups.push({ date: messageDate, messages: [msg] });
-                            } else {
-                              messageGroups[messageGroups.length - 1].messages.push(msg);
-                            }
-                          });
 
-                          return messageGroups.map((group, index) => (
-                            <div key={index}>
-                              <div className="flex items-center justify-center my-4">
-                                <div className="w-1/3 border-t border-[#AB9C95]"></div>
-                                <span className="mx-2 text-xs text-[#555] font-medium">
-                                  {group.date}
-                                </span>
-                                <div className="w-1/3 border-t border-[#AB9C95]"></div>
-                              </div>
-                              {group.messages.map((msg) => (
-                                <div key={msg.id} className="mb-4">
-                                  <div
-                                    className={`max-w-[80%] px-3 py-2 text-left text-[#332B42] bg-white border rounded-[15px_15px_0_15px] ${
-                                      msg.via === selectedChannel
-                                        ? "ml-auto border-[#A85733]"
-                                        : "mr-auto border-[#AB9C95]"
-                                    }`}
-                                  >
-                                    <div className="flex justify-between text-[11px] text-[#999] mb-1">
-                                      <span>{msg.timestamp}</span>
-                                      <span className="flex items-center gap-1">
-                                        Via <span className="font-medium">{msg.via}</span>
-                                      </span>
-                                    </div>
-                                    <div className="whitespace-pre-wrap text-[13px]">{msg.body}</div>
-                                    {msg.attachments && msg.attachments.length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-2 w-[95%]">
-                                        {msg.attachments.map((attachment, attIndex) => (
-                                          <button
-                                            key={attIndex}
-                                            onClick={() => toast(`Simulating download of: ${attachment.name}. Real download requires server-side storage.`)}
-                                            className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42] hover:bg-[#F8F6F4] cursor-pointer"
-                                          >
-                                            <File className="w-3 h-3" />
-                                            <span>{attachment.name}</span>
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                              <div ref={messagesEndRef} />
-                            </div>
-                          ));
-                        })()}
-                        {/* END of your existing messages mapping logic */}
-                      </motion.div>
-                    </AnimatePresence>
-                  )}
-                </div>
-                {/* Fixed Bottom Section - Message Input */}
-                <div
-                  className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10 sticky bottom-0"
-                  style={{ minHeight: "120px", borderTopWidth: "0.5px" }}
-                >
-                  <div className="px-3 pt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <label htmlFor="via" className="text-xs">
-                        Via
-                      </label>
-                      <select
-                        id="via"
-                        className="text-xs border px-2 py-1 rounded-[5px]"
-                        value={selectedChannel}
-                        onChange={(e) => setSelectedChannel(e.target.value)}
-                      >
-                        <option value="Gmail">Gmail</option>
-                        <option value="SMS">SMS</option>
-                      </select>
-                    </div>
-                    <div className="overflow-y-auto max-h-[35vh] pr-1">
-                      <textarea
-                        ref={textareaRef}
-                        rows={3}
-                        placeholder={`Hey ${selectedContact?.name}...`}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none"
-                        style={{ minHeight: "3rem" }}
-                      />
-                      {selectedFiles.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2 mb-2">
-                          {selectedFiles.map((file, index) => (
-                            <div key={index} className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                              <File className="w-3 h-3" />
-                              <span>{file.name}</span>
-                              <button
-                                onClick={() => handleRemoveFile(file)}
-                                className="ml-1 text-[#A85C36] hover:text-[#784528]"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {loading && (
-                        <div className="absolute inset-0 bg-[#F3F2F0] bg-opacity-80 flex flex-col justify-center items-center text-xs text-[#332B42] z-10 pointer-events-none">
-                          <div className="w-4/5 max-w-md">
-                            <div className="h-3 bg-[#E0DBD7] rounded mb-2 animate-pulse"></div>
-                            <div className="h-3 bg-[#E0DBD7] rounded mb-2 animate-pulse w-4/5"></div>
-                            <div className="h-3 bg-[#E0DBD7] rounded mb-2 animate-pulse w-3/4"></div>
-                          </div>
-                          <p className="mt-3 text-[11px] text-[#555] font-medium">
-                            Drafting message
-                            <span className="loading-dots"></span>
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className="flex justify-between items-center px-3 py-3 border-t border-[#AB9C95]"
-                    style={{ borderTopWidth: "0.5px" }}
-                  >
-                    <div className="flex items-center gap-4 relative">
-                      <button
-                        onClick={async () => {
-                          const generated = await generateDraft(selectedContact);
-                          setInput(generated);
-                        }}
-                        disabled={loading}
-                        className="btn-secondary"
-                        title="Generate a draft message using AI"
-                      >
-                        {loading ? (
-                          "Drafting..."
-                        ) : (
-                          <>
-                            <WandSparkles className="w-4 h-4" />
-                            Draft AI Message
-                          </>
-                        )}
-                      </button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        multiple
-                      />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="icon-button"
-                        aria-label="Attach File"
-                        title="Click to Upload File(s)"
-                      >
-                        <FileUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="icon-button"
-                        aria-label="Add Emoji"
-                        title="Add an emoji to your message"
-                      >
-                        <SmilePlus className="w-4 h-4" />
-                      </button>
-                      <AnimatePresence>
-                        {showEmojiPicker && (
-                          <motion.div
-                            ref={emojiPickerRef}
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="absolute bottom-full left-0 mb-2 w-64"
-                          >
-                            <EmojiPicker onEmojiSelect={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                    <button
-                      onClick={handleSend}
-                      disabled={!input.trim() && selectedFiles.length === 0}
-                      className="btn-primary flex items-center gap-1"
-                      title="Send Message"
-                    >
-                      Send <MoveRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : ( // This block runs when selectedContact is null
-          // Conditional rendering based on overall loading state and contact count
-          (loadingAuth || contactsLoading || !initialContactLoadComplete) ? (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key="initial-messages-skeleton"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 flex flex-col justify-between bg-white"
-              >
-                {/* Placeholder for header */}
-                <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center h-[50px] min-h-[50px]"></div>
-                {/* Main content area skeleton */}
-                <div className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 space-y-4 relative">
-                    <MessagesSkeleton />
-                </div>
-                {/* Placeholder for input area */}
-                <div className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10 sticky bottom-0 min-h-[120px]"></div>
-              </motion.div>
-            </AnimatePresence>
-          ) : ( // All loading is complete (loadingAuth is false AND contactsLoading is false)
-            contacts.length === 0 ? (
-              // Only show "Cheers" if no contacts are present after loading
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="cheers-screen"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-white min-h-full"
-                >
-                  <img
-                    src="/wine.png"
-                    alt="Champagne Cheers"
-                    className="mb-4 w-48 h-48"
-                  />
-                  <h2 className="text-xl font-semibold text-[#332B42] font-playfair mb-2">
-                    Cheers to your next chapter.
-                  </h2>
-                  <p className="text-sm text-[#364257] mb-4 text-center max-w-xs">
-                    Get ready to manage your wedding in one spot.
-                  </p>
-                  <button
-                    className="btn-primary"
-                    onClick={() => setShowOnboardingModal(true)}
-                  >
-                    Set up your unified inbox
-                  </button>
-                </motion.div>
-              </AnimatePresence>
-            ) : (
-              // If contacts are loaded but none are selected, and there are contacts, show a "Select a contact" message
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="select-contact-message"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-white min-h-full"
-                >
-                  <MessageSquare className="w-16 h-16 text-[#7A7A7A] opacity-50 mb-4" />
-                  <p className="text-lg text-[#7A7A7A] font-medium">Select a contact to view messages</p>
-                </motion.div>
-              </AnimatePresence>
-            )
-          )
-        )}
-          </section>
-        </div>
+              </main>
+
         {/* Right Panel Container - Now conditionally rendered and takes full width on mobile */}
         {(currentUser && !loadingAuth) ? ( // Only render RightDashboardPanel if currentUser is available and not loading
           <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
@@ -1356,6 +1032,8 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      
       {/* Edit Contact Modal */}
       {isEditing && selectedContact && currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">

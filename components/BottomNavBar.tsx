@@ -20,7 +20,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChange }) =
         Contacts
       </button>
       <button
-        onClick={() => onTabChange('messages')}
+        onClick={() => { // START: Modified onClick handler
+          onTabChange('messages');
+          console.log("BottomNavBar.tsx: Messages tab clicked, calling onTabChange('messages')"); // ADD THIS LINE
+        }} // END: Modified onClick handler
         className={`flex flex-col items-center text-xs font-medium px-3 py-1 rounded-md transition-colors
           ${activeTab === 'messages' ? 'text-[#A85C36] bg-[#EBE3DD]' : 'text-[#332B42] hover:bg-[#E0DBD7]'}
         `}
