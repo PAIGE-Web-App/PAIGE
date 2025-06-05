@@ -1,3 +1,4 @@
+// components/AddContactModal.tsx
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -7,10 +8,9 @@ import SelectField from "./SelectField";
 import { X } from "lucide-react";
 import { getCategoryStyle } from "../utils/categoryStyle";
 import { getAuth } from "firebase/auth";
-import toast from "react-hot-toast";
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
-
+import { useCustomToast } from "../hooks/useCustomToast"; // Import useCustomToast
 
 // Moved outside the component
 const adaColors = [
@@ -48,6 +48,7 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   const [customCategory, setCustomCategory] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { showSuccessToast, showErrorToast } = useCustomToast(); // Initialize useCustomToast
 
 
   useEffect(() => {
@@ -111,7 +112,7 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast.error("Please correct the errors in the form.");
+      showErrorToast("Please correct the errors in the form.");
       return;
     }
 
@@ -139,11 +140,11 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
     try {
       await saveContactToFirestore(newContact);
       onSave(newContact);
-      toast.success("Contact added successfully!");
+      showSuccessToast("Contact added successfully!");
       onClose();
     } catch (error) {
       console.error("Error adding contact:", error);
-      toast.error("Failed to add contact. Please try again.");
+      showErrorToast("Failed to add contact. Please try again.");
     }
   };
 

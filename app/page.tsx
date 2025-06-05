@@ -126,28 +126,7 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
   );
 };
 
-const triggerGmailImport = async (userId: string, contacts: Contact[] = []) => {
-  try {
-    console.log("triggerGmailImport: Sending request to /api/start-gmail-import with userId and contacts:", { userId, contacts });
-    const response = await fetch("/api/start-gmail-import", {
-      method: "POST",
-      body: JSON.stringify({ userId, contacts }),
-      headers: { "Content-Type": "application/json" },
-    });
 
-    if (!response.ok) {
-      console.error("Gmail import failed");
-    } else {
-      console.log("Gmail import request sent successfully.");
-      const data = await response.json();
-      console.log("Gmail import response:", data);
-    }
-  } catch (err) {
-    console.error("Gmail import error:", err);
-    showErrorToast("An error occurred during Gmail import."); // USE CUSTOM TOAST
-
-  }
-};
 
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (

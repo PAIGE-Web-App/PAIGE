@@ -4,12 +4,13 @@ import { X, Trash2 } from "lucide-react";
 import { doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import { getCategoryStyle } from "../utils/categoryStyle";
-import SelectField from "./SelectField";
-import toast from "react-hot-toast";
+
 import FormField from "./FormField";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import CategorySelectField from "./CategorySelectField";
 import Banner from './Banner'; // NEW: Import the Banner component
+import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
+
 
 interface Contact {
   id: string;
@@ -67,6 +68,8 @@ export default function EditContactModal({
   );
   const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
+ 
 
   useEffect(() => {
     setFormData({
@@ -141,7 +144,7 @@ export default function EditContactModal({
 
   const handleSubmit = async () => {
     if (!validate()) {
-      toast.error("Please correct the errors in the form.");
+      showErrorToast("Please correct the errors in the form."); // USE CUSTOM TOAST
       return;
     }
 
@@ -172,12 +175,12 @@ export default function EditContactModal({
       // Use getUserCollectionRef to get the correct document path
       const contactRef = doc(getUserCollectionRef( "contacts", userId), contact.id);
       await updateDoc(contactRef, updatedContact);
-      onSave(updatedContact);
-      toast.success("Contact updated successfully!");
+      onSave(updatedContact); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
+      showSuccessToast("Contact updated successfully!"); // USE CUSTOM TOAST
       onClose();
     } catch (error) {
       console.error("Error updating contact:", error);
-      toast.error("Failed to update contact. Please try again.");
+      showErrorToast("Failed to update contact. Please try again."); // USE CUSTOM TOAST
     }
   };
 
@@ -185,16 +188,16 @@ export default function EditContactModal({
     try {
       if (contact.id && userId) {
         // Use getUserCollectionRef to get the correct document path for deletion
-        await deleteDoc(doc(getUserCollectionRef("contacts", userId), contact.id));
-        onDelete(contact.id);
-        toast.success("Contact deleted!");
+        await deleteDoc(doc(getUserCollectionRef("contacts", userId), contact.id)); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
+        onDelete(contact.id); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
+        showSuccessToast("Contact deleted!"); // USE CUSTOM TOAST
         onClose();
       } else {
-        toast.error("Contact ID or User ID is missing. Cannot delete.");
+        showErrorToast("Contact ID or User ID is missing. Cannot delete."); // USE CUSTOM TOAST
       }
     } catch (error: any) {
       console.error("Error deleting contact:", error);
-      toast.error(`Failed to delete contact: ${error.message}`);
+      showErrorToast(`Failed to delete contact: ${error.message}`); // USE CUSTOM TOAST
     }
   };
 
