@@ -1,38 +1,39 @@
 // app/page.tsx
 "use client";
-import { getAuth, onAuthStateChanged, User, signInWithCustomToken } from "firebase/auth"; // Removed signInAnonymously
+import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth"; // Removed signInAnonymously, Added signOut
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
-import AddContactModal from "../components/AddContactModal";
-import { getAllContacts } from "../lib/getContacts";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react"; // Corrected this line
+import AddContactModal from "../components/AddContactModal"; // Reverted to relative path
+import { getAllContacts } from "../lib/getContacts"; // Reverted to relative path
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { saveContactToFirestore } from "../lib/saveContactToFirestore";
-import TopNav from "../components/TopNav";
-import { useDraftMessage } from "../hooks/useDraftMessage";
-import EditContactModal from "../components/EditContactModal";
-import { getCategoryStyle } from "../utils/categoryStyle";
-import toast from "react-hot-toast";
-import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
-import Link from "next/link";
-
+import { saveContactToFirestore } from "../lib/saveContactToFirestore"; // Reverted to relative path
+import TopNav from "../components/TopNav"; // Reverted to relative path
+import { useDraftMessage } from "../hooks/useDraftMessage"; // Reverted to relative path
+import EditContactModal from "../components/EditContactModal"; // Reverted to relative path
+import { getCategoryStyle } from "../utils/categoryStyle"; // Reverted to relative path
+import { db, getUserCollectionRef } from "../lib/firebase"; // Reverted to relative path
+import { Toaster } from "react-hot-toast"; // Keep Toaster for the component
+import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
 import {
-  collection, // Keep if still needed for other root collections, otherwise remove
+  collection,
   query,
   where,
   orderBy,
   onSnapshot,
   addDoc,
   writeBatch,
+  limit,
+  getDocs,
 } from "firebase/firestore";
-import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react"; // Added Users icon for contacts tab
+import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react";
 
-import CategoryPill from "../components/CategoryPill";
-import SelectField from "../components/SelectField";
+import CategoryPill from "../components/CategoryPill"; // Reverted to relative path
+import SelectField from "../components/SelectField"; // Reverted to relative path
 import { AnimatePresence, motion } from "framer-motion";
-import OnboardingModal from "../components/OnboardingModal";
-import RightDashboardPanel from "../components/RightDashboardPanel"; // Import the new component
-import BottomNavBar from "../components/BottomNavBar"; // NEW: Import the BottomNavBar component
+import OnboardingModal from "../components/OnboardingModal"; // Reverted to relative path
+import RightDashboardPanel from "../components/RightDashboardPanel"; // Reverted to relative path
+import BottomNavBar from "../components/BottomNavBar"; // Reverted to relative path
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -143,7 +144,8 @@ const triggerGmailImport = async (userId: string, contacts: Contact[] = []) => {
     }
   } catch (err) {
     console.error("Gmail import error:", err);
-    toast.error("An error occurred during Gmail import.");
+    showErrorToast("An error occurred during Gmail import."); // USE CUSTOM TOAST
+
   }
 };
 
@@ -189,7 +191,6 @@ const MessagesSkeleton = () => (
   </div>
 );
 
-
 export default function Home() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -219,6 +220,7 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -275,6 +277,7 @@ export default function Home() {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      console.log("page.tsx: onAuthStateChanged - currentUser:", user);
       setIsAuthReady(true);
       setLoadingAuth(false);
 
@@ -293,7 +296,16 @@ export default function Home() {
           const data = userSnap.data();
           const completed = data.onboarded;
 
-          if (completed) {
+          // Check if user has any contacts
+         const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
+          // To check for existence, create a query with limit(1) and use getDocs
+          const contactsQuery = query(contactsCollectionRef, limit(1));
+          const contactsSnapshot = await getDocs(contactsQuery); // Use getDocs for a query
+          const hasContacts = !contactsSnapshot.empty;
+
+          // Show onboarding modal if not completed AND no contacts exist
+          // If completed OR contacts exist, don't show the onboarding modal.
+          if (completed || hasContacts) {
             if (gmailSuccess) {
               await triggerGmailImport(user.uid, []);
             }
@@ -311,6 +323,21 @@ export default function Home() {
 
     return () => unsubscribeAuth();
   }, []);
+
+  // Function to handle user logout
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      console.log('page.tsx: User signed out successfully.');
+      setCurrentUser(null); // Clear current user state
+      window.location.href = '/login'; // Redirect to the login page
+    } catch (error) {
+      console.error('page.tsx: Error signing out:', error);
+      showErrorToast(`Failed to log out: ${(error as Error).message}`); // USE CUSTOM TOAST
+
+    }
+  };
 
 
   // Contacts Listener
@@ -356,7 +383,7 @@ export default function Home() {
         console.error("page.tsx: Error fetching contacts:", error);
         setContactsLoading(false);
         setInitialContactLoadComplete(true); // ADD THIS LINE (also set on error, meaning initial load attempt finished)
-        toast.error("Failed to load contacts.");
+        showErrorToast("Failed to load contacts."); // USE CUSTOM TOAST
       });
     } else {
       setContacts([]);
@@ -439,7 +466,7 @@ export default function Home() {
               console.log(`page.tsx: Fetched ${snapshot.docs.length} all messages for last message map.`);
           }, (err) => {
             console.error('page.tsx: Error fetching all messages for last message map:', err);
-            toast.error(`Failed to load message history: ${(err as Error).message}`);
+            showErrorToast(`Failed to load message history: ${(err as Error).message}`); // USE CUSTOM TOAST
           });
       } else {
           setContactLastMessageMap(new Map());
@@ -490,7 +517,8 @@ export default function Home() {
       }, (err) => {
         console.error('page.tsx: Error fetching selected contact messages:', err);
         setMessagesLoading(false); // Set messages loading to false even on error
-        toast.error(`Failed to load messages for contact: ${(err as Error).message}`);
+        showErrorToast(`Failed to load messages for contact: ${(err as Error).message}`); // USE CUSTOM TOAST
+
       });
     } else {
       setMessages([]);
@@ -572,8 +600,9 @@ export default function Home() {
       setInput("");
       setSelectedFiles([]);
       console.log("page.tsx: Message sent successfully.");
+      showSuccessToast("Message sent successfully."); // USE CUSTOM TOAST
     } catch (error: any) {
-      toast.error(`Failed to send message: ${error.message}`);
+      showErrorToast(`Failed to send message: ${error.message}`); // USE CUSTOM TOAST
       console.error("page.tsx: Error sending message:", error);
     }
   };
@@ -583,6 +612,7 @@ export default function Home() {
       const newFiles = Array.from(event.target.files);
 
       // Determine unique new files based on current `selectedFiles` state
+      // This is a simple check; for real-world apps, consider file hashes for larger files.
       const uniqueNewFiles = newFiles.filter(
         (newFile) => !selectedFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
       );
@@ -592,11 +622,11 @@ export default function Home() {
 
       // Show toast message only if new unique files were actually added
       if (uniqueNewFiles.length > 0) {
-          toast.success(`Selected ${uniqueNewFiles.length} file(s).`);
+        showSuccessToast(`Selected ${uniqueNewFiles.length} file(s).`);
       }
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = ''; // Clear the input value after selecting files
     }
   };
 
@@ -604,7 +634,8 @@ export default function Home() {
     setSelectedFiles((prevFiles) =>
       prevFiles.filter((file) => file !== fileToRemove)
     );
-    toast(`Removed file: ${fileToRemove.name}`);
+        showInfoToast(`Removed file: ${fileToRemove.name}`); // USE CUSTOM TOAST (or showSuccessToast)
+
   };
 
   const handleEmojiSelect = (emoji: string) => {
@@ -699,7 +730,7 @@ export default function Home() {
 
   return (
     <>
-      <TopNav userName={userName} userId={currentUser?.uid || null} />
+      <TopNav userName={userName} userId={currentUser?.uid || null} onLogout={handleLogout} />
    <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
   {daysLeft !== null ? (
     `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
@@ -726,11 +757,13 @@ export default function Home() {
         style={{ maxHeight: "calc(100vh - 100px)" }} // Adjusted for TopNav height
       >
         {/* Main Content Area - Responsive Flex Container */}
+        
         <div
           className={`flex md:flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden transition-opacity duration-500 ease-in-out
             ${contactsLoading ? "opacity-100" : "opacity-100"}
             ${isMobile ? 'flex-col' : 'flex-row'} `} // Stacks vertically on mobile
-          style={{ maxHeight: "100%" }}
+          style={isMobile ? { height: 'calc(100vh - 200px)' } : { maxHeight: "calc(100vh - 100px)" }}
+
         >
           {/* Left Panel (Contact List) */}
           <aside
@@ -1331,12 +1364,16 @@ export default function Home() {
         </div>
         {/* Right Panel Container - Now conditionally rendered and takes full width on mobile */}
         {(currentUser && !loadingAuth) ? ( // Only render RightDashboardPanel if currentUser is available and not loading
-          <div className={`md:w-[380px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}> {/* Conditional display for mobile */}
-            <RightDashboardPanel currentUser={currentUser} contacts={contacts} />
+          <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+            <RightDashboardPanel
+               currentUser={currentUser}
+                isMobile={isMobile}
+                activeMobileTab={activeMobileTab} // Pass activeMobileTab here
+            />
           </div>
         ) : (
           // Placeholder for the right panel to prevent layout shift
-          <div className={`md:w-[380px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+          <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
             {/* You can add a subtle loading spinner or just keep it empty */}
           </div>
         )}
@@ -1417,6 +1454,33 @@ export default function Home() {
       {isMobile && currentUser && ( // Render BottomNavBar only on mobile and if user is logged in
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
+      {/* Toaster component for custom toast notifications */}
+      <Toaster
+        position="top-right" // Changed position to top-right
+        toastOptions={{
+          style: {
+            backgroundColor: '#332B42', // Dark background
+            color: '#F3F2F0',        // Light text
+            borderRadius: '5px',
+            border: '1px solid #A85C36',
+            padding: '10px 15px',
+            fontSize: '14px',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#A85C36',
+              secondary: '#F3F2F0',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#A85C36',
+              secondary: '#F3F2F0',
+            },
+          },
+        }}
+      />
     </>
   );
 }

@@ -1,14 +1,14 @@
 // components/TopNav.tsx
 'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import React, { useEffect, useState, useRef } from 'react';
 import { User, ContactRound, Settings, LogOut } from 'lucide-react';
+import { getAuth, signOut } from "firebase/auth"; // Import getAuth and signOut
 
 interface TopNavProps {
   userName: string | null;
   userId: string | null;
+  onLogout: () => void; // Add onLogout prop
 }
 
 // Removed stringToColor as it's no longer used for avatar background
@@ -20,8 +20,7 @@ const navItems = [ // Moved outside component
   { name: "Files", href: "/files" },
 ];
 
-export default function TopNav({ userName, userId }: TopNavProps) {
-  const pathname = usePathname();
+export default function TopNav({ userName, userId, onLogout }: TopNavProps) {
   const [showUserMenu, setShowUserMenu] = useState(false); // State for the user profile dropdown
   const [showMobileNavMenu, setShowMobileNavMenu] = useState(false); // State for the mobile hamburger navigation
   
@@ -62,7 +61,7 @@ export default function TopNav({ userName, userId }: TopNavProps) {
   const userMenuItems = [
     { name: "Profile", href: "/profile", icon: ContactRound },
     { name: "Settings", href: "/settings", icon: Settings },
-    { name: "Logout", href: "#", icon: LogOut, onClick: () => console.log("Logging out...") },
+    { name: "Logout", href: "#", icon: LogOut, onClick: onLogout }, // Use the onLogout prop here
   ];
 
   return (
@@ -99,9 +98,9 @@ export default function TopNav({ userName, userId }: TopNavProps) {
             >
               {/* Render main navigation items for mobile */}
               {navItems.map((item) => (
-                <Link key={item.name} href={item.href} className="block px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] no-underline">
+                <a key={item.name} href={item.href} className="block px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] no-underline">
                   {item.name}
-                </Link>
+                </a>
               ))}
             </div>
           )}
@@ -114,16 +113,16 @@ export default function TopNav({ userName, userId }: TopNavProps) {
       <ul className="hidden md:flex items-center gap-6">
         {navItems.map(({ name, href }) => (
           <li key={name}>
-            <Link
+            <a
               href={href}
               className={`no-underline ${
-                pathname === href
+                window.location.pathname === href
                   ? "text-[#A85C36] font-medium text-[14px] leading-5"
                   : "text-[#364257] font-normal text-[13px]"
               }`}
             >
               {name}
-            </Link>
+            </a>
           </li>
         ))}
       </ul>
@@ -156,14 +155,14 @@ export default function TopNav({ userName, userId }: TopNavProps) {
                   {item.name}
                 </button>
               ) : (
-                <Link
+                <a
                   key={item.name}
                   href={item.href}
                   className="block px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] flex items-center gap-2 no-underline"
                 >
                   {item.icon && <item.icon className="w-4 h-4" />}
                   {item.name}
-                </Link>
+                </a>
               )
             ))}
           </div>

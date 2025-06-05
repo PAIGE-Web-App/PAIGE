@@ -73,6 +73,10 @@ interface Contact {
 interface RightDashboardPanelProps {
   currentUser: User;
   contacts: Contact[];
+  isMobile: boolean;
+  rightPanelSelection: 'todo' | 'messages' | 'favorites'; // Now a prop
+  setRightPanelSelection: React.Dispatch<React.SetStateAction<'todo' | 'messages' | 'favorites'>>; // Add setter prop
+  activeMobileTab: 'contacts' | 'messages' | 'todo'; // This prop is used for internal logic related to mobile layout
 }
 
 // Helper function to reorder an array
@@ -116,7 +120,9 @@ const Banner: React.FC<BannerProps> = ({ message, type, onDismiss }) => {
 };
 
 
-const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts }) => {
+
+
+const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, isMobile, activeMobileTab }) => {
   // State declarations
   const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
@@ -1026,12 +1032,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
 
   return (
-    <div
-      className="hidden md:flex flex-row w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
+    <div className="flex w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
       style={{ maxHeight: '100%' }}
     >
       {/* Vertical Navigation (Icons) - Main Panel Switcher - Left Column of Right Panel */}
-      <div className="flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2 flex-shrink-0 w-[60px]"> {/* Added fixed width */}
+      <div className="hidden md:flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2 flex-shrink-0 w-[60px]"> {/* Added fixed width */}
         <button
           onClick={() => setRightPanelSelection('todo')}
           className={`p-2 rounded-[5px] transition-colors flex items-center justify-center
@@ -1062,6 +1067,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       </div>
 
       {/* Content Area for Right Panel - Right Column of Right Panel */}
+      {
+  (!isMobile || activeMobileTab === 'todo') && (
       <aside
         className="flex-1 bg-[#DEDBDB] p-3 overflow-y-auto w-full"
         style={{ maxHeight: '100%' }}
@@ -1310,7 +1317,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             >
               {filteredTodoItems.incompleteTasks.length === 0 && filteredTodoItems.completedTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center text-gray-500 text-sm py-8">
-                  <img src="/To_Do_Items.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
+                  <img src="/wine.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
                   <p>Add a To-do item to this list</p>
                 </div>
               ) : (
@@ -1426,6 +1433,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           </div>
         )}
       </aside>
+      )
+}
 
       {showMoveTaskModal && taskToMove && (
         <MoveTaskModal
