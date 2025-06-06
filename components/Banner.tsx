@@ -6,9 +6,10 @@ interface BannerProps {
   message: ReactNode; // Changed from string to ReactNode
   type?: 'info' | 'warning' | 'error'; // 'info' for informational, 'warning' for yellow, 'error' for red
   onDismiss?: () => void; // Optional dismiss handler
+  isLoading?: boolean; // Add loading state
 }
 
-const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss }) => {
+const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss, isLoading = false }) => {
   let bgColorClass = '';
   let textColorClass = '';
   let dismissHoverColorClass = '';
@@ -41,8 +42,14 @@ const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss }) =>
         transition={{ duration: 0.3 }}
         className={`text-sm py-2 rounded-[5px] mt-3 mb-2 relative flex items-center justify-start px-4 ${bgColorClass} ${textColorClass}`}
       >
-        <span>{message}</span>
-        {onDismiss && (
+        {isLoading ? (
+          <div className="animate-pulse">
+            <div className="h-4 bg-opacity-50 bg-current rounded w-48"></div>
+          </div>
+        ) : (
+          <span>{message}</span>
+        )}
+        {onDismiss && !isLoading && (
           <button
             onClick={onDismiss}
             className={`absolute top-1 right-1 p-1 rounded-full ${textColorClass} ${dismissHoverColorClass} transition-colors`}

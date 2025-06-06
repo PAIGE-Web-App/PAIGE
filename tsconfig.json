@@ -23,9 +23,12 @@
       }
     ],
     "baseUrl": ".", // Add this line
-    "paths": {     // Add this block
-      "@/*": ["./*"]
-    }
+    "paths": { // Add this block
+      "@/*": [
+        "./*"
+      ]
+    },
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",

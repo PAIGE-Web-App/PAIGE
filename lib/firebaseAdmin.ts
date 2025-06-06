@@ -1,13 +1,7 @@
 // lib/firebaseAdmin.ts
 import * as admin from 'firebase-admin';
 
-// Cache the Firestore instance to avoid re-initializing on hot reloads
-let cachedAdminDb: admin.firestore.Firestore | null = null;
-
-/**
- * Initializes the Firebase Admin SDK if it hasn't been initialized already.
- * This function ensures that the admin app is set up correctly once.
- */
+// Always initialize the Admin SDK on import
 function initializeAdminApp() {
   if (!admin.apps.length) {
     try {
@@ -37,15 +31,16 @@ function initializeAdminApp() {
   }
 }
 
+// Initialize on import
+initializeAdminApp();
+
 /**
  * Returns the initialized Firestore Admin SDK instance.
  * Ensures the Firebase Admin app is initialized before returning the database.
  * @returns {admin.firestore.Firestore} The Firestore database instance.
  */
 export function getAdminDb(): admin.firestore.Firestore {
-  if (!cachedAdminDb) {
-    initializeAdminApp(); // Ensure the admin app is initialized
-    cachedAdminDb = admin.firestore(); // Get the Firestore instance
-  }
-  return cachedAdminDb;
+  return admin.firestore();
 }
+
+export { admin };

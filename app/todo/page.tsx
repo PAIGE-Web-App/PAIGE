@@ -41,9 +41,10 @@ import DeleteListConfirmationModal from '@/components/DeleteListConfirmationModa
 import UpgradePlanModal from '@/components/UpgradePlanModal';
 import CategoryPill from '@/components/CategoryPill';
 import CategorySelectField from '@/components/CategorySelectField';
+import WeddingBanner from '@/components/WeddingBanner';
 
 // ICON IMPORTS
-import { Plus, MoreHorizontal, Filter } from 'lucide-react';
+import { Plus, MoreHorizontal, Filter, ChevronRight } from 'lucide-react';
 
 // HOOKS IMPORTS (from hooks/ folder)
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -88,6 +89,8 @@ export default function TodoPage() {
   // Add state for wedding date
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
 
   // Add useEffect to fetch wedding date
   useEffect(() => {
@@ -118,6 +121,25 @@ export default function TodoPage() {
       fetchUserData();
     }
   }, [user, loading]);
+
+  // Add minimum loading time effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinLoadTimeReached(true);
+    }, 500); // 500ms minimum loading time
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Effect to set data ready state
+  useEffect(() => {
+    if (!loading && minLoadTimeReached) {
+      setIsDataReady(true);
+    }
+  }, [loading, minLoadTimeReached]);
+
+  // Only show content when both loading is complete AND minimum time has passed
+  const isLoading = loading || !minLoadTimeReached;
 
   // State for adding new lists
   const [newListName, setNewListName] = useState('');
@@ -162,6 +184,21 @@ export default function TodoPage() {
       fetchCategories();
     }
   }, [user]);
+
+  // Add state for task counts
+  const [listTaskCounts, setListTaskCounts] = useState<Map<string, number>>(new Map());
+
+  // Add effect to calculate task counts for each list
+  useEffect(() => {
+    const counts = new Map<string, number>();
+    todoItems.forEach(item => {
+      const listId = item.listId;
+      if (listId) {
+        counts.set(listId, (counts.get(listId) || 0) + 1);
+      }
+    });
+    setListTaskCounts(counts);
+  }, [todoItems]);
 
   // Handle mobile tab change
   const handleMobileTabChange = useCallback((tab: string) => {
@@ -826,15 +863,63 @@ export default function TodoPage() {
   // Check if the user has reached the list limit
   const willReachListLimit = todoLists.length >= STARTER_TIER_MAX_LISTS;
 
+  // Add a logout handler for TopNav
+  const handleLogout = async () => {
+    try {
+      const { getAuth, signOut } = await import('firebase/auth');
+      const auth = getAuth();
+      await signOut(auth);
+      // Call the server-side logout to clear the HttpOnly cookie
+      await fetch('/api/sessionLogout', { method: 'POST' });
+      console.log('Redirecting to /login...');
+      window.location.replace('/login');
+    } catch (error) {
+      console.error('todo/page.tsx: Error signing out:', error);
+      showErrorToast(`Failed to log out: ${(error as Error).message}`);
+    }
+  };
+
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return (
+      <div className="flex flex-col min-h-screen bg-linen">
+        <TopNav 
+          userName={user?.displayName || user?.email || 'Guest'} 
+          userId={user?.uid || null} 
+          onLogout={handleLogout}
+          isLoading={true}
+        />
+        <WeddingBanner
+          daysLeft={null}
+          userName={null}
+          isLoading={true}
+          onSetWeddingDate={() => {}}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // If not loading and no user, just return null (middleware will redirect)
+  if (!user) {
+    return null;
   }
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <TopNav userName={user?.displayName || user?.email || 'Guest'} userId={user?.uid || null} onLogout={() => { /* Implement logout logic */ }} />
+      <TopNav 
+        userName={user?.displayName || user?.email || 'Guest'} 
+        userId={user?.uid || null} 
+        onLogout={handleLogout}
+        isLoading={isLoading}
+      />
       <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
-        {daysLeft !== null ? (
+        {isLoading ? (
+          <div className="animate-pulse">
+            <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
+          </div>
+        ) : daysLeft !== null ? (
           `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
         ) : userName ? (
           <>
@@ -852,14 +937,13 @@ export default function TodoPage() {
           "Welcome back! Have y'all decided your wedding date?"
         )}
       </div>
-
       <div className="flex justify-center items-start w-full bg-linen p-4 h-screen box-border">
          <div className="w-full flex flex-row min-h-full border border-[#AB9C95] border-[0.5px] rounded-[5px] bg-white">
           {/* Sidebar */}
           <aside className="w-[320px] bg-[#F3F2F0] border-r border-[#E0DBD7] flex flex-col justify-between min-h-full p-0">
             <div className="flex-1 flex flex-col">
               <div className="p-6 pb-2 border-b border-[#E0DBD7]">
-                <h2 className="text-lg font-playfair text-[#332B42] mb-4">To-do Lists</h2>
+                <h4 className="text-lg font-playfair font-medium text-[#332B42] mb-4">To-do Lists</h4>
                 
                 {/* Banner for list limit */}
                 <AnimatePresence>
@@ -890,7 +974,12 @@ export default function TodoPage() {
                 <div className="space-y-1">
                   <div className={`px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
                     onClick={() => setSelectedList(null)}>
-                    All To-do Items
+                    <div className="flex items-center justify-between">
+                      <span>All To-do Items</span>
+                      <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
+                        {todoItems.length}
+                      </span>
+                    </div>
                   </div>
                   {todoLists.map((list) => (
                     <div
@@ -898,7 +987,14 @@ export default function TodoPage() {
                       onClick={() => setSelectedList(list)}
                       className={`px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
                     >
-                      {list.name}
+                      <div className="flex items-center justify-between">
+                        <span>{list.name}</span>
+                        {listTaskCounts.has(list.id) && (
+                          <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
+                            {listTaskCounts.get(list.id)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -932,12 +1028,17 @@ export default function TodoPage() {
               {Object.entries(groupedTasks).map(([group, items]) => (
                 <div key={group} className="mb-6">
                   <button
-                    className="flex items-center w-full text-left text-lg font-playfair text-[#332B42] mb-1 gap-2"
+                    className="flex items-center w-full text-left text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
                     onClick={() => toggleGroup(group)}
                   >
+                    <ChevronRight 
+                      className={`w-5 h-5 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`} 
+                      strokeWidth={2}
+                    />
                     <span>{group}</span>
-                    <span className="text-xs text-[#AB9C95] font-normal">{items.length}</span>
-                    <svg className={`ml-2 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`} width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="#332B42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
+                      {items.length}
+                    </span>
                   </button>
                   <div className="text-xs text-[#AB9C95] mb-2">
                     {group === 'No date yet' && 'for tasks without a deadline'}

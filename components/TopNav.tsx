@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { User, ContactRound, Settings, LogOut } from 'lucide-react';
+import { User, ContactRound, Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
 import { getAuth, signOut } from "firebase/auth"; // Import getAuth and signOut
+import { usePathname } from 'next/navigation';
 
 interface TopNavProps {
   userName: string | null;
   userId: string | null;
   onLogout: () => void; // Add onLogout prop
+  isLoading?: boolean; // Add isLoading prop
 }
 
 // Removed stringToColor as it's no longer used for avatar background
@@ -19,12 +21,13 @@ const navItems = [ // Moved outside component
   { name: "Files", href: "/files" },
 ];
 
-export default function TopNav({ userName, userId, onLogout }: TopNavProps) {
+export default function TopNav({ userName, userId, onLogout, isLoading = false }: TopNavProps) {
   const [showUserMenu, setShowUserMenu] = useState(false); // State for the user profile dropdown
   const [showMobileNavMenu, setShowMobileNavMenu] = useState(false); // State for the mobile hamburger navigation
   
   const userMenuRef = useRef<HTMLDivElement>(null); // Ref for the user profile dropdown
   const mobileNavMenuRef = useRef<HTMLDivElement>(null); // Ref for the mobile navigation dropdown
+  const pathname = usePathname();
 
   useEffect(() => {
     console.log("TopNav received userName:", userName);
@@ -115,7 +118,7 @@ export default function TopNav({ userName, userId, onLogout }: TopNavProps) {
             <a
               href={href}
               className={`no-underline ${
-                window.location.pathname === href
+                pathname === href
                   ? "text-[#A85C36] font-medium text-[14px] leading-5"
                   : "text-[#364257] font-normal text-[13px]"
               }`}
@@ -147,7 +150,9 @@ export default function TopNav({ userName, userId, onLogout }: TopNavProps) {
               item.href === "#" ? ( // Handle logout button
                 <button
                   key={item.name}
-                  onClick={item.onClick}
+                  onClick={async () => {
+                    if (item.onClick) await item.onClick();
+                  }}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 no-underline"
                 >
                   {item.icon && <item.icon className="w-4 h-4" />}

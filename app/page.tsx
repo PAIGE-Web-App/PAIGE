@@ -36,6 +36,7 @@ import RightDashboardPanel from "../components/RightDashboardPanel";
 import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/hooks/useAuth';
+import Banner from "../components/Banner";
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -323,11 +324,10 @@ export default function Home() {
 
   // NEW useEffect for redirection
   useEffect(() => {
-    // Only redirect if auth loading is complete AND there is no user
-    if (!authLoading && !user) {
+    if (!user) {
       router.push('/login');
     }
-  }, [user, authLoading, router]); // Depend on user, authLoading, and router
+  }, [user, router]);
 
 
   // Function to handle user logout
@@ -335,13 +335,13 @@ export default function Home() {
     try {
       const auth = getAuth();
       await signOut(auth);
-      console.log('page.tsx: User signed out successfully.');
-      setCurrentUser(null);
-      window.location.href = '/login';
+      // Call the server-side logout to clear the HttpOnly cookie
+      await fetch('/api/sessionLogout', { method: 'POST' });
+      console.log('Redirecting to /login...');
+      window.location.replace('/login');
     } catch (error) {
       console.error('page.tsx: Error signing out:', error);
       showErrorToast(`Failed to log out: ${(error as Error).message}`);
-
     }
   };
 
@@ -711,7 +711,21 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
   }
 }, [selectedContact, contacts]);
 
+  // Only show content when both loading is complete AND minimum time has passed
+  const isLoading = authLoading || !minLoadTimeReached;
 
+  useEffect(() => {
+    // Show a welcome toast if the user just logged in
+    if (typeof window !== 'undefined') {
+      const referrer = document.referrer;
+      if (referrer && (referrer.endsWith('/login') || referrer.endsWith('/signup'))) {
+        showSuccessToast('Login successful, welcome back!');
+      }
+    }
+  }, []);
+
+  // Remove the useEffect that redirects to /login when user is null
+  // Only show a loading spinner or message while loading
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
@@ -723,8 +737,7 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
     );
   }
 
-  // If authLoading is false and there is no user, the useEffect above will handle the redirection.
-  // We can just return null here, as the useEffect will trigger navigation before rendering the rest.
+  // If not loading and no user, just return null (middleware will redirect)
   if (!user) {
     return null;
   }
@@ -734,28 +747,36 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
 console.log('page.tsx: activeMobileTab:', activeMobileTab);
 
   return (
-    <>
-      <TopNav userName={userName} userId={currentUser?.uid || null} onLogout={handleLogout} />
-   <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
-  {daysLeft !== null ? (
-    `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
-  ) : userName ? (
-    <>
-      Welcome back, {userName}. Have y'all decided your wedding date?
-      <button
-        onClick={() => {
-          // Placeholder for setting wedding date
-        }}
-        className="ml-2 underline text-[#F3F2F0] hover:text-[#E0DBD7] text-sm"
-      >
-        Set it now
-      </button>
-    </>
-  ) : (
-    "Welcome back! Have y'all decided your wedding date?"
-  )}
-</div>
-
+    <div className="flex flex-col min-h-screen bg-linen">
+      <TopNav 
+        userName={user?.displayName || user?.email || 'Guest'} 
+        userId={user?.uid || null} 
+        onLogout={handleLogout}
+        isLoading={isLoading}
+      />
+      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
+        {isLoading ? (
+          <div className="animate-pulse">
+            <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
+          </div>
+        ) : weddingDate ? (
+          `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
+        ) : userName ? (
+          <>
+            Welcome back, {userName}. Have y'all decided your wedding date?
+            <button
+              onClick={() => {
+                // Placeholder for setting wedding date
+              }}
+              className="ml-2 underline text-[#F3F2F0] hover:text-[#E0DBD7] text-sm"
+            >
+              Set it now
+            </button>
+          </>
+        ) : (
+          "Welcome back! Have y'all decided your wedding date?"
+        )}
+      </div>
 
       <div
         className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
@@ -1084,6 +1105,6 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
 
-    </>
+    </div>
   );
 }
