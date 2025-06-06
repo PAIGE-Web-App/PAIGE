@@ -172,23 +172,42 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   const handleAddDeadlineClick = useCallback(() => {
     if (todo.isCompleted) return;
     setIsEditingDeadline(true);
-    setEditingDeadlineValue(todo.deadline ? todo.deadline.toISOString().slice(0, 16) : '');
+    // Format the current deadline for the input if it exists
+    if (todo.deadline) {
+      const date = new Date(todo.deadline);
+      const formattedDate = date.toISOString().slice(0, 16);
+      setEditingDeadlineValue(formattedDate);
+    } else {
+      setEditingDeadlineValue('');
+    }
   }, [todo.deadline, todo.isCompleted]);
 
-  const handleUpdateDeadlineClick = useCallback(async () => {
+  const handleDeadlineBlur = useCallback(async () => {
     let newDeadline: Date | null = null;
     if (editingDeadlineValue) {
-      const date = new Date(editingDeadlineValue);
-      if (!isNaN(date.getTime())) {
-        newDeadline = date;
-      } else {
-        toast.error('Invalid date or time format.');
+      try {
+        // Create a new Date object from the input value
+        // The datetime-local input provides the value in ISO format (YYYY-MM-DDTHH:mm)
+        const date = new Date(editingDeadlineValue);
+        if (!isNaN(date.getTime())) {
+          newDeadline = date;
+          console.log('Saving deadline with time:', date.toLocaleTimeString());
+        }
+      } catch (error) {
+        console.error('Date parsing error:', error);
+        toast.error('Invalid date format');
         return;
       }
     }
-    await handleUpdateDeadline(todo.id, newDeadline);
-    setIsEditingDeadline(false);
-    setEditingDeadlineValue('');
+
+    try {
+      await handleUpdateDeadline(todo.id, newDeadline);
+      setIsEditingDeadline(false);
+      setEditingDeadlineValue('');
+    } catch (error) {
+      console.error('Error updating deadline:', error);
+      toast.error('Failed to update deadline');
+    }
   }, [editingDeadlineValue, todo.id, handleUpdateDeadline]);
 
   const handleCancelDeadline = useCallback(() => {
@@ -292,6 +311,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       // APPLY THE CLASSNAME HERE:
       className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${className || ''}`}
       draggable={sortOption === 'myOrder'}
+      // Only use native drag events, not framer-motion pointer events, to avoid type errors
       onDragStart={(e) => handleDragStart(e, todo.id)}
       onDragEnter={(e) => handleDragEnter(e, todo.id)}
       onDragLeave={handleDragLeave}
@@ -340,33 +360,6 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
           </p>
         )}
 
-        {/* Conditional rendering for other details including "Completed On" */}
-        {(todo.deadline || todo.note || todo.category || todo.contactId || (todo.isCompleted && todo.completedAt)) && (
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
-            {todo.deadline && (
-              <span className="flex items-center gap-1">
-                <Calendar size={12} /> {todo.deadline.toLocaleDateString()}
-              </span>
-            )}
-            {todo.note && (
-              <span className="flex items-center gap-1">
-                <Clipboard size={12} /> {todo.note}
-              </span>
-            )}
-            {todo.contactId && (
-              <span className="flex items-center gap-1">
-                <UserIcon size={12} /> {contacts.find(c => c.id === todo.contactId)?.name} {/* Use UserIcon here */}
-              </span>
-            )}
-            {todo.category && <CategoryPill category={todo.category} />}
-            {todo.isCompleted && todo.completedAt && ( // Display only if completed and has a date
-              <span className="flex items-center gap-1">
-                <CheckCircle size={12} /> Completed on {todo.completedAt.toLocaleDateString()}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Conditional rendering for Deadline */}
         {isEditingDeadline ? (
           <div className="flex items-center gap-2 mt-1">
@@ -374,19 +367,19 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
               type="datetime-local"
               value={editingDeadlineValue}
               onChange={(e) => setEditingDeadlineValue(e.target.value)}
+              onBlur={handleDeadlineBlur}
               className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
               autoFocus
               disabled={todo.isCompleted}
             />
-            <button onClick={handleUpdateDeadlineClick} className="btn-primary text-xs px-2 py-1" disabled={todo.isCompleted} > Update </button>
-            <button onClick={handleCancelDeadline} className="btn-primary-inverse text-xs px-2 py-1" disabled={todo.isCompleted} > Cancel </button>
+            <button onClick={handleCancelDeadline} className="btn-primary-inverse text-xs px-2 py-1" disabled={todo.isCompleted}>Cancel</button>
           </div>
         ) : todo.deadline ? (
           <p className={`text-xs font-normal text-[#364257] block mt-1 ${todo.isCompleted ? 'text-gray-500' : 'cursor-pointer hover:underline'}`} onClick={handleAddDeadlineClick}>
-            Deadline: {todo.deadline.toLocaleDateString()} {todo.deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({getRelativeDeadline(todo.deadline)})
+            Deadline: {todo.deadline.toLocaleDateString()} {todo.deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
         ) : (
-          <button onClick={handleAddDeadlineClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`} disabled={todo.isCompleted} > Add Deadline </button>
+          <button onClick={handleAddDeadlineClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1 ${todo.isCompleted ? 'text-gray-500' : ''}`} disabled={todo.isCompleted}>Add Deadline</button>
         )}
 
         {/* Conditional rendering for Note */}
@@ -430,8 +423,6 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 onCustomCategoryChange={handleCustomCategoryInputChange} // Pass custom change handler
                 label=""
                 placeholder="Select Category"
-                allowRemoval={true}
-                disabled={todo.isCompleted}
               />
               {editingCategoryDropdownValue === "Other" && (
                 <input

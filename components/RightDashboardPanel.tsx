@@ -1,4 +1,5 @@
-// components/RightDashboardPanel.tsx
+'use client'; 
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   collection,
@@ -14,7 +15,7 @@ import {
   writeBatch,
   getDocs,
 } from 'firebase/firestore';
-import { db, getUserCollectionRef } from '../lib/firebase';
+import { db, getUserCollectionRef } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';

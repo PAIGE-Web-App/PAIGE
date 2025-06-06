@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
 interface BannerProps {
-  message: string;
+  message: ReactNode; // Changed from string to ReactNode
   type?: 'info' | 'warning' | 'error'; // 'info' for informational, 'warning' for yellow, 'error' for red
   onDismiss?: () => void; // Optional dismiss handler
 }
@@ -26,9 +26,9 @@ const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss }) =>
       break;
     case 'info':
     default:
-      bgColorClass = 'bg-[#EBE3DD]'; // Your existing info banner background
-      textColorClass = 'text-[#A85C36]'; // Your existing info banner text color
-      dismissHoverColorClass = 'hover:bg-[#D6C5B8]'; // Your existing info banner dismiss hover
+      bgColorClass = 'bg-blue-100';
+      textColorClass = 'text-blue-800';
+      dismissHoverColorClass = 'hover:bg-blue-200';
       break;
   }
 

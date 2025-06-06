@@ -51,6 +51,7 @@ interface MessageAreaProps {
   selectedFiles: File[];
   setSelectedFiles: (files: File[]) => void;
   contactsLoading: boolean; // Indicates if contacts are still being loaded from Firestore
+  setIsEditing: (isEditing: boolean) => void;
 }
 
 const getRelativeDate = (date: Date): string => {
@@ -141,6 +142,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   selectedFiles,
   setSelectedFiles,
   contactsLoading, // Accept the new prop here
+  setIsEditing,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -367,7 +369,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               </div>
               {/* NOTE: Edit button here will need to trigger a prop function from page.tsx */}
               <button
-                // onClick={() => setIsEditing(true)} // This needs to be passed as a prop
+                onClick={() => setIsEditing(true)}
                 className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
               >
                 Edit

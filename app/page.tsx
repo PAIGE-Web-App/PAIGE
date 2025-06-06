@@ -1,21 +1,21 @@
 // app/page.tsx
 "use client";
-import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth"; // Removed signInAnonymously, Added signOut
+import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
-import MessageArea from "../components/MessageArea"; // Assuming it's in the components folder
+import MessageArea from "../components/MessageArea";
 
-import AddContactModal from "../components/AddContactModal"; // Reverted to relative path
-import { getAllContacts } from "../lib/getContacts"; // Reverted to relative path
+import AddContactModal from "../components/AddContactModal";
+import { getAllContacts } from "../lib/getContacts";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { saveContactToFirestore } from "../lib/saveContactToFirestore"; // Reverted to relative path
-import TopNav from "../components/TopNav"; // Reverted to relative path
-import { useDraftMessage } from "../hooks/useDraftMessage"; // Reverted to relative path
-import EditContactModal from "../components/EditContactModal"; // Reverted to relative path
-import { getCategoryStyle } from "../utils/categoryStyle"; // Reverted to relative path
-import { db, getUserCollectionRef } from "../lib/firebase"; // Reverted to relative path
-import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
+import { saveContactToFirestore } from "../lib/saveContactToFirestore";
+import TopNav from "../components/TopNav";
+import { useDraftMessage } from "../hooks/useDraftMessage";
+import EditContactModal from "../components/EditContactModal";
+import { getCategoryStyle } from "../utils/categoryStyle";
+import { db, getUserCollectionRef } from "../lib/firebase";
+import { useCustomToast } from "../hooks/useCustomToast";
 import {
   collection,
   query,
@@ -28,17 +28,19 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react";
-import CategoryPill from "../components/CategoryPill"; // Reverted to relative path
-import SelectField from "../components/SelectField"; // Reverted to relative path
+import CategoryPill from "../components/CategoryPill";
+import SelectField from "../components/SelectField";
 import { AnimatePresence, motion } from "framer-motion";
-import OnboardingModal from "../components/OnboardingModal"; // Reverted to relative path
-import RightDashboardPanel from "../components/RightDashboardPanel"; // Reverted to relative path
-import BottomNavBar from "../components/BottomNavBar"; // Reverted to relative path
+import OnboardingModal from "../components/OnboardingModal";
+import RightDashboardPanel from "../components/RightDashboardPanel";
+import BottomNavBar from "../components/BottomNavBar";
+import { useRouter } from "next/navigation";
+import { useAuth } from '@/hooks/useAuth';
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
 declare const __firebase_config: string;
-declare const __initial_auth_token: string | undefined; // Make it optional
+declare const __initial_auth_token: string | undefined;
 
 interface Message {
   id: string;
@@ -126,8 +128,6 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
   );
 };
 
-
-
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
   <div className="space-y-2 animate-pulse">
@@ -171,6 +171,7 @@ const MessagesSkeleton = () => (
 );
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -188,9 +189,9 @@ export default function Home() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
-  const [error, setError] = useState<string | null>(null); // State to hold authentication errors
-  const [initialContactLoadComplete, setInitialContactLoadComplete] = useState(false); // ADD THIS LINE
-  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false); 
+  const [error, setError] = useState<string | null>(null);
+  const [initialContactLoadComplete, setInitialContactLoadComplete] = useState(false);
+  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('name-asc');
   const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
@@ -200,10 +201,11 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
-const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, or an estimated pixel height like 60
+  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+  const [bottomNavHeight, setBottomNavHeight] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter(); // Initialize useRouter hook
 
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const fuse = contacts.length
@@ -216,31 +218,27 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     : null;
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false); // NEW: State for messages loading
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts'); // Default to 'contacts'
+  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts');
 
  // Effect to finalize contactsLoading state
   useEffect(() => {
-    // contactsLoading should only be set to false when:
-    // 1. We've either finished fetching contacts OR determined no user/contacts exist (initialContactLoadComplete is true).
-    // 2. The minimum display time for the skeleton has been met (minLoadTimeReached is true).
     if (initialContactLoadComplete && minLoadTimeReached) {
       setContactsLoading(false);
     }
   }, [initialContactLoadComplete, minLoadTimeReached]);
 
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setMinLoadTimeReached(true);
-    }, 500); // Display skeleton for at least 500ms
+    }, 500);
 
-    return () => clearTimeout(timer); // Cleanup the timer if component unmounts
-  }, []); // Run only once on component mount
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -252,9 +250,9 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Main Firebase Initialization and Authentication Effect
+  // Main Firebase Initialization and Authentication Effect (Keep this as is)
   useEffect(() => {
-    const auth = getAuth(); // Get auth instance from the initialized app in lib/firebase.ts
+    const auth = getAuth();
 
     const signIn = async () => {
       try {
@@ -299,14 +297,14 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
          const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
           // To check for existence, create a query with limit(1) and use getDocs
           const contactsQuery = query(contactsCollectionRef, limit(1));
-          const contactsSnapshot = await getDocs(contactsQuery); // Use getDocs for a query
+          const contactsSnapshot = await getDocs(contactsQuery);
           const hasContacts = !contactsSnapshot.empty;
 
           // Show onboarding modal if not completed AND no contacts exist
           // If completed OR contacts exist, don't show the onboarding modal.
           if (completed || hasContacts) {
             if (gmailSuccess) {
-              await triggerGmailImport(user.uid, []);
+              // await triggerGmailImport(user.uid, []);
             }
             setShowOnboardingModal(false);
           } else {
@@ -323,17 +321,26 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     return () => unsubscribeAuth();
   }, []);
 
+  // NEW useEffect for redirection
+  useEffect(() => {
+    // Only redirect if auth loading is complete AND there is no user
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]); // Depend on user, authLoading, and router
+
+
   // Function to handle user logout
   const handleLogout = async () => {
     try {
       const auth = getAuth();
       await signOut(auth);
       console.log('page.tsx: User signed out successfully.');
-      setCurrentUser(null); // Clear current user state
-      window.location.href = '/login'; // Redirect to the login page
+      setCurrentUser(null);
+      window.location.href = '/login';
     } catch (error) {
       console.error('page.tsx: Error signing out:', error);
-      showErrorToast(`Failed to log out: ${(error as Error).message}`); // USE CUSTOM TOAST
+      showErrorToast(`Failed to log out: ${(error as Error).message}`);
 
     }
   };
@@ -343,11 +350,10 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
   useEffect(() => {
     let unsubscribeContacts: () => void;
     if (isAuthReady && currentUser?.uid) {
-      setContactsLoading(true); 
+      setContactsLoading(true);
       const userId = currentUser.uid;
 
       const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", userId);
-      // console.log('page.tsx: Contacts Collection Path:', contactsCollectionRef.path); // Remove this log if not needed
 
       const q = query(
         contactsCollectionRef,
@@ -374,36 +380,29 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
         if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
           setSelectedContact(fetchedContacts[0] || null);
         }
-        
-        // Mark data as loaded/determined
-        setInitialContactLoadComplete(true); 
+
+        setInitialContactLoadComplete(true);
         console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
-        // Note: setContactsLoading(false) will be handled by the new effect below
-        
+
       }, (error) => {
         console.error("page.tsx: Error fetching contacts:", error);
-        // Mark data as loaded/determined even on error
-        setInitialContactLoadComplete(true); 
+        setInitialContactLoadComplete(true);
         showErrorToast("Failed to load contacts.");
-        // Note: setContactsLoading(false) will be handled by the new effect below
       });
     } else {
-      setContacts([]); 
-      setSelectedContact(null); 
-      
-      // If auth is fully resolved and no user, mark data as loaded/determined
+      setContacts([]);
+      setSelectedContact(null);
+
       if (!loadingAuth && isAuthReady && !currentUser) {
         setInitialContactLoadComplete(true);
       }
-      // contactsLoading will remain true until initialContactLoadComplete and minLoadTimeReached are both true.
     }
     return () => {
       if (unsubscribeContacts) {
         unsubscribeContacts();
       }
     };
-  }, [isAuthReady, currentUser, loadingAuth]); // Removed selectedContact from dependencies earlier, good!
-
+  }, [isAuthReady, currentUser, loadingAuth]);
 
 
   useEffect(() => {
@@ -474,7 +473,7 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
               console.log(`page.tsx: Fetched ${snapshot.docs.length} all messages for last message map.`);
           }, (err) => {
             console.error('page.tsx: Error fetching all messages for last message map:', err);
-            showErrorToast(`Failed to load message history: ${(err as Error).message}`); // USE CUSTOM TOAST
+            showErrorToast(`Failed to load message history: ${(err as Error).message}`);
           });
       } else {
           setContactLastMessageMap(new Map());
@@ -490,7 +489,7 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
   useEffect(() => {
     let unsubscribe: () => void;
     if (isAuthReady && selectedContact && currentUser?.uid) {
-      setMessagesLoading(true); // Set messages loading to true
+      setMessagesLoading(true);
       const userId = currentUser.uid;
       const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
       console.log('page.tsx: Selected Contact Messages Collection Path:', messagesCollectionRef.path);
@@ -517,20 +516,20 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
           };
         });
         setMessages(fetchedMessages);
-        setMessagesLoading(false); // Set messages loading to false after fetch
+        setMessagesLoading(false);
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
         console.log(`page.tsx: Fetched ${fetchedMessages.length} messages for selected contact.`);
       }, (err) => {
         console.error('page.tsx: Error fetching selected contact messages:', err);
-        setMessagesLoading(false); // Set messages loading to false even on error
-        showErrorToast(`Failed to load messages for contact: ${(err as Error).message}`); // USE CUSTOM TOAST
+        setMessagesLoading(false);
+        showErrorToast(`Failed to load messages for contact: ${(err as Error).message}`);
 
       });
     } else {
       setMessages([]);
-      setMessagesLoading(false); // Ensure loading is false if no contact is selected
+      setMessagesLoading(false);
     }
     return () => {
       if (unsubscribe) {
@@ -560,12 +559,6 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     };
   }, [showFilters, showEmojiPicker]);
 
-  // REMOVED this useEffect as the toast is now handled directly in handleFileChange
-  // useEffect(() => {
-  //   if (selectedFiles.length > 0) {
-  //     toast.success(`Selected ${selectedFiles.length} file(s).`);
-  //   }
-  // }, [selectedFiles]);
 
   useEffect(() => {
     if (isAdding || isEditing || showOnboardingModal) {
@@ -608,9 +601,9 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
       setInput("");
       setSelectedFiles([]);
       console.log("page.tsx: Message sent successfully.");
-      showSuccessToast("Message sent successfully."); // USE CUSTOM TOAST
+      showSuccessToast("Message sent successfully.");
     } catch (error: any) {
-      showErrorToast(`Failed to send message: ${error.message}`); // USE CUSTOM TOAST
+      showErrorToast(`Failed to send message: ${error.message}`);
       console.error("page.tsx: Error sending message:", error);
     }
   };
@@ -619,22 +612,18 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     if (event.target.files && event.target.files.length > 0) {
       const newFiles = Array.from(event.target.files);
 
-      // Determine unique new files based on current `selectedFiles` state
-      // This is a simple check; for real-world apps, consider file hashes for larger files.
       const uniqueNewFiles = newFiles.filter(
         (newFile) => !selectedFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
       );
 
-      // Update the state with the unique new files
       setSelectedFiles((prevFiles) => [...prevFiles, ...uniqueNewFiles]);
 
-      // Show toast message only if new unique files were actually added
       if (uniqueNewFiles.length > 0) {
         showSuccessToast(`Selected ${uniqueNewFiles.length} file(s).`);
       }
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Clear the input value after selecting files
+      fileInputRef.current.value = '';
     }
   };
 
@@ -642,7 +631,7 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
     setSelectedFiles((prevFiles) =>
       prevFiles.filter((file) => file !== fileToRemove)
     );
-        showInfoToast(`Removed file: ${fileToRemove.name}`); // USE CUSTOM TOAST (or showSuccessToast)
+        showInfoToast(`Removed file: ${fileToRemove.name}`);
 
   };
 
@@ -714,27 +703,16 @@ const [bottomNavHeight, setBottomNavHeight] = useState(0); // Initialize to 0, o
 
   // Function to handle tab changes from BottomNavBar
 const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo') => {
-  console.log('handleMobileTabChange called with tab:', tab); // ADD THIS LINE
+  console.log('handleMobileTabChange called with tab:', tab);
   setActiveMobileTab(tab);
   // If switching to messages and no contact is currently selected, select the first one if available
   if (tab === 'messages' && !selectedContact && contacts.length > 0) {
     setSelectedContact(contacts[0]);
   }
-  // If switching away from messages AND a contact is selected, you *might* want to clear it,
-  // but your current logic already clears it if switching to a non-message tab.
-  // The original logic was:
-  // if (tab !== 'messages' && selectedContact) {
-  //   setSelectedContact(null);
-  // }
-  // Let's refine this to only clear if moving from messages to contacts/todo
-  // if (activeMobileTab === 'messages' && tab !== 'messages') {
-  //   setSelectedContact(null);
-  // }
-  // Or simply keep your original logic which works.
 }, [selectedContact, contacts]);
 
 
-  if (loadingAuth) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
         <div className="flex flex-col items-center">
@@ -745,8 +723,12 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
     );
   }
 
-  // Removed the error display block for authentication token missing.
-  // The initial loading spinner already covers the loading state.
+  // If authLoading is false and there is no user, the useEffect above will handle the redirection.
+  // We can just return null here, as the useEffect will trigger navigation before rendering the rest.
+  if (!user) {
+    return null;
+  }
+
   console.log('page.tsx Render: contactsLoading =', contactsLoading, 'contacts.length =', contacts.length);
   console.log('page.tsx: isMobile:', isMobile);
 console.log('page.tsx: activeMobileTab:', activeMobileTab);
@@ -759,7 +741,7 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
     `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
   ) : userName ? (
     <>
-      Welcome back, {userName}. Have y’all decided your wedding date?
+      Welcome back, {userName}. Have y'all decided your wedding date?
       <button
         onClick={() => {
           // Placeholder for setting wedding date
@@ -770,20 +752,18 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
       </button>
     </>
   ) : (
-    "Welcome back! Have y’all decided your wedding date?"
+    "Welcome back! Have y'all decided your wedding date?"
   )}
 </div>
 
 
       <div
-        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col" // flex-col for mobile stacking, md:flex-row for desktop
-        style={{ maxHeight: "calc(100vh - 100px)" }} // Adjusted for TopNav height
+        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
+        style={{ maxHeight: "calc(100vh - 100px)" }}
       >
-        {/* Main Content Area - Responsive Flex Container */}
-        
-      <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}> {/* CORRECTED: Removed opacity logic here */}
-          
-          {/* Left Panel (Contact List) */}
+
+      <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
+
           <aside
     className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
       ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
@@ -810,7 +790,6 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
                 >
-                  {/* START of your existing contacts list content */}
                   <div className="flex items-center gap-4 mb-4 relative">
                     <button
                       onClick={() => setShowFilters(!showFilters)}
@@ -946,7 +925,7 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
                             onClick={() => {
                               setSelectedContact(contact);
                               if (isMobile) {
-                                setActiveMobileTab('messages'); // Switch to messages tab on contact select
+                                setActiveMobileTab('messages');
                               }
                             }}
                           >
@@ -983,13 +962,12 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
                       })}
                     </div>
                   )}
-                  {/* END of your existing contacts list content */}
                 </motion.div>
               </AnimatePresence>
             )}
           </aside>
 
-          
+
           <section
     className={`flex flex-col flex-1 bg-white relative w-full min-h-full
           ${isMobile ? (activeMobileTab === 'messages' ? 'block' : 'hidden') : 'block'}
@@ -1009,32 +987,28 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
             selectedFiles={selectedFiles}
             setSelectedFiles={setSelectedFiles}
             contactsLoading={contactsLoading}
+            setIsEditing={setIsEditing}
         />
     </section>
-          
 
 
               </main>
 
-        {/* Right Panel Container - Now conditionally rendered and takes full width on mobile */}
-        {(currentUser && !loadingAuth) ? ( // Only render RightDashboardPanel if currentUser is available and not loading
+        {(currentUser && !loadingAuth) ? (
           <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
             <RightDashboardPanel
                currentUser={currentUser}
                 isMobile={isMobile}
-                activeMobileTab={activeMobileTab} // Pass activeMobileTab here
+                activeMobileTab={activeMobileTab}
             />
           </div>
         ) : (
-          // Placeholder for the right panel to prevent layout shift
           <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-            {/* You can add a subtle loading spinner or just keep it empty */}
           </div>
         )}
       </div>
 
-      
-      {/* Edit Contact Modal */}
+
       {isEditing && selectedContact && currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <EditContactModal
@@ -1054,9 +1028,9 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
                 const remainingContacts = contacts.filter((c) => c.id !== deletedId);
                 setContacts(remainingContacts);
                 if (remainingContacts.length > 0) {
-                  setSelectedContact(remainingContacts[0]); // Select the first remaining contact
+                  setSelectedContact(remainingContacts[0]);
                 } else {
-                  setSelectedContact(null); // No contacts left, set to null
+                  setSelectedContact(null);
                 }
                 setDeletingContactId(null);
                 setIsEditing(false);
@@ -1065,7 +1039,6 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
           />
         </div>
       )}
-      {/* Add Contact Modal */}
       {isAdding && currentUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <AddContactModal
@@ -1102,15 +1075,15 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
               console.log("OnboardingModal: OnComplete triggered. Calling triggerGmailImport.");
               console.log("OnboardingModal: Contacts for Gmail import:", onboardedContacts);
               console.log("OnboardingModal: Selected channels for Gmail import:", selectedChannelsFromModal);
-              await triggerGmailImport(currentUser.uid, onboardedContacts);
+              // await triggerGmailImport(currentUser.uid, onboardedContacts);
             }
                 }}
         />
       )}
-      {isMobile && currentUser && ( // Render BottomNavBar only on mobile and if user is logged in
+      {isMobile && currentUser && (
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
-      
+
     </>
   );
 }
