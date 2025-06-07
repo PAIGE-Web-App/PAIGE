@@ -2,11 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-
-interface TodoList {
-  id: string;
-  name: string;
-}
+import type { TodoList } from '../types/todo';
 
 interface DeleteListConfirmationModalProps {
   list: TodoList;

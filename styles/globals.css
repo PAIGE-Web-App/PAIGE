@@ -97,3 +97,23 @@ a {
   padding: 2px; /* Updated padding */
   border-radius: 9999px; /* Equivalent to rounded-full */
 }
+
+:root {
+  --border-color: #AB9C95;
+}
+
+h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: #332B42;
+}
+
+h5 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  color: #332B42;
+}

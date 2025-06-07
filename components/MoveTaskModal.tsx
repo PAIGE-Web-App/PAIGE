@@ -2,19 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-
-interface TodoItem {
-  id: string;
-  name: string;
-  listId: string;
-  // ... other properties you might need from TodoItem
-}
-
-interface TodoList {
-  id: string;
-  name: string;
-  // ... other properties you might need from TodoList
-}
+import type { TodoItem, TodoList } from '../types/todo';
 
 interface MoveTaskModalProps {
   task: TodoItem;

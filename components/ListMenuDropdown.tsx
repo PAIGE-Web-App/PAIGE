@@ -2,11 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Trash2 } from 'lucide-react';
-
-interface TodoList {
-  id: string;
-  name: string;
-}
+import type { TodoList } from '../types/todo';
 
 interface ListMenuDropdownProps {
   list: TodoList;
@@ -15,7 +11,7 @@ interface ListMenuDropdownProps {
   setEditingListNameId: (id: string | null) => void;
   setEditingListNameValue: (value: string | null) => void;
   setOpenListMenuId: (id: string | null) => void;
-  buttonRef: React.RefObject<HTMLButtonElement>; // Ref to the button that opens the menu
+  buttonRef: React.RefObject<HTMLButtonElement | null>; // Ref to the button that opens the menu
 }
 
 const ListMenuDropdown: React.FC<ListMenuDropdownProps> = ({

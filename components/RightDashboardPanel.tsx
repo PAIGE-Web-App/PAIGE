@@ -33,32 +33,20 @@ import TodoItemComponent from './TodoItemComponent';
 import ListMenuDropdown from './ListMenuDropdown';
 import DeleteListConfirmationModal from './DeleteListConfirmationModal';
 import UpgradePlanModal from './UpgradePlanModal';
+import { useRouter } from 'next/navigation';
+import type { TodoItem, TodoList } from '../types/todo';
 // import Banner from './Banner'; // Commented out as we're including it directly for demonstration
 
+// Add parseLocalDateTime utility function at the top of the file, after imports
+function parseLocalDateTime(input: string): Date {
+  if (typeof input !== 'string') return new Date(NaN);
+  const [datePart, timePart] = input.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
 // Define necessary interfaces
-interface TodoItem {
-  id: string;
-  name: string;
-  deadline?: Date;
-  note?: string;
-  category?: string;
-  contactId?: string;
-  isCompleted: boolean;
-  userId: string;
-  createdAt: Date;
-  orderIndex: number;
-  listId: string;
-  completedAt?: Date; // Added completedAt to TodoItem interface
-}
-
-interface TodoList {
-  id: string;
-  name: string;
-  userId: string;
-  createdAt: Date;
-  orderIndex: number;
-}
-
 interface Contact {
   id: string;
   name: string;
@@ -168,6 +156,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // This now checks if adding *one more* list would exceed the limit
   const willReachListLimit = todoLists.length >= STARTER_TIER_MAX_LISTS;
 
+  const router = useRouter();
 
   // Fetch all categories for the dropdown
   useEffect(() => {
@@ -202,7 +191,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             id: doc.id,
             name: data.name,
             userId: data.userId,
-            createdAt: data.createdAt.toDate(),
+            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : (data.createdAt instanceof Date ? data.createdAt : new Date()),
             orderIndex: data.orderIndex || 0,
           };
         });
@@ -294,21 +283,29 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       );
 
       unsubscribeTodoItems = onSnapshot(q, async (snapshot) => {
-        const fetchedTodoItems: TodoItem[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
+        const items: TodoItem[] = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          let deadline = data.deadline;
+          if (deadline && typeof deadline.toDate === 'function') {
+            deadline = deadline.toDate();
+          } else if (deadline instanceof Date) {
+            // already a Date
+          } else {
+            deadline = undefined;
+          }
           return {
             id: doc.id,
             name: data.name,
-            deadline: data.deadline?.toDate(),
-            note: data.note,
-            category: data.category,
-            contactId: data.contactId,
+            deadline,
+            note: data.note || undefined,
+            category: data.category || undefined,
+            contactId: data.contactId || undefined,
             isCompleted: data.isCompleted,
             userId: data.userId,
-            createdAt: data.createdAt.toDate(),
+            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : (data.createdAt instanceof Date ? data.createdAt : new Date()),
             orderIndex: data.orderIndex || 0,
             listId: data.listId || '',
-            completedAt: data.completedAt?.toDate(), // Ensure completedAt is fetched and converted
+            completedAt: data.completedAt && typeof data.completedAt.toDate === 'function' ? data.completedAt.toDate() : (data.completedAt instanceof Date ? data.completedAt : undefined),
           };
         });
 
@@ -360,7 +357,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         }
         // --- End Migration Logic ---
 
-        setTodoItems(fetchedTodoItems);
+        setTodoItems(items);
       }, (error) => {
         console.error('Error fetching To-Do items:', error);
         toast.error('Failed to load To-Do items.');
@@ -630,49 +627,50 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
 
   const handleToggleTodoComplete = useCallback(async (todo: TodoItem) => {
-  try {
-    const updatedIsCompleted = !todo.isCompleted;
-    let updatedCompletedAt: Date | null = null; // Initialize as null or undefined
-
-    if (updatedIsCompleted) {
-      updatedCompletedAt = new Date(); // Set to current time when completed
-    } else {
-      updatedCompletedAt = null; // Clear when uncompleted
+    try {
+      const updatedIsCompleted = !todo.isCompleted;
+      let updatedCompletedAt: Date | undefined = undefined; // Changed from null to undefined
+      if (updatedIsCompleted) {
+        updatedCompletedAt = new Date(); // Set to current time when completed
+      }
+      const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
+      await setDoc(todoRef, {
+        isCompleted: updatedIsCompleted,
+        completedAt: updatedCompletedAt,
+      }, { merge: true });
+      // Optimistically update the local state without re-fetching all todos
+      setTodoItems((prevTodoItems) =>
+        prevTodoItems.map((item) =>
+          item.id === todo.id
+            ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedCompletedAt }
+            : item
+        )
+      );
+      toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
+    } catch (error: any) {
+      console.error('Error toggling To-Do item completion:', error);
+      toast.error(`Failed to update To-do item: ${error.message}`);
     }
-
-    const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
-    await setDoc(todoRef, {
-      isCompleted: updatedIsCompleted,
-      completedAt: updatedCompletedAt, // Add this line to update the completedAt field
-    }, { merge: true });
-
-    // Optimistically update the local state without re-fetching all todos
-    setTodoItems((prevTodoItems) => // Changed setTodos to setTodoItems
-      prevTodoItems.map((item) =>
-        item.id === todo.id
-          ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedCompletedAt }
-          : item
-      )
-    );
-
-    toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
-  } catch (error: any) {
-    console.error('Error toggling To-Do item completion:', error);
-    toast.error(`Failed to update To-do item: ${error.message}`);
-  }
-}, [setTodoItems]); // Changed setTodos to setTodoItems in dependency array
+  }, [setTodoItems]);
 
   // Function to handle updating the deadline (now called from TodoItemComponent)
-  const handleUpdateDeadline = useCallback(async (todoId: string, newDeadline: Date | null) => {
+  const handleUpdateDeadline = useCallback(async (todoId: string, deadline: string | null) => {
     if (!currentUser) {
       toast.error('User not authenticated.');
       return;
     }
     try {
+      let deadlineDate: Date | null = null;
+      if (deadline && typeof deadline === 'string' && deadline.trim() !== '') {
+        deadlineDate = parseLocalDateTime(deadline);
+        if (isNaN(deadlineDate.getTime())) {
+          throw new Error('Invalid date string');
+        }
+      }
       const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
-      await setDoc(todoRef, { deadline: newDeadline }, { merge: true });
+      await setDoc(todoRef, { deadline: deadlineDate }, { merge: true });
       toast.success('Deadline updated!');
-    }  catch (error: any) {
+    } catch (error: any) {
       console.error('Error updating deadline:', error);
       toast.error(`Failed to update deadline: ${error.message}`);
     }
@@ -1012,6 +1010,24 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       await batch.commit();
       toast.success('To-do item reordered!');
+      // Set justUpdated state for the reordered task
+      setTodoItems(prevItems => 
+        prevItems.map(item => 
+          item.id === draggedTodoId 
+            ? { ...item, justUpdated: true }
+            : item
+        )
+      );
+      // Reset justUpdated after animation
+      setTimeout(() => {
+        setTodoItems(prevItems => 
+          prevItems.map(item => 
+            item.id === draggedTodoId 
+              ? { ...item, justUpdated: false }
+              : item
+          )
+        );
+      }, 1000);
     } catch (error: any) {
       console.error('Error reordering To-do item:', error);
       toast.error(`Failed to reorder To-do item: ${error.message}`);
@@ -1082,7 +1098,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
               <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-playfair text-base font-medium text-[#332B42]">To-do Items</h3>
-                  <Link href="/todo" className="text-xs text-[#364257] hover:text-[#A85C36] font-medium no-underline">
+                  <Link href="#" onClick={e => { e.preventDefault(); router.push('/todo?all=1'); }} className="text-xs text-[#364257] hover:text-[#A85C36] font-medium no-underline">
                     View all
                   </Link>
                 </div>

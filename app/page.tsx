@@ -1,7 +1,7 @@
 // app/page.tsx
 "use client";
 import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
 import MessageArea from "../components/MessageArea";
 
@@ -37,6 +37,7 @@ import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/hooks/useAuth';
 import Banner from "../components/Banner";
+import type { TodoItem } from '../types/todo';
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -64,20 +65,6 @@ interface Contact {
   avatarColor?: string;
   userId: string;
   orderIndex?: number;
-}
-
-interface TodoItem {
-  id: string;
-  name: string;
-  deadline?: Date;
-  note?: string;
-  category?: string;
-  contactId?: string;
-  isCompleted: boolean;
-  userId: string;
-  createdAt: Date;
-  orderIndex: number;
-  listId: string;
 }
 
 const getRelativeDate = (date: Date): string => {
@@ -170,6 +157,22 @@ const MessagesSkeleton = () => (
     </div>
   </div>
 );
+
+// Utility to remove undefined fields from an object
+function removeUndefinedFields<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  );
+}
+
+// Utility to parse a yyyy-MM-ddTHH:mm string as a local Date
+function parseLocalDateTime(input: string): Date {
+  if (typeof input !== 'string') return new Date(NaN);
+  const [datePart, timePart] = input.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
@@ -1108,3 +1111,30 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
     </div>
   );
 }
+
+const handleUpdateTodoDeadline = async (todoId: string, deadline: string | null) => {
+  if (!user) return;
+  try {
+    console.log('handleUpdateTodoDeadline called with:', todoId, deadline);
+    const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
+    let deadlineDate: Date | null = null;
+    if (deadline && typeof deadline === 'string') {
+      deadlineDate = parseLocalDateTime(deadline);
+      if (isNaN(deadlineDate.getTime())) {
+        throw new Error('Invalid date string');
+      }
+    }
+    console.log('Saving deadline as Date:', deadlineDate);
+    await updateDoc(itemRef, {
+      deadline: deadlineDate,
+      userId: user.uid
+    });
+    showSuccessToast('Deadline updated!');
+    // Debug: fetch the updated doc
+    const updatedDoc = await getDoc(itemRef);
+    console.log('Updated Firestore doc deadline:', updatedDoc.data()?.deadline);
+  } catch (error) {
+    console.error('Error updating deadline:', error);
+    showErrorToast('Failed to update deadline.');
+  }
+};
