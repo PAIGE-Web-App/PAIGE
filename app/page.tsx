@@ -38,6 +38,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from '@/hooks/useAuth';
 import Banner from "../components/Banner";
 import type { TodoItem } from '../types/todo';
+import { toast } from "react-hot-toast";
+import { Contact } from "../types/contact";
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -55,16 +57,13 @@ interface Message {
   attachments?: { name: string; }[];
 }
 
-interface Contact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  category: string;
-  website?: string;
-  avatarColor?: string;
-  userId: string;
-  orderIndex?: number;
+interface RightDashboardPanelProps {
+  currentUser: User;
+  isMobile: boolean;
+  activeMobileTab: "contacts" | "messages" | "todo";
+  contacts: Contact[];
+  rightPanelSelection: string | null;
+  setRightPanelSelection: (selection: string | null) => void;
 }
 
 const getRelativeDate = (date: Date): string => {
@@ -174,6 +173,34 @@ function parseLocalDateTime(input: string): Date {
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
+// Add triggerGmailImport function
+const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
+  try {
+    const response = await fetch('/api/start-gmail-import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        contacts,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to start Gmail import');
+    }
+
+    console.log('Gmail import started successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error starting Gmail import:', error);
+    throw error;
+  }
+};
+
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -181,7 +208,7 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
-  const { loading, generateDraft, draftMessage, setDraftMessage } = useDraftMessage(selectedContact?.id || 'default');
+  const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
@@ -227,9 +254,13 @@ export default function Home() {
   const [contactsLoading, setContactsLoading] = useState(true);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('contacts');
+  const [activeMobileTab, setActiveMobileTab] = useState<"contacts" | "messages" | "todo">("contacts");
+  const [rightPanelSelection, setRightPanelSelection] = useState<"todo" | "messages" | "favorites">("todo");
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
- // Effect to finalize contactsLoading state
+  const [userData, setUserData] = useState<any>(null);
+
+  // Effect to finalize contactsLoading state
   useEffect(() => {
     if (initialContactLoadComplete && minLoadTimeReached) {
       setContactsLoading(false);
@@ -254,18 +285,22 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Main Firebase Initialization and Authentication Effect (Keep this as is)
+  // Main Firebase Initialization and Authentication Effect
   useEffect(() => {
     const auth = getAuth();
 
     const signIn = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        // Check if we're in a Canvas environment
+        const isCanvasEnvironment = typeof __initial_auth_token !== 'undefined';
+        
+        if (isCanvasEnvironment && __initial_auth_token) {
+          // Canvas environment with token
           await signInWithCustomToken(auth, __initial_auth_token);
-          console.log('page.tsx: Signed in with custom token.');
+          console.log('page.tsx: Signed in with custom token in Canvas environment.');
         } else {
-          console.warn('page.tsx: __initial_auth_token is NOT defined. Cannot sign in. Ensure Canvas environment is set up correctly.');
-          setError('Authentication token missing. Please ensure your Canvas environment is correctly configured.');
+          // Not in Canvas environment, let the normal auth flow handle it
+          console.log('page.tsx: Not in Canvas environment, using normal auth flow');
         }
       } catch (e) {
         console.error('page.tsx: Firebase sign-in error:', e);
@@ -277,46 +312,87 @@ export default function Home() {
     };
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("page.tsx: Auth state change handler triggered");
       setCurrentUser(user);
       console.log("page.tsx: onAuthStateChanged - currentUser:", user);
       setIsAuthReady(true);
       setLoadingAuth(false);
 
-      console.log('page.tsx: Auth state changed. User:', user ? user.uid : 'No user');
+      if (!user) {
+        console.log('page.tsx: No user found, redirecting to login');
+        window.location.href = '/login';
+        return;
+      }
+
+      console.log('page.tsx: Auth state changed. User:', user.uid);
       console.log('page.tsx: __app_id:', typeof __app_id !== 'undefined' ? __app_id : 'NOT_DEFINED');
       console.log('page.tsx: __initial_auth_token:', typeof __initial_auth_token !== 'undefined' ? 'DEFINED' : 'NOT_DEFINED');
 
-      if (user) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const gmailSuccess = urlParams.get("gmailAuth") === "success";
+      console.log("page.tsx: User is authenticated, checking Gmail auth status");
+      const urlParams = new URLSearchParams(window.location.search);
+      const gmailSuccess = urlParams.get("gmailAuth") === "success";
+      
+      console.log("page.tsx: Checking Gmail auth status:", {
+        gmailSuccess,
+        urlParams: Object.fromEntries(urlParams.entries()),
+        currentUrl: window.location.href
+      });
 
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          const completed = data.onboarded;
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        const completed = data.onboarded;
+        console.log("page.tsx: User data from Firestore:", {
+          onboarded: completed,
+          hasGoogleTokens: !!data.googleTokens,
+          googleTokens: data.googleTokens ? {
+            hasAccessToken: !!data.googleTokens.accessToken,
+            hasRefreshToken: !!data.googleTokens.refreshToken,
+            expiresAt: data.googleTokens.expiresAt
+          } : null
+        });
 
-          // Check if user has any contacts
-         const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-          // To check for existence, create a query with limit(1) and use getDocs
-          const contactsQuery = query(contactsCollectionRef, limit(1));
-          const contactsSnapshot = await getDocs(contactsQuery);
-          const hasContacts = !contactsSnapshot.empty;
+        // Check if user has any contacts
+        const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
+        // To check for existence, create a query with limit(1) and use getDocs
+        const contactsQuery = query(contactsCollectionRef, limit(1));
+        const contactsSnapshot = await getDocs(contactsQuery);
+        const hasContacts = !contactsSnapshot.empty;
 
-          // Show onboarding modal if not completed AND no contacts exist
-          // If completed OR contacts exist, don't show the onboarding modal.
-          if (completed || hasContacts) {
-            if (gmailSuccess) {
-              // await triggerGmailImport(user.uid, []);
+        console.log("page.tsx: Contacts check:", {
+          hasContacts,
+          contactsCount: contactsSnapshot.size
+        });
+
+        // Show onboarding modal if not completed AND no contacts exist
+        // If completed OR contacts exist, don't show the onboarding modal.
+        if (completed || hasContacts) {
+          if (gmailSuccess) {
+            console.log("page.tsx: Gmail auth success detected, preparing to import");
+            // Get all contacts for the user
+            const contactsQuery = query(contactsCollectionRef);
+            const contactsSnapshot = await getDocs(contactsQuery);
+            const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
+            
+            console.log("page.tsx: Gmail auth success, triggering import with contacts:", contacts);
+            try {
+              await triggerGmailImport(user.uid, contacts);
+              console.log("page.tsx: Gmail import completed successfully");
+            } catch (error) {
+              console.error("page.tsx: Error during Gmail import:", error);
             }
-            setShowOnboardingModal(false);
           } else {
-            setShowOnboardingModal(true);
+            console.log("page.tsx: No Gmail auth success parameter found");
           }
+          setShowOnboardingModal(false);
         } else {
+          console.log("page.tsx: Showing onboarding modal - user not completed or no contacts");
           setShowOnboardingModal(true);
         }
+      } else {
+        setShowOnboardingModal(true);
       }
     });
 
@@ -336,12 +412,18 @@ export default function Home() {
   // Function to handle user logout
   const handleLogout = async () => {
     try {
+      // First clear the session cookie
+      await fetch('/api/sessionLogout', { 
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      // Then sign out from Firebase
       const auth = getAuth();
       await signOut(auth);
-      // Call the server-side logout to clear the HttpOnly cookie
-      await fetch('/api/sessionLogout', { method: 'POST' });
-      console.log('Redirecting to /login...');
-      window.location.replace('/login');
+      
+      // Finally redirect to login page
+      window.location.href = '/login';
     } catch (error) {
       console.error('page.tsx: Error signing out:', error);
       showErrorToast(`Failed to log out: ${(error as Error).message}`);
@@ -449,97 +531,52 @@ export default function Home() {
 
   // All Messages Listener
   useEffect(() => {
-      let unsubscribeAllMessages: () => void;
-      if (isAuthReady && currentUser?.uid) {
-          const userId = currentUser.uid;
-          const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
-          console.log('page.tsx: All Messages Collection Path:', messagesCollectionRef.path);
-
-          const qAllMessages = query(
-              messagesCollectionRef,
-              where("userId", "==", userId),
-              orderBy("createdAt", "desc")
-          );
-
-          unsubscribeAllMessages = onSnapshot(qAllMessages, (snapshot) => {
-              const latestTimestamps = new Map<string, Date>();
-              snapshot.docs.forEach((doc) => {
-                  const data = doc.data();
-                  const contactId = data.contactId;
-                  const createdAt = data.createdAt.toDate();
-
-                  if (!latestTimestamps.has(contactId) || latestTimestamps.get(contactId)! < createdAt) {
-                      latestTimestamps.set(contactId, createdAt);
-                  }
-              });
-              setContactLastMessageMap(latestTimestamps);
-              console.log(`page.tsx: Fetched ${snapshot.docs.length} all messages for last message map.`);
-          }, (err) => {
-            console.error('page.tsx: Error fetching all messages for last message map:', err);
-            showErrorToast(`Failed to load message history: ${(err as Error).message}`);
-          });
-      } else {
-          setContactLastMessageMap(new Map());
-      }
-      return () => {
-          if (unsubscribeAllMessages) {
-              unsubscribeAllMessages();
-          }
-      };
-  }, [isAuthReady, currentUser]);
-
-  // Selected Contact Messages Listener
-  useEffect(() => {
-    let unsubscribe: () => void;
-    if (isAuthReady && selectedContact && currentUser?.uid) {
-      setMessagesLoading(true);
+    let unsubscribeAllMessages: () => void;
+    if (isAuthReady && currentUser?.uid) {
       const userId = currentUser.uid;
-      const messagesCollectionRef = getUserCollectionRef<Message>("messages", userId);
-      console.log('page.tsx: Selected Contact Messages Collection Path:', messagesCollectionRef.path);
-
-      const q = query(
-        messagesCollectionRef,
-        where("contactId", "==", selectedContact.id),
-        where("userId", "==", userId),
-        orderBy("createdAt", "asc")
-      );
-
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetchedMessages: Message[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            via: data.via,
-            timestamp: data.timestamp,
-            body: data.body,
-            contactId: data.contactId,
-            createdAt: data.createdAt.toDate(),
-            userId: data.userId,
-            attachments: data.attachments || [],
-          };
+      // Update the path to be under contacts collection
+      const contactsRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts`);
+      
+      // Create a map to store unsubscribe functions
+      const unsubscribeMap = new Map<string, () => void>();
+      
+      // Set up the listeners
+      const setupListeners = async () => {
+        const contactsSnapshot = await getDocs(contactsRef);
+        
+        // For each contact, set up a listener for their messages
+        contactsSnapshot.docs.forEach(contactDoc => {
+          const contactId = contactDoc.id;
+          const contactMessagesRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts/${contactId}/messages`);
+          
+          const q = query(
+            contactMessagesRef,
+            orderBy("createdAt", "desc"),
+            limit(1) // Only get the latest message
+          );
+          
+          const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+              const latestMessage = snapshot.docs[0];
+              const createdAt = latestMessage.data().createdAt.toDate();
+              setContactLastMessageMap(prev => new Map(prev).set(contactId, createdAt));
+            }
+          });
+          
+          unsubscribeMap.set(contactId, unsubscribe);
         });
-        setMessages(fetchedMessages);
-        setMessagesLoading(false);
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-        console.log(`page.tsx: Fetched ${fetchedMessages.length} messages for selected contact.`);
-      }, (err) => {
-        console.error('page.tsx: Error fetching selected contact messages:', err);
-        setMessagesLoading(false);
-        showErrorToast(`Failed to load messages for contact: ${(err as Error).message}`);
-
-      });
+      };
+      
+      setupListeners();
+      
+      // Return cleanup function that unsubscribes from all listeners
+      return () => {
+        unsubscribeMap.forEach(unsubscribe => unsubscribe());
+      };
     } else {
-      setMessages([]);
-      setMessagesLoading(false);
+      setContactLastMessageMap(new Map());
     }
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [isAuthReady, selectedContact, currentUser]);
+  }, [isAuthReady, currentUser?.uid]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -596,8 +633,9 @@ export default function Home() {
     };
 
     try {
-      const messagesCollectionRef = getUserCollectionRef<Message>("messages", currentUser.uid);
-      await addDoc(messagesCollectionRef, {
+      // Update to use the nested path structure
+      const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
+      await addDoc(messagesRef, {
         ...newMessage,
         createdAt: newMessage.createdAt,
       });
@@ -727,27 +765,237 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
     }
   }, []);
 
-  // Remove the useEffect that redirects to /login when user is null
-  // Only show a loading spinner or message while loading
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F3F2F0]">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-[#332B42] text-lg font-playfair">Loading application...</p>
-        </div>
-      </div>
-    );
-  }
+  // Add effect to handle Gmail import on page load
+  useEffect(() => {
+    if (!user) {
+      console.log('No current user, skipping Gmail import check');
+      return;
+    }
 
-  // If not loading and no user, just return null (middleware will redirect)
-  if (!user) {
-    return null;
-  }
+    const params = new URLSearchParams(window.location.search);
+    const gmailAuth = params.get('gmailAuth');
+    const userId = params.get('userId');
 
-  console.log('page.tsx Render: contactsLoading =', contactsLoading, 'contacts.length =', contacts.length);
-  console.log('page.tsx: isMobile:', isMobile);
-console.log('page.tsx: activeMobileTab:', activeMobileTab);
+    console.log('Checking Gmail auth on page load:', {
+      gmailAuth,
+      userId,
+      urlParams: Object.fromEntries(params.entries()),
+      currentUrl: window.location.href,
+      currentUserId: user.uid
+    });
+
+    if (gmailAuth === 'success' && userId === user.uid) {
+      console.log('Gmail auth success detected, triggering import');
+      const triggerImport = async () => {
+        try {
+          const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
+          const contactsQuery = query(contactsCollectionRef);
+          const contactsSnapshot = await getDocs(contactsQuery);
+          const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
+          
+          console.log('Triggering Gmail import with contacts:', contacts);
+          await triggerGmailImport(user.uid, contacts);
+          console.log('Gmail import completed successfully');
+
+          // Clear URL parameters
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+          console.log('Cleared URL parameters');
+
+          // Show success toast
+          toast.success('Gmail messages imported successfully!');
+        } catch (error) {
+          console.error('Error during Gmail import:', error);
+          toast.error('Failed to import Gmail messages. Please try again.');
+        }
+      };
+
+      triggerImport();
+    } else {
+      console.log('No Gmail auth success or user ID mismatch', {
+        gmailAuth,
+        userId,
+        currentUserId: user.uid
+      });
+    }
+  }, [user]);
+
+  // Add effect to check for Gmail tokens and trigger import if needed
+  useEffect(() => {
+    const checkGmailTokens = async () => {
+      if (!user) {
+        console.log('No current user, skipping Gmail import check');
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data();
+        
+        console.log('Checking Gmail tokens:', {
+          hasGoogleTokens: !!userData?.googleTokens,
+          gmailImportCompleted: userData?.gmailImportCompleted,
+          hasAccessToken: !!userData?.googleTokens?.accessToken,
+          hasRefreshToken: !!userData?.googleTokens?.refreshToken
+        });
+
+        if (userData?.googleTokens && !userData?.gmailImportCompleted) {
+          console.log('Found Gmail tokens, triggering import');
+          const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
+          const contactsQuery = query(contactsCollectionRef);
+          const contactsSnapshot = await getDocs(contactsQuery);
+          const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
+          
+          if (contacts.length > 0) {
+            console.log('Triggering Gmail import with contacts:', contacts);
+            const result = await triggerGmailImport(user.uid, contacts);
+            console.log('Gmail import result:', result);
+
+            if (result.success) {
+              // Update user document to mark import as completed
+              await updateDoc(doc(db, "users", user.uid), {
+                gmailImportCompleted: true
+              });
+              toast.success('Gmail messages imported successfully!');
+            } else {
+              toast.error(result.message || 'Failed to import Gmail messages');
+            }
+          } else {
+            console.log('No contacts found, skipping Gmail import');
+          }
+        } else {
+          console.log('No Gmail tokens found or import already completed');
+        }
+      } catch (error) {
+        console.error('Error checking Gmail tokens:', error);
+        toast.error('Failed to import Gmail messages. Please try again.');
+      }
+    };
+
+    checkGmailTokens();
+  }, [user]);
+
+  // Add the fetchContacts function
+  const fetchContacts = async () => {
+    if (!user) return;
+    
+    try {
+      const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
+      const contactsQuery = query(contactsCollectionRef);
+      const contactsSnapshot = await getDocs(contactsQuery);
+      const fetchedContacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
+      setContacts(fetchedContacts);
+      console.log('Fetched contacts:', fetchedContacts);
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      toast.error('Failed to fetch contacts. Please try again.');
+    }
+  };
+
+  // Update the handleOnboardingComplete function
+  const handleOnboardingComplete = async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => {
+    try {
+      console.log('Handling onboarding completion with contacts:', onboardedContacts);
+      
+      // Update contacts in Firestore
+      const batch = writeBatch(db);
+      onboardedContacts.forEach((contact) => {
+        const contactRef = doc(db, "contacts", contact.id);
+        batch.set(contactRef, contact);
+      });
+      await batch.commit();
+      
+      // Update user document
+      if (user) {
+        await updateDoc(doc(db, "users", user.uid), {
+          onboarded: true,
+          selectedChannels: selectedChannelsFromModal
+        });
+      }
+      
+      // Refresh contacts
+      await fetchContacts();
+      
+      // Close modal
+      setShowOnboardingModal(false);
+      
+      // Show success message
+      toast.success('Onboarding completed successfully!');
+
+      // If Gmail was selected, trigger the import
+      if (selectedChannelsFromModal.includes('Gmail') && user) {
+        console.log('Gmail selected, triggering import');
+        try {
+          await triggerGmailImport(user.uid, onboardedContacts);
+          toast.success('Gmail import started successfully');
+        } catch (error) {
+          console.error('Error during Gmail import:', error);
+          toast.error('Failed to start Gmail import. Please try again later.');
+        }
+      }
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast.error('Failed to complete onboarding. Please try again.');
+    }
+  };
+
+  // Move handleUpdateTodoDeadline inside Home to access currentUser and showErrorToast
+  const handleUpdateTodoDeadline = async (todoId: string, deadline: string | null) => {
+    if (!currentUser) return;
+    try {
+      console.log('handleUpdateTodoDeadline called with:', todoId, deadline);
+      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      let deadlineDate: Date | null = null;
+      if (deadline && typeof deadline === 'string') {
+        deadlineDate = parseLocalDateTime(deadline);
+        if (isNaN(deadlineDate.getTime())) {
+          throw new Error('Invalid date string');
+        }
+      }
+      console.log('Saving deadline as Date:', deadlineDate);
+      await updateDoc(itemRef, {
+        deadline: deadlineDate,
+        userId: currentUser.uid
+      });
+      showSuccessToast('Deadline updated!');
+      // Debug: fetch the updated doc
+      const updatedDoc = await getDoc(itemRef);
+      console.log('Updated Firestore doc deadline:', updatedDoc.data()?.['deadline']);
+    } catch (error) {
+      console.error('Error updating deadline:', error);
+      showErrorToast('Failed to update deadline.');
+    }
+  };
+
+  // Handler for re-import Gmail
+  const handleReimportGmail = async () => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), { gmailImportCompleted: false });
+      toast.success("Gmail import will be retried.");
+      // Optionally, immediately trigger import if tokens are present
+      if (currentUser && contacts.length > 0) {
+        await triggerGmailImport(currentUser.uid, contacts);
+        toast.success("Gmail import started.");
+      }
+    } catch (error) {
+      toast.error("Failed to re-import Gmail. Please try again.");
+      console.error("Error re-importing Gmail:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      const fetchUserData = async () => {
+        const userRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setUserData(userSnap.data());
+        }
+      };
+      fetchUserData();
+    }
+  }, [currentUser]);
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
@@ -779,6 +1027,14 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
         ) : (
           "Welcome back! Have y'all decided your wedding date?"
         )}
+        {userData?.googleTokens && (
+          <button
+            className="ml-4 px-4 py-1 rounded bg-[#A85C36] text-white text-xs font-semibold hover:bg-[#8a4a2b]"
+            onClick={handleReimportGmail}
+          >
+            Re-import Gmail
+          </button>
+        )}
       </div>
 
       <div
@@ -787,236 +1043,248 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
       >
 
       <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
-
-          <aside
-    className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
-      ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
-    `}
-    style={{ maxHeight: '100%', overflowY: 'auto' }}
-  >
-            {contactsLoading ? (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="contacts-skeleton"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+        <aside
+          className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
+            ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
+          `}
+          style={{ maxHeight: '100%', overflowY: 'auto' }}
+        >
+          {contactsLoading ? (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="contacts-skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ContactsSkeleton />
+              </motion.div>
+            </AnimatePresence>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 mb-4 relative">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
+                  aria-label="Toggle Filters"
                 >
-                  <ContactsSkeleton />
-                </motion.div>
-              </AnimatePresence>
-            ) : (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="contacts-list"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                  <div className="flex items-center gap-4 mb-4 relative">
-                    <button
-                      onClick={() => setShowFilters(!showFilters)}
-                      className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
-                      aria-label="Toggle Filters"
+                  <Filter className="w-4 h-4" />
+                </button>
+                <div className="relative flex-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AB9C95]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
+                  />
+                </div>
+                {contacts.length > 0 && (
+                  <button
+                    onClick={() => setIsAdding(true)}
+                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                  >
+                    + Add Contact
+                  </button>
+                )}
+                <AnimatePresence>
+                  {showFilters && (
+                    <motion.div
+                      ref={filterPopoverRef}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
                     >
-                      <Filter className="w-4 h-4" />
-                    </button>
-                    <div className="relative flex-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AB9C95]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                        />
-                      </svg>
-                      <input
-                        type="text"
-                        placeholder="Search contacts..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
+                      <div>
+                        <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
+                        <div className="flex flex-wrap gap-2">
+                          {allCategories.map((category) => (
+                            <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                value={category}
+                                checked={selectedCategoryFilter.includes(category)}
+                                onChange={() => handleCategoryChange(category)}
+                                className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
+                              />
+                              {category}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <SelectField
+                        label="Sort by"
+                        name="sortOption"
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value)}
+                        options={[
+                          { value: 'name-asc', label: 'Name (A-Z)' },
+                          { value: 'name-desc', label: 'Name (Z-A)' },
+                          { value: 'recent-desc', label: 'Most recent conversations' },
+                        ]}
                       />
-                    </div>
-                    {contacts.length > 0 && (
-                      <button
-                        onClick={() => setIsAdding(true)}
-                        className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
-                      >
-                        + Add Contact
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedCategoryFilter.map((category) => (
+                    <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                      Category: {category}
+                      <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                        <X className="w-3 h-3" />
                       </button>
-                    )}
-
-                    <AnimatePresence>
-                      {showFilters && (
-                        <motion.div
-                          ref={filterPopoverRef}
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
-                        >
-                            <div>
-                                <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {allCategories.map((category) => (
-                                        <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                value={category}
-                                                checked={selectedCategoryFilter.includes(category)}
-                                                onChange={() => handleCategoryChange(category)}
-                                                className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
-                                            />
-                                            {category}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                            <SelectField
-                                label="Sort by"
-                                name="sortOption"
-                                value={sortOption}
-                                onChange={(e) => setSortOption(e.target.value)}
-                                options={[
-                                    { value: 'name-asc', label: 'Name (A-Z)' },
-                                    { value: 'name-desc', label: 'Name (Z-A)' },
-                                    { value: 'recent-desc', label: 'Most recent conversations' },
-                                ]}
-                            />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {selectedCategoryFilter.map((category) => (
-                        <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                          Category: {category}
-                          <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                      {sortOption !== 'name-asc' && (
-                        <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                          Sort: {
-                            sortOption === 'name-desc' ? 'Name (Z-A)' :
-                            sortOption === 'recent-desc' ? 'Most recent' : ''
+                    </span>
+                  ))}
+                  {sortOption !== 'name-asc' && (
+                    <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                      Sort: {
+                        sortOption === 'name-desc' ? 'Name (Z-A)' :
+                        sortOption === 'recent-desc' ? 'Most recent' : ''
+                      }
+                      <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+              {displayContacts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-12">
+                  <div className="text-base text-[#332B42] font-playfair font-semibold mb-2">Set up your unified inbox</div>
+                  <div className="text-sm text-gray-500">Add your first contact to get started!</div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {displayContacts.map((contact, index) => {
+                    const name = contact.name;
+                    const matchIndex = name.toLowerCase().indexOf(
+                      searchQuery.toLowerCase()
+                    );
+                    const before = name.slice(0, matchIndex);
+                    const match = name.slice(matchIndex, matchIndex + searchQuery.length);
+                    const after = name.slice(matchIndex + searchQuery.length);
+                    return (
+                      <div
+                        key={contact.id}
+                        className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
+                          ? "opacity-0"
+                          : "opacity-100"
+                          } ${selectedContact?.id === contact.id
+                            ? "bg-[#EBE3DD] border-[#A85C36]"
+                            : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
+                          }`}
+                        onClick={() => {
+                          setSelectedContact(contact);
+                          if (isMobile) {
+                            setActiveMobileTab('messages');
                           }
-                          <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-
-                  {displayContacts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="text-sm text-gray-500">Set up your unified inbox to add your contacts!</div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {displayContacts.map((contact, index) => {
-                        const name = contact.name;
-                        const matchIndex = name.toLowerCase().indexOf(
-                          searchQuery.toLowerCase()
-                        );
-                        const before = name.slice(0, matchIndex);
-                        const match = name.slice(matchIndex, matchIndex + searchQuery.length);
-                        const after = name.slice(matchIndex + searchQuery.length);
-                        return (
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
                           <div
-                            key={contact.id}
-                            className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
-                              ? "opacity-0"
-                              : "opacity-100"
-                              } ${selectedContact?.id === contact.id
-                                ? "bg-[#EBE3DD] border-[#A85C36]"
-                                : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
-                              }`}
-                            onClick={() => {
-                              setSelectedContact(contact);
-                              if (isMobile) {
-                                setActiveMobileTab('messages');
-                              }
-                            }}
+                            className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
+                            style={{ backgroundColor: contact.avatarColor || "#364257" }}
                           >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-                                style={{ backgroundColor: contact.avatarColor || "#364257" }}
-                              >
-                                {contact.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-[#332B42]">
-                                  {matchIndex >= 0 ? (
-                                    <>
-                                      {before}
-                                      <mark className="bg-transparent text-[#A85C36] font-semibold">
-                                        {match}
-                                      </mark>
-                                      {after}
-                                    </>
-                                  ) : (
-                                    name
-                                  )}
-                                </div>
-                                <CategoryPill category={contact.category} />
-                              </div>
-                            </div>
+                            {contact.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            )}
-          </aside>
-
-
+                          <div>
+                            <div className="text-sm font-medium text-[#332B42]">
+                              {matchIndex >= 0 ? (
+                                <>
+                                  {before}
+                                  <mark className="bg-transparent text-[#A85C36] font-semibold">
+                                    {match}
+                                  </mark>
+                                  {after}
+                                </>
+                              ) : (
+                                name
+                              )}
+                            </div>
+                            <CategoryPill category={contact.category} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </aside>
+        {/* Messaging Area */}
+        {contactsLoading ? (
+          <div className="flex flex-1 min-h-full h-full w-full items-center justify-center bg-white">
+            <div className="w-full max-w-xl">
+              <MessagesSkeleton />
+            </div>
+          </div>
+        ) : (
           <section
-    className={`flex flex-col flex-1 bg-white relative w-full min-h-full
-          ${isMobile ? (activeMobileTab === 'messages' ? 'block' : 'hidden') : 'block'}
-    `}
-  >
-        <MessageArea
-            selectedContact={selectedContact}
-            currentUser={currentUser}
-            isAuthReady={isAuthReady}
-            contacts={contacts}
-            isMobile={isMobile}
-            setActiveMobileTab={setActiveMobileTab}
-            input={input}
-            setInput={setInput}
-            loading={loading}
-            generateDraft={generateDraft}
-            selectedFiles={selectedFiles}
-            setSelectedFiles={setSelectedFiles}
-            contactsLoading={contactsLoading}
-            setIsEditing={setIsEditing}
-        />
-    </section>
-
-
-              </main>
+            className={`flex flex-col flex-1 bg-white relative w-full min-h-full
+              ${isMobile ? (activeMobileTab === 'messages' ? 'block' : 'hidden') : 'block'}
+            `}
+          >
+            {contacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <img src="/wine.png" alt="Cheers" className="w-48 h-48 mb-6" />
+                <h4 className="text-2xl font-playfair font-semibold text-[#332B42] mb-2">Cheers to your next chapter!</h4>
+                <p className="text-base text-[#364257] mb-6 max-w-md text-center">
+                  Add your contacts to get started
+                </p>
+                <button
+                  className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base"
+                  onClick={() => setShowOnboardingModal(true)}
+                >
+                  Set up your Unified Inbox
+                </button>
+              </div>
+            ) : (
+              <MessageArea
+                selectedContact={selectedContact}
+                currentUser={currentUser}
+                isAuthReady={isAuthReady}
+                contacts={contacts}
+                isMobile={isMobile}
+                setActiveMobileTab={setActiveMobileTab}
+                input={input}
+                setInput={setInput}
+                draftLoading={draftLoading}
+                generateDraft={() => selectedContact ? generateDraftMessage({ name: selectedContact.name, category: selectedContact.category }, []) : Promise.resolve("")}
+                selectedFiles={selectedFiles}
+                setSelectedFiles={setSelectedFiles}
+                contactsLoading={contactsLoading}
+                setIsEditing={setIsEditing}
+                onContactSelect={setSelectedContact}
+                onSetupInbox={() => setShowOnboardingModal(true)}
+              />
+            )}
+          </section>
+        )}
+      </main>
 
         {(currentUser && !loadingAuth) ? (
           <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
@@ -1024,6 +1292,9 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
                currentUser={currentUser}
                 isMobile={isMobile}
                 activeMobileTab={activeMobileTab}
+                contacts={contacts}
+                rightPanelSelection={rightPanelSelection}
+                setRightPanelSelection={setRightPanelSelection}
             />
           </div>
         ) : (
@@ -1078,30 +1349,7 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
         <OnboardingModal
           userId={currentUser.uid}
           onClose={() => setShowOnboardingModal(false)}
-          onComplete={async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => {
-            setLastOnboardedContacts(onboardedContacts);
-            console.log("page.tsx: OnboardingModal onComplete triggered. Received contacts:", onboardedContacts);
-            console.log("page.tsx: OnboardingModal onComplete triggered. Received selectedChannels:", selectedChannelsFromModal);
-
-            if (onboardedContacts.length > 0) {
-              setSelectedContact(onboardedContacts[0]);
-            }
-
-            if (currentUser) {
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                await setDoc(userDocRef, { onboarded: true }, { merge: true });
-                console.log("page.tsx: User marked as onboarded in Firestore.");
-            }
-
-            setShowOnboardingModal(false);
-
-            if (selectedChannelsFromModal.includes('Gmail') && currentUser) {
-              console.log("OnboardingModal: OnComplete triggered. Calling triggerGmailImport.");
-              console.log("OnboardingModal: Contacts for Gmail import:", onboardedContacts);
-              console.log("OnboardingModal: Selected channels for Gmail import:", selectedChannelsFromModal);
-              // await triggerGmailImport(currentUser.uid, onboardedContacts);
-            }
-                }}
+          onComplete={handleOnboardingComplete}
         />
       )}
       {isMobile && currentUser && (
@@ -1111,30 +1359,3 @@ console.log('page.tsx: activeMobileTab:', activeMobileTab);
     </div>
   );
 }
-
-const handleUpdateTodoDeadline = async (todoId: string, deadline: string | null) => {
-  if (!user) return;
-  try {
-    console.log('handleUpdateTodoDeadline called with:', todoId, deadline);
-    const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
-    let deadlineDate: Date | null = null;
-    if (deadline && typeof deadline === 'string') {
-      deadlineDate = parseLocalDateTime(deadline);
-      if (isNaN(deadlineDate.getTime())) {
-        throw new Error('Invalid date string');
-      }
-    }
-    console.log('Saving deadline as Date:', deadlineDate);
-    await updateDoc(itemRef, {
-      deadline: deadlineDate,
-      userId: user.uid
-    });
-    showSuccessToast('Deadline updated!');
-    // Debug: fetch the updated doc
-    const updatedDoc = await getDoc(itemRef);
-    console.log('Updated Firestore doc deadline:', updatedDoc.data()?.deadline);
-  } catch (error) {
-    console.error('Error updating deadline:', error);
-    showErrorToast('Failed to update deadline.');
-  }
-};

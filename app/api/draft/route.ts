@@ -6,7 +6,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
   try {
-    const { contact, messages } = await req.json();
+    const body = await req.json();
+    console.log("Draft API received body:", body);
+    const { contact, messages } = body;
 
     const context = messages?.length
       ? `Here is the ongoing conversation:\n${messages.map((m: any) => `- ${m}`).join("\n")}`
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are a smart wedding planner assistant that writes thoughtful emails." },
+        { role: "system", content: "You are a friendly person that's looking to get married that writes thoughtful emails." },
         { role: "user", content: prompt }
       ],
       temperature: 0.7,

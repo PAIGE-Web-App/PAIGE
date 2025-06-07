@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Rule for the top-level 'tasks' collection (from your new requirements)
+    // This allows authenticated users to read, create, update, and delete tasks
+    // ONLY IF the 'userId' field within the task document matches their authenticated UID.
+    match /tasks/{taskId} {
+      allow read, create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Combined rules for the 'users' collection and its direct subcollections
+    // This covers user profiles at /users/{userId} AND subcollections like /users/{userId}/todoLists/{listId}
+    match /users/{userId} {
+      // Allows authenticated users to read/write their own user profile document.
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      
+  
+        allow read: if request.auth != null && request.auth.uid == userId;
+        // --- END TEMPORARY CHANGE ---
+
+
+      // This nested rule specifically handles subcollections directly under /users/{userId}/
+      // This is crucial for your todoLists (e.g., /users/{userId}/todoLists/{listId})
+      match /{collectionName}/{documentId} {
+        // --- START OF REQUIRED CHANGE ---
+        // For reads, check if the authenticated user's UID matches the userId in the document being read.
+        allow read: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
+        // For create, check if the authenticated user's UID matches the userId in the incoming data.
+        allow create: if request.auth != null && request.auth.uid == userId && request.resource.data.userId == userId;
+        // --- END OF REQUIRED CHANGE ---
+        allow update, delete: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
+         allow read: if request.auth != null && request.auth.uid == userId;
+        // --- END TEMPORARY CHANGE ---
+      }
+    }
+
+    // Your existing rule for the '/artifacts' path (preserved as requested)
+    // This single rule covers all your user-specific data (contacts, messages, categories, todoItems, todoLists)
+    // as long as they all follow the pattern /artifacts/{appId}/users/{userId}/{collectionName}/{documentId}
+    match /artifacts/{appId}/users/{userId}/{collectionName}/{documentId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId && request.resource.data.userId == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
+
+      // Add rules for nested collections under contacts
+      match /messages/{messageId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && request.resource.data.userId == userId;
+        allow update, delete: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
+      }
+    }
+
+    // If you have any other public collections shared across all users
+    // (e.g., /artifacts/{appId}/public/data/somePublicCollection),
+    // you would add their specific rules here.
+    // Example:
+    // match /artifacts/{appId}/public/data/{collection}/{document} {
+    //    allow read, write: if request.auth != null;
+    // }
+  }
+}

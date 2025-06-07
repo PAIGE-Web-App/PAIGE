@@ -9,6 +9,7 @@ import CategorySelectField from './CategorySelectField'; // Ensure this path is 
 import toast from 'react-hot-toast';
 import { User } from 'firebase/auth'; // Import User type (this remains as is)
 import type { TodoItem } from '../types/todo';
+import { Contact } from "../types/contact";
 
 // Define necessary interfaces - these should match your TodoItem and Contact interfaces
 // from RightDashboardPanel.tsx

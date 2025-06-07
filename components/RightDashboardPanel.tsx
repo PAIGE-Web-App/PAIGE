@@ -35,6 +35,7 @@ import DeleteListConfirmationModal from './DeleteListConfirmationModal';
 import UpgradePlanModal from './UpgradePlanModal';
 import { useRouter } from 'next/navigation';
 import type { TodoItem, TodoList } from '../types/todo';
+import { Contact } from "../types/contact";
 // import Banner from './Banner'; // Commented out as we're including it directly for demonstration
 
 // Add parseLocalDateTime utility function at the top of the file, after imports
@@ -47,18 +48,6 @@ function parseLocalDateTime(input: string): Date {
 }
 
 // Define necessary interfaces
-interface Contact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  category: string;
-  website?: string;
-  avatarColor?: string;
-  userId: string;
-  orderIndex?: number;
-}
-
 interface RightDashboardPanelProps {
   currentUser: User;
   contacts: Contact[];

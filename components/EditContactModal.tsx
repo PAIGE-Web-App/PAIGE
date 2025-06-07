@@ -10,20 +10,8 @@ import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import CategorySelectField from "./CategorySelectField";
 import Banner from './Banner'; // NEW: Import the Banner component
 import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
+import { Contact } from "../types/contact";
 
-
-interface Contact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  category: string;
-  website?: string;
-  avatarColor?: string;
-  userId: string;
-  channel?: string; // Added channel field
-  orderIndex?: number;
-}
 
 interface EditContactModalProps {
   contact: Contact;

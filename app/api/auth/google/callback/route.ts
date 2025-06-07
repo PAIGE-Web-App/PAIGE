@@ -39,13 +39,14 @@ export async function GET(request: Request) {
   }
 
   let userId: string | null = null;
-  let frontendRedirectUri: string = '/';
+  let frontendRedirectUri: string = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   if (stateParam) {
     try {
       const state = JSON.parse(stateParam);
       userId = state.userId;
-      frontendRedirectUri = state.frontendRedirectUri;
+      frontendRedirectUri = state.frontendRedirectUri || frontendRedirectUri;
+      console.log('Parsed state:', { userId, frontendRedirectUri });
     } catch (e) {
       console.error('Error parsing state:', e);
     }
@@ -63,15 +64,16 @@ export async function GET(request: Request) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        code: code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: GOOGLE_REDIRECT_URI,
+        code: code || '',
+        client_id: GOOGLE_CLIENT_ID || '',
+        client_secret: GOOGLE_CLIENT_SECRET || '',
+        redirect_uri: GOOGLE_REDIRECT_URI || '',
         grant_type: 'authorization_code',
-      }).toString(),
+      }),
     });
 
     const tokenData = await tokenResponse.json();
+    console.log('Token data received from Google:', tokenData);
 
     if (tokenData.error) {
       console.error('Error exchanging code for tokens:', tokenData.error, tokenData.error_description);
@@ -79,6 +81,12 @@ export async function GET(request: Request) {
     }
 
     const { access_token, refresh_token, expires_in } = tokenData;
+    console.log('Google OAuth callback: Successfully received tokens:', {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      expiresIn: expires_in
+    });
+    console.log('About to save tokens for userId:', userId);
 
     // MODIFIED: Use adminDb.collection().doc().set() for Admin SDK Firestore operations
     const userRef = adminDb.collection('users').doc(userId);
@@ -91,11 +99,21 @@ export async function GET(request: Request) {
     }, { merge: true });
 
     console.log('Google tokens stored successfully for user:', userId);
+    console.log('Redirecting to frontend with success parameter');
 
-    return NextResponse.redirect(`${frontendRedirectUri}?gmailAuth=success`);
+    // Redirect to frontend with success parameter
+    const redirectUrl = new URL(frontendRedirectUri);
+    redirectUrl.searchParams.set('gmailAuth', 'success');
+    redirectUrl.searchParams.set('userId', userId);
+    console.log('Redirecting to:', redirectUrl.toString());
+    return NextResponse.redirect(redirectUrl.toString());
 
   } catch (error) {
-    console.error('Error during Google OAuth callback:', error);
-    return NextResponse.redirect(`${frontendRedirectUri}?gmailAuth=error`);
+    console.error('Error in Google callback:', error);
+    // Redirect to frontend with error parameter
+    const redirectUrl = new URL(frontendRedirectUri);
+    redirectUrl.searchParams.set('gmailAuth', 'error');
+    console.log('Redirecting to (error):', redirectUrl.toString());
+    return NextResponse.redirect(redirectUrl.toString());
   }
 }

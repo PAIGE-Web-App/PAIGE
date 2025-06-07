@@ -10,6 +10,9 @@ import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import toast from "react-hot-toast";
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
+import { getUserCollectionRef } from "../lib/firebase";
+import { collection, query, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 interface OnboardingContact {
   id: string;
@@ -49,6 +52,34 @@ const getRandomAvatarColor = () => {
 // Moved outside the component
 const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
+// Add triggerGmailImport function
+const triggerGmailImport = async (userId: string, contacts: OnboardingContact[]) => {
+  try {
+    const response = await fetch('/api/start-gmail-import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        contacts,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to start Gmail import');
+    }
+
+    console.log('Gmail import started successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error starting Gmail import:', error);
+    throw error;
+  }
+};
+
 export default function OnboardingModal({ userId, onClose, onComplete }: OnboardingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingContacts, setOnboardingContacts] = useState<OnboardingContact[]>([
@@ -75,28 +106,48 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gmailAuth = params.get('gmailAuth');
+    const userId = params.get('userId');
 
-    console.log("OnboardingModal: useEffect running. gmailAuth param:", gmailAuth); 
+    console.log("OnboardingModal: useEffect running. gmailAuth param:", gmailAuth, "userId:", userId); 
 
-    if (gmailAuth) {
-        if (gmailAuth === 'success') {
-            setGmailAuthStatus('success');
-            toast.success("Gmail connected successfully!");
-            setCurrentStep(4);
-            console.log("OnboardingModal: Gmail auth success. Setting currentStep to 4.");
-        } else if (gmailAuth === 'error') {
-            setGmailAuthStatus('failed');
-            toast.error("Failed to connect Gmail. Please try again.");
-            setCurrentStep(3);
-            console.log("OnboardingModal: Gmail auth error. Setting currentStep to 3.");
+    if (gmailAuth === 'success' && userId === userId) {
+      setGmailAuthStatus('success');
+      toast.success("Gmail connected successfully!");
+      setCurrentStep(4);
+      console.log("OnboardingModal: Gmail auth success. Setting currentStep to 4.");
+
+      // Trigger Gmail import
+      const triggerImport = async () => {
+        try {
+          const contactsCollectionRef = getUserCollectionRef<OnboardingContact>("contacts", userId);
+          const contactsQuery = query(contactsCollectionRef);
+          const contactsSnapshot = await getDocs(contactsQuery);
+          const contacts = contactsSnapshot.docs.map(doc => doc.data() as OnboardingContact);
+          
+          console.log("OnboardingModal: Triggering Gmail import with contacts:", contacts);
+          await triggerGmailImport(userId, contacts);
+          console.log("OnboardingModal: Gmail import completed successfully");
+        } catch (error) {
+          console.error("OnboardingModal: Error during Gmail import:", error);
+          toast.error("Failed to import Gmail messages. Please try again.");
         }
-        params.delete('gmailAuth');
-        const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
-        window.history.replaceState({}, document.title, newUrl);
-        console.log("OnboardingModal: Cleaned URL parameters.");
-    }
-  }, []);
+      };
 
+      triggerImport();
+    } else if (gmailAuth === 'error') {
+      setGmailAuthStatus('failed');
+      toast.error("Failed to connect Gmail. Please try again.");
+      setCurrentStep(3);
+      console.log("OnboardingModal: Gmail auth error. Setting currentStep to 3.");
+    }
+
+    // Clean up URL parameters
+    if (gmailAuth) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      console.log("OnboardingModal: Cleaned URL parameters.");
+    }
+  }, [userId]);
 
   const handleContactChange = useCallback((index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -119,11 +170,9 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     });
   }, [onboardingContacts]);
 
-
   const handleCustomCategoryChange = useCallback((contactId: string, value: string) => {
     setCustomCategoryInputs((prev) => ({ ...prev, [contactId]: value }));
   }, []);
-
 
   const addContactForm = useCallback(() => {
     setOnboardingContacts((prev) => [
@@ -142,7 +191,6 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     ]);
   }, [userId]);
 
-
   const removeContactForm = useCallback((id: string) => {
     setOnboardingContacts((prev) => prev.filter((contact) => contact.id !== id));
     setCustomCategoryInputs((prev) => {
@@ -156,7 +204,6 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       return newErrors;
     });
   }, []);
-
 
   const validateStep1 = useCallback(() => {
     let isValid = true;
@@ -197,7 +244,6 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     setErrors(newErrors);
     return isValid;
   }, [onboardingContacts, customCategoryInputs]);
-
 
   const handleNext = useCallback(async () => {
     if (currentStep === 1) {
@@ -258,7 +304,6 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     }
   }, [currentStep, validateStep1, onboardingContacts, customCategoryInputs, userId, selectedCommunicationChannels, gmailAuthStatus]);
 
-
   const handleBack = useCallback(() => {
     setCurrentStep((prevStep) => prevStep - 1);
   }, []);
@@ -277,12 +322,10 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     window.location.href = `/api/auth/google/initiate?userId=${userId}&redirectUri=${redirectUri}`;
   }, [userId]);
 
-
   const handleComplete = useCallback(() => {
     onComplete(onboardingContacts, selectedCommunicationChannels);
     onClose();
   }, [onComplete, onboardingContacts, selectedCommunicationChannels, onClose]);
-
 
   const steps = [
     { id: 1, name: "Add vendor details" },

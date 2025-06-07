@@ -22,7 +22,6 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.redirect(new URL('/login', request.url))
     // Add a query parameter to show the toast message
     response.cookies.set('show-toast', 'Please login to access this page')
-    console.log('MIDDLEWARE: Setting show-toast cookie and redirecting to /login from', path)
     return response
   }
 }

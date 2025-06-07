@@ -11,6 +11,7 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI; // Your OAuth callb
 
 export async function POST(req: Request) {
   try {
+    console.log('START: /api/start-gmail-import route hit');
     const adminDb = getAdminDb();
 
     if (!adminDb) {
@@ -20,12 +21,8 @@ export async function POST(req: Request) {
     console.log('DEBUG: adminDb is successfully obtained in start-gmail-import/route.ts:', !!adminDb); // Log if it's truthy
 
     const { userId, contacts: incomingContacts } = await req.json();
-
-    // --- ADDED LOGGING FOR DEBUGGING ---
-    console.log('API Route: Received payload:', { userId, incomingContacts });
-    console.log('API Route: Type of incomingContacts:', typeof incomingContacts);
-    console.log('API Route: Is incomingContacts an array?', Array.isArray(incomingContacts));
-    // --- END ADDED LOGGING ---
+    console.log('DEBUG: Received userId:', userId);
+    console.log('DEBUG: Received contacts:', incomingContacts);
 
     if (!userId || !incomingContacts || !Array.isArray(incomingContacts)) {
       console.error('API Route: Invalid request payload detected during validation.');
@@ -57,6 +54,12 @@ export async function POST(req: Request) {
     const userData = userDocSnap.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
 
+    console.log('DEBUG: User data from Firestore:', {
+      hasGoogleTokens: !!userData?.googleTokens,
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken
+    });
+
     if (!accessToken || !refreshToken) {
       console.error(`Google tokens not found for user: ${userId}`);
       return NextResponse.json({ success: false, message: 'Google authentication required. Please re-authorize Gmail access.' }, { status: 401 });
@@ -67,11 +70,14 @@ export async function POST(req: Request) {
       refresh_token: refreshToken,
     });
 
-    if (oauth2Client.isTokenExpiring()) {
-      console.log('Access token is expiring, refreshing...');
+    console.log('DEBUG: OAuth2 client configured with tokens');
+
+    // Instead of oauth2Client.isTokenExpiring(), check expiry_date
+    const tokenExpiry = oauth2Client.credentials.expiry_date;
+    if (tokenExpiry && tokenExpiry < Date.now()) {
+      console.log('Access token is expiring or expired, refreshing...');
       const { credentials } = await oauth2Client.refreshAccessToken();
       oauth2Client.setCredentials(credentials);
-      // MODIFIED: Use userDocRef.set() which is an Admin SDK method
       await userDocRef.set({
         googleTokens: {
           accessToken: credentials.access_token,
@@ -83,8 +89,10 @@ export async function POST(req: Request) {
     }
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    console.log('DEBUG: Gmail API client initialized');
 
     for (const contact of incomingContacts) {
+      console.log('PROCESSING CONTACT:', contact);
       const contactEmail = contact.email;
 
       if (!contactEmail) {
@@ -93,26 +101,26 @@ export async function POST(req: Request) {
         continue;
       }
 
-      console.log(`Attempting to import Gmail messages for contact: ${contactEmail}`);
+      console.log(`DEBUG: Starting Gmail import for contact: ${contactEmail}`);
 
       try {
-        // MODIFIED: Build query directly on Admin SDK CollectionReference
-        const contactQuery = adminDb.collection(`users/${userId}/contacts`)
-          .where('email', '==', contactEmail);
+        const contactQuery = adminDb.collection(`artifacts/default-app-id/users/${userId}/contacts`).where('email', '==', contactEmail);
         
-        // MODIFIED: Use Admin SDK method .get() on Query
         const contactDocs = await contactQuery.get();
+        console.log(`DEBUG: Found ${contactDocs.size} contact documents for email ${contactEmail}`);
 
         let contactDocId: string | null = null;
 
         if (!contactDocs.empty) {
           contactDocId = contactDocs.docs[0].id;
+          console.log(`DEBUG: Using contact document ID: ${contactDocId}`);
         } else {
           console.warn(`Contact document not found for email: ${contactEmail}. Skipping message import for this email.`);
           notFoundContacts.push({ name: contact.name || contactEmail, email: contactEmail, message: 'Contact not found in Firestore.' });
           continue;
         }
 
+        console.log(`DEBUG: Searching Gmail for messages with query: from:${contactEmail} OR to:${contactEmail}`);
         const res = await gmail.users.messages.list({
           userId: 'me',
           q: `from:${contactEmail} OR to:${contactEmail}`,
@@ -120,12 +128,20 @@ export async function POST(req: Request) {
         });
 
         const messages = res.data.messages;
+        console.log(`DEBUG: Gmail API response:`, {
+          totalResults: res.data.resultSizeEstimate,
+          messagesFound: messages?.length || 0
+        });
 
         if (messages && messages.length > 0) {
-          console.log(`Found ${messages.length} messages for ${contactEmail}.`);
+          console.log(`Found ${messages.length} messages for ${contactEmail}. Starting to process messages...`);
+
+          // Define the collection path once per contact
+          const messagesCollectionPath = `artifacts/default-app-id/users/${userId}/contacts/${contactDocId}/messages`;
 
           for (const message of messages) {
             try {
+              console.log(`DEBUG: Fetching full message details for message ID: ${message.id}`);
               const fullMessageRes = await gmail.users.messages.get({
                 userId: 'me',
                 id: message.id!,
@@ -133,12 +149,10 @@ export async function POST(req: Request) {
               });
               const fullMessage = fullMessageRes.data;
 
-              // MODIFIED: Build query directly on Admin SDK CollectionReference
-              const existingMessageQuery = adminDb.collection(`users/${userId}/contacts/${contactDocId}/messages`)
+              const existingMessageQuery = adminDb.collection(messagesCollectionPath)
                 .where('gmailMessageId', '==', message.id);
-              
-              // MODIFIED: Use Admin SDK method .get() on Query
               const existingMessages = await existingMessageQuery.get();
+              console.log(`DEBUG: Checked for existing message ${message.id}: ${existingMessages.empty ? 'Not found' : 'Already exists'}`);
 
               if (!existingMessages.empty) {
                 console.log(`Gmail message ${message.id} for contact ${contactEmail} already exists. Skipping.`);
@@ -194,6 +208,14 @@ export async function POST(req: Request) {
                 body = findBodyInParts(parts);
               }
 
+              console.log(`DEBUG: Message details:`, {
+                subject,
+                from,
+                to,
+                date: dateHeader || internalDate,
+                bodyLength: body.length
+              });
+
               const messageData = {
                 gmailMessageId: message.id,
                 threadId: fullMessage.threadId,
@@ -203,15 +225,26 @@ export async function POST(req: Request) {
                 bodySnippet: body.substring(0, 300) + (body.length > 300 ? '...' : ''),
                 fullBody: body,
                 date: dateHeader || internalDate,
-                // MODIFIED: Use admin.firestore.Timestamp.fromDate for Admin SDK Timestamp
                 timestamp: admin.firestore.Timestamp.fromDate(new Date(dateHeader || internalDate)),
                 isRead: fullMessage.labelIds?.includes('UNREAD') ? false : true,
-                source: 'gmail',
+                source: 'gmail'
               };
 
-              // MODIFIED: Use Admin SDK method .add() on CollectionReference
-              await adminDb.collection(`users/${userId}/contacts/${contactDocId}/messages`).add(messageData);
-              console.log(`Saved Gmail message ${message.id} for contact ${contactEmail}.`);
+              // Save the Gmail message to the correct path
+              const messageRef = await adminDb.collection(messagesCollectionPath).add({
+                subject: subject || '',
+                body,
+                timestamp: admin.firestore.Timestamp.fromDate(new Date(internalDate)),
+                from: from || '',
+                to: to || '',
+                source: 'gmail',
+                isRead: true,
+                gmailMessageId: message.id,
+                threadId: fullMessage.threadId,
+                userId,
+                attachments: [], // You can add attachment handling if needed
+              });
+              console.log(`Saved Gmail message ${message.id} for contact ${contactEmail} with ID: ${messageRef.id}`);
 
             } catch (messageError: any) {
               console.error(`Error processing Gmail message ${message.id} for ${contactEmail}:`, messageError);
@@ -230,7 +263,8 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Gmail import process initiated.', notFoundContacts }, { status: 200 });
+    console.log('END: /api/start-gmail-import route');
+    return NextResponse.json({ success: true, message: 'Gmail import process completed.', notFoundContacts }, { status: 200 });
 
   } catch (error: any) {
     console.error('API Error in start-gmail-import:', error);
