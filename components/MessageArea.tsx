@@ -290,14 +290,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Initial message load
   useEffect(() => {
-    console.log("Setting up Firestore listener for contact:", selectedContact?.id, "user:", currentUser?.uid);
     isMounted.current = true;
 
-    // Reset state when contact changes
-    if (prevContactIdRef.current !== selectedContact?.id) {
-      dispatch({ type: 'RESET' });
-    }
-
+    // Always reset state and unsubscribe at the start
+    dispatch({ type: 'RESET' });
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
@@ -307,57 +303,51 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     const currentUserId = currentUser?.uid;
 
     if (!currentContactId || !currentUserId) {
-      if (prevContactIdRef.current !== null || prevUserIdRef.current !== null) {
-        prevContactIdRef.current = null;
-        prevUserIdRef.current = null;
-      }
+      prevContactIdRef.current = null;
+      prevUserIdRef.current = null;
       return;
     }
 
-    // Only set up new listener if contact or user has changed
-    if (prevContactIdRef.current !== currentContactId || prevUserIdRef.current !== currentUserId) {
-      prevContactIdRef.current = currentContactId;
-      prevUserIdRef.current = currentUserId;
-      dispatch({ type: 'SET_LOADING', payload: true });
+    prevContactIdRef.current = currentContactId;
+    prevUserIdRef.current = currentUserId;
+    dispatch({ type: 'SET_LOADING', payload: true });
 
-      try {
-        const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUserId}/contacts/${currentContactId}/messages`);
-        const messagesQuery = query(
-          messagesRef,
-          orderBy("timestamp", "asc"),
-          limit(50)
-        );
+    try {
+      const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUserId}/contacts/${currentContactId}/messages`);
+      const messagesQuery = query(
+        messagesRef,
+        orderBy("timestamp", "asc"),
+        limit(50)
+      );
 
-        unsubscribeRef.current = onSnapshot(messagesQuery, (snapshot) => {
-          if (!isMounted.current) return;
-
-          const fetchedMessages = snapshot.docs.map(doc => {
-            const data = doc.data() as Record<string, any>;
-            const timestamp = data.timestamp?.toDate?.() || new Date();
-            return {
-              ...data,
-              id: doc.id,
-              timestamp: timestamp.toLocaleString()
-            } as Message;
-          });
-
-          console.log('Dispatching messages:', fetchedMessages);
-          dispatch({ type: 'SET_MESSAGES', payload: fetchedMessages });
-          dispatch({ type: 'SET_LAST_DOC', payload: snapshot.docs[snapshot.docs.length - 1] });
-          dispatch({ type: 'SET_HAS_MORE', payload: snapshot.docs.length === 50 });
-          dispatch({ type: 'SET_LOADING', payload: false });
-        }, (error) => {
-          console.error('Firestore listener error:', error);
-          if (isMounted.current) {
-            dispatch({ type: 'SET_LOADING', payload: false });
-          }
-        });
-      } catch (error) {
+      unsubscribeRef.current = onSnapshot(messagesQuery, (snapshot) => {
         if (!isMounted.current) return;
-        console.error('MessageArea: Error setting up messages listener:', error);
-        showErrorToast('Failed to fetch messages. Please try again.');
+
+        const fetchedMessages = snapshot.docs.map(doc => {
+          const data = doc.data() as Record<string, any>;
+          const timestamp = data.timestamp?.toDate?.() || new Date();
+          return {
+            ...data,
+            id: doc.id,
+            timestamp: timestamp.toLocaleString()
+          } as Message;
+        });
+
+        dispatch({ type: 'SET_MESSAGES', payload: fetchedMessages });
+        dispatch({ type: 'SET_LAST_DOC', payload: snapshot.docs[snapshot.docs.length - 1] });
+        dispatch({ type: 'SET_HAS_MORE', payload: snapshot.docs.length === 50 });
         dispatch({ type: 'SET_LOADING', payload: false });
-      }
+      }, (error) => {
+        console.error('Firestore listener error:', error);
+        if (isMounted.current) {
+          dispatch({ type: 'SET_LOADING', payload: false });
+        }
+      });
+    } catch (error) {
+      if (!isMounted.current) return;
+      console.error('MessageArea: Error setting up messages listener:', error);
+      showErrorToast('Failed to fetch messages. Please try again.');
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
 
     return () => {

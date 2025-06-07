@@ -114,7 +114,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                     className={`flex ${msg.from === currentUser?.email ? 'justify-end' : 'justify-start'}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-[15px] p-3 ${
+                      className={`max-w-[80%] break-words whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
                         msg.from === currentUser?.email
                           ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px]'
                           : 'bg-gray-100 text-gray-800'

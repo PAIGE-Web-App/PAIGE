@@ -32,6 +32,7 @@ export default function SignUp() {
   const [weddingDateError, setWeddingDateError] = useState("");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const [isNewSignup, setIsNewSignup] = useState(false);
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -44,12 +45,12 @@ export default function SignUp() {
     }
   }, []);
 
-  // Redirect if already logged in, but only after loading is false
+  // Redirect if already logged in, but only if not a new signup
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !isNewSignup) {
       router.push('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, isNewSignup]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -81,6 +82,7 @@ export default function SignUp() {
     try {
       setLoading(true);
       await createUserWithEmailAndPassword(auth, email, password);
+      setIsNewSignup(true); // Mark as new signup
       setStep(2); // Go to next onboarding step
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
@@ -136,6 +138,23 @@ export default function SignUp() {
       setLoading(false);
     }
   };
+
+  if (!authLoading && user && !isNewSignup) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F3F2F0]">
+        <div className="bg-white p-8 rounded shadow-md flex flex-col items-center">
+          <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-4">You are already logged in</h2>
+          <p className="mb-6 text-[#364257]">Go to your dashboard or log out to create a new account.</p>
+          <button
+            className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base mb-2"
+            onClick={() => router.push('/')}
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
