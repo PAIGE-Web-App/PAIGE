@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 
 interface BannerProps {
   message: ReactNode; // Changed from string to ReactNode
-  type?: 'info' | 'warning' | 'error'; // 'info' for informational, 'warning' for yellow, 'error' for red
+  type?: 'info' | 'warning' | 'error' | 'feature'; // 'info' for informational, 'warning' for yellow, 'error' for red, 'feature' for purple
   onDismiss?: () => void; // Optional dismiss handler
   isLoading?: boolean; // Add loading state
 }
@@ -13,6 +13,7 @@ const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss, isLo
   let bgColorClass = '';
   let textColorClass = '';
   let dismissHoverColorClass = '';
+  let extraClass = '';
 
   switch (type) {
     case 'warning':
@@ -24,6 +25,12 @@ const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss, isLo
       bgColorClass = 'bg-red-100';
       textColorClass = 'text-red-800';
       dismissHoverColorClass = 'hover:bg-red-200';
+      break;
+    case 'feature':
+      bgColorClass = 'bg-purple-100';
+      textColorClass = 'text-purple-800';
+      dismissHoverColorClass = 'hover:bg-purple-200';
+      extraClass = 'mt-0 rounded-none';
       break;
     case 'info':
     default:
@@ -40,7 +47,7 @@ const Banner: React.FC<BannerProps> = ({ message, type = 'info', onDismiss, isLo
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className={`text-sm py-2 rounded-[5px] mt-3 mb-2 relative flex items-center justify-start px-4 ${bgColorClass} ${textColorClass}`}
+        className={`text-sm py-2 mt-3 mb-2 relative flex items-center justify-start px-4 ${bgColorClass} ${textColorClass} ${extraClass}`}
       >
         {isLoading ? (
           <div className="animate-pulse">

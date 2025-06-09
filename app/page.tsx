@@ -403,10 +403,11 @@ export default function Home() {
 
   // NEW useEffect for redirection
   useEffect(() => {
-    if (!user) {
+    // Only redirect to /login if user is truly not logged in
+    if (!user && !authLoading) {
       router.push('/login');
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
 
   // Function to handle user logout
@@ -756,11 +757,11 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
   const isLoading = authLoading || !minLoadTimeReached;
 
   useEffect(() => {
-    // Show a welcome toast if the user just logged in
+    // Show a welcome toast if the user just logged in (one-time, using localStorage flag)
     if (typeof window !== 'undefined') {
-      const referrer = document.referrer;
-      if (referrer && (referrer.endsWith('/login') || referrer.endsWith('/signup'))) {
+      if (localStorage.getItem('showLoginToast') === '1') {
         showSuccessToast('Login successful, welcome back!');
+        localStorage.removeItem('showLoginToast');
       }
     }
   }, []);

@@ -90,6 +90,9 @@ export default function Login() {
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('showLoginToast', '1');
+      }
       router.push("/");
     } catch (error: any) {
       toast.error(error.message || "Failed to login");
@@ -111,6 +114,9 @@ export default function Login() {
         body: JSON.stringify({ idToken }),
       });
       if (res.ok) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('showLoginToast', '1');
+        }
         window.location.href = "/";
       } else {
         toast.error("Session login failed");

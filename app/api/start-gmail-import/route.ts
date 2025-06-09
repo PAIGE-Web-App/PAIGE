@@ -91,6 +91,16 @@ export async function POST(req: Request) {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     console.log('DEBUG: Gmail API client initialized');
 
+    // Fetch the authenticated Gmail user's email address
+    let gmailUserEmail = '';
+    try {
+      const profileRes = await gmail.users.getProfile({ userId: 'me' });
+      gmailUserEmail = (profileRes.data.emailAddress || '').toLowerCase();
+      console.log('DEBUG: Authenticated Gmail user email:', gmailUserEmail);
+    } catch (e) {
+      console.error('Failed to fetch Gmail user profile:', e);
+    }
+
     for (const contact of incomingContacts) {
       console.log('PROCESSING CONTACT:', contact);
       const contactEmail = contact.email;
@@ -216,6 +226,33 @@ export async function POST(req: Request) {
                 bodyLength: body.length
               });
 
+              // Determine direction (sent/received) based on user's email
+              const userEmail = gmailUserEmail;
+              // Helper to extract all email addresses from a header string
+              const extractEmails = (header: string | undefined) => {
+                if (!header) return [];
+                // Match all email addresses in the header
+                return Array.from(header.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)).map(m => m[0].toLowerCase());
+              };
+              const fromEmails = extractEmails(from ? String(from) : undefined);
+              const toEmails = extractEmails(to ? String(to) : undefined);
+              let direction: 'sent' | 'received' = 'received';
+              if (fromEmails.includes(userEmail)) {
+                direction = 'sent';
+              } else if (toEmails.includes(userEmail)) {
+                direction = 'received';
+              } else {
+                direction = 'received';
+              }
+              console.log('[GMAIL IMPORT DEBUG]', {
+                userEmail,
+                from,
+                to,
+                fromEmails,
+                toEmails,
+                direction
+              });
+
               const messageData = {
                 gmailMessageId: message.id,
                 threadId: fullMessage.threadId,
@@ -227,7 +264,8 @@ export async function POST(req: Request) {
                 date: dateHeader || internalDate,
                 timestamp: admin.firestore.Timestamp.fromDate(new Date(dateHeader || internalDate)),
                 isRead: fullMessage.labelIds?.includes('UNREAD') ? false : true,
-                source: 'gmail'
+                source: 'gmail',
+                direction,
               };
 
               // Save the Gmail message to the correct path
@@ -243,6 +281,7 @@ export async function POST(req: Request) {
                 threadId: fullMessage.threadId,
                 userId,
                 attachments: [], // You can add attachment handling if needed
+                direction,
               });
               console.log(`Saved Gmail message ${message.id} for contact ${contactEmail} with ID: ${messageRef.id}`);
 

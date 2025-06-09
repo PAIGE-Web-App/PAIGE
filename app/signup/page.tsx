@@ -1,7 +1,7 @@
 "use client";
 
 import { db } from "../../lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -106,6 +106,7 @@ export default function SignUp() {
 
   const handleGoogleSignUp = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' }); // Always show account picker
     try {
       setLoading(true);
       const result = await signInWithPopup(auth, provider);
@@ -117,7 +118,17 @@ export default function SignUp() {
         body: JSON.stringify({ idToken }),
       });
       if (res.ok) {
-        setStep(2); // Go to next onboarding step
+        // Check if user doc exists in Firestore
+        const userDocRef = doc(db, "users", result.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+          // New user, proceed to onboarding
+          setIsNewSignup(true);
+          setStep(2);
+        } else {
+          // Existing user, go to dashboard
+          router.push("/");
+        }
       } else {
         toast.error("Session login failed");
       }

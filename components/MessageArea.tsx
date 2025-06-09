@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState, useReducer, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, Timestamp, startAfter, getDocsFromCache } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { Mail, Phone, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, X } from "lucide-react";
 import CategoryPill from "./CategoryPill";
@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Contact } from "../types/contact";
 import MessageListArea from './MessageListArea';
 import MessageDraftArea from './MessageDraftArea';
+import Banner from "./Banner";
 
 
 // Define interfaces for types needed in this component
@@ -205,6 +206,21 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
 
   const [pendingDraft, setPendingDraft] = useState<string | null>(null); // For AI draft
+  const [showGmailImport, setShowGmailImport] = useState(false);
+  const [checkingGmail, setCheckingGmail] = useState(false);
+  const [showGmailBanner, setShowGmailBanner] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [importedOnce, setImportedOnce] = useState(false);
+
+  // Add a cache for Gmail eligibility per contact
+  const [gmailEligibilityCache, setGmailEligibilityCache] = useState<{
+    [contactId: string]: {
+      showGmailImport: boolean;
+      showGmailBanner: boolean;
+      bannerDismissed: boolean;
+      importedOnce: boolean;
+    }
+  }>({});
 
   // Auto-expand textarea as input changes
   useEffect(() => {
@@ -493,69 +509,266 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     return () => unsub();
   }, [currentUser?.uid, selectedContact?.id]);
 
+  // Check Gmail eligibility for selected contact
+  useEffect(() => {
+    let isMounted = true;
+    const checkGmailEligibility = async () => {
+      if (!currentUser?.uid || !selectedContact?.email || !selectedContact?.id) return;
+      // If cached, use it immediately
+      const cached = gmailEligibilityCache[selectedContact.id];
+      if (cached) {
+        setShowGmailImport(cached.showGmailImport);
+        setShowGmailBanner(cached.showGmailBanner);
+        setBannerDismissed(cached.bannerDismissed);
+        setImportedOnce(cached.importedOnce);
+        return;
+      }
+      setShowGmailImport(false);
+      setShowGmailBanner(false);
+      setBannerDismissed(false);
+      setImportedOnce(false);
+      setCheckingGmail(true);
+      try {
+        // Check if user has Gmail tokens and if there is Gmail history for this contact
+        const res = await fetch('/api/check-gmail-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser.uid, contactEmail: selectedContact.email }),
+        });
+        const data = await res.json();
+        
+        // Check if this contact has been imported before
+        const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+        const contactSnap = await getDoc(contactRef);
+        const contactData = contactSnap.data();
+        const hasBeenImported = contactData?.gmailImported || false;
+        const hasDismissedBanner = contactData?.gmailBannerDismissed || false;
+        
+        let showImport = false;
+        let showBanner = false;
+        let imported = false;
+        let dismissed = false;
+        if (data.hasHistory) {
+          showImport = true;
+          if (!hasBeenImported && !hasDismissedBanner) {
+            showBanner = true;
+          } else {
+            imported = hasBeenImported;
+            dismissed = hasDismissedBanner;
+          }
+        }
+        if (isMounted) {
+          setShowGmailImport(showImport);
+          setShowGmailBanner(showBanner);
+          setBannerDismissed(dismissed);
+          setImportedOnce(imported);
+          setGmailEligibilityCache(prev => ({
+            ...prev,
+            [selectedContact.id]: {
+              showGmailImport: showImport,
+              showGmailBanner: showBanner,
+              bannerDismissed: dismissed,
+              importedOnce: imported,
+            }
+          }));
+        }
+      } catch (e) {
+        console.error('Error checking Gmail eligibility:', e);
+        // fail silently
+      } finally {
+        if (isMounted) setCheckingGmail(false);
+      }
+    };
+    checkGmailEligibility();
+    return () => { isMounted = false; };
+  }, [currentUser?.uid, selectedContact?.id, selectedContact?.email]);
+
+  // When importing or dismissing, update the cache as well
+  const handleImportGmail = async () => {
+    if (!currentUser?.uid || !selectedContact?.email) return;
+    try {
+      // First check if there are any existing messages for this contact
+      const messagesQuery = query(
+        collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
+        where('source', '==', 'gmail')
+      );
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const existingMessages = messagesSnapshot.docs.map(doc => doc.data());
+      const hasExistingMessages = existingMessages.some(msg => 
+        msg.from === selectedContact.email || msg.to === selectedContact.email
+      );
+
+      // If there are existing messages, delete them first
+      if (hasExistingMessages) {
+        const batch = writeBatch(db);
+        messagesSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+      }
+
+      // Now proceed with the import
+      const response = await fetch('/api/start-gmail-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.uid, contacts: [selectedContact] }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to import Gmail conversation');
+      }
+
+      // Mark the contact as imported
+      const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+      await updateDoc(contactRef, {
+        gmailImported: true,
+        lastImportDate: new Date().toISOString()
+      });
+
+      showSuccessToast('Gmail conversation imported!');
+      setImportedOnce(true);
+      setShowGmailBanner(false);
+      setBannerDismissed(false);
+      setGmailEligibilityCache(prev => ({
+        ...prev,
+        [selectedContact.id]: {
+          showGmailImport: true,
+          showGmailBanner: false,
+          bannerDismissed: false,
+          importedOnce: true,
+        }
+      }));
+    } catch (e) {
+      console.error('Error during Gmail import:', e);
+      showErrorToast('Failed to import Gmail conversation. Please try again.');
+    }
+  };
+
+  const handleDismissBanner = async () => {
+    if (!currentUser?.uid || !selectedContact?.id) return;
+    try {
+      // Mark the banner as dismissed in Firestore
+      const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+      await updateDoc(contactRef, {
+        gmailBannerDismissed: true
+      });
+      setBannerDismissed(true);
+      setShowGmailBanner(false);
+      setGmailEligibilityCache(prev => ({
+        ...prev,
+        [selectedContact.id]: {
+          showGmailImport: true,
+          showGmailBanner: false,
+          bannerDismissed: true,
+          importedOnce: false,
+        }
+      }));
+    } catch (e) {
+      console.error('Error dismissing banner:', e);
+    }
+  };
+
   console.log('UI messages:', state.messages);
 
   return (
     <div className="flex flex-col h-full">
       {selectedContact && (
-        <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center">
-          {isMobile && (
-            <button
-              onClick={() => setActiveMobileTab('contacts')}
-              className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
-              aria-label="Back to contacts"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div className="flex-1 flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                  {selectedContact.name}
-                </h4>
-                <CategoryPill category={selectedContact.category} />
+        <>
+          <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center">
+            {isMobile && (
+              <button
+                onClick={() => setActiveMobileTab('contacts')}
+                className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                aria-label="Back to contacts"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="flex-1 flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
+                    {selectedContact.name}
+                  </h4>
+                  <CategoryPill category={selectedContact.category} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  {selectedContact.email && (
+                    <a
+                      href={`mailto:${selectedContact.email}`}
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                    >
+                      <Mail className="w-3 h-3" />
+                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
+                    </a>
+                  )}
+                  {selectedContact.phone && (
+                    <a
+                      href={`tel:${selectedContact.phone}`}
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
+                    </a>
+                  )}
+                  {selectedContact?.website && (
+                    <a
+                      href={selectedContact.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                    >
+                      <span>🌐</span>
+                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span>
+                    </a>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {selectedContact.email && (
-                  <a
-                    href={`mailto:${selectedContact.email}`}
-                    className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+              <div className="flex items-center gap-2">
+                {showGmailImport && (bannerDismissed || importedOnce) && (
+                  <button
+                    onClick={handleImportGmail}
+                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
+                    disabled={checkingGmail}
                   >
-                    <Mail className="w-3 h-3" />
-                    <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
-                  </a>
+                    <FileUp className="w-4 h-4 mr-1" />
+                    {importedOnce ? 'Re-import Gmail' : 'Import Gmail'}
+                  </button>
                 )}
-                {selectedContact.phone && (
-                  <a
-                    href={`tel:${selectedContact.phone}`}
-                    className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
-                  >
-                    <Phone className="w-3 h-3" />
-                    <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
-                  </a>
-                )}
-                {selectedContact?.website && (
-                  <a
-                    href={selectedContact.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
-                  >
-                    <span>🌐</span>
-                    <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span>
-                  </a>
-                )}
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
+                >
+                  Edit
+                </button>
               </div>
             </div>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
-            >
-              Edit
-            </button>
           </div>
-        </div>
+          {showGmailBanner && !bannerDismissed && (
+            <div className="mt-0">
+              <Banner
+                message={
+                  <div className="flex justify-between items-center w-full">
+                    <span className="flex items-center">
+                      <WandSparkles className="w-5 h-5 text-purple-500 mr-2" />
+                      <span>Looks like you've been emailing with this contact! Do you want to import the emails here?</span>
+                    </span>
+                    <button
+                      onClick={handleImportGmail}
+                      className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
+                      style={{ marginRight: 12 }}
+                      disabled={checkingGmail}
+                    >
+                      <FileUp className="w-4 h-4 mr-1" /> Import Gmail
+                    </button>
+                  </div>
+                }
+                type="feature"
+                onDismiss={handleDismissBanner}
+              />
+            </div>
+          )}
+        </>
       )}
       <div className="flex flex-col flex-1 min-h-0">
         {/* Scrollable Message Area */}

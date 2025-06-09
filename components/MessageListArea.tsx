@@ -15,6 +15,7 @@ interface Message {
   threadId?: string;
   userId: string;
   attachments?: { name: string }[];
+  direction: 'sent' | 'received';
 }
 
 interface MessageListAreaProps {
@@ -48,7 +49,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   return (
     <div 
       ref={messagesEndRef}
-      className="flex-1 overflow-y-auto p-3 text-sm text-gray-400 relative"
+      className="flex-1 w-full overflow-y-auto p-3 text-sm text-gray-400 relative"
       onScroll={handleScroll}
     >
       {loading && messages.length > 0 ? (
@@ -111,11 +112,11 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                 {group.messages.map((msg, msgIdx) => (
                   <div
                     key={msg.id}
-                    className={`flex ${msg.from === currentUser?.email ? 'justify-end' : 'justify-start'}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''}`}
+                    className={`flex ${msg.direction === 'sent' ? 'justify-end' : 'justify-start'}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''}`}
                   >
                     <div
-                      className={`max-w-[80%] break-words whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
-                        msg.from === currentUser?.email
+                      className={`w-fit max-w-[90%] break-words break-all whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
+                        msg.direction === 'sent'
                           ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px]'
                           : 'bg-gray-100 text-gray-800'
                       }`}

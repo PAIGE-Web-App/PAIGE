@@ -22,6 +22,11 @@ export async function POST() {
     "Set-Cookie",
     `__session=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax`
   );
+  // Set a toast message for logout
+  response.headers.append(
+    "Set-Cookie",
+    `show-toast=Log out successful!; Path=/; Max-Age=5; SameSite=Lax`
+  );
   
   return response;
 } 
