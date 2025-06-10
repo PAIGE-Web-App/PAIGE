@@ -45,6 +45,21 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   onReply,
   replyingToMessage,
 }) => {
+  // Helper function to strip quoted text and signatures
+  const stripQuotedText = (text: string): string => {
+    // Remove everything after "On ... wrote:" or "From: ..."
+    const onWroteMatch = text.match(/On.*wrote:/i);
+    const fromMatch = text.match(/From:.*/i);
+    
+    if (onWroteMatch) {
+      return text.substring(0, onWroteMatch.index).trim();
+    }
+    if (fromMatch) {
+      return text.substring(0, fromMatch.index).trim();
+    }
+    return text;
+  };
+
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -145,8 +160,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         {/* Faded parent message bubble above reply */}
                         {parentMsg && (
                           <div
-                            className={`mb-1 px-3 py-2 rounded-[15px] border border-gray-500/30 bg-transparent text-gray-400 text-sm max-w-full w-fit ${isSent ? 'self-end' : 'self-start'} cursor-pointer hover:bg-gray-200/40 transition`}
-                            style={{ opacity: 0.8, zIndex: 1 }}
+                            className={`mb-1 px-3 py-2 rounded-[15px] border border-gray-500/30 bg-gray-100/50 text-gray-600 text-sm max-w-full w-fit ${isSent ? 'self-end' : 'self-start'} cursor-pointer hover:bg-gray-200/60 transition`}
+                            style={{ opacity: 0.95, zIndex: 1 }}
                             onClick={() => {
                               if (parentMsg.id && messageRefs.current[parentMsg.id]) {
                                 const el = messageRefs.current[parentMsg.id];
@@ -159,12 +174,16 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                             title="Jump to referenced message"
                           >
                             <div className="flex items-center gap-1 mb-1">
-                              <span className="text-xs">↩️</span>
-                              <span className="text-xs">You replied to {parentMsg.from ? parentMsg.from.split('@')[0] : 'a message'}</span>
+                              <Reply className="w-3 h-3" />
+                              <span className="text-xs">
+                                {`You replied to ${parentMsg.source === 'gmail' ? 'this email' : 'this message'}`}
+                              </span>
                             </div>
-                            <div className="truncate max-w-[200px]">
-                              {parentMsg.subject ? parentMsg.subject : (parentMsg.body?.split('\n')[0] || 'Message')}
-                            </div>
+                            {parentMsg.subject && (
+                              <div className="truncate max-w-[200px] text-xs">
+                                <span className="font-semibold">Subject:</span> {parentMsg.subject}
+                              </div>
+                            )}
                           </div>
                         )}
                         <div
@@ -172,7 +191,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           className={`relative break-words break-all whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
                             isSent
                               ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px] self-end'
-                              : 'bg-gray-100 text-gray-800 self-start border border-gray-300 border-[0.5px]'
+                              : 'bg-gray-100 text-gray-800 self-start border border-gray-300 border-[0.5px] rounded-[15px_15px_15px_0]'
                           } ${replyingToMessage?.id === msg.id ? 'ring-2 ring-[#A85C36]' : ''} ${
                             msg.parentMessageId ? '-mt-3 z-10' : 'mb-2'
                           } ${bouncingId === msg.id ? 'animate-bounce-once' : ''}`}
@@ -191,8 +210,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                             <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
                           )}
                           <div className="whitespace-pre-wrap">
-                            {(msg.body && msg.body.trim()) ? msg.body
-                              : (msg.fullBody && msg.fullBody.trim()) ? msg.fullBody
+                            {(msg.body && msg.body.trim()) ? stripQuotedText(msg.body)
+                              : (msg.fullBody && msg.fullBody.trim()) ? stripQuotedText(msg.fullBody)
                               : <span className="italic text-gray-400">(No message content)</span>}
                           </div>
                           {/* Attachments */}

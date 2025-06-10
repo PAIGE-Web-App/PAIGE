@@ -14,6 +14,7 @@ import { Contact } from "../types/contact";
 import MessageListArea from './MessageListArea';
 import MessageDraftArea from './MessageDraftArea';
 import Banner from "./Banner";
+import LoadingBar from "./LoadingBar";
 
 
 // Define interfaces for types needed in this component
@@ -52,6 +53,7 @@ interface MessageAreaProps {
   setIsEditing: (isEditing: boolean) => void;
   onContactSelect: (contact: Contact) => void;
   onSetupInbox: () => void;
+  userName?: string;
 }
 
 const getRelativeDate = (dateInput: Date | string): string => {
@@ -198,6 +200,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   setIsEditing,
   onContactSelect,
   onSetupInbox,
+  userName,
 }) => {
   const [state, dispatch] = useReducer(messageReducer, { 
     messages: [], 
@@ -397,6 +400,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     };
   }, [selectedContact?.id, currentUser?.uid]);
 
+  const [subject, setSubject] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isImportingGmail, setIsImportingGmail] = useState(false);
+  const [isCheckingGmail, setIsCheckingGmail] = useState(false);
+
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
     if (!selectedContact || !currentUser) return;
@@ -406,6 +414,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       return;
     }
     try {
+      setIsSending(true);
       // If replying to a Gmail message, send via Gmail API
       if (replyingToMessage && replyingToMessage.source === 'gmail') {
         const attachments = await filesToBase64(selectedFiles);
@@ -428,9 +437,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         // Optionally, save the reply to Firestore for local display
       }
       // If sending a new Gmail message (not a reply)
-      let subject = input.split('\n')[0] || 'New Message';
+      let usedSubject = subject || input.split('\n')[0] || 'New Message';
       if (!replyingToMessage && selectedChannel === 'Gmail') {
-        subject = window.prompt('Enter a subject for your email:', subject) || subject;
         const attachments = await filesToBase64(selectedFiles);
         const res = await fetch('/api/gmail-reply', {
           method: 'POST',
@@ -438,7 +446,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           body: JSON.stringify({
             body: input,
             to: selectedContact.email,
-            subject,
+            subject: usedSubject,
             threadId: undefined,
             messageId: undefined,
             attachments,
@@ -454,7 +462,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const optimisticId = `optimistic-${Date.now()}`;
       const optimisticMessage: Message = {
         id: optimisticId,
-        subject,
+        subject: replyingToMessage ? replyingToMessage.subject : (subject || input.split('\n')[0] || 'New Message'),
         body: input,
         timestamp: new Date().toLocaleString(),
         from: userEmail,
@@ -476,11 +484,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const docRef = await addDoc(messagesRef, messageData);
       await updateDoc(docRef, { id: docRef.id });
       setInput('');
+      setSubject('');
       setSelectedFiles([]);
       clearReply();
     } catch (error) {
       console.error('Error sending message:', error);
       showErrorToast('Failed to send message. Please try again.');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -517,28 +528,43 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!selectedContact) return;
     try {
       setIsGenerating(true);
-      const draft = await generateDraft();
+      let draft = await generateDraft();
       if (draft) {
+        // Replace placeholders with userName
+        if (userName) {
+          draft = draft.replace(/\[Your Name\]/g, userName).replace(/\[Your Full Name\]/g, userName);
+        }
+        // Try to extract subject if present
+        const subjectMatch = draft.match(/^Subject:\s*(.+)$/im);
+        let newSubject = subject;
+        let newBody = draft;
+        if (subjectMatch) {
+          newSubject = subjectMatch[1].trim();
+          // Remove the subject line from the body
+          newBody = draft.replace(/^Subject:\s*.+$/im, '').trim();
+        }
+        // Replace placeholders in subject too
+        if (userName) {
+          newSubject = newSubject.replace(/\[Your Name\]/g, userName).replace(/\[Your Full Name\]/g, userName);
+        }
+        setSubject(newSubject);
         setIsAnimating(true);
         setAnimatedDraft("");
-        
         // Pre-calculate the final height
         if (textareaRef.current) {
-          textareaRef.current.value = draft;
+          textareaRef.current.value = newBody;
           const finalHeight = Math.min(textareaRef.current.scrollHeight, 200);
           textareaRef.current.style.height = finalHeight + 'px';
         }
-
         // Animate the text with a faster speed
         let currentText = "";
         const chunkSize = 3; // Process multiple characters at once for smoother animation
-        for (let i = 0; i < draft.length; i += chunkSize) {
+        for (let i = 0; i < newBody.length; i += chunkSize) {
           await new Promise(resolve => setTimeout(resolve, 10)); // Faster animation
-          currentText += draft.slice(i, i + chunkSize);
+          currentText += newBody.slice(i, i + chunkSize);
           setAnimatedDraft(currentText);
         }
-        
-        setInput(draft);
+        setInput(newBody);
         setIsAnimating(false);
       }
     } catch (error) {
@@ -629,7 +655,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         // fail silently
       } finally {
         if (isMounted) setCheckingGmail(false);
-      }
+    }
     };
     checkGmailEligibility();
     return () => { isMounted = false; };
@@ -637,8 +663,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // When importing or dismissing, update the cache as well
   const handleImportGmail = async () => {
-    if (!currentUser?.uid || !selectedContact?.email) return;
+    if (!currentUser?.uid || !selectedContact?.id) return;
     try {
+      setIsImportingGmail(true);
       // First check if there are any existing messages for this contact
       const messagesQuery = query(
         collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
@@ -690,9 +717,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           importedOnce: true,
         }
       }));
-    } catch (e) {
-      console.error('Error during Gmail import:', e);
-      showErrorToast('Failed to import Gmail conversation. Please try again.');
+    } catch (error) {
+      console.error('Error importing Gmail:', error);
+      showErrorToast('Failed to import Gmail messages');
+    } finally {
+      setIsImportingGmail(false);
     }
   };
 
@@ -720,49 +749,38 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
-  const handleCheckNewGmail = async (silentIfNone = false) => {
+  // For button-triggered check
+  const handleCheckNewGmail = async (userInitiated = false) => {
     if (!currentUser?.uid || !selectedContact?.email) return;
-    setCheckingGmail(true);
     try {
-      // Get current gmailMessageIds
-      const messagesQuery = query(
-        collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
-        where('source', '==', 'gmail')
-      );
-      const messagesSnapshot = await getDocs(messagesQuery);
-      const existingIds = new Set(messagesSnapshot.docs.map(doc => doc.data().gmailMessageId));
-      // Call import API
-      const response = await fetch('/api/start-gmail-import', {
+      if (userInitiated) setIsCheckingGmail(true);
+      const response = await fetch('/api/check-gmail-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.uid, contacts: [selectedContact] }),
+        body: JSON.stringify({ userId: currentUser.uid, contactEmail: selectedContact.email }),
       });
-      if (!response.ok) throw new Error('Failed to import Gmail');
-      // After import, get new messages
-      const afterSnapshot = await getDocs(messagesQuery);
-      const newMessages = afterSnapshot.docs.filter(doc => !existingIds.has(doc.data().gmailMessageId));
-      for (const docSnap of newMessages) {
-        const msg = docSnap.data();
-        if (msg.parentMessageId) {
-          showSuccessToast(`New Reply from ${selectedContact.name}`);
+      if (!response.ok) {
+        throw new Error('Failed to check for new Gmail messages');
+      }
+      const data = await response.json();
+      if (userInitiated) {
+        if (data.newMessages && data.newMessages.length > 0) {
+          showSuccessToast(`${data.newMessages.length} new Gmail message(s) imported!`);
         } else {
-          showSuccessToast(`New email received from ${selectedContact.name}`);
+          showInfoToast('No new Gmail messages found.');
         }
       }
-      if (newMessages.length === 0 && !silentIfNone) {
-        showInfoToast('No new Gmail messages found.');
-      }
-    } catch (e) {
-      console.error('Error checking new Gmail:', e);
-      showErrorToast('Failed to check for new Gmail messages.');
+    } catch (error) {
+      console.error('Error checking for new Gmail messages:', error);
+      if (userInitiated) showErrorToast('Failed to check for new Gmail messages');
     } finally {
-      setCheckingGmail(false);
+      if (userInitiated) setIsCheckingGmail(false);
     }
   };
 
   useEffect(() => {
     if (showGmailImport && importedOnce && selectedContact && currentUser) {
-      handleCheckNewGmail(true);
+      handleCheckNewGmail(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedContact?.id]);
@@ -829,15 +847,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                     <button
                       onClick={handleImportGmail}
                       className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
-                      disabled={checkingGmail}
+                      disabled={isImportingGmail || isCheckingGmail}
                     >
                       <FileUp className="w-4 h-4 mr-1" />
                       {importedOnce ? 'Re-import Gmail' : 'Import Gmail'}
                     </button>
                     <button
-                      onClick={() => handleCheckNewGmail(false)}
+                      onClick={() => handleCheckNewGmail(true)}
                       className="text-xs text-[#A85C36] border border-[#A85C36] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
-                      disabled={checkingGmail}
+                      disabled={isImportingGmail || isCheckingGmail}
                       style={{ marginLeft: 8 }}
                     >
                       <WandSparkles className="w-4 h-4 mr-1" />
@@ -845,14 +863,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
-                >
-                  Edit
-                </button>
-              </div>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
+              >
+                Edit
+              </button>
             </div>
+          </div>
           </div>
           {showGmailBanner && !bannerDismissed && (
             <div className="mt-0">
@@ -863,14 +881,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                       <WandSparkles className="w-5 h-5 text-purple-500 mr-2" />
                       <span>Looks like you've been emailing with this contact! Do you want to import the emails here?</span>
                     </span>
-                    <button
+                        <button
                       onClick={handleImportGmail}
                       className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
                       style={{ marginRight: 12 }}
                       disabled={checkingGmail}
-                    >
+                        >
                       <FileUp className="w-4 h-4 mr-1" /> Import Gmail
-                    </button>
+                        </button>
                   </div>
                 }
                 type="feature"
@@ -878,10 +896,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               />
             </div>
           )}
-        </>
-      )}
+                    </>
+                  )}
       <div className="flex flex-col flex-1 min-h-0">
-        {/* Scrollable Message Area */}
         <MessageListArea
           messages={state.messages}
           loading={state.loading}
@@ -894,7 +911,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           onReply={setReplyingToMessage}
           replyingToMessage={replyingToMessage}
         />
-        {/* Fixed Bottom Section - Message Input (edge-to-edge) */}
         <MessageDraftArea
           selectedChannel={selectedChannel}
           setSelectedChannel={setSelectedChannel}
@@ -921,8 +937,23 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           handleSendMessage={handleSendMessage}
           replyingToMessage={replyingToMessage}
           clearReply={clearReply}
+          subject={subject}
+          setSubject={setSubject}
         />
       </div>
+      <LoadingBar 
+        isVisible={isSending} 
+        description="Sending your message..." 
+      />
+      <LoadingBar 
+        isVisible={isImportingGmail} 
+        description="Importing Gmail messages..." 
+      />
+      <LoadingBar 
+        isVisible={isCheckingGmail} 
+        description="Checking for new Gmail messages..." 
+        onComplete={() => {}} 
+      />
     </div>
   );
 };

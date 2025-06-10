@@ -1280,13 +1280,14 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
                 input={input}
                 setInput={setInput}
                 draftLoading={draftLoading}
-                generateDraft={() => selectedContact ? generateDraftMessage({ name: selectedContact.name, category: selectedContact.category }, []) : Promise.resolve("")}
+                generateDraft={() => selectedContact ? generateDraftMessage(selectedContact, []) : Promise.resolve("")}
                 selectedFiles={selectedFiles}
                 setSelectedFiles={setSelectedFiles}
                 contactsLoading={contactsLoading}
                 setIsEditing={setIsEditing}
                 onContactSelect={setSelectedContact}
                 onSetupInbox={() => setShowOnboardingModal(true)}
+                userName={userName || ''}
               />
             )}
           </section>
