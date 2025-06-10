@@ -149,7 +149,41 @@ export async function POST(req: Request) {
           // Define the collection path once per contact
           const messagesCollectionPath = `artifacts/default-app-id/users/${userId}/contacts/${contactDocId}/messages`;
 
-          for (const message of messages) {
+          // PRESERVE MANUAL MESSAGES: Only delete Gmail messages before import
+          console.log(`[GMAIL IMPORT] Checking for existing Gmail messages to delete for contact ${contactEmail}...`);
+          const gmailMessagesQuery = await adminDb.collection(messagesCollectionPath).where('source', '==', 'gmail').get();
+          console.log(`[GMAIL IMPORT] Found ${gmailMessagesQuery.size} Gmail messages to delete for contact ${contactEmail}`);
+          if (!gmailMessagesQuery.empty) {
+            const batch = adminDb.batch();
+            gmailMessagesQuery.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`[GMAIL IMPORT] Deleted ${gmailMessagesQuery.size} Gmail messages for contact ${contactEmail}`);
+          }
+
+          let messagesToImport = messages;
+          // Sort messages by internalDate (oldest to newest)
+          if (messagesToImport && messagesToImport.length > 0) {
+            const fullMessages = await Promise.all(messagesToImport.map(async (message) => {
+              if (!message.id) return null;
+              const fullMessageRes = await gmail.users.messages.get({
+                userId: 'me',
+                id: message.id,
+                format: 'metadata',
+              });
+              return {
+                id: message.id,
+                internalDate: fullMessageRes.data.internalDate ? parseInt(fullMessageRes.data.internalDate) : 0
+              };
+            }));
+            // Type guard to filter out null/undefined
+            function isValidMessage(m: any): m is { id: string } {
+              return m && typeof m.id === 'string';
+            }
+            const filteredFullMessages = fullMessages.filter(isValidMessage);
+            const idToDate = Object.fromEntries(filteredFullMessages.map(m => [m.id, m.internalDate]));
+            messagesToImport = messagesToImport.slice().filter(isValidMessage).sort((a, b) => (idToDate[a.id] || 0) - (idToDate[b.id] || 0));
+          }
+          for (const message of messagesToImport) {
             try {
               console.log(`DEBUG: Fetching full message details for message ID: ${message.id}`);
               const fullMessageRes = await gmail.users.messages.get({
@@ -253,36 +287,66 @@ export async function POST(req: Request) {
                 direction
               });
 
-              const messageData = {
+              const inReplyTo = getHeader('In-Reply-To');
+              let parentMessageId: string | undefined = undefined;
+              if (inReplyTo) {
+                // Find the Firestore message with matching gmailMessageId (strip < > if present)
+                const inReplyToId = inReplyTo.replace(/[<>]/g, '');
+                const parentQuery = await adminDb.collection(messagesCollectionPath)
+                  .where('gmailMessageId', '==', inReplyToId).get();
+                if (!parentQuery.empty) {
+                  parentMessageId = parentQuery.docs[0].id;
+                  console.log(`[GMAIL THREADING] Found parent by gmailMessageId: ${inReplyToId} -> ${parentMessageId}`);
+                } else {
+                  // Try matching by messageIdHeader as a fallback
+                  const fallbackQuery = await adminDb.collection(messagesCollectionPath)
+                    .where('messageIdHeader', '==', inReplyTo).get();
+                  if (!fallbackQuery.empty) {
+                    parentMessageId = fallbackQuery.docs[0].id;
+                    console.log(`[GMAIL THREADING] Found parent by messageIdHeader: ${inReplyTo} -> ${parentMessageId}`);
+                  } else {
+                    // Extra logging for missed threading
+                    const allMessages = await adminDb.collection(messagesCollectionPath).get();
+                    const allGmailIds = allMessages.docs.map(doc => doc.data().gmailMessageId);
+                    const allMessageIdHeaders = allMessages.docs.map(doc => doc.data().messageIdHeader);
+                    console.warn(`[GMAIL THREADING] Missed parent for In-Reply-To: ${inReplyTo}. Existing gmailMessageIds:`, allGmailIds, 'Existing messageIdHeaders:', allMessageIdHeaders);
+                  }
+                }
+              }
+              if (!parentMessageId && typeof fullMessage.threadId === 'string' && fullMessage.threadId !== message.id) {
+                parentMessageId = fullMessage.threadId;
+              }
+
+              const messageIdHeader = getHeader('Message-ID');
+              if (!messageIdHeader) {
+                console.warn(`[GMAIL IMPORT WARNING] Message missing Message-ID header. Gmail ID: ${message.id}`);
+              }
+              const messageData: any = {
                 gmailMessageId: message.id,
                 threadId: fullMessage.threadId,
                 from: from || 'unknown@example.com',
                 to: to || 'unknown@example.com',
                 subject: subject || '(No Subject)',
+                body: body,
                 bodySnippet: body.substring(0, 300) + (body.length > 300 ? '...' : ''),
                 fullBody: body,
                 date: dateHeader || internalDate,
                 timestamp: admin.firestore.Timestamp.fromDate(new Date(dateHeader || internalDate)),
                 isRead: fullMessage.labelIds?.includes('UNREAD') ? false : true,
-                source: 'gmail',
                 direction,
-              };
-
-              // Save the Gmail message to the correct path
-              const messageRef = await adminDb.collection(messagesCollectionPath).add({
-                subject: subject || '',
-                body,
-                timestamp: admin.firestore.Timestamp.fromDate(new Date(internalDate)),
-                from: from || '',
-                to: to || '',
+                userId: userId,
                 source: 'gmail',
-                isRead: true,
-                gmailMessageId: message.id,
-                threadId: fullMessage.threadId,
-                userId,
                 attachments: [], // You can add attachment handling if needed
-                direction,
-              });
+              };
+              if (messageIdHeader) {
+                messageData.messageIdHeader = messageIdHeader;
+              }
+              if (parentMessageId) {
+                messageData.parentMessageId = parentMessageId;
+              }
+              console.log(`[GMAIL IMPORT BODY DEBUG] Gmail ID: ${message.id}, Subject: ${subject}, Body: ${body}`);
+              // Save the Gmail message to the correct path
+              const messageRef = await adminDb.collection(messagesCollectionPath).add(messageData);
               console.log(`Saved Gmail message ${message.id} for contact ${contactEmail} with ID: ${messageRef.id}`);
 
             } catch (messageError: any) {
@@ -296,6 +360,28 @@ export async function POST(req: Request) {
         } else {
           console.log(`No Gmail messages found for ${contactEmail}.`);
         }
+
+        // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present
+        const allImportedMessagesSnap = await adminDb.collection(messagesCollectionPath).get();
+        const allImportedMessages: any[] = allImportedMessagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        function isValidMsg(m: any): m is { id: string, gmailMessageId?: string, messageIdHeader?: string } {
+          return m && typeof m.id === 'string';
+        }
+        for (const msg of allImportedMessages.filter(isValidMsg)) {
+          const inReplyToHeader = msg['In-Reply-To'] || msg.inReplyTo;
+          if (!msg.parentMessageId && inReplyToHeader) {
+            const inReplyToId = String(inReplyToHeader).replace(/[<>]/g, '');
+            let parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.gmailMessageId === inReplyToId);
+            if (!parentDoc) {
+              parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.messageIdHeader === inReplyToHeader);
+            }
+            if (parentDoc) {
+              await adminDb.collection(messagesCollectionPath).doc(msg.id).update({ parentMessageId: parentDoc.id });
+              console.log(`[POST-IMPORT THREADING] Set parentMessageId for message ${msg.id} to ${parentDoc.id}`);
+            }
+          }
+        }
+
       } catch (contactImportError: any) {
         console.error(`Error importing Gmail messages for contact ${contactEmail}:`, contactImportError);
         notFoundContacts.push({ name: contact.name || contactEmail, email: contactEmail, message: contactImportError.message });

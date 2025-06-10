@@ -30,6 +30,9 @@ interface Message {
   threadId?: string;
   userId: string;
   attachments?: { name: string }[];
+  direction: 'sent' | 'received';
+  parentMessageId?: string;
+  messageIdHeader?: string;
 }
 
 interface MessageAreaProps {
@@ -163,6 +166,21 @@ const messageReducer = (state: MessageState, action: MessageAction): MessageStat
   }
 };
 
+// Helper to convert File objects to base64 attachments
+async function filesToBase64(files: File[]): Promise<{ name: string; type: string; data: string }[]> {
+  const promises = files.map(file => {
+    return new Promise<{ name: string; type: string; data: string }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({ name: file.name, type: file.type, data: (reader.result as string).split(',')[1] });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  });
+  return Promise.all(promises);
+}
+
 const MessageArea: React.FC<MessageAreaProps> = ({
   selectedContact,
   currentUser,
@@ -221,6 +239,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       importedOnce: boolean;
     }
   }>({});
+
+  // Add reply state
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
+  const clearReply = () => setReplyingToMessage(null);
 
   // Auto-expand textarea as input changes
   useEffect(() => {
@@ -378,56 +400,86 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
     if (!selectedContact || !currentUser) return;
-
     const userEmail = currentUser.email;
     if (!userEmail) {
       showErrorToast('User email not found. Please try again.');
       return;
     }
-
     try {
+      // If replying to a Gmail message, send via Gmail API
+      if (replyingToMessage && replyingToMessage.source === 'gmail') {
+        const attachments = await filesToBase64(selectedFiles);
+        const res = await fetch('/api/gmail-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            body: input,
+            to: replyingToMessage.from,
+            subject: replyingToMessage.subject,
+            threadId: replyingToMessage.threadId,
+            messageId: replyingToMessage.messageIdHeader,
+            attachments,
+            userId: currentUser.uid,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to send Gmail reply');
+        showSuccessToast('Gmail reply sent!');
+        // Optionally, save the reply to Firestore for local display
+      }
+      // If sending a new Gmail message (not a reply)
+      let subject = input.split('\n')[0] || 'New Message';
+      if (!replyingToMessage && selectedChannel === 'Gmail') {
+        subject = window.prompt('Enter a subject for your email:', subject) || subject;
+        const attachments = await filesToBase64(selectedFiles);
+        const res = await fetch('/api/gmail-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            body: input,
+            to: selectedContact.email,
+            subject,
+            threadId: undefined,
+            messageId: undefined,
+            attachments,
+            userId: currentUser.uid,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to send Gmail message');
+        showSuccessToast('Gmail email sent!');
+      }
+      // Always save to Firestore for local display
       const path = `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`;
-      console.log('Preparing to send message.');
-      console.log('Firestore path:', path);
-      console.log('userId:', currentUser.uid);
-      console.log('contactId:', selectedContact.id);
       const optimisticId = `optimistic-${Date.now()}`;
       const optimisticMessage: Message = {
         id: optimisticId,
-        subject: input.split('\n')[0] || 'New Message',
+        subject,
         body: input,
-        timestamp: new Date().toLocaleString(), // For UI only
+        timestamp: new Date().toLocaleString(),
         from: userEmail,
         to: selectedContact.email || '',
-        source: 'manual',
+        source: (replyingToMessage && replyingToMessage.source === 'gmail') || selectedChannel === 'Gmail' ? 'gmail' : 'manual',
         isRead: true,
         userId: currentUser.uid,
+        ...(replyingToMessage && { parentMessageId: replyingToMessage.id }),
+        direction: 'sent',
+        ...(selectedFiles.length > 0 && { attachments: selectedFiles.map(f => ({ name: f.name })) }),
       };
-      // Optimistically add the message to the UI
       dispatch({ type: 'SET_MESSAGES', payload: [...(state.messages || []), optimisticMessage] });
-
-      // Prepare Firestore data (timestamp as Timestamp)
       const messageData = {
         ...optimisticMessage,
-        id: '', // Will be set by Firestore
-        timestamp: Timestamp.now(), // Firestore Timestamp
+        id: '',
+        timestamp: Timestamp.now(),
       };
-      console.log('Sending message to Firestore:', messageData);
       const messagesRef = collection(db, path);
       const docRef = await addDoc(messagesRef, messageData);
       await updateDoc(docRef, { id: docRef.id });
-      console.log('Message sent and updated with ID:', docRef.id);
       setInput('');
       setSelectedFiles([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      showSuccessToast('Message sent successfully!');
+      clearReply();
     } catch (error) {
       console.error('Error sending message:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message, error.stack);
-      }
       showErrorToast('Failed to send message. Please try again.');
     }
   };
@@ -668,6 +720,53 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
+  const handleCheckNewGmail = async (silentIfNone = false) => {
+    if (!currentUser?.uid || !selectedContact?.email) return;
+    setCheckingGmail(true);
+    try {
+      // Get current gmailMessageIds
+      const messagesQuery = query(
+        collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
+        where('source', '==', 'gmail')
+      );
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const existingIds = new Set(messagesSnapshot.docs.map(doc => doc.data().gmailMessageId));
+      // Call import API
+      const response = await fetch('/api/start-gmail-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.uid, contacts: [selectedContact] }),
+      });
+      if (!response.ok) throw new Error('Failed to import Gmail');
+      // After import, get new messages
+      const afterSnapshot = await getDocs(messagesQuery);
+      const newMessages = afterSnapshot.docs.filter(doc => !existingIds.has(doc.data().gmailMessageId));
+      for (const docSnap of newMessages) {
+        const msg = docSnap.data();
+        if (msg.parentMessageId) {
+          showSuccessToast(`New Reply from ${selectedContact.name}`);
+        } else {
+          showSuccessToast(`New email received from ${selectedContact.name}`);
+        }
+      }
+      if (newMessages.length === 0 && !silentIfNone) {
+        showInfoToast('No new Gmail messages found.');
+      }
+    } catch (e) {
+      console.error('Error checking new Gmail:', e);
+      showErrorToast('Failed to check for new Gmail messages.');
+    } finally {
+      setCheckingGmail(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showGmailImport && importedOnce && selectedContact && currentUser) {
+      handleCheckNewGmail(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContact?.id]);
+
   console.log('UI messages:', state.messages);
 
   return (
@@ -726,14 +825,25 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 {showGmailImport && (bannerDismissed || importedOnce) && (
-                  <button
-                    onClick={handleImportGmail}
-                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
-                    disabled={checkingGmail}
-                  >
-                    <FileUp className="w-4 h-4 mr-1" />
-                    {importedOnce ? 'Re-import Gmail' : 'Import Gmail'}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleImportGmail}
+                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
+                      disabled={checkingGmail}
+                    >
+                      <FileUp className="w-4 h-4 mr-1" />
+                      {importedOnce ? 'Re-import Gmail' : 'Import Gmail'}
+                    </button>
+                    <button
+                      onClick={() => handleCheckNewGmail(false)}
+                      className="text-xs text-[#A85C36] border border-[#A85C36] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
+                      disabled={checkingGmail}
+                      style={{ marginLeft: 8 }}
+                    >
+                      <WandSparkles className="w-4 h-4 mr-1" />
+                      Check for new Gmail messages
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setIsEditing(true)}
@@ -781,6 +891,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           MessagesSkeleton={MessagesSkeleton}
           messagesEndRef={messagesEndRef}
           handleScroll={handleScroll}
+          onReply={setReplyingToMessage}
+          replyingToMessage={replyingToMessage}
         />
         {/* Fixed Bottom Section - Message Input (edge-to-edge) */}
         <MessageDraftArea
@@ -807,6 +919,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           handleEmojiSelect={handleEmojiSelect}
           isAnimatingOrGenerating={isAnimating || isGenerating}
           handleSendMessage={handleSendMessage}
+          replyingToMessage={replyingToMessage}
+          clearReply={clearReply}
         />
       </div>
     </div>

@@ -1029,12 +1029,18 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
           "Welcome back! Have y'all decided your wedding date?"
         )}
         {userData?.googleTokens && (
-          <button
-            className="ml-4 px-4 py-1 rounded bg-[#A85C36] text-white text-xs font-semibold hover:bg-[#8a4a2b]"
-            onClick={handleReimportGmail}
-          >
-            Re-import Gmail
-          </button>
+          <>
+            <button
+              className="ml-2 px-4 py-1 rounded border-2 border-orange-500 text-orange-700 text-xs font-semibold hover:bg-orange-100"
+              onClick={() => {
+                if (!currentUser) return;
+                const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+                window.location.href = `/api/auth/google/initiate?userId=${currentUser.uid}&redirectUri=${redirectUri}`;
+              }}
+            >
+              Reauthenticate Gmail
+            </button>
+          </>
         )}
       </div>
 

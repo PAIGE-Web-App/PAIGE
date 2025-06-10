@@ -31,5 +31,6 @@ module.exports = {
     "bg-red-600", "border-red-600",
     "bg-gray-500", "border-gray-500", // For the default/empty category
     "text-white", // Ensure text-white is always available
+    'animate-bounce-once',
   ],
 };

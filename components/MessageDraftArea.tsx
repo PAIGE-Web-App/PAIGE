@@ -27,6 +27,8 @@ interface MessageDraftAreaProps {
   isAnimatingOrGenerating: boolean;
   handleSendMessage: () => void;
   onContactSelect?: (contact: any) => void;
+  replyingToMessage?: any; // Message | null
+  clearReply?: () => void;
 }
 
 const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
@@ -53,8 +55,18 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
   handleEmojiSelect,
   isAnimatingOrGenerating,
   handleSendMessage,
+  replyingToMessage,
+  clearReply,
 }) => (
   <div className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10" style={{ minHeight: "120px", borderTopWidth: "0.5px" }}>
+    {/* Reply preview bar */}
+    {replyingToMessage && (
+      <div className="flex items-center bg-[#E0DBD7] border-l-4 border-[#A85C36] px-3 py-2 mb-2 rounded-t-[10px]">
+        <span className="text-xs text-[#A85C36] font-semibold mr-2">Replying to:</span>
+        <span className="text-xs text-[#332B42] truncate max-w-[200px]">{replyingToMessage.body?.split('\n')[0] || replyingToMessage.subject || 'Message'}</span>
+        <button className="ml-auto text-[#A85C36] hover:text-[#784528]" onClick={clearReply} title="Cancel reply"><X className="w-4 h-4" /></button>
+      </div>
+    )}
     {/* First row: Via selector and message input */}
     <div className="px-3 pt-3">
       <div className="flex items-center gap-2 mb-2">

@@ -1,7 +1,7 @@
 // components/EditContactModal.tsx
 import React, { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
-import { doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { doc, deleteDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import { getCategoryStyle } from "../utils/categoryStyle";
 
@@ -175,17 +175,25 @@ export default function EditContactModal({
   const handleDelete = async () => {
     try {
       if (contact.id && userId) {
-        // Use getUserCollectionRef to get the correct document path for deletion
-        await deleteDoc(doc(getUserCollectionRef("contacts", userId), contact.id)); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
-        onDelete(contact.id); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
-        showSuccessToast("Contact deleted!"); // USE CUSTOM TOAST
+        // Delete all messages for this contact
+        const messagesRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts/${contact.id}/messages`);
+        const messagesSnap = await getDocs(messagesRef);
+        if (!messagesSnap.empty) {
+          const batch = writeBatch(db);
+          messagesSnap.docs.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+        }
+        // Now delete the contact document
+        await deleteDoc(doc(getUserCollectionRef("contacts", userId), contact.id));
+        onDelete(contact.id);
+        showSuccessToast("Contact deleted!");
         onClose();
       } else {
-        showErrorToast("Contact ID or User ID is missing. Cannot delete."); // USE CUSTOM TOAST
+        showErrorToast("Contact ID or User ID is missing. Cannot delete.");
       }
     } catch (error: any) {
       console.error("Error deleting contact:", error);
-      showErrorToast(`Failed to delete contact: ${error.message}`); // USE CUSTOM TOAST
+      showErrorToast(`Failed to delete contact: ${error.message}`);
     }
   };
 

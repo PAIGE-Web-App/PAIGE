@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { File } from "lucide-react";
+import { File, Reply } from "lucide-react";
 
 interface Message {
   id: string;
@@ -16,6 +16,8 @@ interface Message {
   userId: string;
   attachments?: { name: string }[];
   direction: 'sent' | 'received';
+  parentMessageId?: string;
+  fullBody?: string;
 }
 
 interface MessageListAreaProps {
@@ -27,6 +29,8 @@ interface MessageListAreaProps {
   MessagesSkeleton: React.FC;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: () => void;
+  onReply: (msg: Message) => void;
+  replyingToMessage: Message | null;
 }
 
 const MessageListArea: React.FC<MessageListAreaProps> = ({
@@ -38,6 +42,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   MessagesSkeleton,
   messagesEndRef,
   handleScroll,
+  onReply,
+  replyingToMessage,
 }) => {
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -45,6 +51,16 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Map of messageId to ref for scrolling
+  const messageRefs = useRef<{ [id: string]: HTMLDivElement | null }>({});
+  const [bouncingId, setBouncingId] = useState<string | null>(null);
+
+  // Helper to trigger bounce
+  const triggerBounce = (id: string) => {
+    setBouncingId(id);
+    setTimeout(() => setBouncingId(null), 700);
+  };
 
   return (
     <div 
@@ -109,36 +125,98 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                   </span>
                   <div className="w-1/3 border-t border-[#AB9C95]"></div>
                 </div>
-                {group.messages.map((msg, msgIdx) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.direction === 'sent' ? 'justify-end' : 'justify-start'}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''}`}
-                  >
+                {group.messages.map((msg, msgIdx) => {
+                  // Find parent message if this is a reply
+                  let parentMsg: Message | undefined = undefined;
+                  if (msg.parentMessageId) {
+                    parentMsg = messages.find(m => m.id === msg.parentMessageId);
+                  }
+                  // Find replies to this message
+                  const replies = messages.filter(m => m.parentMessageId === msg.id);
+                  // Determine alignment
+                  const isSent = msg.direction === 'sent';
+                  const alignmentClass = isSent ? 'justify-end' : 'justify-start';
+                  return (
                     <div
-                      className={`w-fit max-w-[90%] break-words break-all whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
-                        msg.direction === 'sent'
-                          ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px]'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                      key={msg.id}
+                      className={`flex ${alignmentClass}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''} group`}
                     >
-                      <div className="text-xs text-gray-500 mb-1">
-                        {msg.source === 'gmail' ? 'Gmail' : 'Manual'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                      <div className="whitespace-pre-wrap">{msg.body}</div>
-                      {/* Attachments */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {msg.attachments.map((file, idx) => (
-                            <div key={idx} className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                              <File className="w-3 h-3" />
-                              <span>{file.name}</span>
+                      <div className="flex flex-col items-end w-full max-w-[90%]">
+                        {/* Faded parent message bubble above reply */}
+                        {parentMsg && (
+                          <div
+                            className={`mb-1 px-3 py-2 rounded-[15px] border border-gray-500/30 bg-transparent text-gray-400 text-sm max-w-full w-fit ${isSent ? 'self-end' : 'self-start'} cursor-pointer hover:bg-gray-200/40 transition`}
+                            style={{ opacity: 0.8, zIndex: 1 }}
+                            onClick={() => {
+                              if (parentMsg.id && messageRefs.current[parentMsg.id]) {
+                                const el = messageRefs.current[parentMsg.id];
+                                if (el) {
+                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  triggerBounce(parentMsg.id);
+                                }
+                              }
+                            }}
+                            title="Jump to referenced message"
+                          >
+                            <div className="flex items-center gap-1 mb-1">
+                              <span className="text-xs">↩️</span>
+                              <span className="text-xs">You replied to {parentMsg.from ? parentMsg.from.split('@')[0] : 'a message'}</span>
                             </div>
-                          ))}
+                            <div className="truncate max-w-[200px]">
+                              {parentMsg.subject ? parentMsg.subject : (parentMsg.body?.split('\n')[0] || 'Message')}
+                            </div>
+                          </div>
+                        )}
+                        <div
+                          ref={el => { messageRefs.current[msg.id] = el; }}
+                          className={`relative break-words break-all whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
+                            isSent
+                              ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px] self-end'
+                              : 'bg-gray-100 text-gray-800 self-start border border-gray-300 border-[0.5px]'
+                          } ${replyingToMessage?.id === msg.id ? 'ring-2 ring-[#A85C36]' : ''} ${
+                            msg.parentMessageId ? '-mt-3 z-10' : 'mb-2'
+                          } ${bouncingId === msg.id ? 'animate-bounce-once' : ''}`}
+                        >
+                          <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
+                            <span>{msg.source === 'gmail' ? 'Gmail' : 'Manual'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <button
+                              className="text-xs text-[#A85C36] hover:underline ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150"
+                              onClick={() => onReply(msg)}
+                              title="Reply to this message"
+                            >
+                              <Reply className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {msg.source === 'gmail' && msg.subject && (
+                            <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
+                          )}
+                          <div className="whitespace-pre-wrap">
+                            {(msg.body && msg.body.trim()) ? msg.body
+                              : (msg.fullBody && msg.fullBody.trim()) ? msg.fullBody
+                              : <span className="italic text-gray-400">(No message content)</span>}
+                          </div>
+                          {/* Attachments */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {msg.attachments.map((file, idx) => (
+                                <div key={idx} className="inline-flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                                  <File className="w-3 h-3" />
+                                  <span>{file.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                        {/* Replies count link */}
+                        {replies.length > 0 && (
+                          <div className={`${isSent ? 'self-end' : 'self-start'} mt-2 text-xs cursor-pointer text-[#A85C36] underline hover:text-[#784528]`}> 
+                            {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ));
           })()}
