@@ -43,9 +43,13 @@ import UpgradePlanModal from '@/components/UpgradePlanModal';
 import CategoryPill from '@/components/CategoryPill';
 import CategorySelectField from '@/components/CategorySelectField';
 import WeddingBanner from '@/components/WeddingBanner';
+import AddTodoSideCard from '../../components/AddTodoSideCard';
+import TodoSidebar from '../../components/TodoSidebar';
+import TodoTopBar from '../../components/TodoTopBar';
+import TodoListView from '../../components/TodoListView';
 
 // ICON IMPORTS
-import { Plus, MoreHorizontal, Filter, ChevronRight, CircleCheck, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { Plus, MoreHorizontal, Filter, ChevronRight, CircleCheck, ChevronDown, ChevronUp, Pencil, ListChecks } from 'lucide-react';
 
 // HOOKS IMPORTS (from hooks/ folder)
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -327,11 +331,14 @@ export default function TodoPage() {
   const realListCount = todoLists.length;
   const willReachListLimit = realListCount >= STARTER_TIER_MAX_LISTS;
 
-  // Handler for adding a new list
-  const handleAddList = async () => {
+  // Handler for adding a new list (now supports tasks)
+  const handleAddList = async (nameOrEvent: string | React.MouseEvent, tasks?: any[]) => {
     if (!user) return;
+    // Support old signature (no arguments)
+    let name = typeof nameOrEvent === 'string' ? nameOrEvent : 'New List';
+    if (!tasks && typeof nameOrEvent !== 'string') tasks = [];
     // Prevent adding a new 'My To-do' if one already exists
-    if (todoLists.some(list => list.name === 'My To-do')) {
+    if (todoLists.some(list => list.name === 'My To-do') && name === 'My To-do') {
       showErrorToast('You already have a My To-do.');
       return;
     }
@@ -341,16 +348,37 @@ export default function TodoPage() {
     }
     try {
       const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), {
-        name: 'New List',
+        name,
         order: todoLists.length,
         userId: user.uid,
         createdAt: new Date(),
         orderIndex: todoLists.length
       });
+      // Add tasks if provided
+      if (tasks && tasks.length > 0) {
+        const batch = writeBatch(db);
+        tasks.forEach((task, idx) => {
+          if (!task.name.trim()) return;
+          const taskRef = doc(getUserCollectionRef('todoItems', user.uid));
+          batch.set(taskRef, {
+            name: task.name,
+            note: task.note || '',
+            deadline: task.deadline ? new Date(task.deadline) : null,
+            category: task.category || '',
+            isCompleted: false,
+            order: idx,
+            createdAt: new Date(),
+            listId: newListRef.id,
+            userId: user.uid,
+            orderIndex: idx
+          });
+        });
+        await batch.commit();
+      }
       showSuccessToast('New list added!');
       const newList = { 
         id: newListRef.id, 
-        name: 'New List', 
+        name, 
         order: todoLists.length, 
         userId: user.uid,
         createdAt: new Date(),
@@ -392,6 +420,10 @@ export default function TodoPage() {
       showSuccessToast(`List renamed to "${newName}"!`);
       setEditingListNameId(null);
       setEditingListNameValue(null);
+      // Update selectedList if it's the one being renamed
+      if (selectedList && selectedList.id === listId) {
+        setSelectedList({ ...selectedList, name: newName });
+      }
     } catch (error) {
       console.error('Error updating list name:', error);
       showErrorToast('Failed to rename list.');
@@ -929,9 +961,10 @@ export default function TodoPage() {
 
   // Add wrapper for handleRenameList
   const handleRenameList = async (listId: string) => {
-    // Use the current editingListNameValue as the new name
     if (editingListNameValue !== null) {
       await handleUpdateListName(listId, editingListNameValue);
+      setEditingListNameId(null);
+      setEditingListNameValue(null);
     }
   };
 
@@ -1019,6 +1052,91 @@ export default function TodoPage() {
     return fuse.search(todoSearchQuery).map((result) => result.item);
   }, [todoSearchQuery, fuse, todoItems]);
 
+  // Add new state for completed items selection
+  const [showCompletedItems, setShowCompletedItems] = useState(false);
+
+  // Modify the useEffect that filters todoItems
+  useEffect(() => {
+    if (!selectedList) {
+      if (showCompletedItems) {
+        setTodoItems(allTodoItems.filter(item => item.isCompleted));
+      } else {
+        setTodoItems(allTodoItems);
+      }
+    } else {
+      setTodoItems(allTodoItems.filter(item => item.listId === selectedList.id));
+    }
+  }, [allTodoItems, selectedList, showCompletedItems]);
+
+  // Add state for showing the add-to-do side card/modal
+  const [showAddTodoCard, setShowAddTodoCard] = useState(false);
+  const [newTodoName, setNewTodoName] = useState('');
+  const [newTodoListId, setNewTodoListId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+
+  // Add new state for additional fields
+  const [newTodoNote, setNewTodoNote] = useState('');
+  const [newTodoDeadline, setNewTodoDeadline] = useState('');
+  const [newTodoCategory, setNewTodoCategory] = useState('');
+
+  // Update open/close handlers to reset new fields
+  const handleOpenAddTodo = () => {
+    setShowAddTodoCard(true);
+    setNewTodoName('');
+    setNewTodoListId(selectedList ? selectedList.id : null);
+    setNewTodoNote('');
+    setNewTodoDeadline('');
+    setNewTodoCategory('');
+  };
+  const handleCloseAddTodo = () => {
+    setShowAddTodoCard(false);
+    setNewTodoName('');
+    setNewTodoListId(null);
+    setNewTodoNote('');
+    setNewTodoDeadline('');
+    setNewTodoCategory('');
+    setIsAdding(false);
+  };
+
+  // Update handleAddTodo to use new fields
+  const handleAddTodo = async () => {
+    if (!user) return;
+    if (!newTodoName.trim()) {
+      showErrorToast('Task name cannot be empty.');
+      return;
+    }
+    const listId = selectedList ? selectedList.id : newTodoListId;
+    if (!listId) {
+      showErrorToast('Please select a list.');
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await addDoc(getUserCollectionRef('todoItems', user.uid), {
+        name: newTodoName,
+        note: newTodoNote || null,
+        deadline: newTodoDeadline ? new Date(newTodoDeadline) : null,
+        category: newTodoCategory || null,
+        isCompleted: false,
+        order: todoItems.length,
+        createdAt: new Date(),
+        listId,
+        userId: user.uid,
+        orderIndex: todoItems.length
+      });
+      showSuccessToast(`Task "${newTodoName}" added!`);
+      setNewTodoName('');
+      setNewTodoNote('');
+      setNewTodoDeadline('');
+      setNewTodoCategory('');
+    } catch (error) {
+      console.error('Error adding task:', error);
+      showErrorToast('Failed to add task.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   if (loading) {
   return (
       <div className="flex flex-col min-h-screen bg-linen">
@@ -1080,299 +1198,76 @@ export default function TodoPage() {
       <div className="flex justify-center items-start w-full bg-linen p-4 h-screen box-border">
          <div className="w-full flex flex-row h-full max-h-screen overflow-hidden border border-[#AB9C95] border-[0.5px] rounded-[5px] bg-white">
           {/* Sidebar */}
-          <aside className="w-[320px] bg-[#F3F2F0] border-r border-[#E0DBD7] flex flex-col justify-between min-h-full p-0">
-            <div className="flex-1 flex flex-col">
-              <div className="flex items-center justify-between p-6 pb-2 border-b border-[#E0DBD7]">
-                <h4 className="text-lg font-playfair font-medium text-[#332B42] flex items-center">To-do Lists</h4>
-                {showNewListInput ? (
-                  <div className="flex items-center gap-2 ml-2">
-                    <input
-                      type="text"
-                      value={newListName}
-                      onChange={e => setNewListName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleAddList();
-                        if (e.key === 'Escape') { setShowNewListInput(false); setNewListName(''); }
-                      }}
-                      placeholder="List name"
-                      className="text-xs border border-[#AB9C95] rounded-[5px] px-2 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-[#A85C36]"
-                      autoFocus
-                    />
-                    <button onClick={handleAddList} className="btn-primary text-xs px-3 py-1">Add</button>
-                    <button onClick={() => { setShowNewListInput(false); setNewListName(''); }} className="btn-primary-inverse text-xs px-3 py-1">Cancel</button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleAddList}
-                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] ml-2 flex items-center h-7"
-                    title="Create a new list"
-                    style={{ alignSelf: 'center' }}
-                  >
-                    + New List
-                  </button>
-                )}
-              </div>
-              {/* Add padding wrapper for All To-Do Items and lists */}
-              <div className="p-6 pt-0">
-                <div className="space-y-1">
-                  {/* All To-Do Items filter at the top */}
-                  <div
-                    className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-6`}
-                    onClick={() => { setSelectedList(null); setExplicitAllSelected(true); }}
-                  >
-                    <span className="mr-2" title="All To-Do Items">
-                      <CircleCheck size={16} className="inline-block align-middle text-[#A85C36]" />
-                    </span>
-                    <span>All To-Do Items</span>
-                    <span className="ml-auto text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">{allTodoCount}</span>
-                  </div>
-                  {/* More vertical space before divider/label for lists */}
-                  <div className="my-8 flex items-center gap-2">
-                    <span className="text-xs text-[#AB9C95] uppercase tracking-wider font-semibold">Your Lists</span>
-                    <div className="flex-1 h-px bg-[#E0DBD7]"></div>
-                  </div>
-                  {/* User's lists */}
-                {sortedTodoLists.map((list) => (
-                  <div
-                    key={list.id}
-                    onClick={() => setSelectedList(list)}
-                    className={`px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{list.name}</span>
-                      {listTaskCounts.has(list.id) && (
-                        <span className="ml-2 text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full">{listTaskCounts.get(list.id)}</span>
-                      )}
-                      {/* No pencil icon in sidebar */}
-                    </div>
-                  </div>
-                ))}
-                </div>
-              </div>
-            </div>
-          </aside>
+          <TodoSidebar
+            todoLists={sortedTodoLists}
+            selectedList={selectedList}
+            setSelectedList={setSelectedList}
+            showCompletedItems={showCompletedItems}
+            setShowCompletedItems={setShowCompletedItems}
+            showNewListInput={showNewListInput}
+            setShowNewListInput={setShowNewListInput}
+            newListName={newListName}
+            setNewListName={setNewListName}
+            handleAddList={handleAddList}
+            listTaskCounts={listTaskCounts}
+            setTodoSearchQuery={setTodoSearchQuery}
+            setExplicitAllSelected={setExplicitAllSelected}
+            allTodoCount={allTodoCount}
+            allTodoItems={allTodoItems}
+            allCategories={allCategories}
+            showUpgradeModal={() => setShowUpgradeModal(true)}
+          />
 
           {/* Sticky Top Bar - moved outside main */}
-          <div className="flex-1 flex flex-col min-h-full">
-            <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
-              <div className="flex items-center w-full gap-4 px-4 py-3">
-                {/* List Name (left) */}
-                <div className="flex-shrink-0">
-                  <h5 className="font-playfair font-medium text-[#332B42]">
-                    {selectedList ? selectedList.name : 'All To-do Items'}
-                  </h5>
-                </div>
-                {/* Search Bar (center, grows) */}
-                <div className="flex-1 flex justify-center">
-                  <input
-                    type="text"
-                    placeholder="Search for a To-do Item"
-                    className="w-full max-w-md px-4 py-2 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36]"
-                    value={todoSearchQuery}
-                    onChange={(e) => setTodoSearchQuery(e.target.value)}
-                  />
-                </div>
-                {/* Action Buttons (right) */}
-                <div className="flex-shrink-0 flex gap-2">
-                  <button className="btn-secondary">
-                    List View
-                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="#F3F2F0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                  <button className="btn-primary">
-                    + New To-do Item
-                  </button>
-                </div>
-              </div>
-            </div>
-            <main className="flex-1 flex flex-col min-h-full bg-white p-4 pb-0">
-              {/* Grouped To-do Items by Relative Date or Flat Search Results */}
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                {todoSearchQuery.trim() ? (
-                  filteredTodoItems.length === 0 ? (
-                    <div className="text-sm text-gray-500 text-center py-4">No matching tasks found.</div>
-                  ) : (
-                    filteredTodoItems.map((item) => (
-                      <div key={item.id} className="mb-2">
-                        <TodoItemComponent
-                          todo={item}
-                          contacts={[]}
-                          allCategories={allCategories}
-                          sortOption="myOrder"
-                          draggedTodoId={draggedTodoId}
-                          dragOverTodoId={dragOverTodoId}
-                          dropIndicatorPosition={dropIndicatorPosition}
-                          currentUser={user}
-                          handleToggleTodoComplete={handleToggleTodoCompletion}
-                          handleUpdateTaskName={handleUpdateTodoName}
-                          handleUpdateDeadline={handleUpdateTodoDeadline}
-                          handleUpdateNote={handleUpdateTodoNote}
-                          handleUpdateCategory={handleUpdateTodoCategory}
-                          handleCloneTodo={handleCloneTodo}
-                          handleDeleteTodo={handleDeleteTodoItem}
-                          setTaskToMove={setTaskToMove}
-                          setShowMoveTaskModal={setShowMoveTaskModal}
-                          handleDragStart={handleDragStart}
-                          handleDragEnter={handleDragEnter}
-                          handleDragLeave={handleDragLeave}
-                          handleItemDragOver={handleItemDragOver}
-                          handleDragEnd={handleDragEnd}
-                          {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
-                        />
-                      </div>
-                    ))
-                  )
-                ) : (
-                  Object.entries(groupedTasks).length === 0 ? (
-                    <div className="text-sm text-gray-500 text-center py-4">No tasks yet. Add one!</div>
-                  ) : (
-                    Object.entries(groupedTasks).map(([group, items]) => {
-                      const incompleteItems = items.filter(item => !item.isCompleted);
-                      if (incompleteItems.length === 0) return null;
-                      return (
-                        <div key={group} className="mb-6">
-                          <button
-                            className="flex items-center w-full text-left text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
-                            onClick={() => toggleGroup(group)}
-                          >
-                            <ChevronRight
-                              className={`w-5 h-5 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`}
-                              strokeWidth={2}
-                            />
-                            <span>{group}</span>
-                            <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
-                              {incompleteItems.length}
-                            </span>
-                          </button>
-                          <div className="text-xs text-[#AB9C95] mb-2">
-                            {group === 'No date yet' && 'for tasks without a deadline'}
-                            {group === 'Overdue' && 'for tasks past their deadline'}
-                            {group === 'Today' && 'for tasks due today'}
-                            {group === 'Tomorrow' && 'for tasks due tomorrow'}
-                            {group === 'This Week' && 'for tasks due within the next 7 days'}
-                            {group === 'Next Week' && 'for tasks due within 8-14 days'}
-                            {group === 'This Month' && 'for tasks due within 15-30 days'}
-                            {group === 'Next Month' && 'for tasks due within 31-60 days'}
-                            {group === 'Later' && 'for tasks due beyond 60 days'}
-                          </div>
-                          <div
-                            className={`${openGroups[group] !== false ? 'block' : 'hidden'}`}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleListDrop}
-                          >
-                            {(incompleteItems as TodoItem[]).map((item, index) => {
-                              const list = todoLists.find(l => l.id === (item as TodoItem).listId);
-                              return (
-                                <div
-                              key={item.id}
-                                    id={`todo-item-${item.id}`}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, item.id)}
-                                    onDragEnter={(e) => handleDragEnter(e, item.id)}
-                                    onDragLeave={handleDragLeave}
-                                    onDragOver={(e) => handleItemDragOver(e, item.id)}
-                                    onDragEnd={handleDragEnd}
-                                    className={`relative ${dragOverTodoId === item.id ? 'bg-[#EBE3DD]' : ''}`}
-                                  >
-                                    {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'top' && (
-                                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#A85C36] -mt-0.5" />
-                                    )}
-                                    <TodoItemComponent
-                                      todo={item as TodoItem}
-                                      contacts={[]}
-                                      allCategories={allCategories}
-                                      sortOption="myOrder"
-                                      draggedTodoId={draggedTodoId}
-                                      dragOverTodoId={dragOverTodoId}
-                                      dropIndicatorPosition={dropIndicatorPosition}
-                                      currentUser={user}
-                                      handleToggleTodoComplete={handleToggleTodoCompletion}
-                                      handleUpdateTaskName={handleUpdateTodoName}
-                                      handleUpdateDeadline={handleUpdateTodoDeadline}
-                                      handleUpdateNote={handleUpdateTodoNote}
-                                      handleUpdateCategory={handleUpdateTodoCategory}
-                                      handleCloneTodo={handleCloneTodo}
-                                      handleDeleteTodo={handleDeleteTodoItem}
-                                      setTaskToMove={setTaskToMove}
-                                      setShowMoveTaskModal={setShowMoveTaskModal}
-                                      handleDragStart={handleDragStart}
-                                      handleDragEnter={handleDragEnter}
-                                      handleDragLeave={handleDragLeave}
-                                      handleItemDragOver={handleItemDragOver}
-                                      handleDragEnd={handleDragEnd}
-                                      {...(!selectedList && { listName: list ? list.name : 'Unknown List' })}
-                                    />
-                                    {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'bottom' && (
-                                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A85C36] -mb-0.5" />
-                                )}
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-              </div>
-              {/* COMPLETED TASKS SECTION - Sticky at the bottom */}
-              {todoItems.some(item => item.isCompleted) && (
-                <div className="sticky bottom-0 z-10 bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-4">
-                  <div className="pb-3">
-                <button
-                      onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-                      className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-3 md:px-4 hover:bg-[#F3F2F0] rounded-[5px]"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CircleCheck size={16} />
-                        <span>Completed ({todoItems.filter(item => item.isCompleted).length})</span>
-                      </div>
-                      {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                    <AnimatePresence>
-                      {showCompletedTasks && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3, ease: 'easeOut' }}
-                          className="overflow-hidden max-h-[40vh] overflow-y-auto p-4 pb-3"
-                        >
-                          <div className="space-y-0">
-                            {todoItems.filter(item => item.isCompleted).map((item) => (
-                              <TodoItemComponent
-                                key={item.id}
-                                todo={item}
-                                contacts={[]}
-                                allCategories={allCategories}
-                                sortOption="myOrder"
-                                draggedTodoId={draggedTodoId}
-                                dragOverTodoId={dragOverTodoId}
-                                dropIndicatorPosition={dropIndicatorPosition}
-                                currentUser={user}
-                                handleToggleTodoComplete={handleToggleTodoCompletion}
-                                handleUpdateTaskName={handleUpdateTodoName}
-                                handleUpdateDeadline={handleUpdateTodoDeadline}
-                                handleUpdateNote={handleUpdateTodoNote}
-                                handleUpdateCategory={handleUpdateTodoCategory}
-                                handleCloneTodo={handleCloneTodo}
-                                handleDeleteTodo={handleDeleteTodoItem}
-                                setTaskToMove={setTaskToMove}
-                                setShowMoveTaskModal={setShowMoveTaskModal}
-                                handleDragStart={handleDragStart}
-                                handleDragEnter={handleDragEnter}
-                                handleDragLeave={handleDragLeave}
-                                handleItemDragOver={handleItemDragOver}
-                                handleDragEnd={handleDragEnd}
-                                {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
-                              />
-                            ))}
-              </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-            </div>
-          )}
+          <div className="flex-1 flex flex-col min-h-0 h-full">
+            <TodoTopBar
+              selectedList={selectedList}
+              editingListNameId={editingListNameId}
+              editingListNameValue={editingListNameValue}
+              setEditingListNameId={setEditingListNameId}
+              setEditingListNameValue={setEditingListNameValue}
+              handleRenameList={handleRenameList}
+              todoSearchQuery={todoSearchQuery}
+              setTodoSearchQuery={setTodoSearchQuery}
+              showCompletedItems={showCompletedItems}
+              handleOpenAddTodo={handleOpenAddTodo}
+              onListViewClick={() => { /* TODO: implement calendar/list toggle */ }}
+            />
+            <main className="flex-1 flex flex-col min-h-0 h-full bg-white">
+              <TodoListView
+                todoItems={todoItems}
+                filteredTodoItems={filteredTodoItems}
+                groupedTasks={groupedTasks}
+                openGroups={openGroups}
+                toggleGroup={toggleGroup}
+                showCompletedItems={showCompletedItems}
+                setShowCompletedItems={setShowCompletedItems}
+                todoSearchQuery={todoSearchQuery}
+                selectedList={selectedList}
+                todoLists={todoLists}
+                allCategories={allCategories}
+                draggedTodoId={draggedTodoId}
+                dragOverTodoId={dragOverTodoId}
+                dropIndicatorPosition={dropIndicatorPosition}
+                user={user}
+                handleToggleTodoComplete={handleToggleTodoCompletion}
+                handleUpdateTaskName={handleUpdateTodoName}
+                handleUpdateDeadline={handleUpdateTodoDeadline}
+                handleUpdateNote={handleUpdateTodoNote}
+                handleUpdateCategory={handleUpdateTodoCategory}
+                handleCloneTodo={handleCloneTodo}
+                handleDeleteTodo={handleDeleteTodoItem}
+                setTaskToMove={setTaskToMove}
+                setShowMoveTaskModal={setShowMoveTaskModal}
+                handleDragStart={handleDragStart}
+                handleDragEnter={handleDragEnter}
+                handleDragLeave={handleDragLeave}
+                handleItemDragOver={handleItemDragOver}
+                handleDragEnd={handleDragEnd}
+                handleListDrop={handleListDrop}
+                showCompletedTasks={showCompletedTasks}
+                setShowCompletedTasks={setShowCompletedTasks}
+              />
             </main>
           </div>
         </div>
@@ -1436,6 +1331,36 @@ export default function TodoPage() {
       {user && ( // Check if user is logged in
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
+
+      <AddTodoSideCard
+        open={showAddTodoCard}
+        onClose={handleCloseAddTodo}
+        onAddTodo={async ({ name, note, deadline, category, listId }) => {
+          if (!user) return;
+          try {
+            await addDoc(getUserCollectionRef('todoItems', user.uid), {
+              name,
+              note: note || null,
+              deadline: deadline ? new Date(deadline) : null,
+              category: category || null,
+              isCompleted: false,
+              order: todoItems.length,
+              createdAt: new Date(),
+              listId,
+              userId: user.uid,
+              orderIndex: todoItems.length
+            });
+            showSuccessToast(`Task "${name}" added!`);
+          } catch (error) {
+            console.error('Error adding task:', error);
+            showErrorToast('Failed to add task.');
+          }
+        }}
+        allLists={todoLists.map(l => ({ id: l.id, name: l.name }))}
+        allCategories={allCategories}
+        defaultListId={selectedList ? selectedList.id : null}
+        mode="todo"
+      />
 
     </div>
   );
