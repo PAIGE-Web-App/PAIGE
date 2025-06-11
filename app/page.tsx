@@ -40,6 +40,8 @@ import Banner from "../components/Banner";
 import type { TodoItem } from '../types/todo';
 import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
+import ContactsList from '../components/ContactsList';
+import MessagesPanel from '../components/MessagesPanel';
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -254,7 +256,7 @@ export default function Home() {
   const [contactsLoading, setContactsLoading] = useState(true);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<"contacts" | "messages" | "todo">("contacts");
+  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>("contacts");
   const [rightPanelSelection, setRightPanelSelection] = useState<"todo" | "messages" | "favorites">("todo");
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
@@ -744,14 +746,9 @@ export default function Home() {
   }, []);
 
   // Function to handle tab changes from BottomNavBar
-const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo') => {
-  console.log('handleMobileTabChange called with tab:', tab);
-  setActiveMobileTab(tab);
-  // If switching to messages and no contact is currently selected, select the first one if available
-  if (tab === 'messages' && !selectedContact && contacts.length > 0) {
-    setSelectedContact(contacts[0]);
-  }
-}, [selectedContact, contacts]);
+  const handleMobileTabChange = useCallback((tab: 'contacts' | 'todo') => {
+    setActiveMobileTab(tab);
+  }, []);
 
   // Only show content when both loading is complete AND minimum time has passed
   const isLoading = authLoading || !minLoadTimeReached;
@@ -968,6 +965,36 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
     }
   };
 
+  const handleUpdateTodoNotes = async (todoId: string, notes: string) => {
+    if (!currentUser) return;
+    try {
+      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      await updateDoc(itemRef, {
+        note: notes,
+        userId: currentUser.uid
+      });
+      showSuccessToast('Notes updated!');
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      showErrorToast('Failed to update notes.');
+    }
+  };
+
+  const handleUpdateTodoCategory = async (todoId: string, category: string) => {
+    if (!currentUser) return;
+    try {
+      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      await updateDoc(itemRef, {
+        category,
+        userId: currentUser.uid
+      });
+      showSuccessToast('Category updated!');
+    } catch (error) {
+      console.error('Error updating category:', error);
+      showErrorToast('Failed to update category.');
+    }
+  };
+
   // Handler for re-import Gmail
   const handleReimportGmail = async () => {
     if (!currentUser) return;
@@ -1050,259 +1077,65 @@ const handleMobileTabChange = useCallback((tab: 'contacts' | 'messages' | 'todo'
       >
 
       <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
-        <aside
-          className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
-            ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
-          `}
-          style={{ maxHeight: '100%', overflowY: 'auto' }}
-        >
-          {contactsLoading ? (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key="contacts-skeleton"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <ContactsSkeleton />
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <>
-              <div className="flex items-center gap-4 mb-4 relative">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
-                  aria-label="Toggle Filters"
-                >
-                  <Filter className="w-4 h-4" />
-                </button>
-                <div className="relative flex-1">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#AB9C95]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                    />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search contacts..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-6 text-xs text-[#332B42] border-0 border-b border-[#AB9C95] focus:border-[#A85C36] focus:ring-0 py-1 placeholder:text-[#AB9C95] focus:outline-none bg-transparent"
-                  />
-                </div>
-                {contacts.length > 0 && (
-                  <button
-                    onClick={() => setIsAdding(true)}
-                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
-                  >
-                    + Add Contact
-                  </button>
-                )}
-                <AnimatePresence>
-                  {showFilters && (
-                    <motion.div
-                      ref={filterPopoverRef}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
-                    >
-                      <div>
-                        <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
-                        <div className="flex flex-wrap gap-2">
-                          {allCategories.map((category) => (
-                            <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
-                              <input
-                                type="checkbox"
-                                value={category}
-                                checked={selectedCategoryFilter.includes(category)}
-                                onChange={() => handleCategoryChange(category)}
-                                className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
-                              />
-                              {category}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      <SelectField
-                        label="Sort by"
-                        name="sortOption"
-                        value={sortOption}
-                        onChange={(e) => setSortOption(e.target.value)}
-                        options={[
-                          { value: 'name-asc', label: 'Name (A-Z)' },
-                          { value: 'name-desc', label: 'Name (Z-A)' },
-                          { value: 'recent-desc', label: 'Most recent conversations' },
-                        ]}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {selectedCategoryFilter.map((category) => (
-                    <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                      Category: {category}
-                      <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                  {sortOption !== 'name-asc' && (
-                    <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                      Sort: {
-                        sortOption === 'name-desc' ? 'Name (Z-A)' :
-                        sortOption === 'recent-desc' ? 'Most recent' : ''
-                      }
-                      <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  )}
-                </div>
-              )}
-              {displayContacts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full py-12">
-                  <div className="text-base text-[#332B42] font-playfair font-semibold mb-2">Set up your unified inbox</div>
-                  <div className="text-sm text-gray-500">Add your first contact to get started!</div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {displayContacts.map((contact, index) => {
-                    const name = contact.name;
-                    const matchIndex = name.toLowerCase().indexOf(
-                      searchQuery.toLowerCase()
-                    );
-                    const before = name.slice(0, matchIndex);
-                    const match = name.slice(matchIndex, matchIndex + searchQuery.length);
-                    const after = name.slice(matchIndex + searchQuery.length);
-                    return (
-                      <div
-                        key={contact.id}
-                        className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
-                          ? "opacity-0"
-                          : "opacity-100"
-                          } ${selectedContact?.id === contact.id
-                            ? "bg-[#EBE3DD] border-[#A85C36]"
-                            : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
-                          }`}
-                        onClick={() => {
-                          setSelectedContact(contact);
-                          if (isMobile) {
-                            setActiveMobileTab('messages');
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-                            style={{ backgroundColor: contact.avatarColor || "#364257" }}
-                          >
-                            {contact.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-[#332B42]">
-                              {matchIndex >= 0 ? (
-                                <>
-                                  {before}
-                                  <mark className="bg-transparent text-[#A85C36] font-semibold">
-                                    {match}
-                                  </mark>
-                                  {after}
-                                </>
-                              ) : (
-                                name
-                              )}
-                            </div>
-                            <CategoryPill category={contact.category} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </aside>
-        {/* Messaging Area */}
-        {contactsLoading ? (
-          <div className="flex flex-1 min-h-full h-full w-full items-center justify-center bg-white">
-            <div className="w-full max-w-xl">
-              <MessagesSkeleton />
-            </div>
-          </div>
-        ) : (
-          <section
-            className={`flex flex-col flex-1 bg-white relative w-full min-h-full
-              ${isMobile ? (activeMobileTab === 'messages' ? 'block' : 'hidden') : 'block'}
-            `}
-          >
-            {contacts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <img src="/wine.png" alt="Cheers" className="w-48 h-48 mb-6" />
-                <h4 className="text-2xl font-playfair font-semibold text-[#332B42] mb-2">Cheers to your next chapter!</h4>
-                <p className="text-base text-[#364257] mb-6 max-w-md text-center">
-                  Add your contacts to get started
-                </p>
-                <button
-                  className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base"
-                  onClick={() => setShowOnboardingModal(true)}
-                >
-                  Set up your Unified Inbox
-                </button>
-              </div>
-            ) : (
-              <MessageArea
-                selectedContact={selectedContact}
-                currentUser={currentUser}
-                isAuthReady={isAuthReady}
-                contacts={contacts}
-                isMobile={isMobile}
-                setActiveMobileTab={setActiveMobileTab}
-                input={input}
-                setInput={setInput}
-                draftLoading={draftLoading}
-                generateDraft={() => selectedContact ? generateDraftMessage(selectedContact, []) : Promise.resolve("")}
-                selectedFiles={selectedFiles}
-                setSelectedFiles={setSelectedFiles}
-                contactsLoading={contactsLoading}
-                setIsEditing={setIsEditing}
-                onContactSelect={setSelectedContact}
-                onSetupInbox={() => setShowOnboardingModal(true)}
-                userName={userName || ''}
-              />
-            )}
-          </section>
-        )}
+        <ContactsList
+          contacts={contacts}
+          contactsLoading={contactsLoading}
+          selectedContact={selectedContact}
+          setSelectedContact={setSelectedContact}
+          isMobile={isMobile}
+          activeMobileTab={activeMobileTab}
+          setActiveMobileTab={setActiveMobileTab}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+          filterPopoverRef={filterPopoverRef}
+          allCategories={allCategories}
+          selectedCategoryFilter={selectedCategoryFilter}
+          handleCategoryChange={handleCategoryChange}
+          handleClearCategoryFilter={handleClearCategoryFilter}
+          handleClearSortOption={handleClearSortOption}
+          sortOption={sortOption}
+          setSortOption={setSortOption}
+          displayContacts={displayContacts}
+          deletingContactId={deletingContactId}
+          setIsAdding={setIsAdding}
+        />
+        <MessagesPanel
+          contactsLoading={contactsLoading}
+          contacts={contacts}
+          selectedContact={selectedContact}
+          currentUser={currentUser}
+          isAuthReady={isAuthReady}
+          isMobile={isMobile}
+          activeMobileTab={activeMobileTab}
+          setActiveMobileTab={setActiveMobileTab}
+          input={input}
+          setInput={setInput}
+          draftLoading={draftLoading}
+          generateDraftMessage={generateDraftMessage}
+          selectedFiles={selectedFiles}
+          setSelectedFiles={setSelectedFiles}
+          setIsEditing={setIsEditing}
+          onContactSelect={setSelectedContact}
+          setShowOnboardingModal={setShowOnboardingModal}
+          userName={userName}
+          showOnboardingModal={showOnboardingModal}
+        />
       </main>
 
         {(currentUser && !loadingAuth) ? (
           <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
             <RightDashboardPanel
-               currentUser={currentUser}
-                isMobile={isMobile}
-                activeMobileTab={activeMobileTab}
-                contacts={contacts}
-                rightPanelSelection={rightPanelSelection}
-                setRightPanelSelection={setRightPanelSelection}
+              currentUser={currentUser}
+              isMobile={isMobile}
+              activeMobileTab={activeMobileTab}
+              contacts={contacts}
+              rightPanelSelection={rightPanelSelection}
+              setRightPanelSelection={setRightPanelSelection}
+              onUpdateTodoDeadline={handleUpdateTodoDeadline}
+              onUpdateTodoNotes={handleUpdateTodoNotes}
+              onUpdateTodoCategory={handleUpdateTodoCategory}
             />
           </div>
         ) : (

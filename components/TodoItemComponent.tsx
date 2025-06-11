@@ -11,20 +11,6 @@ import { User } from 'firebase/auth'; // Import User type (this remains as is)
 import type { TodoItem } from '../types/todo';
 import { Contact } from "../types/contact";
 
-// Define necessary interfaces - these should match your TodoItem and Contact interfaces
-// from RightDashboardPanel.tsx
-interface Contact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  category: string;
-  website?: string;
-  avatarColor?: string;
-  userId: string;
-  orderIndex?: number;
-}
-
 interface TodoItemComponentProps {
   todo: TodoItem;
   contacts: Contact[];
@@ -37,8 +23,8 @@ interface TodoItemComponentProps {
   handleToggleTodoComplete: (todo: TodoItem) => void;
   handleUpdateTaskName: (todoId: string, newName: string) => void;
   handleUpdateDeadline: (todoId: string, deadline: string | null) => void;
-  handleUpdateNote: (todoId: string, newNote: string | null) => void;
-  handleUpdateCategory: (todoId: string, newCategory: string | null) => void;
+  handleUpdateNote: (todoId: string, newNote: string) => void;
+  handleUpdateCategory: (todoId: string, newCategory: string) => void;
   handleCloneTodo: (todo: TodoItem) => void;
   handleDeleteTodo: (todoId: string) => void;
   setTaskToMove: (todo: TodoItem) => void;
@@ -174,6 +160,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         toast.error('Task name cannot be empty.');
         setEditingNameValue(todo.name); // Revert to original name
       } else {
+        console.log('Updating name:', todo.id, editingNameValue);
         await handleUpdateTaskName(todo.id, editingNameValue.trim());
         setJustUpdated(true);
         setTimeout(() => setJustUpdated(false), 1000);
@@ -208,19 +195,20 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     }, 0);
   }, [todo.deadline, todo.isCompleted]);
 
-  const handleDeadlineBlur = useCallback(async () => {
-    // Debug log to check value before saving
-    console.log('Calling handleUpdateDeadline with:', todo.id, editingDeadlineValue);
-    await handleUpdateDeadline(todo.id, editingDeadlineValue || null);
-    setJustUpdated(true);
-    setTimeout(() => setJustUpdated(false), 1000);
-    setIsEditingDeadline(false);
-    setEditingDeadlineValue('');
-  }, [editingDeadlineValue, todo.id, handleUpdateDeadline]);
+  const handleDeadlineKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      await handleUpdateDeadline(todo.id, editingDeadlineValue);
+      setIsEditingDeadline(false);
+    } else if (e.key === 'Escape') {
+      setEditingDeadlineValue('');
+      setIsEditingDeadline(false);
+      e.currentTarget.blur();
+    }
+  }, [todo.id, editingDeadlineValue, handleUpdateDeadline]);
 
-  const handleCancelDeadline = useCallback(() => {
-    setIsEditingDeadline(false);
+  const handleDeadlineCancel = useCallback(() => {
     setEditingDeadlineValue('');
+    setIsEditingDeadline(false);
   }, []);
 
   const handleAddNoteClick = useCallback(() => {
@@ -230,17 +218,25 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   }, [todo.note, todo.isCompleted]);
 
   const handleUpdateNoteClick = useCallback(async () => {
-    await handleUpdateNote(todo.id, editingNoteValue.trim() || null);
-    setJustUpdated(true);
-    setTimeout(() => setJustUpdated(false), 1000);
+    await handleUpdateNote(todo.id, editingNoteValue);
     setIsEditingNote(false);
-    setEditingNoteValue('');
-  }, [editingNoteValue, todo.id, handleUpdateNote]);
+  }, [todo.id, editingNoteValue, handleUpdateNote]);
 
-  const handleCancelNote = useCallback(() => {
+  const handleNoteKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      await handleUpdateNote(todo.id, editingNoteValue);
+      setIsEditingNote(false);
+    } else if (e.key === 'Escape') {
+      setEditingNoteValue(todo.note || '');
+      setIsEditingNote(false);
+      e.currentTarget.blur();
+    }
+  }, [todo.id, todo.note, editingNoteValue, handleUpdateNote]);
+
+  const handleNoteCancel = useCallback(() => {
+    setEditingNoteValue(todo.note || '');
     setIsEditingNote(false);
-    setEditingNoteValue('');
-  }, []);
+  }, [todo.note]);
 
   const handleEditCategoryClick = useCallback(() => {
     if (todo.isCompleted) return;
@@ -257,9 +253,6 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
 
   const handleCategoryDropdownChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setEditingCategoryDropdownValue(e.target.value);
-    if (e.target.value !== "Other") {
-      setEditingCustomCategoryValue("");
-    }
   }, []);
 
   const handleCustomCategoryInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,29 +260,32 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   }, []);
 
   const handleUpdateCategoryClick = useCallback(async () => {
-    let finalCategory: string | null = editingCategoryDropdownValue;
-    if (editingCategoryDropdownValue === "--remove--") {
-      finalCategory = null;
-    } else if (editingCategoryDropdownValue === "Other") {
-      finalCategory = editingCustomCategoryValue.trim() || "";
-      if (!finalCategory) {
-        toast.error("Custom category name is required.");
-        return;
-      }
-    }
-    await handleUpdateCategory(todo.id, finalCategory);
-    setJustUpdated(true);
-    setTimeout(() => setJustUpdated(false), 1000);
+    const categoryToSave = editingCategoryDropdownValue === "Other" ? editingCustomCategoryValue : editingCategoryDropdownValue;
+    await handleUpdateCategory(todo.id, categoryToSave);
     setIsEditingCategory(false);
-    setEditingCategoryDropdownValue('');
-    setEditingCustomCategoryValue('');
-  }, [editingCategoryDropdownValue, editingCustomCategoryValue, todo.id, handleUpdateCategory]);
+  }, [todo.id, editingCategoryDropdownValue, editingCustomCategoryValue, handleUpdateCategory]);
 
-  const handleCancelCategory = useCallback(() => {
+  const handleCategoryKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const categoryToSave = editingCategoryDropdownValue === "Other" ? editingCustomCategoryValue : editingCategoryDropdownValue;
+      await handleUpdateCategory(todo.id, categoryToSave);
+      setIsEditingCategory(false);
+    } else if (e.key === 'Escape') {
+      setEditingCategoryDropdownValue(todo.category || '');
+      setIsEditingCategory(false);
+      e.currentTarget.blur();
+    }
+  }, [todo.id, todo.category, editingCategoryDropdownValue, editingCustomCategoryValue, handleUpdateCategory]);
+
+  const handleCategoryBlur = useCallback(async () => {
+    const categoryToSave = editingCategoryDropdownValue === "Other" ? editingCustomCategoryValue : editingCategoryDropdownValue;
+    if (categoryToSave !== todo.category) {
+      await handleUpdateCategory(todo.id, categoryToSave);
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 1000);
+    }
     setIsEditingCategory(false);
-    setEditingCategoryDropdownValue('');
-    setEditingCustomCategoryValue('');
-  }, []);
+  }, [editingCategoryDropdownValue, editingCustomCategoryValue, todo.id, todo.category, handleUpdateCategory]);
 
   const handleMoveClick = useCallback(() => {
     setTaskToMove(todo);
@@ -315,6 +311,28 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   // Add a debug log to confirm prop type
   console.log('TodoItemComponent handleUpdateDeadline prop type:', typeof handleUpdateDeadline);
 
+  const handleDeadlineChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingDeadlineValue(e.target.value);
+  }, []);
+
+  const handleNoteChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditingNoteValue(e.target.value);
+  }, []);
+
+  const handleDeadlineBlur = useCallback(async () => {
+    await handleUpdateDeadline(todo.id, editingDeadlineValue);
+    setIsEditingDeadline(false);
+  }, [todo.id, editingDeadlineValue, handleUpdateDeadline]);
+
+  const handleNoteBlur = useCallback(async () => {
+    if (editingNoteValue !== todo.note) {
+      await handleUpdateNote(todo.id, editingNoteValue);
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 1000);
+    }
+    setIsEditingNote(false);
+  }, [editingNoteValue, todo.id, todo.note, handleUpdateNote]);
+
   return (
     <motion.div
       key={todo.id}
@@ -326,11 +344,11 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       transition={{ duration: 0.3, ease: "easeOut" }}
       className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''} ${className || ''}`}
       draggable={sortOption === 'myOrder'}
-      onDragStart={(e) => handleDragStart(e, todo.id)}
-      onDragEnter={(e) => handleDragEnter(e, todo.id)}
-      onDragLeave={handleDragLeave}
-      onDragOver={(e) => handleItemDragOver(e, todo.id)}
-      onDragEnd={handleDragEnd}
+      onDragStart={((e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, todo.id)) as any}
+      onDragEnter={((e: React.DragEvent<HTMLDivElement>) => handleDragEnter(e, todo.id)) as any}
+      onDragLeave={((e: React.DragEvent<HTMLDivElement>) => handleDragLeave(e)) as any}
+      onDragOver={((e: React.DragEvent<HTMLDivElement>) => handleItemDragOver(e, todo.id)) as any}
+      onDragEnd={((e: React.DragEvent<HTMLDivElement>) => handleDragEnd(e)) as any}
     >
       {/* Visual Drop Indicator */}
       {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'top' && (
@@ -459,9 +477,9 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 ref={deadlineInputRef}
                 type="datetime-local"
                 value={editingDeadlineValue}
-                onChange={(e) => setEditingDeadlineValue(e.target.value)}
+                onChange={handleDeadlineChange}
                 onBlur={handleDeadlineBlur}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleDeadlineBlur(); }}
+                onKeyDown={handleDeadlineKeyDown}
                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                 autoFocus
                 disabled
@@ -475,14 +493,14 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 ref={deadlineInputRef}
                 type="datetime-local"
                 value={editingDeadlineValue}
-                onChange={(e) => setEditingDeadlineValue(e.target.value)}
+                onChange={handleDeadlineChange}
                 onBlur={handleDeadlineBlur}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleDeadlineBlur(); }}
+                onKeyDown={handleDeadlineKeyDown}
                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                 autoFocus
                 placeholder={todo.deadline ? todo.deadline.toLocaleString() : editingDeadlineValue}
               />
-              <button onClick={handleCancelDeadline} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+              <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
             </div>
           )
         ) : todo.deadline instanceof Date && !isNaN(todo.deadline.getTime()) ? (
@@ -508,7 +526,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
             <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
               <textarea
                 value={editingNoteValue}
-                onChange={(e) => setEditingNoteValue(e.target.value)}
+                onChange={handleNoteChange}
                 placeholder="Add a note..."
                 rows={2}
                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
@@ -524,7 +542,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
             <div className="flex flex-col gap-1 mt-1">
               <textarea
                 value={editingNoteValue}
-                onChange={(e) => setEditingNoteValue(e.target.value)}
+                onChange={handleNoteChange}
                 placeholder="Add a note..."
                 rows={2}
                 className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
@@ -532,7 +550,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
               />
               <div className="flex gap-2">
                 <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                <button onClick={handleCancelNote} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
+                <button onClick={handleNoteCancel} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
               </div>
             </div>
           )
@@ -600,7 +618,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 )}
                 <div className="flex gap-2 mt-1">
                   <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                  <button onClick={handleCancelCategory} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
+                  <button onClick={handleCategoryBlur} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
                 </div>
               </div>
             )
