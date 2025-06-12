@@ -284,6 +284,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             : data.deadline instanceof Date
               ? data.deadline
               : (data.deadline === null ? undefined : data.deadline);
+          const endDate = data.endDate && typeof data.endDate === 'object' && typeof (data.endDate as any).toDate === 'function'
+            ? (data.endDate as any).toDate()
+            : data.endDate instanceof Date
+              ? data.endDate
+              : (data.endDate === null ? undefined : data.endDate);
           const note = data.note === null ? undefined : data.note;
           const category = data.category === null ? undefined : data.category;
           const assignedTo = data.contactId === null ? undefined : data.contactId;
@@ -298,6 +303,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
               ? data.completedAt
               : undefined;
           const deadlineSafe = deadline === null ? undefined : deadline;
+          const endDateSafe = endDate === null ? undefined : endDate;
           const noteSafe = note === null ? undefined : note;
           const categorySafe = category === null ? undefined : category;
           const assignedToSafe = assignedTo === null ? undefined : assignedTo;
@@ -305,6 +311,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             id: doc.id,
             name: data.name,
             deadline: deadlineSafe,
+            endDate: endDateSafe,
             note: noteSafe,
             category: categorySafe,
             assignedTo: assignedToSafe,
@@ -360,7 +367,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             await batch.commit();
             console.log('Migrated old tasks to "My To-do" list.');
           } catch (error) {
-            console.error('Error migrating old tasks:', error);
+            if (error instanceof Error) {
+              console.error('Error migrating old tasks:', error.message);
+            } else {
+              console.error('Error migrating old tasks:', error);
+            }
           }
         }
         // --- End Migration Logic ---
@@ -637,21 +648,20 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const handleToggleTodoComplete = useCallback(async (todo: TodoItem) => {
     try {
       const updatedIsCompleted = !todo.isCompleted;
-      let updatedCompletedAt: Date | undefined = undefined; // Changed from null to undefined
-      if (updatedIsCompleted) {
-        updatedCompletedAt = new Date(); // Set to current time when completed
-      }
+      const firestoreCompletedAt = updatedIsCompleted ? new Date() : null;
+      const localCompletedAt = updatedIsCompleted ? new Date() : undefined;
       const todoRef = doc(getUserCollectionRef("todoItems", todo.userId), todo.id);
-      await setDoc(todoRef, {
-        isCompleted: updatedIsCompleted,
-        completedAt: updatedCompletedAt,
-      }, { merge: true });
-      // Optimistically update the local state without re-fetching all todos
+      // Only include completedAt if completed or explicitly set to null
+      const updateObj: any = { isCompleted: updatedIsCompleted };
+      if (updatedIsCompleted) {
+        updateObj.completedAt = firestoreCompletedAt;
+      } else {
+        updateObj.completedAt = null;
+      }
+      await setDoc(todoRef, updateObj, { merge: true });
       setTodoItems((prevTodoItems) =>
         prevTodoItems.map((item) =>
-          item.id === todo.id
-            ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedCompletedAt }
-            : item
+          item.id === todo.id ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedIsCompleted ? new Date() : undefined } : item
         )
       );
       toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
@@ -662,21 +672,35 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   }, [setTodoItems]);
 
   // Function to handle updating the deadline (now called from TodoItemComponent)
-  const handleUpdateDeadline = useCallback(async (todoId: string, deadline: string | null) => {
+  const handleUpdateDeadline = useCallback(async (todoId: string, deadline?: string | null, endDate?: string | null) => {
     if (!currentUser) {
       toast.error('User not authenticated.');
       return;
     }
     try {
-      let deadlineDate: Date | null = null;
-      if (deadline && typeof deadline === 'string' && deadline.trim() !== '') {
-        deadlineDate = parseLocalDateTime(deadline);
-        if (isNaN(deadlineDate.getTime())) {
-          throw new Error('Invalid date string');
-        }
+      const updateObj: any = {};
+      if (typeof deadline !== 'undefined') {
+        updateObj.deadline = deadline && deadline !== '' ? parseLocalDateTime(deadline) : null;
       }
-      const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
-      await setDoc(todoRef, { deadline: deadlineDate }, { merge: true });
+      if (typeof endDate !== 'undefined') {
+        updateObj.endDate = endDate && endDate !== '' ? parseLocalDateTime(endDate) : null;
+      }
+      if (Object.keys(updateObj).length === 0) return;
+      updateObj.userId = currentUser.uid;
+      const todoRef = doc(getUserCollectionRef('todoItems', currentUser.uid), todoId);
+      await setDoc(todoRef, updateObj, { merge: true });
+      setTodoItems((prevTodoItems) =>
+        prevTodoItems.map((item) =>
+          item.id === todoId
+            ? {
+                ...item,
+                ...(typeof deadline !== 'undefined' ? { deadline: deadline && deadline !== '' ? parseLocalDateTime(deadline) : undefined } : {}),
+                ...(typeof endDate !== 'undefined' ? { endDate: endDate && endDate !== '' ? parseLocalDateTime(endDate) : undefined } : {}),
+              }
+            : item
+        )
+      );
+      triggerJustUpdated(todoId);
       toast.success('Deadline updated!');
     } catch (error: any) {
       console.error('Error updating deadline:', error);
@@ -693,6 +717,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
       await setDoc(todoRef, { note: newNote }, { merge: true });
+      setTodoItems((prevTodoItems) =>
+        prevTodoItems.map((item) =>
+          item.id === todoId ? { ...item, note: newNote || undefined } : item
+        )
+      );
+      triggerJustUpdated(todoId);
       toast.success(`Note ${newNote ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating note:', error);
@@ -714,6 +744,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
       await setDoc(todoRef, { category: newCategory }, { merge: true });
+      setTodoItems((prevTodoItems) =>
+        prevTodoItems.map((item) =>
+          item.id === todoId ? { ...item, category: newCategory || undefined } : item
+        )
+      );
+      triggerJustUpdated(todoId);
       toast.success(`Category ${newCategory ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating category:', error);
@@ -1062,6 +1098,22 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     return myTodo ? [myTodo, ...others] : others;
   }, [todoLists]);
 
+  // Utility to trigger green animation for a todo item
+  function triggerJustUpdated(todoId: string) {
+    setTodoItems((prevTodoItems) =>
+      prevTodoItems.map((item) =>
+        item.id === todoId ? { ...item, justUpdated: true } : item
+      )
+    );
+    setTimeout(() => {
+      setTodoItems((prevTodoItems) =>
+        prevTodoItems.map((item) =>
+          item.id === todoId ? { ...item, justUpdated: false } : item
+        )
+      );
+    }, 1000);
+  }
+
   return (
     <div className="flex w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
       style={{ maxHeight: '100%' }}
@@ -1150,7 +1202,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             currentUser={currentUser}
             handleToggleTodoComplete={handleToggleTodoComplete}
             handleUpdateTaskName={handleUpdateTaskName}
-            handleUpdateDeadline={onUpdateTodoDeadline}
+            handleUpdateDeadline={handleUpdateDeadline}
             handleUpdateNote={onUpdateTodoNotes}
             handleUpdateCategory={onUpdateTodoCategory}
             handleCloneTodo={handleCloneTodo}

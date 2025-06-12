@@ -130,3 +130,22 @@ h5 {
   animation: bounce-once 0.7s cubic-bezier(.68,-0.55,.27,1.55);
   transform: translateZ(0);
 }
+
+/* Force react-hot-toast toasts to stack tightly at the top right */
+.react-hot-toast {
+  top: 64px !important;   /* Adjust to match your nav height */
+  right: 20px !important;
+  left: auto !important;
+  bottom: auto !important;
+  position: fixed !important;
+  z-index: 9999 !important;
+  pointer-events: none;
+}
+
+.react-hot-toast > div > div {
+  margin-bottom: 8px !important; /* Tight gap between toasts */
+}
+
+.react-hot-toast > div > div:last-child {
+  margin-bottom: 0 !important;
+}

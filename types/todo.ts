@@ -4,6 +4,8 @@ export interface TodoItem {
   id: string;
   name: string;
   deadline?: Date;
+  startDate?: Date;
+  endDate?: Date;
   note?: string;
   category?: string;
   contactId?: string;

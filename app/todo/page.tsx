@@ -43,10 +43,11 @@ import UpgradePlanModal from '@/components/UpgradePlanModal';
 import CategoryPill from '@/components/CategoryPill';
 import CategorySelectField from '@/components/CategorySelectField';
 import WeddingBanner from '@/components/WeddingBanner';
-import AddTodoSideCard from '../../components/AddTodoSideCard';
+import TaskSideCard from '../../components/TaskSideCard';
 import TodoSidebar from '../../components/TodoSidebar';
 import TodoTopBar from '../../components/TodoTopBar';
 import TodoListView from '../../components/TodoListView';
+import CalendarView from '../../components/CalendarView';
 
 // ICON IMPORTS
 import { Plus, MoreHorizontal, Filter, ChevronRight, CircleCheck, ChevronDown, ChevronUp, Pencil, ListChecks } from 'lucide-react';
@@ -217,6 +218,14 @@ export default function TodoPage() {
         } else {
           deadline = undefined;
         }
+        let endDate = data.endDate;
+        if (endDate && typeof endDate.toDate === 'function') {
+          endDate = endDate.toDate();
+        } else if (endDate instanceof Date) {
+          // already a Date
+        } else {
+          endDate = undefined;
+        }
         return {
           id: doc.id,
           listId: data.listId,
@@ -227,6 +236,7 @@ export default function TodoPage() {
           userId: data.userId,
           orderIndex: data.orderIndex || 0,
           deadline,
+          endDate,
           note: data.note || undefined,
           contactId: data.contactId,
           completedAt: data.completedAt && typeof data.completedAt.toDate === 'function' ? data.completedAt.toDate() : (data.completedAt instanceof Date ? data.completedAt : undefined)
@@ -743,34 +753,23 @@ export default function TodoPage() {
   };
 
   // Handler for updating task deadline
-  const handleUpdateTodoDeadline = async (todoId: string, deadline: string | null | undefined) => {
+  const handleUpdateTodoDeadline = async (todoId: string, deadline?: string | null, endDate?: string | null) => {
     if (!user) return;
     try {
-      const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
-      let deadlineDate: Date | null = null;
-      if (isValidDateInput(deadline)) {
-        deadlineDate = parseLocalDateTime(deadline as string);
-        if (isNaN(deadlineDate.getTime())) {
-          throw new Error('Invalid date string');
-        }
+      const updateObj: any = {};
+      if (typeof deadline !== 'undefined') {
+        updateObj.deadline = deadline && deadline !== '' ? parseLocalDateTime(deadline) : null;
       }
-      // Always send null if not set, never undefined
-      await updateDoc(itemRef, {
-        deadline: deadlineDate,
-        userId: user.uid
-      });
-      // Update local state (use undefined for deadline if not set)
-      setTodoItems(prevItems =>
-        prevItems.map(item =>
-          item.id === todoId ? { ...item, deadline: deadlineDate ?? undefined } : item
-        )
-      );
-      setAllTodoItems(prevItems =>
-        prevItems.map(item =>
-          item.id === todoId ? { ...item, deadline: deadlineDate ?? undefined } : item
-        )
-      );
+      if (typeof endDate !== 'undefined') {
+        updateObj.endDate = endDate && endDate !== '' ? parseLocalDateTime(endDate) : null;
+      }
+      if (Object.keys(updateObj).length === 0) return;
+      updateObj.userId = user.uid;
+      const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
+      await updateDoc(itemRef, updateObj);
       showSuccessToast('Deadline updated!');
+      console.log('app/todo/page.tsx handleUpdateTodoDeadline:', todoId, updateObj);
+      // Optionally update local state here if needed
     } catch (error) {
       console.error('Error updating deadline:', error);
       showErrorToast('Failed to update deadline.');
@@ -1099,9 +1098,17 @@ export default function TodoPage() {
   };
 
   // Update handleAddTodo to use new fields
-  const handleAddTodo = async () => {
+  const handleAddTodo = async (data: {
+    name: string;
+    deadline?: Date;
+    startDate?: Date;
+    endDate?: Date;
+    note?: string;
+    category?: string;
+    tasks?: { name: string; deadline?: Date; startDate?: Date; endDate?: Date; note?: string; category?: string; }[];
+  }) => {
     if (!user) return;
-    if (!newTodoName.trim()) {
+    if (!data.name.trim()) {
       showErrorToast('Task name cannot be empty.');
       return;
     }
@@ -1113,10 +1120,10 @@ export default function TodoPage() {
     setIsAdding(true);
     try {
       await addDoc(getUserCollectionRef('todoItems', user.uid), {
-        name: newTodoName,
-        note: newTodoNote || null,
-        deadline: newTodoDeadline ? new Date(newTodoDeadline) : null,
-        category: newTodoCategory || null,
+        name: data.name,
+        note: data.note || null,
+        deadline: data.deadline || null,
+        category: data.category || null,
         isCompleted: false,
         order: todoItems.length,
         createdAt: new Date(),
@@ -1124,11 +1131,8 @@ export default function TodoPage() {
         userId: user.uid,
         orderIndex: todoItems.length
       });
-      showSuccessToast(`Task "${newTodoName}" added!`);
-      setNewTodoName('');
-      setNewTodoNote('');
-      setNewTodoDeadline('');
-      setNewTodoCategory('');
+      showSuccessToast(`Task "${data.name}" added!`);
+      handleCloseAddTodo();
     } catch (error) {
       console.error('Error adding task:', error);
       showErrorToast('Failed to add task.');
@@ -1136,6 +1140,97 @@ export default function TodoPage() {
       setIsAdding(false);
     }
   };
+
+  // Add state for calendar/list view
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
+  // State for viewing/editing a single task in the side card
+  const [selectedTaskForSideCard, setSelectedTaskForSideCard] = useState<any | null>(null);
+  const [showTaskDetailCard, setShowTaskDetailCard] = useState(false);
+
+  // Handler for clicking a task in the calendar
+  const handleCalendarTaskClick = (event: any) => {
+    // Find the full task object by id
+    const task = allTodoItems.find(t => t.id === event.id);
+    if (task) {
+      const list = todoLists.find(l => l.id === task.listId);
+      setSelectedTaskForSideCard({ ...task, listName: list ? list.name : '' });
+      setShowTaskDetailCard(true);
+    }
+  };
+
+  // Handler for updating a task from the side card
+  const handleUpdateTask = async (updatedTask: any) => {
+    if (!user || !selectedTaskForSideCard) return;
+    try {
+      const itemRef = doc(getUserCollectionRef('todoItems', user.uid), selectedTaskForSideCard.id);
+      await updateDoc(itemRef, {
+        name: updatedTask.name,
+        note: updatedTask.note || null,
+        deadline: updatedTask.deadline ? new Date(updatedTask.deadline) : null,
+        endDate: updatedTask.endDate ? new Date(updatedTask.endDate) : null,
+        category: updatedTask.category || null,
+        userId: user.uid,
+      });
+      // Update local state
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === selectedTaskForSideCard.id ? { ...item, ...updatedTask } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === selectedTaskForSideCard.id ? { ...item, ...updatedTask } : item
+        )
+      );
+      showSuccessToast('Task updated!');
+      setShowTaskDetailCard(false);
+      setSelectedTaskForSideCard(null);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      showErrorToast('Failed to update task.');
+    }
+  };
+
+  // Add state for calendar view mode
+  const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week' | 'day' | 'year'>('month');
+  // Add state for calendar date
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+
+  // Keyboard shortcuts for calendar view
+  React.useEffect(() => {
+    if (viewMode !== 'calendar') return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT') return;
+      if (e.key === 'm' || e.key === 'M') setCalendarViewMode('month');
+      if (e.key === 'w' || e.key === 'W') setCalendarViewMode('week');
+      if (e.key === 'd' || e.key === 'D') setCalendarViewMode('day');
+      if (e.key === 'y' || e.key === 'Y') setCalendarViewMode('year');
+      if (e.key === 't' || e.key === 'T') setCalendarDate(new Date());
+      if (e.key === 'ArrowLeft') {
+        setCalendarDate(prev => {
+          const d = new Date(prev);
+          if (calendarViewMode === 'month') d.setMonth(d.getMonth() - 1);
+          else if (calendarViewMode === 'week') d.setDate(d.getDate() - 7);
+          else if (calendarViewMode === 'day') d.setDate(d.getDate() - 1);
+          else if (calendarViewMode === 'year') d.setFullYear(d.getFullYear() - 1);
+          return d;
+        });
+      }
+      if (e.key === 'ArrowRight') {
+        setCalendarDate(prev => {
+          const d = new Date(prev);
+          if (calendarViewMode === 'month') d.setMonth(d.getMonth() + 1);
+          else if (calendarViewMode === 'week') d.setDate(d.getDate() + 7);
+          else if (calendarViewMode === 'day') d.setDate(d.getDate() + 1);
+          else if (calendarViewMode === 'year') d.setFullYear(d.getFullYear() + 1);
+          return d;
+        });
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, setCalendarViewMode, calendarViewMode]);
 
   if (loading) {
   return (
@@ -1195,8 +1290,8 @@ export default function TodoPage() {
           "Welcome back! Have y'all decided your wedding date?"
         )}
       </div>
-      <div className="flex justify-center items-start w-full bg-linen p-4 h-screen box-border">
-         <div className="w-full flex flex-row h-full max-h-screen overflow-hidden border border-[#AB9C95] border-[0.5px] rounded-[5px] bg-white">
+      <div className="flex-1 flex justify-center items-start w-full bg-linen p-4 overflow-hidden">
+         <div className="w-full flex flex-row h-full min-h-0 border border-[#AB9C95] border-[0.5px] rounded-[5px] bg-white">
           {/* Sidebar */}
           <TodoSidebar
             todoLists={sortedTodoLists}
@@ -1231,43 +1326,50 @@ export default function TodoPage() {
               setTodoSearchQuery={setTodoSearchQuery}
               showCompletedItems={showCompletedItems}
               handleOpenAddTodo={handleOpenAddTodo}
-              onListViewClick={() => { /* TODO: implement calendar/list toggle */ }}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              calendarViewMode={calendarViewMode}
+              setCalendarViewMode={setCalendarViewMode}
             />
             <main className="flex-1 flex flex-col min-h-0 h-full bg-white">
-              <TodoListView
-                todoItems={todoItems}
-                filteredTodoItems={filteredTodoItems}
-                groupedTasks={groupedTasks}
-                openGroups={openGroups}
-                toggleGroup={toggleGroup}
-                showCompletedItems={showCompletedItems}
-                setShowCompletedItems={setShowCompletedItems}
-                todoSearchQuery={todoSearchQuery}
-                selectedList={selectedList}
-                todoLists={todoLists}
-                allCategories={allCategories}
-                draggedTodoId={draggedTodoId}
-                dragOverTodoId={dragOverTodoId}
-                dropIndicatorPosition={dropIndicatorPosition}
-                user={user}
-                handleToggleTodoComplete={handleToggleTodoCompletion}
-                handleUpdateTaskName={handleUpdateTodoName}
-                handleUpdateDeadline={handleUpdateTodoDeadline}
-                handleUpdateNote={handleUpdateTodoNote}
-                handleUpdateCategory={handleUpdateTodoCategory}
-                handleCloneTodo={handleCloneTodo}
-                handleDeleteTodo={handleDeleteTodoItem}
-                setTaskToMove={setTaskToMove}
-                setShowMoveTaskModal={setShowMoveTaskModal}
-                handleDragStart={handleDragStart}
-                handleDragEnter={handleDragEnter}
-                handleDragLeave={handleDragLeave}
-                handleItemDragOver={handleItemDragOver}
-                handleDragEnd={handleDragEnd}
-                handleListDrop={handleListDrop}
-                showCompletedTasks={showCompletedTasks}
-                setShowCompletedTasks={setShowCompletedTasks}
-              />
+              {viewMode === 'calendar' ? (
+                <CalendarView todoItems={todoItems} onEventClick={handleCalendarTaskClick} view={calendarViewMode} date={calendarDate} />
+              ) : (
+                <TodoListView
+                  todoItems={todoItems}
+                  filteredTodoItems={filteredTodoItems}
+                  groupedTasks={groupedTasks}
+                  openGroups={openGroups}
+                  toggleGroup={toggleGroup}
+                  showCompletedItems={showCompletedItems}
+                  setShowCompletedItems={setShowCompletedItems}
+                  todoSearchQuery={todoSearchQuery}
+                  selectedList={selectedList}
+                  todoLists={todoLists}
+                  allCategories={allCategories}
+                  draggedTodoId={draggedTodoId}
+                  dragOverTodoId={dragOverTodoId}
+                  dropIndicatorPosition={dropIndicatorPosition}
+                  user={user}
+                  handleToggleTodoComplete={handleToggleTodoCompletion}
+                  handleUpdateTaskName={handleUpdateTodoName}
+                  handleUpdateDeadline={handleUpdateTodoDeadline}
+                  handleUpdateNote={handleUpdateTodoNote}
+                  handleUpdateCategory={handleUpdateTodoCategory}
+                  handleCloneTodo={handleCloneTodo}
+                  handleDeleteTodo={handleDeleteTodoItem}
+                  setTaskToMove={setTaskToMove}
+                  setShowMoveTaskModal={setShowMoveTaskModal}
+                  handleDragStart={handleDragStart}
+                  handleDragEnter={handleDragEnter}
+                  handleDragLeave={handleDragLeave}
+                  handleItemDragOver={handleItemDragOver}
+                  handleDragEnd={handleDragEnd}
+                  handleListDrop={handleListDrop}
+                  showCompletedTasks={showCompletedTasks}
+                  setShowCompletedTasks={setShowCompletedTasks}
+                />
+              )}
             </main>
           </div>
         </div>
@@ -1332,34 +1434,29 @@ export default function TodoPage() {
         <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
       )}
 
-      <AddTodoSideCard
-        open={showAddTodoCard}
-        onClose={handleCloseAddTodo}
-        onAddTodo={async ({ name, note, deadline, category, listId }) => {
-          if (!user) return;
-          try {
-            await addDoc(getUserCollectionRef('todoItems', user.uid), {
-              name,
-              note: note || null,
-              deadline: deadline ? new Date(deadline) : null,
-              category: category || null,
-              isCompleted: false,
-              order: todoItems.length,
-              createdAt: new Date(),
-              listId,
-              userId: user.uid,
-              orderIndex: todoItems.length
-            });
-            showSuccessToast(`Task "${name}" added!`);
-          } catch (error) {
-            console.error('Error adding task:', error);
-            showErrorToast('Failed to add task.');
-          }
+      <TaskSideCard
+        isOpen={showAddTodoCard || showTaskDetailCard}
+        onClose={() => {
+          handleCloseAddTodo();
+          setShowTaskDetailCard(false);
+          setSelectedTaskForSideCard(null);
         }}
-        allLists={todoLists.map(l => ({ id: l.id, name: l.name }))}
-        allCategories={allCategories}
-        defaultListId={selectedList ? selectedList.id : null}
+        onSubmit={showTaskDetailCard ? handleUpdateTask : handleAddTodo}
         mode="todo"
+        userId={user.uid}
+        todoLists={todoLists}
+        selectedListId={selectedList ? selectedList.id : ''}
+        setSelectedListId={id => {
+          const found = todoLists.find(l => l.id === id);
+          if (found) setSelectedList(found);
+        }}
+        initialData={selectedTaskForSideCard ? {
+          name: selectedTaskForSideCard.name,
+          deadline: selectedTaskForSideCard.deadline,
+          endDate: selectedTaskForSideCard.endDate,
+          note: selectedTaskForSideCard.note,
+          category: selectedTaskForSideCard.category
+        } : undefined}
       />
 
     </div>

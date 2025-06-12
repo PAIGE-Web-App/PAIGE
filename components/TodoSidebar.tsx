@@ -1,5 +1,5 @@
 import React from 'react';
-import AddSideCard from './AddTodoSideCard';
+import TaskSideCard from './TaskSideCard';
 
 interface TodoSidebarProps {
   todoLists: any[];
@@ -126,7 +126,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
         </div>
       </div>
       {/* AddSideCard for new list creation */}
-      <AddSideCard
+      <TaskSideCard
         open={showAddListSideCard}
         onClose={() => setShowAddListSideCard(false)}
         onAddList={handleAddListWithTasks}

@@ -1,7 +1,7 @@
 // components/TodoItemComponent.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, // Renamed User to UserIcon
+  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, NotepadText, // Add NotepadText
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
@@ -21,10 +21,10 @@ interface TodoItemComponentProps {
   dropIndicatorPosition: { id: string | null; position: 'top' | 'bottom' | null };
   currentUser: User | null;
   handleToggleTodoComplete: (todo: TodoItem) => void;
-  handleUpdateTaskName: (todoId: string, newName: string) => void;
-  handleUpdateDeadline: (todoId: string, deadline: string | null) => void;
-  handleUpdateNote: (todoId: string, newNote: string) => void;
-  handleUpdateCategory: (todoId: string, newCategory: string) => void;
+  handleUpdateTaskName: (todoId: string, newName: string | null) => Promise<void>;
+  handleUpdateDeadline: (todoId: string, deadline: string | null, endDate?: string | null) => void;
+  handleUpdateNote: (todoId: string, newNote: string | null) => void;
+  handleUpdateCategory: (todoId: string, newCategory: string | null) => void;
   handleCloneTodo: (todo: TodoItem) => void;
   handleDeleteTodo: (todoId: string) => void;
   setTaskToMove: (todo: TodoItem) => void;
@@ -108,6 +108,13 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   const [editingCustomCategoryValue, setEditingCustomCategoryValue] = useState('');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
+  const [isEditingEndDate, setIsEditingEndDate] = useState(false);
+  const [editingEndDateValue, setEditingEndDateValue] = useState(() => {
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      return formatDateForInputWithTime(todo.endDate);
+    }
+    return '';
+  });
 
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -190,21 +197,28 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       now.setHours(17, 0, 0, 0);
       setEditingDeadlineValue(formatDateForInputWithTime(now));
     }
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      setEditingEndDateValue(formatDateForInputWithTime(todo.endDate));
+    } else if (todo.endDate) {
+      setEditingEndDateValue(formatDateForInputWithTime(new Date(todo.endDate)));
+    } else {
+      setEditingEndDateValue('');
+    }
     setTimeout(() => {
       deadlineInputRef.current?.focus();
     }, 0);
-  }, [todo.deadline, todo.isCompleted]);
+  }, [todo.deadline, todo.endDate, todo.isCompleted]);
 
   const handleDeadlineKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      await handleUpdateDeadline(todo.id, editingDeadlineValue);
+      await handleUpdateDeadline(todo.id, editingDeadlineValue, editingEndDateValue);
       setIsEditingDeadline(false);
     } else if (e.key === 'Escape') {
       setEditingDeadlineValue('');
       setIsEditingDeadline(false);
       e.currentTarget.blur();
     }
-  }, [todo.id, editingDeadlineValue, handleUpdateDeadline]);
+  }, [todo.id, editingDeadlineValue, editingEndDateValue, handleUpdateDeadline]);
 
   const handleDeadlineCancel = useCallback(() => {
     setEditingDeadlineValue('');
@@ -293,7 +307,20 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     setShowMoreMenu(false); // Close the more menu
   }, [todo, setTaskToMove, setShowMoveTaskModal]);
 
-  const getRelativeDeadline = (deadline: Date) => {
+  const getRelativeDeadline = (deadline: Date, startDate?: Date, endDate?: Date) => {
+    if (startDate && endDate) {
+      const now = new Date();
+      const startDiff = startDate.getTime() - now.getTime();
+      const endDiff = endDate.getTime() - now.getTime();
+      const startDiffDays = Math.ceil(startDiff / (1000 * 60 * 60 * 24));
+      const endDiffDays = Math.ceil(endDiff / (1000 * 60 * 60 * 24));
+
+      if (startDiffDays <= 0 && endDiffDays >= 0) return "In Progress";
+      if (startDiffDays > 0) return `Starts in ${startDiffDays} day${startDiffDays !== 1 ? 's' : ''}`;
+      if (endDiffDays < 0) return `Ended ${Math.abs(endDiffDays)} day${Math.abs(endDiffDays) !== 1 ? 's' : ''} ago`;
+      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+    }
+
     const now = new Date();
     const diffTime = deadline.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -320,9 +347,24 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   }, []);
 
   const handleDeadlineBlur = useCallback(async () => {
-    await handleUpdateDeadline(todo.id, editingDeadlineValue);
+    let endDateStr = '';
+    if (todo.endDate) {
+      if (todo.endDate instanceof Date) {
+        endDateStr = formatDateForInputWithTime(todo.endDate);
+      } else if (typeof todo.endDate === 'string') {
+        const parsed = Date.parse(todo.endDate);
+        if (!isNaN(parsed)) {
+          endDateStr = formatDateForInputWithTime(new Date(parsed));
+        }
+      }
+    }
+    await handleUpdateDeadline(
+      todo.id,
+      editingDeadlineValue,
+      endDateStr
+    );
     setIsEditingDeadline(false);
-  }, [todo.id, editingDeadlineValue, handleUpdateDeadline]);
+  }, [todo.id, editingDeadlineValue, todo.endDate, handleUpdateDeadline]);
 
   const handleNoteBlur = useCallback(async () => {
     if (editingNoteValue !== todo.note) {
@@ -332,6 +374,45 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     }
     setIsEditingNote(false);
   }, [editingNoteValue, todo.id, todo.note, handleUpdateNote]);
+
+  const handleUpdateEndDate = async (todoId: string, endDate: string) => {
+    let deadlineStr = '';
+    if (todo.deadline) {
+      if (todo.deadline instanceof Date) {
+        deadlineStr = formatDateForInputWithTime(todo.deadline);
+      } else if (typeof todo.deadline === 'string') {
+        const parsed = Date.parse(todo.deadline);
+        if (!isNaN(parsed)) {
+          deadlineStr = formatDateForInputWithTime(new Date(parsed));
+        }
+      }
+    }
+    await handleUpdateDeadline(
+      todoId,
+      deadlineStr,
+      endDate
+    );
+  };
+
+  const handleRemoveEndDate = async (todoId: string) => {
+    await handleUpdateDeadline(todoId, null, '');
+  };
+
+  const handleStartEditEndDate = () => {
+    setIsEditingEndDate(true);
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      setEditingEndDateValue(formatDateForInputWithTime(todo.endDate));
+    } else if (todo.endDate) {
+      setEditingEndDateValue(formatDateForInputWithTime(new Date(todo.endDate)));
+    } else if (todo.deadline) {
+      // Set to 1 day after the deadline
+      let deadlineDate = todo.deadline instanceof Date ? new Date(todo.deadline) : new Date(todo.deadline);
+      deadlineDate.setDate(deadlineDate.getDate() + 1);
+      setEditingEndDateValue(formatDateForInputWithTime(deadlineDate));
+    } else {
+      setEditingEndDateValue('');
+    }
+  };
 
   return (
     <motion.div
@@ -466,58 +547,90 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         )}
         {/* NEW: Show list name if provided */}
         {listName && (
-          <p className="text-xs text-[#A85C36] mt-0.5">List: {listName}</p>
+          <p className="text-xs text-gray-500 mt-0.5">List: {listName}</p>
         )}
 
-        {/* Conditional rendering for Deadline */}
+        {/* Deadline and End Date Inline Editing */}
         {isEditingDeadline ? (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <input
-                ref={deadlineInputRef}
-                type="datetime-local"
-                value={editingDeadlineValue}
-                onChange={handleDeadlineChange}
-                onBlur={handleDeadlineBlur}
-                onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                autoFocus
-                disabled
-                placeholder={todo.deadline ? todo.deadline.toLocaleString() : editingDeadlineValue}
-              />
-              <button className="btn-primary-inverse text-xs px-2 py-1" disabled>Cancel</button>
-            </span>
-          ) : (
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                ref={deadlineInputRef}
-                type="datetime-local"
-                value={editingDeadlineValue}
-                onChange={handleDeadlineChange}
-                onBlur={handleDeadlineBlur}
-                onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                autoFocus
-                placeholder={todo.deadline ? todo.deadline.toLocaleString() : editingDeadlineValue}
-              />
-              <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
-            </div>
-          )
-        ) : todo.deadline instanceof Date && !isNaN(todo.deadline.getTime()) ? (
-          <p className={`text-xs font-normal text-[#364257] block mt-1 ${todo.isCompleted ? 'text-gray-500' : 'cursor-pointer hover:underline'}`}
-            onClick={handleAddDeadlineClick}
-            title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
-          >
-            Deadline: {todo.deadline.toLocaleString()}
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              ref={deadlineInputRef}
+              type="datetime-local"
+              value={editingDeadlineValue}
+              onChange={handleDeadlineChange}
+              onBlur={handleDeadlineBlur}
+              onKeyDown={handleDeadlineKeyDown}
+              className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+              autoFocus
+            />
+            <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+          </div>
         ) : (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <button className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1 text-gray-500`} disabled>Add Deadline</button>
-            </span>
-          ) : (
-            <button onClick={handleAddDeadlineClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none block mt-1`}>Add Deadline</button>
-          )
+          <div className="flex items-center gap-1 text-xs text-[#364257] mt-1">
+            <Calendar className="w-3 h-3" />
+            {todo.deadline ? (
+              <>
+                <button
+                  type="button"
+                  className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                  onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
+                  disabled={todo.isCompleted}
+                  style={{ outline: 'none' }}
+                >
+                  {getRelativeDeadline(
+                    todo.deadline instanceof Date ? todo.deadline : new Date(todo.deadline),
+                    todo.startDate instanceof Date ? todo.startDate : (todo.startDate ? new Date(todo.startDate) : undefined),
+                    todo.endDate instanceof Date ? todo.endDate : (todo.endDate ? new Date(todo.endDate) : undefined)
+                  )}
+                </button>
+                {/* End Date logic: always show if deadline is set */}
+                {isEditingEndDate ? (
+                  <div className="flex items-center gap-2 ml-2">
+                    <input
+                      type="datetime-local"
+                      value={editingEndDateValue}
+                      onChange={e => setEditingEndDateValue(e.target.value)}
+                      onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
+                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                      autoFocus
+                      min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
+                    />
+                    <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                    {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primary-inverse text-xs px-2 py-1">Remove</button>}
+                  </div>
+                ) : todo.endDate ? (
+                  <>
+                    <span className="mx-1">→</span>
+                    <button
+                      type="button"
+                      className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                      onClick={handleStartEditEndDate}
+                      disabled={todo.isCompleted}
+                      style={{ outline: 'none' }}
+                    >
+                      {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="ml-2 text-xs text-[#A85C36] hover:underline"
+                    onClick={handleStartEditEndDate}
+                  >
+                    + Add End Date
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                className="text-xs text-[#A85C36] hover:underline"
+                onClick={() => setIsEditingDeadline(true)}
+              >
+                + Add Deadline
+              </button>
+            )}
+          </div>
         )}
 
         {/* Conditional rendering for Note */}
@@ -529,48 +642,40 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 onChange={handleNoteChange}
                 placeholder="Add a note..."
                 rows={2}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
-                autoFocus
+                onBlur={handleNoteBlur}
+                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
                 disabled
               />
-              <div className="flex gap-2">
-                <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
-                <button className="btn-primary-inverse text-xs px-2 py-1" disabled> Cancel </button>
-              </div>
             </span>
           ) : (
-            <div className="flex flex-col gap-1 mt-1">
+            <div className="w-full">
               <textarea
                 value={editingNoteValue}
                 onChange={handleNoteChange}
                 placeholder="Add a note..."
-                rows={2}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block w-full resize-y"
+                rows={3}
+                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
                 autoFocus
+                onKeyDown={e => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    handleUpdateNoteClick();
+                  }
+                }}
               />
-              <div className="flex gap-2">
-                <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                <button onClick={handleNoteCancel} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
+              <div className="flex gap-2 mt-1">
+                <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
+                <button onClick={handleNoteCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
               </div>
             </div>
           )
-        ) : todo.note ? (
-          <p
-            className={`text-xs font-normal text-[#364257] italic block mt-1 w-full ${todo.isCompleted ? 'text-gray-500' : 'cursor-pointer hover:underline'}`}
-            style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', whiteSpace: 'pre-wrap' }}
-            onClick={handleAddNoteClick}
-            title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
-          >
-            Note: {todo.note}
-          </p>
         ) : (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <button className={`text-xs font-normal text-[#364257] underline italic text-left p-0 bg-transparent border-none block mt-1 text-gray-500`} disabled> Click to add note </button>
-            </span>
-          ) : (
-            <button onClick={handleAddNoteClick} className={`text-xs font-normal text-[#364257] underline italic text-left p-0 bg-transparent border-none block mt-1`}> Click to add note </button>
-          )
+          <div 
+            className="flex items-start gap-1 mt-1 cursor-pointer hover:bg-gray-50 rounded"
+            onClick={handleAddNoteClick}
+          >
+            <NotepadText size={14} className="text-[#364257] mt-0.5" />
+            <span className="text-xs text-[#364257]">{todo.note || '+ Add Note'}</span>
+          </div>
         )}
 
         <div className="flex items-center gap-1 mt-2">
@@ -653,7 +758,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         </div>
         {/* Completed On field should be after the category/contact info block, as its own line */}
         {todo.isCompleted && todo.completedAt && (
-          <p className="block text-xs text-[#7A7A7A] mt-2 italic">Completed On: {todo.completedAt.toLocaleDateString()} {todo.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="block text-xs text-[#364257] mt-2 italic">Completed On: {todo.completedAt.toLocaleDateString()} {todo.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
         )}
       </div>
     </motion.div>

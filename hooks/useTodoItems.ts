@@ -33,6 +33,7 @@ interface TodoItem {
   name: string;
   isCompleted: boolean;
   deadline?: Date;
+  endDate?: Date;
   note?: string;
   category?: string;
   listId: string;
@@ -62,7 +63,23 @@ export function useTodoItems({ user, selectedList, showSuccessToast, showErrorTo
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map(docSnap => {
         const data = docSnap.data() as Record<string, any>;
-        return { id: docSnap.id, ...data } as TodoItem;
+        let deadline = data.deadline;
+        if (deadline && typeof deadline.toDate === 'function') {
+          deadline = deadline.toDate();
+        } else if (deadline instanceof Date) {
+          // already a Date
+        } else {
+          deadline = undefined;
+        }
+        let endDate = data.endDate;
+        if (endDate && typeof endDate.toDate === 'function') {
+          endDate = endDate.toDate();
+        } else if (endDate instanceof Date) {
+          // already a Date
+        } else {
+          endDate = undefined;
+        }
+        return { id: docSnap.id, ...data, deadline, endDate } as TodoItem;
       });
       setAllTodoItems(items);
       if (!selectedList) {

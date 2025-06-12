@@ -6,6 +6,7 @@ import TodoItemComponent from './TodoItemComponent';
 import ListMenuDropdown from './ListMenuDropdown';
 import Banner from './Banner';
 import { useRouter } from 'next/navigation';
+import DropdownMenu from './DropdownMenu';
 
 const ToDoPanel = ({
   todoLists,
@@ -121,33 +122,23 @@ const ToDoPanel = ({
             </AnimatePresence>
           </div>
           {/* New Task Button with Dropdown */}
-          <div className="relative" ref={addTaskDropdownRef}>
-            <button
-              onClick={() => setShowAddTaskDropdown(!showAddTaskDropdown)}
-              className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
-            >
-              + New Task
-            </button>
-            <AnimatePresence>
-              {showAddTaskDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-10 flex flex-col min-w-[180px]"
-                >
-                  <button
-                    onClick={handleAddNewTodo}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] rounded-[3px]"
-                  >
-                    <Plus size={16} /> New To-do Item
-                  </button>
-                  {/* Add other options if needed in the future */}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <DropdownMenu
+            trigger={
+              <button
+                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+              >
+                + New Task
+              </button>
+            }
+            items={[
+              {
+                label: 'New To-do Item',
+                icon: <Plus size={16} />,
+                onClick: handleAddNewTodo
+              }
+            ]}
+            width={180}
+          />
         </div>
       </div>
 

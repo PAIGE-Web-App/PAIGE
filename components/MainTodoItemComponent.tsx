@@ -20,10 +20,10 @@ interface MainTodoItemComponentProps {
   dropIndicatorPosition: { id: string | null; position: 'top' | 'bottom' | null };
   currentUser: User | null;
   handleToggleTodoComplete: (todo: TodoItem) => void;
-  handleUpdateTaskName: (todoId: string, newName: string) => void;
-  handleUpdateDeadline: (todoId: string, deadline: string | null) => void;
-  handleUpdateNote: (todoId: string, newNote: string) => void;
-  handleUpdateCategory: (todoId: string, newCategory: string) => void;
+  handleUpdateTaskName: (todoId: string, newName: string | null) => Promise<void>;
+  handleUpdateDeadline: (todoId: string, deadline: string | null, endDate?: string | null) => void;
+  handleUpdateNote: (todoId: string, newNote: string | null) => void;
+  handleUpdateCategory: (todoId: string, newCategory: string | null) => void;
   handleCloneTodo: (todo: TodoItem) => void;
   handleDeleteTodo: (todoId: string) => void;
   setTaskToMove: (todo: TodoItem) => void;
@@ -55,6 +55,33 @@ function parseLocalDateTime(input: string): Date {
   const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
+
+// Add this utility function before the component definition
+const getRelativeDeadline = (deadline: Date, startDate?: Date, endDate?: Date) => {
+  if (startDate && endDate) {
+    const now = new Date();
+    const startDiff = startDate.getTime() - now.getTime();
+    const endDiff = endDate.getTime() - now.getTime();
+    const startDiffDays = Math.ceil(startDiff / (1000 * 60 * 60 * 24));
+    const endDiffDays = Math.ceil(endDiff / (1000 * 60 * 60 * 24));
+
+    if (startDiffDays <= 0 && endDiffDays >= 0) return "In Progress";
+    if (startDiffDays > 0) return `Starts in ${startDiffDays} day${startDiffDays !== 1 ? 's' : ''}`;
+    if (endDiffDays < 0) return `Ended ${Math.abs(endDiffDays)} day${Math.abs(endDiffDays) !== 1 ? 's' : ''} ago`;
+    return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  }
+
+  const now = new Date();
+  const diffTime = deadline.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays === -1) return "Yesterday";
+  if (diffDays > 1 && diffDays <= 7) return `in ${diffDays} days`;
+  if (diffDays < -1 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`;
+  return deadline.toLocaleDateString();
+};
 
 const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   todo,
@@ -101,6 +128,13 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   const [editingCustomCategoryValue, setEditingCustomCategoryValue] = useState('');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
+  const [isEditingEndDate, setIsEditingEndDate] = useState(false);
+  const [editingEndDateValue, setEditingEndDateValue] = useState(() => {
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      return formatDateForInputWithTime(todo.endDate);
+    }
+    return '';
+  });
 
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -172,10 +206,17 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
       now.setHours(17, 0, 0, 0);
       setEditingDeadlineValue(formatDateForInputWithTime(now));
     }
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      setEditingEndDateValue(formatDateForInputWithTime(todo.endDate));
+    } else if (todo.endDate) {
+      setEditingEndDateValue(formatDateForInputWithTime(new Date(todo.endDate)));
+    } else {
+      setEditingEndDateValue('');
+    }
     setTimeout(() => {
       deadlineInputRef.current?.focus();
     }, 0);
-  }, [todo.deadline, todo.isCompleted]);
+  }, [todo.deadline, todo.endDate, todo.isCompleted]);
 
   const handleDeadlineKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -227,9 +268,24 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   }, []);
 
   const handleDeadlineBlur = useCallback(async () => {
-    await handleUpdateDeadline(todo.id, editingDeadlineValue);
+    let endDateStr = '';
+    if (todo.endDate) {
+      if (todo.endDate instanceof Date) {
+        endDateStr = formatDateForInputWithTime(todo.endDate);
+      } else if (typeof todo.endDate === 'string') {
+        const parsed = Date.parse(todo.endDate);
+        if (!isNaN(parsed)) {
+          endDateStr = formatDateForInputWithTime(new Date(parsed));
+        }
+      }
+    }
+    await handleUpdateDeadline(
+      todo.id,
+      editingDeadlineValue,
+      endDateStr
+    );
     setIsEditingDeadline(false);
-  }, [todo.id, editingDeadlineValue, handleUpdateDeadline]);
+  }, [todo.id, editingDeadlineValue, todo.endDate, handleUpdateDeadline]);
 
   const handleNoteBlur = useCallback(async () => {
     if (editingNoteValue !== todo.note) {
@@ -278,6 +334,47 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
     await handleUpdateCategory(todo.id, editingCategoryDropdownValue);
     setIsEditingCategory(false);
   }, [todo.id, editingCategoryDropdownValue, handleUpdateCategory]);
+
+  const handleUpdateEndDate = async (todoId: string, endDate: string) => {
+    let deadlineStr = '';
+    if (todo.deadline) {
+      if (todo.deadline instanceof Date) {
+        deadlineStr = formatDateForInputWithTime(todo.deadline);
+      } else if (typeof todo.deadline === 'string') {
+        const parsed = Date.parse(todo.deadline);
+        if (!isNaN(parsed)) {
+          deadlineStr = formatDateForInputWithTime(new Date(parsed));
+        }
+      }
+    }
+    await handleUpdateDeadline(
+      todoId,
+      deadlineStr,
+      endDate
+    );
+  };
+
+  const handleRemoveEndDate = async (todoId: string) => {
+    await handleUpdateDeadline(todoId, null, '');
+  };
+
+  const handleStartEditEndDate = () => {
+    setIsEditingEndDate(true);
+    if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
+      setEditingEndDateValue(formatDateForInputWithTime(todo.endDate));
+    } else if (todo.endDate) {
+      setEditingEndDateValue(formatDateForInputWithTime(new Date(todo.endDate)));
+    } else {
+      setEditingEndDateValue('');
+    }
+    if (todo.deadline instanceof Date && !isNaN(todo.deadline.getTime())) {
+      setEditingDeadlineValue(formatDateForInputWithTime(todo.deadline));
+    } else if (todo.deadline) {
+      setEditingDeadlineValue(formatDateForInputWithTime(new Date(todo.deadline)));
+    } else {
+      setEditingDeadlineValue('');
+    }
+  };
 
   return (
     <div
@@ -336,13 +433,81 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
               </div>
             )}
 
-            {/* Deadline */}
-            {todo.deadline && !isEditingDeadline && (
-              <div className="flex items-center gap-1 mt-1">
-                <Calendar size={14} className="text-gray-400" />
-                <span className="text-xs text-gray-500">
-                  {todo.deadline.toLocaleDateString()}
-                </span>
+            {/* Deadline and End Date Inline Editing */}
+            {isEditingDeadline ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  ref={deadlineInputRef}
+                  type="datetime-local"
+                  value={editingDeadlineValue}
+                  onChange={handleDeadlineChange}
+                  onBlur={handleDeadlineBlur}
+                  onKeyDown={handleDeadlineKeyDown}
+                  className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                  autoFocus
+                />
+                <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-[#7A7A7A] mt-1">
+                <Calendar className="w-3 h-3" />
+                <button
+                  type="button"
+                  className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                  onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
+                  disabled={todo.isCompleted}
+                  style={{ outline: 'none' }}
+                >
+                  {todo.deadline ?
+                    getRelativeDeadline(
+                      todo.deadline instanceof Date ? todo.deadline : new Date(todo.deadline),
+                      todo.startDate instanceof Date ? todo.startDate : (todo.startDate ? new Date(todo.startDate) : undefined),
+                      todo.endDate instanceof Date ? todo.endDate : (todo.endDate ? new Date(todo.endDate) : undefined)
+                    ) :
+                    'Add Deadline'}
+                </button>
+                {/* End Date logic */}
+                {(isEditingEndDate || (todo.deadline && todo.endDate && !isEditingDeadline)) && (
+                  <>
+                    {isEditingEndDate ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="datetime-local"
+                          value={editingEndDateValue}
+                          onChange={e => setEditingEndDateValue(e.target.value)}
+                          onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
+                          className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                          autoFocus
+                        />
+                        <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                        {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primary-inverse text-xs px-2 py-1">Remove</button>}
+                      </div>
+                    ) : (
+                      <>
+                        <span className="mx-1">→</span>
+                        <button
+                          type="button"
+                          className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                          onClick={handleStartEditEndDate}
+                          disabled={todo.isCompleted}
+                          style={{ outline: 'none' }}
+                        >
+                          {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+                {/* Add End Date button if only deadline is present */}
+                {todo.deadline && !todo.endDate && !isEditingDeadline && !isEditingEndDate && !todo.isCompleted && (
+                  <button
+                    type="button"
+                    className="ml-2 text-xs text-[#A85C36] hover:underline"
+                    onClick={handleStartEditEndDate}
+                  >
+                    + Add End Date
+                  </button>
+                )}
               </div>
             )}
 
@@ -362,22 +527,6 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
             )}
 
             {/* Editing UI */}
-            {isEditingDeadline && (
-              <div className="mt-2 flex gap-2">
-                <input
-                  ref={deadlineInputRef}
-                  type="datetime-local"
-                  value={editingDeadlineValue}
-                  onChange={handleDeadlineChange}
-                  onBlur={handleDeadlineBlur}
-                  onKeyDown={handleDeadlineKeyDown}
-                  className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                  autoFocus
-                />
-                <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
-              </div>
-            )}
-
             {isEditingNote && (
               <div className="mt-2">
                 <textarea

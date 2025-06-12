@@ -938,27 +938,23 @@ export default function Home() {
   };
 
   // Move handleUpdateTodoDeadline inside Home to access currentUser and showErrorToast
-  const handleUpdateTodoDeadline = async (todoId: string, deadline: string | null) => {
+  const handleUpdateTodoDeadline = async (todoId: string, deadline?: string | null, endDate?: string | null) => {
     if (!currentUser) return;
     try {
-      console.log('handleUpdateTodoDeadline called with:', todoId, deadline);
-      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
-      let deadlineDate: Date | null = null;
-      if (deadline && typeof deadline === 'string') {
-        deadlineDate = parseLocalDateTime(deadline);
-        if (isNaN(deadlineDate.getTime())) {
-          throw new Error('Invalid date string');
-        }
+      const updateObj: any = {};
+      if (typeof deadline !== 'undefined') {
+        updateObj.deadline = deadline && deadline !== '' ? parseLocalDateTime(deadline) : null;
       }
-      console.log('Saving deadline as Date:', deadlineDate);
-      await updateDoc(itemRef, {
-        deadline: deadlineDate,
-        userId: currentUser.uid
-      });
+      if (typeof endDate !== 'undefined') {
+        updateObj.endDate = endDate && endDate !== '' ? parseLocalDateTime(endDate) : null;
+      }
+      if (Object.keys(updateObj).length === 0) return;
+      updateObj.userId = currentUser.uid;
+      console.log('Updating todo:', todoId, 'with:', updateObj);
+      const itemRef = doc(getUserCollectionRef('todoItems', currentUser.uid), todoId);
+      await updateDoc(itemRef, updateObj);
       showSuccessToast('Deadline updated!');
-      // Debug: fetch the updated doc
-      const updatedDoc = await getDoc(itemRef);
-      console.log('Updated Firestore doc deadline:', updatedDoc.data()?.['deadline']);
+      // Optionally update local state here if needed
     } catch (error) {
       console.error('Error updating deadline:', error);
       showErrorToast('Failed to update deadline.');
@@ -1073,7 +1069,6 @@ export default function Home() {
 
       <div
         className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
-        style={{ maxHeight: "calc(100vh - 100px)" }}
       >
 
       <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>

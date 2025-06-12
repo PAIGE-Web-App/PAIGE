@@ -76,7 +76,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   const hasCompleted = todoItems.some(item => item.isCompleted);
 
   return (
-    <main className="flex-1 flex flex-col min-h-full bg-white p-4 pb-0">
+    <main className="flex flex-col h-full min-h-0 bg-white p-4 pb-0">
       <div className="flex-1 min-h-0 overflow-y-auto">
         {todoSearchQuery.trim() ? (
           filteredTodoItems.length === 0 ? (
@@ -248,9 +248,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
           )
         )}
       </div>
-      {/* COMPLETED TASKS SECTION - Sticky at the bottom */}
+      {/* COMPLETED TASKS SECTION - Always visible at the bottom of the todo area */}
       {todoItems.some(item => item.isCompleted) && !showCompletedItems && (
-        <div className="sticky bottom-0 z-10 bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-4">
+        <div className="bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-4 flex-shrink-0">
           <div className="pb-3">
             <button
               onClick={() => setShowCompletedTasks(!showCompletedTasks)}
