@@ -102,8 +102,11 @@ const Banner: React.FC<BannerProps> = ({ message, type, onDismiss }) => {
   );
 };
 
-
-
+const calendarStyles = `
+  .rbc-event {
+    border: none !important;
+  }
+`;
 
 const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, isMobile, activeMobileTab, onUpdateTodoDeadline, onUpdateTodoNotes, onUpdateTodoCategory }) => {
   // State declarations
@@ -370,7 +373,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             if (error instanceof Error) {
               console.error('Error migrating old tasks:', error.message);
             } else {
-              console.error('Error migrating old tasks:', error);
+            console.error('Error migrating old tasks:', error);
             }
           }
         }
@@ -1114,6 +1117,74 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }, 1000);
   }
 
+  // Function to handle cloning a list and its tasks
+  const handleCloneList = useCallback(async (listId: string) => {
+    if (!currentUser) {
+      toast.error('You must be logged in to clone a list.');
+      return;
+    }
+    // Check if cloning would exceed the list limit
+    if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    const listToClone = todoLists.find(list => list.id === listId);
+    if (!listToClone) {
+      toast.error('List not found.');
+      return;
+    }
+    // Generate a unique name for the cloned list
+    const baseName = listToClone.name.replace(/ \(Copy( \d+)?\)$/i, '');
+    let copyNumber = 1;
+    let newName = `${baseName} (Copy)`;
+    while (todoLists.some(list => list.name === newName)) {
+      copyNumber++;
+      newName = `${baseName} (Copy ${copyNumber})`;
+    }
+    // Calculate the next orderIndex for lists
+    const maxListOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
+    const newList: Omit<TodoList, 'id'> = {
+      name: newName,
+      userId: currentUser.uid,
+      createdAt: new Date(),
+      orderIndex: maxListOrderIndex + 1,
+    };
+    try {
+      // 1. Create the new list
+      const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList);
+      // 2. Fetch all tasks from the original list
+      const tasksQuery = query(
+        getUserCollectionRef("todoItems", currentUser.uid),
+        where('listId', '==', listId)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      // 3. Clone each task to the new list
+      const batch = writeBatch(db);
+      let maxOrderIndex = -1;
+      tasksSnapshot.forEach(taskDoc => {
+        const data = taskDoc.data();
+        maxOrderIndex = Math.max(maxOrderIndex, data.orderIndex || 0);
+      });
+      let orderIndex = maxOrderIndex + 1;
+      tasksSnapshot.forEach(taskDoc => {
+        const data = taskDoc.data();
+        const newTaskRef = doc(getUserCollectionRef("todoItems", currentUser.uid));
+        batch.set(newTaskRef, {
+          ...data,
+          listId: docRef.id,
+          createdAt: new Date(),
+          orderIndex: orderIndex++,
+        });
+      });
+      await batch.commit();
+      toast.success(`List "${newName}" and its tasks cloned!`);
+      setSelectedListId(docRef.id); // Navigate to the new list
+    } catch (error: any) {
+      console.error('Error cloning list:', error);
+      toast.error(`Failed to clone list: ${error.message}`);
+    }
+  }, [currentUser, todoLists]);
+
   return (
     <div className="flex w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
       style={{ maxHeight: '100%' }}
@@ -1163,11 +1234,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             selectedListId={selectedListId}
             setSelectedListId={setSelectedListId}
             editingListNameId={editingListNameId}
-            setEditingListNameId={setEditingListNameId}
+                          setEditingListNameId={setEditingListNameId}
             editingListNameValue={editingListNameValue}
-            setEditingListNameValue={setEditingListNameValue}
+                          setEditingListNameValue={setEditingListNameValue}
             openListMenuId={openListMenuId}
-            setOpenListMenuId={setOpenListMenuId}
+                          setOpenListMenuId={setOpenListMenuId}
             listButtonRefs={listButtonRefs}
             listTaskCounts={listTaskCounts}
             showNewListInput={showNewListInput}
@@ -1182,7 +1253,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             setShowListLimitBanner={setShowListLimitBanner}
             handleRenameList={handleRenameList}
             handleDeleteList={handleDeleteList}
-            sortOption={sortOption}
+            handleCloneList={handleCloneList}
+                          sortOption={sortOption}
             setShowSortMenu={setShowSortMenu}
             showSortMenu={showSortMenu}
             sortMenuRef={sortMenuRef}
@@ -1194,26 +1266,26 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             filteredTodoItems={filteredTodoItems}
             handleListDragOver={handleListDragOver}
             handleListDrop={handleListDrop}
-            contacts={contacts}
-            allCategories={allCategories}
-            draggedTodoId={draggedTodoId}
-            dragOverTodoId={dragOverTodoId}
-            dropIndicatorPosition={dropIndicatorPosition}
-            currentUser={currentUser}
-            handleToggleTodoComplete={handleToggleTodoComplete}
-            handleUpdateTaskName={handleUpdateTaskName}
-            handleUpdateDeadline={handleUpdateDeadline}
+                            contacts={contacts}
+                            allCategories={allCategories}
+                            draggedTodoId={draggedTodoId}
+                            dragOverTodoId={dragOverTodoId}
+                            dropIndicatorPosition={dropIndicatorPosition}
+                            currentUser={currentUser}
+                            handleToggleTodoComplete={handleToggleTodoComplete}
+                            handleUpdateTaskName={handleUpdateTaskName}
+                            handleUpdateDeadline={handleUpdateDeadline}
             handleUpdateNote={onUpdateTodoNotes}
             handleUpdateCategory={onUpdateTodoCategory}
-            handleCloneTodo={handleCloneTodo}
-            handleDeleteTodo={handleDeleteTodo}
-            setTaskToMove={setTaskToMove}
-            setShowMoveTaskModal={setShowMoveTaskModal}
-            handleDragStart={handleDragStart}
-            handleDragEnter={handleDragEnter}
-            handleDragLeave={handleDragLeave}
-            handleItemDragOver={handleItemDragOver}
-            handleDragEnd={handleDragEnd}
+                            handleCloneTodo={handleCloneTodo}
+                            handleDeleteTodo={handleDeleteTodo}
+                            setTaskToMove={setTaskToMove}
+                            setShowMoveTaskModal={setShowMoveTaskModal}
+                            handleDragStart={handleDragStart}
+                            handleDragEnter={handleDragEnter}
+                            handleDragLeave={handleDragLeave}
+                            handleItemDragOver={handleItemDragOver}
+                            handleDragEnd={handleDragEnd}
             showCompletedTasks={showCompletedTasks}
             setShowCompletedTasks={setShowCompletedTasks}
             router={router}

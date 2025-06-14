@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import TaskSideCard from './TaskSideCard';
+import BadgeCount from './BadgeCount';
+import NewListOnboardingModal from './NewListOnboardingModal';
 
 interface TodoSidebarProps {
   todoLists: any[];
   selectedList: any;
   setSelectedList: (list: any) => void;
+  selectedListId: string | null;
+  setSelectedListId: (id: string) => void;
+  userId: string;
   showCompletedItems: boolean;
   setShowCompletedItems: (val: boolean) => void;
   showNewListInput: boolean;
@@ -25,6 +30,9 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   todoLists,
   selectedList,
   setSelectedList,
+  selectedListId,
+  setSelectedListId,
+  userId,
   showCompletedItems,
   setShowCompletedItems,
   showNewListInput,
@@ -40,22 +48,58 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   allCategories = [],
   showUpgradeModal,
 }) => {
-  const [showAddListSideCard, setShowAddListSideCard] = React.useState(false);
+  const [showAddListModal, setShowAddListModal] = React.useState(false);
+  const [creationStep, setCreationStep] = useState<'choose' | 'manual' | 'import' | 'ai'>('choose');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [listName, setListName] = useState('');
+  const [tasks, setTasks] = useState([]);
   const STARTER_TIER_MAX_LISTS = 3;
   const listLimitReached = todoLists.length >= STARTER_TIER_MAX_LISTS;
 
   // Handler for new list creation with tasks
-  const handleAddListWithTasks = async ({ name, tasks }: { name: string; tasks: any[] }) => {
+  const handleAddListWithTasks = async ({ name, tasks }: { name: string; tasks?: any[] }) => {
     if (listLimitReached) return;
-    await handleAddList(name, tasks);
-    setShowAddListSideCard(false);
+    await handleAddList(name, tasks || []);
+    setShowAddListModal(false);
   };
 
   const handleNewListClick = () => {
     if (listLimitReached && showUpgradeModal) {
       showUpgradeModal();
     } else {
-      setShowAddListSideCard(true);
+      setShowAddListModal(true);
+      setCreationStep('choose');
+    }
+  };
+
+  const handleOnboardingSelect = (method: 'manual' | 'import' | 'ai') => {
+    setCreationStep(method);
+  };
+
+  const handleOnboardingClose = () => {
+    setShowAddListModal(false);
+    setCreationStep('choose');
+  };
+
+  const handleBuildWithAI = async (template: string) => {
+    setIsGenerating(true);
+    try {
+      console.log('Calling /api/generate-list with template:', template);
+      const response = await fetch('/api/generate-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weddingDate: '2023-12-31', template }), // Pass the selected template
+      });
+      const data = await response.json();
+      console.log('Response from /api/generate-list:', data);
+      setListName(data.listName);
+      setTasks(data.tasks);
+      console.log('Updated listName:', data.listName);
+      console.log('Updated tasks:', data.tasks);
+    } catch (error) {
+      console.error('Error generating list:', error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -85,7 +129,9 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                 <span className="inline-block align-middle text-[#A85C36]">📋</span>
               </span>
               <span>All To-Do Items</span>
-              <span className="ml-auto text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">{allTodoCount}</span>
+              <span className="ml-auto">
+                <BadgeCount count={allTodoCount} />
+              </span>
             </div>
             <div
               className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && showCompletedItems ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mb-8`}
@@ -96,8 +142,8 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                 <span className="inline-block align-middle text-[#A85C36]">✔️</span>
               </span>
               <span>Completed To-Do Items</span>
-              <span className="ml-auto text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
-                {allTodoItems.filter(item => item.isCompleted).length}
+              <span className="ml-auto">
+                <BadgeCount count={allTodoItems.filter(item => item.isCompleted).length} />
               </span>
             </div>
             <div className="my-12 flex items-center gap-2">
@@ -116,24 +162,17 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <span>{list.name}</span>
-                  {listTaskCounts.has(list.id) && (
-                    <span className="ml-2 text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full">{listTaskCounts.get(list.id)}</span>
-                  )}
+                  <BadgeCount count={listTaskCounts.get(list.id) ?? 0} />
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-      {/* AddSideCard for new list creation */}
-      <TaskSideCard
-        open={showAddListSideCard}
-        onClose={() => setShowAddListSideCard(false)}
-        onAddList={handleAddListWithTasks}
-        allLists={todoLists}
-        allCategories={allCategories}
-        mode="list"
-        listLimitReached={listLimitReached}
+      <NewListOnboardingModal
+        isOpen={showAddListModal}
+        onClose={handleOnboardingClose}
+        onSelect={handleOnboardingSelect}
       />
     </aside>
   );

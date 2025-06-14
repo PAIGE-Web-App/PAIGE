@@ -747,7 +747,7 @@ export default function Home() {
 
   // Function to handle tab changes from BottomNavBar
   const handleMobileTabChange = useCallback((tab: 'contacts' | 'todo') => {
-    setActiveMobileTab(tab);
+  setActiveMobileTab(tab);
   }, []);
 
   // Only show content when both loading is complete AND minimum time has passed
@@ -1099,35 +1099,35 @@ export default function Home() {
         <MessagesPanel
           contactsLoading={contactsLoading}
           contacts={contacts}
-          selectedContact={selectedContact}
-          currentUser={currentUser}
-          isAuthReady={isAuthReady}
-          isMobile={isMobile}
+                selectedContact={selectedContact}
+                currentUser={currentUser}
+                isAuthReady={isAuthReady}
+                isMobile={isMobile}
           activeMobileTab={activeMobileTab}
-          setActiveMobileTab={setActiveMobileTab}
-          input={input}
-          setInput={setInput}
-          draftLoading={draftLoading}
+                setActiveMobileTab={setActiveMobileTab}
+                input={input}
+                setInput={setInput}
+                draftLoading={draftLoading}
           generateDraftMessage={generateDraftMessage}
-          selectedFiles={selectedFiles}
-          setSelectedFiles={setSelectedFiles}
-          setIsEditing={setIsEditing}
-          onContactSelect={setSelectedContact}
+                selectedFiles={selectedFiles}
+                setSelectedFiles={setSelectedFiles}
+                setIsEditing={setIsEditing}
+                onContactSelect={setSelectedContact}
           setShowOnboardingModal={setShowOnboardingModal}
           userName={userName}
           showOnboardingModal={showOnboardingModal}
-        />
+              />
       </main>
 
         {(currentUser && !loadingAuth) ? (
           <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
             <RightDashboardPanel
-              currentUser={currentUser}
-              isMobile={isMobile}
-              activeMobileTab={activeMobileTab}
-              contacts={contacts}
-              rightPanelSelection={rightPanelSelection}
-              setRightPanelSelection={setRightPanelSelection}
+               currentUser={currentUser}
+                isMobile={isMobile}
+                activeMobileTab={activeMobileTab}
+                contacts={contacts}
+                rightPanelSelection={rightPanelSelection}
+                setRightPanelSelection={setRightPanelSelection}
               onUpdateTodoDeadline={handleUpdateTodoDeadline}
               onUpdateTodoNotes={handleUpdateTodoNotes}
               onUpdateTodoCategory={handleUpdateTodoCategory}

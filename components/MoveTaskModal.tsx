@@ -60,7 +60,7 @@ const MoveTaskModal: React.FC<MoveTaskModalProps> = ({ task, todoLists, currentL
           )}
 
           <div className="mt-6 flex justify-end">
-            <button onClick={onClose} className="btn-primary-inverse">
+            <button onClick={onClose} className="btn-primaryinverse">
               Cancel
             </button>
           </div>

@@ -4,8 +4,10 @@ import { format, parse, startOfWeek, getDay, endOfWeek, isSameMonth, isSameYear,
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { getCategoryHexColor } from '../utils/categoryStyle';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { TodoItem } from '../types/todo';
+import BadgeCount from './BadgeCount';
+import ListMenuDropdown from './ListMenuDropdown';
 
 const locales = {
   'en-US': enUS,
@@ -32,6 +34,12 @@ interface CalendarViewProps {
   onViewChange?: (view: 'month' | 'week' | 'day' | 'year') => void;
   onNavigate?: (date: Date) => void;
   date?: Date;
+  handleCloneTodo?: (todo: TodoItem) => void;
+  handleDeleteTodo?: (todoId: string) => void;
+  setTaskToMove?: (todo: TodoItem) => void;
+  setShowMoveTaskModal?: (show: boolean) => void;
+  todoLists?: any[];
+  allCategories?: string[];
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -41,6 +49,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onViewChange,
   onNavigate,
   date = new Date(),
+  handleCloneTodo,
+  handleDeleteTodo,
+  setTaskToMove,
+  setShowMoveTaskModal,
+  todoLists = [],
+  allCategories = [],
 }) => {
   if (!todoItems) return null;
 
@@ -61,7 +75,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         end,
         resource: item,
         allDay: !item.startDate && !item.endDate, // If no specific times are set, it's an all-day event
-        category: item.category || 'General Planning',
+        category: item.category || 'Uncategorized',
       };
     });
   }, [todoItems]);
@@ -125,23 +139,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onNavigate(d);
   };
 
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; event: TaskEvent | null } | null>(null);
+
   // Custom event component
   const EventComponent = ({ event }: { event: TaskEvent }) => (
     <div
-      className="p-1 text-xs font-work"
+      className="p-1 text-xs font-work flex items-center"
       style={{
         backgroundColor: getCategoryHexColor(event.category),
         color: '#fff',
         borderRadius: '4px',
         overflow: 'hidden',
       }}
+      onContextMenu={e => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, event });
+      }}
     >
-      {event.title}
+      {event.resource.isCompleted && (
+        <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80" />
+      )}
+      <span className={event.resource.isCompleted ? 'line-through opacity-70' : ''}>
+        {event.title}
+      </span>
     </div>
   );
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white" style={{ position: 'relative' }}>
+      {/* Remove default react-big-calendar event borders/backgrounds */}
+      <style>{`
+        .rbc-event, .rbc-day-slot .rbc-background-event {
+          border: none !important;
+          background: none !important;
+          box-shadow: none !important;
+        }
+      `}</style>
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b">
         <div className="flex items-center gap-2">
@@ -157,7 +190,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           >
             <ChevronRight className="w-5 h-5" />
           </button>
-          <h2 className="text-lg font-work font-medium">{headerText}</h2>
+          <h2 className="text-lg font-work font-medium flex items-center">
+            {headerText}
+            <BadgeCount count={visibleEvents.length} />
+          </h2>
         </div>
       </div>
 
@@ -175,6 +211,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           view={view}
           date={date}
         />
+        {/* Context menu for right-clicked event */}
+        {contextMenu && contextMenu.event && (
+          <div
+            onClick={() => setContextMenu(null)}
+          >
+            <ListMenuDropdown
+              list={undefined}
+              todo={contextMenu.event.resource}
+              handleCloneTodo={handleCloneTodo}
+              handleDeleteTodo={handleDeleteTodo}
+              setTaskToMove={setTaskToMove}
+              setShowMoveTaskModal={setShowMoveTaskModal}
+              todoLists={todoLists}
+              allCategories={allCategories}
+              onClose={() => setContextMenu(null)}
+              position={{ x: contextMenu.x, y: contextMenu.y }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Legend */}

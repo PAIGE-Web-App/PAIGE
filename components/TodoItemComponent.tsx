@@ -215,7 +215,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       setIsEditingDeadline(false);
     } else if (e.key === 'Escape') {
       setEditingDeadlineValue('');
-      setIsEditingDeadline(false);
+    setIsEditingDeadline(false);
       e.currentTarget.blur();
     }
   }, [todo.id, editingDeadlineValue, editingEndDateValue, handleUpdateDeadline]);
@@ -295,8 +295,8 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     const categoryToSave = editingCategoryDropdownValue === "Other" ? editingCustomCategoryValue : editingCategoryDropdownValue;
     if (categoryToSave !== todo.category) {
       await handleUpdateCategory(todo.id, categoryToSave);
-      setJustUpdated(true);
-      setTimeout(() => setJustUpdated(false), 1000);
+    setJustUpdated(true);
+    setTimeout(() => setJustUpdated(false), 1000);
     }
     setIsEditingCategory(false);
   }, [editingCategoryDropdownValue, editingCustomCategoryValue, todo.id, todo.category, handleUpdateCategory]);
@@ -553,17 +553,17 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         {/* Deadline and End Date Inline Editing */}
         {isEditingDeadline ? (
           <div className="flex items-center gap-2 mt-1">
-            <input
-              ref={deadlineInputRef}
-              type="datetime-local"
-              value={editingDeadlineValue}
+              <input
+                ref={deadlineInputRef}
+                type="datetime-local"
+                value={editingDeadlineValue}
               onChange={handleDeadlineChange}
-              onBlur={handleDeadlineBlur}
+                onBlur={handleDeadlineBlur}
               onKeyDown={handleDeadlineKeyDown}
-              className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-              autoFocus
+                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                autoFocus
             />
-            <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+            <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
           </div>
         ) : (
           <div className="flex items-center gap-1 text-xs text-[#364257] mt-1">
@@ -586,18 +586,18 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 {/* End Date logic: always show if deadline is set */}
                 {isEditingEndDate ? (
                   <div className="flex items-center gap-2 ml-2">
-                    <input
-                      type="datetime-local"
+              <input
+                type="datetime-local"
                       value={editingEndDateValue}
                       onChange={e => setEditingEndDateValue(e.target.value)}
                       onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
-                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                      autoFocus
+                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                autoFocus
                       min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
-                    />
-                    <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
-                    {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primary-inverse text-xs px-2 py-1">Remove</button>}
-                  </div>
+              />
+                    <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+                    {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primaryinverse text-xs px-2 py-1">Remove</button>}
+            </div>
                 ) : todo.endDate ? (
                   <>
                     <span className="mx-1">→</span>
@@ -621,7 +621,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                   </button>
                 )}
               </>
-            ) : (
+          ) : (
               <button
                 type="button"
                 className="text-xs text-[#A85C36] hover:underline"
@@ -664,7 +664,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
               />
               <div className="flex gap-2 mt-1">
                 <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
-                <button onClick={handleNoteCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
               </div>
             </div>
           )
@@ -698,7 +698,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 )}
                 <div className="flex gap-2 mt-1">
                   <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
-                  <button className="btn-primary-inverse text-xs px-2 py-1" disabled> Cancel </button>
+                  <button className="btn-primaryinverse text-xs px-2 py-1" disabled> Cancel </button>
                 </div>
               </span>
             ) : (
@@ -723,7 +723,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
                 )}
                 <div className="flex gap-2 mt-1">
                   <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                  <button onClick={handleCategoryBlur} className="btn-primary-inverse text-xs px-2 py-1"> Cancel </button>
+                  <button onClick={handleCategoryBlur} className="btn-primaryinverse text-xs px-2 py-1"> Cancel </button>
                 </div>
               </div>
             )

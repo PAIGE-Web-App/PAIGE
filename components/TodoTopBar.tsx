@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar as CalendarIcon, List as ListIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, List as ListIcon, Search, X as LucideX, Copy, Trash2 } from 'lucide-react';
 import DropdownMenu from './DropdownMenu';
 
 interface TodoTopBarProps {
@@ -17,6 +17,8 @@ interface TodoTopBarProps {
   setViewMode: (mode: 'list' | 'calendar') => void;
   calendarViewMode: 'month' | 'week' | 'day' | 'year';
   setCalendarViewMode: (mode: 'month' | 'week' | 'day' | 'year') => void;
+  handleCloneList: (id: string) => void;
+  handleDeleteList?: (id: string) => void;
 }
 
 const TodoTopBar: React.FC<TodoTopBarProps> = ({
@@ -34,23 +36,36 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
   setViewMode,
   calendarViewMode,
   setCalendarViewMode,
+  handleCloneList,
+  handleDeleteList,
 }) => {
   const [showDropdown, setShowDropdown] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      if (
+        searchOpen &&
+        searchInputRef.current &&
+        !(searchInputRef.current.parentElement?.contains(event.target as Node))
+      ) {
+        setSearchOpen(false);
+      }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     }
-    if (showDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showDropdown]);
+  }, [searchOpen]);
 
   return (
     <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
@@ -89,31 +104,86 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
                   : selectedList?.name || 'All To-Do Items'}
               </h1>
             )}
-            {selectedList && selectedList.name !== 'My To-do' && !editingListNameId && (
-              <button
-                onClick={() => {
-                  setEditingListNameId(selectedList.id);
-                  setEditingListNameValue(selectedList.name);
-                }}
-                className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
-              >
-                <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">✏️</span>
-              </button>
+            {selectedList && !editingListNameId && (
+              <>
+                {selectedList.name !== 'My To-do' && (
+                  <button
+                    onClick={() => {
+                      setEditingListNameId(selectedList.id);
+                      setEditingListNameValue(selectedList.name);
+                    }}
+                    className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
+                    title="Rename List"
+                  >
+                    <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">✏️</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleCloneList(selectedList.id)}
+                  className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
+                  title="Clone List"
+                  aria-label="Clone List"
+                >
+                  <Copy className="w-4 h-4 text-[#364257]" />
+                </button>
+                {selectedList.name !== 'My To-do' && (
+                  <>
+                    <button
+                      onClick={() => handleDeleteList?.(selectedList.id)}
+                      className="p-1 hover:bg-[#FDEAEA] rounded-[5px]"
+                      title="Delete List"
+                      aria-label="Delete List"
+                    >
+                      <Trash2 className="w-4 h-4 text-[#D63030]" />
+                    </button>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
-        {/* Search Bar (center, grows) */}
-        <div className="flex-1 flex justify-center">
-          <input
-            type="text"
-            placeholder="Search for a To-do Item"
-            className="w-full max-w-md px-4 py-2 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36]"
-            value={todoSearchQuery}
-            onChange={(e) => setTodoSearchQuery(e.target.value)}
-          />
-        </div>
         {/* Action Buttons (right) */}
-        <div className="flex-shrink-0 flex gap-4">
+        <div className="flex-1 flex justify-end items-center gap-4">
+          {/* Animated Search Bar */}
+          <div
+            className={`relative flex items-center mr-2 overflow-hidden transition-all duration-300 bg-transparent`}
+            style={{ width: searchOpen ? '240px' : '32px', minWidth: '32px', height: '32px' }}
+          >
+            <button
+              className="p-2 rounded-full hover:bg-[#EBE3DD] transition-colors duration-200 absolute left-0 z-10"
+              style={{ height: '32px', width: '32px' }}
+              onClick={() => setSearchOpen((open) => !open)}
+              aria-label={searchOpen ? 'Close search' : 'Open search'}
+              type="button"
+              tabIndex={searchOpen ? -1 : 0}
+            >
+              <Search className="w-4 h-4 text-[#364257]" />
+            </button>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search for a To-do Item"
+              className={`absolute left-0 w-full h-8 pl-9 pr-9 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${searchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+              value={todoSearchQuery}
+              onChange={(e) => setTodoSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearchOpen(false);
+              }}
+              style={{ height: '32px', zIndex: 5 }}
+              tabIndex={searchOpen ? 0 : -1}
+            />
+            {todoSearchQuery && (
+              <button
+                className={`absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 ${searchOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setTodoSearchQuery('')}
+                tabIndex={searchOpen ? 0 : -1}
+                type="button"
+                style={{ zIndex: 10 }}
+              >
+                <LucideX className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           {/* Calendar View Mode Dropdown */}
           {viewMode === 'calendar' && (
             <DropdownMenu
@@ -153,7 +223,7 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
           </div>
           {/* Only show the New To-do button if not viewing Completed To-Do Items */}
           {!showCompletedItems && (
-            <button className="btn-primary" onClick={handleOpenAddTodo}>
+            <button className="btn-primary ml-2" onClick={handleOpenAddTodo}>
               + New To-do Item
             </button>
           )}
@@ -163,4 +233,4 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
   );
 };
 
-export default TodoTopBar; 
+export default TodoTopBar;

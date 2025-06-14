@@ -7,6 +7,70 @@ import ListMenuDropdown from './ListMenuDropdown';
 import Banner from './Banner';
 import { useRouter } from 'next/navigation';
 import DropdownMenu from './DropdownMenu';
+import TodoTopBar from './TodoTopBar';
+
+interface ToDoPanelProps {
+  todoLists: any[];
+  selectedListId: string | null;
+  setSelectedListId: (id: string | null) => void;
+  editingListNameId: string | null;
+  setEditingListNameId: (id: string | null) => void;
+  editingListNameValue: string | null;
+  setEditingListNameValue: (val: string | null) => void;
+  openListMenuId: string | null;
+  setOpenListMenuId: (id: string | null) => void;
+  listButtonRefs: any;
+  listTaskCounts: Map<string, number>;
+  showNewListInput: boolean;
+  setShowNewListInput: (val: boolean) => void;
+  newListName: string;
+  setNewListName: (val: string) => void;
+  newListInputRef: React.RefObject<HTMLInputElement>;
+  handleCreateNewList: () => void;
+  willReachListLimit: boolean;
+  STARTER_TIER_MAX_LISTS: number;
+  showListLimitBanner: boolean;
+  setShowListLimitBanner: (val: boolean) => void;
+  handleRenameList: (id: string) => void;
+  handleDeleteList: (id: string) => void;
+  handleCloneList: (id: string) => void;
+  sortOption: string;
+  setShowSortMenu: (val: boolean) => void;
+  showSortMenu: boolean;
+  sortMenuRef: React.RefObject<HTMLDivElement>;
+  handleSortOptionSelect: (option: string) => void;
+  showAddTaskDropdown: boolean;
+  setShowAddTaskDropdown: (val: boolean) => void;
+  addTaskDropdownRef: React.RefObject<HTMLDivElement>;
+  handleAddNewTodo: () => void;
+  filteredTodoItems: any;
+  handleListDragOver: (e: any) => void;
+  handleListDrop: (e: any) => void;
+  contacts: any[];
+  allCategories: any[];
+  draggedTodoId: string | null;
+  dragOverTodoId: string | null;
+  dropIndicatorPosition: any;
+  currentUser: any;
+  handleToggleTodoComplete: (todo: any) => void;
+  handleUpdateTaskName: (id: string, name: string) => void;
+  handleUpdateDeadline: (id: string, deadline: string | null, endDate?: string | null) => void;
+  handleUpdateNote: (id: string, note: string | null) => void;
+  handleUpdateCategory: (id: string, category: string | null) => void;
+  handleCloneTodo: (todo: any) => void;
+  handleDeleteTodo: (id: string) => void;
+  setTaskToMove: (todo: any) => void;
+  setShowMoveTaskModal: (val: boolean) => void;
+  handleDragStart: (e: any, id: string) => void;
+  handleDragEnter: (e: any, id: string) => void;
+  handleDragLeave: (e: any) => void;
+  handleItemDragOver: (e: any, id: string) => void;
+  handleDragEnd: (e: any) => void;
+  showCompletedTasks: boolean;
+  setShowCompletedTasks: (val: boolean) => void;
+  router: any;
+  setShowUpgradeModal: (val: boolean) => void;
+}
 
 const ToDoPanel = ({
   todoLists,
@@ -32,6 +96,7 @@ const ToDoPanel = ({
   setShowListLimitBanner,
   handleRenameList,
   handleDeleteList,
+  handleCloneList,
   sortOption,
   setShowSortMenu,
   showSortMenu,
@@ -68,7 +133,7 @@ const ToDoPanel = ({
   setShowCompletedTasks,
   router,
   setShowUpgradeModal
-}) => (
+}: ToDoPanelProps) => (
   <div className="flex flex-col h-full">
     {/* Wrapper div for the header and tabs with the desired background color */}
     <div className="bg-[#F3F2F0] rounded-t-[5px] -mx-4 -mt-4 border-b border-[#AB9C95] p-3 md:p-4">
@@ -183,20 +248,22 @@ const ToDoPanel = ({
                     {listTaskCounts.get(list.id)}
                   </span>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenListMenuId(openListMenuId === list.id ? null : list.id);
-                  }}
-                  className="flex-shrink-0 p-1 rounded-full text-gray-500 hover:bg-gray-300 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  ref={el => { if (el) listButtonRefs.current[list.id] = el; }}
-                >
-                  <MoreHorizontal size={14} />
-                </button>
+                {list.name !== 'My To-do' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenListMenuId(openListMenuId === list.id ? null : list.id);
+                    }}
+                    className="flex-shrink-0 p-1 rounded-full text-gray-500 hover:bg-gray-300 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    ref={el => { if (el) listButtonRefs.current[list.id] = el; }}
+                  >
+                    <MoreHorizontal size={14} />
+                  </button>
+                )}
               </div>
             )}
             <AnimatePresence>
-              {openListMenuId === list.id && (
+              {openListMenuId === list.id && list.name !== 'My To-do' && (
                 <ListMenuDropdown
                   list={list}
                   handleRenameList={handleRenameList}
@@ -217,7 +284,7 @@ const ToDoPanel = ({
               // Always show the input field when the "New List" button is clicked
               setShowNewListInput(true);
             }}
-            className="btn-primary-inverse px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap mr-2 transition-colors"
+            className="btn-primaryinverse px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap mr-2 transition-colors"
             title={willReachListLimit ? `You have reached the limit of ${STARTER_TIER_MAX_LISTS} lists.` : 'Create a new list'}
           >
             + New List
@@ -250,13 +317,13 @@ const ToDoPanel = ({
             />
             <button
               onClick={handleCreateNewList}
-              className="btn-primary text-xs px-3 py-1"
+              className="btn-primaryinverse text-xs px-3 py-1"
             >
               Add
             </button>
             <button
               onClick={() => { setShowNewListInput(false); setNewListName(''); }}
-              className="btn-primary-inverse text-xs px-3 py-1"
+              className="btn-primaryinverse text-xs px-3 py-1"
             >
               Cancel
             </button>

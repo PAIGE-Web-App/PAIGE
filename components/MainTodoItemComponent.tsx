@@ -446,7 +446,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                   className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                   autoFocus
                 />
-                <button onClick={handleDeadlineCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
               </div>
             ) : (
               <div className="flex items-center gap-1 text-xs text-[#7A7A7A] mt-1">
@@ -479,8 +479,8 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                           className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                           autoFocus
                         />
-                        <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
-                        {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primary-inverse text-xs px-2 py-1">Remove</button>}
+                        <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+                        {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primaryinverse text-xs px-2 py-1">Remove</button>}
                       </div>
                     ) : (
                       <>
@@ -541,7 +541,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                 />
                 <div className="flex gap-2 mt-1">
                   <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
-                  <button onClick={handleNoteCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                  <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
                 </div>
               </div>
             )}
@@ -569,7 +569,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                   )}
                   <div className="flex gap-2 mt-1">
                     <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1">Update</button>
-                    <button onClick={handleCategoryCancel} className="btn-primary-inverse text-xs px-2 py-1">Cancel</button>
+                    <button onClick={handleCategoryCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
                   </div>
                 </div>
               </div>

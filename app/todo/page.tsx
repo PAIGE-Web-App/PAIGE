@@ -440,23 +440,23 @@ export default function TodoPage() {
     }
   };
 
-  // Handler for deleting a list
+  // Handler for deleting a list and its tasks (used by handleDeleteList and modal confirm)
   const executeDeleteList = async (listId: string) => {
     if (!user) return;
     try {
       const batch = writeBatch(db);
       // Delete all tasks in the list first
-      // If you have a subcollection for todoItems under each list, keep this. Otherwise, remove if not used.
-      // const tasksQuery = query(collection(db, `users/${user.uid}/todoLists/${listId}/todoItems`));
-      // const tasksSnapshot = await getDocs(tasksQuery);
-      // tasksSnapshot.docs.forEach(taskDoc => {
-      //   batch.delete(taskDoc.ref);
-      // });
-
+      const tasksQuery = query(
+        getUserCollectionRef('todoItems', user.uid),
+        where('listId', '==', listId)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      tasksSnapshot.docs.forEach(taskDoc => {
+        batch.delete(taskDoc.ref);
+      });
       // Then delete the list itself
       const listRef = doc(getUserCollectionRef('todoLists', user.uid), listId);
       batch.delete(listRef);
-
       await batch.commit();
       showSuccessToast('List and its tasks deleted!');
       // Select the first list if available, otherwise null
@@ -469,6 +469,43 @@ export default function TodoPage() {
     } catch (error) {
       console.error('Error deleting list:', error);
       showErrorToast('Failed to delete list.');
+    }
+  };
+
+  // Handler for deleting a list (shows modal if tasks exist, deletes immediately if not)
+  const [deletingListId, setDeletingListId] = useState<string | null>(null);
+  const [pendingDeleteListId, setPendingDeleteListId] = useState<string | null>(null);
+
+  // Decoupled effect to trigger handleDeleteList only once per user action
+  useEffect(() => {
+    if (pendingDeleteListId) {
+      console.log('[useEffect] pendingDeleteListId changed:', pendingDeleteListId);
+      handleDeleteList(pendingDeleteListId);
+      setPendingDeleteListId(null);
+    }
+  }, [pendingDeleteListId]);
+
+  const handleDeleteList = async (listId: string) => {
+    console.log('[handleDeleteList] called with listId:', listId);
+    if (!user) return;
+    if (deletingListId) return; // Prevent double modal
+    // Check if the list has any tasks
+    const tasksQuery = query(
+      getUserCollectionRef('todoItems', user.uid),
+      where('listId', '==', listId)
+    );
+    const tasksSnapshot = await getDocs(tasksQuery);
+    const listToDelete = todoLists.find(list => list.id === listId) || null;
+    if (tasksSnapshot.size > 0) {
+      setDeletingListId(listId);
+      setListToConfirmDelete(listToDelete);
+      setShowDeleteListModal(true);
+      console.log('[handleDeleteList] opening modal for listId:', listId);
+    } else {
+      setDeletingListId(listId);
+      await executeDeleteList(listId);
+      setDeletingListId(null);
+      console.log('[handleDeleteList] deleted list immediately:', listId);
     }
   };
 
@@ -577,9 +614,9 @@ export default function TodoPage() {
       const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
       if (newCategory && newCategory.trim() !== "") {
         if (!allCategories.includes(newCategory)) {
-          await saveCategoryIfNew(newCategory, user.uid);
-        }
-        await updateDoc(itemRef, { category: newCategory, userId: user.uid });
+        await saveCategoryIfNew(newCategory, user.uid);
+      }
+      await updateDoc(itemRef, { category: newCategory, userId: user.uid });
         
         // Update local state
         setTodoItems(prevItems =>
@@ -1232,6 +1269,82 @@ export default function TodoPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewMode, setCalendarViewMode, calendarViewMode]);
 
+  // Handler to clone a list and its tasks
+  const handleCloneList = async (listId: string) => {
+    if (!user) {
+      showErrorToast('You must be logged in to clone a list.');
+      return;
+    }
+    if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    const listToClone = todoLists.find(list => list.id === listId);
+    if (!listToClone) {
+      showErrorToast('List not found.');
+      return;
+    }
+    // Generate a unique name for the cloned list
+    const baseName = listToClone.name.replace(/ \(Copy( \d+)?\)$/i, '');
+    let copyNumber = 1;
+    let newName = `${baseName} (Copy)`;
+    while (todoLists.some(list => list.name === newName)) {
+      copyNumber++;
+      newName = `${baseName} (Copy ${copyNumber})`;
+    }
+    // Calculate the next orderIndex for lists
+    const maxListOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
+    try {
+      // 1. Create the new list
+      const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), {
+        name: newName,
+        order: todoLists.length,
+        userId: user.uid,
+        createdAt: new Date(),
+        orderIndex: maxListOrderIndex + 1
+      });
+      // 2. Fetch all tasks from the original list
+      const tasksQuery = query(
+        getUserCollectionRef('todoItems', user.uid),
+        where('listId', '==', listId)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      // 3. Clone each task to the new list
+      const batch = writeBatch(db);
+      let maxOrderIndex = -1;
+      tasksSnapshot.forEach(taskDoc => {
+        const data = taskDoc.data();
+        maxOrderIndex = Math.max(maxOrderIndex, data.orderIndex || 0);
+      });
+      let orderIndex = maxOrderIndex + 1;
+      tasksSnapshot.forEach(taskDoc => {
+        const data = taskDoc.data();
+        const newTaskRef = doc(getUserCollectionRef('todoItems', user.uid));
+        batch.set(newTaskRef, {
+          ...data,
+          listId: newListRef.id,
+          createdAt: new Date(),
+          orderIndex: orderIndex++,
+        });
+      });
+      await batch.commit();
+      showSuccessToast(`List "${newName}" and its tasks cloned!`);
+      // Navigate to the new list
+      const newList = {
+        id: newListRef.id,
+        name: newName,
+        order: todoLists.length,
+        userId: user.uid,
+        createdAt: new Date(),
+        orderIndex: maxListOrderIndex + 1
+      };
+      setSelectedList(newList);
+    } catch (error: any) {
+      console.error('Error cloning list:', error);
+      showErrorToast(`Failed to clone list: ${error.message}`);
+    }
+  };
+
   if (loading) {
   return (
       <div className="flex flex-col min-h-screen bg-linen">
@@ -1330,10 +1443,24 @@ export default function TodoPage() {
               setViewMode={setViewMode}
               calendarViewMode={calendarViewMode}
               setCalendarViewMode={setCalendarViewMode}
+              handleCloneList={handleCloneList}
+              handleDeleteList={handleDeleteList}
             />
             <main className="flex-1 flex flex-col min-h-0 h-full bg-white">
               {viewMode === 'calendar' ? (
-                <CalendarView todoItems={todoItems} onEventClick={handleCalendarTaskClick} view={calendarViewMode} date={calendarDate} />
+                <CalendarView
+                  todoItems={todoItems}
+                  onEventClick={handleCalendarTaskClick}
+                  view={calendarViewMode}
+                  date={calendarDate}
+                  onNavigate={setCalendarDate}
+                                handleCloneTodo={handleCloneTodo}
+                                handleDeleteTodo={handleDeleteTodoItem}
+                                setTaskToMove={setTaskToMove}
+                                setShowMoveTaskModal={setShowMoveTaskModal}
+                  todoLists={todoLists}
+                  allCategories={allCategories}
+                              />
               ) : (
                 <TodoListView
                   todoItems={todoItems}
@@ -1346,30 +1473,30 @@ export default function TodoPage() {
                   todoSearchQuery={todoSearchQuery}
                   selectedList={selectedList}
                   todoLists={todoLists}
-                  allCategories={allCategories}
-                  draggedTodoId={draggedTodoId}
-                  dragOverTodoId={dragOverTodoId}
-                  dropIndicatorPosition={dropIndicatorPosition}
+                                allCategories={allCategories}
+                                draggedTodoId={draggedTodoId}
+                                dragOverTodoId={dragOverTodoId}
+                                dropIndicatorPosition={dropIndicatorPosition}
                   user={user}
-                  handleToggleTodoComplete={handleToggleTodoCompletion}
-                  handleUpdateTaskName={handleUpdateTodoName}
-                  handleUpdateDeadline={handleUpdateTodoDeadline}
-                  handleUpdateNote={handleUpdateTodoNote}
-                  handleUpdateCategory={handleUpdateTodoCategory}
-                  handleCloneTodo={handleCloneTodo}
-                  handleDeleteTodo={handleDeleteTodoItem}
-                  setTaskToMove={setTaskToMove}
-                  setShowMoveTaskModal={setShowMoveTaskModal}
-                  handleDragStart={handleDragStart}
-                  handleDragEnter={handleDragEnter}
-                  handleDragLeave={handleDragLeave}
-                  handleItemDragOver={handleItemDragOver}
-                  handleDragEnd={handleDragEnd}
+                                handleToggleTodoComplete={handleToggleTodoCompletion}
+                                handleUpdateTaskName={handleUpdateTodoName}
+                                handleUpdateDeadline={handleUpdateTodoDeadline}
+                                handleUpdateNote={handleUpdateTodoNote}
+                                handleUpdateCategory={handleUpdateTodoCategory}
+                                handleCloneTodo={handleCloneTodo}
+                                handleDeleteTodo={handleDeleteTodoItem}
+                                setTaskToMove={setTaskToMove}
+                                setShowMoveTaskModal={setShowMoveTaskModal}
+                                handleDragStart={handleDragStart}
+                                handleDragEnter={handleDragEnter}
+                                handleDragLeave={handleDragLeave}
+                                handleItemDragOver={handleItemDragOver}
+                                handleDragEnd={handleDragEnd}
                   handleListDrop={handleListDrop}
                   showCompletedTasks={showCompletedTasks}
                   setShowCompletedTasks={setShowCompletedTasks}
-                />
-              )}
+                              />
+          )}
             </main>
           </div>
         </div>
@@ -1389,16 +1516,22 @@ export default function TodoPage() {
       )}
 
       {showDeleteListModal && listToConfirmDelete && (
+        console.log('[DeleteListConfirmationModal] rendering for listId:', listToConfirmDelete.id),
         <DeleteListConfirmationModal
           list={listToConfirmDelete}
           onConfirm={async () => {
-            await executeDeleteList(listToConfirmDelete.id);
+            console.log('[DeleteListConfirmationModal] onConfirm for listId:', listToConfirmDelete.id);
+            if (listToConfirmDelete) {
             setShowDeleteListModal(false);
             setListToConfirmDelete(null);
+              setDeletingListId(null);
+              await executeDeleteList(listToConfirmDelete.id);
+            }
           }}
           onClose={() => {
             setShowDeleteListModal(false);
             setListToConfirmDelete(null);
+            setDeletingListId(null);
           }}
         />
       )}
@@ -1415,7 +1548,7 @@ export default function TodoPage() {
         <ListMenuDropdown
           list={selectedTodoListForMenu}
           handleRenameList={handleRenameList}
-          handleDeleteList={executeDeleteList}
+          setPendingDeleteListId={setPendingDeleteListId}
           setEditingListNameId={setEditingListNameId}
           setEditingListNameValue={setEditingListNameValue}
           setOpenListMenuId={setOpenListMenuId}
@@ -1442,7 +1575,7 @@ export default function TodoPage() {
           setSelectedTaskForSideCard(null);
         }}
         onSubmit={showTaskDetailCard ? handleUpdateTask : handleAddTodo}
-        mode="todo"
+        mode={showTaskDetailCard ? 'calendar' : 'todo'}
         userId={user.uid}
         todoLists={todoLists}
         selectedListId={selectedList ? selectedList.id : ''}
@@ -1457,6 +1590,10 @@ export default function TodoPage() {
           note: selectedTaskForSideCard.note,
           category: selectedTaskForSideCard.category
         } : undefined}
+        allCategories={allCategories}
+        todo={showTaskDetailCard ? selectedTaskForSideCard : undefined}
+        handleToggleTodoComplete={showTaskDetailCard ? handleToggleTodoCompletion : undefined}
+        handleDeleteTodo={showTaskDetailCard ? handleDeleteTodoItem : undefined}
       />
 
     </div>
