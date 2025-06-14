@@ -1,7 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, CircleCheck, ChevronUp, ChevronDown } from 'lucide-react';
-import TodoItemComponent from './TodoItemComponent';
+import UnifiedTodoItem from './UnifiedTodoItem';
 
 interface TodoListViewProps {
   todoItems: any[];
@@ -75,6 +75,14 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);
 
+  // Wrapper for handleUpdateTaskName to return a Promise<void>
+  const handleUpdateTaskNamePromise = (todoId: string, newName: string | null): Promise<void> => {
+    if (newName !== null) {
+      handleUpdateTaskName(todoId, newName);
+    }
+    return Promise.resolve();
+  };
+
   return (
     <main className="flex flex-col h-full min-h-0 bg-white p-4 pb-0">
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -84,7 +92,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
           ) : (
             filteredTodoItems.map((item) => (
               <div key={item.id} className="mb-2">
-                <TodoItemComponent
+                <UnifiedTodoItem
                   todo={item}
                   contacts={[]}
                   allCategories={allCategories}
@@ -94,7 +102,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   dropIndicatorPosition={dropIndicatorPosition}
                   currentUser={user}
                   handleToggleTodoComplete={handleToggleTodoComplete}
-                  handleUpdateTaskName={handleUpdateTaskName}
+                  handleUpdateTaskName={handleUpdateTaskNamePromise}
                   handleUpdateDeadline={handleUpdateDeadline}
                   handleUpdateNote={handleUpdateNote}
                   handleUpdateCategory={handleUpdateCategory}
@@ -107,6 +115,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   handleDragLeave={handleDragLeave}
                   handleItemDragOver={handleItemDragOver}
                   handleDragEnd={handleDragEnd}
+                  mode="page"
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                 />
               </div>
@@ -118,7 +127,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
           ) : (
             <div className="space-y-2">
               {todoItems.map((item) => (
-                <TodoItemComponent
+                <UnifiedTodoItem
                   key={item.id}
                   todo={item}
                   contacts={[]}
@@ -129,7 +138,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   dropIndicatorPosition={dropIndicatorPosition}
                   currentUser={user}
                   handleToggleTodoComplete={handleToggleTodoComplete}
-                  handleUpdateTaskName={handleUpdateTaskName}
+                  handleUpdateTaskName={handleUpdateTaskNamePromise}
                   handleUpdateDeadline={handleUpdateDeadline}
                   handleUpdateNote={handleUpdateNote}
                   handleUpdateCategory={handleUpdateCategory}
@@ -142,6 +151,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   handleDragLeave={handleDragLeave}
                   handleItemDragOver={handleItemDragOver}
                   handleDragEnd={handleDragEnd}
+                  mode="page"
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                 />
               ))}
@@ -198,19 +208,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                       return (
                         <div
                           key={item.id}
-                          id={`todo-item-${item.id}`}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, item.id)}
-                          onDragEnter={(e) => handleDragEnter(e, item.id)}
-                          onDragLeave={handleDragLeave}
-                          onDragOver={(e) => handleItemDragOver(e, item.id)}
-                          onDragEnd={handleDragEnd}
-                          className={`relative ${dragOverTodoId === item.id ? 'bg-[#EBE3DD]' : ''}`}
+                          className="mb-2"
                         >
-                          {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'top' && (
-                            <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#A85C36] -mt-0.5" />
-                          )}
-                          <TodoItemComponent
+                          <UnifiedTodoItem
                             todo={item}
                             contacts={[]}
                             allCategories={allCategories}
@@ -220,7 +220,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                             dropIndicatorPosition={dropIndicatorPosition}
                             currentUser={user}
                             handleToggleTodoComplete={handleToggleTodoComplete}
-                            handleUpdateTaskName={handleUpdateTaskName}
+                            handleUpdateTaskName={handleUpdateTaskNamePromise}
                             handleUpdateDeadline={handleUpdateDeadline}
                             handleUpdateNote={handleUpdateNote}
                             handleUpdateCategory={handleUpdateCategory}
@@ -233,11 +233,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                             handleDragLeave={handleDragLeave}
                             handleItemDragOver={handleItemDragOver}
                             handleDragEnd={handleDragEnd}
-                            {...(!selectedList && { listName: list ? list.name : 'Unknown List' })}
+                            mode="page"
+                            {...(!selectedList && { listName: list?.name || 'Unknown List' })}
                           />
-                          {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'bottom' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A85C36] -mb-0.5" />
-                          )}
                         </div>
                       );
                     })}
@@ -273,7 +271,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                 >
                   <div className="space-y-0">
                     {todoItems.filter(item => item.isCompleted).map((item) => (
-                      <TodoItemComponent
+                      <UnifiedTodoItem
                         key={item.id}
                         todo={item}
                         contacts={[]}
@@ -284,7 +282,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                         dropIndicatorPosition={dropIndicatorPosition}
                         currentUser={user}
                         handleToggleTodoComplete={handleToggleTodoComplete}
-                        handleUpdateTaskName={handleUpdateTaskName}
+                        handleUpdateTaskName={handleUpdateTaskNamePromise}
                         handleUpdateDeadline={handleUpdateDeadline}
                         handleUpdateNote={handleUpdateNote}
                         handleUpdateCategory={handleUpdateCategory}
@@ -297,6 +295,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                         handleDragLeave={handleDragLeave}
                         handleItemDragOver={handleItemDragOver}
                         handleDragEnd={handleDragEnd}
+                        mode="page"
                         {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                       />
                     ))}

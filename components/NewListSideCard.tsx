@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, WandSparkles, Upload, PenTool, FileText, Sparkles } from 'lucide-react';
 import FormField from './FormField';
 import CategorySelectField from './CategorySelectField';
+import ToDoFields from './ToDoFields';
+import ToDoListEditor from './ToDoListEditor';
 
 interface NewListSideCardProps {
   isOpen: boolean;
@@ -226,59 +228,13 @@ const NewListSideCard: React.FC<NewListSideCardProps> = ({ isOpen, onClose, onSu
                       <div>
                         <label className="block text-xs font-medium text-[#332B42] mb-1">Initial Tasks</label>
                         <div className="space-y-4">
-                          {tasks.map((task, idx) => (
-                            <div key={idx} className="border border-[#AB9C95] rounded-[5px] p-4 pb-4 mb-2">
-                              <div className="flex justify-between items-center mb-2">
-                                <h3 className="text-sm font-medium text-[#332B42]">{task.name.trim() ? task.name : `To-Do ${idx + 1}`}</h3>
-                                {tasks.length > 1 && (
-                                  <button type="button" onClick={() => handleRemoveTask(idx)} className="text-red-500 hover:text-red-700">
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="flex-1 space-y-2">
-                                <FormField
-                                  label="To-Do Name"
-                                  name={`task-name-${idx}`}
-                                  value={task.name}
-                                  onChange={e => updateTask(idx, 'name', e.target.value)}
-                                  placeholder="Enter to-do name"
-                                />
-                                <FormField
-                                  label="Note"
-                                  name={`task-note-${idx}`}
-                                  value={task.note || ''}
-                                  onChange={e => updateTask(idx, 'note', e.target.value)}
-                                  placeholder="Add a note..."
-                                />
-                                <CategorySelectField
-                                  userId={''}
-                                  value={task.category || ''}
-                                  customCategoryValue={customCategoryValue}
-                                  onChange={e => updateTask(idx, 'category', e.target.value)}
-                                  onCustomCategoryChange={e => setCustomCategoryValue(e.target.value)}
-                                  label="Category"
-                                  placeholder="Select a category"
-                                />
-                                <FormField
-                                  label="Deadline"
-                                  name={`task-deadline-${idx}`}
-                                  type="datetime-local"
-                                  value={task.deadline || ''}
-                                  onChange={e => updateTask(idx, 'deadline', e.target.value)}
-                                  placeholder="Select deadline"
-                                />
-                                <FormField
-                                  label="End Date"
-                                  name={`task-enddate-${idx}`}
-                                  type="datetime-local"
-                                  value={task.endDate || ''}
-                                  onChange={e => updateTask(idx, 'endDate', e.target.value)}
-                                  placeholder="Select end date"
-                                />
-                              </div>
-                            </div>
-                          ))}
+                          <ToDoListEditor
+                            tasks={tasks}
+                            setTasks={setTasks}
+                            customCategoryValue={customCategoryValue}
+                            setCustomCategoryValue={setCustomCategoryValue}
+                            allCategories={allCategories}
+                          />
                           <button
                             type="button"
                             onClick={handleAddTask}
