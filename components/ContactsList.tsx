@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Filter, X } from 'lucide-react';
+import { ListFilter, X } from 'lucide-react';
 import CategoryPill from './CategoryPill';
 import SelectField from './SelectField';
 
@@ -68,10 +68,10 @@ const ContactsList = ({
         <div className="flex items-center gap-4 mb-4 relative">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="text-[#332B42] border border-[#AB9C95] rounded-[5px] p-2 hover:bg-[#F3F2F0] flex items-center justify-center z-20"
+            className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-20"
             aria-label="Toggle Filters"
           >
-            <Filter className="w-4 h-4" />
+            <ListFilter className="w-4 h-4" />
           </button>
           <div className="relative flex-1">
             <svg

@@ -3,18 +3,18 @@
 export interface TodoItem {
   id: string;
   name: string;
-  deadline?: Date;
-  startDate?: Date;
-  endDate?: Date;
-  note?: string;
-  category?: string;
-  contactId?: string;
+  deadline?: Date | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  note?: string | null;
+  category?: string | null;
+  contactId?: string | null;
   isCompleted: boolean;
   userId: string;
   createdAt: Date;
   orderIndex: number;
   listId: string;
-  completedAt?: Date;
+  completedAt?: Date | null;
   justUpdated?: boolean;
 }
 

@@ -188,13 +188,14 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         )}
                         <div
                           ref={el => { messageRefs.current[msg.id] = el; }}
-                          className={`relative break-words break-all whitespace-pre-wrap overflow-wrap break-word rounded-[15px] p-3 ${
+                          className={`relative break-words whitespace-pre-wrap rounded-[15px] p-3 ${
                             isSent
                               ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px] self-end'
                               : 'bg-gray-100 text-gray-800 self-start border border-gray-300 border-[0.5px] rounded-[15px_15px_15px_0]'
                           } ${replyingToMessage?.id === msg.id ? 'ring-2 ring-[#A85C36]' : ''} ${
                             msg.parentMessageId ? '-mt-3 z-10' : 'mb-2'
                           } ${bouncingId === msg.id ? 'animate-bounce-once' : ''}`}
+                          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         >
                           <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
                             <span>{msg.source === 'gmail' ? 'Gmail' : 'Manual'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -209,7 +210,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           {msg.source === 'gmail' && msg.subject && (
                             <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
                           )}
-                          <div className="whitespace-pre-wrap">
+                          <div className="whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             {(msg.body && msg.body.trim()) ? stripQuotedText(msg.body)
                               : (msg.fullBody && msg.fullBody.trim()) ? stripQuotedText(msg.fullBody)
                               : <span className="italic text-gray-400">(No message content)</span>}

@@ -50,6 +50,11 @@ function parseLocalDateTime(input: string): Date {
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
+// Helper to convert null to undefined for Firestore fields
+function nullToUndefined<T>(value: T | null | undefined): T | undefined {
+  return value === null ? undefined : value;
+}
+
 // Define necessary interfaces
 interface RightDashboardPanelProps {
   currentUser: User;
@@ -120,7 +125,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [showAddTaskDropdown, setShowAddTaskDropdown] = useState(false);
   const addTaskDropdownRef = useRef<HTMLDivElement>(null);
-  const [sortOption, setSortOption] = useState<'myOrder' | 'date' | 'title'>('myOrder');
+  const [sortOption, setSortOption] = useState<'myOrder' | 'date' | 'title' | 'date-desc' | 'title-desc'>('myOrder');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
@@ -197,31 +202,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
         const currentSelectedListExists = fetchedLists.some(list => list.id === selectedListId);
 
-        if (!selectedListId || !currentSelectedListExists) {
-          let myTodoList = fetchedLists.find(list => list.name === 'My To-do');
-
-          if (!myTodoList) {
-            const newMyTodoList: Omit<TodoList, 'id'> = {
-              name: 'My To-do',
-              userId: userId,
-              createdAt: new Date(),
-              orderIndex: 0,
-            };
-            try {
-              const docRef = await addDoc(getUserCollectionRef("todoLists", userId), newMyTodoList);
-              myTodoList = { ...newMyTodoList, id: docRef.id };
-              toast.success('Created "My To-do" list!');
-            } catch (error) {
-              console.error('Error creating "My To-do" list:', error);
-              toast.error('Failed to create "My To-do" list.');
-            }
-          }
-          if (myTodoList && myTodoList.id !== selectedListId) {
-            setSelectedListId(myTodoList.id);
-          } else if (fetchedLists.length > 0 && !myTodoList && fetchedLists[0].id !== selectedListId) {
-            setSelectedListId(fetchedLists[0].id);
-          }
+        // Only set selectedListId if there are no lists at all
+        if (fetchedLists.length === 0 && selectedListId !== null) {
+          setSelectedListId(null);
         }
+        // Do NOT auto-select 'My To-do' or any other list if selectedListId is null
+        // This allows 'All To-Do' to be the default view
       }, (error) => {
         console.error('Error fetching To-do lists:', error);
         toast.error('Failed to load To-do lists.');
@@ -270,15 +256,26 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Effect to fetch To-Do items based on selectedListId
   useEffect(() => {
     let unsubscribeTodoItems: () => void;
-    if (currentUser && rightPanelSelection === 'todo' && selectedListId) {
+    if (currentUser && rightPanelSelection === 'todo') {
       const todoItemsCollectionRef = getUserCollectionRef<TodoItem>("todoItems", currentUser.uid);
-      const q = query(
-        todoItemsCollectionRef,
-        where('userId', '==', currentUser.uid),
-        where('listId', '==', selectedListId),
-        orderBy('orderIndex', 'asc'),
-        orderBy('createdAt', 'asc')
-      );
+      let q;
+      if (selectedListId) {
+        q = query(
+          todoItemsCollectionRef,
+          where('userId', '==', currentUser.uid),
+          where('listId', '==', selectedListId),
+          orderBy('orderIndex', 'asc'),
+          orderBy('createdAt', 'asc')
+        );
+      } else {
+        // All To-Do: fetch all tasks for the user
+        q = query(
+          todoItemsCollectionRef,
+          where('userId', '==', currentUser.uid),
+          orderBy('orderIndex', 'asc'),
+          orderBy('createdAt', 'asc')
+        );
+      }
 
       unsubscribeTodoItems = onSnapshot(q, async (snapshot) => {
         const items: TodoItem[] = snapshot.docs.map(doc => {
@@ -306,11 +303,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             : data.completedAt instanceof Date
               ? data.completedAt
               : undefined;
-          const deadlineSafe = deadline === null ? undefined : deadline;
-          const endDateSafe = endDate === null ? undefined : endDate;
-          const noteSafe = note === null ? undefined : note;
-          const categorySafe = category === null ? undefined : category;
-          const assignedToSafe = assignedTo === null ? undefined : assignedTo;
+          const deadlineSafe: Date | undefined = nullToUndefined(deadline as Date | null | undefined);
+          const endDateSafe: Date | undefined = nullToUndefined(endDate as Date | null | undefined);
+          const noteSafe: string | undefined = nullToUndefined(note as string | null | undefined);
+          const categorySafe: string | undefined = nullToUndefined(category as string | null | undefined);
+          const assignedToSafe: string | undefined = nullToUndefined(assignedTo as string | null | undefined);
           return {
             id: doc.id,
             name: data.name,
@@ -371,10 +368,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             await batch.commit();
             console.log('Migrated old tasks to "My To-do" list.');
           } catch (error) {
-            if (error instanceof Error) {
-              console.error('Error migrating old tasks:', error.message);
+            if (typeof error === 'object' && error !== null && 'message' in error) {
+              console.error('Error migrating old tasks:', (error as { message: string }).message);
             } else {
-            console.error('Error migrating old tasks:', error);
+              console.error('Error migrating old tasks:', error);
             }
           }
         }
@@ -861,8 +858,13 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       });
       toast.success('To-do item moved successfully!');
     } catch (error) {
-      console.error("Error moving todo item:", error);
-      toast.error("Failed to move to-do item.");
+      if (error instanceof Error) {
+        console.error("Error moving todo item:", error.message);
+        toast.error("Failed to move to-do item: " + error.message);
+      } else {
+        console.error("Error moving todo item:", error as unknown);
+        toast.error("Failed to move to-do item.");
+      }
     } finally {
       setShowMoveTaskModal(false);
       setTaskToMove(null);
@@ -871,7 +873,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
 
   // Function to handle sort option selection
-  const handleSortOptionSelect = useCallback((option: 'myOrder' | 'date' | 'title') => {
+  const handleSortOptionSelect = useCallback((option: 'myOrder' | 'date' | 'title' | 'date-desc' | 'title-desc') => {
     setSortOption(option);
     setShowSortMenu(false);
   }, []);
@@ -1169,9 +1171,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       let orderIndex = maxOrderIndex + 1;
       tasksSnapshot.forEach(taskDoc => {
         const data = taskDoc.data();
+        const dataObj = typeof data === 'object' && data !== null ? data : {};
         const newTaskRef = doc(getUserCollectionRef("todoItems", currentUser.uid));
         batch.set(newTaskRef, {
-          ...data,
+          ...dataObj,
           listId: docRef.id,
           createdAt: new Date(),
           orderIndex: orderIndex++,
@@ -1186,12 +1189,18 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
   }, [currentUser, todoLists]);
 
+  // Compute the true all-incomplete-tasks count for All To-Do
+  const allTodoCount = React.useMemo(() => {
+    return todoItems.filter(item => !item.isCompleted).length;
+  }, [todoItems]);
+
   return (
     <div className="flex w-full h-full rounded-[5px] border border-[#AB9C95] overflow-hidden"
       style={{ maxHeight: '100%' }}
     >
-      {/* Vertical Navigation (Icons) - Main Panel Switcher - Left Column of Right Panel */}
-      <div className="hidden md:flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2 flex-shrink-0 w-[60px]"> {/* Added fixed width */}
+      {/*
+      Vertical Navigation (Icons) - Main Panel Switcher - Left Column of Right Panel
+      <div className="hidden md:flex flex-col bg-[#F3F2F0] p-2 border-r border-[#AB9C95] space-y-2 flex-shrink-0 w-[60px]"> 
         <button
           onClick={() => setRightPanelSelection('todo')}
           className={`p-2 rounded-[5px] transition-colors flex items-center justify-center
@@ -1220,12 +1229,13 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           <Heart className="w-5 h-5" />
         </button>
       </div>
+      */}
 
       {/* Content Area for Right Panel - Right Column of Right Panel */}
       {
   (!isMobile || activeMobileTab === 'todo') && (
       <aside
-        className="flex-1 bg-[#DEDBDB] p-3 overflow-y-auto w-full"
+        className="flex-1 bg-white overflow-y-auto w-full"
         style={{ maxHeight: '100%' }}
       >
         {/* Conditional Content based on rightPanelSelection */}
@@ -1246,7 +1256,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             setShowNewListInput={setShowNewListInput}
             newListName={newListName}
             setNewListName={setNewListName}
-            newListInputRef={newListInputRef}
+            newListInputRef={newListInputRef as React.RefObject<HTMLInputElement>}
             handleCreateNewList={handleCreateNewList}
             willReachListLimit={willReachListLimit}
             STARTER_TIER_MAX_LISTS={STARTER_TIER_MAX_LISTS}
@@ -1258,11 +1268,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                           sortOption={sortOption}
             setShowSortMenu={setShowSortMenu}
             showSortMenu={showSortMenu}
-            sortMenuRef={sortMenuRef}
+            sortMenuRef={sortMenuRef as React.RefObject<HTMLDivElement>}
             handleSortOptionSelect={handleSortOptionSelect}
             showAddTaskDropdown={showAddTaskDropdown}
             setShowAddTaskDropdown={setShowAddTaskDropdown}
-            addTaskDropdownRef={addTaskDropdownRef}
+            addTaskDropdownRef={addTaskDropdownRef as React.RefObject<HTMLDivElement>}
             handleAddNewTodo={handleAddNewTodo}
             filteredTodoItems={filteredTodoItems}
             handleListDragOver={handleListDragOver}
@@ -1291,6 +1301,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             setShowCompletedTasks={setShowCompletedTasks}
             router={router}
             setShowUpgradeModal={setShowUpgradeModal}
+            allTodoCount={allTodoCount}
           />
         )}
 

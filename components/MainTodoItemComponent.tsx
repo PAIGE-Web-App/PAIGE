@@ -14,7 +14,7 @@ interface MainTodoItemComponentProps {
   todo: TodoItem;
   contacts: Contact[];
   allCategories: string[];
-  sortOption: 'myOrder' | 'date' | 'title';
+  sortOption: 'myOrder' | 'date' | 'title' | 'date-desc' | 'title-desc';
   draggedTodoId: string | null;
   dragOverTodoId: string | null;
   dropIndicatorPosition: { id: string | null; position: 'top' | 'bottom' | null };
