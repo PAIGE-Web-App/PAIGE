@@ -553,7 +553,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
 
         {/* Show list name if provided (for All To-Do Items view) */}
         {listName && (
-          <p className="text-xs text-[#332B42] mt-0.5">From: <span className="font-medium">{listName}</span></p>
+          <p className="text-xs text-[#AB9C95] italic mt-0.5">From: <span className="font-medium">{listName}</span></p>
         )}
 
         {/* Conditional rendering for Deadline */}
