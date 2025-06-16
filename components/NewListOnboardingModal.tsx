@@ -6,6 +6,11 @@ import FormField from './FormField';
 import CategorySelectField from './CategorySelectField';
 import ToDoFields from './ToDoFields';
 import ToDoListEditor from './ToDoListEditor';
+import { useAuth } from '../hooks/useAuth';
+import { getAllCategories } from '../lib/firebaseCategories';
+import { db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import Banner from './Banner';
 
 interface NewListOnboardingModalProps {
   isOpen: boolean;
@@ -14,6 +19,12 @@ interface NewListOnboardingModalProps {
 }
 
 const TABS = [
+  {
+    key: 'ai',
+    label: 'Create with AI',
+    icon: <Sparkles className="w-5 h-5 mr-1" />,
+    description: 'Describe what you need, and let PAIGE generate a smart to-do list for you in seconds.'
+  },
   {
     key: 'manual',
     label: 'Start from scratch',
@@ -26,12 +37,6 @@ const TABS = [
     icon: <Upload className="w-5 h-5 mr-1" />,
     description: 'Already have tasks in a spreadsheet? Upload your CSV to generate your list instantly.'
   },
-  {
-    key: 'ai',
-    label: 'Create with AI',
-    icon: <Sparkles className="w-5 h-5 mr-1" />,
-    description: 'Describe what you need, and let PAIGE generate a smart to-do list for you in seconds.'
-  },
 ];
 
 const STEPS = [
@@ -39,34 +44,97 @@ const STEPS = [
   { id: 2, name: 'Create List' },
 ];
 
+// At the top, add a counter fallback for environments without crypto.randomUUID
+let tempIdCounter = 0;
+function getStableId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `temp-id-${tempIdCounter++}`;
+}
+
 const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('manual');
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
-  const [tasks, setTasks] = useState([{ name: '', note: '', category: '', deadline: '', endDate: '' }]);
+  const [tasks, setTasks] = useState([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
   const [customCategoryValue, setCustomCategoryValue] = useState('');
   const [canSubmit, setCanSubmit] = useState(false);
+  const [aiListResult, setAiListResult] = React.useState(null);
+  const [allCategories, setAllCategories] = React.useState<string[]>([]);
+  const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (user?.uid) {
+      getAllCategories(user.uid).then(setAllCategories);
+      getDoc(doc(db, 'users', user.uid)).then((snap) => {
+        const data = snap.data();
+        if (data?.weddingDate?.seconds) {
+          const date = new Date(data.weddingDate.seconds * 1000);
+          setWeddingDate(date.toISOString().split('T')[0]);
+        }
+      });
+    }
+  }, [user]);
 
   const handleContinue = () => setStep(2);
   const handleBack = () => setStep(1);
   const handleStepChange = (newStep: number) => setStep(newStep);
 
-  const handleAddTask = () => setTasks([...tasks, { name: '', note: '', category: '', deadline: '', endDate: '' }]);
+  const handleAddTask = () => setTasks([...tasks, { _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
   const handleRemoveTask = (idx: number) => setTasks(tasks.filter((_, i) => i !== idx));
-  const updateTask = (index: number, field: string, value: string) => setTasks(tasks.map((task, i) => i === index ? { ...task, [field]: value } : task));
+  const updateTask = (index: number, field: string, value: string) => setTasks(tasks.map((task, i) => {
+    if (i !== index) return task;
+    let updated = { ...task, [field]: value };
+    if (field === 'deadline' && value) {
+      // Normalize to string
+      if (typeof value === 'object' && value !== null && (value as Date) instanceof Date) {
+        updated.deadline = (value as Date).toISOString().slice(0, 16);
+      } else if (typeof value === 'string' && value.length > 0) {
+        // Already string, keep as is
+      }
+    }
+    if (field === 'endDate' && value) {
+      if (typeof value === 'object' && value !== null && (value as Date) instanceof Date) {
+        updated.endDate = (value as Date).toISOString().slice(0, 16);
+      } else if (typeof value === 'string' && value.length > 0) {
+        // Already string, keep as is
+      }
+    }
+    // Add debug log in updateTask for deadline changes
+    if (field === 'deadline') {
+      console.log('[NewListOnboardingModal] updateTask deadline', { index, value, tasks: tasks.map(t => ({ _id: t._id, deadline: t.deadline })) });
+    }
+    return updated;
+  }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!listName.trim()) return;
-    const validTasks = tasks.filter(task => task.name && task.name.trim());
-    const submitTasks = validTasks.map(task => ({
-      name: task.name.trim(),
-      ...(task.note?.trim() ? { note: task.note.trim() } : {}),
-      ...(task.category ? { category: task.category } : {}),
-      ...(task.deadline ? { deadline: parseLocalDateTime(task.deadline) } : {}),
-      ...(task.endDate ? { endDate: parseLocalDateTime(task.endDate) } : {}),
-    }));
-    onSubmit && onSubmit({ name: listName.trim(), tasks: submitTasks });
+    if (selectedTab === 'ai') {
+      const aiResult: any = aiListResult;
+      if (!aiResult || !aiResult.name || !Array.isArray(aiResult.tasks)) return;
+      onSubmit && onSubmit({
+        name: aiResult.name.trim(),
+        tasks: aiResult.tasks.filter((task: any) => task.name && task.name.trim())
+      });
+    } else if (selectedTab === 'manual') {
+      if (!listName.trim()) return;
+      const validTasks: any[] = tasks.filter((task: any) => task.name && task.name.trim());
+      onSubmit && onSubmit({ name: listName.trim(), tasks: validTasks });
+    } else if (selectedTab === 'import') {
+      // TODO: Add logic to submit imported CSV list
+      // onSubmit && onSubmit({ name: csvListName, tasks: csvTasks });
+    }
+  };
+
+  // Only set aiListResult when the AI generates a new list
+  const handleBuildWithAI = async (description: string) => {
+    // This function should be called by AIListCreationForm when generating a new list
+    // Example fetch (replace with your actual API call):
+    // const res = await fetch('/api/generate-list', { ... });
+    // const data = await res.json();
+    // setAiListResult(data);
+    // For now, just clear it to simulate a new list
+    setAiListResult(null);
   };
 
   return (
@@ -96,7 +164,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
             <button
               onClick={handleSubmit}
               className="btn-primary"
-              disabled={!listName.trim()}
+              disabled={selectedTab === 'ai' ? !aiListResult : !listName.trim()}
             >
               Submit
             </button>
@@ -105,7 +173,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       }
     >
       {step === 1 && (
-        <div className="w-full h-full flex flex-col items-center relative pt-20">
+        <div className="w-full h-full flex flex-col items-center relative pt-20 pb-32 max-h-[70vh] overflow-y-auto">
           <h2 className="text-xl font-playfair font-semibold text-[#332B42] mb-8 mt-2 text-center">How do you want to build your list?</h2>
           <div className="flex flex-col md:flex-row gap-6 mt-2 w-full max-w-5xl justify-center items-start">
             {TABS.map(tab => (
@@ -127,7 +195,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       )}
       {step === 2 && (
         <div className="w-full h-full flex flex-col items-center justify-center">
-          {/* Tabs at the top of content area */}
+          {/* Tabs always visible */}
           <div className="flex gap-2 mb-8">
             {TABS.map(tab => (
               <button
@@ -141,8 +209,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               </button>
             ))}
           </div>
-          {/* Fixed height content area for tab content */}
-          <div className="w-full flex-1 flex items-start justify-center min-h-[600px]">
+          {/* Only this area scrolls */}
+          <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto">
             {selectedTab === 'manual' && (
               <ManualListCreationForm
                 allCategories={[]}
@@ -160,7 +228,14 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               <ImportListCreationForm />
             )}
             {selectedTab === 'ai' && (
-              <AIListCreationForm isGenerating={false} handleBuildWithAI={() => {}} />
+              <AIListCreationForm
+                isGenerating={false}
+                handleBuildWithAI={handleBuildWithAI}
+                setAiListResult={setAiListResult}
+                aiListResult={aiListResult}
+                allCategories={allCategories}
+                weddingDate={weddingDate}
+              />
             )}
           </div>
         </div>
@@ -270,7 +345,15 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setLis
           <label className="block text-xs font-medium text-[#332B42] mb-1">Initial To-Dos</label>
           <ToDoListEditor
             tasks={tasks}
-            setTasks={setTasks}
+            setTasks={(maybeFn: any) => {
+              let updated;
+              if (typeof maybeFn === 'function') {
+                updated = maybeFn(Array.isArray(tasks) ? tasks : []);
+              } else {
+                updated = maybeFn;
+              }
+              setTasks(updated);
+            }}
             customCategoryValue={customCategoryValue}
             setCustomCategoryValue={setCustomCategoryValue}
             allCategories={allCategories}
@@ -317,13 +400,194 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void }) => {
-  // Placeholder for AI-powered UI
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null }) => {
+  const [description, setDescription] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
+  function formatDateForInputWithTime(date: Date | string | undefined): string | undefined {
+    if (!date) return undefined;
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) return undefined;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  // Utility to generate a unique id
+  function getStableId() {
+    return Math.random().toString(36).substr(2, 9) + Date.now();
+  }
+
+  function getTodayAtFivePM() {
+    const now = new Date();
+    now.setHours(17, 0, 0, 0); // 5:00 PM local time
+    return now;
+  }
+
+  function isBeforeToday(dateString: string | undefined) {
+    if (!dateString) return true;
+    const d = new Date(dateString);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Start of today
+    return d < now;
+  }
+
+  function looksLikeId(str: string | undefined) {
+    // Matches random string + digits (your ID pattern)
+    return typeof str === 'string' && /^[a-zA-Z0-9]{10,}$/.test(str);
+  }
+
+  const handleTasksUpdate = React.useCallback((updatedTasksOrFn: any[] | ((prev: any[]) => any[])) => {
+    setAiListResult((prev: any) => {
+      const prevTasks = Array.isArray(prev?.tasks) ? prev.tasks : [];
+      const updated = typeof updatedTasksOrFn === 'function' ? updatedTasksOrFn(prevTasks) : updatedTasksOrFn;
+      // Normalize dates to string format for input and assign ids
+      const normalized = updated.map((t: any) => {
+        const id = t.id || t._id || getStableId();
+        let deadline = t.deadline ? formatDateForInputWithTime(t.deadline) : undefined;
+        if (!deadline || isBeforeToday(deadline)) {
+          deadline = formatDateForInputWithTime(getTodayAtFivePM());
+        }
+        let category = t.category;
+        if (looksLikeId(category)) {
+          category = 'Uncategorized (New)';
+        }
+        return {
+          ...t,
+          id,
+          _id: id,
+          deadline,
+          endDate: t.endDate ? formatDateForInputWithTime(t.endDate) : undefined,
+          category,
+        };
+      });
+      console.log('[AIListCreationForm] handleTasksUpdate - normalized:', normalized);
+      return {
+        ...prev,
+        tasks: normalized
+      };
+    });
+  }, [setAiListResult]);
+
+  const handleGenerate = async () => {
+    setIsLoading(true);
+    setError(null);
+    setAiListResult(null);
+    try {
+      // Pass allCategories and weddingDate to the API
+      const res = await fetch('/api/generate-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, categories: allCategories, weddingDate }),
+      });
+      if (!res.ok) throw new Error('Failed to generate list');
+      const data = await res.json();
+      // Normalize AI tasks to assign id and _id
+      if (Array.isArray(data.tasks)) {
+        data.tasks = data.tasks.map((task: any) => {
+          const id = task.id || task._id || getStableId();
+          let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
+          if (!deadline || isBeforeToday(deadline)) {
+            deadline = formatDateForInputWithTime(getTodayAtFivePM());
+          }
+          let category = task.category;
+          if (looksLikeId(category)) {
+            category = 'Uncategorized (New)';
+          }
+          return { ...task, id, _id: id, deadline, category };
+        });
+      }
+      setAiListResult(data);
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="w-full max-w-3xl mx-auto bg-[#F8F6F4] border border-[#E0DBD7] rounded-lg p-6 text-center text-[#AB9C95]">
-      AI-powered list creation UI goes here.
+    <div className="w-full max-w-3xl mx-auto bg-[#F8F6F4] border border-[#E0DBD7] rounded-lg p-6 flex flex-col items-center">
+      <label className="block text-xs font-medium text-[#332B42] mb-2 w-full text-left">Describe the type of list you would like to create</label>
+      <textarea
+        className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm mb-4 min-h-[80px]"
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        placeholder="e.g. Wedding planning checklist, Day of Checklist, Reception setup, etc."
+        rows={4}
+      />
+      <div className="w-full flex justify-end">
+        <button
+          className="btn-primary flex items-center gap-2 mb-4"
+          onClick={handleGenerate}
+          disabled={!description.trim() || isLoading}
+        >
+          <span>Generate List</span>
+          <Sparkles className="w-5 h-5" />
+        </button>
+      </div>
+      {isLoading && <div className="text-xs text-[#332B42] mb-2">Generating your list...</div>}
+      {error && <div className="text-xs text-red-500 mb-2">{error}</div>}
+      {aiListResult && (
+        <form className="w-full flex flex-col space-y-6 mt-4" onSubmit={e => e.preventDefault()}>
+          <div>
+            <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
+            <input
+              className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+              value={aiListResult.name}
+              onChange={e => setAiListResult({ ...aiListResult, name: e.target.value })}
+              placeholder="Enter list name"
+              required
+            />
+          </div>
+          {/* Show warning banner if present in aiListResult */}
+          {aiListResult && aiListResult.warning && aiListResult.warning.length > 0 && (
+            <div className="w-full mb-4">
+              <Banner message={<span className="flex items-center"><span className="mr-2">⚠️</span>{aiListResult.warning}</span>} type="warning" />
+            </div>
+          )}
+          {(!weddingDate) && (
+            <div className="w-full mb-4">
+              <Banner
+                message={<span className="flex items-center"><span className="mr-2">⚠️</span>Looks like you haven't set your wedding date yet. Paige bases the end date of non post-wedding to-do items around your wedding date. For best results, please provide your wedding date <a href="/profile" className="underline text-yellow-900 hover:text-yellow-700 font-semibold">here</a>.</span>}
+                type="warning"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-[#332B42] mb-1">Initial To-Dos</label>
+            <ToDoListEditor
+              tasks={Array.isArray(aiListResult.tasks) ? aiListResult.tasks : []}
+              setTasks={handleTasksUpdate}
+              customCategoryValue={''}
+              setCustomCategoryValue={() => {}}
+              allCategories={allCategories}
+            />
+          </div>
+        </form>
+      )}
     </div>
   );
 };
+
+// Helper to format a Date or string to YYYY-MM-DDTHH:mm
+function normalizeDateString(val: any) {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    // If already in correct format, return as is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(val)) return val;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 16);
+  }
+  if (val instanceof Date) {
+    return val.toISOString().slice(0, 16);
+  }
+  return '';
+}
 
 export default NewListOnboardingModal; 

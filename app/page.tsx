@@ -172,6 +172,7 @@ function parseLocalDateTime(input: string): Date {
   const [datePart, timePart] = input.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  // Always create a local date
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 

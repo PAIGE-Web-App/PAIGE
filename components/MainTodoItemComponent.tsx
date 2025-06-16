@@ -53,6 +53,7 @@ function parseLocalDateTime(input: string): Date {
   const [datePart, timePart] = input.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  // Always create a local date
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
@@ -232,6 +233,8 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   const handleNoteKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       await handleUpdateNote(todo.id, editingNoteValue);
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 1000);
       setIsEditingNote(false);
     } else if (e.key === 'Escape') {
       setEditingNoteValue(todo.note || '');
@@ -243,6 +246,8 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   const handleCategoryKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       await handleUpdateCategory(todo.id, editingCategoryDropdownValue);
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 1000);
       setIsEditingCategory(false);
     } else if (e.key === 'Escape') {
       setEditingCategoryDropdownValue(todo.category || '');
@@ -327,11 +332,15 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
 
   const handleUpdateNoteClick = useCallback(async () => {
     await handleUpdateNote(todo.id, editingNoteValue);
+    setJustUpdated(true);
+    setTimeout(() => setJustUpdated(false), 1000);
     setIsEditingNote(false);
   }, [todo.id, editingNoteValue, handleUpdateNote]);
 
   const handleUpdateCategoryClick = useCallback(async () => {
     await handleUpdateCategory(todo.id, editingCategoryDropdownValue);
+    setJustUpdated(true);
+    setTimeout(() => setJustUpdated(false), 1000);
     setIsEditingCategory(false);
   }, [todo.id, editingCategoryDropdownValue, handleUpdateCategory]);
 
@@ -369,7 +378,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
     }
     if (todo.deadline instanceof Date && !isNaN(todo.deadline.getTime())) {
       setEditingDeadlineValue(formatDateForInputWithTime(todo.deadline));
-    } else if (todo.deadline) {
+    } else if (typeof todo.deadline === 'string' && todo.deadline) {
       setEditingDeadlineValue(formatDateForInputWithTime(new Date(todo.deadline)));
     } else {
       setEditingDeadlineValue('');
@@ -400,7 +409,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
           todo.isCompleted ? 'bg-gray-50' : 'bg-white'
         } ${draggedTodoId === todo.id ? 'opacity-50' : ''} ${
           dragOverTodoId === todo.id ? 'border-blue-500' : ''
-        } ${justUpdated ? 'animate-pulse' : ''}`}
+        } ${(justUpdated || todo.justUpdated) ? 'animate-pulse' : ''}`}
       >
         <div className="flex items-start gap-3">
           <button
@@ -458,13 +467,23 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                   disabled={todo.isCompleted}
                   style={{ outline: 'none' }}
                 >
-                  {todo.deadline ?
-                    getRelativeDeadline(
-                      todo.deadline instanceof Date ? todo.deadline : new Date(todo.deadline),
-                      todo.startDate instanceof Date ? todo.startDate : (todo.startDate ? new Date(todo.startDate) : undefined),
-                      todo.endDate instanceof Date ? todo.endDate : (todo.endDate ? new Date(todo.endDate) : undefined)
-                    ) :
-                    'Add Deadline'}
+                  {todo.deadline ? (
+                    <>
+                      <button
+                        type="button"
+                        className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                        onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
+                        disabled={todo.isCompleted}
+                        style={{ outline: 'none' }}
+                      >
+                        {todo.deadline instanceof Date && !isNaN(todo.deadline.getTime())
+                          ? todo.deadline.toLocaleString()
+                          : ''}
+                      </button>
+                    </>
+                  ) : (
+                    'Add Deadline'
+                  )}
                 </button>
                 {/* End Date logic */}
                 {(isEditingEndDate || (todo.deadline && todo.endDate && !isEditingDeadline)) && (
@@ -492,7 +511,9 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
                           disabled={todo.isCompleted}
                           style={{ outline: 'none' }}
                         >
-                          {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                          {todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())
+                            ? todo.endDate.toLocaleString()
+                            : (typeof todo.endDate === 'string' && todo.endDate ? new Date(todo.endDate).toLocaleString() : '')}
                         </button>
                       </>
                     )}

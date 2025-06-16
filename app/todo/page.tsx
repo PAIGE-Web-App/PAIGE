@@ -75,6 +75,7 @@ function parseLocalDateTime(input: string): Date {
   const [datePart, timePart] = input.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  // Always create a local date
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
@@ -805,7 +806,29 @@ export default function TodoPage() {
       const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
       await updateDoc(itemRef, updateObj);
       showSuccessToast('Deadline updated!');
-      console.log('app/todo/page.tsx handleUpdateTodoDeadline:', todoId, updateObj);
+      // Green flash logic:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+          )
+        );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
       // Optionally update local state here if needed
     } catch (error) {
       console.error('Error updating deadline:', error);

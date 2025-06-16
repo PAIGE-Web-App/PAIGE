@@ -55,6 +55,7 @@ function parseLocalDateTime(input: string): Date {
   const [datePart, timePart] = input.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
+  // Always create a local date
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
@@ -350,6 +351,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   }, []);
 
   const handleDeadlineBlur = useCallback(async () => {
+    console.log('[UnifiedTodoItem] handleDeadlineBlur', { id: todo.id, editingDeadlineValue, endDate: todo.endDate });
     let endDateStr = '';
     if (todo.endDate) {
       if (todo.endDate instanceof Date) {
@@ -486,11 +488,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         ) : (
           <div className="flex items-center justify-between">
             <p
-              className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
+              className={`font-work text-xs font-medium ${!todo.name ? 'text-[#332B42] hover:underline cursor-pointer' : 'text-[#332B42]'} ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
               onClick={handleNameDoubleClick}
               title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
             >
-              {todo.name}
+              {todo.name || '+ Add To-Do Name'}
             </p>
             {/* Three-dot menu button (only in page mode) */}
             {mode === 'page' && (
@@ -549,6 +551,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           </div>
         )}
 
+        {/* Show list name if provided (for All To-Do Items view) */}
+        {listName && (
+          <p className="text-xs text-[#332B42] mt-0.5">From: <span className="font-medium">{listName}</span></p>
+        )}
+
         {/* Conditional rendering for Deadline */}
         {isEditingDeadline ? (
           todo.isCompleted ? (
@@ -591,11 +598,9 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                   disabled={todo.isCompleted}
                   style={{ outline: 'none' }}
                 >
-                  {getRelativeDeadline(
-                    todo.deadline instanceof Date ? todo.deadline : new Date(todo.deadline),
-                    todo.startDate instanceof Date ? todo.startDate : (todo.startDate ? new Date(todo.startDate) : undefined),
-                    todo.endDate instanceof Date ? todo.endDate : (todo.endDate ? new Date(todo.endDate) : undefined)
-                  )}
+                  {todo.deadline instanceof Date
+                    ? todo.deadline.toLocaleString()
+                    : new Date(todo.deadline).toLocaleString()}
                 </button>
                 {/* End Date logic: always show if deadline is set */}
                 {isEditingEndDate ? (
@@ -610,7 +615,18 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                       min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
                     />
                     <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
-                    {todo.endDate && <button onClick={async () => { await handleRemoveEndDate(todo.id); setIsEditingEndDate(false); }} className="btn-primaryinverse text-xs px-2 py-1">Remove</button>}
+                    {(todo.deadline || todo.endDate) && (
+                      <button
+                        onClick={async () => {
+                          await handleUpdateDeadline(todo.id, null, '');
+                          setIsEditingEndDate(false);
+                          setIsEditingDeadline(false);
+                        }}
+                        className="btn-primaryinverse text-xs px-2 py-1"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 ) : todo.endDate ? (
                   <>

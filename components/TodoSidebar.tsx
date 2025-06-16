@@ -172,7 +172,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
       <NewListOnboardingModal
         isOpen={showAddListModal}
         onClose={handleOnboardingClose}
-        onSelect={handleOnboardingSelect}
+        onSubmit={handleAddListWithTasks}
       />
     </aside>
   );
