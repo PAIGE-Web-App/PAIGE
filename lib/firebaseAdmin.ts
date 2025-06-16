@@ -17,11 +17,14 @@ function initializeAdminApp() {
       }
 
       // Parse the service account JSON string
-      const serviceAccount = JSON.parse(serviceAccountJson);
+      const serviceAccount = JSON.parse(
+        Buffer.from(serviceAccountJson, 'base64').toString()
+      );
 
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         // databaseURL: "https://<YOUR_PROJECT_ID>.firebaseio.com" // Uncomment if using Realtime Database
+        // Add other config options as needed
       });
       console.log("Firebase Admin SDK initialized successfully.");
     } catch (error) {
@@ -42,5 +45,8 @@ initializeAdminApp();
 export function getAdminDb(): admin.firestore.Firestore {
   return admin.firestore();
 }
+
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth();
 
 export { admin };
