@@ -5,7 +5,7 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import OnboardingVisual from "../../components/OnboardingVisual";
@@ -33,24 +33,68 @@ export default function SignUp() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [isNewSignup, setIsNewSignup] = useState(false);
+  const [emailExists, setEmailExists] = useState<boolean | null>(null);
+  const [showPasswordPopover, setShowPasswordPopover] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+
+  console.log('Current step:', step);
+
+  const passwordRequirements = [
+    { label: "At least 8 characters", test: (pw: string) => pw.length >= 8 },
+    { label: "One uppercase letter", test: (pw: string) => /[A-Z]/.test(pw) },
+    { label: "One lowercase letter", test: (pw: string) => /[a-z]/.test(pw) },
+    { label: "One number", test: (pw: string) => /[0-9]/.test(pw) },
+    { label: "One special character (!@#$%^&*)", test: (pw: string) => /[!@#$%^&*]/.test(pw) },
+  ];
+  const passwordChecks = passwordRequirements.map(req => req.test(password));
 
   // Check for toast message in cookies
   useEffect(() => {
-    const showToast = document.cookie.includes('show-toast');
+    const cookieMatch = document.cookie.match(/show-toast=([^;]+)/);
+    const toastValue = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
-    if (showToast && fromRedirect) {
-      toast.error('Please login to access this page');
+    if (toastValue) {
+      if (toastValue === 'Please login to access this page' && fromRedirect) {
+        toast.error('Please login to access this page');
+      } else if (toastValue === 'Log out successful!') {
+        toast.success('Log out successful!');
+      }
       document.cookie = 'show-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      console.log('SIGNUP: Showing and clearing show-toast cookie');
     }
   }, []);
 
   // Redirect if already logged in, but only if not a new signup
   useEffect(() => {
     if (!authLoading && user && !isNewSignup) {
-      router.push('/');
+      // Only redirect if user is onboarded
+      const checkOnboarded = async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().onboarded === true) {
+          router.push('/');
+        }
+      };
+      checkOnboarded();
     }
   }, [user, authLoading, router, isNewSignup]);
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      const checkOnboarded = async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setOnboarded(!!userSnap.data().onboarded);
+        } else {
+          setOnboarded(null);
+        }
+      };
+      checkOnboarded();
+    } else {
+      setOnboarded(null);
+    }
+  }, [user, authLoading]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -79,17 +123,41 @@ export default function SignUp() {
       return;
     }
 
+    // Check if email already exists before proceeding
     try {
       setLoading(true);
-      await createUserWithEmailAndPassword(auth, email, password);
-      setIsNewSignup(true); // Mark as new signup
-      setStep(2); // Go to next onboarding step
+      const res = await fetch('/api/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.exists) {
+        setError('This email is already registered. Please log in.');
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      setError('Error checking email. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      if (result.user) {
+        await setDoc(doc(db, "users", result.user.uid), {
+          email: result.user.email,
+          onboarded: false,
+          createdAt: new Date(),
+        }, { merge: true });
+        setIsNewSignup(true);
+        setStep(2);
+      }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-        toast.error("Looks like you're already a user. Please log in.");
-        setTimeout(() => {
-          router.push("/login?existing=1");
-        }, 1500);
+        setError('This email is already registered. Please log in.');
+        setLoading(false);
         return;
       }
       let message = "An unexpected error occurred. Please try again.";
@@ -122,11 +190,14 @@ export default function SignUp() {
         const userDocRef = doc(db, "users", result.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
-          // New user, proceed to onboarding
+          await setDoc(doc(db, "users", result.user.uid), {
+            email: result.user.email,
+            onboarded: false,
+            createdAt: new Date(),
+          }, { merge: true });
           setIsNewSignup(true);
           setStep(2);
         } else {
-          // Existing user, go to dashboard
           router.push("/");
         }
       } else {
@@ -134,10 +205,7 @@ export default function SignUp() {
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-        toast.error("Looks like you're already a user. Please log in.");
-        setTimeout(() => {
-          router.push("/login?existing=1");
-        }, 1500);
+        router.push("/login?existing=1");
         return;
       }
       let message = "Google sign-in failed. Please try again.";
@@ -150,21 +218,33 @@ export default function SignUp() {
     }
   };
 
-  if (!authLoading && user && !isNewSignup) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F3F2F0]">
-        <div className="bg-white p-8 rounded shadow-md flex flex-col items-center">
-          <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-4">You are already logged in</h2>
-          <p className="mb-6 text-[#364257]">Go to your dashboard or log out to create a new account.</p>
-          <button
-            className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base mb-2"
-            onClick={() => router.push('/')}
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-    );
+  const checkEmailExists = async (email: string) => {
+    if (!email) return;
+    const res = await fetch('/api/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    setEmailExists(data.exists);
+  };
+
+  // Add a derived state for confirm password match
+  const confirmPasswordMatches = confirmPassword === password || confirmPassword.length === 0;
+
+  const handleLogout = async () => {
+    await fetch('/api/sessionLogout', { method: 'POST', credentials: 'include' });
+    await auth.signOut();
+    window.location.href = '/signup';
+  };
+
+  if (!authLoading && user && onboarded === true) {
+    router.push('/');
+    return null;
+  }
+
+  if (!authLoading && user && onboarded === false && step === 1) {
+    setStep(2);
   }
 
   return (
@@ -199,11 +279,18 @@ export default function SignUp() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailExists(null); // reset on change
+                  }}
+                  onBlur={() => checkEmailExists(email)}
                   placeholder="Email address"
                   className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                   autoComplete="email"
                 />
+                {emailExists === true && (
+                  <div className="text-red-600 text-xs mt-1">This email is already registered. Please log in.</div>
+                )}
               </div>
 
               <div>
@@ -215,27 +302,30 @@ export default function SignUp() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setShowPasswordPopover(true)}
+                    onBlur={() => setTimeout(() => setShowPasswordPopover(false), 100)}
+                    ref={passwordInputRef}
                     placeholder="Password"
-                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] pr-10"
+                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                     autoComplete="new-password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-[#A85C36]"
-                  >
-                    {showPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.981 8.75C4.454 10.872 5.622 12.871 7.18 14.39c1.594 1.55 3.554 2.58 5.62 2.75a9.75 9.75 0 005.62-2.75c1.558-1.519 2.726-3.518 3.199-5.62H3.98z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                  </button>
+                  {showPasswordPopover && (
+                    <div className="absolute left-0 top-12 z-10 w-64 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg p-3 text-xs text-[#332B42] animate-fade-in">
+                      <div className="font-semibold mb-2">Password must contain:</div>
+                      <ul className="space-y-1">
+                        {passwordRequirements.map((req, idx) => (
+                          <li key={req.label} className="flex items-center gap-2">
+                            {passwordChecks[idx] ? (
+                              <span className="text-green-600">✔</span>
+                            ) : (
+                              <span className="text-gray-400">✗</span>
+                            )}
+                            <span className={passwordChecks[idx] ? "text-green-700" : ""}>{req.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -243,33 +333,17 @@ export default function SignUp() {
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Confirm Password<span className="text-[#A85C36]">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm Password"
-                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] pr-10"
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-[#A85C36]"
-                  >
-                    {showConfirmPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.981 8.75C4.454 10.872 5.622 12.871 7.18 14.39c1.594 1.55 3.554 2.58 5.62 2.75a9.75 9.75 0 005.62-2.75c1.558-1.519 2.726-3.518 3.199-5.62H3.98z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm Password"
+                  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]${!confirmPasswordMatches ? ' border-red-500' : ''}`}
+                  autoComplete="new-password"
+                />
+                {!confirmPasswordMatches && (
+                  <div className="text-xs text-red-600 mt-1">Passwords do not match.</div>
+                )}
               </div>
 
               {error && (
@@ -289,9 +363,12 @@ export default function SignUp() {
               <button
                 type="button"
                 onClick={handleGoogleSignUp}
-                className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
+                className="btn-primaryinverse w-full flex items-center justify-center gap-2"
               >
-                <span>🇬🇲</span> Sign up with Gmail
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                </span>
+                Sign up with Gmail
               </button>
 
             </form>
@@ -356,7 +433,7 @@ export default function SignUp() {
 
       <div>
   <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-    When's the big day?
+    When's the big day?<span className="text-[#A85C36]">*</span>
   </label>
   <div className="relative">
    <input
@@ -367,9 +444,7 @@ export default function SignUp() {
   disabled={undecidedDate}
   min={new Date().toISOString().split("T")[0]}
   placeholder={undecidedDate ? "We're working on it!" : "Select a date"}
-  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${
-    undecidedDate ? "text-[#999]" : ""
-  }`}
+  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#999]" : ""}`}
 />
 {weddingDateError && (
   <p className="text-[#A85C36] text-xs mt-1">{weddingDateError}</p>
@@ -380,7 +455,13 @@ export default function SignUp() {
     <input
       type="checkbox"
       checked={undecidedDate}
-      onChange={() => setUndecidedDate(!undecidedDate)}
+      onChange={() => {
+        if (!undecidedDate) {
+          setWeddingDate("");
+          setWeddingDateError("");
+        }
+        setUndecidedDate(!undecidedDate);
+      }}
       className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
     />
     We haven't decided yet
@@ -391,60 +472,157 @@ export default function SignUp() {
      <button
   type="button"
   className="btn-primary w-full mt-6"
- onClick={async () => {
-  const errors: { userName?: string; partnerName?: string } = {};
-  if (!userName.trim()) errors.userName = "Your name is required";
-  if (!partnerName.trim()) errors.partnerName = "Partner's name is required";
-  if (!undecidedDate && weddingDate) {
-  const selectedDate = new Date(weddingDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (selectedDate < today) {
-    setWeddingDateError("Please select a future date.");
-    return;
-  } else {
-    setWeddingDateError("");
+  disabled={
+    !userName.trim() ||
+    !partnerName.trim() ||
+    (!undecidedDate && !weddingDate)
   }
-}
-
-  if (Object.keys(errors).length > 0) {
-    setStep2Errors(errors);
-  } else {
-    setStep2Errors({});
-
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (user) {
-        await setDoc(doc(db, "users", user.uid), {
-          userName: userName.trim(),
-          partnerName: partnerName.trim(),
-          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
-          email: user.email,
-          createdAt: new Date(),
-        });
-        console.log("User onboarding data saved!");
-        router.push("/"); // Redirect to dashboard after saving
-      } else {
-        console.error("No authenticated user.");
-      }
-    } catch (error) {
-      console.error("Error saving onboarding data:", error);
+  onClick={async () => {
+    console.log('Continue button clicked on step 2');
+    const errors: { userName?: string; partnerName?: string } = {};
+    if (!userName.trim()) {
+      console.log('Missing userName');
+      errors.userName = "Your name is required";
+      return;
     }
-  }
-}}
+    if (!partnerName.trim()) {
+      console.log('Missing partnerName');
+      errors.partnerName = "Partner's name is required";
+      return;
+    }
+    if (!undecidedDate) {
+      if (weddingDate) {
+        const selectedDate = new Date(weddingDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+          console.log('Selected date is in the past');
+          setWeddingDateError("Please select a future date.");
+          return;
+        } else {
+          setWeddingDateError("");
+        }
+      } else {
+        console.log('No wedding date and not undecided');
+        setWeddingDateError("");
+      }
+    } else {
+      setWeddingDateError("");
+    }
+    if (Object.keys(errors).length > 0) {
+      console.log('Step 2 errors:', errors);
+      setStep2Errors(errors);
+      return;
+    } else {
+      setStep2Errors({});
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          console.log('Saving onboarding data and advancing to step 3');
+          await setDoc(doc(db, "users", user.uid), {
+            userName: userName.trim(),
+            partnerName: partnerName.trim(),
+            weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
+            email: user.email,
+            onboarded: false,
+            createdAt: new Date(),
+          }, { merge: true });
+          setStep(3);
+        } else {
+          console.log('No authenticated user.');
+          console.error("No authenticated user.");
+        }
+      } catch (error) {
+        console.log('Error saving onboarding data:', error);
+        console.error("Error saving onboarding data:", error);
+      }
+    }
+  }}
 >
-  Complete
+  Continue
 </button>
+
+    {/* Step Indicator (dots, onboarding steps only) */}
+    <div className="flex justify-center items-center mt-12 gap-2">
+      {[1, 2].map((n) => (
+        <span
+          key={n}
+          className={`h-2 w-2 rounded-full transition-all duration-200 ${step === n + 1 ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+        />
+      ))}
+    </div>
 
     </form>
   </>
 )}
-
-{/* Step 3 is now unused, as Google sign-up also goes to Step 2 */}
 {step === 3 && (
-  <></>
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      Tell us about your dream wedding
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Help us understand your preferences so we can personalize your experience.
+    </h4>
+    <form className="w-full max-w-xs space-y-4">
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Wedding Style
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. Classic, Modern, Rustic, etc."
+          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Wedding Size
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. Small, Medium, Large"
+          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Religious or Cultural Preferences
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. Catholic, Jewish, Hindu, None, etc."
+          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+        />
+      </div>
+      {/* Add more fields as needed */}
+      <div className="flex justify-between items-center mt-8 gap-4">
+        <button
+          type="button"
+          className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+          onClick={() => setStep(2)}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+          onClick={() => setStep(4)}
+        >
+          Continue
+        </button>
+      </div>
+    </form>
+    {/* Step Indicator for onboarding steps only (dots) */}
+    <div className="flex justify-center items-center mt-12 gap-2">
+      {[1, 2].map((n) => (
+        <span
+          key={n}
+          className={`h-2 w-2 rounded-full transition-all duration-200 ${step === n + 1 ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+        />
+      ))}
+    </div>
+  </>
 )}
 
             </motion.div>
@@ -452,7 +630,46 @@ export default function SignUp() {
         </div>
 
         <div className="w-[60%] p-4 m-4 flex items-center justify-center">
-          <OnboardingVisual altText="Wedding rings illustration" />
+          <div className="flex-1 h-full bg-white shadow-md rounded-tl-[30px] rounded-br-[30px] p-4 flex items-center justify-center relative">
+            <AnimatePresence mode="wait">
+              {step === 1 && (
+                <motion.img
+                  key="glasses"
+                  src="/glasses.png"
+                  alt="Onboarding visual"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 2 && (
+                <motion.img
+                  key="heart"
+                  src="/heart.png"
+                  alt="Wedding heart illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 3 && (
+                <motion.img
+                  key="weather"
+                  src="/weather.png"
+                  alt="Wedding style illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
