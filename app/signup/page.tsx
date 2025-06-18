@@ -16,6 +16,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
 import { WandSparkles } from 'lucide-react';
+import Slider from 'rc-slider';
+import 'rc-slider/assets/index.css';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -65,11 +67,24 @@ export default function SignUp() {
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
   const [showCustomVibeInput, setShowCustomVibeInput] = useState(false);
   const [customVibe, setCustomVibe] = useState('');
+  const [budgetRange, setBudgetRange] = useState([10000, 30000]);
+  const STEP = 1000;
+  const minAllowed = 0;
+  const maxAllowed = 150000;
+  const [activeThumb, setActiveThumb] = useState<'min' | 'max' | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Auto-correct invalid state
+  useEffect(() => {
+    if (budgetRange[1] - budgetRange[0] < STEP) {
+      setBudgetRange([budgetRange[0], budgetRange[0] + STEP]);
+    }
+  }, [budgetRange]);
 
   const vibeTabs = [
     { key: 'pills', label: 'Popular Vibes', icon: '✨' },
     { key: 'image', label: 'Upload Image', icon: '🖼️' },
-    { key: 'pinterest', label: 'Pinterest', icon: '📌' },
+    { key: 'pinterest', label: 'Pinterest', icon: '📌', comingSoon: true },
   ];
 
   const vibeOptions = [
@@ -330,6 +345,37 @@ export default function SignUp() {
     setStep(2);
   }
 
+  // Helper for clamping values
+  const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+
+  // Save onboarding data to Firestore
+  const saveOnboardingData = async (stepData: any) => {
+    setSaving(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("No authenticated user.");
+        toast.error("Authentication error. Please try again.");
+        return false;
+      }
+
+      await setDoc(doc(db, "users", user.uid), {
+        ...stepData,
+        email: user.email,
+        updatedAt: new Date(),
+      }, { merge: true });
+      
+      return true;
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
+      toast.error("Failed to save your progress. Please try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
       <div className="w-full max-w-[1280px] flex">
@@ -521,7 +567,7 @@ export default function SignUp() {
   disabled={undecidedDate}
   min={new Date().toISOString().split("T")[0]}
   placeholder={undecidedDate ? "We're working on it!" : "Select a date"}
-            className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#999]" : ""}`}
+            className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#AB9C95] cursor-not-allowed" : ""}`}
 />
 {weddingDateError && (
   <p className="text-[#A85C36] text-xs mt-1">{weddingDateError}</p>
@@ -551,7 +597,8 @@ export default function SignUp() {
            disabled={
              !userName.trim() ||
              !partnerName.trim() ||
-             (!undecidedDate && !weddingDate)
+             (!undecidedDate && !weddingDate) ||
+             saving
            }
  onClick={async () => {
   const errors: { userName?: string; partnerName?: string } = {};
@@ -576,7 +623,7 @@ export default function SignUp() {
   }
                } else {
                  setWeddingDateError("");
-               }
+}
              } else {
                setWeddingDateError("");
 }
@@ -586,20 +633,16 @@ export default function SignUp() {
   } else {
     setStep2Errors({});
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) {
-        await setDoc(doc(db, "users", user.uid), {
-          userName: userName.trim(),
-          partnerName: partnerName.trim(),
-          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
-          email: user.email,
-                     onboarded: false,
-          createdAt: new Date(),
-                   }, { merge: true });
-                   setStep(3);
-      } else {
-        console.error("No authenticated user.");
+      const success = await saveOnboardingData({
+        userName: userName.trim(),
+        partnerName: partnerName.trim(),
+        weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
+        onboarded: false,
+        createdAt: new Date(),
+      });
+      
+      if (success) {
+        setStep(3);
       }
     } catch (error) {
       console.error("Error saving onboarding data:", error);
@@ -607,11 +650,11 @@ export default function SignUp() {
   }
 }}
 >
-           Continue
+           {saving ? "Saving..." : "Continue"}
 </button>
        </div>
        <div className="flex justify-center items-center gap-2 mt-4">
-         {[0, 1, 2].map((n) => (
+         {[0, 1, 2, 3].map((n) => (
            <span
              key={n}
              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -864,18 +907,36 @@ export default function SignUp() {
                 toast.error("Please select your venue");
                 return;
               }
-              setStep(4);
+              
+              // Save step 3 data before advancing
+              const saveAndContinue = async () => {
+                const step3Data = {
+                  weddingLocation: weddingLocation.trim(),
+                  weddingLocationUndecided,
+                  hasVenue,
+                  selectedVenue: selectedVenue || null,
+                  selectedVenueMetadata: selectedVenueMetadata || null,
+                };
+                
+                const success = await saveOnboardingData(step3Data);
+                if (success) {
+                  setStep(4);
+                }
+              };
+              
+              saveAndContinue();
             }}
             disabled={
               !weddingLocationUndecided &&
-              (!weddingLocation.trim() || (hasVenue === true && !selectedVenue) || hasVenue === null)
+              (!weddingLocation.trim() || (hasVenue === true && !selectedVenue) || hasVenue === null) ||
+              saving
             }
           >
-            Continue
+            {saving ? "Saving..." : "Continue"}
           </button>
         </div>
         <div className="flex justify-center items-center gap-2 mt-4">
-          {[0, 1, 2].map((n) => (
+          {[0, 1, 2, 3].map((n) => (
             <span
               key={n}
               className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -907,6 +968,11 @@ export default function SignUp() {
           >
             <span className="text-base">{tab.icon}</span>
             <span className="whitespace-nowrap">{tab.label}</span>
+            {tab.comingSoon && (
+              <span className="text-[10px] bg-blue-100 text-blue-600 px-1 py-0.5 rounded-full font-medium">
+                Coming soon
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -915,7 +981,7 @@ export default function SignUp() {
         {vibeInputMethod === 'pills' && (
           <div className="flex flex-col w-full">
             <span className="text-xs text-[#332B42] mb-2">Select all that apply.</span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-2">
               {vibeOptions.map((option) => (
                 <button
                   type="button"
@@ -932,6 +998,73 @@ export default function SignUp() {
                   {option}
                 </button>
               ))}
+            </div>
+            {/* Custom vibe pills */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {vibe.filter(v => !vibeOptions.includes(v)).map((custom, idx) => (
+                <span
+                  key={custom + idx}
+                  className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#332B42] border-[#A85C36] flex items-center gap-1"
+                  style={{ textTransform: 'capitalize' }}
+                >
+                  {custom}
+                  <button
+                    type="button"
+                    className="ml-1 text-[#A85C36] hover:text-[#784528]"
+                    onClick={() => setVibe(vibe.filter((v, i) => i !== vibe.findIndex(val => val === custom && i === idx)))}
+                    aria-label={`Remove ${custom}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {/* +Add button and custom input */}
+              {showCustomVibeInput ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customVibe}
+                    onChange={e => setCustomVibe(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (customVibe.trim()) {
+                          setVibe([...vibe, customVibe.trim()]);
+                          setCustomVibe('');
+                          setShowCustomVibeInput(false);
+                        }
+                      }
+                    }}
+                    className="px-2 py-1 border rounded-full text-sm font-work-sans border-[#A85C36] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                    placeholder="Add custom vibe"
+                    style={{ textTransform: 'capitalize', minWidth: 100 }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="text-[#A85C36] font-semibold text-base"
+                    onClick={() => {
+                      if (customVibe.trim()) {
+                        setVibe([...vibe, customVibe.trim()]);
+                        setCustomVibe('');
+                        setShowCustomVibeInput(false);
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
+                  <button type="button" className="ml-1 text-[#A85C36] text-lg" onClick={() => setShowCustomVibeInput(false)} aria-label="Cancel">×</button>
+                </div>
+              ) :
+                <button
+                  type="button"
+                  className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#A85C36] border-[#A85C36] flex items-center gap-1"
+                  style={{ textTransform: 'capitalize' }}
+                  onClick={() => setShowCustomVibeInput(true)}
+                >
+                  +Add
+                </button>
+              }
             </div>
           </div>
         )}
@@ -1141,14 +1274,11 @@ export default function SignUp() {
           </div>
         )}
         {vibeInputMethod === 'pinterest' && (
-          <div className="mt-2 w-full">
-            <input
-              type="url"
-              placeholder="https://www.pinterest.com/your-board"
-              value={pinterestLink}
-              onChange={e => setPinterestLink(e.target.value)}
-              className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-            />
+          <div className="w-full">
+            <div className="p-4 border border-blue-200 bg-blue-50 rounded-md text-sm text-blue-800">
+              <p className="font-semibold mb-1">Pinterest Integration Coming Soon!</p>
+              <p>We're working on integrating Pinterest to automatically extract vibes from your boards. For now, you can use the "Popular Vibes" or "Upload Image" tabs to define your wedding style.</p>
+            </div>
           </div>
         )}
       </div>
@@ -1169,23 +1299,130 @@ export default function SignUp() {
                 toast.error("Please select at least one vibe, upload an image, or provide a Pinterest link");
                 return;
               }
-              setStep(5);
+              
+              // Save step 4 data before advancing
+              const saveAndContinue = async () => {
+                const step4Data = {
+                  vibe: vibe,
+                  vibeInputMethod,
+                  inspirationImage: inspirationImage ? {
+                    name: inspirationImage.name,
+                    size: inspirationImage.size,
+                    type: inspirationImage.type,
+                    // Note: We don't save the actual file, just metadata
+                  } : null,
+                  imagePreview: imagePreview || null,
+                  pinterestLink: pinterestLink || null,
+                  vibeGenerated,
+                  generatedVibes: generatedVibes || [],
+                };
+                
+                const success = await saveOnboardingData(step4Data);
+                if (success) {
+                  setStep(5);
+                }
+              };
+              
+              saveAndContinue();
             }}
             disabled={
               (vibeInputMethod === 'pills' && vibe.length === 0) ||
-              (vibeInputMethod === 'image' && (!inspirationImage || !vibeGenerated || generatedVibes.length === 0))
+              (vibeInputMethod === 'image' && (!inspirationImage || !vibeGenerated || generatedVibes.length === 0)) ||
+              saving
             }
           >
-            Continue
-          </button>
-        </div>
-        <div className="flex justify-center mt-2">
-          <button type="button" className="text-[#A85C36] underline text-sm font-medium hover:text-[#784528]" onClick={() => setStep(5)}>
-            Skip for now
+            {saving ? "Saving..." : "Continue"}
           </button>
         </div>
         <div className="flex justify-center items-center gap-2 mt-4">
-          {[0, 1, 2].map((n) => (
+          {[0, 1, 2, 3].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
+      </div>
+    </form>
+  </>
+)}
+{step === 5 && (
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      What's your wedding budget?
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Use the slider below to set your minimum and maximum budget.
+    </h4>
+    <form className="w-full max-w-md space-y-8">
+      <div className="mb-6">
+        <div className="text-lg font-semibold text-[#332B42] mb-2 text-center">
+          Your budget: <span className="text-[#A85C36]">${budgetRange[0].toLocaleString()}</span> - <span className="text-[#A85C36]">${budgetRange[1].toLocaleString()}</span>
+        </div>
+        <div className="flex flex-col gap-6 items-center">
+          <div className="w-full px-2">
+            <Slider
+              range
+              min={minAllowed}
+              max={maxAllowed}
+              step={STEP}
+              value={budgetRange}
+              onChange={vals => setBudgetRange(Array.isArray(vals) ? vals : [vals, vals])}
+              allowCross={false}
+              trackStyle={[{ backgroundColor: '#A85C36', height: 8 }]}
+              handleStyle={[
+                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 },
+                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 }
+              ]}
+              railStyle={{ backgroundColor: '#E0D6D0', height: 8 }}
+            />
+            <div className="flex justify-between w-full text-xs text-[#332B42] mt-1">
+              <span>${minAllowed.toLocaleString()}</span>
+              <span>${maxAllowed.toLocaleString()}+</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(4)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={async () => {
+              // Save step 5 data and mark as onboarded
+              const saveAndComplete = async () => {
+                const step5Data = {
+                  budgetRange: {
+                    min: budgetRange[0],
+                    max: budgetRange[1],
+                  },
+                  onboarded: true,
+                  onboardingCompletedAt: new Date(),
+                };
+                
+                const success = await saveOnboardingData(step5Data);
+                if (success) {
+                  toast.success("Welcome to Paige! Your wedding planning journey begins now.");
+                  router.push("/");
+                }
+              };
+              
+              saveAndComplete();
+            }}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Complete"}
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2, 3].map((n) => (
             <span
               key={n}
               className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -1245,6 +1482,18 @@ export default function SignUp() {
                   key="vibe"
                   src="/vibe.png"
                   alt="Vibe inspiration illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 5 && (
+                <motion.img
+                  key="budget"
+                  src="/budget.png"
+                  alt="Budget illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
