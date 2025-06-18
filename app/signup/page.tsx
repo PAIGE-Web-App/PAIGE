@@ -14,6 +14,12 @@ import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+import { WandSparkles } from 'lucide-react';
+
+// @ts-ignore
+// eslint-disable-next-line
+declare const google: any;
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
@@ -37,6 +43,55 @@ export default function SignUp() {
   const [showPasswordPopover, setShowPasswordPopover] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [vibe, setVibe] = useState<string[]>([]);
+  const [venueType, setVenueType] = useState<string>('');
+  const [mustHaves, setMustHaves] = useState<string>('');
+  const [inspirationImage, setInspirationImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pinterestLink, setPinterestLink] = useState<string>('');
+  const [vibeInputMethod, setVibeInputMethod] = useState<'pills' | 'image' | 'pinterest'>('pills');
+  const [weddingLocation, setWeddingLocation] = useState('');
+  const [hasVenue, setHasVenue] = useState<boolean | null>(null);
+  const [venueSearch, setVenueSearch] = useState('');
+  const [venueSuggestions, setVenueSuggestions] = useState<any[]>([]);
+  const [selectedVenue, setSelectedVenue] = useState<any>(null);
+  const [venueMetadata, setVenueMetadata] = useState<any | null>(null);
+  const [weddingLocationUndecided, setWeddingLocationUndecided] = useState(false);
+  const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [vibeGenerated, setVibeGenerated] = useState(false);
+  const [vibeLoading, setVibeLoading] = useState(false);
+  const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
+  const [showCustomVibeInput, setShowCustomVibeInput] = useState(false);
+  const [customVibe, setCustomVibe] = useState('');
+
+  const vibeTabs = [
+    { key: 'pills', label: 'Popular Vibes', icon: '✨' },
+    { key: 'image', label: 'Upload Image', icon: '🖼️' },
+    { key: 'pinterest', label: 'Pinterest', icon: '📌' },
+  ];
+
+  const vibeOptions = [
+    'Intimate & cozy',
+    'Big & bold',
+    'Chic city affair',
+    'Outdoor & natural',
+    'Traditional & timeless',
+    'Modern & minimal',
+    'Destination dream',
+    'Boho & Whimsical',
+    'Glamorous & Luxe',
+    'Vintage Romance',
+    'Garden Party',
+    'Beachy & Breezy',
+    'Art Deco',
+    'Festival-Inspired',
+    'Cultural Fusion',
+    'Eco-Friendly',
+    'Fairytale',
+    'Still figuring it out',
+  ];
 
   console.log('Current step:', step);
 
@@ -56,7 +111,7 @@ export default function SignUp() {
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
     if (toastValue) {
       if (toastValue === 'Please login to access this page' && fromRedirect) {
-        toast.error('Please login to access this page');
+      toast.error('Please login to access this page');
       } else if (toastValue === 'Log out successful!') {
         toast.success('Log out successful!');
       }
@@ -72,7 +127,7 @@ export default function SignUp() {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().onboarded === true) {
-          router.push('/');
+      router.push('/');
         }
       };
       checkOnboarded();
@@ -205,7 +260,7 @@ export default function SignUp() {
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-        router.push("/login?existing=1");
+          router.push("/login?existing=1");
         return;
       }
       let message = "Google sign-in failed. Please try again.";
@@ -236,6 +291,34 @@ export default function SignUp() {
     await fetch('/api/sessionLogout', { method: 'POST', credentials: 'include' });
     await auth.signOut();
     window.location.href = '/signup';
+  };
+
+  // Add venue search functionality
+  const searchVenues = async (query: string) => {
+    if (!query.trim()) {
+      setVenueSuggestions([]);
+      return;
+    }
+
+    try {
+      const service = new google.maps.places.PlacesService(document.createElement('div'));
+      const request = {
+        query: query + ' wedding venue',
+        type: 'establishment',
+        fields: ['name', 'place_id', 'formatted_address', 'geometry'],
+      };
+
+      service.textSearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          setVenueSuggestions(results);
+        } else {
+          setVenueSuggestions([]);
+        }
+      });
+    } catch (error) {
+      console.error('Error searching venues:', error);
+      setVenueSuggestions([]);
+    }
   };
 
   if (!authLoading && user && onboarded === true) {
@@ -271,7 +354,7 @@ export default function SignUp() {
             Clarity and calm, for every step down the aisle.
           </h4>
 
-                    <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
+                    <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
               <div>
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Your Email<span className="text-[#A85C36]">*</span>
@@ -333,14 +416,14 @@ export default function SignUp() {
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Confirm Password<span className="text-[#A85C36]">*</span>
                 </label>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm Password"
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm Password"
                   className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]${!confirmPasswordMatches ? ' border-red-500' : ''}`}
-                  autoComplete="new-password"
-                />
+                    autoComplete="new-password"
+                  />
                 {!confirmPasswordMatches && (
                   <div className="text-xs text-red-600 mt-1">Passwords do not match.</div>
                 )}
@@ -387,15 +470,13 @@ export default function SignUp() {
             )}
             {step === 2 && (
   <>
-    
     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
       First things first...
     </h1>
     <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
       Tell us about your big day
     </h4>
-
-    <form className="w-full max-w-xs space-y-4">
+    <form className="w-full max-w-md space-y-4">
       <div>
         <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
   Your Full Name<span className="text-[#A85C36]">*</span>
@@ -412,8 +493,6 @@ export default function SignUp() {
 )}
       </div>
       <h2 className="text-2xl font-playfair font-semibold text-[#332B42] text-left">&</h2>
-
-
       <div>
        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
   Your Partner's Name<span className="text-[#A85C36]">*</span>
@@ -429,11 +508,9 @@ export default function SignUp() {
  <p className="text-xs text-[#A85C36] mt-1">{step2Errors.partnerName}</p>
 )}
       </div>
-    
-
       <div>
   <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-    When's the big day?<span className="text-[#A85C36]">*</span>
+          When's the big day?<span className="text-[#A85C36]">*</span>
   </label>
   <div className="relative">
    <input
@@ -444,184 +521,679 @@ export default function SignUp() {
   disabled={undecidedDate}
   min={new Date().toISOString().split("T")[0]}
   placeholder={undecidedDate ? "We're working on it!" : "Select a date"}
-  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#999]" : ""}`}
+            className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#999]" : ""}`}
 />
 {weddingDateError && (
   <p className="text-[#A85C36] text-xs mt-1">{weddingDateError}</p>
 )}
-
   </div>
   <label className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
     <input
       type="checkbox"
       checked={undecidedDate}
-      onChange={() => {
-        if (!undecidedDate) {
-          setWeddingDate("");
-          setWeddingDateError("");
-        }
-        setUndecidedDate(!undecidedDate);
-      }}
+            onChange={() => {
+              if (!undecidedDate) {
+                setWeddingDate("");
+                setWeddingDateError("");
+              }
+              setUndecidedDate(!undecidedDate);
+            }}
       className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
     />
     We haven't decided yet
   </label>
 </div>
-
-
+     <div className="w-full mt-8">
+       <div className="flex w-full gap-4">
      <button
   type="button"
-  className="btn-primary w-full mt-6"
-  disabled={
-    !userName.trim() ||
-    !partnerName.trim() ||
-    (!undecidedDate && !weddingDate)
+           className="btn-primary w-full"
+           disabled={
+             !userName.trim() ||
+             !partnerName.trim() ||
+             (!undecidedDate && !weddingDate)
+           }
+ onClick={async () => {
+  const errors: { userName?: string; partnerName?: string } = {};
+             if (!userName.trim()) {
+               errors.userName = "Your name is required";
+               return;
+             }
+             if (!partnerName.trim()) {
+               errors.partnerName = "Partner's name is required";
+               return;
+             }
+             if (!undecidedDate) {
+               if (weddingDate) {
+  const selectedDate = new Date(weddingDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (selectedDate < today) {
+    setWeddingDateError("Please select a future date.");
+    return;
+  } else {
+    setWeddingDateError("");
   }
-  onClick={async () => {
-    console.log('Continue button clicked on step 2');
-    const errors: { userName?: string; partnerName?: string } = {};
-    if (!userName.trim()) {
-      console.log('Missing userName');
-      errors.userName = "Your name is required";
-      return;
-    }
-    if (!partnerName.trim()) {
-      console.log('Missing partnerName');
-      errors.partnerName = "Partner's name is required";
-      return;
-    }
-    if (!undecidedDate) {
-      if (weddingDate) {
-        const selectedDate = new Date(weddingDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (selectedDate < today) {
-          console.log('Selected date is in the past');
-          setWeddingDateError("Please select a future date.");
-          return;
-        } else {
-          setWeddingDateError("");
-        }
+               } else {
+                 setWeddingDateError("");
+               }
+             } else {
+               setWeddingDateError("");
+}
+  if (Object.keys(errors).length > 0) {
+    setStep2Errors(errors);
+               return;
+  } else {
+    setStep2Errors({});
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        await setDoc(doc(db, "users", user.uid), {
+          userName: userName.trim(),
+          partnerName: partnerName.trim(),
+          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
+          email: user.email,
+                     onboarded: false,
+          createdAt: new Date(),
+                   }, { merge: true });
+                   setStep(3);
       } else {
-        console.log('No wedding date and not undecided');
-        setWeddingDateError("");
+        console.error("No authenticated user.");
       }
-    } else {
-      setWeddingDateError("");
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
     }
-    if (Object.keys(errors).length > 0) {
-      console.log('Step 2 errors:', errors);
-      setStep2Errors(errors);
-      return;
-    } else {
-      setStep2Errors({});
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          console.log('Saving onboarding data and advancing to step 3');
-          await setDoc(doc(db, "users", user.uid), {
-            userName: userName.trim(),
-            partnerName: partnerName.trim(),
-            weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
-            email: user.email,
-            onboarded: false,
-            createdAt: new Date(),
-          }, { merge: true });
-          setStep(3);
-        } else {
-          console.log('No authenticated user.');
-          console.error("No authenticated user.");
-        }
-      } catch (error) {
-        console.log('Error saving onboarding data:', error);
-        console.error("Error saving onboarding data:", error);
-      }
-    }
-  }}
+  }
+}}
 >
-  Continue
+           Continue
 </button>
-
-    {/* Step Indicator (dots, onboarding steps only) */}
-    <div className="flex justify-center items-center mt-12 gap-2">
-      {[1, 2].map((n) => (
-        <span
-          key={n}
-          className={`h-2 w-2 rounded-full transition-all duration-200 ${step === n + 1 ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
-        />
-      ))}
-    </div>
-
+       </div>
+       <div className="flex justify-center items-center gap-2 mt-4">
+         {[0, 1, 2].map((n) => (
+           <span
+             key={n}
+             className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+           />
+         ))}
+       </div>
+     </div>
     </form>
   </>
 )}
 {step === 3 && (
   <>
     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
-      Tell us about your dream wedding
+      Let's bring your vision to life.
     </h1>
     <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
-      Help us understand your preferences so we can personalize your experience.
+      We use your answers to make planning easy—so you can enjoy every moment.
     </h4>
-    <form className="w-full max-w-xs space-y-4">
+    <form className="w-full max-w-md space-y-6">
+      {/* Wedding Location Question */}
       <div>
         <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-          Wedding Style
+          Where do you want to get married? <span className="text-[#A85C36]">*</span>
         </label>
-        <input
-          type="text"
-          placeholder="e.g. Classic, Modern, Rustic, etc."
-          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-        />
+        <div className="relative">
+          <PlacesAutocompleteInput
+            value={weddingLocationUndecided ? "We're working on location still!" : weddingLocation}
+            onChange={setWeddingLocation}
+            setVenueMetadata={setVenueMetadata}
+            setSelectedLocationType={setSelectedLocationType}
+            placeholder="Search for a city, state, or country"
+            types={['(regions)']}
+            disabled={weddingLocationUndecided}
+          />
+        </div>
+        <div className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={weddingLocationUndecided}
+              onChange={() => {
+                setWeddingLocationUndecided(!weddingLocationUndecided);
+                if (!weddingLocationUndecided) {
+                  setVenueMetadata(null);
+                  setHasVenue(null);
+                  setVenueSearch("");
+                  setVibe([]);
+                }
+              }}
+              className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
+            />
+            <span className="ml-2 select-none">We haven't decided yet</span>
+          </label>
+        </div>
       </div>
-      <div>
-        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-          Wedding Size
-        </label>
-        <input
-          type="text"
-          placeholder="e.g. Small, Medium, Large"
-          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-          Religious or Cultural Preferences
-        </label>
-        <input
-          type="text"
-          placeholder="e.g. Catholic, Jewish, Hindu, None, etc."
-          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-        />
-      </div>
-      {/* Add more fields as needed */}
-      <div className="flex justify-between items-center mt-8 gap-4">
-        <button
-          type="button"
-          className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
-          onClick={() => setStep(2)}
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
-          onClick={() => setStep(4)}
-        >
-          Continue
-        </button>
+
+      {/* Only render the rest if not undecided */}
+      {!weddingLocationUndecided && (
+        <>
+          {/* Show card at the top ONLY if venueMetadata is set (from main location input) */}
+          {venueMetadata && (
+            <div className="border rounded-lg p-4 bg-white shadow mt-4 flex flex-col md:flex-row gap-4 items-start">
+              {/* Photo */}
+              {venueMetadata.photos && venueMetadata.photos.length > 0 && (
+                <img
+                  src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${venueMetadata.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                  alt={venueMetadata.name}
+                  className="rounded-lg object-cover w-[64px] h-[48px] mb-2 md:mb-0"
+                  onError={(e) => { e.currentTarget.src = '/Venue.png'; }}
+                />
+              )}
+              <div className="flex-1">
+                <h5 className="font-playfair text-lg font-semibold mb-1">{venueMetadata.name}</h5>
+                <div className="mb-1 text-xs text-[#364257]">{venueMetadata.formatted_address}</div>
+                {/* Rating and reviews */}
+                {venueMetadata.rating && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-yellow-500">★</span>
+                    <span className="font-semibold">{venueMetadata.rating}</span>
+                    {venueMetadata.user_ratings_total && (
+                      <span className="text-xs text-[#364257]">({venueMetadata.user_ratings_total} Google reviews)</span>
+                    )}
+                  </div>
+                )}
+                {/* Google Maps link */}
+                {venueMetadata.url && (
+                  <a
+                    href={venueMetadata.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 underline hover:text-blue-800"
+                  >
+                    View on Google Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+          {/* If not a specific venue/address, show the rest of the flow */}
+          {!venueMetadata && (
+            <>
+              {weddingLocation && !weddingLocationUndecided && ['locality', 'administrative_area_level_1', 'country'].includes(selectedLocationType || '') && (
+                <>
+                  {/* Venue question and rest of flow as before */}
+                  <div>
+                    <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                      Have you already found your venue? <span className="text-[#A85C36]">*</span>
+                    </label>
+                    <div className="flex gap-4 mb-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="hasVenue"
+                          checked={hasVenue === true}
+                          onChange={() => setHasVenue(true)}
+                          className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                        />
+                        <span className="ml-2 text-sm text-[#332B42]">Yes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="hasVenue"
+                          checked={hasVenue === false}
+                          onChange={() => setHasVenue(false)}
+                          className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                        />
+                        <span className="ml-2 text-sm text-[#332B42]">No</span>
+                      </label>
+                    </div>
+                  </div>
+                  {hasVenue === true && (
+                    <div>
+                      <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                        Search for your venue <span className="text-[#A85C36]">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={venueSearch}
+                          onChange={(e) => {
+                            setVenueSearch(e.target.value);
+                            searchVenues(e.target.value);
+                            setSelectedVenueMetadata(null); // Reset on change
+                          }}
+                          placeholder="Enter venue name"
+                          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                        />
+                        {venueSuggestions.length > 0 && (
+                          <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
+                            {venueSuggestions.map((venue) => (
+                              <li
+                                key={venue.place_id}
+                                className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
+                                onClick={() => {
+                                  setSelectedVenue(venue);
+                                  setVenueSearch(venue.name);
+                                  setVenueSuggestions([]);
+                                  // Fetch and set venue metadata
+                                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                                  placesService.getDetails({ placeId: venue.place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
+                                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                                      setSelectedVenueMetadata(place);
+                                    } else {
+                                      setSelectedVenueMetadata(null);
+                                    }
+                                  });
+                                }}
+                              >
+                                <div className="font-medium">{venue.name}</div>
+                                <div className="text-xs text-gray-500">{venue.formatted_address}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      {selectedVenueMetadata && (
+                        <div className="border rounded-lg p-4 bg-white shadow mt-4 flex flex-col md:flex-row gap-4 items-start">
+                          {/* Photo */}
+                          {selectedVenueMetadata.photos && selectedVenueMetadata.photos.length > 0 && (
+                            <img
+                              src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${selectedVenueMetadata.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                              alt={selectedVenueMetadata.name}
+                              className="rounded-lg object-cover w-[64px] h-[48px] mb-2 md:mb-0"
+                              onError={(e) => { e.currentTarget.src = '/Venue.png'; }}
+                            />
+                          )}
+                          <div className="flex-1">
+                            <h5 className="font-playfair text-lg font-semibold mb-1">{selectedVenueMetadata.name}</h5>
+                            <div className="mb-1 text-xs text-[#364257]">{selectedVenueMetadata.formatted_address}</div>
+                            {/* Rating and reviews */}
+                            {selectedVenueMetadata.rating && (
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-yellow-500">★</span>
+                                <span className="font-semibold">{selectedVenueMetadata.rating}</span>
+                                {selectedVenueMetadata.user_ratings_total && (
+                                  <span className="text-xs text-[#364257]">({selectedVenueMetadata.user_ratings_total} Google reviews)</span>
+                                )}
+                              </div>
+                            )}
+                            {/* Google Maps link */}
+                            {selectedVenueMetadata.url && (
+                              <a
+                                href={selectedVenueMetadata.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 underline hover:text-blue-800"
+                              >
+                                View on Google Maps
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(2)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => {
+              if (weddingLocationUndecided) {
+                setStep(4);
+                return;
+              }
+              if (!weddingLocation.trim()) {
+                toast.error("Please enter your wedding location");
+                return;
+              }
+              if (hasVenue === null) {
+                toast.error("Please let us know if you have a venue");
+                return;
+              }
+              if (hasVenue && !selectedVenue) {
+                toast.error("Please select your venue");
+                return;
+              }
+              setStep(4);
+            }}
+            disabled={
+              !weddingLocationUndecided &&
+              (!weddingLocation.trim() || (hasVenue === true && !selectedVenue) || hasVenue === null)
+            }
+          >
+            Continue
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
       </div>
     </form>
-    {/* Step Indicator for onboarding steps only (dots) */}
-    <div className="flex justify-center items-center mt-12 gap-2">
-      {[1, 2].map((n) => (
-        <span
-          key={n}
-          className={`h-2 w-2 rounded-full transition-all duration-200 ${step === n + 1 ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
-        />
-      ))}
-    </div>
+  </>
+)}
+{step === 4 && (
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      What kind of vibe are you going for?
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Select all that apply, upload inspiration, or link your Pinterest board.
+    </h4>
+    <form className="w-full max-w-md space-y-6">
+      {/* Tabs for vibe input method */}
+      <div className="flex mb-4 border-b border-[#E0D6D0] mt-2">
+        {vibeTabs.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`flex items-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${vibeInputMethod === tab.key ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]' : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'}`}
+            onClick={() => setVibeInputMethod(tab.key as typeof vibeInputMethod)}
+            style={{ borderRadius: '8px 8px 0 0' }}
+          >
+            <span className="text-base">{tab.icon}</span>
+            <span className="whitespace-nowrap">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Conditionally render the selected input, with fixed min-height to prevent jumping */}
+      <div className="min-h-[80px] flex items-center">
+        {vibeInputMethod === 'pills' && (
+          <div className="flex flex-col w-full">
+            <span className="text-xs text-[#332B42] mb-2">Select all that apply.</span>
+            <div className="flex flex-wrap gap-2">
+              {vibeOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option}
+                  className={`px-3 py-1 rounded-full border text-sm font-work-sans transition-colors duration-150 ${vibe.includes(option) ? 'bg-[#A85C36] text-white border-[#A85C36]' : 'bg-white text-[#332B42] border-[#AB9C95]'}`}
+                  onClick={() => {
+                    setVibe((prev) =>
+                      prev.includes(option)
+                        ? prev.filter((v) => v !== option)
+                        : [...prev, option]
+                    );
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {vibeInputMethod === 'image' && (
+          <div className="w-full flex flex-col">
+            <label className="block text-xs font-medium text-[#332B42] mb-1">Upload Inspiration Image</label>
+            {/* If vibeGenerated, show preview, remove button, and pills */}
+            {vibeGenerated && inspirationImage && (
+              <>
+                <div className="flex flex-col items-center">
+                  <img src={imagePreview!} alt="Inspiration preview" className="mt-2 rounded-lg max-h-32 border border-[#AB9C95] mx-auto" />
+                  <button
+                    type="button"
+                    className="text-xs text-[#A85C36] underline mt-2 mb-4"
+                    onClick={() => {
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      setVibeGenerated(false);
+                      setGeneratedVibes([]);
+                    }}
+                  >
+                    Remove image
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center mt-2">
+                  {generatedVibes.map((vibe, idx) => (
+                    <span
+                      key={vibe}
+                      className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#332B42] border-[#A85C36] flex items-center gap-1"
+                      style={{ textTransform: 'capitalize' }}
+                    >
+                      {vibe}
+                      <button
+                        type="button"
+                        className="ml-1 text-[#A85C36] hover:text-[#784528]"
+                        onClick={() => setGeneratedVibes(generatedVibes.filter((_, i) => i !== idx))}
+                        aria-label={`Remove ${vibe}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {/* +Add button and custom input */}
+                  {showCustomVibeInput ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customVibe}
+                        onChange={e => setCustomVibe(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (customVibe.trim()) {
+                              setGeneratedVibes([...generatedVibes, customVibe.trim()]);
+                              setCustomVibe('');
+                              setShowCustomVibeInput(false);
+                            }
+                          }
+                        }}
+                        className="px-2 py-1 border rounded-full text-sm font-work-sans border-[#A85C36] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                        placeholder="Add custom vibe"
+                        style={{ textTransform: 'capitalize', minWidth: 100 }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="text-[#A85C36] font-semibold text-base"
+                        onClick={() => {
+                          if (customVibe.trim()) {
+                            setGeneratedVibes([...generatedVibes, customVibe.trim()]);
+                            setCustomVibe('');
+                            setShowCustomVibeInput(false);
+                          }
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button type="button" className="ml-1 text-[#A85C36] text-lg" onClick={() => setShowCustomVibeInput(false)} aria-label="Cancel">×</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#A85C36] border-[#A85C36] flex items-center gap-1"
+                      style={{ textTransform: 'capitalize' }}
+                      onClick={() => setShowCustomVibeInput(true)}
+                    >
+                      +Add
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {/* If not generated, show upload area and button */}
+            {!vibeGenerated && (
+              <div
+                className={`w-full border border-[#AB9C95] px-3 py-6 rounded-[5px] text-sm flex flex-col items-center justify-center transition-colors duration-150 ${dragActive ? 'bg-[#F3F2F0] border-[#A85C36]' : 'bg-white'}`}
+                onDragOver={e => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={e => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+                  if (file) {
+                    if (!file.type.startsWith('image/')) {
+                      toast.error('Please upload a valid image file.');
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error('Image must be less than 5MB.');
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      return;
+                    }
+                    setInspirationImage(file);
+                    setImagePreview(URL.createObjectURL(file));
+                  }
+                }}
+              >
+                <div className="w-full flex flex-col items-center">
+                  {!inspirationImage && (
+                    <div className="text-xs text-[#AB9C95] mb-2 text-center">No file chosen</div>
+                  )}
+                  {inspirationImage && (
+                    <div className="text-sm text-[#332B42] mb-2 text-center">Selected file: {inspirationImage.name}</div>
+                  )}
+                  <label className="btn-primaryinverse block mx-auto mt-0 mb-2 text-center cursor-pointer" htmlFor="vibe-image-upload">
+                    Choose File
+                    <input
+                      id="vibe-image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={e => {
+                        const file = e.target.files && e.target.files[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            toast.error('Please upload a valid image file.');
+                            setInspirationImage(null);
+                            setImagePreview(null);
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error('Image must be less than 5MB.');
+                            setInspirationImage(null);
+                            setImagePreview(null);
+                            return;
+                          }
+                          setInspirationImage(file);
+                          setImagePreview(URL.createObjectURL(file));
+                        } else {
+                          setInspirationImage(null);
+                          setImagePreview(null);
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                <div className="text-xs text-gray-500 mt-2 text-center w-full">Drag & drop an image here, or click to select. Accepted formats: JPG, PNG, GIF, SVG, WebP. Max size: 5MB.</div>
+                {imagePreview && (
+                  <img src={imagePreview} alt="Inspiration preview" className="mt-2 rounded-lg max-h-32 border border-[#AB9C95] mx-auto" />
+                )}
+                {inspirationImage && (
+                  <button
+                    type="button"
+                    className="btn-secondary flex items-center gap-2 mt-4"
+                    onClick={async () => {
+                      setVibeLoading(true);
+                      setVibeGenerated(false);
+                      setGeneratedVibes([]);
+                      try {
+                        const formData = new FormData();
+                        formData.append('image', inspirationImage);
+                        const res = await fetch('/api/generate-vibes-from-image', {
+                          method: 'POST',
+                          body: formData,
+                        });
+                        const data = await res.json();
+                        if (data.vibes && Array.isArray(data.vibes)) {
+                          setGeneratedVibes(data.vibes);
+                          setVibeGenerated(true);
+                        } else {
+                          toast.error('Could not extract vibes from image.');
+                        }
+                      } catch (err) {
+                        toast.error('Failed to generate vibes.');
+                      } finally {
+                        setVibeLoading(false);
+                      }
+                    }}
+                    style={{ textTransform: 'none' }}
+                    disabled={vibeLoading}
+                  >
+                    <WandSparkles className="w-4 h-4 mr-2" />
+                    {vibeLoading ? 'Generating...' : 'Generate vibe'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {vibeInputMethod === 'pinterest' && (
+          <div className="mt-2 w-full">
+            <input
+              type="url"
+              placeholder="https://www.pinterest.com/your-board"
+              value={pinterestLink}
+              onChange={e => setPinterestLink(e.target.value)}
+              className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+            />
+          </div>
+        )}
+      </div>
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(3)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => {
+              if (vibe.length === 0 && !inspirationImage && !pinterestLink) {
+                toast.error("Please select at least one vibe, upload an image, or provide a Pinterest link");
+                return;
+              }
+              setStep(5);
+            }}
+            disabled={
+              (vibeInputMethod === 'pills' && vibe.length === 0) ||
+              (vibeInputMethod === 'image' && (!inspirationImage || !vibeGenerated || generatedVibes.length === 0))
+            }
+          >
+            Continue
+          </button>
+        </div>
+        <div className="flex justify-center mt-2">
+          <button type="button" className="text-[#A85C36] underline text-sm font-medium hover:text-[#784528]" onClick={() => setStep(5)}>
+            Skip for now
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
+      </div>
+    </form>
   </>
 )}
 
@@ -668,10 +1240,101 @@ export default function SignUp() {
                   transition={{ duration: 0.4 }}
                 />
               )}
+              {step === 4 && (
+                <motion.img
+                  key="vibe"
+                  src="/vibe.png"
+                  alt="Vibe inspiration illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
             </AnimatePresence>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean }) {
+  const {
+    ready,
+    value: inputValue,
+    suggestions: { status, data },
+    setValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      types,
+    },
+    debounce: 300,
+    defaultValue: value,
+  });
+
+  return (
+    <div className="relative">
+      <input
+        value={disabled ? value : inputValue}
+        onChange={e => {
+          setValue(e.target.value);
+          onChange(e.target.value);
+          setVenueMetadata(null); // Reset venue metadata on input change
+        }}
+        disabled={disabled || !ready}
+        placeholder={placeholder}
+        className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${disabled ? 'bg-[#F3F2F0] text-[#AB9C95] cursor-not-allowed' : 'bg-white text-[#332B42]'}`}
+      />
+      {status === "OK" && data.length > 0 && !disabled && (
+        <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
+          {data.map(({ place_id, description, types }) => (
+            <li
+              key={place_id}
+              className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
+              onClick={() => {
+                setValue(description, false);
+                onChange(description);
+                clearSuggestions();
+                // Set location type for parent
+                const allowedTypes = ['locality', 'administrative_area_level_1', 'country'];
+                let foundType = null;
+                if (types && types.length > 0) {
+                  foundType = types.find(type => allowedTypes.includes(type)) || null;
+                }
+                setSelectedLocationType(foundType);
+                // Venue logic
+                const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
+                if (types && types.some(type => venueTypes.includes(type))) {
+                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                  placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                      setVenueMetadata(place);
+                    } else {
+                      setVenueMetadata(null);
+                    }
+                  });
+                } else {
+                  setVenueMetadata(null);
+                }
+              }}
+            >
+              {description}
+              <span className="text-xs text-gray-500 ml-2">
+                {types?.includes('street_address') ? 'Address' :
+                 types?.includes('premise') ? 'Venue' :
+                 types?.includes('establishment') ? 'Venue' :
+                 types?.includes('point_of_interest') ? 'Venue' :
+                 types?.includes('locality') ? 'City' :
+                 types?.includes('administrative_area_level_1') ? 'State' :
+                 types?.includes('country') ? 'Country' : 'Location'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 } 
