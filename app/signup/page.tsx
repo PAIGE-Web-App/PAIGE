@@ -15,9 +15,10 @@ import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
-import { WandSparkles } from 'lucide-react';
+import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
+import VenueCard from '@/components/VenueCard';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -81,6 +82,12 @@ export default function SignUp() {
     }
   }, [budgetRange]);
 
+  // Clear any existing session when signup page loads
+  useEffect(() => {
+    // Clear any existing session cookie to ensure clean signup state
+    document.cookie = '__session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  }, []);
+
   const vibeTabs = [
     { key: 'pills', label: 'Popular Vibes', icon: '✨' },
     { key: 'image', label: 'Upload Image', icon: '🖼️' },
@@ -136,13 +143,15 @@ export default function SignUp() {
 
   // Redirect if already logged in, but only if not a new signup
   useEffect(() => {
+    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
     if (!authLoading && user && !isNewSignup) {
       // Only redirect if user is onboarded
       const checkOnboarded = async () => {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().onboarded === true) {
-      router.push('/');
+          console.log('Redirecting onboarded user to dashboard');
+          router.push('/');
         }
       };
       checkOnboarded();
@@ -165,6 +174,24 @@ export default function SignUp() {
       setOnboarded(null);
     }
   }, [user, authLoading]);
+
+  // Handle redirect for onboarded users
+  useEffect(() => {
+    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
+    if (!authLoading && user && onboarded === true) {
+      console.log('Redirecting onboarded user to dashboard');
+      router.push('/');
+    }
+  }, [user, authLoading, onboarded, router]);
+
+  // Handle moving to step 2 for non-onboarded users
+  useEffect(() => {
+    console.log('Signup page - checking step transition:', { user: !!user, authLoading, onboarded, step });
+    if (!authLoading && user && onboarded === false && step === 1) {
+      console.log('Moving to step 2 for non-onboarded user');
+      setStep(2);
+    }
+  }, [user, authLoading, onboarded, step]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -214,15 +241,34 @@ export default function SignUp() {
     }
 
     try {
+      console.log('Creating user account...');
       const result = await createUserWithEmailAndPassword(auth, email, password);
       if (result.user) {
-        await setDoc(doc(db, "users", result.user.uid), {
-          email: result.user.email,
-          onboarded: false,
-          createdAt: new Date(),
-        }, { merge: true });
-        setIsNewSignup(true);
-        setStep(2);
+        console.log('User account created, setting up session...');
+        // Get the ID token and set the session cookie
+        const idToken = await result.user.getIdToken();
+        console.log('Got ID token, calling sessionLogin...');
+        const res = await fetch("/api/sessionLogin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        });
+        
+        console.log('SessionLogin response:', res.ok);
+        if (res.ok) {
+          console.log('Session login successful, creating user document...');
+          await setDoc(doc(db, "users", result.user.uid), {
+            email: result.user.email,
+            onboarded: false,
+            createdAt: new Date(),
+          }, { merge: true });
+          console.log('User document created, setting new signup flag...');
+          setIsNewSignup(true);
+          setStep(2);
+        } else {
+          console.error('Session login failed');
+          toast.error("Session login failed");
+        }
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
@@ -337,7 +383,6 @@ export default function SignUp() {
   };
 
   if (!authLoading && user && onboarded === true) {
-    router.push('/');
     return null;
   }
 
@@ -422,6 +467,7 @@ export default function SignUp() {
         updatedAt: new Date(),
       }, { merge: true });
       
+      console.log('Successfully saved onboarding data to Firestore');
       return true;
     } catch (error) {
       console.error("Error saving onboarding data:", error);
@@ -888,41 +934,11 @@ export default function SignUp() {
                         )}
                       </div>
                       {selectedVenueMetadata && (
-                        <div className="border rounded-lg p-4 bg-white shadow mt-4 flex flex-col md:flex-row gap-4 items-start">
-                          {/* Photo */}
-                          {selectedVenueMetadata.photos && selectedVenueMetadata.photos.length > 0 && (
-                            <img
-                              src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${selectedVenueMetadata.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                              alt={selectedVenueMetadata.name}
-                              className="rounded-lg object-cover w-[64px] h-[48px] mb-2 md:mb-0"
-                              onError={(e) => { e.currentTarget.src = '/Venue.png'; }}
-                            />
-                          )}
-                          <div className="flex-1">
-                            <h5 className="font-playfair text-lg font-semibold mb-1">{selectedVenueMetadata.name}</h5>
-                            <div className="mb-1 text-xs text-[#364257]">{selectedVenueMetadata.formatted_address}</div>
-                            {/* Rating and reviews */}
-                            {selectedVenueMetadata.rating && (
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-yellow-500">★</span>
-                                <span className="font-semibold">{selectedVenueMetadata.rating}</span>
-                                {selectedVenueMetadata.user_ratings_total && (
-                                  <span className="text-xs text-[#364257]">({selectedVenueMetadata.user_ratings_total} Google reviews)</span>
-                                )}
-                              </div>
-                            )}
-                            {/* Google Maps link */}
-                            {selectedVenueMetadata.url && (
-                              <a
-                                href={selectedVenueMetadata.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-600 underline hover:text-blue-800"
-                              >
-                                View on Google Maps
-                              </a>
-                            )}
-                          </div>
+                        <div className="mt-4">
+                          <VenueCard
+                            venue={selectedVenueMetadata}
+                            showDeleteButton={false}
+                          />
                         </div>
                       )}
                     </div>
@@ -1481,10 +1497,18 @@ export default function SignUp() {
                   onboardingCompletedAt: new Date(),
                 };
                 
+                console.log('Completing onboarding with data:', step5Data);
                 const success = await saveOnboardingData(step5Data);
                 if (success) {
+                  console.log('Onboarding completed successfully, showing toast and redirecting...');
                   toast.success("Welcome to Paige! Your wedding planning journey begins now.");
-                  router.push("/");
+                  // Add a small delay to ensure Firestore has updated before redirect
+                  setTimeout(() => {
+                    console.log('Redirecting to dashboard...');
+                    router.push("/");
+                  }, 1000);
+                } else {
+                  console.error('Failed to complete onboarding');
                 }
               };
               

@@ -4,7 +4,7 @@ import { Playfair_Display, Work_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../contexts/AuthContext";
 import Script from "next/script";
-import TopNav from "../components/TopNav";
+import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
 const workSans = Work_Sans({ subsets: ["latin"], variable: "--font-work-sans" });
@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
-          <TopNav />
+          <AuthenticatedNavWrapper />
           {/* Toaster component for custom toast notifications */}
           <Toaster
             position="top-right"

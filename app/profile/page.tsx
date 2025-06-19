@@ -12,9 +12,14 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 import { X, User, Pencil } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 import imageCompression from 'browser-image-compression';
+import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+import VenueCard from '@/components/VenueCard';
+
+// Declare global variables provided by the Google Maps environment
+declare const google: any;
 
 const TABS = [
   { key: "account", label: "Account" },
@@ -56,9 +61,57 @@ async function generateLQIP(blob: Blob): Promise<string> {
 
 export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl } = useAuth();
-  const [activeTab, setActiveTab] = useState("account");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Get initial tab from URL or default to "account"
+  const getInitialTab = () => {
+    const tabFromUrl = searchParams?.get('tab');
+    return TABS.find(tab => tab.key === tabFromUrl) ? tabFromUrl : "account";
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [saving, setSaving] = useState(false);
   const [showBannerLocal, setShowBannerLocal] = useState(true);
+
+  const [venueSearch, setVenueSearch] = useState("");
+  const [venueSuggestions, setVenueSuggestions] = useState<any[]>([]);
+
+  // Add venue search functionality
+  const searchVenues = async (query: string) => {
+    if (!query.trim()) {
+      setVenueSuggestions([]);
+      return;
+    }
+
+    try {
+      const service = new google.maps.places.PlacesService(document.createElement('div'));
+      const request = {
+        query: query + ' wedding venue',
+        type: 'establishment',
+        fields: ['name', 'place_id', 'formatted_address', 'geometry'],
+      };
+
+      service.textSearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          setVenueSuggestions(results);
+        } else {
+          setVenueSuggestions([]);
+        }
+      });
+    } catch (error) {
+      console.error('Error searching venues:', error);
+      setVenueSuggestions([]);
+    }
+  };
+
+  // Handle tab changes and update URL
+  const handleTabChange = (tabKey: string) => {
+    setActiveTab(tabKey);
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.set('tab', tabKey);
+    router.push(`/profile?${params.toString()}`, { scroll: false });
+  };
 
   // Mock data for now
   const [weddingDate, setWeddingDate] = useState<string>("");
@@ -81,6 +134,115 @@ export default function ProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
+  // Additional onboarding fields state
+  const [weddingLocation, setWeddingLocation] = useState("");
+  const [weddingLocationUndecided, setWeddingLocationUndecided] = useState(false);
+  const [hasVenue, setHasVenue] = useState<boolean | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<any>(null);
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any>(null);
+  const [vibe, setVibe] = useState<string[]>([]);
+  const [vibeInputMethod, setVibeInputMethod] = useState('pills');
+  const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
+  const [budgetRange, setBudgetRange] = useState<{ min: number; max: number } | null>(null);
+
+  // Google Places integration state
+  const [venueMetadata, setVenueMetadata] = useState<any>(null);
+  const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
+
+  // Add email validation state
+  const [emailError, setEmailError] = useState("");
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Add name validation state
+  const [userNameError, setUserNameError] = useState("");
+  const [partnerNameError, setPartnerNameError] = useState("");
+
+  // Email validation function
+  const validateEmail = (emailValue: string) => {
+    if (!emailValue.trim()) {
+      setEmailError("Email address is required.");
+      return false;
+    }
+    if (!emailRegex.test(emailValue)) {
+      setEmailError("Please enter a valid email address.");
+      return false;
+    }
+    setEmailError("");
+    return true;
+  };
+
+  // Name validation function
+  const validateName = (name: string, fieldName: string) => {
+    if (!name.trim()) {
+      return `${fieldName} is required.`;
+    }
+    if (name.trim().length < 2) {
+      return `${fieldName} must be at least 2 characters.`;
+    }
+    return "";
+  };
+
+  // Handle email change with validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    // Clear error if field is empty (don't show error while typing)
+    if (!newEmail.trim()) {
+      setEmailError("");
+    } else {
+      // Validate in real-time as user types
+      validateEmail(newEmail);
+    }
+  };
+
+  // Handle email blur with validation
+  const handleEmailBlur = () => {
+    // Always validate on blur, even if empty
+    validateEmail(email);
+  };
+
+  // Handle user name change with validation
+  const handleUserNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUserName = e.target.value;
+    setUserName(newUserName);
+    // Clear error if field is empty (don't show error while typing)
+    if (!newUserName.trim()) {
+      setUserNameError("");
+    } else {
+      // Validate in real-time as user types
+      const error = validateName(newUserName, "Your full name");
+      setUserNameError(error);
+    }
+  };
+
+  // Handle user name blur with validation
+  const handleUserNameBlur = () => {
+    // Always validate on blur, even if empty
+    const error = validateName(userName, "Your full name");
+    setUserNameError(error);
+  };
+
+  // Handle partner name change with validation
+  const handlePartnerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPartnerName = e.target.value;
+    setPartnerName(newPartnerName);
+    // Clear error if field is empty (don't show error while typing)
+    if (!newPartnerName.trim()) {
+      setPartnerNameError("");
+    } else {
+      // Validate in real-time as user types
+      const error = validateName(newPartnerName, "Your partner's name");
+      setPartnerNameError(error);
+    }
+  };
+
+  // Handle partner name blur with validation
+  const handlePartnerNameBlur = () => {
+    // Always validate on blur, even if empty
+    const error = validateName(partnerName, "Your partner's name");
+    setPartnerNameError(error);
+  };
+
   // Use shared user profile data hook
   const {
     weddingDate: firestoreWeddingDate,
@@ -94,6 +256,16 @@ export default function ProfilePage() {
     cityState: firestoreCityState,
     style: firestoreStyle,
     userName: firestoreUserName,
+    // Additional onboarding fields
+    weddingLocation: firestoreWeddingLocation,
+    weddingLocationUndecided: firestoreWeddingLocationUndecided,
+    hasVenue: firestoreHasVenue,
+    selectedVenue: firestoreSelectedVenue,
+    selectedVenueMetadata: firestoreSelectedVenueMetadata,
+    vibe: firestoreVibe,
+    vibeInputMethod: firestoreVibeInputMethod,
+    generatedVibes: firestoreGeneratedVibes,
+    budgetRange: firestoreBudgetRange,
   } = useUserProfileData();
 
   // Set email from user object on mount and detect Google sign-in
@@ -125,15 +297,6 @@ export default function ProfilePage() {
   useEffect(() => {
     setShowBannerLocal(!!globalShowBanner);
   }, [globalShowBanner]);
-
-  // Sync local wedding details state with Firestore values on load
-  useEffect(() => {
-    if (firestorePartnerName) setPartnerName(firestorePartnerName);
-    if (firestoreGuestCount !== null && firestoreGuestCount !== undefined) setGuestCount(firestoreGuestCount);
-    if (firestoreBudget) setBudget(firestoreBudget);
-    if (firestoreCityState) setCityState(firestoreCityState);
-    if (firestoreStyle) setStyle(firestoreStyle);
-  }, [firestorePartnerName, firestoreGuestCount, firestoreBudget, firestoreCityState, firestoreStyle]);
 
   // Fetch profile image from Firestore on mount (if exists)
   useEffect(() => {
@@ -285,24 +448,99 @@ export default function ProfilePage() {
   // Mock for banner
   const handleSetWeddingDate = () => toast("Set wedding date clicked!");
 
-  const handleSave = async () => {
+  // Track initial values for Wedding Details section
+  const [weddingInitial, setWeddingInitial] = useState({
+    weddingDate: '',
+    userName: '',
+    partnerName: '',
+    guestCount: 0,
+    budget: '',
+    cityState: '',
+    style: '',
+    showBanner: true,
+  });
+  const [weddingSaved, setWeddingSaved] = useState(false);
+  const [didLoadWeddingInitial, setDidLoadWeddingInitial] = useState(false);
+
+  // Set initial values for Wedding Details section after Firestore data is loaded
+  useEffect(() => {
+    if (
+      user &&
+      !profileLoading &&
+      firestorePartnerName !== undefined &&
+      firestoreUserName !== undefined &&
+      firestoreGuestCount !== undefined &&
+      firestoreBudget !== undefined &&
+      firestoreCityState !== undefined &&
+      firestoreStyle !== undefined &&
+      !didLoadWeddingInitial
+    ) {
+      setWeddingDate(firestoreWeddingDate ? firestoreWeddingDate.toISOString().slice(0, 10) : '');
+      setUserName(firestoreUserName ?? '');
+      setPartnerName(firestorePartnerName ?? '');
+      setGuestCount(firestoreGuestCount ?? 0);
+      setBudget(firestoreBudget ?? '');
+      setCityState(firestoreCityState ?? '');
+      setStyle(firestoreStyle ?? '');
+      setShowBannerLocal(!!globalShowBanner);
+      
+      setWeddingInitial({
+        weddingDate: firestoreWeddingDate ? firestoreWeddingDate.toISOString().slice(0, 10) : '',
+        userName: firestoreUserName ?? '',
+        partnerName: firestorePartnerName ?? '',
+        guestCount: firestoreGuestCount ?? 0,
+        budget: firestoreBudget ?? '',
+        cityState: firestoreCityState ?? '',
+        style: firestoreStyle ?? '',
+        showBanner: !!globalShowBanner,
+      });
+      setDidLoadWeddingInitial(true);
+    }
+  }, [user, profileLoading, firestoreWeddingDate, firestoreUserName, firestorePartnerName, firestoreGuestCount, firestoreBudget, firestoreCityState, firestoreStyle, globalShowBanner, didLoadWeddingInitial]);
+
+  // Reset didLoadWeddingInitial if user changes
+  useEffect(() => {
+    setDidLoadWeddingInitial(false);
+  }, [user]);
+
+  // Check if any Wedding Details field is changed
+  const isWeddingChanged =
+    weddingDate !== weddingInitial.weddingDate ||
+    guestCount !== weddingInitial.guestCount ||
+    budget !== weddingInitial.budget ||
+    cityState !== weddingInitial.cityState ||
+    style !== weddingInitial.style ||
+    showBannerLocal !== weddingInitial.showBanner;
+
+  // Save handler for Wedding Details section
+  const handleWeddingSave = async () => {
     if (!user) return;
     setSaving(true);
     try {
+      const weddingDateObj = weddingDate ? new Date(weddingDate) : null;
       await updateDoc(doc(db, "users", user.uid), {
-        userName,
-        partnerName,
-        weddingDate,
+        weddingDate: weddingDateObj,
         guestCount,
         budget,
         cityState,
         style,
         showBanner: showBannerLocal,
-        address,
       });
-      toast.success("Profile updated!");
+      setWeddingInitial({
+        weddingDate,
+        userName,
+        partnerName,
+        guestCount,
+        budget,
+        cityState,
+        style,
+        showBanner: showBannerLocal,
+      });
+      setWeddingSaved(true);
+      setTimeout(() => setWeddingSaved(false), 2000);
+      toast.success("Wedding details saved!");
     } catch (err) {
-      toast.error("Failed to update profile");
+      toast.error("Failed to save wedding details");
     } finally {
       setSaving(false);
     }
@@ -312,7 +550,6 @@ export default function ProfilePage() {
   const [integrationGoogleEmail, setIntegrationGoogleEmail] = useState<string | null>(null);
   const [integrationLoading, setIntegrationLoading] = useState(false);
   const [integrationError, setIntegrationError] = useState<string | null>(null);
-  const router = useRouter();
 
   // Fetch connected Google account on mount and after connect/disconnect
   useEffect(() => {
@@ -418,6 +655,17 @@ export default function ProfilePage() {
   // Save handler for Account section
   const handleAccountSave = async () => {
     if (!user) return;
+    
+    // Validate all fields before saving
+    const emailValid = validateEmail(email);
+    const userNameValid = !validateName(userName, "Your full name");
+    const partnerNameValid = !validateName(partnerName, "Your partner's name");
+    
+    if (!emailValid || !userNameValid || !partnerNameValid) {
+      toast.error("Please fix the validation errors before saving.");
+      return;
+    }
+    
     setSaving(true);
     try {
       await updateDoc(doc(db, "users", user.uid), {
@@ -436,6 +684,21 @@ export default function ProfilePage() {
     }
   };
 
+  // Set initial values for Wedding section
+  useEffect(() => {
+    if (!profileLoading) {
+      setWeddingLocation(firestoreWeddingLocation ?? '');
+      setWeddingLocationUndecided(firestoreWeddingLocationUndecided ?? false);
+      setHasVenue(firestoreHasVenue ?? null);
+      setSelectedVenue(firestoreSelectedVenue ?? null);
+      setSelectedVenueMetadata(firestoreSelectedVenueMetadata ?? null);
+      setVibe(firestoreVibe ?? []);
+      setVibeInputMethod(firestoreVibeInputMethod ?? 'pills');
+      setGeneratedVibes(firestoreGeneratedVibes ?? []);
+      setBudgetRange(firestoreBudgetRange ?? null);
+    }
+  }, [profileLoading, firestoreWeddingLocation, firestoreWeddingLocationUndecided, firestoreHasVenue, firestoreSelectedVenue, firestoreSelectedVenueMetadata, firestoreVibe, firestoreVibeInputMethod, firestoreGeneratedVibes, firestoreBudgetRange]);
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -453,13 +716,13 @@ export default function ProfilePage() {
       </AnimatePresence>
       <div className="min-h-screen bg-[#F3F2F0] flex flex-col items-center py-12">
         <div className="w-full max-w-4xl">
-          <h1 className="text-3xl font-playfair font-semibold text-[#332B42] mb-8">Settings</h1>
+          <h3 className="mb-8">Settings</h3>
           <div className="flex gap-2 mb-8">
             {TABS.map((tab) => (
               <button
                 key={tab.key}
                 className={`px-4 py-2 rounded font-work-sans text-sm font-medium border transition-colors duration-150 focus:outline-none ${activeTab === tab.key ? "bg-white border-[#A85C36] text-[#A85C36]" : "bg-[#F3F2F0] border-[#E0D6D0] text-[#332B42] hover:bg-[#E0D6D0]"}`}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabChange(tab.key)}
               >
                 {tab.label}
               </button>
@@ -500,13 +763,59 @@ export default function ProfilePage() {
                       <span className="text-sm text-[#332B42] break-all">{email}</span>
                     </div>
                   ) : (
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                    />
+                    <>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={handleEmailChange}
+                        onBlur={handleEmailBlur}
+                        className={`w-full px-3 py-2 border rounded bg-white text-sm focus:outline-none focus:ring-2 ${
+                          emailError 
+                            ? "border-red-500 focus:ring-red-500" 
+                            : "border-[#AB9C95] focus:ring-[#A85C36]"
+                        }`}
+                      />
+                      {emailError && (
+                        <p className="text-red-500 text-xs mt-1">{emailError}</p>
+                      )}
+                    </>
                   )}
+                </div>
+                <div className="mb-4 flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
+                    <input 
+                      type="text" 
+                      value={userName} 
+                      onChange={handleUserNameChange} 
+                      onBlur={handleUserNameBlur} 
+                      className={`w-full px-3 py-2 border rounded bg-white text-sm focus:outline-none focus:ring-2 ${
+                        userNameError 
+                          ? "border-red-500 focus:ring-red-500" 
+                          : "border-[#AB9C95] focus:ring-[#A85C36]"
+                      }`}
+                    />
+                    {userNameError && (
+                      <p className="text-red-500 text-xs mt-1">{userNameError}</p>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Partner's Name*</label>
+                    <input 
+                      type="text" 
+                      value={partnerName} 
+                      onChange={handlePartnerNameChange} 
+                      onBlur={handlePartnerNameBlur} 
+                      className={`w-full px-3 py-2 border rounded bg-white text-sm focus:outline-none focus:ring-2 ${
+                        partnerNameError 
+                          ? "border-red-500 focus:ring-red-500" 
+                          : "border-[#AB9C95] focus:ring-[#A85C36]"
+                      }`}
+                    />
+                    {partnerNameError && (
+                      <p className="text-red-500 text-xs mt-1">{partnerNameError}</p>
+                    )}
+                  </div>
                 </div>
                 {!isGoogleUser && (
                   <div className="mb-4">
@@ -537,7 +846,7 @@ export default function ProfilePage() {
                   <button
                     className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
                     onClick={handleAccountSave}
-                    disabled={saving || !isAccountChanged}
+                    disabled={saving || !isAccountChanged || !!emailError || !!userNameError || !!partnerNameError}
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </button>
@@ -550,6 +859,8 @@ export default function ProfilePage() {
               {/* Wedding Details Only */}
               <div className="flex-1 bg-white rounded-lg p-8 shadow">
                 <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Wedding Details</h2>
+                
+                {/* Wedding Date */}
                 <div className="mb-4">
                   <label className="block text-xs font-work-sans text-[#332B42] mb-1">When's the big day?*</label>
                   <input
@@ -568,35 +879,163 @@ export default function ProfilePage() {
                     Show on banner (recommended)
                   </label>
                 </div>
-                <div className="mb-4 flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Name*</label>
-                    <input type="text" value={userName} onChange={e => setUserName(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Guest Count</label>
-                    <input type="number" value={guestCount} onChange={e => setGuestCount(Number(e.target.value))} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
-                  </div>
+
+                {/* Wedding Location */}
+                <div className="mb-4">
+                  <label className="block text-xs font-work-sans text-[#332B42] mb-1">Wedding Location</label>
+                  {profileLoading ? (
+                    <div className="animate-pulse bg-[#F3F2F0] h-[38px] rounded border border-[#AB9C95]" />
+                  ) : weddingLocationUndecided ? (
+                    <div className="px-3 py-2 bg-[#F3F2F0] rounded border border-[#AB9C95] text-sm text-[#332B42]">
+                      We're working on location still!
+                    </div>
+                  ) : (
+                    <PlacesAutocompleteInput
+                      value={weddingLocation || firestoreWeddingLocation || ''}
+                      onChange={setWeddingLocation}
+                      setVenueMetadata={setVenueMetadata}
+                      setSelectedLocationType={setSelectedLocationType}
+                      placeholder="Enter wedding location"
+                      types={['geocode']}
+                    />
+                  )}
                 </div>
-                <div className="mb-4 flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Partner's Name*</label>
-                    <input type="text" value={partnerName} onChange={e => setPartnerName(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
+
+                {/* Venue Details */}
+                <AnimatePresence mode="wait">
+                  {/* Selected Venue Card */}
+                  {hasVenue && selectedVenueMetadata && (
+                    <AnimatePresence mode="wait">
+                      <VenueCard
+                        venue={selectedVenueMetadata}
+                        onDelete={() => {
+                          setHasVenue(false);
+                          setSelectedVenue(null);
+                          setSelectedVenueMetadata(null);
+                          setVenueSearch("");
+                        }}
+                      />
+                    </AnimatePresence>
+                  )}
+
+                  {/* Show venue search when no venue is selected */}
+                  {hasVenue === false && (
+                    <motion.div
+                      key="venue-search"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ 
+                        duration: 0.2,
+                        ease: [0.4, 0, 0.2, 1]
+                      }}
+                      className="mb-4"
+                    >
+                      <label className="block text-xs font-work-sans text-[#332B42] mb-1">Search for your venue</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={venueSearch}
+                          onChange={(e) => {
+                            setVenueSearch(e.target.value);
+                            searchVenues(e.target.value);
+                            setSelectedVenueMetadata(null); // Reset on change
+                          }}
+                          placeholder="Enter venue name"
+                          className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                        />
+                        {venueSuggestions.length > 0 && (
+                          <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
+                            {venueSuggestions.map((venue) => (
+                              <li
+                                key={venue.place_id}
+                                className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
+                                onClick={() => {
+                                  setSelectedVenue(venue);
+                                  setVenueSearch(venue.name);
+                                  setVenueSuggestions([]);
+                                  // Fetch and set venue metadata
+                                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                                  placesService.getDetails({ placeId: venue.place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
+                                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                                      setSelectedVenueMetadata(place);
+                                      setHasVenue(true);
+                                    } else {
+                                      setSelectedVenueMetadata(null);
+                                    }
+                                  });
+                                }}
+                              >
+                                <div className="font-medium">{venue.name}</div>
+                                <div className="text-xs text-gray-500">{venue.formatted_address}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Wedding Vibe */}
+                {(vibe.length > 0 || generatedVibes.length > 0) && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Wedding Vibe</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[...vibe, ...generatedVibes].map((vibeItem, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 rounded-full border text-sm font-work-sans bg-[#A85C36] text-white border-[#A85C36]"
+                        >
+                          {vibeItem}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+                )}
+
+                {/* Guest Count */}
+                <div className="mb-4">
+                  <label className="block text-xs font-work-sans text-[#332B42] mb-1">Guest Count</label>
+                  <input type="number" value={guestCount} onChange={e => setGuestCount(Number(e.target.value))} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
+                </div>
+
+                {/* Budget Range */}
+                {budgetRange && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Budget Range</label>
+                    <div className="px-3 py-2 bg-[#F3F2F0] rounded border border-[#AB9C95] text-sm text-[#332B42]">
+                      ${budgetRange.min.toLocaleString()} - ${budgetRange.max.toLocaleString()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legacy Budget Field */}
+                <div className="mb-4 flex gap-4">
                   <div className="flex-1">
                     <label className="block text-xs font-work-sans text-[#332B42] mb-1">Budget</label>
                     <input type="text" value={budget} onChange={e => setBudget(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
                   </div>
-                </div>
-                <div className="mb-4 flex gap-4">
                   <div className="flex-1">
                     <label className="block text-xs font-work-sans text-[#332B42] mb-1">City, State</label>
                     <input type="text" value={cityState} onChange={e => setCityState(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" />
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-work-sans text-[#332B42] mb-1">Style</label>
-                    <input type="text" value={style} onChange={e => setStyle(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" disabled />
-                  </div>
+                </div>
+
+                {/* Style */}
+                <div className="mb-4">
+                  <label className="block text-xs font-work-sans text-[#332B42] mb-1">Style</label>
+                  <input type="text" value={style} onChange={e => setStyle(e.target.value)} className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" disabled />
+                </div>
+
+                <div className="flex justify-end items-center mt-6 gap-3">
+                  {weddingSaved && <span className="text-green-600 text-sm font-medium mr-2">Saved!</span>}
+                  <button
+                    className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
+                    onClick={handleWeddingSave}
+                    disabled={saving || !isWeddingChanged}
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -853,5 +1292,85 @@ export default function ProfilePage() {
         }
       />
     </>
+  );
+}
+
+// PlacesAutocompleteInput component for Google Places integration
+function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean }) {
+  const {
+    ready,
+    value: inputValue,
+    suggestions: { status, data },
+    setValue,
+    clearSuggestions,
+  } = usePlacesAutocomplete({
+    requestOptions: {
+      types,
+    },
+    debounce: 300,
+    defaultValue: value,
+  });
+
+  return (
+    <div className="relative">
+      <input
+        value={disabled ? value : inputValue}
+        onChange={e => {
+          setValue(e.target.value);
+          onChange(e.target.value);
+          setVenueMetadata(null); // Reset venue metadata on input change
+        }}
+        disabled={disabled || !ready}
+        placeholder={placeholder}
+        className={`w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${disabled ? 'bg-[#F3F2F0] text-[#AB9C95] cursor-not-allowed' : 'bg-white text-[#332B42]'}`}
+      />
+      {status === "OK" && data.length > 0 && !disabled && (
+        <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
+          {data.map(({ place_id, description, types }) => (
+            <li
+              key={place_id}
+              className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
+              onClick={() => {
+                setValue(description, false);
+                onChange(description);
+                clearSuggestions();
+                // Set location type for parent
+                const allowedTypes = ['locality', 'administrative_area_level_1', 'country'];
+                let foundType = null;
+                if (types && types.length > 0) {
+                  foundType = types.find(type => allowedTypes.includes(type)) || null;
+                }
+                setSelectedLocationType(foundType);
+                // Venue logic
+                const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
+                if (types && types.some(type => venueTypes.includes(type))) {
+                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+                  placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                      setVenueMetadata(place);
+                    } else {
+                      setVenueMetadata(null);
+                    }
+                  });
+                } else {
+                  setVenueMetadata(null);
+                }
+              }}
+            >
+              {description}
+              <span className="text-xs text-gray-500 ml-2">
+                {types?.includes('street_address') ? 'Address' :
+                 types?.includes('premise') ? 'Venue' :
+                 types?.includes('establishment') ? 'Venue' :
+                 types?.includes('point_of_interest') ? 'Venue' :
+                 types?.includes('locality') ? 'City' :
+                 types?.includes('administrative_area_level_1') ? 'State' :
+                 types?.includes('country') ? 'Country' : 'Location'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 } 

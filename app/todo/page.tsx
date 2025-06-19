@@ -56,6 +56,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 
 // UTILS IMPORTS (from utils/ folder)
 import { getCategoryStyle } from '@/utils/categoryStyle';
+import { handleLogout } from '../../utils/logout';
 
 import type { TodoItem, TodoList } from '../../types/todo';
 import { useUserProfileData } from "../../hooks/useUserProfileData";
@@ -1001,19 +1002,8 @@ export default function TodoPage() {
   };
 
   // Add a logout handler for TopNav
-  const handleLogout = async () => {
-    try {
-      const { getAuth, signOut } = await import('firebase/auth');
-      const auth = getAuth();
-      await signOut(auth);
-      // Call the server-side logout to clear the HttpOnly cookie
-      await fetch('/api/sessionLogout', { method: 'POST' });
-      console.log('Redirecting to /login...');
-      window.location.replace('/login');
-    } catch (error) {
-      console.error('todo/page.tsx: Error signing out:', error);
-      showErrorToast(`Failed to log out: ${(error as Error).message}`);
-    }
+  const handleLogoutClick = async () => {
+    await handleLogout();
   };
 
   // Add this with other useState imports

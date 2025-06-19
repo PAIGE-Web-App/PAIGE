@@ -41,6 +41,7 @@ import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
 import ContactsList from '../components/ContactsList';
 import MessagesPanel from '../components/MessagesPanel';
+import { handleLogout } from '../utils/logout';
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -303,10 +304,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      console.log('Redirecting to /login because user is null and authLoading is false', { user, authLoading });
-      router.push('/login');
+      // Don't auto-redirect, let the logout function handle it
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -330,24 +330,8 @@ export default function Home() {
   }, [user, authLoading, router]);
 
   // Function to handle user logout
-  const handleLogout = async () => {
-    try {
-      // First clear the session cookie
-      await fetch('/api/sessionLogout', { 
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      // Then sign out from Firebase
-      const auth = getAuth();
-      await signOut(auth);
-      
-      // Finally redirect to login page
-      router.push('/login');
-    } catch (error) {
-      console.error('page.tsx: Error signing out:', error);
-      showErrorToast(`Failed to log out: ${(error as Error).message}`);
-    }
+  const handleLogoutClick = async () => {
+    await handleLogout(router);
   };
 
    // Contacts Listener

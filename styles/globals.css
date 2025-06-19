@@ -102,10 +102,36 @@ a {
   --border-color: #AB9C95;
 }
 
-h4 {
+h1 {
   font-family: 'Playfair Display', serif;
   font-weight: 500;
   font-size: 1.25rem;
+  line-height: 2;
+  color: #332B42;
+}
+
+
+h2 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1.75rem;
+  line-height: 1.5;
+  color: #332B42;
+}
+
+
+h3 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1.5;
+  color: #332B42;
+}
+
+h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1.35rem;
   line-height: 1.5;
   color: #332B42;
 }
@@ -114,6 +140,14 @@ h5 {
   font-family: 'Playfair Display', serif;
   font-weight: 500;
   font-size: 1.125rem;
+  line-height: 1.5;
+  color: #332B42;
+}
+
+h6 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 1rem;
   line-height: 1.5;
   color: #332B42;
 }

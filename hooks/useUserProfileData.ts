@@ -16,6 +16,17 @@ export function useUserProfileData() {
   const [cityState, setCityState] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
 
+  // Additional onboarding fields
+  const [weddingLocation, setWeddingLocation] = useState<string | null>(null);
+  const [weddingLocationUndecided, setWeddingLocationUndecided] = useState<boolean>(false);
+  const [hasVenue, setHasVenue] = useState<boolean | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<any>(null);
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any>(null);
+  const [vibe, setVibe] = useState<string[]>([]);
+  const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
+  const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
+  const [budgetRange, setBudgetRange] = useState<{ min: number; max: number } | null>(null);
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
@@ -29,6 +40,17 @@ export function useUserProfileData() {
         setBudget(data.budget || null);
         setCityState(data.cityState || null);
         setStyle(data.style || null);
+
+        // Additional onboarding fields
+        setWeddingLocation(data.weddingLocation || null);
+        setWeddingLocationUndecided(data.weddingLocationUndecided || false);
+        setHasVenue(data.hasVenue || null);
+        setSelectedVenue(data.selectedVenue || null);
+        setSelectedVenueMetadata(data.selectedVenueMetadata || null);
+        setVibe(data.vibe || []);
+        setVibeInputMethod(data.vibeInputMethod || 'pills');
+        setGeneratedVibes(data.generatedVibes || []);
+        setBudgetRange(data.budgetRange || null);
 
         if (data.weddingDate?.seconds) {
           const date = new Date(data.weddingDate.seconds * 1000);
@@ -47,5 +69,26 @@ export function useUserProfileData() {
     if (!authLoading) fetchUserData();
   }, [user, authLoading]);
 
-  return { userName, weddingDate, daysLeft, showBanner, profileLoading, partnerName, guestCount, budget, cityState, style };
+  return { 
+    userName, 
+    weddingDate, 
+    daysLeft, 
+    showBanner, 
+    profileLoading, 
+    partnerName, 
+    guestCount, 
+    budget, 
+    cityState, 
+    style,
+    // Additional onboarding fields
+    weddingLocation,
+    weddingLocationUndecided,
+    hasVenue,
+    selectedVenue,
+    selectedVenueMetadata,
+    vibe,
+    vibeInputMethod,
+    generatedVibes,
+    budgetRange
+  };
 } 

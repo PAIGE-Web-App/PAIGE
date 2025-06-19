@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { User, ContactRound, Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
-import { getAuth, signOut } from "firebase/auth";
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { handleLogout } from '../utils/logout';
 
 // Helper to add cache-busting parameter
 function addCacheBuster(url: string | null): string | null {
@@ -26,15 +26,17 @@ export default function TopNav() {
   const [showMobileNavMenu, setShowMobileNavMenu] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const cacheBustedProfileImageUrlRef = useRef<string | null>(null);
+  const timestampRef = useRef<string>(Date.now().toString());  // Create a stable timestamp per mount
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileNavMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const { user, profileImageUrl, profileImageLQIP } = useAuth();
 
   // Only update cache-busted URL when profileImageUrl changes
   useEffect(() => {
     if (profileImageUrl) {
-      cacheBustedProfileImageUrlRef.current = profileImageUrl + (profileImageUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+      cacheBustedProfileImageUrlRef.current = profileImageUrl + (profileImageUrl.includes('?') ? '&' : '?') + 't=' + timestampRef.current;
     } else {
       cacheBustedProfileImageUrlRef.current = null;
     }
@@ -46,10 +48,8 @@ export default function TopNav() {
   const userId = user?.uid || null;
 
   // Logout handler
-  const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
-    // Optionally, redirect or show a toast
+  const handleLogoutClick = async () => {
+    await handleLogout(router);
   };
 
   const navItems = [ // Moved outside component
@@ -91,7 +91,7 @@ export default function TopNav() {
   const userMenuItems = [
     { name: "Profile", href: "/profile", icon: ContactRound },
     { name: "Settings", href: "/settings", icon: Settings },
-    { name: "Logout", href: "#", icon: LogOut, onClick: handleLogout }, // Use the onLogout prop here
+    { name: "Logout", href: "#", icon: LogOut, onClick: handleLogoutClick }, // Use the centralized logout function
   ];
 
   return (
