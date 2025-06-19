@@ -9,6 +9,10 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI; // Your OAuth callback URL
 
 export async function GET(request: Request) {
+  console.log('🚀 [Google OAuth Callback] Callback endpoint hit');
+  console.log('🔍 [Google OAuth Callback] Request URL:', request.url);
+  console.log('🔍 [Google OAuth Callback] Request headers:', Object.fromEntries(request.headers.entries()));
+
   const adminDb = getAdminDb();
 
   if (!adminDb) {
