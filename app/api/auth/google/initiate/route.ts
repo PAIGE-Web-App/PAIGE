@@ -30,13 +30,21 @@ export async function GET(request: Request) {
   const userId = searchParams.get('userId');
   const frontendRedirectUri = searchParams.get('redirectUri'); // The URL to redirect back to on the frontend
 
+  console.log('🔍 [Google OAuth Initiate] Request received:', {
+    userId,
+    frontendRedirectUri,
+    userAgent: request.headers.get('user-agent'),
+    referer: request.headers.get('referer')
+  });
+
   if (!userId || !frontendRedirectUri) {
+    console.error('❌ [Google OAuth Initiate] Missing required parameters:', { userId, frontendRedirectUri });
     return NextResponse.json({ error: 'Missing userId or redirectUri' }, { status: 400 });
   }
 
   // --- Validate Environment Variables ---
   if (!GOOGLE_CLIENT_ID || !GOOGLE_REDIRECT_URI) {
-    console.error("Missing Google API environment variables in initiate route. Please check .env.local.");
+    console.error("❌ [Google OAuth Initiate] Missing Google API environment variables. Please check .env.local.");
     return NextResponse.json({ success: false, message: 'Server configuration error: Google API credentials missing.' }, { status: 500 });
   }
   // --- END Validation ---
@@ -50,6 +58,9 @@ export async function GET(request: Request) {
   authUrl.searchParams.append('access_type', 'offline'); // To get a refresh token
   authUrl.searchParams.append('prompt', 'consent'); // To ensure consent screen is shown
   authUrl.searchParams.append('state', JSON.stringify({ userId, frontendRedirectUri })); // Pass state to callback
+
+  console.log('✅ [Google OAuth Initiate] Redirecting to Google with URL:', authUrl.toString());
+  console.log('📋 [Google OAuth Initiate] Scopes being requested:', SCOPES);
 
   // Redirect the user to Google's consent screen
   return NextResponse.redirect(authUrl.toString());

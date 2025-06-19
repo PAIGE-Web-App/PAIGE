@@ -21,16 +21,27 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const stateParam = searchParams.get('state');
 
+  console.log('🔍 [Google OAuth Callback] Received callback with params:', {
+    hasCode: !!code,
+    hasState: !!stateParam,
+    allParams: Object.fromEntries(searchParams.entries())
+  });
+
   if (!code) {
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
-    console.error('Google OAuth error:', error, errorDescription);
+    console.error('❌ [Google OAuth Callback] Google OAuth error:', { error, errorDescription });
+    console.error('🔍 [Google OAuth Callback] Full error details:', {
+      error,
+      errorDescription,
+      allParams: Object.fromEntries(searchParams.entries())
+    });
 
     let frontendRedirectUrl = '/';
     if (stateParam) {
       try {
         const state = JSON.parse(stateParam);
-        frontendRedirectUrl = `${state.frontendRedirectUri}?gmailAuth=error`;
+        frontendRedirectUrl = `${state.frontendRedirectUri}?gmailAuth=error&error=${error}&error_description=${errorDescription}`;
       } catch (e) {
         console.error('Error parsing state during OAuth error:', e);
       }
