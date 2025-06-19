@@ -10,7 +10,6 @@ import { getAllContacts } from "../lib/getContacts";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
-import TopNav from "../components/TopNav";
 import { useDraftMessage } from "../hooks/useDraftMessage";
 import EditContactModal from "../components/EditContactModal";
 import { getCategoryStyle } from "../utils/categoryStyle";
@@ -934,12 +933,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <TopNav 
-        userName={user?.displayName || user?.email || 'Guest'} 
-        userId={user?.uid || null} 
-        onLogout={handleLogout}
-        isLoading={isLoading}
-      />
       <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
         {isLoading ? (
           <div className="animate-pulse">

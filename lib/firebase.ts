@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, CollectionReference, enableIndexedDbPersistence, doc, getDoc, updateDoc } from "firebase/firestore"; // Import collection and CollectionReference
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjvE1sz703sthMdS_yjrfNbhe3PM_yRi8",
@@ -18,6 +19,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Enable Firestore offline persistence
 enableIndexedDbPersistence(db).catch((err) => {

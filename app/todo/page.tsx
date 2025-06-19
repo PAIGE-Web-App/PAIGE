@@ -29,7 +29,6 @@ import { getUserCollectionRef } from '@/lib/firebase';
 import { getAllCategories, saveCategoryIfNew } from '@/lib/firebaseCategories';
 
 // UI COMPONENT IMPORTS (from components/ folder)
-import TopNav from '@/components/TopNav';
 import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
 
@@ -59,6 +58,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { getCategoryStyle } from '@/utils/categoryStyle';
 
 import type { TodoItem, TodoList } from '../../types/todo';
+import { useUserProfileData } from "../../hooks/useUserProfileData";
 
 const STARTER_TIER_MAX_LISTS = 3; // Example tier limit
 
@@ -96,60 +96,8 @@ export default function TodoPage() {
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
   const searchParams = useSearchParams();
 
-  // Add state for wedding date
-  const [daysLeft, setDaysLeft] = useState<number | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false);
-  const [isDataReady, setIsDataReady] = useState(false);
-
-  // Add useEffect to fetch wedding date
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) return;
-
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-
-        if (data.userName) {
-          setUserName(data.userName);
-        }
-
-        if (data.weddingDate?.seconds) {
-          const date = new Date(data.weddingDate.seconds * 1000);
-          const today = new Date();
-          const diffTime = date.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysLeft(diffDays);
-        } else {
-          setDaysLeft(null);
-        }
-      }
-    };
-
-    if (!loading) {
-      fetchUserData();
-    }
-  }, [user, loading]);
-
-  // Add minimum loading time effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinLoadTimeReached(true);
-    }, 500); // 500ms minimum loading time
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Effect to set data ready state
-  useEffect(() => {
-    if (!loading && minLoadTimeReached) {
-      setIsDataReady(true);
-    }
-  }, [loading, minLoadTimeReached]);
-
-  // Only show content when both loading is complete AND minimum time has passed
-  const isLoading = loading || !minLoadTimeReached;
+  // Use shared user profile data hook
+  const { userName, daysLeft, profileLoading } = useUserProfileData();
 
   // State for adding new lists
   const [newListName, setNewListName] = useState('');
@@ -1368,15 +1316,12 @@ export default function TodoPage() {
     }
   };
 
+  // Only show content when both loading is complete AND minimum time has passed
+  const isLoading = profileLoading;
+
   if (loading) {
   return (
       <div className="flex flex-col min-h-screen bg-linen">
-        <TopNav 
-          userName={user?.displayName || user?.email || 'Guest'} 
-          userId={user?.uid || null} 
-          onLogout={handleLogout}
-          isLoading={true}
-        />
         <WeddingBanner
           daysLeft={null}
           userName={null}
@@ -1397,12 +1342,6 @@ export default function TodoPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <TopNav 
-        userName={user?.displayName || user?.email || 'Guest'} 
-        userId={user?.uid || null} 
-        onLogout={handleLogout}
-        isLoading={isLoading}
-      />
       <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
         {isLoading ? (
           <div className="animate-pulse">

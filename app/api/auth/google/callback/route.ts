@@ -88,6 +88,28 @@ export async function GET(request: Request) {
     });
     console.log('About to save tokens for userId:', userId);
 
+    // Fetch the connected Gmail user's email address
+    let gmailUserEmail = '';
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_REDIRECT_URI
+      );
+      oauth2Client.setCredentials({
+        access_token: access_token,
+        refresh_token: refresh_token,
+      });
+      
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      const profileRes = await gmail.users.getProfile({ userId: 'me' });
+      gmailUserEmail = (profileRes.data.emailAddress || '').toLowerCase();
+      console.log('DEBUG: Connected Gmail user email:', gmailUserEmail);
+    } catch (e) {
+      console.error('Failed to fetch Gmail user profile:', e);
+      // Continue without email if profile fetch fails
+    }
+
     // MODIFIED: Use adminDb.collection().doc().set() for Admin SDK Firestore operations
     const userRef = adminDb.collection('users').doc(userId);
     await userRef.set({
@@ -95,10 +117,11 @@ export async function GET(request: Request) {
         accessToken: access_token,
         refreshToken: refresh_token,
         expiresAt: Date.now() + (expires_in * 1000),
+        email: gmailUserEmail, // Save the connected Gmail address
       },
     }, { merge: true });
 
-    console.log('Google tokens stored successfully for user:', userId);
+    console.log('Google tokens and email stored successfully for user:', userId, 'Email:', gmailUserEmail);
     console.log('Redirecting to frontend with success parameter');
 
     // Redirect to frontend with success parameter

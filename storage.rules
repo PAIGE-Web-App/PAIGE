@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to read and write their own avatar images
+    match /avatars/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow users to read and write their own files in any subfolder
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null && 
+        (resource == null || resource.metadata.owner == request.auth.uid);
+    }
+  }
+} 

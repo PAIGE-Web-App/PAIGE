@@ -348,6 +348,41 @@ export default function SignUp() {
   // Helper for clamping values
   const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
 
+  // Serialize venue data for Firestore
+  const serializeVenueData = (venue: any) => {
+    if (!venue) return null;
+    
+    const serialized = {
+      place_id: venue.place_id || null,
+      name: venue.name || null,
+      formatted_address: venue.formatted_address || null,
+      geometry: venue.geometry ? {
+        location: venue.geometry.location ? {
+          lat: venue.geometry.location.lat(),
+          lng: venue.geometry.location.lng()
+        } : null
+      } : null,
+      types: venue.types || [],
+      url: venue.url || null,
+      rating: venue.rating || null,
+      user_ratings_total: venue.user_ratings_total || null,
+      photos: venue.photos ? venue.photos.map((photo: any) => ({
+        photo_reference: photo.photo_reference,
+        height: photo.height,
+        width: photo.width
+      })) : null
+    };
+
+    // Remove any undefined values
+    Object.keys(serialized).forEach(key => {
+      if (serialized[key] === undefined) {
+        delete serialized[key];
+      }
+    });
+
+    return serialized;
+  };
+
   // Save onboarding data to Firestore
   const saveOnboardingData = async (stepData: any) => {
     setSaving(true);
@@ -360,8 +395,29 @@ export default function SignUp() {
         return false;
       }
 
+      // Deep clean the data to remove all undefined values
+      const cleanData = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) {
+          return obj.map(cleanData).filter(item => item !== null && item !== undefined);
+        }
+        
+        const cleaned: any = {};
+        Object.keys(obj).forEach(key => {
+          const value = cleanData(obj[key]);
+          if (value !== null && value !== undefined) {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      };
+
+      const cleanedStepData = cleanData(stepData);
+      console.log('Saving data to Firestore:', cleanedStepData);
+
       await setDoc(doc(db, "users", user.uid), {
-        ...stepData,
+        ...cleanedStepData,
         email: user.email,
         updatedAt: new Date(),
       }, { merge: true });
@@ -634,12 +690,12 @@ export default function SignUp() {
     setStep2Errors({});
     try {
       const success = await saveOnboardingData({
-        userName: userName.trim(),
-        partnerName: partnerName.trim(),
-        weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
+          userName: userName.trim(),
+          partnerName: partnerName.trim(),
+          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
         onboarded: false,
-        createdAt: new Date(),
-      });
+          createdAt: new Date(),
+        });
       
       if (success) {
         setStep(3);
@@ -910,13 +966,31 @@ export default function SignUp() {
               
               // Save step 3 data before advancing
               const saveAndContinue = async () => {
-                const step3Data = {
-                  weddingLocation: weddingLocation.trim(),
-                  weddingLocationUndecided,
-                  hasVenue,
-                  selectedVenue: selectedVenue || null,
-                  selectedVenueMetadata: selectedVenueMetadata || null,
+                const step3Data: any = {
+                  weddingLocation: weddingLocation.trim() || null,
+                  weddingLocationUndecided: weddingLocationUndecided || false,
+                  hasVenue: hasVenue !== null ? hasVenue : null,
                 };
+                
+                // Only add venue data if it exists and is valid
+                if (selectedVenue && selectedVenue.place_id) {
+                  step3Data.selectedVenue = {
+                    place_id: selectedVenue.place_id,
+                    name: selectedVenue.name || null,
+                    formatted_address: selectedVenue.formatted_address || null,
+                  };
+                }
+                
+                if (selectedVenueMetadata && selectedVenueMetadata.place_id) {
+                  step3Data.selectedVenueMetadata = {
+                    place_id: selectedVenueMetadata.place_id,
+                    name: selectedVenueMetadata.name || null,
+                    formatted_address: selectedVenueMetadata.formatted_address || null,
+                    rating: selectedVenueMetadata.rating || null,
+                    user_ratings_total: selectedVenueMetadata.user_ratings_total || null,
+                    url: selectedVenueMetadata.url || null,
+                  };
+                }
                 
                 const success = await saveOnboardingData(step3Data);
                 if (success) {
