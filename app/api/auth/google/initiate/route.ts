@@ -21,7 +21,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/gmail.readonly', // To read Gmail messages
-  'https://www.googleapis.com/auth/gmail.send', // <-- Added for sending email
+  'https://www.googleapis.com/auth/gmail.send', // To send email
   // Add more scopes as needed, e.g., 'https://www.googleapis.com/auth/gmail.modify' for sending
 ].join(' ');
 
