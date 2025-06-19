@@ -36,6 +36,8 @@ import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/hooks/useAuth';
 import Banner from "../components/Banner";
+import WeddingBanner from "../components/WeddingBanner";
+import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import type { TodoItem } from '../types/todo';
 import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
@@ -217,7 +219,6 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -239,7 +240,9 @@ export default function Home() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  // Use centralized WeddingBanner hook
+  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+
   const fuse = contacts.length
     ? new Fuse(contacts, {
         keys: ["name"],
@@ -390,37 +393,6 @@ export default function Home() {
         unsubscribeContacts();
       }
     };
-  }, [user, authLoading]);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) return;
-
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-
-        if (data.userName) {
-          setUserName(data.userName);
-        }
-
-        if (data.weddingDate?.seconds) {
-          const date = new Date(data.weddingDate.seconds * 1000);
-          setWeddingDate(date);
-
-          const today = new Date();
-          const diffTime = date.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysLeft(diffDays);
-        } else {
-          setDaysLeft(null);
-        }
-      }
-    };
-
-    if (!authLoading) {
-      fetchUserData();
-    }
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -917,43 +889,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
-        {isLoading ? (
-          <div className="animate-pulse">
-            <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
-          </div>
-        ) : weddingDate ? (
-          `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
-        ) : userName ? (
-          <>
-            Welcome back, {userName}. Have y'all decided your wedding date?
-            <button
-              onClick={() => {
-                // Placeholder for setting wedding date
-              }}
-              className="ml-2 underline text-[#F3F2F0] hover:text-[#E0DBD7] text-sm"
-            >
-              Set it now
-            </button>
-          </>
-        ) : (
-          "Welcome back! Have y'all decided your wedding date?"
-        )}
-        {userData?.googleTokens && (
-          <>
-            <button
-              className="ml-2 px-4 py-1 rounded border-2 border-orange-500 text-orange-700 text-xs font-semibold hover:bg-orange-100"
-              onClick={() => {
-                if (!user) return;
-                const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-                window.location.href = `/api/auth/google/initiate?userId=${user.uid}&redirectUri=${redirectUri}`;
-              }}
-            >
-              Reauthenticate Gmail
-            </button>
-          </>
-        )}
-      </div>
+      <WeddingBanner
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={bannerLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
 
       <div
         className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"

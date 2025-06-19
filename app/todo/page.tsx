@@ -60,6 +60,7 @@ import { handleLogout } from '../../utils/logout';
 
 import type { TodoItem, TodoList } from '../../types/todo';
 import { useUserProfileData } from "../../hooks/useUserProfileData";
+import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 
 const STARTER_TIER_MAX_LISTS = 3; // Example tier limit
 
@@ -1309,6 +1310,8 @@ export default function TodoPage() {
   // Only show content when both loading is complete AND minimum time has passed
   const isLoading = profileLoading;
 
+  const { handleSetWeddingDate } = useWeddingBanner(router);
+
   if (loading) {
   return (
       <div className="flex flex-col min-h-screen bg-linen">
@@ -1316,7 +1319,7 @@ export default function TodoPage() {
           daysLeft={null}
           userName={null}
           isLoading={true}
-          onSetWeddingDate={() => {}}
+          onSetWeddingDate={handleSetWeddingDate}
         />
         <div className="flex-1 flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
@@ -1332,29 +1335,12 @@ export default function TodoPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
-        {isLoading ? (
-          <div className="animate-pulse">
-            <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
-          </div>
-        ) : daysLeft !== null ? (
-          `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
-        ) : userName ? (
-          <>
-            Welcome back, {userName}. Have y'all decided your wedding date?
-            <button
-              onClick={() => {
-                // Placeholder for setting wedding date
-              }}
-              className="ml-2 underline text-[#F3F2F0] hover:text-[#E0DBD7] text-sm"
-            >
-              Set it now
-            </button>
-          </>
-        ) : (
-          "Welcome back! Have y'all decided your wedding date?"
-        )}
-      </div>
+      <WeddingBanner
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={isLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
       <div className="flex-1 flex justify-center items-start w-full bg-linen p-4 overflow-hidden">
          <div className="w-full flex flex-row h-full min-h-0 border border-[#AB9C95] border-[0.5px] rounded-[5px] bg-white">
           {/* Sidebar */}

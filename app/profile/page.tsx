@@ -17,6 +17,7 @@ import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 import imageCompression from 'browser-image-compression';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
 import VenueCard from '@/components/VenueCard';
+import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 
 // Declare global variables provided by the Google Maps environment
 declare const google: any;
@@ -445,9 +446,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Mock for banner
-  const handleSetWeddingDate = () => toast("Set wedding date clicked!");
-
   // Track initial values for Wedding Details section
   const [weddingInitial, setWeddingInitial] = useState({
     weddingDate: '',
@@ -699,6 +697,8 @@ export default function ProfilePage() {
     }
   }, [profileLoading, firestoreWeddingLocation, firestoreWeddingLocationUndecided, firestoreHasVenue, firestoreSelectedVenue, firestoreSelectedVenueMetadata, firestoreVibe, firestoreVibeInputMethod, firestoreGeneratedVibes, firestoreBudgetRange]);
 
+  const { daysLeft, userName: bannerUserName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -710,7 +710,12 @@ export default function ProfilePage() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
           >
-            <WeddingBanner daysLeft={previewDaysLeft} userName={navUserName} isLoading={profileLoading} onSetWeddingDate={handleSetWeddingDate} />
+            <WeddingBanner
+              daysLeft={daysLeft}
+              userName={bannerUserName}
+              isLoading={bannerLoading}
+              onSetWeddingDate={handleSetWeddingDate}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -918,8 +923,8 @@ export default function ProfilePage() {
                     </AnimatePresence>
                   )}
 
-                  {/* Show venue search when no venue is selected */}
-                  {hasVenue === false && (
+                  {/* Show venue search when user has no venue or hasn't made a choice yet */}
+                  {(hasVenue === false || hasVenue === null) && (
                     <motion.div
                       key="venue-search"
                       initial={{ opacity: 0, y: -10 }}
@@ -984,12 +989,15 @@ export default function ProfilePage() {
                       {[...vibe, ...generatedVibes].map((vibeItem, index) => (
                         <span
                           key={index}
-                          className="px-3 py-1 rounded-full border text-sm font-work-sans bg-[#A85C36] text-white border-[#A85C36]"
+                          className="px-3 py-1 rounded-full border text-sm font-work-sans border-[#AB9C95] text-[#332B42] bg-white"
                         >
                           {vibeItem}
                         </span>
                       ))}
                     </div>
+                    <a href="/inspiration" className="text-xs text-[#A85C36] underline mt-2 inline-block hover:opacity-80">
+                      Update vibe
+                    </a>
                   </div>
                 )}
 
