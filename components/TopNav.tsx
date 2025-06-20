@@ -90,7 +90,6 @@ export default function TopNav() {
 
   // User-specific menu items
   const userMenuItems = [
-    { name: "Profile", href: "/profile", icon: ContactRound },
     { name: "Settings", href: "/settings", icon: Settings },
     { name: "Logout", href: "#", icon: LogOut, onClick: handleLogoutClick }, // Use the centralized logout function
   ];

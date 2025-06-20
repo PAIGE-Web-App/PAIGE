@@ -8,7 +8,6 @@ export function useUserProfileData() {
   const [userName, setUserName] = useState<string | null>(null);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
-  const [showBanner, setShowBanner] = useState<boolean>(true);
   const [profileLoading, setProfileLoading] = useState(true);
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number | null>(null);
@@ -20,7 +19,6 @@ export function useUserProfileData() {
   const [weddingLocation, setWeddingLocation] = useState<string | null>(null);
   const [weddingLocationUndecided, setWeddingLocationUndecided] = useState<boolean>(false);
   const [hasVenue, setHasVenue] = useState<boolean | null>(null);
-  const [selectedVenue, setSelectedVenue] = useState<any>(null);
   const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any>(null);
   const [vibe, setVibe] = useState<string[]>([]);
   const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
@@ -34,7 +32,6 @@ export function useUserProfileData() {
       if (userDoc.exists()) {
         const data = userDoc.data();
         setUserName(data.userName || null);
-        setShowBanner(data.showBanner !== false); // default to true if undefined
         setPartnerName(data.partnerName || null);
         setGuestCount(data.guestCount || null);
         setBudget(data.budget || null);
@@ -45,7 +42,6 @@ export function useUserProfileData() {
         setWeddingLocation(data.weddingLocation || null);
         setWeddingLocationUndecided(data.weddingLocationUndecided || false);
         setHasVenue(data.hasVenue || null);
-        setSelectedVenue(data.selectedVenue || null);
         setSelectedVenueMetadata(data.selectedVenueMetadata || null);
         setVibe(data.vibe || []);
         setVibeInputMethod(data.vibeInputMethod || 'pills');
@@ -73,7 +69,6 @@ export function useUserProfileData() {
     userName, 
     weddingDate, 
     daysLeft, 
-    showBanner, 
     profileLoading, 
     partnerName, 
     guestCount, 
@@ -84,7 +79,6 @@ export function useUserProfileData() {
     weddingLocation,
     weddingLocationUndecided,
     hasVenue,
-    selectedVenue,
     selectedVenueMetadata,
     vibe,
     vibeInputMethod,

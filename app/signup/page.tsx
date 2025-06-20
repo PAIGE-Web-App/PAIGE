@@ -14,11 +14,11 @@ import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
 import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import VenueCard from '@/components/VenueCard';
+import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -55,13 +55,9 @@ export default function SignUp() {
   const [vibeInputMethod, setVibeInputMethod] = useState<'pills' | 'image' | 'pinterest'>('pills');
   const [weddingLocation, setWeddingLocation] = useState('');
   const [hasVenue, setHasVenue] = useState<boolean | null>(null);
-  const [venueSearch, setVenueSearch] = useState('');
-  const [venueSuggestions, setVenueSuggestions] = useState<any[]>([]);
-  const [selectedVenue, setSelectedVenue] = useState<any>(null);
-  const [venueMetadata, setVenueMetadata] = useState<any | null>(null);
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any | null>(null);
   const [weddingLocationUndecided, setWeddingLocationUndecided] = useState(false);
   const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
-  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [vibeGenerated, setVibeGenerated] = useState(false);
   const [vibeLoading, setVibeLoading] = useState(false);
@@ -74,6 +70,7 @@ export default function SignUp() {
   const maxAllowed = 150000;
   const [activeThumb, setActiveThumb] = useState<'min' | 'max' | null>(null);
   const [saving, setSaving] = useState(false);
+  const [venueSearchQuery, setVenueSearchQuery] = useState('');
 
   // Auto-correct invalid state
   useEffect(() => {
@@ -354,34 +351,6 @@ export default function SignUp() {
     window.location.href = '/signup';
   };
 
-  // Add venue search functionality
-  const searchVenues = async (query: string) => {
-    if (!query.trim()) {
-      setVenueSuggestions([]);
-      return;
-    }
-
-    try {
-      const service = new google.maps.places.PlacesService(document.createElement('div'));
-      const request = {
-        query: query + ' wedding venue',
-        type: 'establishment',
-        fields: ['name', 'place_id', 'formatted_address', 'geometry'],
-      };
-
-      service.textSearch(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          setVenueSuggestions(results);
-        } else {
-          setVenueSuggestions([]);
-        }
-      });
-    } catch (error) {
-      console.error('Error searching venues:', error);
-      setVenueSuggestions([]);
-    }
-  };
-
   if (!authLoading && user && onboarded === true) {
     return null;
   }
@@ -392,41 +361,6 @@ export default function SignUp() {
 
   // Helper for clamping values
   const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
-
-  // Serialize venue data for Firestore
-  const serializeVenueData = (venue: any) => {
-    if (!venue) return null;
-    
-    const serialized = {
-      place_id: venue.place_id || null,
-      name: venue.name || null,
-      formatted_address: venue.formatted_address || null,
-      geometry: venue.geometry ? {
-        location: venue.geometry.location ? {
-          lat: venue.geometry.location.lat(),
-          lng: venue.geometry.location.lng()
-        } : null
-      } : null,
-      types: venue.types || [],
-      url: venue.url || null,
-      rating: venue.rating || null,
-      user_ratings_total: venue.user_ratings_total || null,
-      photos: venue.photos ? venue.photos.map((photo: any) => ({
-        photo_reference: photo.photo_reference,
-        height: photo.height,
-        width: photo.width
-      })) : null
-    };
-
-    // Remove any undefined values
-    Object.keys(serialized).forEach(key => {
-      if (serialized[key] === undefined) {
-        delete serialized[key];
-      }
-    });
-
-    return serialized;
-  };
 
   // Save onboarding data to Firestore
   const saveOnboardingData = async (stepData: any) => {
@@ -782,15 +716,27 @@ export default function SignUp() {
           Where do you want to get married? <span className="text-[#A85C36]">*</span>
         </label>
         <div className="relative">
-          <PlacesAutocompleteInput
-            value={weddingLocationUndecided ? "We're working on location still!" : weddingLocation}
-            onChange={setWeddingLocation}
-            setVenueMetadata={setVenueMetadata}
-            setSelectedLocationType={setSelectedLocationType}
-            placeholder="Search for a city, state, or country"
-            types={['(regions)']}
-            disabled={weddingLocationUndecided}
-          />
+           <PlacesAutocompleteInput
+              value={weddingLocation}
+              onChange={(newValue) => {
+                  setWeddingLocation(newValue);
+                  if (!newValue) {
+                      setSelectedVenueMetadata(null);
+                      setHasVenue(null);
+                  }
+              }}
+              setVenueMetadata={(metadata) => {
+                  setSelectedVenueMetadata(metadata);
+                  if (metadata) {
+                      setWeddingLocation(metadata.name);
+                      setHasVenue(true);
+                  }
+              }}
+              setSelectedLocationType={setSelectedLocationType}
+              placeholder="Search for a city or a specific venue"
+              disabled={weddingLocationUndecided}
+              types={['geocode']}
+            />
         </div>
         <div className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
           <label className="flex items-center cursor-pointer">
@@ -798,12 +744,13 @@ export default function SignUp() {
               type="checkbox"
               checked={weddingLocationUndecided}
               onChange={() => {
-                setWeddingLocationUndecided(!weddingLocationUndecided);
-                if (!weddingLocationUndecided) {
-                  setVenueMetadata(null);
+                const isUndecided = !weddingLocationUndecided;
+                setWeddingLocationUndecided(isUndecided);
+                if (isUndecided) {
+                  setWeddingLocation("");
+                  setSelectedVenueMetadata(null);
                   setHasVenue(null);
-                  setVenueSearch("");
-                  setVibe([]);
+                  setVenueSearchQuery('');
                 }
               }}
               className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
@@ -813,140 +760,81 @@ export default function SignUp() {
         </div>
       </div>
 
-      {/* Only render the rest if not undecided */}
-      {!weddingLocationUndecided && (
+      {/* Only render the rest if not undecided and a location is entered */}
+      {!weddingLocationUndecided && weddingLocation && (
         <>
-          {/* Show card at the top ONLY if venueMetadata is set (from main location input) */}
-          {venueMetadata && (
-            <div className="border rounded-lg p-4 bg-white shadow mt-4 flex flex-col md:flex-row gap-4 items-start">
-              {/* Photo */}
-              {venueMetadata.photos && venueMetadata.photos.length > 0 && (
-                <img
-                  src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${venueMetadata.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                  alt={venueMetadata.name}
-                  className="rounded-lg object-cover w-[64px] h-[48px] mb-2 md:mb-0"
-                  onError={(e) => { e.currentTarget.src = '/Venue.png'; }}
-                />
-              )}
-              <div className="flex-1">
-                <h5 className="font-playfair text-lg font-semibold mb-1">{venueMetadata.name}</h5>
-                <div className="mb-1 text-xs text-[#364257]">{venueMetadata.formatted_address}</div>
-                {/* Rating and reviews */}
-                {venueMetadata.rating && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-yellow-500">★</span>
-                    <span className="font-semibold">{venueMetadata.rating}</span>
-                    {venueMetadata.user_ratings_total && (
-                      <span className="text-xs text-[#364257]">({venueMetadata.user_ratings_total} Google reviews)</span>
-                    )}
-                  </div>
-                )}
-                {/* Google Maps link */}
-                {venueMetadata.url && (
-                  <a
-                    href={venueMetadata.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 underline hover:text-blue-800"
-                  >
-                    View on Google Maps
-                  </a>
-                )}
+            {/* Venue question */}
+            <div>
+              <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                Have you already found your venue? <span className="text-[#A85C36]">*</span>
+              </label>
+              <div className="flex gap-4 mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="hasVenue"
+                    checked={hasVenue === true}
+                    onChange={() => {
+                      setHasVenue(true);
+                    }}
+                    className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                  />
+                  <span className="ml-2 text-sm text-[#332B42]">Yes</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="hasVenue"
+                    checked={hasVenue === false}
+                    onChange={() => {
+                      setHasVenue(false);
+                      // If they say no, clear venue data but keep location
+                      setSelectedVenueMetadata(null);
+                      setVenueSearchQuery("");
+                    }}
+                    className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                  />
+                  <span className="ml-2 text-sm text-[#332B42]">No</span>
+                </label>
               </div>
             </div>
-          )}
-          {/* If not a specific venue/address, show the rest of the flow */}
-          {!venueMetadata && (
-            <>
-              {weddingLocation && !weddingLocationUndecided && ['locality', 'administrative_area_level_1', 'country'].includes(selectedLocationType || '') && (
-                <>
-                  {/* Venue question and rest of flow as before */}
-                  <div>
-                    <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-                      Have you already found your venue? <span className="text-[#A85C36]">*</span>
-                    </label>
-                    <div className="flex gap-4 mb-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="hasVenue"
-                          checked={hasVenue === true}
-                          onChange={() => setHasVenue(true)}
-                          className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
-                        />
-                        <span className="ml-2 text-sm text-[#332B42]">Yes</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="hasVenue"
-                          checked={hasVenue === false}
-                          onChange={() => setHasVenue(false)}
-                          className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
-                        />
-                        <span className="ml-2 text-sm text-[#332B42]">No</span>
-                      </label>
-                    </div>
+
+            {/* Show venue search only if they say "Yes" */}
+            {hasVenue === true && (
+              <div>
+                <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                  Search for your venue <span className="text-[#A85C36]">*</span>
+                </label>
+                <PlacesAutocompleteInput
+                  value={venueSearchQuery}
+                  onChange={setVenueSearchQuery}
+                  setVenueMetadata={(metadata) => {
+                    setSelectedVenueMetadata(metadata);
+                    setVenueSearchQuery(metadata?.name || '');
+                  }}
+                  setSelectedLocationType={() => {}} // Not needed here
+                  placeholder="Enter venue name"
+                  types={['establishment']}
+                />
+
+                {selectedVenueMetadata && (
+                  <div className="mt-4">
+                    <VenueCard
+                      venue={selectedVenueMetadata}
+                      showDeleteButton={true}
+                      onDelete={() => {
+                        setSelectedVenueMetadata(null);
+                        setVenueSearchQuery('');
+                        // Also clear the main location input if it was tied to this venue
+                        if (weddingLocation === selectedVenueMetadata.name) {
+                          setWeddingLocation('');
+                        }
+                      }}
+                    />
                   </div>
-                  {hasVenue === true && (
-                    <div>
-                      <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-                        Search for your venue <span className="text-[#A85C36]">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={venueSearch}
-                          onChange={(e) => {
-                            setVenueSearch(e.target.value);
-                            searchVenues(e.target.value);
-                            setSelectedVenueMetadata(null); // Reset on change
-                          }}
-                          placeholder="Enter venue name"
-                          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                        />
-                        {venueSuggestions.length > 0 && (
-                          <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
-                            {venueSuggestions.map((venue) => (
-                              <li
-                                key={venue.place_id}
-                                className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
-                                onClick={() => {
-                                  setSelectedVenue(venue);
-                                  setVenueSearch(venue.name);
-                                  setVenueSuggestions([]);
-                                  // Fetch and set venue metadata
-                                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-                                  placesService.getDetails({ placeId: venue.place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
-                                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                                      setSelectedVenueMetadata(place);
-                                    } else {
-                                      setSelectedVenueMetadata(null);
-                                    }
-                                  });
-                                }}
-                              >
-                                <div className="font-medium">{venue.name}</div>
-                                <div className="text-xs text-gray-500">{venue.formatted_address}</div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                      {selectedVenueMetadata && (
-                        <div className="mt-4">
-                          <VenueCard
-                            venue={selectedVenueMetadata}
-                            showDeleteButton={false}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
+                )}
+              </div>
+            )}
         </>
       )}
 
@@ -963,9 +851,23 @@ export default function SignUp() {
             type="button"
             className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
             onClick={() => {
+              const saveAndContinue = async () => {
+                const step3Data: any = {
+                  weddingLocation: weddingLocationUndecided ? null : (weddingLocation.trim() || null),
+                  weddingLocationUndecided: weddingLocationUndecided || false,
+                  hasVenue: hasVenue,
+                  selectedVenueMetadata: selectedVenueMetadata || null,
+                };
+                
+                const success = await saveOnboardingData(step3Data);
+                if (success) {
+                  setStep(4);
+                }
+              };
+
               if (weddingLocationUndecided) {
-                setStep(4);
-                return;
+                 saveAndContinue();
+                 return;
               }
               if (!weddingLocation.trim()) {
                 toast.error("Please enter your wedding location");
@@ -975,51 +877,20 @@ export default function SignUp() {
                 toast.error("Please let us know if you have a venue");
                 return;
               }
-              if (hasVenue && !selectedVenue) {
+              if (hasVenue && !selectedVenueMetadata) {
                 toast.error("Please select your venue");
                 return;
               }
               
-              // Save step 3 data before advancing
-              const saveAndContinue = async () => {
-                const step3Data: any = {
-                  weddingLocation: weddingLocation.trim() || null,
-                  weddingLocationUndecided: weddingLocationUndecided || false,
-                  hasVenue: hasVenue !== null ? hasVenue : null,
-                };
-                
-                // Only add venue data if it exists and is valid
-                if (selectedVenue && selectedVenue.place_id) {
-                  step3Data.selectedVenue = {
-                    place_id: selectedVenue.place_id,
-                    name: selectedVenue.name || null,
-                    formatted_address: selectedVenue.formatted_address || null,
-                  };
-                }
-                
-                if (selectedVenueMetadata && selectedVenueMetadata.place_id) {
-                  step3Data.selectedVenueMetadata = {
-                    place_id: selectedVenueMetadata.place_id,
-                    name: selectedVenueMetadata.name || null,
-                    formatted_address: selectedVenueMetadata.formatted_address || null,
-                    rating: selectedVenueMetadata.rating || null,
-                    user_ratings_total: selectedVenueMetadata.user_ratings_total || null,
-                    url: selectedVenueMetadata.url || null,
-                  };
-                }
-                
-                const success = await saveOnboardingData(step3Data);
-                if (success) {
-                  setStep(4);
-                }
-              };
-              
               saveAndContinue();
             }}
             disabled={
-              !weddingLocationUndecided &&
-              (!weddingLocation.trim() || (hasVenue === true && !selectedVenue) || hasVenue === null) ||
-              saving
+              saving ||
+              (!weddingLocationUndecided && (
+                !weddingLocation.trim() ||
+                hasVenue === null ||
+                (hasVenue === true && !selectedVenueMetadata)
+              ))
             }
           >
             {saving ? "Saving..." : "Continue"}
@@ -1603,85 +1474,6 @@ export default function SignUp() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean }) {
-  const {
-    ready,
-    value: inputValue,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      types,
-    },
-    debounce: 300,
-    defaultValue: value,
-  });
-
-  return (
-    <div className="relative">
-      <input
-        value={disabled ? value : inputValue}
-        onChange={e => {
-          setValue(e.target.value);
-          onChange(e.target.value);
-          setVenueMetadata(null); // Reset venue metadata on input change
-        }}
-        disabled={disabled || !ready}
-        placeholder={placeholder}
-        className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${disabled ? 'bg-[#F3F2F0] text-[#AB9C95] cursor-not-allowed' : 'bg-white text-[#332B42]'}`}
-      />
-      {status === "OK" && data.length > 0 && !disabled && (
-        <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
-          {data.map(({ place_id, description, types }) => (
-            <li
-              key={place_id}
-              className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
-              onClick={() => {
-                setValue(description, false);
-                onChange(description);
-                clearSuggestions();
-                // Set location type for parent
-                const allowedTypes = ['locality', 'administrative_area_level_1', 'country'];
-                let foundType = null;
-                if (types && types.length > 0) {
-                  foundType = types.find(type => allowedTypes.includes(type)) || null;
-                }
-                setSelectedLocationType(foundType);
-                // Venue logic
-                const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
-                if (types && types.some(type => venueTypes.includes(type))) {
-                  const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-                  placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                      setVenueMetadata(place);
-                    } else {
-                      setVenueMetadata(null);
-                    }
-                  });
-                } else {
-                  setVenueMetadata(null);
-                }
-              }}
-            >
-              {description}
-              <span className="text-xs text-gray-500 ml-2">
-                {types?.includes('street_address') ? 'Address' :
-                 types?.includes('premise') ? 'Venue' :
-                 types?.includes('establishment') ? 'Venue' :
-                 types?.includes('point_of_interest') ? 'Venue' :
-                 types?.includes('locality') ? 'City' :
-                 types?.includes('administrative_area_level_1') ? 'State' :
-                 types?.includes('country') ? 'Country' : 'Location'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 } 
