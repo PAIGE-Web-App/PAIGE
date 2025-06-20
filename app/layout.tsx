@@ -6,8 +6,17 @@ import { AuthProvider } from "../contexts/AuthContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
-const workSans = Work_Sans({ subsets: ["latin"], variable: "--font-work-sans" });
+const playfair = Playfair_Display({ 
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: 'swap'
+});
+
+const workSans = Work_Sans({ 
+  subsets: ["latin"],
+  variable: "--font-work-sans",
+  display: 'swap'
+});
 
 export const metadata = {
   title: "PAIGE",
@@ -20,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
         />
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">

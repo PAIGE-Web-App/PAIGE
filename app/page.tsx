@@ -165,7 +165,7 @@ const MessagesSkeleton = () => (
 function removeUndefinedFields<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(obj).filter(([_, v]) => v !== undefined)
-  );
+  ) as Partial<T>;
 }
 
 // Utility to parse a yyyy-MM-ddTHH:mm string as a local Date
@@ -237,6 +237,7 @@ export default function Home() {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
+  const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -314,21 +315,35 @@ export default function Home() {
   useEffect(() => {
     if (!authLoading && user) {
       const checkOnboarding = async () => {
+        setOnboardingCheckLoading(true);
+        console.log('🔍 [Onboarding Check] Starting onboarding check for user:', user.uid);
+        
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
-        console.log('Firestore userSnap.exists:', userSnap.exists());
+        console.log('🔍 [Onboarding Check] Firestore userSnap.exists:', userSnap.exists());
+        
         if (userSnap.exists()) {
           const data = userSnap.data();
-          console.log('Firestore user data:', data);
-          if (data.onboarded === false) {
-            console.log('User is not onboarded, redirecting to /signup?onboarding=1');
+          console.log('🔍 [Onboarding Check] Firestore user data:', data);
+          
+          // Check if user is explicitly not onboarded (false) or if onboarded field is missing/undefined
+          if (data.onboarded === false || data.onboarded === undefined || data.onboarded === null) {
+            console.log('🚫 [Onboarding Check] User is not onboarded, redirecting to /signup?onboarding=1');
             router.push('/signup?onboarding=1');
+            return;
           }
+          
+          console.log('✅ [Onboarding Check] User is onboarded, allowing access to dashboard');
+          setOnboardingCheckLoading(false);
         } else {
-          console.log('No Firestore user document found for this user.');
+          console.log('🚫 [Onboarding Check] No Firestore user document found for this user. Redirecting to onboarding.');
+          router.push('/signup?onboarding=1');
+          return;
         }
       };
       checkOnboarding();
+    } else if (!authLoading && !user) {
+      setOnboardingCheckLoading(false);
     }
   }, [user, authLoading, router]);
 
@@ -889,136 +904,151 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      {/* Show loading spinner during onboarding check */}
+      {onboardingCheckLoading && (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
+            <p className="text-[#364257]">Checking your account...</p>
+          </div>
+        </div>
+      )}
 
-      <div
-        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
-      >
+      {/* Only render dashboard content if not checking onboarding */}
+      {!onboardingCheckLoading && (
+        <>
+          <WeddingBanner
+            daysLeft={daysLeft}
+            userName={userName}
+            isLoading={bannerLoading}
+            onSetWeddingDate={handleSetWeddingDate}
+          />
 
-      <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
-        <ContactsList
-          contacts={contacts}
-          contactsLoading={contactsLoading}
-          selectedContact={selectedContact}
-          setSelectedContact={setSelectedContact}
-          isMobile={isMobile}
-          activeMobileTab={activeMobileTab}
-          setActiveMobileTab={setActiveMobileTab}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          showFilters={showFilters}
-          setShowFilters={setShowFilters}
-          filterPopoverRef={filterPopoverRef}
-          allCategories={allCategories}
-          selectedCategoryFilter={selectedCategoryFilter}
-          handleCategoryChange={handleCategoryChange}
-          handleClearCategoryFilter={handleClearCategoryFilter}
-          handleClearSortOption={handleClearSortOption}
-          sortOption={sortOption}
-          setSortOption={setSortOption}
-          displayContacts={displayContacts}
-          deletingContactId={deletingContactId}
-          setIsAdding={setIsAdding}
-        />
-        <MessagesPanel
-          contactsLoading={messagesLoading}
-          contacts={contacts}
-          selectedContact={selectedContact}
-          currentUser={user}
-          isAuthReady={true}
-          isMobile={isMobile}
-          activeMobileTab={activeMobileTab}
-          setActiveMobileTab={setActiveMobileTab}
-          input={input}
-          setInput={setInput}
-          draftLoading={draftLoading}
-          generateDraftMessage={generateDraftMessage}
-          selectedFiles={selectedFiles}
-          setSelectedFiles={setSelectedFiles}
-          setIsEditing={setIsEditing}
-          onContactSelect={setSelectedContact}
-          setShowOnboardingModal={setShowOnboardingModal}
-          userName={userName}
-          showOnboardingModal={showOnboardingModal}
-        />
-      </main>
+          <div
+            className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
+          >
 
-        {(user && !authLoading) ? (
-          <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-            <RightDashboardPanel
-               currentUser={user}
-                isMobile={isMobile}
-                activeMobileTab={activeMobileTab}
-                contacts={contacts}
-                rightPanelSelection={rightPanelSelection}
-                setRightPanelSelection={setRightPanelSelection}
-              onUpdateTodoDeadline={handleUpdateTodoDeadline}
-              onUpdateTodoNotes={handleUpdateTodoNotes}
-              onUpdateTodoCategory={handleUpdateTodoCategory}
+          <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
+            <ContactsList
+              contacts={contacts}
+              contactsLoading={contactsLoading}
+              selectedContact={selectedContact}
+              setSelectedContact={setSelectedContact}
+              isMobile={isMobile}
+              activeMobileTab={activeMobileTab}
+              setActiveMobileTab={setActiveMobileTab}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              filterPopoverRef={filterPopoverRef}
+              allCategories={allCategories}
+              selectedCategoryFilter={selectedCategoryFilter}
+              handleCategoryChange={handleCategoryChange}
+              handleClearCategoryFilter={handleClearCategoryFilter}
+              handleClearSortOption={handleClearSortOption}
+              sortOption={sortOption}
+              setSortOption={setSortOption}
+              displayContacts={displayContacts}
+              deletingContactId={deletingContactId}
+              setIsAdding={setIsAdding}
             />
+            <MessagesPanel
+              contactsLoading={messagesLoading}
+              contacts={contacts}
+              selectedContact={selectedContact}
+              currentUser={user}
+              isAuthReady={true}
+              isMobile={isMobile}
+              activeMobileTab={activeMobileTab}
+              setActiveMobileTab={setActiveMobileTab}
+              input={input}
+              setInput={setInput}
+              draftLoading={draftLoading}
+              generateDraftMessage={generateDraftMessage}
+              selectedFiles={selectedFiles}
+              setSelectedFiles={setSelectedFiles}
+              setIsEditing={setIsEditing}
+              onContactSelect={setSelectedContact}
+              setShowOnboardingModal={setShowOnboardingModal}
+              userName={userName}
+              showOnboardingModal={showOnboardingModal}
+            />
+          </main>
+
+            {(user && !authLoading) ? (
+              <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+                <RightDashboardPanel
+                   currentUser={user}
+                    isMobile={isMobile}
+                    activeMobileTab={activeMobileTab}
+                    contacts={contacts}
+                    rightPanelSelection={rightPanelSelection}
+                    setRightPanelSelection={setRightPanelSelection}
+                  onUpdateTodoDeadline={handleUpdateTodoDeadline}
+                  onUpdateTodoNotes={handleUpdateTodoNotes}
+                  onUpdateTodoCategory={handleUpdateTodoCategory}
+                />
+              </div>
+            ) : (
+              <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-          </div>
-        )}
-      </div>
 
 
-      {isEditing && selectedContact && user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <EditContactModal
-            contact={selectedContact}
-            userId={user.uid}
-            onClose={() => setIsEditing(false)}
-            onSave={(updated) => {
-              setContacts((prev) =>
-                prev.map((c) => (c.id === updated.id ? updated : c))
-              );
-              setSelectedContact(updated);
-              setIsEditing(false);
-            }}
-            onDelete={(deletedId: string) => {
-              setDeletingContactId(deletedId);
-              setTimeout(() => {
-                const remainingContacts = contacts.filter((c) => c.id !== deletedId);
-                setContacts(remainingContacts);
-                if (remainingContacts.length > 0) {
-                  setSelectedContact(remainingContacts[0]);
-                } else {
-                  setSelectedContact(null);
-                }
-                setDeletingContactId(null);
-                setIsEditing(false);
-              }, 300);
-            }}
-          />
-        </div>
-      )}
-      {isAdding && user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <AddContactModal
-            userId={user.uid}
-            onClose={() => setIsAdding(false)}
-            onSave={(newContact) => {
-              setSelectedContact(newContact);
-            }}
-          />
-        </div>
-      )}
-        {showOnboardingModal && user && (
-        <OnboardingModal
-          userId={user.uid}
-          onClose={() => setShowOnboardingModal(false)}
-          onComplete={handleOnboardingComplete}
-        />
-      )}
-      {isMobile && user && (
-        <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
+          {isEditing && selectedContact && user && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <EditContactModal
+                contact={selectedContact}
+                userId={user.uid}
+                onClose={() => setIsEditing(false)}
+                onSave={(updated) => {
+                  setContacts((prev) =>
+                    prev.map((c) => (c.id === updated.id ? updated : c))
+                  );
+                  setSelectedContact(updated);
+                  setIsEditing(false);
+                }}
+                onDelete={(deletedId: string) => {
+                  setDeletingContactId(deletedId);
+                  setTimeout(() => {
+                    const remainingContacts = contacts.filter((c) => c.id !== deletedId);
+                    setContacts(remainingContacts);
+                    if (remainingContacts.length > 0) {
+                      setSelectedContact(remainingContacts[0]);
+                    } else {
+                      setSelectedContact(null);
+                    }
+                    setDeletingContactId(null);
+                    setIsEditing(false);
+                  }, 300);
+                }}
+              />
+            </div>
+          )}
+          {isAdding && user && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <AddContactModal
+                userId={user.uid}
+                onClose={() => setIsAdding(false)}
+                onSave={(newContact) => {
+                  setSelectedContact(newContact);
+                }}
+              />
+            </div>
+          )}
+            {showOnboardingModal && user && (
+            <OnboardingModal
+              userId={user.uid}
+              onClose={() => setShowOnboardingModal(false)}
+              onComplete={handleOnboardingComplete}
+            />
+          )}
+          {isMobile && user && (
+            <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
+          )}
+        </>
       )}
 
     </div>

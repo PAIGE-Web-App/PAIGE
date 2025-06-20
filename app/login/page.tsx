@@ -13,7 +13,7 @@ import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { signInWithEmailAndPassword } from "firebase/auth";
 
@@ -121,28 +121,69 @@ export default function Login() {
     const provider = new GoogleAuthProvider();
     try {
       setLoading(true);
+      console.log('🔍 [Google Login] Starting Google sign-in process...');
+      
       const result = await signInWithPopup(auth, provider);
+      console.log('✅ [Google Login] Google sign-in successful:', {
+        user: result.user.email,
+        uid: result.user.uid,
+        displayName: result.user.displayName
+      });
+      
       const idToken = await result.user.getIdToken();
+      console.log('🔍 [Google Login] Got ID token, calling session login...');
+      
       // POST the ID token to your session login API
       const res = await fetch("/api/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
+      
+      console.log('🔍 [Google Login] Session login response:', {
+        status: res.status,
+        ok: res.ok
+      });
+      
       if (res.ok) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('showLoginToast', '1');
         }
+        console.log('✅ [Google Login] Session login successful, redirecting...');
         window.location.href = "/";
       } else {
+        const errorText = await res.text();
+        console.error('❌ [Google Login] Session login failed:', errorText);
         toast.error("Session login failed");
       }
     } catch (err: any) {
+      console.error('❌ [Google Login] Error details:', {
+        code: err.code,
+        message: err.message,
+        email: err.email,
+        credential: err.credential,
+        fullError: err
+      });
+      
       let message = "Google login failed. Please try again.";
       if (err.code === "auth/popup-closed-by-user") {
         message = "Sign-in popup was closed before completing the process.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        message = "This domain is not authorized for Google sign-in.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        message = "Google sign-in is not enabled for this app.";
+      } else if (err.code === "auth/user-disabled") {
+        message = "This account has been disabled.";
+      } else if (err.code === "auth/user-not-found") {
+        message = "User account not found.";
+      } else if (err.code === "auth/invalid-credential") {
+        message = "Invalid credentials.";
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        message = "An account already exists with the same email address but different sign-in credentials.";
       }
+      
       toast.error(message);
+      setError(message);
     } finally {
       setLoading(false);
     }
