@@ -10,7 +10,6 @@ import { getAllContacts } from "../lib/getContacts";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
-import TopNav from "../components/TopNav";
 import { useDraftMessage } from "../hooks/useDraftMessage";
 import EditContactModal from "../components/EditContactModal";
 import { getCategoryStyle } from "../utils/categoryStyle";
@@ -37,11 +36,14 @@ import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/hooks/useAuth';
 import Banner from "../components/Banner";
+import WeddingBanner from "../components/WeddingBanner";
+import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import type { TodoItem } from '../types/todo';
 import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
 import ContactsList from '../components/ContactsList';
 import MessagesPanel from '../components/MessagesPanel';
+import { handleLogout } from '../utils/logout';
 
 // Declare global variables provided by the Canvas environment
 declare const __app_id: string;
@@ -163,7 +165,7 @@ const MessagesSkeleton = () => (
 function removeUndefinedFields<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(obj).filter(([_, v]) => v !== undefined)
-  );
+  ) as Partial<T>;
 }
 
 // Utility to parse a yyyy-MM-ddTHH:mm string as a local Date
@@ -206,6 +208,8 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  console.log('Home component rendered', user, authLoading);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -215,10 +219,6 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -237,11 +237,13 @@ export default function Home() {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
+  const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const router = useRouter(); // Initialize useRouter hook
 
-  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  // Use centralized WeddingBanner hook
+  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+
   const fuse = contacts.length
     ? new Fuse(contacts, {
         keys: ["name"],
@@ -252,7 +254,7 @@ export default function Home() {
     : null;
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(true);
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
@@ -262,6 +264,22 @@ export default function Home() {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
   const [userData, setUserData] = useState<any>(null);
+
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // Effect to handle progressive loading
+  useEffect(() => {
+    if (initialContactLoadComplete && minLoadTimeReached) {
+      // First load contacts
+      setContactsLoading(false);
+      
+      // Then load messages after a short delay
+      setTimeout(() => {
+        setMessagesLoading(false);
+        setInitialLoadComplete(true);
+      }, 300);
+    }
+  }, [initialContactLoadComplete, minLoadTimeReached]);
 
   // Effect to finalize contactsLoading state
   useEffect(() => {
@@ -288,159 +306,58 @@ export default function Home() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Main Firebase Initialization and Authentication Effect
   useEffect(() => {
-    const auth = getAuth();
+    if (!authLoading && !user) {
+      // Don't auto-redirect, let the logout function handle it
+    }
+  }, [user, authLoading]);
 
-    const signIn = async () => {
-      try {
-        // Check if we're in a Canvas environment
-        const isCanvasEnvironment = typeof __initial_auth_token !== 'undefined';
+  useEffect(() => {
+    if (!authLoading && user) {
+      const checkOnboarding = async () => {
+        setOnboardingCheckLoading(true);
+        console.log('🔍 [Onboarding Check] Starting onboarding check for user:', user.uid);
         
-        if (isCanvasEnvironment && __initial_auth_token) {
-          // Canvas environment with token
-          await signInWithCustomToken(auth, __initial_auth_token);
-          console.log('page.tsx: Signed in with custom token in Canvas environment.');
-        } else {
-          // Not in Canvas environment, let the normal auth flow handle it
-          console.log('page.tsx: Not in Canvas environment, using normal auth flow');
-        }
-      } catch (e) {
-        console.error('page.tsx: Firebase sign-in error:', e);
-        setError(`Authentication failed: ${(e as Error).message}`);
-      } finally {
-        setIsAuthReady(true);
-        setLoadingAuth(false);
-      }
-    };
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      console.log("page.tsx: Auth state change handler triggered");
-      setCurrentUser(user);
-      console.log("page.tsx: onAuthStateChanged - currentUser:", user);
-      setIsAuthReady(true);
-      setLoadingAuth(false);
-
-      if (!user) {
-        console.log('page.tsx: No user found, redirecting to login');
-        window.location.href = '/login';
-        return;
-      }
-
-      console.log('page.tsx: Auth state changed. User:', user.uid);
-      console.log('page.tsx: __app_id:', typeof __app_id !== 'undefined' ? __app_id : 'NOT_DEFINED');
-      console.log('page.tsx: __initial_auth_token:', typeof __initial_auth_token !== 'undefined' ? 'DEFINED' : 'NOT_DEFINED');
-
-      console.log("page.tsx: User is authenticated, checking Gmail auth status");
-      const urlParams = new URLSearchParams(window.location.search);
-      const gmailSuccess = urlParams.get("gmailAuth") === "success";
-      
-      console.log("page.tsx: Checking Gmail auth status:", {
-        gmailSuccess,
-        urlParams: Object.fromEntries(urlParams.entries()),
-        currentUrl: window.location.href
-      });
-
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        const completed = data.onboarded;
-        console.log("page.tsx: User data from Firestore:", {
-          onboarded: completed,
-          hasGoogleTokens: !!data.googleTokens,
-          googleTokens: data.googleTokens ? {
-            hasAccessToken: !!data.googleTokens.accessToken,
-            hasRefreshToken: !!data.googleTokens.refreshToken,
-            expiresAt: data.googleTokens.expiresAt
-          } : null
-        });
-
-        // Check if user has any contacts
-        const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-        // To check for existence, create a query with limit(1) and use getDocs
-        const contactsQuery = query(contactsCollectionRef, limit(1));
-        const contactsSnapshot = await getDocs(contactsQuery);
-        const hasContacts = !contactsSnapshot.empty;
-
-        console.log("page.tsx: Contacts check:", {
-          hasContacts,
-          contactsCount: contactsSnapshot.size
-        });
-
-        // Show onboarding modal if not completed AND no contacts exist
-        // If completed OR contacts exist, don't show the onboarding modal.
-        if (completed || hasContacts) {
-          if (gmailSuccess) {
-            console.log("page.tsx: Gmail auth success detected, preparing to import");
-            // Get all contacts for the user
-            const contactsQuery = query(contactsCollectionRef);
-            const contactsSnapshot = await getDocs(contactsQuery);
-            const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
-            
-            console.log("page.tsx: Gmail auth success, triggering import with contacts:", contacts);
-            try {
-              await triggerGmailImport(user.uid, contacts);
-              console.log("page.tsx: Gmail import completed successfully");
-            } catch (error) {
-              console.error("page.tsx: Error during Gmail import:", error);
-            }
-          } else {
-            console.log("page.tsx: No Gmail auth success parameter found");
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        console.log('🔍 [Onboarding Check] Firestore userSnap.exists:', userSnap.exists());
+        
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          console.log('🔍 [Onboarding Check] Firestore user data:', data);
+          
+          // Check if user is explicitly not onboarded (false) or if onboarded field is missing/undefined
+          if (data.onboarded === false || data.onboarded === undefined || data.onboarded === null) {
+            console.log('🚫 [Onboarding Check] User is not onboarded, redirecting to /signup?onboarding=1');
+            router.push('/signup?onboarding=1');
+            return;
           }
-          setShowOnboardingModal(false);
+          
+          console.log('✅ [Onboarding Check] User is onboarded, allowing access to dashboard');
+          setOnboardingCheckLoading(false);
         } else {
-          console.log("page.tsx: Showing onboarding modal - user not completed or no contacts");
-          setShowOnboardingModal(true);
+          console.log('🚫 [Onboarding Check] No Firestore user document found for this user. Redirecting to onboarding.');
+          router.push('/signup?onboarding=1');
+          return;
         }
-      } else {
-        setShowOnboardingModal(true);
-      }
-    });
-
-    signIn();
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  // NEW useEffect for redirection
-  useEffect(() => {
-    // Only redirect to /login if user is truly not logged in
-    if (!user && !authLoading) {
-      router.push('/login');
+      };
+      checkOnboarding();
+    } else if (!authLoading && !user) {
+      setOnboardingCheckLoading(false);
     }
   }, [user, authLoading, router]);
 
-
   // Function to handle user logout
-  const handleLogout = async () => {
-    try {
-      // First clear the session cookie
-      await fetch('/api/sessionLogout', { 
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      // Then sign out from Firebase
-      const auth = getAuth();
-      await signOut(auth);
-      
-      // Finally redirect to login page
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('page.tsx: Error signing out:', error);
-      showErrorToast(`Failed to log out: ${(error as Error).message}`);
-    }
+  const handleLogoutClick = async () => {
+    await handleLogout(router);
   };
-
 
    // Contacts Listener
   useEffect(() => {
     let unsubscribeContacts: () => void;
-    if (isAuthReady && currentUser?.uid) {
+    if (user && user.uid) {
       setContactsLoading(true);
-      const userId = currentUser.uid;
+      const userId = user.uid;
 
       const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", userId);
 
@@ -482,7 +399,7 @@ export default function Home() {
       setContacts([]);
       setSelectedContact(null);
 
-      if (!loadingAuth && isAuthReady && !currentUser) {
+      if (!authLoading && !user) {
         setInitialContactLoadComplete(true);
       }
     }
@@ -491,40 +408,7 @@ export default function Home() {
         unsubscribeContacts();
       }
     };
-  }, [isAuthReady, currentUser, loadingAuth]);
-
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!isAuthReady || !currentUser) return;
-
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-
-        if (data.userName) {
-          setUserName(data.userName);
-        }
-
-        if (data.weddingDate?.seconds) {
-          const date = new Date(data.weddingDate.seconds * 1000);
-          setWeddingDate(date);
-
-          const today = new Date();
-          const diffTime = date.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysLeft(diffDays);
-        } else {
-          setDaysLeft(null);
-        }
-      }
-    };
-
-    if (!loadingAuth) {
-      fetchUserData();
-    }
-  }, [currentUser, loadingAuth, isAuthReady]);
-
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -536,8 +420,8 @@ export default function Home() {
   // All Messages Listener
   useEffect(() => {
     let unsubscribeAllMessages: () => void;
-    if (isAuthReady && currentUser?.uid) {
-      const userId = currentUser.uid;
+    if (user && user.uid) {
+      const userId = user.uid;
       // Update the path to be under contacts collection
       const contactsRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts`);
       
@@ -580,7 +464,7 @@ export default function Home() {
     } else {
       setContactLastMessageMap(new Map());
     }
-  }, [isAuthReady, currentUser?.uid]);
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -603,7 +487,6 @@ export default function Home() {
     };
   }, [showFilters, showEmojiPicker]);
 
-
   useEffect(() => {
     if (isAdding || isEditing || showOnboardingModal) {
       document.body.style.overflow = 'hidden';
@@ -616,9 +499,8 @@ export default function Home() {
     };
   }, [isAdding, isEditing, showOnboardingModal]);
 
-
   const handleSend = async () => {
-    if ((!input.trim() && selectedFiles.length === 0) || !selectedContact || !currentUser) return;
+    if ((!input.trim() && selectedFiles.length === 0) || !selectedContact || !user) return;
 
     const attachmentsToStore = selectedFiles.map(file => ({ name: file.name }));
 
@@ -632,13 +514,13 @@ export default function Home() {
       body: input.trim(),
       contactId: selectedContact.id,
       createdAt: new Date(),
-      userId: currentUser.uid,
+      userId: user.uid,
       attachments: attachmentsToStore,
     };
 
     try {
       // Update to use the nested path structure
-      const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
+      const messagesRef = collection(db, `artifacts/default-app-id/users/${user.uid}/contacts/${selectedContact.id}/messages`);
       await addDoc(messagesRef, {
         ...newMessage,
         createdAt: newMessage.createdAt,
@@ -684,7 +566,6 @@ export default function Home() {
     setInput((prevInput) => prevInput + emoji);
   };
 
-
   const displayContacts = useMemo(() => {
       let currentContacts = searchQuery.trim() && fuse
           ? fuse.search(searchQuery).map((result) => result.item)
@@ -714,7 +595,6 @@ export default function Home() {
       }
       return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
   }, [contacts, searchQuery, fuse, selectedCategoryFilter, sortOption, contactLastMessageMap]);
-
 
   const allCategories = useMemo(() => {
       const categories = new Set<string>();
@@ -940,7 +820,7 @@ export default function Home() {
 
   // Move handleUpdateTodoDeadline inside Home to access currentUser and showErrorToast
   const handleUpdateTodoDeadline = async (todoId: string, deadline?: string | null, endDate?: string | null) => {
-    if (!currentUser) return;
+    if (!user) return;
     try {
       const updateObj: any = {};
       if (typeof deadline !== 'undefined') {
@@ -950,9 +830,9 @@ export default function Home() {
         updateObj.endDate = endDate && endDate !== '' ? parseLocalDateTime(endDate) : null;
       }
       if (Object.keys(updateObj).length === 0) return;
-      updateObj.userId = currentUser.uid;
+      updateObj.userId = user.uid;
       console.log('Updating todo:', todoId, 'with:', updateObj);
-      const itemRef = doc(getUserCollectionRef('todoItems', currentUser.uid), todoId);
+      const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
       await updateDoc(itemRef, updateObj);
       showSuccessToast('Deadline updated!');
       // Optionally update local state here if needed
@@ -963,12 +843,12 @@ export default function Home() {
   };
 
   const handleUpdateTodoNotes = async (todoId: string, notes: string) => {
-    if (!currentUser) return;
+    if (!user) return;
     try {
-      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
       await updateDoc(itemRef, {
         note: notes,
-        userId: currentUser.uid
+        userId: user.uid
       });
       showSuccessToast('Notes updated!');
     } catch (error) {
@@ -978,12 +858,12 @@ export default function Home() {
   };
 
   const handleUpdateTodoCategory = async (todoId: string, category: string) => {
-    if (!currentUser) return;
+    if (!user) return;
     try {
-      const itemRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
+      const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
       await updateDoc(itemRef, {
         category,
-        userId: currentUser.uid
+        userId: user.uid
       });
       showSuccessToast('Category updated!');
     } catch (error) {
@@ -994,13 +874,13 @@ export default function Home() {
 
   // Handler for re-import Gmail
   const handleReimportGmail = async () => {
-    if (!currentUser) return;
+    if (!user) return;
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), { gmailImportCompleted: false });
+      await updateDoc(doc(db, "users", user.uid), { gmailImportCompleted: false });
       toast.success("Gmail import will be retried.");
       // Optionally, immediately trigger import if tokens are present
-      if (currentUser && contacts.length > 0) {
-        await triggerGmailImport(currentUser.uid, contacts);
+      if (user && contacts.length > 0) {
+        await triggerGmailImport(user.uid, contacts);
         toast.success("Gmail import started.");
       }
     } catch (error) {
@@ -1010,9 +890,9 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (currentUser) {
+    if (user) {
       const fetchUserData = async () => {
-        const userRef = doc(db, "users", currentUser.uid);
+        const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           setUserData(userSnap.data());
@@ -1020,177 +900,157 @@ export default function Home() {
       };
       fetchUserData();
     }
-  }, [currentUser]);
+  }, [user]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-linen">
-      <TopNav 
-        userName={user?.displayName || user?.email || 'Guest'} 
-        userId={user?.uid || null} 
-        onLogout={handleLogout}
-        isLoading={isLoading}
-      />
-      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
-        {isLoading ? (
-          <div className="animate-pulse">
-            <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
+    <div className="flex flex-col h-screen bg-linen">
+      {/* Show loading spinner during onboarding check */}
+      {onboardingCheckLoading && (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
+            <p className="text-[#364257]">Checking your account...</p>
           </div>
-        ) : weddingDate ? (
-          `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
-        ) : userName ? (
-          <>
-            Welcome back, {userName}. Have y'all decided your wedding date?
-            <button
-              onClick={() => {
-                // Placeholder for setting wedding date
-              }}
-              className="ml-2 underline text-[#F3F2F0] hover:text-[#E0DBD7] text-sm"
-            >
-              Set it now
-            </button>
-          </>
-        ) : (
-          "Welcome back! Have y'all decided your wedding date?"
-        )}
-        {userData?.googleTokens && (
-          <>
-            <button
-              className="ml-2 px-4 py-1 rounded border-2 border-orange-500 text-orange-700 text-xs font-semibold hover:bg-orange-100"
-              onClick={() => {
-                if (!currentUser) return;
-                const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-                window.location.href = `/api/auth/google/initiate?userId=${currentUser.uid}&redirectUri=${redirectUri}`;
-              }}
-            >
-              Reauthenticate Gmail
-            </button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div
-        className="flex flex-1 gap-4 p-4 overflow-hidden bg-linen md:flex-row flex-col"
-      >
+      {/* Only render dashboard content if not checking onboarding */}
+      {!onboardingCheckLoading && (
+        <>
+          <WeddingBanner
+            daysLeft={daysLeft}
+            userName={userName}
+            isLoading={bannerLoading}
+            onSetWeddingDate={handleSetWeddingDate}
+          />
 
-      <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
-        <ContactsList
-          contacts={contacts}
-          contactsLoading={contactsLoading}
-          selectedContact={selectedContact}
-          setSelectedContact={setSelectedContact}
-          isMobile={isMobile}
-          activeMobileTab={activeMobileTab}
-          setActiveMobileTab={setActiveMobileTab}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          showFilters={showFilters}
-          setShowFilters={setShowFilters}
-          filterPopoverRef={filterPopoverRef}
-          allCategories={allCategories}
-          selectedCategoryFilter={selectedCategoryFilter}
-          handleCategoryChange={handleCategoryChange}
-          handleClearCategoryFilter={handleClearCategoryFilter}
-          handleClearSortOption={handleClearSortOption}
-          sortOption={sortOption}
-          setSortOption={setSortOption}
-          displayContacts={displayContacts}
-          deletingContactId={deletingContactId}
-          setIsAdding={setIsAdding}
-        />
-        <MessagesPanel
-          contactsLoading={contactsLoading}
-          contacts={contacts}
-                selectedContact={selectedContact}
-                currentUser={currentUser}
-                isAuthReady={isAuthReady}
-                isMobile={isMobile}
-          activeMobileTab={activeMobileTab}
-                setActiveMobileTab={setActiveMobileTab}
-                input={input}
-                setInput={setInput}
-                draftLoading={draftLoading}
-          generateDraftMessage={generateDraftMessage}
-                selectedFiles={selectedFiles}
-                setSelectedFiles={setSelectedFiles}
-                setIsEditing={setIsEditing}
-                onContactSelect={setSelectedContact}
-          setShowOnboardingModal={setShowOnboardingModal}
-          userName={userName}
-          showOnboardingModal={showOnboardingModal}
+          <div className="flex-1 p-4 overflow-hidden">
+            <div
+              className="flex h-full gap-4 md:flex-row flex-col"
+            >
+
+              <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
+                <ContactsList
+                  contacts={contacts}
+                  contactsLoading={contactsLoading}
+                  selectedContact={selectedContact}
+                  setSelectedContact={setSelectedContact}
+                  isMobile={isMobile}
+                  activeMobileTab={activeMobileTab}
+                  setActiveMobileTab={setActiveMobileTab}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  showFilters={showFilters}
+                  setShowFilters={setShowFilters}
+                  filterPopoverRef={filterPopoverRef}
+                  allCategories={allCategories}
+                  selectedCategoryFilter={selectedCategoryFilter}
+                  handleCategoryChange={handleCategoryChange}
+                  handleClearCategoryFilter={handleClearCategoryFilter}
+                  handleClearSortOption={handleClearSortOption}
+                  sortOption={sortOption}
+                  setSortOption={setSortOption}
+                  displayContacts={displayContacts}
+                  deletingContactId={deletingContactId}
+                  setIsAdding={setIsAdding}
+                />
+                <MessagesPanel
+                  contactsLoading={messagesLoading}
+                  contacts={contacts}
+                  selectedContact={selectedContact}
+                  currentUser={user}
+                  isAuthReady={true}
+                  isMobile={isMobile}
+                  activeMobileTab={activeMobileTab}
+                  setActiveMobileTab={setActiveMobileTab}
+                  input={input}
+                  setInput={setInput}
+                  draftLoading={draftLoading}
+                  generateDraftMessage={generateDraftMessage}
+                  selectedFiles={selectedFiles}
+                  setSelectedFiles={setSelectedFiles}
+                  setIsEditing={setIsEditing}
+                  onContactSelect={setSelectedContact}
+                  setShowOnboardingModal={setShowOnboardingModal}
+                  userName={userName}
+                  showOnboardingModal={showOnboardingModal}
+                />
+              </main>
+
+              {(user && !authLoading) ? (
+                <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+                  <RightDashboardPanel
+                     currentUser={user}
+                      isMobile={isMobile}
+                      activeMobileTab={activeMobileTab}
+                      contacts={contacts}
+                      rightPanelSelection={rightPanelSelection}
+                      setRightPanelSelection={setRightPanelSelection}
+                    onUpdateTodoDeadline={handleUpdateTodoDeadline}
+                    onUpdateTodoNotes={handleUpdateTodoNotes}
+                    onUpdateTodoCategory={handleUpdateTodoCategory}
+                  />
+                </div>
+              ) : (
+                <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+                </div>
+              )}
+            </div>
+          </div>
+
+
+          {isEditing && selectedContact && user && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <EditContactModal
+                contact={selectedContact}
+                userId={user.uid}
+                onClose={() => setIsEditing(false)}
+                onSave={(updated) => {
+                  setContacts((prev) =>
+                    prev.map((c) => (c.id === updated.id ? updated : c))
+                  );
+                  setSelectedContact(updated);
+                  setIsEditing(false);
+                }}
+                onDelete={(deletedId: string) => {
+                  setDeletingContactId(deletedId);
+                  setTimeout(() => {
+                    const remainingContacts = contacts.filter((c) => c.id !== deletedId);
+                    setContacts(remainingContacts);
+                    if (remainingContacts.length > 0) {
+                      setSelectedContact(remainingContacts[0]);
+                    } else {
+                      setSelectedContact(null);
+                    }
+                    setDeletingContactId(null);
+                    setIsEditing(false);
+                  }, 300);
+                }}
               />
-      </main>
-
-        {(currentUser && !loadingAuth) ? (
-          <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-            <RightDashboardPanel
-               currentUser={currentUser}
-                isMobile={isMobile}
-                activeMobileTab={activeMobileTab}
-                contacts={contacts}
-                rightPanelSelection={rightPanelSelection}
-                setRightPanelSelection={setRightPanelSelection}
-              onUpdateTodoDeadline={handleUpdateTodoDeadline}
-              onUpdateTodoNotes={handleUpdateTodoNotes}
-              onUpdateTodoCategory={handleUpdateTodoCategory}
+            </div>
+          )}
+          {isAdding && user && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <AddContactModal
+                userId={user.uid}
+                onClose={() => setIsAdding(false)}
+                onSave={(newContact) => {
+                  setSelectedContact(newContact);
+                }}
+              />
+            </div>
+          )}
+            {showOnboardingModal && user && (
+            <OnboardingModal
+              userId={user.uid}
+              onClose={() => setShowOnboardingModal(false)}
+              onComplete={handleOnboardingComplete}
             />
-          </div>
-        ) : (
-          <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-          </div>
-        )}
-      </div>
-
-
-      {isEditing && selectedContact && currentUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <EditContactModal
-            contact={selectedContact}
-            userId={currentUser.uid}
-            onClose={() => setIsEditing(false)}
-            onSave={(updated) => {
-              setContacts((prev) =>
-                prev.map((c) => (c.id === updated.id ? updated : c))
-              );
-              setSelectedContact(updated);
-              setIsEditing(false);
-            }}
-            onDelete={(deletedId: string) => {
-              setDeletingContactId(deletedId);
-              setTimeout(() => {
-                const remainingContacts = contacts.filter((c) => c.id !== deletedId);
-                setContacts(remainingContacts);
-                if (remainingContacts.length > 0) {
-                  setSelectedContact(remainingContacts[0]);
-                } else {
-                  setSelectedContact(null);
-                }
-                setDeletingContactId(null);
-                setIsEditing(false);
-              }, 300);
-            }}
-          />
-        </div>
-      )}
-      {isAdding && currentUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <AddContactModal
-            userId={currentUser.uid}
-            onClose={() => setIsAdding(false)}
-            onSave={(newContact) => {
-              setSelectedContact(newContact);
-            }}
-          />
-        </div>
-      )}
-        {showOnboardingModal && currentUser && (
-        <OnboardingModal
-          userId={currentUser.uid}
-          onClose={() => setShowOnboardingModal(false)}
-          onComplete={handleOnboardingComplete}
-        />
-      )}
-      {isMobile && currentUser && (
-        <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
+          )}
+          {isMobile && user && (
+            <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
+          )}
+        </>
       )}
 
     </div>

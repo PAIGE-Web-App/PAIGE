@@ -13,14 +13,13 @@ import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -38,12 +37,16 @@ export default function Login() {
 
   // Check for toast message in cookies
   useEffect(() => {
-    const showToast = document.cookie.includes('show-toast');
+    const cookieMatch = document.cookie.match(/show-toast=([^;]+)/);
+    const toastValue = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
-    if (showToast && fromRedirect) {
-      toast.error('Please login to access this page');
+    if (toastValue) {
+      if (toastValue === 'Please login to access this page' && fromRedirect) {
+        toast.error('Please login to access this page');
+      } else if (toastValue === 'Log out successful!') {
+        toast.success('Log out successful!');
+      }
       document.cookie = 'show-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      console.log('LOGIN: Showing and clearing show-toast cookie');
     }
   }, []);
 
@@ -55,47 +58,60 @@ export default function Login() {
   }, [user, router]);
 
   useEffect(() => {
-    if (searchParams.get("existing")) {
+    if (searchParams?.get && searchParams.get("existing")) {
       toast.error("Looks like you're already a user. Please log in.");
     }
   }, [searchParams]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (!email || !password || !confirmPassword) {
+    if (!email || !password) {
       setError("All fields are required.");
       return;
     }
-
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
-
-    if (!passwordRegex.test(password)) {
-      setError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*).");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
     try {
       setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log('signInWithEmailAndPassword result:', result);
+      const idToken = await result.user.getIdToken();
+      // Call sessionLogin to set the __session cookie
+      const sessionRes = await fetch("/api/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+        credentials: "include",
+      });
+      if (!sessionRes.ok) {
+        setError('Failed to establish session. Please try again.');
+        toast.error('Failed to establish session. Please try again.');
+        setLoading(false);
+        return;
+      }
       if (typeof window !== 'undefined') {
         localStorage.setItem('showLoginToast', '1');
       }
+      console.log('user from useAuth after login:', user);
       router.push("/");
     } catch (error: any) {
-      toast.error(error.message || "Failed to login");
+      console.log('Login error:', error);
+      if (
+        error.code === 'auth/invalid-credential' ||
+        error.code === 'auth/user-not-found' ||
+        error.code === 'auth/wrong-password'
+      ) {
+        setError('Email or password is incorrect.');
+        toast.error('Email or password is incorrect.');
+      } else {
+        setError(error.message || 'Failed to login');
+        toast.error(error.message || 'Failed to login');
+      }
     } finally {
       setLoading(false);
     }
@@ -105,28 +121,69 @@ export default function Login() {
     const provider = new GoogleAuthProvider();
     try {
       setLoading(true);
+      console.log('🔍 [Google Login] Starting Google sign-in process...');
+      
       const result = await signInWithPopup(auth, provider);
+      console.log('✅ [Google Login] Google sign-in successful:', {
+        user: result.user.email,
+        uid: result.user.uid,
+        displayName: result.user.displayName
+      });
+      
       const idToken = await result.user.getIdToken();
+      console.log('🔍 [Google Login] Got ID token, calling session login...');
+      
       // POST the ID token to your session login API
       const res = await fetch("/api/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
+      
+      console.log('🔍 [Google Login] Session login response:', {
+        status: res.status,
+        ok: res.ok
+      });
+      
       if (res.ok) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('showLoginToast', '1');
         }
+        console.log('✅ [Google Login] Session login successful, redirecting...');
         window.location.href = "/";
       } else {
+        const errorText = await res.text();
+        console.error('❌ [Google Login] Session login failed:', errorText);
         toast.error("Session login failed");
       }
     } catch (err: any) {
+      console.error('❌ [Google Login] Error details:', {
+        code: err.code,
+        message: err.message,
+        email: err.email,
+        credential: err.credential,
+        fullError: err
+      });
+      
       let message = "Google login failed. Please try again.";
       if (err.code === "auth/popup-closed-by-user") {
         message = "Sign-in popup was closed before completing the process.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        message = "This domain is not authorized for Google sign-in.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        message = "Google sign-in is not enabled for this app.";
+      } else if (err.code === "auth/user-disabled") {
+        message = "This account has been disabled.";
+      } else if (err.code === "auth/user-not-found") {
+        message = "User account not found.";
+      } else if (err.code === "auth/invalid-credential") {
+        message = "Invalid credentials.";
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        message = "An account already exists with the same email address but different sign-in credentials.";
       }
+      
       toast.error(message);
+      setError(message);
     } finally {
       setLoading(false);
     }

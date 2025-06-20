@@ -72,75 +72,88 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
       <div className="flex items-center w-full gap-4 px-4 py-3">
         {/* List Name (left) */}
         <div className="flex-shrink-0 flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            {editingListNameId === selectedList?.id ? (
-              <input
-                type="text"
-                value={editingListNameValue || ''}
-                onChange={(e) => setEditingListNameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleRenameList(selectedList.id);
-                  } else if (e.key === 'Escape') {
-                    setEditingListNameId(null);
-                    setEditingListNameValue(null);
-                  }
-                }}
-                onBlur={() => {
-                  if (editingListNameValue) {
-                    handleRenameList(selectedList.id);
-                  } else {
-                    setEditingListNameId(null);
-                    setEditingListNameValue(null);
-                  }
-                }}
-                className="px-2 py-1 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36]"
-                autoFocus
-              />
-            ) : (
-              <h1 className="text-xl font-playfair font-medium text-[#332B42]">
-                {showCompletedItems && !selectedList
-                  ? 'Completed To-Do Items'
-                  : selectedList?.name || 'All To-Do Items'}
-              </h1>
-            )}
-            {selectedList && !editingListNameId && (
-              <>
-                {selectedList.name !== 'My To-do' && (
-                  <button
-                    onClick={() => {
-                      setEditingListNameId(selectedList.id);
-                      setEditingListNameValue(selectedList.name);
-                    }}
-                    className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
-                    title="Rename List"
-                  >
-                    <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">✏️</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => handleCloneList(selectedList.id)}
-                  className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
-                  title="Clone List"
-                  aria-label="Clone List"
-                >
-                  <Copy className="w-4 h-4 text-[#364257]" />
-                </button>
-                {selectedList.name !== 'My To-do' && (
-                  <>
-                    <button
-                      onClick={() => handleDeleteList?.(selectedList.id)}
-                      className="p-1 hover:bg-[#FDEAEA] rounded-[5px]"
-                      title="Delete List"
-                      aria-label="Delete List"
-                    >
-                      <Trash2 className="w-4 h-4 text-[#D63030]" />
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+          <div
+            className="relative flex items-center transition-all duration-300"
+            style={{
+              width: editingListNameId ? '240px' : 'auto',
+              minWidth: editingListNameId ? '240px' : 'auto',
+            }}
+          >
+            <h6
+              className={`transition-opacity duration-300 ${
+                editingListNameId ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              {showCompletedItems && !selectedList
+                ? 'Completed To-Do Items'
+                : selectedList?.name || 'All To-Do Items'}
+            </h6>
+            <input
+              type="text"
+              value={editingListNameValue || ''}
+              onChange={(e) => setEditingListNameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRenameList(selectedList.id);
+                } else if (e.key === 'Escape') {
+                  setEditingListNameId(null);
+                  setEditingListNameValue(null);
+                }
+              }}
+              onBlur={() => {
+                if (editingListNameValue) {
+                  handleRenameList(selectedList.id);
+                } else {
+                  setEditingListNameId(null);
+                  setEditingListNameValue(null);
+                }
+              }}
+              className={`absolute left-0 w-full h-8 px-2 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${
+                editingListNameId
+                  ? 'opacity-100 pointer-events-auto'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+              autoFocus
+            />
           </div>
+          {selectedList && (
+            <>
+              {selectedList.name !== 'My To-do' && (
+                <button
+                  onClick={() => {
+                    setEditingListNameId(selectedList.id);
+                    setEditingListNameValue(selectedList.name);
+                  }}
+                  className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
+                  title="Rename List"
+                >
+                  <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
+                    ✏️
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={() => handleCloneList(selectedList.id)}
+                className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
+                title="Clone List"
+                aria-label="Clone List"
+              >
+                <Copy className="w-4 h-4 text-[#364257]" />
+              </button>
+              {selectedList.name !== 'My To-do' && (
+                <>
+                  <button
+                    onClick={() => handleDeleteList?.(selectedList.id)}
+                    className="p-1 hover:bg-[#FDEAEA] rounded-[5px]"
+                    title="Delete List"
+                    aria-label="Delete List"
+                  >
+                    <Trash2 className="w-4 h-4 text-[#D63030]" />
+                  </button>
+                </>
+              )}
+            </>
+          )}
         </div>
         {/* Action Buttons (right) */}
         <div className="flex-1 flex justify-end items-center gap-4">

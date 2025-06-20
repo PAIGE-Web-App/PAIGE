@@ -5,7 +5,7 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import OnboardingVisual from "../../components/OnboardingVisual";
@@ -14,6 +14,15 @@ import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
+import Slider from 'rc-slider';
+import 'rc-slider/assets/index.css';
+import VenueCard from '@/components/VenueCard';
+import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
+
+// @ts-ignore
+// eslint-disable-next-line
+declare const google: any;
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
@@ -33,24 +42,153 @@ export default function SignUp() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [isNewSignup, setIsNewSignup] = useState(false);
+  const [emailExists, setEmailExists] = useState<boolean | null>(null);
+  const [showPasswordPopover, setShowPasswordPopover] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [vibe, setVibe] = useState<string[]>([]);
+  const [venueType, setVenueType] = useState<string>('');
+  const [mustHaves, setMustHaves] = useState<string>('');
+  const [inspirationImage, setInspirationImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pinterestLink, setPinterestLink] = useState<string>('');
+  const [vibeInputMethod, setVibeInputMethod] = useState<'pills' | 'image' | 'pinterest'>('pills');
+  const [weddingLocation, setWeddingLocation] = useState('');
+  const [hasVenue, setHasVenue] = useState<boolean | null>(null);
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any | null>(null);
+  const [weddingLocationUndecided, setWeddingLocationUndecided] = useState(false);
+  const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [vibeGenerated, setVibeGenerated] = useState(false);
+  const [vibeLoading, setVibeLoading] = useState(false);
+  const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
+  const [showCustomVibeInput, setShowCustomVibeInput] = useState(false);
+  const [customVibe, setCustomVibe] = useState('');
+  const [budgetRange, setBudgetRange] = useState([10000, 30000]);
+  const STEP = 1000;
+  const minAllowed = 0;
+  const maxAllowed = 150000;
+  const [activeThumb, setActiveThumb] = useState<'min' | 'max' | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [venueSearchQuery, setVenueSearchQuery] = useState('');
+
+  // Auto-correct invalid state
+  useEffect(() => {
+    if (budgetRange[1] - budgetRange[0] < STEP) {
+      setBudgetRange([budgetRange[0], budgetRange[0] + STEP]);
+    }
+  }, [budgetRange]);
+
+  // Clear any existing session when signup page loads
+  useEffect(() => {
+    // Clear any existing session cookie to ensure clean signup state
+    document.cookie = '__session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  }, []);
+
+  const vibeTabs = [
+    { key: 'pills', label: 'Popular Vibes', icon: '✨' },
+    { key: 'image', label: 'Upload Image', icon: '🖼️' },
+    { key: 'pinterest', label: 'Pinterest', icon: '📌', comingSoon: true },
+  ];
+
+  const vibeOptions = [
+    'Intimate & cozy',
+    'Big & bold',
+    'Chic city affair',
+    'Outdoor & natural',
+    'Traditional & timeless',
+    'Modern & minimal',
+    'Destination dream',
+    'Boho & Whimsical',
+    'Glamorous & Luxe',
+    'Vintage Romance',
+    'Garden Party',
+    'Beachy & Breezy',
+    'Art Deco',
+    'Festival-Inspired',
+    'Cultural Fusion',
+    'Eco-Friendly',
+    'Fairytale',
+    'Still figuring it out',
+  ];
+
+  console.log('Current step:', step);
+
+  const passwordRequirements = [
+    { label: "At least 8 characters", test: (pw: string) => pw.length >= 8 },
+    { label: "One uppercase letter", test: (pw: string) => /[A-Z]/.test(pw) },
+    { label: "One lowercase letter", test: (pw: string) => /[a-z]/.test(pw) },
+    { label: "One number", test: (pw: string) => /[0-9]/.test(pw) },
+    { label: "One special character (!@#$%^&*)", test: (pw: string) => /[!@#$%^&*]/.test(pw) },
+  ];
+  const passwordChecks = passwordRequirements.map(req => req.test(password));
 
   // Check for toast message in cookies
   useEffect(() => {
-    const showToast = document.cookie.includes('show-toast');
+    const cookieMatch = document.cookie.match(/show-toast=([^;]+)/);
+    const toastValue = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
-    if (showToast && fromRedirect) {
+    if (toastValue) {
+      if (toastValue === 'Please login to access this page' && fromRedirect) {
       toast.error('Please login to access this page');
+      } else if (toastValue === 'Log out successful!') {
+        toast.success('Log out successful!');
+      }
       document.cookie = 'show-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      console.log('SIGNUP: Showing and clearing show-toast cookie');
     }
   }, []);
 
   // Redirect if already logged in, but only if not a new signup
   useEffect(() => {
+    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
     if (!authLoading && user && !isNewSignup) {
-      router.push('/');
+      // Only redirect if user is onboarded
+      const checkOnboarded = async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().onboarded === true) {
+          console.log('Redirecting onboarded user to dashboard');
+          router.push('/');
+        }
+      };
+      checkOnboarded();
     }
   }, [user, authLoading, router, isNewSignup]);
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      const checkOnboarded = async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setOnboarded(!!userSnap.data().onboarded);
+        } else {
+          setOnboarded(null);
+        }
+      };
+      checkOnboarded();
+    } else {
+      setOnboarded(null);
+    }
+  }, [user, authLoading]);
+
+  // Handle redirect for onboarded users
+  useEffect(() => {
+    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
+    if (!authLoading && user && onboarded === true) {
+      console.log('Redirecting onboarded user to dashboard');
+      router.push('/');
+    }
+  }, [user, authLoading, onboarded, router]);
+
+  // Handle moving to step 2 for non-onboarded users
+  useEffect(() => {
+    console.log('Signup page - checking step transition:', { user: !!user, authLoading, onboarded, step });
+    if (!authLoading && user && onboarded === false && step === 1) {
+      console.log('Moving to step 2 for non-onboarded user');
+      setStep(2);
+    }
+  }, [user, authLoading, onboarded, step]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -79,17 +217,60 @@ export default function SignUp() {
       return;
     }
 
+    // Check if email already exists before proceeding
     try {
       setLoading(true);
-      await createUserWithEmailAndPassword(auth, email, password);
-      setIsNewSignup(true); // Mark as new signup
-      setStep(2); // Go to next onboarding step
+      const res = await fetch('/api/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.exists) {
+        setError('This email is already registered. Please log in.');
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      setError('Error checking email. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Creating user account...');
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      if (result.user) {
+        console.log('User account created, setting up session...');
+        // Get the ID token and set the session cookie
+        const idToken = await result.user.getIdToken();
+        console.log('Got ID token, calling sessionLogin...');
+        const res = await fetch("/api/sessionLogin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        });
+        
+        console.log('SessionLogin response:', res.ok);
+        if (res.ok) {
+          console.log('Session login successful, creating user document...');
+          await setDoc(doc(db, "users", result.user.uid), {
+            email: result.user.email,
+            onboarded: false,
+            createdAt: new Date(),
+          }, { merge: true });
+          console.log('User document created, setting new signup flag...');
+          setIsNewSignup(true);
+          setStep(2);
+        } else {
+          console.error('Session login failed');
+          toast.error("Session login failed");
+        }
+      }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-        toast.error("Looks like you're already a user. Please log in.");
-        setTimeout(() => {
-          router.push("/login?existing=1");
-        }, 1500);
+        setError('This email is already registered. Please log in.');
+        setLoading(false);
         return;
       }
       let message = "An unexpected error occurred. Please try again.";
@@ -122,11 +303,14 @@ export default function SignUp() {
         const userDocRef = doc(db, "users", result.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
-          // New user, proceed to onboarding
+          await setDoc(doc(db, "users", result.user.uid), {
+            email: result.user.email,
+            onboarded: false,
+            createdAt: new Date(),
+          }, { merge: true });
           setIsNewSignup(true);
           setStep(2);
         } else {
-          // Existing user, go to dashboard
           router.push("/");
         }
       } else {
@@ -134,10 +318,7 @@ export default function SignUp() {
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-        toast.error("Looks like you're already a user. Please log in.");
-        setTimeout(() => {
           router.push("/login?existing=1");
-        }, 1500);
         return;
       }
       let message = "Google sign-in failed. Please try again.";
@@ -150,22 +331,86 @@ export default function SignUp() {
     }
   };
 
-  if (!authLoading && user && !isNewSignup) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F3F2F0]">
-        <div className="bg-white p-8 rounded shadow-md flex flex-col items-center">
-          <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-4">You are already logged in</h2>
-          <p className="mb-6 text-[#364257]">Go to your dashboard or log out to create a new account.</p>
-          <button
-            className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base mb-2"
-            onClick={() => router.push('/')}
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-    );
+  const checkEmailExists = async (email: string) => {
+    if (!email) return;
+    const res = await fetch('/api/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    setEmailExists(data.exists);
+  };
+
+  // Add a derived state for confirm password match
+  const confirmPasswordMatches = confirmPassword === password || confirmPassword.length === 0;
+
+  const handleLogout = async () => {
+    await fetch('/api/sessionLogout', { method: 'POST', credentials: 'include' });
+    await auth.signOut();
+    window.location.href = '/signup';
+  };
+
+  if (!authLoading && user && onboarded === true) {
+    return null;
   }
+
+  if (!authLoading && user && onboarded === false && step === 1) {
+    setStep(2);
+  }
+
+  // Helper for clamping values
+  const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+
+  // Save onboarding data to Firestore
+  const saveOnboardingData = async (stepData: any) => {
+    setSaving(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("No authenticated user.");
+        toast.error("Authentication error. Please try again.");
+        return false;
+      }
+
+      // Deep clean the data to remove all undefined values
+      const cleanData = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) {
+          return obj.map(cleanData).filter(item => item !== null && item !== undefined);
+        }
+        
+        const cleaned: any = {};
+        Object.keys(obj).forEach(key => {
+          const value = cleanData(obj[key]);
+          if (value !== null && value !== undefined) {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      };
+
+      const cleanedStepData = cleanData(stepData);
+      console.log('Saving data to Firestore:', cleanedStepData);
+
+      await setDoc(doc(db, "users", user.uid), {
+        ...cleanedStepData,
+        email: user.email,
+        updatedAt: new Date(),
+      }, { merge: true });
+      
+      console.log('Successfully saved onboarding data to Firestore');
+      return true;
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
+      toast.error("Failed to save your progress. Please try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
@@ -191,7 +436,7 @@ export default function SignUp() {
             Clarity and calm, for every step down the aisle.
           </h4>
 
-                    <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
+                    <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
               <div>
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Your Email<span className="text-[#A85C36]">*</span>
@@ -199,11 +444,18 @@ export default function SignUp() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailExists(null); // reset on change
+                  }}
+                  onBlur={() => checkEmailExists(email)}
                   placeholder="Email address"
                   className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                   autoComplete="email"
                 />
+                {emailExists === true && (
+                  <div className="text-red-600 text-xs mt-1">This email is already registered. Please log in.</div>
+                )}
               </div>
 
               <div>
@@ -215,27 +467,30 @@ export default function SignUp() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setShowPasswordPopover(true)}
+                    onBlur={() => setTimeout(() => setShowPasswordPopover(false), 100)}
+                    ref={passwordInputRef}
                     placeholder="Password"
-                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] pr-10"
+                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                     autoComplete="new-password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-[#A85C36]"
-                  >
-                    {showPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.981 8.75C4.454 10.872 5.622 12.871 7.18 14.39c1.594 1.55 3.554 2.58 5.62 2.75a9.75 9.75 0 005.62-2.75c1.558-1.519 2.726-3.518 3.199-5.62H3.98z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                  </button>
+                  {showPasswordPopover && (
+                    <div className="absolute left-0 top-12 z-10 w-64 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg p-3 text-xs text-[#332B42] animate-fade-in">
+                      <div className="font-semibold mb-2">Password must contain:</div>
+                      <ul className="space-y-1">
+                        {passwordRequirements.map((req, idx) => (
+                          <li key={req.label} className="flex items-center gap-2">
+                            {passwordChecks[idx] ? (
+                              <span className="text-green-600">✔</span>
+                            ) : (
+                              <span className="text-gray-400">✗</span>
+                            )}
+                            <span className={passwordChecks[idx] ? "text-green-700" : ""}>{req.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -243,33 +498,17 @@ export default function SignUp() {
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Confirm Password<span className="text-[#A85C36]">*</span>
                 </label>
-                <div className="relative">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm Password"
-                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] pr-10"
+                  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]${!confirmPasswordMatches ? ' border-red-500' : ''}`}
                     autoComplete="new-password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-[#A85C36]"
-                  >
-                    {showConfirmPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.981 8.75C4.454 10.872 5.622 12.871 7.18 14.39c1.594 1.55 3.554 2.58 5.62 2.75a9.75 9.75 0 005.62-2.75c1.558-1.519 2.726-3.518 3.199-5.62H3.98z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                {!confirmPasswordMatches && (
+                  <div className="text-xs text-red-600 mt-1">Passwords do not match.</div>
+                )}
               </div>
 
               {error && (
@@ -289,9 +528,12 @@ export default function SignUp() {
               <button
                 type="button"
                 onClick={handleGoogleSignUp}
-                className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
+                className="btn-primaryinverse w-full flex items-center justify-center gap-2"
               >
-                <span>🇬🇲</span> Sign up with Gmail
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                </span>
+                Sign up with Gmail
               </button>
 
             </form>
@@ -310,15 +552,13 @@ export default function SignUp() {
             )}
             {step === 2 && (
   <>
-    
     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
       First things first...
     </h1>
     <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
       Tell us about your big day
     </h4>
-
-    <form className="w-full max-w-xs space-y-4">
+    <form className="w-full max-w-md space-y-4">
       <div>
         <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
   Your Full Name<span className="text-[#A85C36]">*</span>
@@ -335,8 +575,6 @@ export default function SignUp() {
 )}
       </div>
       <h2 className="text-2xl font-playfair font-semibold text-[#332B42] text-left">&</h2>
-
-
       <div>
        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
   Your Partner's Name<span className="text-[#A85C36]">*</span>
@@ -352,11 +590,9 @@ export default function SignUp() {
  <p className="text-xs text-[#A85C36] mt-1">{step2Errors.partnerName}</p>
 )}
       </div>
-    
-
       <div>
   <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-    When's the big day?
+          When's the big day?<span className="text-[#A85C36]">*</span>
   </label>
   <div className="relative">
    <input
@@ -367,35 +603,51 @@ export default function SignUp() {
   disabled={undecidedDate}
   min={new Date().toISOString().split("T")[0]}
   placeholder={undecidedDate ? "We're working on it!" : "Select a date"}
-  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${
-    undecidedDate ? "text-[#999]" : ""
-  }`}
+            className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${undecidedDate ? "text-[#AB9C95] cursor-not-allowed" : ""}`}
 />
 {weddingDateError && (
   <p className="text-[#A85C36] text-xs mt-1">{weddingDateError}</p>
 )}
-
   </div>
   <label className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
     <input
       type="checkbox"
       checked={undecidedDate}
-      onChange={() => setUndecidedDate(!undecidedDate)}
+            onChange={() => {
+              if (!undecidedDate) {
+                setWeddingDate("");
+                setWeddingDateError("");
+              }
+              setUndecidedDate(!undecidedDate);
+            }}
       className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
     />
     We haven't decided yet
   </label>
 </div>
-
-
+     <div className="w-full mt-8">
+       <div className="flex w-full gap-4">
      <button
   type="button"
-  className="btn-primary w-full mt-6"
+           className="btn-primary w-full"
+           disabled={
+             !userName.trim() ||
+             !partnerName.trim() ||
+             (!undecidedDate && !weddingDate) ||
+             saving
+           }
  onClick={async () => {
   const errors: { userName?: string; partnerName?: string } = {};
-  if (!userName.trim()) errors.userName = "Your name is required";
-  if (!partnerName.trim()) errors.partnerName = "Partner's name is required";
-  if (!undecidedDate && weddingDate) {
+             if (!userName.trim()) {
+               errors.userName = "Your name is required";
+               return;
+             }
+             if (!partnerName.trim()) {
+               errors.partnerName = "Partner's name is required";
+               return;
+             }
+             if (!undecidedDate) {
+               if (weddingDate) {
   const selectedDate = new Date(weddingDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -405,29 +657,28 @@ export default function SignUp() {
   } else {
     setWeddingDateError("");
   }
+               } else {
+                 setWeddingDateError("");
 }
-
+             } else {
+               setWeddingDateError("");
+}
   if (Object.keys(errors).length > 0) {
     setStep2Errors(errors);
+               return;
   } else {
     setStep2Errors({});
-
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (user) {
-        await setDoc(doc(db, "users", user.uid), {
+      const success = await saveOnboardingData({
           userName: userName.trim(),
           partnerName: partnerName.trim(),
           weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
-          email: user.email,
+        onboarded: false,
           createdAt: new Date(),
         });
-        console.log("User onboarding data saved!");
-        router.push("/"); // Redirect to dashboard after saving
-      } else {
-        console.error("No authenticated user.");
+      
+      if (success) {
+        setStep(3);
       }
     } catch (error) {
       console.error("Error saving onboarding data:", error);
@@ -435,16 +686,721 @@ export default function SignUp() {
   }
 }}
 >
-  Complete
+           {saving ? "Saving..." : "Continue"}
 </button>
-
+       </div>
+       <div className="flex justify-center items-center gap-2 mt-4">
+         {[0, 1, 2, 3].map((n) => (
+           <span
+             key={n}
+             className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+           />
+         ))}
+       </div>
+     </div>
     </form>
   </>
 )}
-
-{/* Step 3 is now unused, as Google sign-up also goes to Step 2 */}
 {step === 3 && (
-  <></>
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      Let's bring your vision to life.
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      We use your answers to make planning easy—so you can enjoy every moment.
+    </h4>
+    <form className="w-full max-w-md space-y-6">
+      {/* Wedding Location Question */}
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Where do you want to get married? <span className="text-[#A85C36]">*</span>
+        </label>
+        <div className="relative">
+           <PlacesAutocompleteInput
+              value={weddingLocation}
+              onChange={(newValue) => {
+                  setWeddingLocation(newValue);
+                  if (!newValue) {
+                      setSelectedVenueMetadata(null);
+                      setHasVenue(null);
+                  }
+              }}
+              setVenueMetadata={(metadata) => {
+                  setSelectedVenueMetadata(metadata);
+                  if (metadata) {
+                      setWeddingLocation(metadata.name);
+                      setHasVenue(true);
+                  }
+              }}
+              setSelectedLocationType={setSelectedLocationType}
+              placeholder="Search for a city or a specific venue"
+              disabled={weddingLocationUndecided}
+              types={['geocode']}
+            />
+        </div>
+        <div className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={weddingLocationUndecided}
+              onChange={() => {
+                const isUndecided = !weddingLocationUndecided;
+                setWeddingLocationUndecided(isUndecided);
+                if (isUndecided) {
+                  setWeddingLocation("");
+                  setSelectedVenueMetadata(null);
+                  setHasVenue(null);
+                  setVenueSearchQuery('');
+                }
+              }}
+              className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
+            />
+            <span className="ml-2 select-none">We haven't decided yet</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Only render the rest if not undecided and a location is entered */}
+      {!weddingLocationUndecided && weddingLocation && (
+        <>
+            {/* Venue question */}
+            <div>
+              <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                Have you already found your venue? <span className="text-[#A85C36]">*</span>
+              </label>
+              <div className="flex gap-4 mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="hasVenue"
+                    checked={hasVenue === true}
+                    onChange={() => {
+                      setHasVenue(true);
+                    }}
+                    className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                  />
+                  <span className="ml-2 text-sm text-[#332B42]">Yes</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="hasVenue"
+                    checked={hasVenue === false}
+                    onChange={() => {
+                      setHasVenue(false);
+                      // If they say no, clear venue data but keep location
+                      setSelectedVenueMetadata(null);
+                      setVenueSearchQuery("");
+                    }}
+                    className="form-radio text-[#A85C36] focus:ring-[#A85C36]"
+                  />
+                  <span className="ml-2 text-sm text-[#332B42]">No</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Show venue search only if they say "Yes" */}
+            {hasVenue === true && (
+              <div>
+                <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                  Search for your venue <span className="text-[#A85C36]">*</span>
+                </label>
+                <PlacesAutocompleteInput
+                  value={venueSearchQuery}
+                  onChange={setVenueSearchQuery}
+                  setVenueMetadata={(metadata) => {
+                    setSelectedVenueMetadata(metadata);
+                    setVenueSearchQuery(metadata?.name || '');
+                  }}
+                  setSelectedLocationType={() => {}} // Not needed here
+                  placeholder="Enter venue name"
+                  types={['establishment']}
+                />
+
+                {selectedVenueMetadata && (
+                  <div className="mt-4">
+                    <VenueCard
+                      venue={selectedVenueMetadata}
+                      showDeleteButton={true}
+                      onDelete={() => {
+                        setSelectedVenueMetadata(null);
+                        setVenueSearchQuery('');
+                        // Also clear the main location input if it was tied to this venue
+                        if (weddingLocation === selectedVenueMetadata.name) {
+                          setWeddingLocation('');
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+        </>
+      )}
+
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(2)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => {
+              const saveAndContinue = async () => {
+                const step3Data: any = {
+                  weddingLocation: weddingLocationUndecided ? null : (weddingLocation.trim() || null),
+                  weddingLocationUndecided: weddingLocationUndecided || false,
+                  hasVenue: hasVenue,
+                  selectedVenueMetadata: selectedVenueMetadata || null,
+                };
+                
+                const success = await saveOnboardingData(step3Data);
+                if (success) {
+                  setStep(4);
+                }
+              };
+
+              if (weddingLocationUndecided) {
+                 saveAndContinue();
+                 return;
+              }
+              if (!weddingLocation.trim()) {
+                toast.error("Please enter your wedding location");
+                return;
+              }
+              if (hasVenue === null) {
+                toast.error("Please let us know if you have a venue");
+                return;
+              }
+              if (hasVenue && !selectedVenueMetadata) {
+                toast.error("Please select your venue");
+                return;
+              }
+              
+              saveAndContinue();
+            }}
+            disabled={
+              saving ||
+              (!weddingLocationUndecided && (
+                !weddingLocation.trim() ||
+                hasVenue === null ||
+                (hasVenue === true && !selectedVenueMetadata)
+              ))
+            }
+          >
+            {saving ? "Saving..." : "Continue"}
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2, 3].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
+      </div>
+    </form>
+  </>
+)}
+{step === 4 && (
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      What kind of vibe are you going for?
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Select all that apply, upload inspiration, or link your Pinterest board.
+    </h4>
+    <form className="w-full max-w-md space-y-6">
+      {/* Tabs for vibe input method */}
+      <div className="flex mb-4 border-b border-[#E0D6D0] mt-2">
+        {vibeTabs.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`flex items-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${vibeInputMethod === tab.key ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]' : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'}`}
+            onClick={() => setVibeInputMethod(tab.key as typeof vibeInputMethod)}
+            style={{ borderRadius: '8px 8px 0 0' }}
+          >
+            <span className="text-base">{tab.icon}</span>
+            <span className="whitespace-nowrap">{tab.label}</span>
+            {tab.comingSoon && (
+              <span className="text-[10px] bg-blue-100 text-blue-600 px-1 py-0.5 rounded-full font-medium">
+                Coming soon
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {/* Conditionally render the selected input, with fixed min-height to prevent jumping */}
+      <div className="min-h-[80px] flex items-center">
+        {vibeInputMethod === 'pills' && (
+          <div className="flex flex-col w-full">
+            <span className="text-xs text-[#332B42] mb-2">Select all that apply.</span>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {vibeOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option}
+                  className={`px-3 py-1 rounded-full border text-sm font-work-sans transition-colors duration-150 ${vibe.includes(option) ? 'bg-[#A85C36] text-white border-[#A85C36]' : 'bg-white text-[#332B42] border-[#AB9C95]'}`}
+                  onClick={() => {
+                    setVibe((prev) =>
+                      prev.includes(option)
+                        ? prev.filter((v) => v !== option)
+                        : [...prev, option]
+                    );
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            {/* Custom vibe pills */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {vibe.filter(v => !vibeOptions.includes(v)).map((custom, idx) => (
+                <span
+                  key={custom + idx}
+                  className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#332B42] border-[#A85C36] flex items-center gap-1"
+                  style={{ textTransform: 'capitalize' }}
+                >
+                  {custom}
+                  <button
+                    type="button"
+                    className="ml-1 text-[#A85C36] hover:text-[#784528]"
+                    onClick={() => setVibe(vibe.filter((v, i) => i !== vibe.findIndex(val => val === custom && i === idx)))}
+                    aria-label={`Remove ${custom}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {/* +Add button and custom input */}
+              {showCustomVibeInput ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customVibe}
+                    onChange={e => setCustomVibe(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (customVibe.trim()) {
+                          setVibe([...vibe, customVibe.trim()]);
+                          setCustomVibe('');
+                          setShowCustomVibeInput(false);
+                        }
+                      }
+                    }}
+                    className="px-2 py-1 border rounded-full text-sm font-work-sans border-[#A85C36] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                    placeholder="Add custom vibe"
+                    style={{ textTransform: 'capitalize', minWidth: 100 }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="text-[#A85C36] font-semibold text-base"
+                    onClick={() => {
+                      if (customVibe.trim()) {
+                        setVibe([...vibe, customVibe.trim()]);
+                        setCustomVibe('');
+                        setShowCustomVibeInput(false);
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
+                  <button type="button" className="ml-1 text-[#A85C36] text-lg" onClick={() => setShowCustomVibeInput(false)} aria-label="Cancel">×</button>
+                </div>
+              ) :
+                <button
+                  type="button"
+                  className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#A85C36] border-[#A85C36] flex items-center gap-1"
+                  style={{ textTransform: 'capitalize' }}
+                  onClick={() => setShowCustomVibeInput(true)}
+                >
+                  +Add
+                </button>
+              }
+            </div>
+          </div>
+        )}
+        {vibeInputMethod === 'image' && (
+          <div className="w-full flex flex-col">
+            <label className="block text-xs font-medium text-[#332B42] mb-1">Upload Inspiration Image</label>
+            {/* If vibeGenerated, show preview, remove button, and pills */}
+            {vibeGenerated && inspirationImage && (
+              <>
+                <div className="flex flex-col items-center">
+                  <img src={imagePreview!} alt="Inspiration preview" className="mt-2 rounded-lg max-h-32 border border-[#AB9C95] mx-auto" />
+                  <button
+                    type="button"
+                    className="text-xs text-[#A85C36] underline mt-2 mb-4"
+                    onClick={() => {
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      setVibeGenerated(false);
+                      setGeneratedVibes([]);
+                    }}
+                  >
+                    Remove image
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center mt-2">
+                  {generatedVibes.map((vibe, idx) => (
+                    <span
+                      key={vibe}
+                      className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#332B42] border-[#A85C36] flex items-center gap-1"
+                      style={{ textTransform: 'capitalize' }}
+                    >
+                      {vibe}
+                      <button
+                        type="button"
+                        className="ml-1 text-[#A85C36] hover:text-[#784528]"
+                        onClick={() => setGeneratedVibes(generatedVibes.filter((_, i) => i !== idx))}
+                        aria-label={`Remove ${vibe}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {/* +Add button and custom input */}
+                  {showCustomVibeInput ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customVibe}
+                        onChange={e => setCustomVibe(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (customVibe.trim()) {
+                              setGeneratedVibes([...generatedVibes, customVibe.trim()]);
+                              setCustomVibe('');
+                              setShowCustomVibeInput(false);
+                            }
+                          }
+                        }}
+                        className="px-2 py-1 border rounded-full text-sm font-work-sans border-[#A85C36] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                        placeholder="Add custom vibe"
+                        style={{ textTransform: 'capitalize', minWidth: 100 }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="text-[#A85C36] font-semibold text-base"
+                        onClick={() => {
+                          if (customVibe.trim()) {
+                            setGeneratedVibes([...generatedVibes, customVibe.trim()]);
+                            setCustomVibe('');
+                            setShowCustomVibeInput(false);
+                          }
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button type="button" className="ml-1 text-[#A85C36] text-lg" onClick={() => setShowCustomVibeInput(false)} aria-label="Cancel">×</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded-full border text-sm font-work-sans bg-white text-[#A85C36] border-[#A85C36] flex items-center gap-1"
+                      style={{ textTransform: 'capitalize' }}
+                      onClick={() => setShowCustomVibeInput(true)}
+                    >
+                      +Add
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {/* If not generated, show upload area and button */}
+            {!vibeGenerated && (
+              <div
+                className={`w-full border border-[#AB9C95] px-3 py-6 rounded-[5px] text-sm flex flex-col items-center justify-center transition-colors duration-150 ${dragActive ? 'bg-[#F3F2F0] border-[#A85C36]' : 'bg-white'}`}
+                onDragOver={e => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={e => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+                  if (file) {
+                    if (!file.type.startsWith('image/')) {
+                      toast.error('Please upload a valid image file.');
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error('Image must be less than 5MB.');
+                      setInspirationImage(null);
+                      setImagePreview(null);
+                      return;
+                    }
+                    setInspirationImage(file);
+                    setImagePreview(URL.createObjectURL(file));
+                  }
+                }}
+              >
+                <div className="w-full flex flex-col items-center">
+                  {!inspirationImage && (
+                    <div className="text-xs text-[#AB9C95] mb-2 text-center">No file chosen</div>
+                  )}
+                  {inspirationImage && (
+                    <div className="text-sm text-[#332B42] mb-2 text-center">Selected file: {inspirationImage.name}</div>
+                  )}
+                  <label className="btn-primaryinverse block mx-auto mt-0 mb-2 text-center cursor-pointer" htmlFor="vibe-image-upload">
+                    Choose File
+                    <input
+                      id="vibe-image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={e => {
+                        const file = e.target.files && e.target.files[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            toast.error('Please upload a valid image file.');
+                            setInspirationImage(null);
+                            setImagePreview(null);
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error('Image must be less than 5MB.');
+                            setInspirationImage(null);
+                            setImagePreview(null);
+                            return;
+                          }
+                          setInspirationImage(file);
+                          setImagePreview(URL.createObjectURL(file));
+                        } else {
+                          setInspirationImage(null);
+                          setImagePreview(null);
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                <div className="text-xs text-gray-500 mt-2 text-center w-full">Drag & drop an image here, or click to select. Accepted formats: JPG, PNG, GIF, SVG, WebP. Max size: 5MB.</div>
+                {imagePreview && (
+                  <img src={imagePreview} alt="Inspiration preview" className="mt-2 rounded-lg max-h-32 border border-[#AB9C95] mx-auto" />
+                )}
+                {inspirationImage && (
+                  <button
+                    type="button"
+                    className="btn-secondary flex items-center gap-2 mt-4"
+                    onClick={async () => {
+                      setVibeLoading(true);
+                      setVibeGenerated(false);
+                      setGeneratedVibes([]);
+                      try {
+                        const formData = new FormData();
+                        formData.append('image', inspirationImage);
+                        const res = await fetch('/api/generate-vibes-from-image', {
+                          method: 'POST',
+                          body: formData,
+                        });
+                        const data = await res.json();
+                        if (data.vibes && Array.isArray(data.vibes)) {
+                          setGeneratedVibes(data.vibes);
+                          setVibeGenerated(true);
+                        } else {
+                          toast.error('Could not extract vibes from image.');
+                        }
+                      } catch (err) {
+                        toast.error('Failed to generate vibes.');
+                      } finally {
+                        setVibeLoading(false);
+                      }
+                    }}
+                    style={{ textTransform: 'none' }}
+                    disabled={vibeLoading}
+                  >
+                    <WandSparkles className="w-4 h-4 mr-2" />
+                    {vibeLoading ? 'Generating...' : 'Generate vibe'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {vibeInputMethod === 'pinterest' && (
+          <div className="w-full">
+            <div className="p-4 border border-blue-200 bg-blue-50 rounded-md text-sm text-blue-800">
+              <p className="font-semibold mb-1">Pinterest Integration Coming Soon!</p>
+              <p>We're working on integrating Pinterest to automatically extract vibes from your boards. For now, you can use the "Popular Vibes" or "Upload Image" tabs to define your wedding style.</p>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(3)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => {
+              if (vibe.length === 0 && !inspirationImage && !pinterestLink) {
+                toast.error("Please select at least one vibe, upload an image, or provide a Pinterest link");
+                return;
+              }
+              
+              // Save step 4 data before advancing
+              const saveAndContinue = async () => {
+                const step4Data = {
+                  vibe: vibe,
+                  vibeInputMethod,
+                  inspirationImage: inspirationImage ? {
+                    name: inspirationImage.name,
+                    size: inspirationImage.size,
+                    type: inspirationImage.type,
+                    // Note: We don't save the actual file, just metadata
+                  } : null,
+                  imagePreview: imagePreview || null,
+                  pinterestLink: pinterestLink || null,
+                  vibeGenerated,
+                  generatedVibes: generatedVibes || [],
+                };
+                
+                const success = await saveOnboardingData(step4Data);
+                if (success) {
+                  setStep(5);
+                }
+              };
+              
+              saveAndContinue();
+            }}
+            disabled={
+              (vibeInputMethod === 'pills' && vibe.length === 0) ||
+              (vibeInputMethod === 'image' && (!inspirationImage || !vibeGenerated || generatedVibes.length === 0)) ||
+              saving
+            }
+          >
+            {saving ? "Saving..." : "Continue"}
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2, 3].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
+      </div>
+    </form>
+  </>
+)}
+{step === 5 && (
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      What's your wedding budget?
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Use the slider below to set your minimum and maximum budget.
+    </h4>
+    <form className="w-full max-w-md space-y-8">
+      <div className="mb-6">
+        <div className="text-lg font-semibold text-[#332B42] mb-2 text-center">
+          Your budget: <span className="text-[#A85C36]">${budgetRange[0].toLocaleString()}</span> - <span className="text-[#A85C36]">${budgetRange[1].toLocaleString()}</span>
+        </div>
+        <div className="flex flex-col gap-6 items-center">
+          <div className="w-full px-2">
+            <Slider
+              range
+              min={minAllowed}
+              max={maxAllowed}
+              step={STEP}
+              value={budgetRange}
+              onChange={vals => setBudgetRange(Array.isArray(vals) ? vals : [vals, vals])}
+              allowCross={false}
+              trackStyle={[{ backgroundColor: '#A85C36', height: 8 }]}
+              handleStyle={[
+                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 },
+                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 }
+              ]}
+              railStyle={{ backgroundColor: '#E0D6D0', height: 8 }}
+            />
+            <div className="flex justify-between w-full text-xs text-[#332B42] mt-1">
+              <span>${minAllowed.toLocaleString()}</span>
+              <span>${maxAllowed.toLocaleString()}+</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="w-full mt-8">
+        <div className="flex w-full gap-4">
+          <button
+            type="button"
+            className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={() => setStep(4)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
+            onClick={async () => {
+              // Save step 5 data and mark as onboarded
+              const saveAndComplete = async () => {
+                const step5Data = {
+                  budgetRange: {
+                    min: budgetRange[0],
+                    max: budgetRange[1],
+                  },
+                  onboarded: true,
+                  onboardingCompletedAt: new Date(),
+                };
+                
+                console.log('Completing onboarding with data:', step5Data);
+                const success = await saveOnboardingData(step5Data);
+                if (success) {
+                  console.log('Onboarding completed successfully, showing toast and redirecting...');
+                  toast.success("Welcome to Paige! Your wedding planning journey begins now.");
+                  // Add a small delay to ensure Firestore has updated before redirect
+                  setTimeout(() => {
+                    console.log('Redirecting to dashboard...');
+                    router.push("/");
+                  }, 1000);
+                } else {
+                  console.error('Failed to complete onboarding');
+                }
+              };
+              
+              saveAndComplete();
+            }}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Complete"}
+          </button>
+        </div>
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {[0, 1, 2, 3].map((n) => (
+            <span
+              key={n}
+              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+            />
+          ))}
+        </div>
+      </div>
+    </form>
+  </>
 )}
 
             </motion.div>
@@ -452,7 +1408,70 @@ export default function SignUp() {
         </div>
 
         <div className="w-[60%] p-4 m-4 flex items-center justify-center">
-          <OnboardingVisual altText="Wedding rings illustration" />
+          <div className="flex-1 h-full bg-white shadow-md rounded-tl-[30px] rounded-br-[30px] p-4 flex items-center justify-center relative">
+            <AnimatePresence mode="wait">
+              {step === 1 && (
+                <motion.img
+                  key="glasses"
+                  src="/glasses.png"
+                  alt="Onboarding visual"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 2 && (
+                <motion.img
+                  key="heart"
+                  src="/heart.png"
+                  alt="Wedding heart illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 3 && (
+                <motion.img
+                  key="weather"
+                  src="/weather.png"
+                  alt="Wedding style illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 4 && (
+                <motion.img
+                  key="vibe"
+                  src="/vibe.png"
+                  alt="Vibe inspiration illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+              {step === 5 && (
+                <motion.img
+                  key="budget"
+                  src="/budget.png"
+                  alt="Budget illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>

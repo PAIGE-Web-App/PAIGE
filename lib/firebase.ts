@@ -2,22 +2,67 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, CollectionReference, enableIndexedDbPersistence, doc, getDoc, updateDoc } from "firebase/firestore"; // Import collection and CollectionReference
+import { getStorage } from "firebase/storage";
+
+// Debug: Log environment variables (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log('Firebase Config Environment Variables:', {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'set' : 'not set',
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? 'set' : 'not set',
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? 'set' : 'not set',
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ? 'set' : 'not set',
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ? 'set' : 'not set',
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ? 'set' : 'not set',
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ? 'set' : 'not set'
+  });
+}
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDjvE1sz703sthMdS_yjrfNbhe3PM_yRi8",
-  authDomain: "paige-ai-db.firebaseapp.com",
-  projectId: "paige-ai-db",
-  storageBucket: "paige-ai-db.firebasestorage.app",
-  messagingSenderId: "1069402872632",
-  appId: "1:1069402872632:web:2221f3ba02dad7c4fbffcd",
-  measurementId: "G-KN0Z159H9C"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
+// Debug: Log actual config values
+console.log('Firebase Config Values:', {
+  apiKey: firebaseConfig.apiKey?.substring(0, 5) + '...',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  hasStorageBucket: !!firebaseConfig.storageBucket,
+  hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+  hasAppId: !!firebaseConfig.appId,
+  hasMeasurementId: !!firebaseConfig.measurementId
+});
+
+// Validate required config values
+const requiredKeys = ['apiKey', 'authDomain', 'projectId'];
+const missingKeys = requiredKeys.filter(key => !firebaseConfig[key]);
+
+if (missingKeys.length > 0) {
+  console.error('Missing Firebase configuration:', missingKeys);
+  throw new Error(`Missing required Firebase configuration keys: ${missingKeys.join(', ')}. Please check your .env.local file.`);
+}
+
 // Prevent re-initialization on hot reload
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+let app;
+try {
+  const existingApps = getApps();
+  console.log('Existing Firebase apps:', existingApps.length);
+  
+  app = existingApps.length ? getApp() : initializeApp(firebaseConfig);
+  console.log('Firebase app initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+  throw error;
+}
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Enable Firestore offline persistence
 enableIndexedDbPersistence(db).catch((err) => {
