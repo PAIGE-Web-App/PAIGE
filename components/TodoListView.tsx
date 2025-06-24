@@ -33,9 +33,11 @@ interface TodoListViewProps {
   handleDragLeave: (e: any) => void;
   handleItemDragOver: (e: any, id: string) => void;
   handleDragEnd: (e: any) => void;
+  handleDrop: (e: any) => void;
   handleListDrop: (e: any) => void;
   showCompletedTasks: boolean;
   setShowCompletedTasks: (val: boolean) => void;
+  justMovedItemId: string | null;
 }
 
 const TodoListView: React.FC<TodoListViewProps> = ({
@@ -68,9 +70,11 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   handleDragLeave,
   handleItemDragOver,
   handleDragEnd,
+  handleDrop,
   handleListDrop,
   showCompletedTasks,
   setShowCompletedTasks,
+  justMovedItemId,
 }) => {
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);
@@ -115,7 +119,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   handleDragLeave={handleDragLeave}
                   handleItemDragOver={handleItemDragOver}
                   handleDragEnd={handleDragEnd}
+                  handleDrop={handleDrop}
                   mode="page"
+                  isJustMoved={item.id === justMovedItemId}
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                 />
               </div>
@@ -151,7 +157,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   handleDragLeave={handleDragLeave}
                   handleItemDragOver={handleItemDragOver}
                   handleDragEnd={handleDragEnd}
+                  handleDrop={handleDrop}
                   mode="page"
+                  isJustMoved={item.id === justMovedItemId}
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                 />
               ))}
@@ -233,7 +241,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                             handleDragLeave={handleDragLeave}
                             handleItemDragOver={handleItemDragOver}
                             handleDragEnd={handleDragEnd}
+                            handleDrop={handleDrop}
                             mode="page"
+                            isJustMoved={item.id === justMovedItemId}
                             {...(!selectedList && { listName: list?.name || 'Unknown List' })}
                           />
                         </div>
@@ -295,7 +305,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                         handleDragLeave={handleDragLeave}
                         handleItemDragOver={handleItemDragOver}
                         handleDragEnd={handleDragEnd}
+                        handleDrop={handleDrop}
                         mode="page"
+                        isJustMoved={item.id === justMovedItemId}
                         {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                       />
                     ))}

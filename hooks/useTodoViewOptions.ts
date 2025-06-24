@@ -22,7 +22,15 @@ function getTaskGroup(deadline?: Date | null): string {
   return 'Later';
 }
 
-export function useTodoViewOptions(todoItems: TodoItem[]) {
+export function useTodoViewOptions(
+  todoItems: TodoItem[],
+  handleReorderAndAdjustDeadline: (
+    draggedItemId: string,
+    targetItemId: string,
+    position: 'top' | 'bottom'
+  ) => Promise<void>,
+  selectedCategoryFilters: string[] = []
+) {
   // Search state
   const [todoSearchQuery, setTodoSearchQuery] = useState("");
 
@@ -57,12 +65,20 @@ export function useTodoViewOptions(todoItems: TodoItem[]) {
       : null;
   }, [todoItems]);
 
-  // Filtered items based on search
+  // Filtered items (search, category, etc)
   const filteredTodoItems = useMemo(() => {
-    if (!todoSearchQuery.trim()) return todoItems;
-    if (!fuse) return todoItems;
-    return fuse.search(todoSearchQuery).map((result) => result.item);
-  }, [todoSearchQuery, fuse, todoItems]);
+    let items = todoItems;
+    if (selectedCategoryFilters.length > 0) {
+      items = items.filter((item) => selectedCategoryFilters.includes(item.category ?? ''));
+    }
+    if (todoSearchQuery.trim()) {
+      items = items.filter((item) =>
+        item.name?.toLowerCase().includes(todoSearchQuery.trim().toLowerCase()) ||
+        item.note?.toLowerCase().includes(todoSearchQuery.trim().toLowerCase())
+      );
+    }
+    return items;
+  }, [todoItems, todoSearchQuery, selectedCategoryFilters]);
 
   // Group tasks by deadline
   const groupedTasks = useMemo(() => {
@@ -191,12 +207,28 @@ export function useTodoViewOptions(todoItems: TodoItem[]) {
   }, [draggedTodoId]);
 
   const handleDragEnd = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    console.log('Drag end');
+    // This function now only handles cleanup for when a drop happens outside a valid target.
+    e.preventDefault();
+    e.currentTarget.classList.remove('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
     setDraggedTodoId(null);
     setDragOverTodoId(null);
     setDropIndicatorPosition({ id: null, position: null });
-    e.currentTarget.classList.remove('opacity-50', 'border-dashed', 'border-2', 'border-[#A85C36]');
   }, []);
+  
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (draggedTodoId && dragOverTodoId && dropIndicatorPosition.position) {
+      handleReorderAndAdjustDeadline(
+        draggedTodoId,
+        dragOverTodoId,
+        dropIndicatorPosition.position
+      );
+    }
+    // Clean up state after a successful drop
+    setDraggedTodoId(null);
+    setDragOverTodoId(null);
+    setDropIndicatorPosition({ id: null, position: null });
+  }, [draggedTodoId, dragOverTodoId, dropIndicatorPosition, handleReorderAndAdjustDeadline]);
 
   const handleListDrop = useCallback((e: React.DragEvent<HTMLDivElement>, targetListId: string) => {
     e.preventDefault();
@@ -254,6 +286,7 @@ export function useTodoViewOptions(todoItems: TodoItem[]) {
     handleDragLeave,
     handleItemDragOver,
     handleDragEnd,
+    handleDrop,
     handleListDrop,
     getTaskGroup,
   };

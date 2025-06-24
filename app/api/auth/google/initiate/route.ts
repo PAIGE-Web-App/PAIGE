@@ -29,6 +29,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/gmail.readonly', // To read Gmail messages
   'https://www.googleapis.com/auth/gmail.send', // To send email
+  'https://www.googleapis.com/auth/calendar', // To manage Google Calendar
+  'https://www.googleapis.com/auth/calendar.events', // To manage calendar events
   // Add more scopes as needed, e.g., 'https://www.googleapis.com/auth/gmail.modify' for sending
 ].join(' ');
 

@@ -392,6 +392,36 @@ export default function SignUp() {
         return cleaned;
       };
 
+      if (stepData.selectedVenueMetadata) {
+        const { name, formatted_address, geometry, place_id, photos, url, vicinity } = stepData.selectedVenueMetadata;
+        
+        // Ensure geometry and photos are handled safely
+        const serializedGeometry = geometry ? {
+          location: {
+            lat: geometry.location.lat(),
+            lng: geometry.location.lng(),
+          },
+          viewport: geometry.viewport,
+        } : undefined;
+
+        const serializedPhotos = photos ? photos.map(photo => ({
+          height: photo.height,
+          html_attributions: photo.html_attributions,
+          photo_reference: photo.photo_reference,
+          width: photo.width,
+        })) : undefined;
+        
+        stepData.selectedVenueMetadata = {
+          name,
+          formatted_address,
+          geometry: serializedGeometry,
+          place_id,
+          photos: serializedPhotos,
+          url,
+          vicinity
+        };
+      }
+
       const cleanedStepData = cleanData(stepData);
       console.log('Saving data to Firestore:', cleanedStepData);
 

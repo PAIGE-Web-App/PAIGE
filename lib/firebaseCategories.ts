@@ -7,11 +7,12 @@ import {
   where,
   addDoc,
   doc,
-  setDoc
+  setDoc,
+  deleteDoc
 } from "firebase/firestore";
 
 // Default categories
-const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
+export const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
 export const getAllCategories = async (userId: string): Promise<string[]> => {
   try {
@@ -60,5 +61,23 @@ export const saveCategoryIfNew = async (name: string, userId: string) => {
     }
   } catch (error) {
     console.error("Failed to save category:", error);
+  }
+};
+
+export const deleteCategoryByName = async (name: string, userId: string) => {
+  try {
+    if (!userId) {
+      console.warn("deleteCategoryByName: userId is undefined. Cannot delete category.");
+      return;
+    }
+    const categoriesRef = getUserCollectionRef('categories', userId);
+    const q = query(categoriesRef, where("name", "==", name), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+    for (const docSnap of snapshot.docs) {
+      await deleteDoc(docSnap.ref);
+    }
+  } catch (error) {
+    const err: any = error;
+    console.error("Failed to delete category:", err?.message || String(err));
   }
 };

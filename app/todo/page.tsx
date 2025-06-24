@@ -23,6 +23,8 @@ import TodoSidebar from '../../components/TodoSidebar';
 import TodoTopBar from '../../components/TodoTopBar';
 import TodoListView from '../../components/TodoListView';
 import CalendarView from '../../components/CalendarView';
+import GoogleCalendarSync from '../../components/GoogleCalendarSync';
+import NewListOnboardingModal from '@/components/NewListOnboardingModal';
 
 // Custom hooks
 import { useUserProfileData } from "../../hooks/useUserProfileData";
@@ -30,6 +32,8 @@ import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useTodoLists } from "../../hooks/useTodoLists";
 import { useTodoItems } from "../../hooks/useTodoItems";
 import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
+import { saveCategoryIfNew, deleteCategoryByName, defaultCategories } from "@/lib/firebaseCategories";
+import toast from "react-hot-toast";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
@@ -43,7 +47,12 @@ export default function TodoPage() {
   // Use custom hooks for todo functionality
   const todoLists = useTodoLists();
   const todoItems = useTodoItems(todoLists.selectedList);
-  const viewOptions = useTodoViewOptions(todoItems.todoItems);
+  const [selectedCategoryFilters, setSelectedCategoryFilters] = React.useState<string[]>([]);
+  const viewOptions = useTodoViewOptions(
+    todoItems.todoItems,
+    todoItems.handleReorderAndAdjustDeadline,
+    selectedCategoryFilters
+  );
 
   // Handle mobile tab change
   const handleMobileTabChange = (tab: string) => {
@@ -57,8 +66,48 @@ export default function TodoPage() {
 
   const { handleSetWeddingDate } = useWeddingBanner(router);
 
+  // Sync & Clean Up Categories handler
+  const onSyncCategories = async () => {
+    if (!user) return;
+    const inCollection = todoItems.allCategories;
+    const inUse = todoItems.allCategoriesCombined;
+    // Add missing
+    const toAdd = inUse.filter(cat => !inCollection.includes(cat) && !defaultCategories.includes(cat));
+    // Remove unused
+    const toRemove = inCollection.filter(cat => !inUse.includes(cat));
+
+    for (const cat of toAdd) {
+      await saveCategoryIfNew(cat, user.uid);
+    }
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      toast.success('Your categories are already up to date!');
+    } else if (toRemove.length > 0) {
+      if (window.confirm(`Delete unused categories?\n${toRemove.join(", ")}`)) {
+        for (const cat of toRemove) {
+          await deleteCategoryByName(cat, user.uid);
+        }
+        toast.success(`Added ${toAdd.length}, deleted ${toRemove.length} categories.`);
+    } else {
+        toast(`Added ${toAdd.length} categories. No deletions.`);
+      }
+    } else {
+      toast.success(`Added ${toAdd.length} categories. No deletions.`);
+    }
+  };
+
+  const [showNewListModal, setShowNewListModal] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = () => {
+      setShowNewListModal(true);
+    };
+    window.addEventListener('open-new-list-modal', handler);
+    return () => window.removeEventListener('open-new-list-modal', handler);
+  }, []);
+
   if (loading) {
-    return (
+  return (
       <div className="flex flex-col min-h-screen bg-linen">
         <WeddingBanner
           daysLeft={null}
@@ -128,7 +177,7 @@ export default function TodoPage() {
               </div>
             ) : (
               <>
-                <TodoTopBar
+            <TodoTopBar
                   selectedList={todoLists.selectedList}
                   editingListNameId={todoLists.editingListNameId}
                   editingListNameValue={todoLists.editingListNameValue}
@@ -145,7 +194,11 @@ export default function TodoPage() {
                   setCalendarViewMode={viewOptions.setCalendarViewMode}
                   handleCloneList={todoLists.handleCloneList}
                   handleDeleteList={todoLists.handleDeleteList}
-                />
+                  allCategories={todoItems.allCategoriesCombined || []}
+                  selectedCategoryFilters={selectedCategoryFilters}
+                  setSelectedCategoryFilters={setSelectedCategoryFilters}
+                  onSyncCategories={onSyncCategories}
+            />
 
                 <AnimatePresence>
                   {todoLists.showListLimitBanner && todoLists.todoLists.length >= STARTER_TIER_MAX_LISTS && (
@@ -166,7 +219,7 @@ export default function TodoPage() {
                 
                 <div className="flex-1 overflow-y-auto">
                   {viewOptions.viewMode === 'list' ? (
-                    <TodoListView
+                <TodoListView
                       todoItems={todoItems.todoItems}
                       filteredTodoItems={viewOptions.filteredTodoItems}
                       groupedTasks={viewOptions.groupedTasks}
@@ -181,7 +234,7 @@ export default function TodoPage() {
                       draggedTodoId={viewOptions.draggedTodoId}
                       dragOverTodoId={viewOptions.dragOverTodoId}
                       dropIndicatorPosition={viewOptions.dropIndicatorPosition}
-                      user={user}
+                  user={user}
                       handleToggleTodoComplete={todoItems.handleToggleTodoCompletion}
                       handleUpdateTaskName={todoItems.handleUpdateTodoName}
                       handleUpdateDeadline={todoItems.handleUpdateTodoDeadline}
@@ -196,13 +249,15 @@ export default function TodoPage() {
                       handleDragLeave={viewOptions.handleDragLeave}
                       handleItemDragOver={viewOptions.handleItemDragOver}
                       handleDragEnd={viewOptions.handleDragEnd}
+                      handleDrop={viewOptions.handleDrop}
                       handleListDrop={(e) => {
                         // This would need to be implemented based on the drag target
                         viewOptions.handleListDrop(e, '');
                       }}
                       showCompletedTasks={viewOptions.showCompletedTasks}
                       setShowCompletedTasks={viewOptions.setShowCompletedTasks}
-                    />
+                      justMovedItemId={todoItems.justMovedItemId}
+                              />
                   ) : (
                     <CalendarView
                       todoItems={viewOptions.filteredTodoItems}
@@ -217,12 +272,23 @@ export default function TodoPage() {
                       setShowMoveTaskModal={todoItems.setShowMoveTaskModal}
                       todoLists={todoLists.todoLists}
                       allCategories={todoItems.allCategories}
+                      googleCalendarSyncComponent={
+                        <GoogleCalendarSync
+                          userId={user?.uid || ''}
+                          todoItems={viewOptions.filteredTodoItems}
+                          selectedListId={todoLists.selectedList?.id || null}
+                          onSyncComplete={() => {
+                            todoItems.todoItems = [...todoItems.todoItems];
+                          }}
+                          compact
+                        />
+                      }
                     />
                   )}
                 </div>
               </>
-            )}
-          </main>
+          )}
+            </main>
           
           {todoItems.selectedTaskForSideCard && (
             <TaskSideCard
@@ -293,6 +359,23 @@ export default function TodoPage() {
         />
       )}
 
+      {todoItems.showAddTodoCard && (
+        <TaskSideCard
+          isOpen={true}
+          onClose={todoItems.handleCloseAddTodo}
+          mode="todo"
+          onSubmit={todoItems.handleAddTodo}
+          allCategories={todoItems.allCategories}
+          userId={user?.uid || ''}
+          todoLists={todoLists.todoLists}
+          selectedListId={todoLists.selectedList?.id || null}
+          setSelectedListId={(id) => {
+            const list = todoLists.todoLists.find(l => l.id === id);
+            if (list) todoLists.setSelectedList(list);
+          }}
+        />
+      )}
+
       {/* CENTRALIZED ListMenuDropdown RENDERING */}
       {todoLists.openListMenuId && todoLists.selectedTodoListForMenu && (
         <ListMenuDropdown
@@ -305,6 +388,12 @@ export default function TodoPage() {
           buttonRef={{ current: todoLists.listMenuButtonRefs.current.get(todoLists.openListMenuId) || null }}
         />
       )}
+
+      <NewListOnboardingModal
+        isOpen={showNewListModal}
+        onClose={() => setShowNewListModal(false)}
+        onSubmit={todoLists.handleAddList}
+      />
 
       {/* Mobile Navigation */}
       <BottomNavBar

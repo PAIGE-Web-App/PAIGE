@@ -8,14 +8,20 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { description, categories, weddingDate } = body;
 
-    let prompt = `Generate a wedding-related prep to-do list based on the custom input that the user provided in the 'Describe the type of list you would like to create' input. Assign each task a realistic deadline, spaced out from today up to the wedding date, so that tasks are not all due on the same day. Please reference and assign categories that already exist for the user; however, don't be afraid to create new ones but let the user know which ones are new!\n`;
-    prompt += `You are a smart assistant for to-do list creation. Based on the following description, generate a JSON object with a list name and an array of tasks. Each task should have a name, a short note, an optional deadline (in YYYY-MM-DD format), and a category. Use only these categories unless a new one is truly unique: ${Array.isArray(categories) && categories.length > 0 ? categories.join(', ') : 'any relevant category'}. If you must create a new category, mark it with [NEW] at the end of the category name.\n`;
+    let prompt = `Generate a wedding-related prep to-do list based on the user's description. Your primary goal is to create a logical and stress-free timeline that does not overwhelm the user with having too many to do items for a single day.\n`;
+    prompt += `\n--- CRITICAL SCHEDULING RULES ---\n`;
+    prompt += `1. **Distribute Tasks:** Spread the tasks out over different days between today and the wedding date. A user's wedding is in the future, so their to-do list should reflect that. Do not create all to do itmes for today.\n`;
+    prompt += `2. **Avoid Overwhelming the User:** Do NOT cluster many tasks on a single day. The goal is a manageable schedule. The earliest one or two tasks can be due today, but all subsequent tasks must be logically spaced out on future dates.\n`;
+    prompt += `3. **Intelligent Time-of-Day Scheduling:** If multiple to do must fall on the same day, space them out by several hours. Assign times that make sense for the item. For example, vendor appointments should be during business hours (e.g., 10:00 AM, 2:30 PM), not at 8:00 PM. Do not use the same time for all tasks on a given day.\n`;
+    prompt += `**EXAMPLE:** If three tasks are due on the same day, assign them times like 10:00, 13:00, and 15:00, not all at 17:00.\n`;
+    prompt += `\n--- CONTENT AND FORMATTING RULES ---\n`;
+    prompt += `Based on the following description, generate a JSON object with a list name and an array of tasks. Each task should have a name, a short note, a deadline (in YYYY-MM-DDTHH:mm format), and a category. Use only these categories unless a new one is truly unique: ${Array.isArray(categories) && categories.length > 0 ? categories.join(', ') : 'any relevant category'}. If you must create a new category, mark it with [NEW] at the end of the category name.\n`;
     prompt += `IMPORTANT: All deadlines must be today or in the future (never before today). Do not generate any deadlines in the past.\n`;
-    prompt += `IMPORTANT: Never use "Uncategorized", "Needs Category", or any generic placeholder as a category. Every task must have a specific, relevant category. If you create a new category, make it descriptive and meaningful, and mark it with [NEW].\n`;
+    prompt += `IMPORTANT: Never use "Uncategorized", "Needs Category", "Other", or any generic placeholder as a category. Every task must have a specific, relevant category. If you create a new category, make it descriptive and meaningful, and mark it with [NEW]. If you cannot determine a category, use the most relevant existing category instead, but NEVER use "Uncategorized", "Needs Category", or "Other".\n`;
     if (weddingDate) {
       prompt += `The user's wedding date is ${weddingDate}. Generate deadlines relative to this date (e.g., '2 weeks before the wedding'). For all to-do items except those clearly related to the honeymoon or post-wedding, deadlines must not be after the wedding date. Only honeymoon or post-wedding tasks may have deadlines after the wedding date.\n`;
     }
-    prompt += `\nDescription: ${description}\n\nReturn only valid JSON in this format:\n{\n  "name": "List Name",\n  "tasks": [\n    { "name": "Task 1", "note": "...", "deadline": "YYYY-MM-DD", "category": "..." },\n    ...\n  ]\n}`;
+    prompt += `\nDescription: ${description}\n\nReturn only valid JSON in this format:\n{\n  "name": "List Name",\n  "tasks": [\n    { "name": "Task 1", "note": "...", "deadline": "YYYY-MM-DDTHH:mm", "category": "..." },\n    ...\n  ]\n}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
@@ -50,7 +56,9 @@ export async function POST(req: Request) {
     let soonestDeadline = null;
     let warning = '';
     if (Array.isArray(result.tasks)) {
-      result.tasks = result.tasks.map(task => {
+      // --- Post-process: Space out tasks on the same day ---
+      const tasksByDate: { [date: string]: any[] } = {};
+      result.tasks.forEach(task => {
         if (task.deadline) {
           const d = new Date(task.deadline);
           if (d < today) {
@@ -59,8 +67,31 @@ export async function POST(req: Request) {
           if (!soonestDeadline || new Date(task.deadline) < new Date(soonestDeadline)) {
             soonestDeadline = task.deadline;
           }
+          // Group by date (YYYY-MM-DD)
+          const dateKey = d.toISOString().slice(0, 10);
+          if (!tasksByDate[dateKey]) tasksByDate[dateKey] = [];
+          tasksByDate[dateKey].push(task);
         }
-        return task;
+      });
+      // Assign times for tasks on the same day
+      Object.entries(tasksByDate).forEach(([date, tasks]) => {
+        if (tasks.length > 1) {
+          // Use business hours: 10:00, 13:00, 15:00, 16:30, 18:00, etc.
+          const timeSlots = [10, 13, 15, 16.5, 18, 19.5, 21];
+          tasks.forEach((task, idx) => {
+            const hour = timeSlots[idx % timeSlots.length];
+            const h = Math.floor(hour);
+            const m = Math.round((hour - h) * 60);
+            const dateObj = new Date(date + 'T00:00:00');
+            dateObj.setHours(h, m, 0, 0);
+            task.deadline = dateObj.toISOString().slice(0, 16);
+          });
+        } else if (tasks.length === 1) {
+          // If only one task, default to 17:00
+          const dateObj = new Date(date + 'T00:00:00');
+          dateObj.setHours(17, 0, 0, 0);
+          tasks[0].deadline = dateObj.toISOString().slice(0, 16);
+        }
       });
     }
     // Add warning if soonest deadline is today and there are many tasks, or if wedding is very soon

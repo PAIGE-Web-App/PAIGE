@@ -167,7 +167,7 @@ h6 {
 
 /* Force react-hot-toast toasts to stack tightly at the top right */
 .react-hot-toast {
-  top: 64px !important;   /* Adjust to match your nav height */
+  top: var(--toast-top, 64px) !important;
   right: 20px !important;
   left: auto !important;
   bottom: auto !important;
@@ -177,7 +177,7 @@ h6 {
 }
 
 .react-hot-toast > div > div {
-  margin-bottom: 8px !important; /* Tight gap between toasts */
+  margin-bottom: 12px !important; /* 12px gap between toasts */
 }
 
 .react-hot-toast > div > div:last-child {

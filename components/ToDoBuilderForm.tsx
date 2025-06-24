@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { PenTool, Upload, Sparkles } from 'lucide-react';
-import OnboardingModalBase from './OnboardingModalBase';
-import { Trash2 } from 'lucide-react';
 import FormField from './FormField';
 import CategorySelectField from './CategorySelectField';
 import ToDoFields from './ToDoFields';
@@ -12,11 +10,9 @@ import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import Banner from './Banner';
 import TodoItemSkeleton from './TodoItemSkeleton';
-import UnsavedChangesModal from './UnsavedChangesModal';
 
-interface NewListOnboardingModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface ToDoBuilderFormProps {
+  mode?: 'list' | 'todo';
   onSubmit?: (data: any) => void;
 }
 
@@ -41,22 +37,15 @@ const TABS = [
   },
 ];
 
-const STEPS = [
-  { id: 1, name: 'Select Type' },
-  { id: 2, name: 'Create List' },
-];
-
-// At the top, add a counter fallback for environments without crypto.randomUUID
 let tempIdCounter = 0;
 function getStableId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `temp-id-${tempIdCounter++}`;
 }
 
-const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubmit }) => {
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
-  const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
   const [tasks, setTasks] = useState([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
   const [customCategoryValue, setCustomCategoryValue] = useState('');
@@ -64,7 +53,6 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [aiListResult, setAiListResult] = React.useState(null);
   const [allCategories, setAllCategories] = React.useState<string[]>([]);
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
-  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   React.useEffect(() => {
     if (user?.uid) {
@@ -78,10 +66,6 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       });
     }
   }, [user]);
-
-  const handleContinue = () => setStep(2);
-  const handleBack = () => setStep(1);
-  const handleStepChange = (newStep: number) => setStep(newStep);
 
   const handleAddTask = () => setTasks([...tasks, { _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
   const handleRemoveTask = (idx: number) => setTasks(tasks.filter((_, i) => i !== idx));
@@ -105,7 +89,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     }
     // Add debug log in updateTask for deadline changes
     if (field === 'deadline') {
-      console.log('[NewListOnboardingModal] updateTask deadline', { index, value, tasks: tasks.map(t => ({ _id: t._id, deadline: t.deadline })) });
+      console.log('[ToDoBuilderForm] updateTask deadline', { index, value, tasks: tasks.map(t => ({ _id: t._id, deadline: t.deadline })) });
     }
     return updated;
   }));
@@ -153,179 +137,54 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     setAiListResult(null);
   };
 
-  // Helper: check if there is unsaved data
-  const hasUnsavedData = () => {
-    if (listName.trim()) return true;
-    if (selectedTab === 'manual' && tasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate)) return true;
-    const aiResult: any = aiListResult;
-    if (selectedTab === 'ai' && aiResult && (aiResult.name?.trim() || (Array.isArray(aiResult.tasks) && aiResult.tasks.some((t: any) => t.name?.trim())))) return true;
-    // TODO: Add CSV import check if needed
-    return false;
-  };
-
-  // Reset all state to initial
-  const resetState = () => {
-    setSelectedTab('ai');
-    setStep(1);
-    setListName('');
-    setTasks([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
-    setCustomCategoryValue('');
-    setCanSubmit(false);
-    setAiListResult(null);
-  };
-
-  // Intercept close
-  const handleAttemptClose = () => {
-    if (hasUnsavedData()) {
-      setShowUnsavedModal(true);
-    } else {
-      resetState();
-      onClose();
-    }
-  };
-
-  // Confirm leave (lose data)
-  const handleConfirmLeave = () => {
-    setShowUnsavedModal(false);
-    resetState();
-    onClose();
-  };
-
-  // Cancel leave (stay in modal)
-  const handleCancelLeave = () => {
-    setShowUnsavedModal(false);
-  };
-
-  // Always reset state when modal closes
-  React.useEffect(() => {
-    if (!isOpen) {
-      resetState();
-    }
-  }, [isOpen]);
-
   return (
-    <>
-      <OnboardingModalBase
-        isOpen={isOpen}
-        onClose={handleAttemptClose}
-        steps={STEPS}
-        currentStep={step}
-        onStepChange={handleStepChange}
-        sidebarTitle={step === 1 ? "Select Type" : "Build your List"}
-        footer={
-          step === 1 ? (
-            <button
-              onClick={handleContinue}
-              className="btn-primary"
-            >
-              Continue
-            </button>
-          ) : (
-            <div className="flex gap-4">
-              <button
-                onClick={handleBack}
-                className="btn-primaryinverse"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="btn-primary"
-                disabled={selectedTab === 'ai' ? !aiListResult : !listName.trim()}
-              >
-                Submit
-              </button>
-            </div>
-          )
-        }
-      >
-        {step === 1 && (
-          <div className="w-full h-full flex flex-col items-center relative pt-20 pb-32 max-h-[70vh] overflow-y-auto">
-            <h2 className="text-xl font-playfair font-semibold text-[#332B42] mb-8 mt-2 text-center">How do you want to build your list?</h2>
-            <div className="flex flex-col md:flex-row gap-6 mt-2 w-full max-w-5xl justify-center items-start">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setSelectedTab(tab.key as 'manual' | 'import' | 'ai')}
-                  className={`relative flex flex-col items-center border border-[#E0DBD7] rounded-xl px-12 py-8 w-full max-w-sm shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#a85c36] bg-white ${selectedTab === tab.key ? 'ring-2 ring-[#a85c36] border-[#a85c36]' : ''}`}
-                >
-                  {tab.key === 'ai' && (
-                    <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-[#7C5CBF] text-white text-xs font-semibold px-3 py-1 rounded-lg shadow-lg z-10" style={{letterSpacing: '0.03em'}}>RECOMMENDED</span>
-                  )}
-                  {tab.icon}
-                  <span className="text-sm ml-1">{tab.label}</span>
-                  <span className="text-sm text-[#8A8A8A] text-center mt-1">{tab.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+    <div className="w-full h-full flex flex-col items-center justify-center">
+      {/* Tabs always visible */}
+      <div className="flex gap-2 mb-8">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setSelectedTab(tab.key as 'manual' | 'import' | 'ai')}
+            className={`flex items-center px-6 py-2 transition-all duration-150 focus:outline-none border-b-2 ${selectedTab === tab.key ? 'text-[#a85c36] border-[#a85c36]' : 'text-[#332B42] border-transparent hover:text-[#a85c36]'}`}
+            style={{ borderRadius: 0, background: 'none' }}
+          >
+            {tab.icon}
+            <span className="text-sm ml-1">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Only this area scrolls */}
+      <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto">
+        {selectedTab === 'manual' && (
+          <ManualListCreationForm
+            allCategories={[]}
+            onSubmit={onSubmit}
+            listName={listName}
+            setListName={setListName}
+            canSubmit={canSubmit}
+            tasks={tasks}
+            setTasks={setTasks}
+            customCategoryValue={customCategoryValue}
+            setCustomCategoryValue={setCustomCategoryValue}
+          />
         )}
-        {step === 2 && (
-          <div className="w-full h-full flex flex-col items-center justify-center">
-            {/* Tabs always visible */}
-            <div className="flex gap-2 mb-8">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setSelectedTab(tab.key as 'manual' | 'import' | 'ai')}
-                  className={`flex items-center px-6 py-2 transition-all duration-150 focus:outline-none border-b-2 ${selectedTab === tab.key ? 'text-[#a85c36] border-[#a85c36]' : 'text-[#332B42] border-transparent hover:text-[#a85c36]'}`}
-                  style={{ borderRadius: 0, background: 'none' }}
-                >
-                  {tab.icon}
-                  <span className="text-sm ml-1">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-            {/* Only this area scrolls */}
-            <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto">
-              {selectedTab === 'manual' && (
-                <ManualListCreationForm
-                  allCategories={[]}
-                  onSubmit={onSubmit}
-                  listName={listName}
-                  setListName={setListName}
-                  canSubmit={canSubmit}
-                  tasks={tasks}
-                  setTasks={setTasks}
-                  customCategoryValue={customCategoryValue}
-                  setCustomCategoryValue={setCustomCategoryValue}
-                />
-              )}
-              {selectedTab === 'import' && (
-                <ImportListCreationForm />
-              )}
-              {selectedTab === 'ai' && (
-                <AIListCreationForm
-                  isGenerating={false}
-                  handleBuildWithAI={handleBuildWithAI}
-                  setAiListResult={setAiListResult}
-                  aiListResult={aiListResult}
-                  allCategories={allCategories}
-                  weddingDate={weddingDate}
-                />
-              )}
-            </div>
-          </div>
+        {selectedTab === 'import' && (
+          <ImportListCreationForm />
         )}
-      </OnboardingModalBase>
-      <UnsavedChangesModal
-        isOpen={showUnsavedModal}
-        onConfirm={handleConfirmLeave}
-        onCancel={handleCancelLeave}
-        title="Are you sure?"
-        message="You have unsaved changes. If you leave, you will lose all of your list data."
-      />
-    </>
+        {selectedTab === 'ai' && (
+          <AIListCreationForm
+            isGenerating={false}
+            handleBuildWithAI={handleBuildWithAI}
+            setAiListResult={setAiListResult}
+            aiListResult={aiListResult}
+            allCategories={allCategories}
+            weddingDate={weddingDate}
+          />
+        )}
+      </div>
+    </div>
   );
 };
-
-function parseLocalDateTime(input: string): Date {
-  if (typeof input !== 'string') return new Date(NaN);
-  const [datePart, timePart] = input.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-}
 
 const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setListName, canSubmit, tasks, setTasks, customCategoryValue, setCustomCategoryValue }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -678,20 +537,4 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   );
 };
 
-// Helper to format a Date or string to YYYY-MM-DDTHH:mm
-function normalizeDateString(val: any) {
-  if (!val) return '';
-  if (typeof val === 'string') {
-    // If already in correct format, return as is
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(val)) return val;
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 16);
-  }
-  if (val instanceof Date) {
-    return val.toISOString().slice(0, 16);
-  }
-  return '';
-}
-
-export default NewListOnboardingModal; 
+export default ToDoBuilderForm; 

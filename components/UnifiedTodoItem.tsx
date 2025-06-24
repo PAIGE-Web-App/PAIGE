@@ -33,10 +33,12 @@ interface UnifiedTodoItemProps {
   handleDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
   handleItemDragOver: (e: React.DragEvent<HTMLDivElement>, todoId: string) => void;
   handleDragEnd: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   className?: string;
   listName?: string;
   mode: 'page' | 'editor';
   onRemove?: () => void;
+  isJustMoved?: boolean;
 }
 
 // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
@@ -88,10 +90,12 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   handleDragLeave,
   handleItemDragOver,
   handleDragEnd,
+  handleDrop,
   className,
   listName,
   mode,
   onRemove,
+  isJustMoved,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
@@ -420,379 +424,388 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   };
 
   return (
-    <motion.div
-      key={todo.id}
-      id={`todo-item-${todo.id}`}
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''} ${className || ''}`}
-      draggable={sortOption === 'myOrder'}
-      onDragStart={((e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, todo.id)) as any}
-      onDragEnter={((e: React.DragEvent<HTMLDivElement>) => handleDragEnter(e, todo.id)) as any}
-      onDragLeave={((e: React.DragEvent<HTMLDivElement>) => handleDragLeave(e)) as any}
-      onDragOver={((e: React.DragEvent<HTMLDivElement>) => handleItemDragOver(e, todo.id)) as any}
-      onDragEnd={((e: React.DragEvent<HTMLDivElement>) => handleDragEnd(e)) as any}
+    <div
+      draggable={!isEditingName && sortOption === 'myOrder'}
+      onDragStart={(e) => handleDragStart(e, todo.id)}
+      onDragEnd={handleDragEnd}
+      onDragEnter={(e) => handleDragEnter(e, todo.id)}
+      onDragLeave={handleDragLeave}
+      onDragOver={(e) => handleItemDragOver(e, todo.id)}
+      onDrop={handleDrop}
     >
-      {/* Visual Drop Indicator */}
-      {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'top' && (
-        <div className="absolute left-0 right-0 -top-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
-      )}
-      {dropIndicatorPosition.id === todo.id && dropIndicatorPosition.position === 'bottom' && (
-        <div className="absolute left-0 right-0 -bottom-0.5 h-0.5 bg-[#A85C36] z-10 rounded-full"></div>
-      )}
-
-      {/* Checkbox (only in page mode) */}
-      {mode === 'page' && (
-        <button onClick={() => handleToggleTodoComplete(todo)} className="flex-shrink-0 p-1 flex items-center justify-center">
-          {todo.isCompleted ? (
-            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center">
-              <Check size={10} className="text-[#A85C36]" />
-            </div>
-          ) : (
-            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]"></div>
+      <motion.div
+        initial={{ opacity: 0.8, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className={`
+          relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
+          ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
+          ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
+          ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
+          ${(justUpdated || isJustMoved) ? 'bg-green-100' : ''}
+          ${className || ''}
+        `}
+      >
+        {/* Visual Drop Indicator */}
+        {dropIndicatorPosition.id === todo.id && (
+          <div
+            className={`absolute left-0 right-0 h-1 bg-[#A85C36] z-10 ${dropIndicatorPosition.position === 'top' ? 'top-0' : 'bottom-0'}`}
+          />
+        )}
+        {/* Main content */}
+        <div className="flex-1 flex items-start gap-3">
+          {/* Checkbox (only in page mode) */}
+          {mode === 'page' && (
+            <button onClick={(e) => { e.stopPropagation(); handleToggleTodoComplete(todo); }} className="flex-shrink-0 p-1 flex items-center justify-center">
+              {todo.isCompleted ? (
+                <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-[#AEAEAE]" />
+                </div>
+              ) : (
+                <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]"></div>
+              )}
+            </button>
           )}
-        </button>
-      )}
 
-      {/* Task Content */}
-      <div className="flex-1">
-        {/* Conditional rendering for Task Name */}
-        {isEditingName ? (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={editingNameValue}
-                onChange={(e) => setEditingNameValue(e.target.value)}
-                onBlur={handleNameBlur}
-                onKeyDown={handleNameKeyDown}
-                className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
-                disabled
-              />
-            </span>
-          ) : (
-            <input
-              ref={nameInputRef}
-              type="text"
-              value={editingNameValue}
-              onChange={(e) => setEditingNameValue(e.target.value)}
-              onBlur={handleNameBlur}
-              onKeyDown={handleNameKeyDown}
-              className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
-            />
-          )
-        ) : (
-          <div className="flex items-center justify-between">
-            <p
-              className={`font-work text-xs font-medium ${!todo.name ? 'text-[#332B42] hover:underline cursor-pointer' : 'text-[#332B42]'} ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
-              onClick={handleNameDoubleClick}
-              title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
-            >
-              {todo.name || '+ Add To-Do Name'}
-            </p>
-            {/* Three-dot menu button (only in page mode) */}
-            {mode === 'page' && (
-              <div className="relative" ref={moreMenuRef}>
-                <button
-                  onClick={handleToggleMenu}
-                  className="p-1 hover:bg-gray-100 rounded-full"
-                  title="More options"
+          {/* Task Content */}
+          <div className="flex-1">
+            {/* Conditional rendering for Task Name */}
+            {isEditingName ? (
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    value={editingNameValue}
+                    onChange={(e) => setEditingNameValue(e.target.value)}
+                    onBlur={handleNameBlur}
+                    onKeyDown={handleNameKeyDown}
+                    className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
+                    disabled
+                  />
+                </span>
+              ) : (
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={editingNameValue}
+                  onChange={(e) => setEditingNameValue(e.target.value)}
+                  onBlur={handleNameBlur}
+                  onKeyDown={handleNameKeyDown}
+                  className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
+                />
+              )
+            ) : (
+              <div className="flex items-center justify-between">
+                <p
+                  className={`font-work text-xs font-medium ${!todo.name ? 'text-[#332B42] hover:underline cursor-pointer' : 'text-[#332B42]'} ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
+                  onClick={handleNameDoubleClick}
+                  title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
                 >
-                  <MoreHorizontal size={16} className="text-gray-500" />
-                </button>
-                {/* Dropdown menu */}
-                {showMoreMenu && (
-                  <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                  {todo.name || '+ Add To-Do Name'}
+                </p>
+                {/* Three-dot menu button (only in page mode) */}
+                {mode === 'page' && (
+                  <div className="relative" ref={moreMenuRef}>
                     <button
-                      onClick={() => {
-                        handleCloneTodo(todo);
-                        setShowMoreMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={handleToggleMenu}
+                      className="p-1 hover:bg-gray-100 rounded-full"
+                      title="More options"
                     >
-                      Clone
+                      <MoreHorizontal size={16} className="text-gray-500" />
                     </button>
-                    <button
-                      onClick={() => {
-                        handleMoveClick();
-                        setShowMoreMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Move
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleDeleteTodo(todo.id);
-                        setShowMoreMenu(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Delete
-                    </button>
+                    {/* Dropdown menu */}
+                    {showMoreMenu && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                        <button
+                          onClick={() => {
+                            handleCloneTodo(todo);
+                            setShowMoreMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Clone
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleMoveClick();
+                            setShowMoreMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Move
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDeleteTodo(todo.id);
+                            setShowMoreMenu(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
+                )}
+                {/* Delete icon (only in editor mode) */}
+                {mode === 'editor' && onRemove && (
+                  <button
+                    onClick={onRemove}
+                    className="p-1 hover:bg-gray-100 rounded-full"
+                    title="Delete"
+                  >
+                    <Trash2 size={16} className="text-red-500" />
+                  </button>
                 )}
               </div>
             )}
-            {/* Delete icon (only in editor mode) */}
-            {mode === 'editor' && onRemove && (
-              <button
-                onClick={onRemove}
-                className="p-1 hover:bg-gray-100 rounded-full"
-                title="Delete"
-              >
-                <Trash2 size={16} className="text-red-500" />
-              </button>
+
+            {/* Show list name if provided (for All To-Do Items view) */}
+            {listName && (
+              <p className="text-xs text-[#AB9C95] italic mt-0.5">From: <span className="font-medium">{listName}</span></p>
             )}
-          </div>
-        )}
 
-        {/* Show list name if provided (for All To-Do Items view) */}
-        {listName && (
-          <p className="text-xs text-[#AB9C95] italic mt-0.5">From: <span className="font-medium">{listName}</span></p>
-        )}
-
-        {/* Conditional rendering for Deadline */}
-        {isEditingDeadline ? (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <input
-                ref={deadlineInputRef}
-                type="datetime-local"
-                value={editingDeadlineValue}
-                onChange={handleDeadlineChange}
-                onBlur={handleDeadlineBlur}
-                onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                disabled
-              />
-            </span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <input
-                ref={deadlineInputRef}
-                type="datetime-local"
-                value={editingDeadlineValue}
-                onChange={handleDeadlineChange}
-                onBlur={handleDeadlineBlur}
-                onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                autoFocus
-              />
-              <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
-            </div>
-          )
-        ) : (
-          <div className="flex items-center gap-1 text-xs text-[#364257] mt-1">
-            <Calendar className="w-3 h-3" />
-            {todo.deadline ? (
-              <>
-                <button
-                  type="button"
-                  className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
-                  onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
-                  disabled={todo.isCompleted}
-                  style={{ outline: 'none' }}
-                >
-                  {todo.deadline instanceof Date
-                    ? todo.deadline.toLocaleString()
-                    : new Date(todo.deadline).toLocaleString()}
-                </button>
-                {/* End Date logic: always show if deadline is set */}
-                {isEditingEndDate ? (
-                  <div className="flex items-center gap-2 ml-2">
-                    <input
-                      type="datetime-local"
-                      value={editingEndDateValue}
-                      onChange={e => setEditingEndDateValue(e.target.value)}
-                      onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
-                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                      autoFocus
-                      min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
-                    />
-                    <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
-                    {(todo.deadline || todo.endDate) && (
-                      <button
-                        onClick={async () => {
-                          await handleUpdateDeadline(todo.id, null, '');
-                          setIsEditingEndDate(false);
-                          setIsEditingDeadline(false);
-                        }}
-                        className="btn-primaryinverse text-xs px-2 py-1"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ) : todo.endDate ? (
+            {/* Conditional rendering for Deadline */}
+            {isEditingDeadline ? (
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <input
+                    ref={deadlineInputRef}
+                    type="datetime-local"
+                    value={editingDeadlineValue}
+                    onChange={handleDeadlineChange}
+                    onBlur={handleDeadlineBlur}
+                    onKeyDown={handleDeadlineKeyDown}
+                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                    disabled
+                  />
+                </span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={deadlineInputRef}
+                    type="datetime-local"
+                    value={editingDeadlineValue}
+                    onChange={handleDeadlineChange}
+                    onBlur={handleDeadlineBlur}
+                    onKeyDown={handleDeadlineKeyDown}
+                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                    autoFocus
+                  />
+                  <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+                </div>
+              )
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-[#364257] mt-1">
+                <Calendar className="w-3 h-3" />
+                {todo.deadline ? (
                   <>
-                    <span className="mx-1">→</span>
                     <button
                       type="button"
                       className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
-                      onClick={handleStartEditEndDate}
+                      onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
                       disabled={todo.isCompleted}
                       style={{ outline: 'none' }}
                     >
-                      {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                      {todo.deadline instanceof Date
+                        ? todo.deadline.toLocaleString()
+                        : new Date(todo.deadline).toLocaleString()}
                     </button>
+                    {/* End Date logic: always show if deadline is set */}
+                    {isEditingEndDate ? (
+                      <div className="flex items-center gap-2 ml-2">
+                        <input
+                          type="datetime-local"
+                          value={editingEndDateValue}
+                          onChange={e => setEditingEndDateValue(e.target.value)}
+                          onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
+                          className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                          autoFocus
+                          min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
+                        />
+                        <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+                        {(todo.deadline || todo.endDate) && (
+                          <button
+                            onClick={async () => {
+                              await handleUpdateDeadline(todo.id, null, '');
+                              setIsEditingEndDate(false);
+                              setIsEditingDeadline(false);
+                            }}
+                            className="btn-primaryinverse text-xs px-2 py-1"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ) : todo.endDate ? (
+                      <>
+                        <span className="mx-1">→</span>
+                        <button
+                          type="button"
+                          className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                          onClick={handleStartEditEndDate}
+                          disabled={todo.isCompleted}
+                          style={{ outline: 'none' }}
+                        >
+                          {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ml-2 text-xs text-[#A85C36] hover:underline"
+                        onClick={handleStartEditEndDate}
+                      >
+                        + Add End Date
+                      </button>
+                    )}
                   </>
                 ) : (
                   <button
                     type="button"
-                    className="ml-2 text-xs text-[#A85C36] hover:underline"
-                    onClick={handleStartEditEndDate}
+                    className="text-xs text-[#A85C36] hover:underline"
+                    onClick={() => setIsEditingDeadline(true)}
                   >
-                    + Add End Date
+                    + Add Deadline
                   </button>
                 )}
-              </>
-            ) : (
-              <button
-                type="button"
-                className="text-xs text-[#A85C36] hover:underline"
-                onClick={() => setIsEditingDeadline(true)}
-              >
-                + Add Deadline
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Conditional rendering for Note */}
-        {isEditingNote ? (
-          todo.isCompleted ? (
-            <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <textarea
-                value={editingNoteValue}
-                onChange={handleNoteChange}
-                placeholder="Add a note..."
-                rows={2}
-                onBlur={handleNoteBlur}
-                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
-                disabled
-              />
-            </span>
-          ) : (
-            <div className="w-full">
-              <textarea
-                value={editingNoteValue}
-                onChange={handleNoteChange}
-                placeholder="Add a note..."
-                rows={3}
-                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
-                autoFocus
-                onKeyDown={e => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    handleUpdateNoteClick();
-                  }
-                }}
-              />
-              <div className="flex gap-2 mt-1">
-                <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
-                <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
               </div>
-            </div>
-          )
-        ) : (
-          <div 
-            className="flex items-start gap-1 mt-1 cursor-pointer hover:bg-gray-50 rounded"
-            onClick={handleAddNoteClick}
-          >
-            <NotepadText size={14} className="text-[#364257] mt-0.5" />
-            <span className="text-xs text-[#364257]">{todo.note || '+ Add Note'}</span>
-          </div>
-        )}
+            )}
 
-        <div className="flex items-center gap-1 mt-2">
-          {/* Conditional rendering for Category */}
-          {isEditingCategory ? (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <div className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 bg-gray-100 opacity-70 cursor-not-allowed select-none">
-                  {editingCategoryDropdownValue || 'Select Category'}
-                </div>
-                {editingCategoryDropdownValue === "Other" && (
-                  <input
-                    type="text"
-                    value={editingCustomCategoryValue}
-                    onChange={handleCustomCategoryInputChange}
-                    placeholder="Enter custom category"
-                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+            {/* Conditional rendering for Note */}
+            {isEditingNote ? (
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <textarea
+                    value={editingNoteValue}
+                    onChange={handleNoteChange}
+                    placeholder="Add a note..."
+                    rows={2}
+                    onBlur={handleNoteBlur}
+                    className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
                     disabled
                   />
-                )}
-                <div className="flex gap-2 mt-1">
-                  <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
-                  <button className="btn-primaryinverse text-xs px-2 py-1" disabled> Cancel </button>
-                </div>
-              </span>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <CategorySelectField
-                  userId={currentUser?.uid || ''}
-                  value={editingCategoryDropdownValue}
-                  customCategoryValue={editingCustomCategoryValue}
-                  onChange={handleCategoryDropdownChange}
-                  onCustomCategoryChange={handleCustomCategoryInputChange}
-                  label=""
-                  placeholder="Select Category"
-                />
-                {editingCategoryDropdownValue === "Other" && (
-                  <input
-                    type="text"
-                    value={editingCustomCategoryValue}
-                    onChange={handleCustomCategoryInputChange}
-                    placeholder="Enter custom category"
-                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+                </span>
+              ) : (
+                <div className="w-full">
+                  <textarea
+                    value={editingNoteValue}
+                    onChange={handleNoteChange}
+                    placeholder="Add a note..."
+                    rows={3}
+                    className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
+                    autoFocus
+                    onKeyDown={e => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        handleUpdateNoteClick();
+                      }
+                    }}
                   />
-                )}
-                <div className="flex gap-2 mt-1">
-                  <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                  <button onClick={handleCategoryBlur} className="btn-primaryinverse text-xs px-2 py-1"> Cancel </button>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
+                    <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+                  </div>
                 </div>
+              )
+            ) : (
+              <div 
+                className="flex items-start gap-1 mt-1 cursor-pointer hover:bg-gray-50 rounded"
+                onClick={handleAddNoteClick}
+              >
+                <NotepadText size={14} className="text-[#364257] mt-0.5" />
+                <span className="text-xs text-[#364257]">{todo.note || '+ Add Note'}</span>
               </div>
-            )
-          ) : todo.category ? (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <button className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none opacity-70 cursor-not-allowed`} disabled>
-                  <CategoryPill category={todo.category} />
-                </button>
-              </span>
-            ) : (
-              <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none`}>
-                <CategoryPill category={todo.category} />
-              </button>
-            )
-          ) : (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <button className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none text-gray-500`} disabled> Add Category </button>
-              </span>
-            ) : (
-              <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none`}> Add Category </button>
-            )
-          )}
+            )}
 
-          {/* Contact information */}
-          {todo.contactId && (
-            <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
-              {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
-            </span>
-          )}
+            <div className="flex items-center gap-1 mt-2">
+              {/* Conditional rendering for Category */}
+              {isEditingCategory ? (
+                todo.isCompleted ? (
+                  <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                    <div className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 bg-gray-100 opacity-70 cursor-not-allowed select-none">
+                      {editingCategoryDropdownValue || 'Select Category'}
+                    </div>
+                    {editingCategoryDropdownValue === "Other" && (
+                      <input
+                        type="text"
+                        value={editingCustomCategoryValue}
+                        onChange={handleCustomCategoryInputChange}
+                        placeholder="Enter custom category"
+                        className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+                        disabled
+                      />
+                    )}
+                    <div className="flex gap-2 mt-1">
+                      <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
+                      <button className="btn-primaryinverse text-xs px-2 py-1" disabled> Cancel </button>
+                    </div>
+                  </span>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <CategorySelectField
+                      userId={currentUser?.uid || ''}
+                      value={editingCategoryDropdownValue}
+                      customCategoryValue={editingCustomCategoryValue}
+                      onChange={handleCategoryDropdownChange}
+                      onCustomCategoryChange={handleCustomCategoryInputChange}
+                      label=""
+                      placeholder="Select Category"
+                    />
+                    {editingCategoryDropdownValue === "Other" && (
+                      <input
+                        type="text"
+                        value={editingCustomCategoryValue}
+                        onChange={handleCustomCategoryInputChange}
+                        placeholder="Enter custom category"
+                        className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+                      />
+                    )}
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
+                      <button onClick={handleCategoryBlur} className="btn-primaryinverse text-xs px-2 py-1"> Cancel </button>
+                    </div>
+                  </div>
+                )
+              ) : todo.category ? (
+                todo.isCompleted ? (
+                  <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                    <button className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none opacity-70 cursor-not-allowed`} disabled>
+                      <CategoryPill category={todo.category} />
+                    </button>
+                  </span>
+                ) : (
+                  <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none`}>
+                    <CategoryPill category={todo.category} />
+                  </button>
+                )
+              ) : (
+                todo.isCompleted ? (
+                  <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                    <button className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none text-gray-500`} disabled> Add Category </button>
+                  </span>
+                ) : (
+                  <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none`}> Add Category </button>
+                )
+              )}
+
+              {/* Contact information */}
+              {todo.contactId && (
+                <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
+                  {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
+                </span>
+              )}
+            </div>
+            {/* Completed On field should be after the category/contact info block, as its own line */}
+            {todo.isCompleted && todo.completedAt && (
+              <p className="block text-xs text-[#364257] mt-2 italic">Completed On: {todo.completedAt.toLocaleDateString()} {todo.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            )}
+          </div>
         </div>
-        {/* Completed On field should be after the category/contact info block, as its own line */}
-        {todo.isCompleted && todo.completedAt && (
-          <p className="block text-xs text-[#364257] mt-2 italic">Completed On: {todo.completedAt.toLocaleDateString()} {todo.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-        )}
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
-export default UnifiedTodoItem; 
+export default React.memo(UnifiedTodoItem); 

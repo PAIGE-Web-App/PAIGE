@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../contexts/AuthContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
+import ToastOffsetSetter from "../components/ToastOffsetSetter";
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"],
@@ -35,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
           <AuthenticatedNavWrapper />
-          {/* Toaster component for custom toast notifications */}
+          <ToastOffsetSetter />
           <Toaster
             position="top-right"
             toastOptions={{

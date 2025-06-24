@@ -40,6 +40,7 @@ interface CalendarViewProps {
   setShowMoveTaskModal?: (show: boolean) => void;
   todoLists?: any[];
   allCategories?: string[];
+  googleCalendarSyncComponent?: React.ReactNode;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -55,6 +56,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   setShowMoveTaskModal,
   todoLists = [],
   allCategories = [],
+  googleCalendarSyncComponent,
 }) => {
   if (!todoItems) return null;
 
@@ -175,6 +177,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           box-shadow: none !important;
         }
       `}</style>
+      {/* Google Calendar Sync Bar */}
+      {googleCalendarSyncComponent && (
+        <div className="px-4 pt-2 pb-1 mb-2">{googleCalendarSyncComponent}</div>
+      )}
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b">
         <div className="flex items-center gap-2">
@@ -196,7 +202,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </h2>
         </div>
       </div>
-
       {/* Calendar */}
       <div className="flex-1 p-4">
         <Calendar

@@ -76,6 +76,7 @@ interface ToDoPanelProps {
   router: any;
   setShowUpgradeModal: (val: boolean) => void;
   allTodoCount: number;
+  handleDrop: (e: any) => void;
 }
 
 const ToDoPanel = ({
@@ -139,7 +140,8 @@ const ToDoPanel = ({
   setShowCompletedTasks,
   router,
   setShowUpgradeModal,
-  allTodoCount
+  allTodoCount,
+  handleDrop
 }: ToDoPanelProps) => {
   // Dropdown state
   const [showListDropdown, setShowListDropdown] = useState(false);
@@ -338,7 +340,7 @@ const ToDoPanel = ({
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-2 relative justify-between">
+        <div className="flex items-center gap-2 mt-2 relative justify-start">
           {/* Filter Button */}
           <div className="relative" ref={sortMenuRef}>
             <button
@@ -399,45 +401,43 @@ const ToDoPanel = ({
             <Pin className="w-4 h-4" />
             <ChevronDown className="w-4 h-4" />
           </button>
-          {/* Animated Search Bar (right-aligned, expands left) */}
-          <div className="flex-1 flex justify-end">
-            <div
-              className={`relative flex items-center overflow-hidden transition-all duration-300 bg-transparent`}
-              style={{ width: searchOpen ? '240px' : '32px', minWidth: '32px', height: '32px' }}
+          {/* Search button/input (now immediately right of pin list dropdown) */}
+          <div
+            className={`relative flex items-center overflow-hidden transition-all duration-300 bg-transparent ${searchOpen ? 'flex-grow' : ''}`}
+            style={{ width: searchOpen ? '100%' : '32px', minWidth: '32px', height: '32px' }}
+          >
+            <button
+              className="p-2 rounded-full hover:bg-[#EBE3DD] transition-colors duration-200 absolute left-0 z-10"
+              style={{ height: '32px', width: '32px' }}
+              onClick={() => setSearchOpen((open) => !open)}
+              aria-label={searchOpen ? 'Close search' : 'Open search'}
+              type="button"
+              tabIndex={searchOpen ? -1 : 0}
             >
+              <Search className="w-4 h-4 text-[#364257]" />
+            </button>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search to-dos..."
+              className={`absolute left-0 w-full h-8 pl-10 pr-3 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${searchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') setSearchOpen(false); }}
+              style={{ height: '32px', zIndex: 5 }}
+              tabIndex={searchOpen ? 0 : -1}
+            />
+            {searchQuery && (
               <button
-                className="p-2 rounded-full hover:bg-[#EBE3DD] transition-colors duration-200 absolute right-0 z-10"
-                style={{ height: '32px', width: '32px' }}
-                onClick={() => setSearchOpen((open) => !open)}
-                aria-label={searchOpen ? 'Close search' : 'Open search'}
-                type="button"
-                tabIndex={searchOpen ? -1 : 0}
-              >
-                <Search className="w-4 h-4 text-[#364257]" />
-              </button>
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search to-dos..."
-                className={`absolute right-0 w-full h-8 pl-3 pr-10 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${searchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') setSearchOpen(false); }}
-                style={{ height: '32px', zIndex: 5 }}
+                className={`absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 ${searchOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setSearchQuery('')}
                 tabIndex={searchOpen ? 0 : -1}
-              />
-              {searchQuery && (
-                <button
-                  className={`absolute right-10 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 ${searchOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                  onClick={() => setSearchQuery('')}
-                  tabIndex={searchOpen ? 0 : -1}
-                  type="button"
-                  style={{ zIndex: 10 }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                type="button"
+                style={{ zIndex: 10 }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -579,6 +579,7 @@ const ToDoPanel = ({
                     handleDragLeave={handleDragLeave}
                     handleItemDragOver={handleItemDragOver}
                     handleDragEnd={handleDragEnd}
+                    handleDrop={handleDrop}
                     mode="page"
                     {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
                   />
@@ -638,6 +639,7 @@ const ToDoPanel = ({
                       handleDragLeave={handleDragLeave}
                       handleItemDragOver={handleItemDragOver}
                       handleDragEnd={handleDragEnd}
+                      handleDrop={handleDrop}
                       mode="page"
                       className="px-3 md:px-4"
                       {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}

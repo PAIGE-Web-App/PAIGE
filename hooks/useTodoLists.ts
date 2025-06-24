@@ -15,8 +15,10 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
+import { saveCategoryIfNew } from '@/lib/firebaseCategories';
 import type { TodoList } from '@/types/todo';
 
 const STARTER_TIER_MAX_LISTS = 3;
@@ -160,16 +162,51 @@ export function useTodoLists() {
 
       // If tasks were provided, add them to the new list
       if (tasks && tasks.length > 0) {
+        // First, handle saving any new categories.
+        const categoryPromises = tasks.map(task => {
+          if (task.category && task.category.includes('[NEW]')) {
+            const newCategory = task.category.replace('[NEW]', '').trim();
+            return saveCategoryIfNew(newCategory, user.uid);
+          }
+          return Promise.resolve();
+        });
+        await Promise.all(categoryPromises);
+        
         const batch = writeBatch(getUserCollectionRef('todoItems', user.uid).firestore);
         tasks.forEach((task, index) => {
           const taskRef = doc(getUserCollectionRef('todoItems', user.uid));
-          batch.set(taskRef, {
-            ...task,
+          
+          const processedTask = { ...task };
+          if (processedTask.category && processedTask.category.includes('[NEW]')) {
+            processedTask.category = processedTask.category.replace('[NEW]', '').trim();
+          }
+          // Replace forbidden categories with 'Other'
+          if (processedTask.category && [
+            'Uncategorized',
+            'Needs Category',
+            'Other',
+            'Uncategorized (New)',
+            'Needs Category (New)'
+          ].includes(processedTask.category)) {
+            processedTask.category = 'Other';
+          }
+
+          const taskData: any = {
+            ...processedTask,
             listId: newListRef.id,
             userId: user.uid,
             createdAt: new Date(),
             orderIndex: index
-          });
+          };
+
+          if (task.deadline) {
+            taskData.deadline = Timestamp.fromDate(new Date(task.deadline));
+          }
+          if (task.endDate) {
+            taskData.endDate = Timestamp.fromDate(new Date(task.endDate));
+          }
+
+          batch.set(taskRef, taskData);
         });
         await batch.commit();
       }

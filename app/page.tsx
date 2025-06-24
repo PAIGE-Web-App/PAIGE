@@ -925,76 +925,76 @@ export default function Home() {
           />
 
           <div className="flex-1 p-4 overflow-hidden">
-            <div
+          <div
               className="flex h-full gap-4 md:flex-row flex-col"
-            >
+          >
 
-              <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
-                <ContactsList
-                  contacts={contacts}
-                  contactsLoading={contactsLoading}
-                  selectedContact={selectedContact}
-                  setSelectedContact={setSelectedContact}
-                  isMobile={isMobile}
-                  activeMobileTab={activeMobileTab}
-                  setActiveMobileTab={setActiveMobileTab}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  showFilters={showFilters}
-                  setShowFilters={setShowFilters}
-                  filterPopoverRef={filterPopoverRef}
-                  allCategories={allCategories}
-                  selectedCategoryFilter={selectedCategoryFilter}
-                  handleCategoryChange={handleCategoryChange}
-                  handleClearCategoryFilter={handleClearCategoryFilter}
-                  handleClearSortOption={handleClearSortOption}
-                  sortOption={sortOption}
-                  setSortOption={setSortOption}
-                  displayContacts={displayContacts}
-                  deletingContactId={deletingContactId}
-                  setIsAdding={setIsAdding}
-                />
-                <MessagesPanel
-                  contactsLoading={messagesLoading}
-                  contacts={contacts}
-                  selectedContact={selectedContact}
-                  currentUser={user}
-                  isAuthReady={true}
-                  isMobile={isMobile}
-                  activeMobileTab={activeMobileTab}
-                  setActiveMobileTab={setActiveMobileTab}
-                  input={input}
-                  setInput={setInput}
-                  draftLoading={draftLoading}
-                  generateDraftMessage={generateDraftMessage}
-                  selectedFiles={selectedFiles}
-                  setSelectedFiles={setSelectedFiles}
-                  setIsEditing={setIsEditing}
-                  onContactSelect={setSelectedContact}
-                  setShowOnboardingModal={setShowOnboardingModal}
-                  userName={userName}
-                  showOnboardingModal={showOnboardingModal}
-                />
-              </main>
+          <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
+            <ContactsList
+              contacts={contacts}
+              contactsLoading={contactsLoading}
+              selectedContact={selectedContact}
+              setSelectedContact={setSelectedContact}
+              isMobile={isMobile}
+              activeMobileTab={activeMobileTab}
+              setActiveMobileTab={setActiveMobileTab}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              filterPopoverRef={filterPopoverRef}
+              allCategories={allCategories}
+              selectedCategoryFilter={selectedCategoryFilter}
+              handleCategoryChange={handleCategoryChange}
+              handleClearCategoryFilter={handleClearCategoryFilter}
+              handleClearSortOption={handleClearSortOption}
+              sortOption={sortOption}
+              setSortOption={setSortOption}
+              displayContacts={displayContacts}
+              deletingContactId={deletingContactId}
+              setIsAdding={setIsAdding}
+            />
+            <MessagesPanel
+              contactsLoading={messagesLoading}
+              contacts={contacts}
+              selectedContact={selectedContact}
+              currentUser={user}
+              isAuthReady={true}
+              isMobile={isMobile}
+              activeMobileTab={activeMobileTab}
+              setActiveMobileTab={setActiveMobileTab}
+              input={input}
+              setInput={setInput}
+              draftLoading={draftLoading}
+              generateDraftMessage={generateDraftMessage}
+              selectedFiles={selectedFiles}
+              setSelectedFiles={setSelectedFiles}
+              setIsEditing={setIsEditing}
+              onContactSelect={setSelectedContact}
+              setShowOnboardingModal={setShowOnboardingModal}
+              userName={userName}
+              showOnboardingModal={showOnboardingModal}
+            />
+          </main>
 
-              {(user && !authLoading) ? (
-                <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-                  <RightDashboardPanel
-                     currentUser={user}
-                      isMobile={isMobile}
-                      activeMobileTab={activeMobileTab}
-                      contacts={contacts}
-                      rightPanelSelection={rightPanelSelection}
-                      setRightPanelSelection={setRightPanelSelection}
-                    onUpdateTodoDeadline={handleUpdateTodoDeadline}
-                    onUpdateTodoNotes={handleUpdateTodoNotes}
-                    onUpdateTodoCategory={handleUpdateTodoCategory}
-                  />
-                </div>
-              ) : (
-                <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
-                </div>
-              )}
+            {(user && !authLoading) ? (
+              <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+                <RightDashboardPanel
+                   currentUser={user}
+                    isMobile={isMobile}
+                    activeMobileTab={activeMobileTab}
+                    contacts={contacts}
+                    rightPanelSelection={rightPanelSelection}
+                    setRightPanelSelection={setRightPanelSelection}
+                  onUpdateTodoDeadline={handleUpdateTodoDeadline}
+                  onUpdateTodoNotes={handleUpdateTodoNotes}
+                  onUpdateTodoCategory={handleUpdateTodoCategory}
+                />
+              </div>
+            ) : (
+              <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+              </div>
+            )}
             </div>
           </div>
 

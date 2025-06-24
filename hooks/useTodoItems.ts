@@ -41,6 +41,7 @@ export function useTodoItems(selectedList: TodoList | null) {
   const [allTodoItems, setAllTodoItems] = useState<TodoItem[]>([]);
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [newTaskName, setNewTaskName] = useState('');
+  const [justMovedItemId, setJustMovedItemId] = useState<string | null>(null);
 
   // State for categories
   const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -65,14 +66,37 @@ export function useTodoItems(selectedList: TodoList | null) {
   const [newTodoDeadline, setNewTodoDeadline] = useState('');
   const [newTodoCategory, setNewTodoCategory] = useState('');
 
-  // Fetch categories
+  // Combine categories from collection and from tasks in the current list
+  const allCategoriesCombined = useMemo(() => {
+    // Categories from the user's collection
+    const fromCollection = allCategories;
+    // Categories from the current list's tasks
+    const fromTasks = todoItems
+      .map((item) => item.category)
+      .filter((cat): cat is string => !!cat && typeof cat === 'string');
+    // Combine and deduplicate
+    return Array.from(new Set([...fromCollection, ...fromTasks])).filter(Boolean);
+  }, [allCategories, todoItems]);
+
+  useEffect(() => {
+    if (justMovedItemId) {
+      const timer = setTimeout(() => setJustMovedItemId(null), 1200); // Flash for 1.2s
+      return () => clearTimeout(timer);
+    }
+  }, [justMovedItemId]);
+
+  // Fetch categories with a realtime listener
   useEffect(() => {
     if (user) {
-      const fetchCategories = async () => {
-        const categories = await getAllCategories(user.uid);
+      const categoriesRef = getUserCollectionRef('categories', user.uid);
+      const q = query(categoriesRef, orderBy('name', 'asc'));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const categories = snapshot.docs.map(doc => (doc.data() as { name: string }).name);
         setAllCategories(categories);
-      };
-      fetchCategories();
+      });
+
+      return () => unsubscribe();
     }
   }, [user]);
 
@@ -264,9 +288,79 @@ export function useTodoItems(selectedList: TodoList | null) {
     }
   };
 
+  // Reorder tasks and adjust deadline
+  const handleReorderAndAdjustDeadline = useCallback(async (
+    draggedItemId: string,
+    targetItemId: string,
+    position: 'top' | 'bottom'
+  ) => {
+    if (!user) return;
+
+    const draggedItem = allTodoItems.find(t => t.id === draggedItemId);
+    const targetItem = allTodoItems.find(t => t.id === targetItemId);
+
+    if (!draggedItem || !targetItem) {
+      console.error("Dragged or target item not found");
+      return;
+    }
+
+    // --- Deadline Adjustment ---
+    let newDeadline: Date | undefined = undefined;
+    if (targetItem.deadline) {
+      const newDate = new Date(targetItem.deadline);
+      if (position === 'top') {
+        newDate.setHours(newDate.getHours() - 1);
+      } else {
+        newDate.setHours(newDate.getHours() + 1);
+      }
+      newDeadline = newDate;
+    }
+
+    // --- Reordering Logic ---
+    const reorderedItems = [...allTodoItems];
+    const draggedIndex = reorderedItems.findIndex(t => t.id === draggedItemId);
+    
+    // Remove the dragged item from its original position
+    reorderedItems.splice(draggedIndex, 1);
+    
+    const targetIndex = reorderedItems.findIndex(t => t.id === targetItemId);
+    
+    // Insert it at the new position
+    const insertIndex = position === 'top' ? targetIndex : targetIndex + 1;
+    reorderedItems.splice(insertIndex, 0, draggedItem);
+
+    // --- Batch Update to Firestore ---
+    try {
+      const batch = writeBatch(db);
+
+      // Update orderIndex for all items in the list
+      reorderedItems
+        .filter(t => t.listId === draggedItem.listId)
+        .forEach((item, index) => {
+          const itemRef = doc(getUserCollectionRef('todoItems', user.uid), item.id);
+          let updateData: { orderIndex: number; deadline?: Date } = { orderIndex: index };
+
+          // If this is the dragged item, update its deadline as well
+          if (item.id === draggedItemId && newDeadline) {
+            updateData.deadline = newDeadline;
+          }
+          
+          batch.update(itemRef, removeUndefinedFields(updateData));
+      });
+
+      await batch.commit();
+      setJustMovedItemId(draggedItemId);
+      showSuccessToast('Task moved and deadline adjusted!');
+
+    } catch (error) {
+      console.error("Failed to reorder tasks:", error);
+      showErrorToast("Failed to move task.");
+    }
+  }, [allTodoItems, user, showSuccessToast, showErrorToast]);
+
   // Move task
   const handleMoveTodoItem = async (taskId: string, currentListId: string, targetListId: string) => {
-    if (!user || currentListId === targetListId) return;
+    if (!user || !taskId || !targetListId) return;
 
     try {
       const itemRef = doc(getUserCollectionRef('todoItems', user.uid), taskId);
@@ -309,8 +403,8 @@ export function useTodoItems(selectedList: TodoList | null) {
         setTodoItems(prevItems =>
           prevItems.map(item =>
             item.id === todoId ? { ...item, justUpdated: false } : item
-          )
-        );
+        )
+      );
         setAllTodoItems(prevItems =>
           prevItems.map(item =>
             item.id === todoId ? { ...item, justUpdated: false } : item
@@ -439,6 +533,16 @@ export function useTodoItems(selectedList: TodoList | null) {
 
   // Open/close add todo handlers
   const handleOpenAddTodo = () => {
+    // If no lists exist, show toast and open new list modal
+    if (!selectedList && (!Array.isArray(allTodoItems) || allTodoItems.length === 0)) {
+      showErrorToast('You need to create a list before adding a to-do item.');
+      if (typeof window !== 'undefined') {
+        // Try to trigger the new list modal/input
+        const event = new CustomEvent('open-new-list-modal');
+        window.dispatchEvent(event);
+      }
+      return;
+    }
     setShowAddTodoCard(true);
     setNewTodoName('');
     setNewTodoListId(selectedList ? selectedList.id : null);
@@ -473,6 +577,7 @@ export function useTodoItems(selectedList: TodoList | null) {
     todoItems,
     newTaskName,
     allCategories,
+    allCategoriesCombined,
     listTaskCounts,
     allTodoCount,
     showMoveTaskModal,
@@ -486,6 +591,7 @@ export function useTodoItems(selectedList: TodoList | null) {
     newTodoNote,
     newTodoDeadline,
     newTodoCategory,
+    justMovedItemId,
 
     // Setters
     setNewTaskName,
@@ -517,5 +623,6 @@ export function useTodoItems(selectedList: TodoList | null) {
     handleOpenAddTodo,
     handleCloseAddTodo,
     handleCalendarTaskClick,
+    handleReorderAndAdjustDeadline,
   };
 } 
