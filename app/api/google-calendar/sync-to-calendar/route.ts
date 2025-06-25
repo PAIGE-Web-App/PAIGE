@@ -17,8 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Server configuration error' }, { status: 500 });
     }
 
-    const { userId, todoItems, listId } = await req.json();
-    console.log('[google-calendar/sync-to-calendar] Payload:', { userId, todoItemsCount: todoItems?.length, listId });
+    const { userId, todoItems } = await req.json();
+    console.log('[google-calendar/sync-to-calendar] Payload:', { userId, todoItemsCount: todoItems?.length });
     
     if (!userId || !todoItems || !Array.isArray(todoItems)) {
       console.log('[google-calendar/sync-to-calendar] Missing required parameters');
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
           extendedProperties: {
             private: {
               paigeTodoId: todoItem.id,
-              paigeListId: listId || todoItem.listId || 'all',
+              paigeListId: 'all',
               paigeCategory: todoItem.category || 'Uncategorized',
               paigeCompleted: todoItem.isCompleted ? 'true' : 'false',
             },

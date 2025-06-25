@@ -65,11 +65,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   };
 
   const handleOpenCreateModal = () => {
-    let defaultName = 'Paige Wedding To-Dos';
-    if (todoItems && todoItems.length > 0 && todoItems[0].listName) {
-      defaultName = `${todoItems[0].listName} & All Wedding To-Dos`;
-    }
-    setCalendarNameInput(defaultName);
+    setCalendarNameInput('All Wedding To-Do\'s - From Paige');
     setShowCreateModal(true);
   };
 
@@ -82,7 +78,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId,
-          calendarName: calendarNameInput || 'Paige Wedding To-Dos'
+          calendarName: calendarNameInput || 'All Wedding To-Do\'s - From Paige'
         }),
       });
       const data = await response.json();
@@ -121,8 +117,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId,
-          todoItems,
-          listId: null // Sync all items, not tied to a specific list
+          todoItems
         }),
       });
 
@@ -152,8 +147,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId,
-          listId: null // Sync from all items, not tied to a specific list
+          userId
         }),
       });
 
@@ -226,7 +220,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
             <button
               onClick={async () => {
                 if (todoItems.length === 0) {
-                  toast.error('Add a to-do item to sync with Google.');
+                  toast.error('Add to-do items to sync with Google Calendar.');
                   return;
                 }
                 await handleUnifiedSync();

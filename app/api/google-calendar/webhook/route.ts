@@ -62,7 +62,7 @@ export async function POST(req: Request) {
             endDate: end ? admin.firestore.Timestamp.fromDate(new Date(end)) : null,
             category: event.extendedProperties?.private?.paigeCategory || 'Uncategorized',
             isCompleted: event.extendedProperties?.private?.paigeCompleted === 'true',
-            listId: event.extendedProperties?.private?.paigeListId,
+            listId: event.extendedProperties?.private?.paigeListId || 'all',
             userId: userId,
             updatedAt: admin.firestore.Timestamp.now(),
           };

@@ -17,8 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Server configuration error' }, { status: 500 });
     }
 
-    const { userId, listId } = await req.json();
-    console.log('[google-calendar/sync-from-calendar] Payload:', { userId, listId });
+    const { userId } = await req.json();
+    console.log('[google-calendar/sync-from-calendar] Payload:', { userId });
     
     if (!userId) {
       console.log('[google-calendar/sync-from-calendar] Missing userId');
@@ -106,14 +106,6 @@ export async function POST(req: Request) {
 
     // Get the user's todo items collection
     const todoItemsRef = adminDb.collection(`artifacts/default-app-id/users/${userId}/todoItems`);
-    // Get the user's todo lists
-    const todoListsSnap = await adminDb.collection(`artifacts/default-app-id/users/${userId}/todoLists`).orderBy('createdAt', 'asc').get();
-    const todoLists = todoListsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const STARTER_TIER_MAX_LISTS = 3;
-    let fallbackListId: string | null = null;
-    let createdFallbackList = false;
-    let orphanedCount = 0;
-    let fallbackListName = 'Imported from Google';
 
     for (const event of events) {
       try {
@@ -121,13 +113,6 @@ export async function POST(req: Request) {
         const paigeTodoId = event.extendedProperties?.private?.paigeTodoId;
         if (!paigeTodoId) {
           console.log('[google-calendar/sync-from-calendar] Skipping non-Paige event:', event.id);
-          continue;
-        }
-
-        // Skip events from different lists if listId is specified
-        const paigeListId = event.extendedProperties?.private?.paigeListId;
-        if (listId && paigeListId && paigeListId !== listId) {
-          console.log('[google-calendar/sync-from-calendar] Skipping event from different list:', event.id);
           continue;
         }
 
@@ -139,34 +124,6 @@ export async function POST(req: Request) {
           continue;
         }
 
-        // Fallback logic for orphaned to-dos
-        let resolvedListId: string | null = paigeListId || listId || null;
-        let orphaned = false;
-        if (resolvedListId && !todoLists.some(l => l.id === resolvedListId)) {
-          orphaned = true;
-          orphanedCount++;
-          if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
-            // Assign to first/oldest list
-            fallbackListId = todoLists[0].id;
-            resolvedListId = fallbackListId;
-            console.log(`[google-calendar/sync-from-calendar] Orphaned to-do assigned to fallback list: ${fallbackListId}`);
-          } else {
-            // Create a new fallback list if not already created
-            if (!fallbackListId) {
-              const newListRef = await adminDb.collection(`artifacts/default-app-id/users/${userId}/todoLists`).add({
-                name: fallbackListName,
-                userId,
-                createdAt: admin.firestore.Timestamp.now(),
-                orderIndex: todoLists.length
-              });
-              fallbackListId = newListRef.id;
-              createdFallbackList = true;
-              console.log(`[google-calendar/sync-from-calendar] Created fallback list: ${fallbackListId}`);
-            }
-            resolvedListId = fallbackListId;
-          }
-        }
-
         const todoData = {
           name: event.summary || 'Untitled Task',
           note: event.description || '',
@@ -174,10 +131,9 @@ export async function POST(req: Request) {
           endDate: end ? admin.firestore.Timestamp.fromDate(new Date(end)) : null,
           category: event.extendedProperties?.private?.paigeCategory || 'Uncategorized',
           isCompleted: event.extendedProperties?.private?.paigeCompleted === 'true',
-          listId: resolvedListId,
+          listId: event.extendedProperties?.private?.paigeListId || 'all',
           userId: userId,
           updatedAt: admin.firestore.Timestamp.now(),
-          ...(orphaned ? { importedFromGoogle: true } : {}),
         };
 
         // Check if todo item already exists
@@ -222,9 +178,7 @@ export async function POST(req: Request) {
       importedCount,
       updatedCount,
       errorCount,
-      orphanedCount,
-      createdFallbackList,
-      message: `Successfully imported ${importedCount} new items and updated ${updatedCount} existing items from Google Calendar.${orphanedCount > 0 ? ` ${orphanedCount} orphaned items were assigned to a fallback list.` : ''}${createdFallbackList ? ' A new fallback list was created.' : ''}${errorCount > 0 ? ` ${errorCount} items failed.` : ''}` 
+      message: `Successfully imported ${importedCount} new items and updated ${updatedCount} existing items from Google Calendar.${errorCount > 0 ? ` ${errorCount} items failed.` : ''}` 
     });
 
   } catch (error: any) {

@@ -55,7 +55,7 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
       const response = await fetch('/api/google-calendar/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, calendarName: 'Paige Wedding To-Dos' }),
+        body: JSON.stringify({ userId: user.uid, calendarName: 'All Wedding To-Do\'s - From Paige' }),
       });
       const data = await response.json();
       if (data.success) {
