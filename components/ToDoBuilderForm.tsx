@@ -374,8 +374,9 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   }
 
   function looksLikeId(str: string | undefined) {
-    // Matches random string + digits (your ID pattern)
-    return typeof str === 'string' && /^[a-zA-Z0-9]{10,}$/.test(str);
+    // Only match actual ID patterns (random string + digits, typically 10+ characters)
+    // This should NOT match normal category names
+    return typeof str === 'string' && /^[a-zA-Z0-9]{15,}$/.test(str) && /\d/.test(str);
   }
 
   const handleTasksUpdate = React.useCallback((updatedTasksOrFn: any[] | ((prev: any[]) => any[])) => {
@@ -389,6 +390,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         if (!deadline || isBeforeToday(deadline)) {
           deadline = formatDateForInputWithTime(getTodayAtFivePM());
         }
+        // Don't replace categories unless they're actually IDs
         let category = t.category;
         if (looksLikeId(category)) {
           category = 'Uncategorized (New)';
@@ -441,6 +443,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           if (!deadline || isBeforeToday(deadline)) {
             deadline = formatDateForInputWithTime(getTodayAtFivePM());
           }
+          // Don't replace categories unless they're actually IDs
           let category = task.category;
           if (looksLikeId(category)) {
             category = 'Uncategorized (New)';

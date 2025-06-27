@@ -59,7 +59,7 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Google Calendar created and linked successfully!');
+        toast.success(data.message || 'Google Calendar linked successfully!');
         setCalendarStatus({
           isLinked: true,
           calendarId: data.calendarId,
@@ -80,15 +80,14 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
   const disconnectCalendar = async () => {
     setIsDisconnecting(true);
     try {
-      // Remove googleCalendar from Firestore
       const response = await fetch('/api/google-calendar/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify({ userId: user.uid, disconnectType: 'calendar' }),
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Google Calendar disconnected.');
+        toast.success(data.message || 'Google Calendar disconnected.');
         setCalendarStatus({ isLinked: false });
       } else {
         toast.error(data.message || 'Failed to disconnect Google Calendar');
@@ -141,8 +140,9 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
             onClick={disconnectCalendar}
             disabled={isDisconnecting}
             className="px-4 py-2 rounded font-work-sans text-sm font-medium transition-colors duration-150 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+            title="Disconnect Google Calendar only (keeps Gmail integration)"
           >
-            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+            {isDisconnecting ? 'Disconnecting...' : 'Disconnect Calendar'}
           </button>
         ) : (
           <button

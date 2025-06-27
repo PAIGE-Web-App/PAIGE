@@ -148,17 +148,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     <div
       className="p-1 text-xs font-work flex items-center"
       style={{
-        backgroundColor: getCategoryHexColor(event.category),
-        color: '#fff',
+        background: event.id === 'wedding-date-event' ? 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)' : undefined,
+        backgroundColor: event.id === 'wedding-date-event' ? undefined : getCategoryHexColor(event.category),
+        color: event.id === 'wedding-date-event' ? '#fff' : '#fff',
         borderRadius: '4px',
         overflow: 'hidden',
+        fontWeight: event.id === 'wedding-date-event' ? 'bold' : undefined,
+        border: event.id === 'wedding-date-event' ? '2px solid #ff7eb3' : undefined,
+        boxShadow: event.id === 'wedding-date-event' ? '0 2px 8px rgba(239,183,197,0.25)' : undefined,
+        cursor: event.id === 'wedding-date-event' ? 'pointer' : undefined,
       }}
+      title={event.id === 'wedding-date-event' ? 'Click to Update Wedding Date' : undefined}
       onContextMenu={e => {
         e.preventDefault();
         setContextMenu({ x: e.clientX, y: e.clientY, event });
       }}
     >
-      {event.resource.isCompleted && (
+      {event.id === 'wedding-date-event' ? (
+        <span role="img" aria-label="wedding" className="mr-1">💍</span>
+      ) : event.resource.isCompleted && (
         <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80" />
       )}
       <span className={event.resource.isCompleted ? 'line-through opacity-70' : ''}>
@@ -206,7 +214,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="flex-1 p-4">
         <Calendar
           localizer={localizer}
-          events={visibleEvents}
+          events={visibleEvents.filter(e => e && e.title)}
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}

@@ -77,11 +77,11 @@ export async function POST(req: NextRequest) {
     }
     if (!Array.isArray(vibes) || vibes.length === 0) {
       console.error('Could not extract vibes from OpenAI response.');
-      return NextResponse.json({ error: 'Could not extract vibes.' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Could not extract vibes.' }, { status: 500 });
     }
-    return NextResponse.json({ vibes });
+    return NextResponse.json({ success: true, vibes });
   } catch (err) {
     console.error('Failed to process image:', err);
-    return NextResponse.json({ error: 'Failed to process image.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to process image.' }, { status: 500 });
   }
 } 

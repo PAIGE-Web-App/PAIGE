@@ -35,9 +35,27 @@ export function useTodoViewOptions(
   const [todoSearchQuery, setTodoSearchQuery] = useState("");
 
   // View mode state
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [calendarViewMode, setCalendarViewMode] = useState<'month' | 'week' | 'day' | 'year'>('month');
+  const [viewMode, setViewModeState] = useState<'list' | 'calendar'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('paige_viewMode') as 'list' | 'calendar') || 'list';
+    }
+    return 'list';
+  });
+  const [calendarViewMode, setCalendarViewModeState] = useState<'month' | 'week' | 'day' | 'year'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('paige_calendarViewMode') as 'month' | 'week' | 'day' | 'year') || 'month';
+    }
+    return 'month';
+  });
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+
+  // Wrapped setters (must be defined before any useEffect that uses them)
+  const setViewMode = (mode: 'list' | 'calendar') => {
+    setViewModeState(mode);
+  };
+  const setCalendarViewMode = (mode: 'month' | 'week' | 'day' | 'year') => {
+    setCalendarViewModeState(mode);
+  };
 
   // Filter state
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
@@ -124,7 +142,7 @@ export function useTodoViewOptions(
 
   // Toggle group accordion
   const toggleGroup = useCallback((group: string) => {
-    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+    setOpenGroups(prev => ({ ...prev, [group]: !(prev[group] ?? true) }));
   }, []);
 
   // Keyboard shortcuts for calendar view
@@ -238,6 +256,20 @@ export function useTodoViewOptions(
     setDragOverTodoId(null);
     setDropIndicatorPosition({ id: null, position: null });
   }, []);
+
+  // Persist viewMode to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('paige_viewMode', viewMode);
+    }
+  }, [viewMode]);
+
+  // Persist calendarViewMode to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('paige_calendarViewMode', calendarViewMode);
+    }
+  }, [calendarViewMode]);
 
   return {
     // Search state

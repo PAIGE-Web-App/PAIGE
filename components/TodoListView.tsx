@@ -187,7 +187,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                     onClick={() => toggleGroup(group)}
                   >
                     <ChevronRight
-                      className={`w-5 h-5 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`}
+                      className={`w-5 h-5 transition-transform ${(openGroups[group] ?? true) ? 'rotate-90' : ''}`}
                       strokeWidth={2}
                     />
                     <span>{group}</span>
@@ -207,7 +207,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                     {group === 'Later' && 'for tasks due beyond 60 days'}
                   </div>
                   <div
-                    className={`${openGroups[group] !== false ? 'block' : 'hidden'}`}
+                    className={`${(openGroups[group] ?? true) ? 'block' : 'hidden'}`}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleListDrop}
                   >

@@ -42,7 +42,7 @@ export default function TodoPage() {
   const router = useRouter();
 
   // Use shared user profile data hook
-  const { userName, daysLeft, profileLoading } = useUserProfileData();
+  const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
 
   // Use custom hooks for todo functionality
   const todoLists = useTodoLists();
@@ -106,8 +106,18 @@ export default function TodoPage() {
     return () => window.removeEventListener('open-new-list-modal', handler);
   }, []);
 
+  // Compute categories for the current selected list's to-do items, filtering out ID-like categories
+  const idLikeCategory = (cat) => typeof cat === 'string' && /^[a-zA-Z0-9]{15,}$/.test(cat);
+  const categoriesForCurrentList = React.useMemo(() => {
+    const items = todoLists.selectedList && todoLists.selectedList.id
+      ? todoItems.todoItems.filter(item => item.listId === todoLists.selectedList?.id)
+      : todoItems.todoItems;
+    const cats = Array.from(new Set(items.map(item => item.category).filter(cat => typeof cat === 'string' && cat && !idLikeCategory(cat))));
+    return cats as string[];
+  }, [todoLists.selectedList, todoItems.todoItems]);
+
   if (loading) {
-  return (
+    return (
       <div className="flex flex-col min-h-screen bg-linen">
         <WeddingBanner
           daysLeft={null}
@@ -126,6 +136,33 @@ export default function TodoPage() {
   if (!user) {
     return null;
   }
+
+  const calendarEvents = [
+    ...viewOptions.filteredTodoItems,
+  ];
+  if (weddingDate) {
+    calendarEvents.push({
+      id: 'wedding-date-event',
+      name: 'Wedding Day 🎉',
+      deadline: weddingDate,
+      startDate: weddingDate,
+      endDate: weddingDate,
+      category: 'Wedding',
+      isCompleted: false,
+      userId: user?.uid || 'wedding',
+      createdAt: weddingDate,
+      orderIndex: -1,
+      listId: 'wedding',
+    });
+  }
+
+  const handleCalendarEventClick = (event) => {
+    if (event.id === 'wedding-date-event') {
+      router.push('/settings?tab=wedding&highlight=weddingDate');
+    } else if (todoItems.handleCalendarTaskClick) {
+      todoItems.handleCalendarTaskClick(event);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-linen">
@@ -187,14 +224,14 @@ export default function TodoPage() {
                   todoSearchQuery={viewOptions.todoSearchQuery}
                   setTodoSearchQuery={viewOptions.setTodoSearchQuery}
                   showCompletedItems={viewOptions.showCompletedItems}
-                  handleOpenAddTodo={todoItems.handleOpenAddTodo}
+                  handleOpenAddTodo={() => todoItems.handleOpenAddTodo(todoLists.todoLists.length > 0)}
                   viewMode={viewOptions.viewMode}
                   setViewMode={viewOptions.setViewMode}
                   calendarViewMode={viewOptions.calendarViewMode}
                   setCalendarViewMode={viewOptions.setCalendarViewMode}
                   handleCloneList={todoLists.handleCloneList}
                   handleDeleteList={todoLists.handleDeleteList}
-                  allCategories={todoItems.allCategoriesCombined || []}
+                  allCategories={categoriesForCurrentList}
                   selectedCategoryFilters={selectedCategoryFilters}
                   setSelectedCategoryFilters={setSelectedCategoryFilters}
                   onSyncCategories={onSyncCategories}
@@ -220,8 +257,16 @@ export default function TodoPage() {
                 <div className="flex-1 overflow-y-auto">
                   {viewOptions.viewMode === 'list' ? (
                 <TodoListView
-                      todoItems={todoItems.todoItems}
-                      filteredTodoItems={viewOptions.filteredTodoItems}
+                      todoItems={
+                        (!todoLists.selectedList && viewOptions.showCompletedItems)
+                          ? todoItems.todoItems.filter(item => item.isCompleted)
+                          : todoItems.todoItems
+                      }
+                      filteredTodoItems={
+                        (!todoLists.selectedList && viewOptions.showCompletedItems)
+                          ? viewOptions.filteredTodoItems.filter(item => item.isCompleted)
+                          : viewOptions.filteredTodoItems
+                      }
                       groupedTasks={viewOptions.groupedTasks}
                       openGroups={viewOptions.openGroups}
                       toggleGroup={viewOptions.toggleGroup}
@@ -260,8 +305,8 @@ export default function TodoPage() {
                               />
                   ) : (
                     <CalendarView
-                      todoItems={viewOptions.filteredTodoItems}
-                      onEventClick={todoItems.handleCalendarTaskClick}
+                      todoItems={calendarEvents}
+                      onEventClick={handleCalendarEventClick}
                       view={viewOptions.calendarViewMode}
                       onViewChange={viewOptions.setCalendarViewMode}
                       onNavigate={viewOptions.setCalendarDate}
@@ -273,15 +318,17 @@ export default function TodoPage() {
                       todoLists={todoLists.todoLists}
                       allCategories={todoItems.allCategories}
                       googleCalendarSyncComponent={
-                        <GoogleCalendarSync
-                          userId={user?.uid || ''}
-                          todoItems={viewOptions.filteredTodoItems}
-                          selectedListId={todoLists.selectedList?.id || null}
-                          onSyncComplete={() => {
-                            todoItems.todoItems = [...todoItems.todoItems];
-                          }}
-                          compact
-                        />
+                        !todoLists.selectedList ? (
+                          <GoogleCalendarSync
+                            userId={user?.uid || ''}
+                            todoItems={viewOptions.filteredTodoItems}
+                            selectedListId={null}
+                            onSyncComplete={() => {
+                              todoItems.todoItems = [...todoItems.todoItems];
+                            }}
+                            compact
+                          />
+                        ) : null
                       }
                     />
                   )}

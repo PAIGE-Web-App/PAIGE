@@ -71,6 +71,7 @@ export default function SignUp() {
   const [activeThumb, setActiveThumb] = useState<'min' | 'max' | null>(null);
   const [saving, setSaving] = useState(false);
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
+  const [disableSignup, setDisableSignup] = useState(false);
 
   // Auto-correct invalid state
   useEffect(() => {
@@ -140,20 +141,33 @@ export default function SignUp() {
 
   // Redirect if already logged in, but only if not a new signup
   useEffect(() => {
-    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
     if (!authLoading && user && !isNewSignup) {
-      // Only redirect if user is onboarded
+      // Only show toast if user is onboarded
       const checkOnboarded = async () => {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().onboarded === true) {
-          console.log('Redirecting onboarded user to dashboard');
-          router.push('/');
+          toast.success('You are already signed up and logged in!');
+          // Optionally, you can disable the form or show a message instead of redirecting
         }
       };
       checkOnboarded();
     }
   }, [user, authLoading, router, isNewSignup]);
+
+  // Optionally, you can disable the signup form if already logged in and onboarded
+  useEffect(() => {
+    if (!authLoading && user && !isNewSignup) {
+      const checkOnboarded = async () => {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().onboarded === true) {
+          setDisableSignup(true);
+        }
+      };
+      checkOnboarded();
+    }
+  }, [user, authLoading, isNewSignup]);
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -563,7 +577,7 @@ export default function SignUp() {
                 <span className="w-4 h-4 flex items-center justify-center">
                   <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
                 </span>
-                Sign up with Gmail
+                Sign up with Google
               </button>
 
             </form>
@@ -1302,7 +1316,6 @@ export default function SignUp() {
                     type: inspirationImage.type,
                     // Note: We don't save the actual file, just metadata
                   } : null,
-                  imagePreview: imagePreview || null,
                   pinterestLink: pinterestLink || null,
                   vibeGenerated,
                   generatedVibes: generatedVibes || [],

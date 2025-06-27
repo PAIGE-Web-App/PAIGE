@@ -186,11 +186,16 @@ h6 {
 
 /* Custom jiggle animation */
 @keyframes jiggle {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  0% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
 }
 
-.jiggle {
-  animation: jiggle 0.6s ease-in-out;
+.animate-jiggle {
+  animation: jiggle 0.7s cubic-bezier(.36,.07,.19,.97) both;
 }

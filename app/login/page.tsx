@@ -254,7 +254,10 @@ export default function Login() {
                 onClick={handleGoogleLogin}
                 className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
               >
-                <span>🇬🇲</span> Login with Google
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                </span>
+                Login with Google
               </button>
             </form>
 

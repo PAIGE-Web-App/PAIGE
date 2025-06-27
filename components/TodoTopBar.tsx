@@ -179,7 +179,7 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
                 )}
               </>
             )}
-        </div>
+          </div>
         {/* Middle: Filter Button + Search Bar */}
         <div className={`flex items-center transition-all duration-300 gap-3 ${searchOpen ? 'flex-grow min-w-0' : 'w-[32px] min-w-[32px]'}`} style={{ height: '32px' }}>
           {/* Filter Button */}
@@ -265,34 +265,34 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
                 aria-label="Close search"
                 type="button"
                 tabIndex={-1}
-              >
-                <Search className="w-4 h-4 text-[#364257]" />
-              </button>
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search for a To-do Item"
+            >
+              <Search className="w-4 h-4 text-[#364257]" />
+            </button>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search for a To-do Item"
                 className={`absolute left-0 w-full h-8 pl-9 pr-9 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 opacity-100 pointer-events-auto`}
-                value={todoSearchQuery}
-                onChange={(e) => setTodoSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setSearchOpen(false);
-                }}
-                style={{ height: '32px', zIndex: 5 }}
+              value={todoSearchQuery}
+              onChange={(e) => setTodoSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setSearchOpen(false);
+              }}
+              style={{ height: '32px', zIndex: 5 }}
                 tabIndex={0}
-              />
-              {todoSearchQuery && (
-                <button
+            />
+            {todoSearchQuery && (
+              <button
                   className={`absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 opacity-100`}
-                  onClick={() => setTodoSearchQuery('')}
+                onClick={() => setTodoSearchQuery('')}
                   tabIndex={0}
-                  type="button"
-                  style={{ zIndex: 10 }}
-                >
-                  <LucideX className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                type="button"
+                style={{ zIndex: 10 }}
+              >
+                <LucideX className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           )}
         </div>
         {/* Right: Action Buttons (toggle, new) */}

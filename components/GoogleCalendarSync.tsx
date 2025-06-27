@@ -41,6 +41,8 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [calendarNameInput, setCalendarNameInput] = useState('');
+  const [foundExistingCalendar, setFoundExistingCalendar] = useState(false);
+  const [existingCalendarName, setExistingCalendarName] = useState('');
 
   // Fetch calendar status on component mount
   useEffect(() => {
@@ -83,7 +85,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Google Calendar created and linked successfully!');
+        toast.success(data.message || 'Google Calendar linked successfully!');
         setCalendarStatus({
           isLinked: true,
           calendarId: data.calendarId,
@@ -91,6 +93,9 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
           lastSyncAt: new Date().toISOString(),
         });
         onSyncComplete?.();
+        // Reset the found existing calendar state
+        setFoundExistingCalendar(false);
+        setExistingCalendarName('');
       } else {
         toast.error(data.message || 'Failed to create Google Calendar');
       }
@@ -315,13 +320,29 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
                     <X size={20} />
                   </button>
                   <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">Create Google Calendar</h3>
-                  <p className="text-sm text-[#364257] mb-4">Confirm or edit the calendar name below. This calendar will sync all your wedding to-dos from all lists.</p>
+                  <p className="text-sm text-[#364257] mb-4">
+                    {foundExistingCalendar 
+                      ? `We found an existing calendar: "${existingCalendarName}". You can reuse it or create a new one.`
+                      : 'Confirm or edit the calendar name below. This calendar will sync all your wedding to-dos from all lists.'
+                    }
+                  </p>
+                  {foundExistingCalendar && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-[5px]">
+                      <p className="text-sm text-blue-800">
+                        <strong>Existing Calendar Found:</strong> {existingCalendarName}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Reusing the existing calendar will preserve any events already synced there.
+                      </p>
+                    </div>
+                  )}
                   <input
                     type="text"
                     className="w-full border border-[#AB9C95] rounded-[5px] px-3 py-2 mb-6 text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                     value={calendarNameInput}
                     onChange={e => setCalendarNameInput(e.target.value)}
                     maxLength={100}
+                    placeholder={foundExistingCalendar ? "Enter name for new calendar (optional)" : "Calendar name"}
                   />
                   <div className="flex justify-end gap-3">
                     <button
@@ -330,12 +351,24 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
                     >
                       Cancel
                     </button>
+                    {foundExistingCalendar && (
+                      <button
+                        onClick={() => {
+                          // Reuse existing calendar
+                          handleConfirmCreate();
+                        }}
+                        className="px-4 py-2 text-sm font-medium rounded-[5px] bg-green-600 text-white hover:bg-green-700 transition-colors"
+                        disabled={isCreating}
+                      >
+                        Reuse Existing
+                      </button>
+                    )}
                     <button
                       onClick={handleConfirmCreate}
                       className="px-4 py-2 text-sm font-medium rounded-[5px] bg-[#A85C36] text-white hover:bg-[#8B4513] transition-colors"
-                      disabled={!calendarNameInput.trim() || isCreating}
+                      disabled={(!calendarNameInput.trim() && !foundExistingCalendar) || isCreating}
                     >
-                      Create
+                      {foundExistingCalendar ? 'Create New' : 'Create'}
                     </button>
                   </div>
                 </motion.div>

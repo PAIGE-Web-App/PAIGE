@@ -424,7 +424,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''} ${className || ''}`}
+      className={`relative flex items-start gap-0 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''} ${className || ''}`}
       draggable={sortOption === 'myOrder'}
       onDragStart={((e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, todo.id)) as any}
       onDragEnter={((e: React.DragEvent<HTMLDivElement>) => handleDragEnter(e, todo.id)) as any}
@@ -441,13 +441,13 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       )}
 
       {/* Checkbox */}
-      <button onClick={() => handleToggleTodoComplete(todo)} className="flex-shrink-0 p-1 flex items-center justify-center" >
+      <button onClick={() => handleToggleTodoComplete(todo)} className="flex-shrink-0 flex items-center justify-center w-auto m-0" style={{marginRight: 0, marginLeft: 0, padding: 0}}>
         {todo.isCompleted ? (
-          <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center">
+          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center" style={{width: '16px', height: '16px', minWidth: '16px', minHeight: '16px', margin: 0, padding: 0}}>
             <Check size={10} className="text-[#A85C36]" />
           </div>
         ) : (
-          <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]"></div>
+          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]" style={{width: '16px', height: '16px', minWidth: '16px', minHeight: '16px', margin: 0, padding: 0}}></div>
         )}
       </button>
 

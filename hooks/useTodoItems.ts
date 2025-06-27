@@ -301,8 +301,8 @@ export function useTodoItems(selectedList: TodoList | null) {
 
     if (!draggedItem || !targetItem) {
       console.error("Dragged or target item not found");
-      return;
-    }
+        return;
+      }
 
     // --- Deadline Adjustment ---
     let newDeadline: Date | undefined = undefined;
@@ -532,9 +532,9 @@ export function useTodoItems(selectedList: TodoList | null) {
   };
 
   // Open/close add todo handlers
-  const handleOpenAddTodo = () => {
-    // If no lists exist, show toast and open new list modal
-    if (!selectedList && (!Array.isArray(allTodoItems) || allTodoItems.length === 0)) {
+  const handleOpenAddTodo = (hasLists: boolean = true) => {
+    // If no lists exist at all, show toast and open new list modal
+    if (!hasLists) {
       showErrorToast('You need to create a list before adding a to-do item.');
       if (typeof window !== 'undefined') {
         // Try to trigger the new list modal/input
@@ -543,6 +543,8 @@ export function useTodoItems(selectedList: TodoList | null) {
       }
       return;
     }
+    
+    // If we have lists, always show the side card (even in All To-Do Items view)
     setShowAddTodoCard(true);
     setNewTodoName('');
     setNewTodoListId(selectedList ? selectedList.id : null);

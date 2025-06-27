@@ -24,6 +24,7 @@ export function useUserProfileData() {
   const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
   const [budgetRange, setBudgetRange] = useState<{ min: number; max: number } | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -47,6 +48,7 @@ export function useUserProfileData() {
         setVibeInputMethod(data.vibeInputMethod || 'pills');
         setGeneratedVibes(data.generatedVibes || []);
         setBudgetRange(data.budgetRange || null);
+        // Note: imagePreview is not stored in Firestore due to size limits
 
         if (data.weddingDate?.seconds) {
           const date = new Date(data.weddingDate.seconds * 1000);

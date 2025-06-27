@@ -50,6 +50,62 @@ export async function POST(req: Request) {
       throw new Error("AI response did not contain a valid list");
     }
 
+    // --- Post-process: Space out tasks on the same day and across days if needed ---
+    if (Array.isArray(result.tasks)) {
+      let tasks: any[] = result.tasks;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      let wedding: Date | null = null;
+      if (weddingDate) {
+        wedding = new Date(weddingDate);
+        wedding.setHours(0,0,0,0);
+      }
+      // If too many tasks on a single day, redistribute
+      const maxPerDay = 2;
+      // Sort tasks by deadline
+      tasks = tasks.sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+      let startDate = new Date(today);
+      let redistributed: any[] = [];
+      let i = 0;
+      while (i < tasks.length) {
+        let dayTasks = tasks.slice(i, i + maxPerDay);
+        // Assign this batch to startDate
+        dayTasks.forEach((task: any, idx: number) => {
+          const dateObj = new Date(startDate);
+          // We'll assign time slots later
+          task.deadline = dateObj.toISOString().slice(0, 10);
+        });
+        redistributed = redistributed.concat(dayTasks);
+        i += maxPerDay;
+        // Move to next day
+        startDate = new Date(startDate);
+        startDate.setDate(startDate.getDate() + 1);
+        if (wedding && startDate > wedding) {
+          startDate = new Date(wedding);
+        }
+      }
+      // Now group by date again
+      const tasksByDate: { [date: string]: any[] } = {};
+      redistributed.forEach((task: any) => {
+        const dateKey = task.deadline;
+        if (!tasksByDate[dateKey]) tasksByDate[dateKey] = [];
+        tasksByDate[dateKey].push(task);
+      });
+      // Assign unique times per day
+      Object.entries(tasksByDate).forEach(([date, dayTasks]) => {
+        const timeSlots = [10, 13, 15, 16.5, 18, 19.5, 21];
+        dayTasks.forEach((task: any, idx: number) => {
+          const hour = timeSlots[idx % timeSlots.length];
+          const h = Math.floor(hour);
+          const m = Math.round((hour - h) * 60);
+          const dateObj = new Date(date + 'T00:00:00');
+          dateObj.setHours(h, m, 0, 0);
+          task.deadline = dateObj.toISOString().slice(0, 16);
+        });
+      });
+      result.tasks = redistributed;
+    }
+
     // Ensure all deadlines are today or later
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -75,23 +131,16 @@ export async function POST(req: Request) {
       });
       // Assign times for tasks on the same day
       Object.entries(tasksByDate).forEach(([date, tasks]) => {
-        if (tasks.length > 1) {
-          // Use business hours: 10:00, 13:00, 15:00, 16:30, 18:00, etc.
-          const timeSlots = [10, 13, 15, 16.5, 18, 19.5, 21];
-          tasks.forEach((task, idx) => {
-            const hour = timeSlots[idx % timeSlots.length];
-            const h = Math.floor(hour);
-            const m = Math.round((hour - h) * 60);
-            const dateObj = new Date(date + 'T00:00:00');
-            dateObj.setHours(h, m, 0, 0);
-            task.deadline = dateObj.toISOString().slice(0, 16);
-          });
-        } else if (tasks.length === 1) {
-          // If only one task, default to 17:00
+        // Always assign unique times, overwriting any existing time
+        const timeSlots = [10, 13, 15, 16.5, 18, 19.5, 21];
+        tasks.forEach((task, idx) => {
+          const hour = timeSlots[idx % timeSlots.length];
+          const h = Math.floor(hour);
+          const m = Math.round((hour - h) * 60);
           const dateObj = new Date(date + 'T00:00:00');
-          dateObj.setHours(17, 0, 0, 0);
-          tasks[0].deadline = dateObj.toISOString().slice(0, 16);
-        }
+          dateObj.setHours(h, m, 0, 0);
+          task.deadline = dateObj.toISOString().slice(0, 16);
+        });
       });
     }
     // Add warning if soonest deadline is today and there are many tasks, or if wedding is very soon

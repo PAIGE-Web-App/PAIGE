@@ -76,22 +76,59 @@ export async function POST(req: Request) {
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     
-    // Create a new calendar
-    const calendarResource = {
-      summary: calendarName,
-      description: 'Wedding to-do items synced from Paige',
-      timeZone: 'UTC',
-      colorId: '1', // Blue color
-    };
-
-    console.log('[google-calendar/create] Creating calendar:', calendarResource);
+    // First, check if user already has a Paige calendar
+    console.log('[google-calendar/create] Checking for existing Paige calendars...');
+    const calendarListResponse = await calendar.calendarList.list();
+    const existingCalendars = calendarListResponse.data.items || [];
     
-    const calendarResponse = await calendar.calendars.insert({
-      requestBody: calendarResource,
-    });
+    // Look for existing Paige calendars (by name pattern)
+    const paigeCalendarPattern = /(paige|wedding.*to.*do)/i;
+    const existingPaigeCalendar = existingCalendars.find(cal => 
+      cal.summary && paigeCalendarPattern.test(cal.summary) && 
+      cal.accessRole === 'owner'
+    );
+    
+    let calendarId: string;
+    let isReusingExisting = false;
+    
+    if (existingPaigeCalendar) {
+      console.log('[google-calendar/create] Found existing Paige calendar:', existingPaigeCalendar.id);
+      calendarId = existingPaigeCalendar.id!;
+      isReusingExisting = true;
+      
+      // Update the existing calendar name if it's different
+      if (existingPaigeCalendar.summary !== calendarName) {
+        try {
+          await calendar.calendars.update({
+            calendarId: calendarId,
+            requestBody: {
+              summary: calendarName,
+              description: 'Wedding to-do items synced from Paige',
+            },
+          });
+          console.log('[google-calendar/create] Updated existing calendar name');
+        } catch (updateError) {
+          console.warn('[google-calendar/create] Failed to update calendar name:', updateError);
+        }
+      }
+    } else {
+      // Create a new calendar
+      const calendarResource = {
+        summary: calendarName,
+        description: 'Wedding to-do items synced from Paige',
+        timeZone: 'UTC',
+        colorId: '1', // Blue color
+      };
 
-    const calendarId = calendarResponse.data.id;
-    console.log('[google-calendar/create] Calendar created with ID:', calendarId);
+      console.log('[google-calendar/create] Creating new calendar:', calendarResource);
+      
+      const calendarResponse = await calendar.calendars.insert({
+        requestBody: calendarResource,
+      });
+
+      calendarId = calendarResponse.data.id!;
+      console.log('[google-calendar/create] New calendar created with ID:', calendarId);
+    }
 
     // Set up webhook for real-time sync
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/google-calendar/webhook`;
@@ -132,7 +169,10 @@ export async function POST(req: Request) {
       success: true, 
       calendarId,
       calendarName,
-      message: 'Google Calendar created and linked successfully.' 
+      isReusingExisting,
+      message: isReusingExisting 
+        ? 'Existing Google Calendar found and linked successfully.' 
+        : 'Google Calendar created and linked successfully.' 
     });
 
   } catch (error: any) {

@@ -28,6 +28,14 @@ export default function ProfilePage() {
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [jiggleWeddingDate, setJiggleWeddingDate] = useState(false);
+
+  useEffect(() => {
+    if (searchParams?.get('highlight') === 'weddingDate' && activeTab === 'wedding') {
+      setJiggleWeddingDate(true);
+      setTimeout(() => setJiggleWeddingDate(false), 1000);
+    }
+  }, [searchParams, activeTab]);
 
   const handleTabChange = (tabKey: string) => {
     setActiveTab(tabKey);
@@ -153,7 +161,7 @@ export default function ProfilePage() {
               setBudgetRange={setBudgetRange}
               selectedLocationType={selectedLocationType}
               setSelectedLocationType={setSelectedLocationType}
-              jiggleAnimate={jiggleAnimate}
+              jiggleAnimate={jiggleWeddingDate ? 'animate-jiggle' : ''}
               saving={saving}
               hasUnsavedWeddingChanges={hasUnsavedWeddingChanges}
               onSave={handleWeddingSave}

@@ -1,4 +1,5 @@
 // app/layout.tsx
+'use client';
 import "../styles/globals.css";
 import { Playfair_Display, Work_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
@@ -6,6 +7,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import ToastOffsetSetter from "../components/ToastOffsetSetter";
+import { usePathname } from 'next/navigation';
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"],
@@ -19,12 +21,9 @@ const workSans = Work_Sans({
   display: 'swap'
 });
 
-export const metadata = {
-  title: "PAIGE",
-  description: "AI Wedding Planner Dashboard",
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const hideNav = pathname === '/login' || pathname === '/signup';
   return (
     <html lang="en" className={`${playfair.variable} ${workSans.variable}`}>
       <head>
@@ -35,8 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
-          <AuthenticatedNavWrapper />
-          <ToastOffsetSetter />
+          {!hideNav && <AuthenticatedNavWrapper />}
+          {!hideNav && <ToastOffsetSetter />}
           <Toaster
             position="top-right"
             toastOptions={{

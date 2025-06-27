@@ -69,19 +69,61 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
   const handleDisconnectGoogle = () => {
     onGoogleAction(async () => {
       try {
-        const userRef = doc(db, "users", user.uid);
-        await updateDoc(userRef, {
-          googleTokens: deleteField(),
-          googleCalendar: deleteField(),
+        const response = await fetch('/api/google-calendar/disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid, disconnectType: 'all' }),
         });
+        const data = await response.json();
+        if (data.success) {
         setGoogleConnected(false);
         setGoogleEmail("");
-        setCalendarStatus({ isLinked: false });
-        toast.success("Google account disconnected successfully");
+          setCalendarStatus({ isLinked: false });
+          toast.success(data.message || "All Google integrations disconnected successfully");
+        } else {
+          toast.error(data.message || "Failed to disconnect Google account");
+        }
       } catch (error) {
         toast.error("Failed to disconnect Google account");
       }
     });
+  };
+
+  const handleDisconnectGmail = () => {
+    onGoogleAction(async () => {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        // Only remove Gmail-related data, keep calendar if it exists
+        await updateDoc(userRef, {
+          googleTokens: deleteField(),
+          gmailImportCompleted: deleteField(),
+        });
+        setGoogleConnected(false);
+        setGoogleEmail("");
+        toast.success("Gmail integration disconnected successfully");
+      } catch (error) {
+        toast.error("Failed to disconnect Gmail integration");
+      }
+    });
+  };
+
+  const handleDisconnectCalendar = async () => {
+    try {
+      const response = await fetch('/api/google-calendar/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCalendarStatus({ isLinked: false });
+        toast.success('Google Calendar disconnected successfully');
+      } else {
+        toast.error(data.message || 'Failed to disconnect Google Calendar');
+      }
+    } catch (error) {
+      toast.error('Failed to disconnect Google Calendar');
+    }
   };
 
   const handleReauthorizeGoogle = () => {
@@ -163,7 +205,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
           <div className="border border-[#AB9C95] rounded-lg p-4">
             <div className="flex items-center gap-3 mb-2">
               <img src="/Google__G__logo.svg" alt="Google" className="w-8 h-8" />
-              <div>
+                <div>
                 <h6 className="font-playfair font-medium text-[#332B42]">Google Integration</h6>
                 {googleConnected && googleEmail && (
                   <p className="text-sm text-[#7A7A7A]">{googleEmail}</p>
@@ -178,10 +220,28 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                 <div className="flex items-center gap-2">
                   <CheckCircle className={`w-4 h-4 ${googleConnected ? 'text-green-600' : 'text-gray-400'}`} />
                   <span className={googleConnected ? 'text-green-700' : 'text-gray-500'}>Gmail: Import contacts, send messages</span>
+                  {googleConnected && (
+                    <button
+                      onClick={handleDisconnectGmail}
+                      className="ml-2 text-xs text-red-600 hover:text-red-800 underline"
+                      title="Disconnect Gmail only"
+                    >
+                      Disconnect Gmail
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <CheckCircle className={`w-4 h-4 ${calendarStatus.isLinked ? 'text-green-600' : 'text-gray-400'}`} />
                   <span className={calendarStatus.isLinked ? 'text-green-700' : 'text-gray-500'}>Google Calendar: Sync all wedding to-dos</span>
+                  {calendarStatus.isLinked && (
+                    <button
+                      onClick={handleDisconnectCalendar}
+                      className="ml-2 text-xs text-red-600 hover:text-red-800 underline"
+                      title="Disconnect Calendar only"
+                    >
+                      Disconnect Calendar
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-2 items-end">
@@ -197,17 +257,18 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                       onClick={handleDisconnectGoogle}
                       disabled={isDisconnecting}
                       className="px-4 py-2 rounded font-work-sans text-sm font-medium transition-colors duration-150 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                      title="Disconnect all Google services"
                     >
-                      {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                      {isDisconnecting ? 'Disconnecting...' : 'Disconnect All'}
                     </button>
                   </div>
                 ) : (
-                  <button
+              <button
                     onClick={handleConnectGoogle}
                     className="btn-primary px-4 py-2 rounded font-work-sans text-sm font-medium"
                   >
                     Connect
-                  </button>
+              </button>
                 )}
               </div>
             </div>
