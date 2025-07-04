@@ -9,10 +9,6 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI; // Your OAuth callback URL
 
 export async function GET(request: Request) {
-  console.log('🚀 [Google OAuth Callback] Callback endpoint hit');
-  console.log('🔍 [Google OAuth Callback] Request URL:', request.url);
-  console.log('🔍 [Google OAuth Callback] Request headers:', Object.fromEntries(request.headers.entries()));
-
   const adminDb = getAdminDb();
 
   if (!adminDb) {
@@ -25,27 +21,16 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const stateParam = searchParams.get('state');
 
-  console.log('🔍 [Google OAuth Callback] Received callback with params:', {
-    hasCode: !!code,
-    hasState: !!stateParam,
-    allParams: Object.fromEntries(searchParams.entries())
-  });
-
   if (!code) {
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
-    console.error('❌ [Google OAuth Callback] Google OAuth error:', { error, errorDescription });
-    console.error('🔍 [Google OAuth Callback] Full error details:', {
-      error,
-      errorDescription,
-      allParams: Object.fromEntries(searchParams.entries())
-    });
+    console.error('Google OAuth error:', error, errorDescription);
 
     let frontendRedirectUrl = '/';
     if (stateParam) {
       try {
         const state = JSON.parse(stateParam);
-        frontendRedirectUrl = `${state.frontendRedirectUri}?gmailAuth=error&error=${error}&error_description=${errorDescription}`;
+        frontendRedirectUrl = `${state.frontendRedirectUri}?gmailAuth=error`;
       } catch (e) {
         console.error('Error parsing state during OAuth error:', e);
       }
@@ -103,28 +88,6 @@ export async function GET(request: Request) {
     });
     console.log('About to save tokens for userId:', userId);
 
-    // Fetch the connected Gmail user's email address
-    let gmailUserEmail = '';
-    try {
-      const oauth2Client = new google.auth.OAuth2(
-        GOOGLE_CLIENT_ID,
-        GOOGLE_CLIENT_SECRET,
-        GOOGLE_REDIRECT_URI
-      );
-      oauth2Client.setCredentials({
-        access_token: access_token,
-        refresh_token: refresh_token,
-      });
-      
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-      const profileRes = await gmail.users.getProfile({ userId: 'me' });
-      gmailUserEmail = (profileRes.data.emailAddress || '').toLowerCase();
-      console.log('DEBUG: Connected Gmail user email:', gmailUserEmail);
-    } catch (e) {
-      console.error('Failed to fetch Gmail user profile:', e);
-      // Continue without email if profile fetch fails
-    }
-
     // MODIFIED: Use adminDb.collection().doc().set() for Admin SDK Firestore operations
     const userRef = adminDb.collection('users').doc(userId);
     await userRef.set({
@@ -132,11 +95,10 @@ export async function GET(request: Request) {
         accessToken: access_token,
         refreshToken: refresh_token,
         expiresAt: Date.now() + (expires_in * 1000),
-        email: gmailUserEmail, // Save the connected Gmail address
       },
     }, { merge: true });
 
-    console.log('Google tokens and email stored successfully for user:', userId, 'Email:', gmailUserEmail);
+    console.log('Google tokens stored successfully for user:', userId);
     console.log('Redirecting to frontend with success parameter');
 
     // Redirect to frontend with success parameter

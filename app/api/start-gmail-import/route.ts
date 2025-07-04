@@ -149,24 +149,9 @@ export async function POST(req: Request) {
           // Define the collection path once per contact
           const messagesCollectionPath = `artifacts/default-app-id/users/${userId}/contacts/${contactDocId}/messages`;
 
-          // Check if this contact has messages from a different Gmail account
-          const existingGmailMessagesQuery = await adminDb.collection(messagesCollectionPath).where('source', '==', 'gmail').get();
-          let existingGmailAccount: string | null = null;
-          if (!existingGmailMessagesQuery.empty) {
-            const firstMessage = existingGmailMessagesQuery.docs[0].data();
-            existingGmailAccount = firstMessage.gmailAccount || null;
-            console.log(`[GMAIL IMPORT] Contact ${contactEmail} has existing messages from Gmail account: ${existingGmailAccount}`);
-          }
-
-          // If there's a different Gmail account, log a warning
-          if (existingGmailAccount && existingGmailAccount !== gmailUserEmail) {
-            console.warn(`[GMAIL IMPORT] WARNING: Contact ${contactEmail} has messages from different Gmail account. Existing: ${existingGmailAccount}, Current: ${gmailUserEmail}`);
-            console.log(`[GMAIL IMPORT] This may result in mixed messages from different Gmail accounts. Consider re-importing all messages.`);
-          }
-
           // PRESERVE MANUAL MESSAGES: Only delete Gmail messages before import
           console.log(`[GMAIL IMPORT] Checking for existing Gmail messages to delete for contact ${contactEmail}...`);
-          const gmailMessagesQuery = existingGmailMessagesQuery; // Reuse the query from above
+          const gmailMessagesQuery = await adminDb.collection(messagesCollectionPath).where('source', '==', 'gmail').get();
           console.log(`[GMAIL IMPORT] Found ${gmailMessagesQuery.size} Gmail messages to delete for contact ${contactEmail}`);
           if (!gmailMessagesQuery.empty) {
             const batch = adminDb.batch();
@@ -351,7 +336,6 @@ export async function POST(req: Request) {
                 direction,
                 userId: userId,
                 source: 'gmail',
-                gmailAccount: gmailUserEmail,
                 attachments: [], // You can add attachment handling if needed
               };
               if (messageIdHeader) {

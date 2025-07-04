@@ -232,11 +232,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [showGmailBanner, setShowGmailBanner] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [importedOnce, setImportedOnce] = useState(false);
-  const [gmailAccountMismatch, setGmailAccountMismatch] = useState<{
-    hasMismatch: boolean;
-    existingAccount: string | null;
-    currentAccount: string | null;
-  } | null>(null);
 
   // Add a cache for Gmail eligibility per contact
   const [gmailEligibilityCache, setGmailEligibilityCache] = useState<{
@@ -245,7 +240,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       showGmailBanner: boolean;
       bannerDismissed: boolean;
       importedOnce: boolean;
-      gmailAccountMismatch: boolean;
     }
   }>({});
 
@@ -653,7 +647,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               showGmailBanner: showBanner,
               bannerDismissed: dismissed,
               importedOnce: imported,
-              gmailAccountMismatch: false,
             }
           }));
         }
@@ -673,39 +666,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!currentUser?.uid || !selectedContact?.id) return;
     try {
       setIsImportingGmail(true);
-      
-      // First check if there's a Gmail account mismatch
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      const userData = userDoc.data();
-      const currentGmailAccount = userData?.googleTokens?.email;
-      
-      if (currentGmailAccount) {
-        const mismatchCheck = await fetch('/api/check-gmail-account-mismatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: currentUser.uid, 
-            contactId: selectedContact.id, 
-            currentGmailAccount 
-          }),
-        });
-        
-        if (mismatchCheck.ok) {
-          const mismatchData = await mismatchCheck.json();
-          if (mismatchData.hasAccountMismatch) {
-            const confirmed = window.confirm(
-              `This contact has messages from a different Gmail account (${mismatchData.existingGmailAccount}). ` +
-              `Importing will replace those messages with messages from your current account (${currentGmailAccount}). ` +
-              `Do you want to continue?`
-            );
-            if (!confirmed) {
-              setIsImportingGmail(false);
-              return;
-            }
-          }
-        }
-      }
-      
       // First check if there are any existing messages for this contact
       const messagesQuery = query(
         collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
@@ -741,8 +701,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
       await updateDoc(contactRef, {
         gmailImported: true,
-        lastImportDate: new Date().toISOString(),
-        lastGmailAccount: currentGmailAccount // Track which Gmail account was used for import
+        lastImportDate: new Date().toISOString()
       });
 
       showSuccessToast('Gmail conversation imported!');
@@ -756,7 +715,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           showGmailBanner: false,
           bannerDismissed: false,
           importedOnce: true,
-          gmailAccountMismatch: false,
         }
       }));
     } catch (error) {
@@ -784,7 +742,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           showGmailBanner: false,
           bannerDismissed: true,
           importedOnce: false,
-          gmailAccountMismatch: false,
         }
       }));
     } catch (e) {

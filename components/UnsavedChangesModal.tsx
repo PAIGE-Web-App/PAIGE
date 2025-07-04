@@ -54,7 +54,7 @@ const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
                 onClick={onConfirm}
                 className="px-4 py-2 text-sm font-medium rounded-[5px] bg-[#D63030] text-white hover:bg-[#C02B2B] transition-colors"
               >
-                Yes, I'm sure
+                Leave Anyway
               </button>
             </div>
           </motion.div>

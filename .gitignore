@@ -38,17 +38,13 @@ firebase-service-account.json
 firebase-debug.log
 firebase-debug.*.log
 serviceAccountKey.json
-*.firebase.json
-firebase.json
-firestore.rules
-storage.rules
-paige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
 
 # IDE
 .idea/
 .vscode/
 
 # Firebase Admin SDK Service Account Keys
+app/paige-ai-db-firebase-adminsdk-fbsvc-1f1930f7dd.json
 app/paige-ai-db-firebase-adminsdk-fbsvc-f02c312acd.json
 
 # Environment variables
@@ -74,6 +70,4 @@ Thumbs.db
 
 # Logs
 logs/
-*.logpaige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
-paige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
-paige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
+*.log

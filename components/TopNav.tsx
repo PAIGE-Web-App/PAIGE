@@ -2,63 +2,32 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { User, ContactRound, Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '../contexts/AuthContext';
-import { handleLogout } from '../utils/logout';
+import { getAuth, signOut } from "firebase/auth"; // Import getAuth and signOut
+import { usePathname } from 'next/navigation';
 
-// Helper to add cache-busting parameter
-function addCacheBuster(url: string | null): string | null {
-  if (!url) return url;
-  return url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+interface TopNavProps {
+  userName: string | null;
+  userId: string | null;
+  onLogout: () => void; // Add onLogout prop
+  isLoading?: boolean; // Add isLoading prop
 }
 
-function Spinner() {
-  return (
-    <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-    </svg>
-  );
-}
+// Removed stringToColor as it's no longer used for avatar background
 
-export default function TopNav() {
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showMobileNavMenu, setShowMobileNavMenu] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-  const cacheBustedProfileImageUrlRef = useRef<string | null>(null);
-  const timestampRef = useRef<string>(Date.now().toString());  // Create a stable timestamp per mount
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const mobileNavMenuRef = useRef<HTMLDivElement>(null);
+const navItems = [ // Moved outside component
+  { name: "Dashboard", href: "/" },
+  { name: "To-do Lists", href: "/todo" },
+  { name: "Vendors", href: "/vendors" },
+  { name: "Files", href: "/files" },
+];
+
+export default function TopNav({ userName, userId, onLogout, isLoading = false }: TopNavProps) {
+  const [showUserMenu, setShowUserMenu] = useState(false); // State for the user profile dropdown
+  const [showMobileNavMenu, setShowMobileNavMenu] = useState(false); // State for the mobile hamburger navigation
+  
+  const userMenuRef = useRef<HTMLDivElement>(null); // Ref for the user profile dropdown
+  const mobileNavMenuRef = useRef<HTMLDivElement>(null); // Ref for the mobile navigation dropdown
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, profileImageUrl, profileImageLQIP } = useAuth();
-
-  // Only update cache-busted URL when profileImageUrl changes
-  useEffect(() => {
-    if (profileImageUrl) {
-      cacheBustedProfileImageUrlRef.current = profileImageUrl + (profileImageUrl.includes('?') ? '&' : '?') + 't=' + timestampRef.current;
-    } else {
-      cacheBustedProfileImageUrlRef.current = null;
-    }
-    setImageLoading(true);
-  }, [profileImageUrl]);
-
-  // Get userName and userId from user object
-  const userName = user?.displayName || user?.email || null;
-  const userId = user?.uid || null;
-
-  // Logout handler
-  const handleLogoutClick = async () => {
-    await handleLogout(router);
-  };
-
-  const navItems = [ // Moved outside component
-    { name: "Dashboard", href: "/" },
-    { name: "To-do Lists", href: "/todo" },
-    { name: "Vendors", href: "/vendors" },
-    { name: "Files", href: "/files" },
-    { name: "Inspiration", href: "/inspiration" },
-  ];
 
   useEffect(() => {
     console.log("TopNav received userName:", userName);
@@ -88,10 +57,13 @@ export default function TopNav() {
     };
   }, [showUserMenu, showMobileNavMenu]);
 
+  const avatarBgColor = '#7D7B7B';
+
   // User-specific menu items
   const userMenuItems = [
+    { name: "Profile", href: "/profile", icon: ContactRound },
     { name: "Settings", href: "/settings", icon: Settings },
-    { name: "Logout", href: "#", icon: LogOut, onClick: handleLogoutClick }, // Use the centralized logout function
+    { name: "Logout", href: "#", icon: LogOut, onClick: onLogout }, // Use the onLogout prop here
   ];
 
   return (
@@ -162,32 +134,11 @@ export default function TopNav() {
         <button className="text-xs border border-[#332B42] text-[#332B42] px-3 py-1 rounded-[5px] font-semibold">STARTER</button>
         {/* User Profile Icon and Dropdown (visible on all screen sizes) */}
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-base font-medium text-white cursor-pointer overflow-hidden"
-          style={{ 
-            backgroundColor: '#7D7B7B',
-            backgroundImage: imageLoading && profileImageLQIP ? `url(${profileImageLQIP})` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            transition: 'background-image 0.3s',
-          }}
-          onClick={() => setShowUserMenu(!showUserMenu)}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-base font-medium text-white cursor-pointer"
+          style={{ backgroundColor: avatarBgColor }}
+          onClick={() => setShowUserMenu(!showUserMenu)} // Toggles only the user menu
         >
-          {cacheBustedProfileImageUrlRef.current ? (
-            <>
-              <img
-                key={cacheBustedProfileImageUrlRef.current}
-                src={cacheBustedProfileImageUrlRef.current}
-                alt="Profile"
-                className="w-full h-full object-cover"
-                onLoad={() => setImageLoading(false)}
-                onError={() => setImageLoading(false)}
-                style={{ display: imageLoading ? 'none' : 'block' }}
-              />
-              {imageLoading && <Spinner />}
-            </>
-          ) : (
-            <User className="w-5 h-5" />
-          )}
+          <User className="w-5 h-5" />
         </div>
 
         {showUserMenu && (
