@@ -8,6 +8,6 @@ export interface Contact {
   avatarColor: string;
   userId: string;
   orderIndex?: number;
-  channel?: string;
+  channel: string | null;
   isOfficial?: boolean;
 } 

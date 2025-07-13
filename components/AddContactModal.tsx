@@ -176,7 +176,9 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
         </div>
 
         {formData.category && formData.category !== "" && (
-          <CategoryPill category={formData.category === "Other" ? customCategory.trim() : formData.category} />
+          <div className="mt-3">
+            <CategoryPill category={formData.category === "Other" ? customCategory.trim() : formData.category} />
+          </div>
         )}
       </div>
 

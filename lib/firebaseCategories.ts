@@ -14,6 +14,12 @@ import {
 // Default categories
 export const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
+// Helper function to identify Firestore document IDs
+const isFirestoreDocumentId = (category: string): boolean => {
+  // Firestore document IDs are typically 20 characters long and contain only letters, numbers, and hyphens
+  return typeof category === 'string' && /^[a-zA-Z0-9_-]{15,}$/.test(category);
+};
+
 export const getAllCategories = async (userId: string): Promise<string[]> => {
   try {
     if (!userId) {
@@ -30,9 +36,16 @@ export const getAllCategories = async (userId: string): Promise<string[]> => {
     // but keeping it doesn't hurt and adds an extra layer of data integrity check if your documents also have a userId field.
     const q = query(categoriesRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
-    const userCategories = snapshot.docs.map((doc) => doc.data().name);
+    const userCategories = snapshot.docs.map((doc) => {
+      const data = doc.data() as { name?: string };
+      return data?.name;
+    }).filter((name): name is string => Boolean(name));
+    
+    // Filter out Firestore document IDs from user categories
+    const filteredUserCategories = userCategories.filter(category => !isFirestoreDocumentId(category));
+    
     // Combine default categories with user-specific categories, remove duplicates, and sort
-    return Array.from(new Set([...defaultCategories, ...userCategories])).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set([...defaultCategories, ...filteredUserCategories])).sort((a, b) => a.localeCompare(b));
   } catch (error) {
     console.error("Failed to fetch categories:", error);
     return [];

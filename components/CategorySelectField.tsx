@@ -16,6 +16,12 @@ interface CategorySelectFieldProps {
   placeholder: string;
 }
 
+// Helper function to identify Firestore document IDs
+const isFirestoreDocumentId = (category: string): boolean => {
+  // Firestore document IDs are typically 20 characters long and contain only letters, numbers, and hyphens
+  return typeof category === 'string' && /^[a-zA-Z0-9_-]{15,}$/.test(category);
+};
+
 const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
   userId,
   value,
@@ -59,7 +65,9 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
     const fetchCategories = async () => {
       try {
         const fetchedCategories = await getAllCategories(userId);
-        setCategoryOptions(fetchedCategories);
+        // Filter out Firestore document IDs from the fetched categories
+        const filteredCategories = fetchedCategories.filter(category => !isFirestoreDocumentId(category));
+        setCategoryOptions(filteredCategories);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
       }

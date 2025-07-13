@@ -20,6 +20,9 @@ import { Mail, Phone } from 'lucide-react';
 import SearchBar from '@/components/SearchBar';
 import FilterButtonPopover from '@/components/FilterButtonPopover';
 import { highlightText } from '@/utils/searchHighlight';
+import AddContactModal from '@/components/AddContactModal';
+import DropdownMenu from '@/components/DropdownMenu';
+import { MoreHorizontal } from 'lucide-react';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -94,6 +97,7 @@ export default function VendorsPage() {
   const [vendorSearch, setVendorSearch] = useState('');
   // Ensure searchOpen is false by default
   const [searchOpen, setSearchOpen] = useState(false);
+  const [addContactModal, setAddContactModal] = useState(false);
 
   // Filtered and searched contacts
   const filteredContacts = contacts.filter((c) => {
@@ -123,8 +127,15 @@ export default function VendorsPage() {
     }
   }, [user, isSaving]);
 
-  // Get unique categories, sorted alphabetically
-  const categories = Object.keys(categoryCounts).sort((a, b) => a.localeCompare(b));
+  // Helper function to identify Firestore document IDs
+  const isFirestoreDocumentId = (category) => {
+    return typeof category === 'string' && /^[a-zA-Z0-9_-]{15,}$/.test(category);
+  };
+
+  // Get unique categories, sorted alphabetically, filtering out Firestore document IDs
+  const categories = Object.keys(categoryCounts)
+    .filter(cat => !isFirestoreDocumentId(cat))
+    .sort((a, b) => a.localeCompare(b));
   const allCount = contacts.length;
 
   // Find official vendor for each category
@@ -189,8 +200,8 @@ export default function VendorsPage() {
           <div className="flex items-center justify-between px-6 py-3 border-b border-[#AB9C95] bg-[#F3F2F0]">
             <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
             <div className="flex gap-2">
-              <button className="btn-primaryinverse">Browse all</button>
-              <button className="btn-primary">Add Vendor</button>
+              <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
+              <button className="btn-primary">Browse all</button>
             </div>
           </div>
           
@@ -331,20 +342,20 @@ export default function VendorsPage() {
                     </div>
                     {/* Right: Edit and Contact buttons */}
                     <div className="absolute top-4 right-4 flex gap-2">
-                      <button
-                        className="btn-small-inverse flex items-center gap-1"
-                        onClick={() => setEditModal({ open: true, contact })}
-                        title="Edit Vendor"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4.243 1.414 1.414-4.243a4 4 0 01.828-1.414z" /></svg>
-                        Edit
-                      </button>
-                      <button
-                        className="btn-small-inverse"
-                        onClick={() => router.push(`/?contactId=${contact.id}`)}
-                      >
-                        Contact
-                      </button>
+                      <DropdownMenu
+                        trigger={<button className="p-1 hover:bg-gray-100 rounded-full" title="More options"><MoreHorizontal size={16} className="text-gray-500" /></button>}
+                        items={[{
+                          label: 'Edit',
+                          onClick: () => setEditModal({ open: true, contact }),
+                          className: '',
+                        }, {
+                          label: 'Contact',
+                          onClick: () => router.push(`/?contactId=${contact.id}`),
+                          className: '',
+                        }]}
+                        width={160}
+                        align="right"
+                      />
                     </div>
                   </div>
                 ))
@@ -436,6 +447,19 @@ export default function VendorsPage() {
               onDelete={(deletedId) => {
                 setContacts((prev) => prev.filter((c) => c.id !== deletedId));
                 setEditModal({ open: false, contact: null });
+              }}
+            />
+          </div>
+        )}
+        {addContactModal && user?.uid && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <AddContactModal
+              userId={user.uid}
+              onClose={() => setAddContactModal(false)}
+              onSave={(newContact) => {
+                setContacts((prev) => [...prev, newContact]);
+                setAddContactModal(false);
+                toast.success(`Vendor "${newContact.name}" added successfully!`);
               }}
             />
           </div>

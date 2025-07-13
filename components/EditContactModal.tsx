@@ -11,6 +11,7 @@ import CategorySelectField from "./CategorySelectField";
 import Banner from './Banner'; // NEW: Import the Banner component
 import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
 import { Contact } from "../types/contact";
+import CategoryPill from "./CategoryPill"; // ADD THIS LINE
 
 
 interface EditContactModalProps {
@@ -44,7 +45,7 @@ export default function EditContactModal({
     category: contact.category || "",
     website: contact.website || "",
     channel: contact.channel || "", // Initialize channel
-    avatarColor: contact.avatarColor || getRandomAvatarColor(),
+    avatarColor: (contact.avatarColor && typeof contact.avatarColor === 'string') ? contact.avatarColor : '#364257',
     userId: userId,
     orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
   });
@@ -54,7 +55,7 @@ export default function EditContactModal({
       ? contact.category
       : ""
   );
-  const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>([]);
+  const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
  
@@ -67,7 +68,7 @@ export default function EditContactModal({
       category: contact.category || "",
       website: contact.website || "",
       channel: contact.channel || "", // Update channel on contact change
-      avatarColor: contact.avatarColor || getRandomAvatarColor(),
+      avatarColor: (contact.avatarColor && typeof contact.avatarColor === 'string') ? contact.avatarColor : '#364257',
       userId: userId,
       orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
     });
@@ -142,19 +143,15 @@ export default function EditContactModal({
       await saveCategoryIfNew(categoryToSave, userId);
     }
 
-    const categoryStyle = getCategoryStyle(categoryToSave);
-    const finalAvatarColor = categoryStyle?.backgroundColor || null;
-
-
     const updatedContact: Contact = {
       ...contact,
       name: formData.name,
-      email: formData.email.trim() || null,
-      phone: formData.phone.trim() || null,
+      email: formData.email.trim() ? formData.email.trim() : null,
+      phone: formData.phone.trim() ? formData.phone.trim() : null,
       category: categoryToSave,
-      website: formData.website.trim() || null,
-      channel: formData.channel.trim() || null, // Include channel in updated contact
-      avatarColor: finalAvatarColor,
+      website: formData.website.trim() ? formData.website.trim() : null,
+      channel: formData.channel.trim() ? formData.channel.trim() : null, // Include channel in updated contact
+      avatarColor: formData.avatarColor || '#364257',
       orderIndex: formData.orderIndex,
       userId: formData.userId,
     };
@@ -237,12 +234,8 @@ export default function EditContactModal({
         </div>
 
         {(formData.category !== "Other" || customCategory.trim() !== "") && (
-          <div
-            className={`inline-block text-xs font-medium px-3 py-1 rounded-full mt-2 ${getCategoryStyle(
-              formData.category === "Other" ? customCategory.trim() : formData.category
-            )}`}
-          >
-            {formData.category === "Other" ? customCategory.trim() : formData.category}
+          <div className="mt-3">
+            <CategoryPill category={formData.category === "Other" ? customCategory.trim() : formData.category} />
           </div>
         )}
       </div>
