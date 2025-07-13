@@ -1,17 +1,7 @@
 // lib/getContacts.ts
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, getUserCollectionRef } from "./firebase"; // Import getUserCollectionRef
-
-interface Contact {
-  id: string;
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  category: string;
-  website?: string | null;
-  avatarColor?: string;
-  userId: string;
-}
+import type { Contact } from "@/types/contact";
 
 export const getAllContacts = async (userId: string) => {
   // --- FIX: Use getUserCollectionRef for user-specific contacts ---
@@ -22,8 +12,20 @@ export const getAllContacts = async (userId: string) => {
   // but keeping it adds an extra layer of data integrity.
   const q = query(contactsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Contact[];
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      name: data.name,
+      email: data.email ?? null,
+      phone: data.phone ?? null,
+      category: data.category,
+      website: data.website ?? null,
+      avatarColor: data.avatarColor ?? null,
+      userId: data.userId,
+      orderIndex: data.orderIndex,
+      channel: data.channel,
+      isOfficial: data.isOfficial,
+    };
+  }) as Contact[];
 };

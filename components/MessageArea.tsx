@@ -15,6 +15,7 @@ import MessageListArea from './MessageListArea';
 import MessageDraftArea from './MessageDraftArea';
 import Banner from "./Banner";
 import LoadingBar from "./LoadingBar";
+import { useRouter } from "next/navigation";
 
 
 // Define interfaces for types needed in this component
@@ -202,6 +203,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   onSetupInbox,
   userName,
 }) => {
+  const router = useRouter();
   const [state, dispatch] = useReducer(messageReducer, { 
     messages: [], 
     loading: false, 
@@ -854,22 +856,26 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5">
                   {selectedContact.email && (
-                    <a
-                      href={`mailto:${selectedContact.email}`}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                     >
                       <Mail className="w-3 h-3" />
                       <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
-                    </a>
+                    </button>
                   )}
                   {selectedContact.phone && (
-                    <a
-                      href={`tel:${selectedContact.phone}`}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                     >
                       <Phone className="w-3 h-3" />
                       <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
-                    </a>
+                    </button>
                   )}
                   {selectedContact?.website && (
                     <a

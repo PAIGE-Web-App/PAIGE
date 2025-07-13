@@ -162,8 +162,27 @@ export default function EditContactModal({
     try {
       // Use getUserCollectionRef to get the correct document path
       const contactRef = doc(getUserCollectionRef( "contacts", userId), contact.id);
-      await updateDoc(contactRef, updatedContact);
-      onSave(updatedContact); // This might be causing the issue because the new contact object has avatarColor (which it shouldn't) but should be handled by `cleanFirestoreData` function if applied before `updateDoc`. This is not about toast.
+      
+      // Create a clean update object that excludes undefined values
+      const updateData: any = {
+        name: updatedContact.name,
+        email: updatedContact.email,
+        phone: updatedContact.phone,
+        category: updatedContact.category,
+        website: updatedContact.website,
+        channel: updatedContact.channel,
+        avatarColor: updatedContact.avatarColor,
+        orderIndex: updatedContact.orderIndex,
+        userId: updatedContact.userId,
+      };
+      
+      // Only include isOfficial if it's defined
+      if (contact.isOfficial !== undefined) {
+        updateData.isOfficial = contact.isOfficial;
+      }
+      
+      await updateDoc(contactRef, updateData);
+      onSave(updatedContact);
       showSuccessToast("Contact updated successfully!"); // USE CUSTOM TOAST
       onClose();
     } catch (error) {

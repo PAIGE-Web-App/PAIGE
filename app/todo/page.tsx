@@ -47,11 +47,11 @@ export default function TodoPage() {
   // Use custom hooks for todo functionality
   const todoLists = useTodoLists();
   const todoItems = useTodoItems(todoLists.selectedList);
-  const [selectedCategoryFilters, setSelectedCategoryFilters] = React.useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
   const viewOptions = useTodoViewOptions(
     todoItems.todoItems,
     todoItems.handleReorderAndAdjustDeadline,
-    selectedCategoryFilters
+    selectedCategories
   );
 
   // Handle mobile tab change
@@ -173,8 +173,8 @@ export default function TodoPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div className="flex h-full gap-4 p-4">
+      <div className="app-content-container flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="flex h-full gap-4">
           <TodoSidebar
             todoLists={todoLists.todoLists}
             selectedList={todoLists.selectedList}
@@ -232,8 +232,8 @@ export default function TodoPage() {
                   handleCloneList={todoLists.handleCloneList}
                   handleDeleteList={todoLists.handleDeleteList}
                   allCategories={categoriesForCurrentList}
-                  selectedCategoryFilters={selectedCategoryFilters}
-                  setSelectedCategoryFilters={setSelectedCategoryFilters}
+                  selectedCategories={selectedCategories}
+                  setSelectedCategories={setSelectedCategories}
                   onSyncCategories={onSyncCategories}
             />
 

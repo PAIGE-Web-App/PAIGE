@@ -410,6 +410,17 @@ export default function Home() {
     };
   }, [user, authLoading]);
 
+  // Select contact from query param if present
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const contactId = params.get('contactId');
+    if (contactId && contacts.length > 0) {
+      const found = contacts.find(c => c.id === contactId);
+      if (found) setSelectedContact(found);
+    }
+  }, [contacts]);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -924,10 +935,8 @@ export default function Home() {
             onSetWeddingDate={handleSetWeddingDate}
           />
 
-          <div className="flex-1 p-4 overflow-hidden">
-          <div
-              className="flex h-full gap-4 md:flex-row flex-col"
-          >
+          <div className="app-content-container flex-1 overflow-hidden">
+            <div className="flex h-full gap-4 md:flex-row flex-col">
 
           <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
             <ContactsList

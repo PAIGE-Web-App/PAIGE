@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, CircleCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import UnifiedTodoItem from './UnifiedTodoItem';
+import { highlightText } from '@/utils/searchHighlight';
 
 interface TodoListViewProps {
   todoItems: any[];
@@ -123,6 +124,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   mode="page"
                   isJustMoved={item.id === justMovedItemId}
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
+                  searchQuery={todoSearchQuery}
                 />
               </div>
             ))
@@ -161,6 +163,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   mode="page"
                   isJustMoved={item.id === justMovedItemId}
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
+                  searchQuery={todoSearchQuery}
                 />
               ))}
             </div>
@@ -245,6 +248,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                             mode="page"
                             isJustMoved={item.id === justMovedItemId}
                             {...(!selectedList && { listName: list?.name || 'Unknown List' })}
+                            searchQuery={todoSearchQuery}
                           />
                         </div>
                       );
@@ -309,6 +313,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                         mode="page"
                         isJustMoved={item.id === justMovedItemId}
                         {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
+                        searchQuery={todoSearchQuery}
                       />
                     ))}
                   </div>

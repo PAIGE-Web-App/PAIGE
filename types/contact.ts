@@ -9,4 +9,5 @@ export interface Contact {
   userId: string;
   orderIndex?: number;
   channel?: string;
+  isOfficial?: boolean;
 } 

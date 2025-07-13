@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ListFilter, X } from 'lucide-react';
 import CategoryPill from './CategoryPill';
 import SelectField from './SelectField';
+import { Contact } from '../types/contact';
+import { highlightText } from '@/utils/searchHighlight';
 
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
@@ -212,17 +214,7 @@ const ContactsList = ({
                     </div>
                     <div>
                       <div className="text-sm font-medium text-[#332B42]">
-                        {matchIndex >= 0 ? (
-                          <>
-                            {before}
-                            <mark className="bg-transparent text-[#A85C36] font-semibold">
-                              {match}
-                            </mark>
-                            {after}
-                          </>
-                        ) : (
-                          name
-                        )}
+                        {highlightText(name, searchQuery)}
                       </div>
                       <CategoryPill category={contact.category} />
                     </div>

@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import Link from 'next/link';
-import { ListFilter, Plus, MoreHorizontal, CircleCheck, ChevronUp, ChevronDown, Check, Pin, X, Search } from 'lucide-react';
+import { ChevronDown, Pin, Search, X, Plus, MoreHorizontal, CheckCircle, ChevronUp } from 'lucide-react';
 import UnifiedTodoItem from './UnifiedTodoItem';
-import ListMenuDropdown from './ListMenuDropdown';
 import Banner from './Banner';
+import BadgeCount from './BadgeCount';
+import SearchBar from './SearchBar';
+import ListMenuDropdown from './ListMenuDropdown';
 import { useRouter } from 'next/navigation';
 import DropdownMenu from './DropdownMenu';
 import TodoTopBar from './TodoTopBar';
-import BadgeCount from './BadgeCount';
 import NewListOnboardingModal from './NewListOnboardingModal';
 import { addDoc, getDocs, writeBatch, doc, query, where } from 'firebase/firestore';
 import { db, getUserCollectionRef } from '../lib/firebase';
@@ -348,7 +348,7 @@ const ToDoPanel = ({
               className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
               title="Sort tasks"
             >
-              <ListFilter className="w-4 h-4" />
+              <Search className="w-4 h-4" />
             </button>
             <AnimatePresence>
               {showSortMenu && (
@@ -402,43 +402,13 @@ const ToDoPanel = ({
             <ChevronDown className="w-4 h-4" />
           </button>
           {/* Search button/input (now immediately right of pin list dropdown) */}
-          <div
-            className={`relative flex items-center overflow-hidden transition-all duration-300 bg-transparent ${searchOpen ? 'flex-grow' : ''}`}
-            style={{ width: searchOpen ? '100%' : '32px', minWidth: '32px', height: '32px' }}
-          >
-            <button
-              className="p-2 rounded-full hover:bg-[#EBE3DD] transition-colors duration-200 absolute left-0 z-10"
-              style={{ height: '32px', width: '32px' }}
-              onClick={() => setSearchOpen((open) => !open)}
-              aria-label={searchOpen ? 'Close search' : 'Open search'}
-              type="button"
-              tabIndex={searchOpen ? -1 : 0}
-            >
-              <Search className="w-4 h-4 text-[#364257]" />
-            </button>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search to-dos..."
-              className={`absolute left-0 w-full h-8 pl-10 pr-3 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${searchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Escape') setSearchOpen(false); }}
-              style={{ height: '32px', zIndex: 5 }}
-              tabIndex={searchOpen ? 0 : -1}
-            />
-            {searchQuery && (
-              <button
-                className={`absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 ${searchOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                onClick={() => setSearchQuery('')}
-                tabIndex={searchOpen ? 0 : -1}
-                type="button"
-                style={{ zIndex: 10 }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search to-dos..."
+            isOpen={searchOpen}
+            setIsOpen={setSearchOpen}
+          />
         </div>
 
         {/* List Dropdown Multi-Select */}
@@ -582,6 +552,7 @@ const ToDoPanel = ({
                     handleDrop={handleDrop}
                     mode="page"
                     {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
+                    searchQuery={searchQuery}
                   />
                 ))}
               </AnimatePresence>
@@ -599,7 +570,7 @@ const ToDoPanel = ({
             className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-3 md:px-4 hover:bg-[#F3F2F0] rounded-[5px]"
           >
             <div className="flex items-center gap-2">
-              <CircleCheck size={16} />
+              <CheckCircle size={16} />
               <span>Completed ({filterBySearch(filteredTodoItems.completedTasks).length})</span>
             </div>
             {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -643,6 +614,7 @@ const ToDoPanel = ({
                       mode="page"
                       className="px-3 md:px-4"
                       {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
+                      searchQuery={searchQuery}
                     />
                   ))}
                 </div>

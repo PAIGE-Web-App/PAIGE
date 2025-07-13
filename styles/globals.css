@@ -199,3 +199,45 @@ h6 {
 .animate-jiggle {
   animation: jiggle 0.7s cubic-bezier(.36,.07,.19,.97) both;
 }
+
+.app-content-container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1rem;
+  min-height: calc(100vh - 2rem);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.btn-small-inverse {
+  font-size: 0.75rem; /* text-xs */
+  color: #332B42;
+  border: 1px solid #AB9C95;
+  border-radius: 5px;
+  padding: 4px 8px; /* px-2 py-1 */
+  background: transparent;
+  font-family: var(--font-work-sans);
+  font-weight: 500;
+  transition: background 0.2s;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-small-inverse:hover {
+  background: #F3F2F0;
+}
+.btn-small-inverse:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input::placeholder {
+  font-family: var(--font-work-sans), 'Work Sans', sans-serif;
+  font-size: 0.85rem;
+  color: #AEB2B9;
+  font-weight: 400;
+  opacity: 1;
+}

@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { User } from 'firebase/auth';
 import type { TodoItem } from '../types/todo';
 import { Contact } from "../types/contact";
+import { highlightText } from '@/utils/searchHighlight';
 
 interface UnifiedTodoItemProps {
   todo: TodoItem;
@@ -39,6 +40,7 @@ interface UnifiedTodoItemProps {
   mode: 'page' | 'editor';
   onRemove?: () => void;
   isJustMoved?: boolean;
+  searchQuery?: string;
 }
 
 // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
@@ -96,6 +98,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   mode,
   onRemove,
   isJustMoved,
+  searchQuery,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
@@ -499,11 +502,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         ) : (
           <div className="flex items-center justify-between">
             <p
-              className={`font-work text-xs font-medium ${!todo.name ? 'text-[#332B42] hover:underline cursor-pointer' : 'text-[#332B42]'} ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${todo.isCompleted ? '' : 'cursor-pointer'}`}
-              onClick={handleNameDoubleClick}
+              className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${isEditingName ? 'hidden' : ''}`}
+              onDoubleClick={handleNameDoubleClick}
               title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
             >
-              {todo.name || '+ Add To-Do Name'}
+              {todo.name ? highlightText(todo.name, searchQuery || '') : '+ Add To-Do Name'}
             </p>
             {/* Three-dot menu button (only in page mode) */}
             {mode === 'page' && (
