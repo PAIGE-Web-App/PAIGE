@@ -41,12 +41,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     typeof window !== 'undefined' ? localStorage.getItem(PROFILE_IMAGE_LQIP_KEY) : null
   );
 
+  // Always prefer Firestore value over localStorage after Firestore loads
+  useEffect(() => {
+    if (!loading && user) {
+      (async () => {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserName(data.userName || user.displayName || 'User');
+          setProfileImageUrlState(data.profileImageUrl || null);
+          setProfileImageLQIPState(data.profileImageLQIP || null);
+        } else {
+          setUserName(user.displayName || 'User');
+          setProfileImageUrlState(null);
+          setProfileImageLQIPState(null);
+        }
+      })();
+    }
+  }, [loading, user]);
+
   useEffect(() => {
     if (profileImageUrl) {
       localStorage.setItem(PROFILE_IMAGE_KEY, profileImageUrl);
     } else {
       localStorage.removeItem(PROFILE_IMAGE_KEY);
     }
+    console.log('profileImageUrl updated:', profileImageUrl);
   }, [profileImageUrl]);
 
   useEffect(() => {
@@ -90,26 +110,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.userName || user.displayName || 'User');
-          setProfileImageUrl(data.profileImageUrl || null);
-          setProfileImageLQIP(data.profileImageLQIP || null);
-        } else {
-          setUserName(user.displayName || 'User');
-          setProfileImageUrl(null);
-          setProfileImageLQIP(null);
-        }
-      } else {
-        setUserName(null);
-        setProfileImageUrl(null);
-        setProfileImageLQIP(null);
-      }
+      // Do not set profileImageUrl here, let the Firestore effect above handle it
     });
     return () => unsubscribe();
   }, []);
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div></div>;
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, userName, profileImageUrl, setProfileImageUrl, profileImageLQIP, setProfileImageLQIP, updateUser }}>

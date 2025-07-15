@@ -201,7 +201,7 @@ export default function VendorsPage() {
             <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
             <div className="flex gap-2">
               <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
-              <button className="btn-primary">Browse all</button>
+              <button className="btn-primary" onClick={() => router.push('/vendors/catalog')}>Browse all</button>
             </div>
           </div>
           

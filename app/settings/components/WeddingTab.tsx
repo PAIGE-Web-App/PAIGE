@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueCard from '@/components/VenueCard';
@@ -60,6 +61,8 @@ export default function WeddingTab({
   onSave
 }: WeddingTabProps) {
   const weddingDateRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const highlightWeddingLocation = searchParams.get('highlight') === 'weddingLocation';
 
   return (
     <div className="flex gap-8 pb-8">
@@ -77,7 +80,7 @@ export default function WeddingTab({
               placeholder="mm/dd/yyyy"
             />
           </div>
-          <div>
+          <div className={`${highlightWeddingLocation ? 'animate-jiggle' : ''}`}>
             <label className="block text-xs font-work-sans text-[#332B42] mb-1">Where do you want to get married?*</label>
             <PlacesAutocompleteInput
               value={weddingLocation || ''}

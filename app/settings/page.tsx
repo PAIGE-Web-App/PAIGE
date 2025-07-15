@@ -117,7 +117,7 @@ export default function ProfilePage() {
       </AnimatePresence>
       
       <div className="min-h-screen bg-[#F3F2F0] flex flex-col items-center py-12">
-        <div className="w-full max-w-4xl">
+        <div className="app-container">
           <h3 className="mb-8">Settings</h3>
           
           <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />

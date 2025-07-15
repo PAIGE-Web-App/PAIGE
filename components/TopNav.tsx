@@ -32,6 +32,7 @@ export default function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, profileImageUrl, profileImageLQIP } = useAuth();
+  // Remove showVendorsPopover state
 
   // Only update cache-busted URL when profileImageUrl changes
   useEffect(() => {
@@ -95,7 +96,8 @@ export default function TopNav() {
   ];
 
   return (
-    <nav className="flex items-center justify-between px-6 py-3 bg-white border-b">
+    <nav className="bg-white border-b">
+      <div className="app-container flex items-center justify-between px-6 py-3">
       {/* Left section: Hamburger (mobile) and Logo */}
       <div className="flex items-center">
         {/* Hamburger menu for mobile (visible on md and smaller screens) */}
@@ -142,18 +144,40 @@ export default function TopNav() {
       {/* Desktop navigation (hidden on mobile) */}
       <ul className="hidden md:flex items-center gap-6">
         {navItems.map(({ name, href }) => (
-          <li key={name}>
-            <a
-              href={href}
-              className={`no-underline ${
-                pathname === href
-                  ? "text-[#A85C36] font-medium text-[14px] leading-5"
-                  : "text-[#364257] font-normal text-[13px]"
-              }`}
-            >
-              {name}
-            </a>
-          </li>
+          name === 'Vendors' ? (
+            <li key={name} className="relative group">
+              <div
+                className={`no-underline cursor-pointer ${
+                  (pathname ?? '').startsWith('/vendors')
+                    ? "text-[#A85C36] font-medium text-[14px] leading-5"
+                    : "text-[#364257] font-normal text-[13px]"
+                }`}
+              >
+                Vendors
+              </div>
+              {/* Pure CSS hover popover - mt-0 to avoid gap, block instead of flex */}
+              <div
+                className="absolute left-0 top-full mt-0 w-48 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 py-2 hidden group-hover:block transition-opacity duration-150 opacity-0 group-hover:opacity-100"
+                // If the popover is still clipped, check for overflow: hidden on parent containers
+              >
+                <a href="/vendors" className="px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] no-underline w-full block">Your Vendors</a>
+                <a href="/vendors/catalog" className="px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] no-underline w-full block">Vendor Catalog</a>
+              </div>
+            </li>
+          ) : (
+            <li key={name}>
+              <a
+                href={href}
+                className={`no-underline ${
+                  (pathname ?? '') === href
+                    ? "text-[#A85C36] font-medium text-[14px] leading-5"
+                    : "text-[#364257] font-normal text-[13px]"
+                }`}
+              >
+                {name}
+              </a>
+            </li>
+          )
         ))}
       </ul>
 
@@ -222,6 +246,7 @@ export default function TopNav() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </nav>
   );

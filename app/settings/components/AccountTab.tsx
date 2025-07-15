@@ -4,7 +4,9 @@ import { useState } from "react";
 import { User, Pencil } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, updateDoc } from "firebase/firestore";
 import { storage } from "../../../lib/firebase";
+import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import { validateEmail, validateName, addCacheBuster } from '../utils/profileValidation';
 import AvatarUploadModal from './AvatarUploadModal';
@@ -73,7 +75,8 @@ export default function AccountTab({
       const avatarRef = storageRef(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`);
       const snapshot = await uploadBytes(avatarRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
-      
+      // Save to Firestore so it persists across reloads
+      await updateDoc(doc(db, "users", user.uid), { profileImageUrl: downloadURL });
       setProfileImageUrl(downloadURL);
       await updateUser({ profileImageUrl: downloadURL });
       toast.success("Profile image updated successfully!");

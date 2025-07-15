@@ -17,16 +17,19 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
+      <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide">
+        <div className="app-container px-4">
         <div className="animate-pulse">
           <div className="h-4 bg-[#4A3F5C] rounded w-48 mx-auto"></div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide px-4">
+    <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide">
+      <div className="app-container px-4">
       {daysLeft !== null ? (
         `${daysLeft} day${daysLeft !== 1 ? "s" : ""} until the big day!`
       ) : userName ? (
@@ -42,6 +45,7 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
       ) : (
         "Welcome back! Have y'all decided your wedding date?"
       )}
+      </div>
     </div>
   );
 };

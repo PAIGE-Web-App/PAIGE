@@ -48,7 +48,7 @@ const ContactsList = ({
   setIsAdding,
 }) => (
   <aside
-    className={`md:w-[360px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 w-full min-h-full
+    className={`w-[320px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 min-h-full
       ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
     `}
     style={{ maxHeight: '100%', overflowY: 'auto' }}

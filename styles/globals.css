@@ -53,6 +53,28 @@ a {
   gap: 8px; /* Equivalent to gap-2 */
 }
 
+.btn-primaryinverse-large {
+  border: #332B42 1px solid;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.875rem; /* Equivalent to text-sm */
+  padding: 8px 16px; /* Larger padding to match btn-gradient-purple-large */
+  border-radius: 6px; /* Slightly larger radius to match */
+  gap: 8px; /* Equivalent to gap-2 */
+  background: transparent;
+  color: #332B42;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primaryinverse-large:hover {
+  background: #F3F2F0;
+}
+
+.btn-primaryinverse-large:active {
+  background: #E5E7EB;
+}
+
 /* MODIFIED: Remove hardcoded background-color, color, and border from .category-pill */
 .category-pill {
   display: flex;
@@ -89,6 +111,98 @@ a {
   display: flex;
   align-items: center;
   gap: 8px; /* Equivalent to gap-2 */
+}
+
+.btn-gradient-purple {
+  background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #C084FC 100%);
+  color: #F3F2F0;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.75rem; /* Equivalent to text-xs */
+  padding: 4px 12px; /* Updated padding */
+  border-radius: 5px;
+  gap: 8px; /* Equivalent to gap-2 */
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.btn-gradient-purple:hover {
+  background: linear-gradient(135deg, #7C3AED 0%, #9333EA 50%, #A855F7 100%);
+  box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-gradient-purple:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.btn-gradient-purple:disabled {
+  background: linear-gradient(135deg, #D1D5DB 0%, #9CA3AF 50%, #6B7280 100%);
+  color: #9CA3AF;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-gradient-purple-disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.75rem; /* Equivalent to text-xs */
+  padding: 4px 12px; /* Updated padding */
+  border-radius: 5px;
+  gap: 8px; /* Equivalent to gap-2 */
+  border: none;
+  cursor: not-allowed;
+  transition: all 0.2s ease-in-out;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-gradient-purple-large {
+  background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #C084FC 100%);
+  color: #F3F2F0;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.875rem; /* Equivalent to text-sm */
+  padding: 8px 16px; /* Larger padding */
+  border-radius: 6px; /* Slightly larger radius */
+  gap: 8px; /* Equivalent to gap-2 */
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.btn-gradient-purple-large:hover {
+  background: linear-gradient(135deg, #7C3AED 0%, #9333EA 50%, #A855F7 100%);
+  box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-gradient-purple-large:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.btn-gradient-purple-large-disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.875rem; /* Equivalent to text-sm */
+  padding: 8px 16px; /* Larger padding */
+  border-radius: 6px; /* Slightly larger radius */
+  gap: 8px; /* Equivalent to gap-2 */
+  border: none;
+  cursor: not-allowed;
+  transition: all 0.2s ease-in-out;
+  box-shadow: none;
+  transform: none;
 }
 
 .icon-button {
@@ -200,8 +314,18 @@ h6 {
   animation: jiggle 0.7s cubic-bezier(.36,.07,.19,.97) both;
 }
 
+/* Shared container for consistent max-width across all components */
+.app-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
 .app-content-container {
   width: 100%;
+  max-width: 1440px;
   margin-left: auto;
   margin-right: auto;
   padding: 1rem;
