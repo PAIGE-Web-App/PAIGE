@@ -4,18 +4,35 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import WeddingBanner from "../../components/WeddingBanner";
 import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 
 // Import our new components
 import ProfileTabs, { TABS } from "./components/ProfileTabs";
-import AccountTab from "./components/AccountTab";
-import WeddingTab from "./components/WeddingTab";
-import PlanTab from "./components/PlanTab";
-import IntegrationsTab from "./components/IntegrationsTab";
-import NotificationsTab from "./components/NotificationsTab";
 import { useProfileForm } from "./hooks/useProfileForm";
+
+// Lazy load tab components - only load when needed
+const AccountTab = dynamic(() => import("./components/AccountTab"), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+});
+
+const WeddingTab = dynamic(() => import("./components/WeddingTab"), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+});
+
+const PlanTab = dynamic(() => import("./components/PlanTab"), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+});
+
+const IntegrationsTab = dynamic(() => import("./components/IntegrationsTab"), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+});
+
+const NotificationsTab = dynamic(() => import("./components/NotificationsTab"), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+});
 
 export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();

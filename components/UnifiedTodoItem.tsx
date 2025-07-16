@@ -119,6 +119,9 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   const [editingCustomCategoryValue, setEditingCustomCategoryValue] = useState('');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
+  
+  // Check if the todo object has a justUpdated property (from parent state)
+  const isJustUpdatedFromParent = (todo as any).justUpdated === true;
   const [isEditingEndDate, setIsEditingEndDate] = useState(false);
   const [editingEndDateValue, setEditingEndDateValue] = useState(() => {
     if (todo.endDate instanceof Date && !isNaN(todo.endDate.getTime())) {
@@ -443,10 +446,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       transition={{ duration: 0.3, ease: "easeOut" }}
         className={`
           relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
+          transition-all duration-300 ease-in-out
           ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
           ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
           ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
-          ${(justUpdated || isJustMoved) ? 'bg-green-100' : ''}
+          ${(justUpdated || isJustMoved || isJustUpdatedFromParent) ? 'bg-green-100' : ''}
           ${className || ''}
         `}
     >
@@ -457,16 +461,19 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           />
         )}
         {/* Main content */}
-        <div className="flex-1 flex items-start gap-3">
+        <div className="flex-1 flex items-start gap-2">
       {/* Checkbox (only in page mode) */}
       {mode === 'page' && (
-            <button onClick={(e) => { e.stopPropagation(); handleToggleTodoComplete(todo); }} className="flex-shrink-0 p-1 flex items-center justify-center">
+            <button onClick={(e) => { 
+              e.stopPropagation(); 
+              handleToggleTodoComplete(todo); 
+            }} className="flex-shrink-0 p-1 flex items-center justify-center">
           {todo.isCompleted ? (
-            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center">
+            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-white flex items-center justify-center">
                   <Check className="w-2.5 h-2.5 text-[#AEAEAE]" />
             </div>
           ) : (
-            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]"></div>
+            <div className="w-3.5 h-3.5 rounded-full border-[1px] border-[#AEAEAE] bg-white"></div>
           )}
         </button>
       )}
@@ -503,7 +510,12 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           <div className="flex items-center justify-between">
             <p
               className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${isEditingName ? 'hidden' : ''}`}
-              onDoubleClick={handleNameDoubleClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!todo.isCompleted) {
+                  handleNameDoubleClick();
+                }
+              }}
               title={todo.isCompleted ? 'Mark as incomplete to edit this task.' : ''}
             >
               {todo.name ? highlightText(todo.name, searchQuery || '') : '+ Add To-Do Name'}
@@ -512,7 +524,10 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
             {mode === 'page' && (
               <div className="relative" ref={moreMenuRef}>
                 <button
-                  onClick={handleToggleMenu}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleMenu(e);
+                  }}
                   className="p-1 hover:bg-gray-100 rounded-full"
                   title="More options"
                 >
@@ -608,7 +623,12 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 <button
                   type="button"
                   className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
-                  onClick={todo.isCompleted ? undefined : handleAddDeadlineClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!todo.isCompleted) {
+                      handleAddDeadlineClick();
+                    }
+                  }}
                   disabled={todo.isCompleted}
                   style={{ outline: 'none' }}
                 >
@@ -669,7 +689,10 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
               <button
                 type="button"
                 className="text-xs text-[#A85C36] hover:underline"
-                onClick={() => setIsEditingDeadline(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingDeadline(true);
+                }}
               >
                 + Add Deadline
               </button>

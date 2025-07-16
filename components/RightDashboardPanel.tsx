@@ -665,6 +665,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           item.id === todo.id ? { ...item, isCompleted: updatedIsCompleted, completedAt: updatedIsCompleted ? new Date() : undefined } : item
         )
       );
+      
+      // Trigger green flash animation for incomplete items (moving from completed back to main list)
+      if (!updatedIsCompleted) {
+        triggerJustUpdated(todo.id);
+      }
+      
       toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
     } catch (error: any) {
       console.error('Error toggling To-Do item completion:', error);
@@ -849,7 +855,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       );
       const targetListItemsSnapshot = await getDocs(targetListItemsQuery);
       const maxOrderIndexInTarget = targetListItemsSnapshot.docs.length > 0
-        ? targetListItemsSnapshot.docs[0].data().orderIndex
+        ? (targetListItemsSnapshot.docs[0].data() as any).orderIndex
         : -1;
 
       await updateDoc(todoRef, {
@@ -987,6 +993,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   const handleListDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
 
     if (dragOverTodoId) {
       const prevDragOverElement = document.getElementById(`todo-item-${dragOverTodoId}`);
@@ -994,13 +1001,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         prevDragOverElement.classList.remove('bg-[#EBE3DD]');
       }
     }
+
+    if (!draggedTodoId) {
+      setDropIndicatorPosition({ id: null, position: null });
+      setDraggedTodoId(null);
+      setDragOverTodoId(null);
+      return;
+    }
+
     setDropIndicatorPosition({ id: null, position: null });
     setDraggedTodoId(null);
     setDragOverTodoId(null);
-
-    if (!draggedTodoId) {
-      return;
-    }
 
     if (sortOption !== 'myOrder') {
       setSortOption('myOrder');
@@ -1060,24 +1071,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       await batch.commit();
       toast.success('To-do item reordered!');
-      // Set justUpdated state for the reordered task
-      setTodoItems(prevItems => 
-        prevItems.map(item => 
-          item.id === draggedTodoId 
-            ? { ...item, justUpdated: true }
-            : item
-        )
-      );
-      // Reset justUpdated after animation
-      setTimeout(() => {
-        setTodoItems(prevItems => 
-          prevItems.map(item => 
-            item.id === draggedTodoId 
-              ? { ...item, justUpdated: false }
-              : item
-          )
-        );
-      }, 1000);
+      // Trigger green flash animation for the reordered task
+      triggerJustUpdated(draggedTodoId);
     } catch (error: any) {
       console.error('Error reordering To-do item:', error);
       toast.error(`Failed to reorder To-do item: ${error.message}`);
@@ -1165,12 +1160,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       const batch = writeBatch(db);
       let maxOrderIndex = -1;
       tasksSnapshot.forEach(taskDoc => {
-        const data = taskDoc.data();
+        const data = taskDoc.data() as any;
         maxOrderIndex = Math.max(maxOrderIndex, data.orderIndex || 0);
       });
       let orderIndex = maxOrderIndex + 1;
       tasksSnapshot.forEach(taskDoc => {
-        const data = taskDoc.data();
+        const data = taskDoc.data() as any;
         const dataObj = typeof data === 'object' && data !== null ? data : {};
         const newTaskRef = doc(getUserCollectionRef("todoItems", currentUser.uid));
         batch.set(newTaskRef, {
@@ -1297,6 +1292,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                             handleDragLeave={handleDragLeave}
                             handleItemDragOver={handleItemDragOver}
                             handleDragEnd={handleDragEnd}
+            handleDrop={handleListDrop}
             showCompletedTasks={showCompletedTasks}
             setShowCompletedTasks={setShowCompletedTasks}
             router={router}

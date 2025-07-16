@@ -739,7 +739,7 @@ export default function Home() {
       // Update contacts in Firestore
       const batch = writeBatch(db);
       onboardedContacts.forEach((contact) => {
-        const contactRef = doc(db, "contacts", contact.id);
+        const contactRef = doc(getUserCollectionRef("contacts", user!.uid), contact.id);
         batch.set(contactRef, contact);
       });
       await batch.commit();

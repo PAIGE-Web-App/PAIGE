@@ -3,28 +3,61 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
 
 // Firebase imports
 import { useAuth } from '@/hooks/useAuth';
 
-// UI component imports
+// UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
-import TodoItemComponent from '@/components/TodoItemComponent';
-import ListMenuDropdown from '@/components/ListMenuDropdown';
-import MoveTaskModal from '@/components/MoveTaskModal';
-import DeleteListConfirmationModal from '@/components/DeleteListConfirmationModal';
-import UpgradePlanModal from '@/components/UpgradePlanModal';
-import CategoryPill from '@/components/CategoryPill';
-import CategorySelectField from '@/components/CategorySelectField';
 import WeddingBanner from '@/components/WeddingBanner';
-import TaskSideCard from '../../components/TaskSideCard';
-import TodoSidebar from '../../components/TodoSidebar';
-import TodoTopBar from '../../components/TodoTopBar';
-import TodoListView from '../../components/TodoListView';
-import CalendarView from '../../components/CalendarView';
-import GoogleCalendarSync from '../../components/GoogleCalendarSync';
-import NewListOnboardingModal from '@/components/NewListOnboardingModal';
+
+// Lazy load heavy components
+const TodoSidebar = dynamic(() => import('../../components/TodoSidebar'), {
+  loading: () => <div className="w-64 bg-[#F3F2F0] animate-pulse" />
+});
+
+const TodoTopBar = dynamic(() => import('../../components/TodoTopBar'), {
+  loading: () => <div className="h-16 bg-white border-b border-[#AB9C95] animate-pulse" />
+});
+
+const TodoListView = dynamic(() => import('../../components/TodoListView'), {
+  loading: () => <div className="flex-1 bg-white animate-pulse" />
+});
+
+const CalendarView = dynamic(() => import('../../components/CalendarView'), {
+  loading: () => <div className="flex-1 bg-white animate-pulse" />
+});
+
+const TaskSideCard = dynamic(() => import('../../components/TaskSideCard'), {
+  loading: () => <div className="w-80 bg-white border-l border-[#AB9C95] animate-pulse" />
+});
+
+// Lazy load modals - only load when needed
+const MoveTaskModal = dynamic(() => import('@/components/MoveTaskModal'), {
+  ssr: false
+});
+
+const DeleteListConfirmationModal = dynamic(() => import('@/components/DeleteListConfirmationModal'), {
+  ssr: false
+});
+
+const UpgradePlanModal = dynamic(() => import('@/components/UpgradePlanModal'), {
+  ssr: false
+});
+
+const ListMenuDropdown = dynamic(() => import('@/components/ListMenuDropdown'), {
+  ssr: false
+});
+
+const NewListOnboardingModal = dynamic(() => import('@/components/NewListOnboardingModal'), {
+  ssr: false
+});
+
+const GoogleCalendarSync = dynamic(() => import('../../components/GoogleCalendarSync'), {
+  ssr: false
+});
 
 // Custom hooks
 import { useUserProfileData } from "../../hooks/useUserProfileData";

@@ -13,13 +13,13 @@ async function fetchPlaceDetails(placeId) {
 }
 
 export default function AdminCurationPage() {
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
-  const [suggestionError, setSuggestionError] = useState(null);
-  const [flagged, setFlagged] = useState([]);
-  const [flaggedDetails, setFlaggedDetails] = useState({});
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState<any[]>([]);
+  const [flaggedDetails, setFlaggedDetails] = useState<Record<string, any>>({});
   const [loadingFlagged, setLoadingFlagged] = useState(true);
-  const [flaggedError, setFlaggedError] = useState(null);
+  const [flaggedError, setFlaggedError] = useState<string | null>(null);
   const [unflagging, setUnflagging] = useState<string | null>(null);
   const [reviewingSuggestion, setReviewingSuggestion] = useState<string | null>(null);
 

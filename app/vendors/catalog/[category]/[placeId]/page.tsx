@@ -6,8 +6,8 @@ import { useEffect } from 'react';
 
 export default function VendorCatalogDetailsPage() {
   const [showContact, setShowContact] = useState(false);
-  const [vendor, setVendor] = useState(null);
-  const { placeId } = useParams();
+  const [vendor, setVendor] = useState<any>(null);
+  const { placeId } = useParams() as { placeId: string };
 
   useEffect(() => {
     async function fetchDetails() {

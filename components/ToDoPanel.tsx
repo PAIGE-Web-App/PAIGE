@@ -520,7 +520,7 @@ const ToDoPanel = ({
             <p>Add a To-do item to this list</p>
           </div>
         ) : (
-          <div className="space-y-0">
+          <div className="space-y-0 transition-all duration-300 ease-in-out">
             {/* Incomplete Tasks */}
             {filterBySearch(filteredTodoItems.incompleteTasks).length > 0 && (
               <AnimatePresence initial={false}>
@@ -584,7 +584,7 @@ const ToDoPanel = ({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className="overflow-hidden max-h-[40vh] overflow-y-auto"
               >
-                <div className="space-y-0">
+                <div className="space-y-0 transition-all duration-300 ease-in-out">
                   {filterBySearch(filteredTodoItems.completedTasks).map((todo) => (
                     <UnifiedTodoItem
                       key={todo.id}

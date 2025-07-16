@@ -266,6 +266,7 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                       handleDragLeave={handleDragLeave}
                       handleItemDragOver={handleItemDragOver}
                       handleDragEnd={handleDragEnd}
+                      handleDrop={() => {}}
                       mode="editor"
                       onRemove={tasks.length > 1 ? () => handleRemoveToDo((tasks as any[]).findIndex((t: any) => String(t.id) === String(stableId))) : undefined}
                     />

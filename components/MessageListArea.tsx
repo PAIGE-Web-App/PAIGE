@@ -569,7 +569,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                             <div className="flex items-center gap-1 mb-1">
                               <Reply className="w-3 h-3" />
                               <span className="text-xs">
-                                {`You replied to ${parentMsg.source === 'gmail' ? 'this email' : 'this message'}`}
+                                {`${msg.direction === 'sent' ? 'You' : 'They'} replied to ${parentMsg.source === 'gmail' ? 'this email' : 'this message'}`}
                               </span>
                             </div>
                             {parentMsg.subject && (
@@ -640,7 +640,31 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         </div>
                         {/* Replies count link */}
                         {replies.length > 0 && (
-                          <div className={`${isSent ? 'self-end' : 'self-start'} mt-2 text-xs cursor-pointer text-[#A85C36] underline hover:text-[#784528]`}> 
+                          <div 
+                            className={`${isSent ? 'self-end' : 'self-start'} mt-2 text-xs cursor-pointer text-[#A85C36] underline hover:text-[#784528]`}
+                            onClick={() => {
+                              // Scroll to the first reply and trigger bounce animation
+                              if (replies.length > 0 && messageRefs.current[replies[0].id]) {
+                                const firstReplyEl = messageRefs.current[replies[0].id];
+                                if (firstReplyEl) {
+                                  firstReplyEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  triggerBounce(replies[0].id);
+                                  
+                                  // If multiple replies, also bounce the last one to show the full thread
+                                  if (replies.length > 1 && messageRefs.current[replies[replies.length - 1].id]) {
+                                    setTimeout(() => {
+                                      const lastReplyEl = messageRefs.current[replies[replies.length - 1].id];
+                                      if (lastReplyEl) {
+                                        lastReplyEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        triggerBounce(replies[replies.length - 1].id);
+                                      }
+                                    }, 300);
+                                  }
+                                }
+                              }
+                            }}
+                            title={`Click to view ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}
+                          > 
                             {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
                           </div>
                         )}

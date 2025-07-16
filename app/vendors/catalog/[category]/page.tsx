@@ -185,7 +185,7 @@ const VendorCategoryPage: React.FC = () => {
 
   // Helper: extract supported API filters
   function getApiFilters(filterValues) {
-    const apiFilters = {};
+    const apiFilters: Record<string, any> = {};
     if (filterValues.price) {
       // Google expects price as minprice/maxprice (0-4)
       const priceMap = { '$': 0, '$$': 1, '$$$': 2, '$$$$': 3 };
@@ -269,7 +269,9 @@ const VendorCategoryPage: React.FC = () => {
     if (loadMoreRef.current) {
       observer.current.observe(loadMoreRef.current);
     }
-    return () => observer.current && observer.current.disconnect();
+    return () => {
+      if (observer.current) observer.current.disconnect();
+    };
   }, [nextPageToken, loadingMore, fetchVendors]);
 
   // Handle flagged vendor removal

@@ -14,6 +14,7 @@ interface CategorySelectFieldProps {
   customCategoryError?: string;
   label: string;
   placeholder: string;
+  className?: string;
 }
 
 // Helper function to identify Firestore document IDs
@@ -32,6 +33,7 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
   customCategoryError,
   label,
   placeholder,
+  className,
 }) => {
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
@@ -95,7 +97,7 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
   }, [categoryOptions, defaultCategories, placeholder]);
 
   return (
-    <>
+    <div className={className}>
       <SelectField
         label={label}
         name="category"
@@ -116,7 +118,7 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
           error={customCategoryError}
         />
       )}
-    </>
+    </div>
   );
 };
 

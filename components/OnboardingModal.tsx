@@ -121,6 +121,11 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       // Trigger Gmail import
       const triggerImport = async () => {
         try {
+          if (!userId) {
+            console.error("OnboardingModal: userId is null, cannot proceed with Gmail import");
+            toast.error("User ID is missing. Please try again.");
+            return;
+          }
           const contactsCollectionRef = getUserCollectionRef<OnboardingContact>("contacts", userId);
           const contactsQuery = query(contactsCollectionRef);
           const contactsSnapshot = await getDocs(contactsQuery);
@@ -400,6 +405,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                             .split(" ")
                             .map((n) => n[0])
                             .join("")
+                            .slice(0, 2)
                             .toUpperCase()}
                         </div>
                         <div>

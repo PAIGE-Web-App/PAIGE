@@ -215,6 +215,12 @@ export function useTodoItems(selectedList: TodoList | null) {
       }
 
       await updateDoc(itemRef, updateData);
+      
+      // Trigger green flash animation for incomplete items (moving from completed back to main list)
+      if (todo.isCompleted) {
+        setJustMovedItemId(todo.id);
+      }
+      
       showSuccessToast(todo.isCompleted ? 'Task marked as incomplete!' : 'Task completed!');
     } catch (error: any) {
       console.error('Error toggling task completion:', error);

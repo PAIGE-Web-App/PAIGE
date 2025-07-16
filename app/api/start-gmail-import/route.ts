@@ -394,31 +394,31 @@ export async function POST(req: Request) {
               }
             }
           }
-        } else {
-          console.log(`No Gmail messages found for ${contactEmail}.`);
-        }
 
-        // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present
-        if (messages && messages.length > 0) {
-          const allImportedMessagesSnap = await adminDb.collection(messagesCollectionPath).get();
-          const allImportedMessages: any[] = allImportedMessagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          function isValidMsg(m: any): m is { id: string, gmailMessageId?: string, messageIdHeader?: string, parentMessageId?: string, inReplyTo?: string } {
-            return m && typeof m.id === 'string';
-          }
-          for (const msg of allImportedMessages.filter(isValidMsg)) {
-            const inReplyToHeader = msg.inReplyTo;
-            if (!msg.parentMessageId && inReplyToHeader) {
-              const inReplyToId = String(inReplyToHeader).replace(/[<>]/g, '');
-              let parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.gmailMessageId === inReplyToId);
-              if (!parentDoc) {
-                parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.messageIdHeader === inReplyToHeader);
-              }
-              if (parentDoc) {
-                await adminDb.collection(messagesCollectionPath).doc(msg.id).update({ parentMessageId: parentDoc.id });
-                console.log(`[POST-IMPORT THREADING] Set parentMessageId for message ${msg.id} to ${parentDoc.id}`);
+          // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present
+          if (messagesToImport && messagesToImport.length > 0) {
+            const allImportedMessagesSnap = await adminDb.collection(messagesCollectionPath).get();
+            const allImportedMessages: any[] = allImportedMessagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            function isValidMsg(m: any): m is { id: string, gmailMessageId?: string, messageIdHeader?: string, parentMessageId?: string, inReplyTo?: string } {
+              return m && typeof m.id === 'string';
+            }
+            for (const msg of allImportedMessages.filter(isValidMsg)) {
+              const inReplyToHeader = msg.inReplyTo;
+              if (!msg.parentMessageId && inReplyToHeader) {
+                const inReplyToId = String(inReplyToHeader).replace(/[<>]/g, '');
+                let parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.gmailMessageId === inReplyToId);
+                if (!parentDoc) {
+                  parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.messageIdHeader === inReplyToHeader);
+                }
+                if (parentDoc) {
+                  await adminDb.collection(messagesCollectionPath).doc(msg.id).update({ parentMessageId: parentDoc.id });
+                  console.log(`[POST-IMPORT THREADING] Set parentMessageId for message ${msg.id} to ${parentDoc.id}`);
+                }
               }
             }
           }
+        } else {
+          console.log(`No Gmail messages found for ${contactEmail}.`);
         }
 
       } catch (contactImportError: any) {

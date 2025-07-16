@@ -1,5 +1,5 @@
 type FormFieldProps = {
-  label: string;
+  label: React.ReactNode;
   name: string;
   value: string | undefined; // Change the type of value
   placeholder: string;
