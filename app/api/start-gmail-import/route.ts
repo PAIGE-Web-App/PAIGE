@@ -20,9 +20,23 @@ export async function POST(req: Request) {
     }
     console.log('DEBUG: adminDb is successfully obtained in start-gmail-import/route.ts:', !!adminDb); // Log if it's truthy
 
-    const { userId, contacts: incomingContacts } = await req.json();
+    const { userId, contacts: incomingContacts, config } = await req.json();
     console.log('DEBUG: Received userId:', userId);
     console.log('DEBUG: Received contacts:', incomingContacts);
+    console.log('DEBUG: Received config:', config);
+
+    // Helper function to check if message should be filtered out
+    const shouldFilterMessage = (subject: string, body: string, filterWords: string[]): boolean => {
+      if (!filterWords || filterWords.length === 0) return false;
+      
+      const subjectLower = (subject || '').toLowerCase();
+      const bodyLower = (body || '').toLowerCase();
+      
+      return filterWords.some(word => 
+        subjectLower.includes(word.toLowerCase()) || 
+        bodyLower.includes(word.toLowerCase())
+      );
+    };
 
     if (!userId || !incomingContacts || !Array.isArray(incomingContacts)) {
       console.error('API Route: Invalid request payload detected during validation.');
@@ -274,6 +288,13 @@ export async function POST(req: Request) {
                 date: dateHeader || internalDate,
                 bodyLength: body.length
               });
+
+              // Apply filter words if provided
+              const filterWords = config?.filterWords || [];
+              if (shouldFilterMessage(subject || '', body, filterWords)) {
+                console.log(`[FILTER] Skipping message ${message.id} for ${contactEmail} - contains filter words:`, filterWords);
+                continue;
+              }
 
               // Determine direction (sent/received) based on user's email
               const userEmail = gmailUserEmail;

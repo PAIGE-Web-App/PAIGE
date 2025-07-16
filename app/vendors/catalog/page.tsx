@@ -34,7 +34,8 @@ export default function VendorCatalogPage() {
 
   // Handler for category card click
   const handleCategoryClick = (catValue: string) => {
-    router.push(`/vendors/catalog/${encodeURIComponent(catValue)}`);
+    const url = `/vendors/catalog/${encodeURIComponent(catValue)}?location=${encodeURIComponent(location)}`;
+    router.push(url);
   };
 
   // Handler for search button

@@ -25,7 +25,7 @@ const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({
   const [config, setConfig] = useState<ImportConfig>({
     maxEmails: 50,
     filterWords: [],
-    dateRange: 'all'
+    dateRange: 'last_week'
   });
   const [filterInput, setFilterInput] = useState('');
 
@@ -178,7 +178,7 @@ const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({
               />
               <button
                 onClick={handleAddFilter}
-                className="px-3 py-2 bg-[#A85C36] text-white rounded-[5px] text-sm hover:bg-[#8B4A2A] transition-colors"
+                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] transition-colors"
               >
                 Add
               </button>
@@ -207,7 +207,7 @@ const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({
           <div className="flex gap-3 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0] transition-colors"
+              className="btn-primaryinverse px-4 py-2 text-sm"
               disabled={isImporting}
             >
               Cancel
@@ -215,7 +215,7 @@ const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({
             <button
               onClick={handleImport}
               disabled={isImporting}
-              className="px-4 py-2 text-sm bg-[#A85C36] text-white rounded-[5px] hover:bg-[#8B4A2A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="btn-primary px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isImporting ? (
                 <>

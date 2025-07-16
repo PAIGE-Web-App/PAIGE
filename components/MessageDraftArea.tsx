@@ -173,7 +173,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           <button
             onClick={handleGenerateDraft}
             disabled={draftLoading || isAnimatingOrGenerating}
-            className={`btn-gradient-purple-large flex items-center gap-2 justify-center relative overflow-hidden transition-all duration-200 ${isGenerating ? 'generating-btn' : ''}`}
+            className={`btn-gradient-purple flex items-center gap-2 justify-center relative overflow-hidden transition-all duration-200 ${isGenerating ? 'generating-btn' : ''}`}
             style={isGenerating ? { pointerEvents: 'none', opacity: 1, color: '#fff' } : {}}
           >
             {isGenerating ? (

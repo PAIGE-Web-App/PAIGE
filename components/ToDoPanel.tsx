@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, Pin, Search, X, Plus, MoreHorizontal, CheckCircle, ChevronUp } from 'lucide-react';
+import { ChevronDown, Pin, Search, X, Plus, MoreHorizontal, CheckCircle, ChevronUp, ArrowUpDown } from 'lucide-react';
 import UnifiedTodoItem from './UnifiedTodoItem';
 import Banner from './Banner';
 import BadgeCount from './BadgeCount';
@@ -341,14 +341,14 @@ const ToDoPanel = ({
           </div>
         </div>
         <div className="flex items-center gap-2 mt-2 relative justify-start">
-          {/* Filter Button */}
+          {/* Sort Button */}
           <div className="relative" ref={sortMenuRef}>
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
               className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
               title="Sort tasks"
             >
-              <Search className="w-4 h-4" />
+              <ArrowUpDown className="w-4 h-4" />
             </button>
             <AnimatePresence>
               {showSortMenu && (
