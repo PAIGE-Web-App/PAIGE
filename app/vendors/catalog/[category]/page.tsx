@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useParams } from 'next/navigation';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import VendorCatalogFilters from '@/components/VendorCatalogFilters';
+import BulkContactModal from '@/components/BulkContactModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash.debounce';
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -120,8 +121,8 @@ function SuggestVenueModal({ open, onClose, categoryLabel }) {
 
 const VendorCategoryPage: React.FC = () => {
   const searchParams = useSearchParams();
-  const { category = "" } = useParams();
-  const location = searchParams.get('location') || '';
+  const { category = "" } = useParams() as { category: string };
+  const location = searchParams?.get('location') || '';
   const categoryObj = CATEGORIES.find(cat => cat.value === category);
   const categoryLabel = categoryObj ? categoryObj.label : category;
   const categorySingular = categoryObj ? categoryObj.singular : category;
@@ -134,13 +135,14 @@ const VendorCategoryPage: React.FC = () => {
   const observer = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   // Separate API and client-side filter state
-  const [apiFilterValues, setApiFilterValues] = useState({});
-  const [clientFilterValues, setClientFilterValues] = useState({});
+  const [apiFilterValues, setApiFilterValues] = useState<any>({});
+  const [clientFilterValues, setClientFilterValues] = useState<any>({});
   const [showSuggestModal, setShowSuggestModal] = useState(false);
-  const [flaggedVendorIds, setFlaggedVendorIds] = useState([]);
-  const [removingVendorIds, setRemovingVendorIds] = useState([]);
+  const [flaggedVendorIds, setFlaggedVendorIds] = useState<string[]>([]);
+  const [removingVendorIds, setRemovingVendorIds] = useState<string[]>([]);
   const [bulkContactMode, setBulkContactMode] = useState(false);
-  const [selectedVendors, setSelectedVendors] = useState([]);
+  const [selectedVendors, setSelectedVendors] = useState<any[]>([]);
+  const [showBulkContactModal, setShowBulkContactModal] = useState(false);
   const { showSuccessToast } = useCustomToast();
 
   useEffect(() => {
@@ -307,13 +309,18 @@ const VendorCategoryPage: React.FC = () => {
   const handleBulkContact = () => {
     if (selectedVendors.length === 0) return;
     
-    // TODO: Implement AI bulk contact logic
-    console.log('Bulk contacting vendors:', selectedVendors);
-    showSuccessToast(`Contacting ${selectedVendors.length} vendors...`);
+    // Get the selected vendor objects
+    const selectedVendorObjects = clientFilteredVendors.filter(vendor => 
+      selectedVendors.includes(vendor.id)
+    );
     
-    // Reset bulk mode after submission
-    setBulkContactMode(false);
-    setSelectedVendors([]);
+    setShowBulkContactModal(true);
+  };
+
+  // Handle bulk contact completion
+  const handleBulkContactComplete = () => {
+    // Refresh the page or show a message that contacts were added
+    showSuccessToast('Vendors have been added to your contacts! You can view them in the Vendors section.');
   };
 
   // Map Google Places results to VendorCatalogCard props
@@ -375,7 +382,7 @@ const VendorCategoryPage: React.FC = () => {
 
   
   return (
-    <div className={`app-content-container flex flex-col gap-6 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
+    <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
       <nav className="flex items-center text-xs text-[#A85C36] mb-4" aria-label="Breadcrumb">
         <a href="/vendors/catalog" className="hover:underline">Vendor Search</a>
         <span className="mx-2 text-[#AB9C95]">/</span>
@@ -432,7 +439,7 @@ const VendorCategoryPage: React.FC = () => {
               duration: 0.3
             }}
           >
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-lg shadow-lg mb-6">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-lg shadow-lg mb-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -556,6 +563,18 @@ const VendorCategoryPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bulk Contact Modal */}
+      <BulkContactModal
+        vendors={clientFilteredVendors.filter(vendor => selectedVendors.includes(vendor.id))}
+        isOpen={showBulkContactModal}
+        onClose={() => {
+          setShowBulkContactModal(false);
+          setBulkContactMode(false);
+          setSelectedVendors([]);
+          handleBulkContactComplete();
+        }}
+      />
     </div>
   );
 };

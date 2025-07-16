@@ -116,7 +116,7 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
             >
               <X size={20} />
             </button>
-            <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">Update Profile Image</h3>
+            <h5 className="h5 mb-4">Update Profile Image</h5>
             <div
               className={`w-full border border-[#AB9C95] px-3 py-6 rounded-[5px] text-sm flex flex-col items-center justify-center transition-colors duration-150 ${
                 dragActive ? 'bg-[#F3F2F0] border-[#A85C36]' : 'bg-white'

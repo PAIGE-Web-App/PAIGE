@@ -105,7 +105,7 @@ export async function POST(req: Request) {
     let errorCount = 0;
 
     // Get the user's todo items collection
-    const todoItemsRef = adminDb.collection(`artifacts/default-app-id/users/${userId}/todoItems`);
+            const todoItemsRef = adminDb.collection(`users/${userId}/todoItems`);
 
     for (const event of events) {
       try {

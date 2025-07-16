@@ -35,7 +35,7 @@ const DeleteListConfirmationModal: React.FC<DeleteListConfirmationModalProps> = 
             <X size={20} />
           </button>
 
-          <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">Confirm List Deletion</h3>
+          <h5 className="h5 mb-4">Confirm List Deletion</h5>
 
           <p className="text-sm text-[#364257] mb-4">
             Are you sure you want to delete the list "

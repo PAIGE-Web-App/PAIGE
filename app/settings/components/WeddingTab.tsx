@@ -62,7 +62,7 @@ export default function WeddingTab({
 }: WeddingTabProps) {
   const weddingDateRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
-  const highlightWeddingLocation = searchParams.get('highlight') === 'weddingLocation';
+  const highlightWeddingLocation = searchParams?.get('highlight') === 'weddingLocation';
 
   return (
     <div className="flex gap-8 pb-8">

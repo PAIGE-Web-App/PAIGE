@@ -83,15 +83,13 @@ declare const __app_id: string | undefined;
 /**
  * Returns a Firestore CollectionReference for a user-specific subcollection.
  * This function constructs the path adhering to the Firebase Security Rules:
- * /artifacts/{appId}/users/{userId}/{collectionName}
+ * /users/{userId}/{collectionName}
  * @param collectionName The name of the subcollection (e.g., "contacts", "todoItems").
  * @param userId The ID of the current user.
  * @returns A CollectionReference to the specified user-specific collection.
  */
 export function getUserCollectionRef<T>(collectionName: string, userId: string): CollectionReference<T> {
-  // Ensure __app_id is defined, otherwise use a fallback for local development
-  const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-  return collection(db, `artifacts/${appId}/users/${userId}/${collectionName}`) as CollectionReference<T>;
+  return collection(db, `users/${userId}/${collectionName}`) as CollectionReference<T>;
 }
 
 /**

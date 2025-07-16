@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       console.log(`DEBUG: Starting Gmail import for contact: ${contactEmail}`);
 
       try {
-        const contactQuery = adminDb.collection(`artifacts/default-app-id/users/${userId}/contacts`).where('email', '==', contactEmail);
+        const contactQuery = adminDb.collection(`users/${userId}/contacts`).where('email', '==', contactEmail);
         
         const contactDocs = await contactQuery.get();
         console.log(`DEBUG: Found ${contactDocs.size} contact documents for email ${contactEmail}`);
@@ -147,7 +147,7 @@ export async function POST(req: Request) {
           console.log(`Found ${messages.length} messages for ${contactEmail}. Starting to process messages...`);
 
           // Define the collection path once per contact
-          const messagesCollectionPath = `artifacts/default-app-id/users/${userId}/contacts/${contactDocId}/messages`;
+          const messagesCollectionPath = `users/${userId}/contacts/${contactDocId}/messages`;
 
           // Check if this contact has messages from a different Gmail account
           const existingGmailMessagesQuery = await adminDb.collection(messagesCollectionPath).where('source', '==', 'gmail').get();
@@ -195,7 +195,7 @@ export async function POST(req: Request) {
               return m && typeof m.id === 'string';
             }
             const filteredFullMessages = fullMessages.filter(isValidMessage);
-            const idToDate = Object.fromEntries(filteredFullMessages.map(m => [m.id, m.internalDate]));
+            const idToDate = Object.fromEntries(filteredFullMessages.filter(m => m !== null).map(m => [m.id, m.internalDate]).filter(([id, date]) => id && date !== undefined));
             messagesToImport = messagesToImport.slice().filter(isValidMessage).sort((a, b) => (idToDate[a.id] || 0) - (idToDate[b.id] || 0));
           }
           for (const message of messagesToImport) {
@@ -378,22 +378,24 @@ export async function POST(req: Request) {
         }
 
         // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present
-        const allImportedMessagesSnap = await adminDb.collection(messagesCollectionPath).get();
-        const allImportedMessages: any[] = allImportedMessagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        function isValidMsg(m: any): m is { id: string, gmailMessageId?: string, messageIdHeader?: string } {
-          return m && typeof m.id === 'string';
-        }
-        for (const msg of allImportedMessages.filter(isValidMsg)) {
-          const inReplyToHeader = msg['In-Reply-To'] || msg.inReplyTo;
-          if (!msg.parentMessageId && inReplyToHeader) {
-            const inReplyToId = String(inReplyToHeader).replace(/[<>]/g, '');
-            let parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.gmailMessageId === inReplyToId);
-            if (!parentDoc) {
-              parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.messageIdHeader === inReplyToHeader);
-            }
-            if (parentDoc) {
-              await adminDb.collection(messagesCollectionPath).doc(msg.id).update({ parentMessageId: parentDoc.id });
-              console.log(`[POST-IMPORT THREADING] Set parentMessageId for message ${msg.id} to ${parentDoc.id}`);
+        if (messages && messages.length > 0) {
+          const allImportedMessagesSnap = await adminDb.collection(messagesCollectionPath).get();
+          const allImportedMessages: any[] = allImportedMessagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          function isValidMsg(m: any): m is { id: string, gmailMessageId?: string, messageIdHeader?: string, parentMessageId?: string, inReplyTo?: string } {
+            return m && typeof m.id === 'string';
+          }
+          for (const msg of allImportedMessages.filter(isValidMsg)) {
+            const inReplyToHeader = msg.inReplyTo;
+            if (!msg.parentMessageId && inReplyToHeader) {
+              const inReplyToId = String(inReplyToHeader).replace(/[<>]/g, '');
+              let parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.gmailMessageId === inReplyToId);
+              if (!parentDoc) {
+                parentDoc = allImportedMessages.filter(isValidMsg).find(m => m.messageIdHeader === inReplyToHeader);
+              }
+              if (parentDoc) {
+                await adminDb.collection(messagesCollectionPath).doc(msg.id).update({ parentMessageId: parentDoc.id });
+                console.log(`[POST-IMPORT THREADING] Set parentMessageId for message ${msg.id} to ${parentDoc.id}`);
+              }
             }
           }
         }

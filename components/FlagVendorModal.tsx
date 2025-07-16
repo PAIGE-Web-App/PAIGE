@@ -68,9 +68,9 @@ const FlagVendorModal: React.FC<FlagVendorModalProps> = ({
             <X size={20} />
           </button>
 
-          <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4 text-center">
-            Flag Vendor
-          </h3>
+                  <h5 className="h5 mb-4 text-center">
+          Flag Vendor
+        </h5>
 
           <div className="w-full mb-4">
             <p className="text-sm text-gray-600 mb-4 text-center">

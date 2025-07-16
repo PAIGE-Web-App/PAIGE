@@ -380,6 +380,8 @@ export default function Home() {
             avatarColor: data.avatarColor,
             userId: data.userId,
             orderIndex: data.orderIndex !== undefined ? data.orderIndex : index,
+            channel: data.channel || null,
+            isOfficial: data.isOfficial || false,
           };
         });
         setContacts(fetchedContacts);
@@ -434,7 +436,7 @@ export default function Home() {
     if (user && user.uid) {
       const userId = user.uid;
       // Update the path to be under contacts collection
-      const contactsRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts`);
+      const contactsRef = collection(db, `users/${userId}/contacts`);
       
       // Create a map to store unsubscribe functions
       const unsubscribeMap = new Map<string, () => void>();
@@ -446,7 +448,7 @@ export default function Home() {
         // For each contact, set up a listener for their messages
         contactsSnapshot.docs.forEach(contactDoc => {
           const contactId = contactDoc.id;
-          const contactMessagesRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts/${contactId}/messages`);
+          const contactMessagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
           
           const q = query(
             contactMessagesRef,
@@ -531,7 +533,7 @@ export default function Home() {
 
     try {
       // Update to use the nested path structure
-      const messagesRef = collection(db, `artifacts/default-app-id/users/${user.uid}/contacts/${selectedContact.id}/messages`);
+      const messagesRef = collection(db, `users/${user.uid}/contacts/${selectedContact.id}/messages`);
       await addDoc(messagesRef, {
         ...newMessage,
         createdAt: newMessage.createdAt,
@@ -710,60 +712,7 @@ export default function Home() {
     }
   }, [user]);
 
-  // Add effect to check for Gmail tokens and trigger import if needed
-  useEffect(() => {
-    const checkGmailTokens = async () => {
-      if (!user) {
-        console.log('No current user, skipping Gmail import check');
-        return;
-      }
-
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        
-        console.log('Checking Gmail tokens:', {
-          hasGoogleTokens: !!userData?.googleTokens,
-          gmailImportCompleted: userData?.gmailImportCompleted,
-          hasAccessToken: !!userData?.googleTokens?.accessToken,
-          hasRefreshToken: !!userData?.googleTokens?.refreshToken
-        });
-
-        if (userData?.googleTokens && !userData?.gmailImportCompleted) {
-          console.log('Found Gmail tokens, triggering import');
-          const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-          const contactsQuery = query(contactsCollectionRef);
-          const contactsSnapshot = await getDocs(contactsQuery);
-          const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
-          
-          if (contacts.length > 0) {
-            console.log('Triggering Gmail import with contacts:', contacts);
-            const result = await triggerGmailImport(user.uid, contacts);
-            console.log('Gmail import result:', result);
-
-            if (result.success) {
-              // Update user document to mark import as completed
-              await updateDoc(doc(db, "users", user.uid), {
-                gmailImportCompleted: true
-              });
-              toast.success('Gmail messages imported successfully!');
-            } else {
-              toast.error(result.message || 'Failed to import Gmail messages');
-            }
-          } else {
-            console.log('No contacts found, skipping Gmail import');
-          }
-        } else {
-          console.log('No Gmail tokens found or import already completed');
-        }
-      } catch (error) {
-        console.error('Error checking Gmail tokens:', error);
-        toast.error('Failed to import Gmail messages. Please try again.');
-      }
-    };
-
-    checkGmailTokens();
-  }, [user]);
+  // Removed automatic Gmail import on page load - now only manual import via banner button
 
   // Add the fetchContacts function
   const fetchContacts = async () => {

@@ -57,7 +57,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, items, width = 200
                   item.onClick();
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] ${item.className || ''}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] whitespace-nowrap ${item.className || ''}`}
               >
                 {item.icon}
                 {item.label}

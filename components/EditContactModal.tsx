@@ -192,7 +192,7 @@ export default function EditContactModal({
     try {
       if (contact.id && userId) {
         // Delete all messages for this contact
-        const messagesRef = collection(db, `artifacts/default-app-id/users/${userId}/contacts/${contact.id}/messages`);
+        const messagesRef = collection(db, `users/${userId}/contacts/${contact.id}/messages`);
         const messagesSnap = await getDocs(messagesRef);
         if (!messagesSnap.empty) {
           const batch = writeBatch(db);

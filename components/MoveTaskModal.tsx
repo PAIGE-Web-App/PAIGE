@@ -40,7 +40,7 @@ const MoveTaskModal: React.FC<MoveTaskModalProps> = ({ task, todoLists, currentL
             <X size={20} />
           </button>
 
-          <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">Move Task: "{task.name}"</h3>
+          <h5 className="h5 mb-4">Move Task: "{task.name}"</h5>
 
           {availableLists.length === 0 ? (
             <p className="text-sm text-gray-600">No other lists available to move this task to.</p>

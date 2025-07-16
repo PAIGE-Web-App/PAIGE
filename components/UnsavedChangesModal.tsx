@@ -41,7 +41,7 @@ const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
             >
               <X size={20} />
             </button>
-            <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">{title}</h3>
+            <h5 className="h5 mb-4">{title}</h5>
             <p className="text-sm text-[#364257] mb-6">{message}</p>
             <div className="flex justify-end gap-3">
               <button

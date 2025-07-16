@@ -32,7 +32,7 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ maxLists, onClose }
             <X size={20} />
           </button>
 
-          <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4 text-center">Upgrade Your Plan</h3>
+          <h5 className="h5 mb-4 text-center">Upgrade Your Plan</h5>
 
           {/* Updated: Upgrade Graphic to use Upgrade.jpg and modified styling */}
           <img

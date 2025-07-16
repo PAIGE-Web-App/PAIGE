@@ -319,7 +319,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
                   >
                     <X size={20} />
                   </button>
-                  <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4">Create Google Calendar</h3>
+                  <h5 className="h5 mb-4">Create Google Calendar</h5>
                   <p className="text-sm text-[#364257] mb-4">
                     {foundExistingCalendar 
                       ? `We found an existing calendar: "${existingCalendarName}". You can reuse it or create a new one.`

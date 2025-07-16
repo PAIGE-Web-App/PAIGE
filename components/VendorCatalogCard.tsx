@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import FlagVendorModal from './FlagVendorModal';
+import VendorContactModal from './VendorContactModal';
 
 function getFavorites() {
   if (typeof window === 'undefined') return [];
@@ -15,6 +16,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFlagged, setIsFlagged] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
 
@@ -101,19 +103,21 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
         </div>
       )}
       
-      {/* Heart icon */}
-      <button
-        className="absolute z-10 bg-white/80 rounded-full p-1 shadow hover:bg-[#F8F6F4]"
-        style={{ top: '1.25rem', right: '1.25rem', border: 'none', position: 'absolute' }}
-        onClick={toggleFavorite}
-        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      >
-        {isFavorite ? (
-          <svg width="24" height="24" fill="#A85C36" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-        ) : (
-          <svg width="24" height="24" fill="none" stroke="#A85C36" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-        )}
-      </button>
+      {/* Heart icon - hidden in bulk mode */}
+      {!bulkContactMode && (
+        <button
+          className="absolute z-10 bg-white/80 rounded-full p-1 shadow hover:bg-[#F8F6F4]"
+          style={{ top: '1.25rem', right: '1.25rem', border: 'none', position: 'absolute' }}
+          onClick={toggleFavorite}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {isFavorite ? (
+            <svg width="24" height="24" fill="#A85C36" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          ) : (
+            <svg width="24" height="24" fill="none" stroke="#A85C36" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          )}
+        </button>
+      )}
       {/* Flag button */}
       {!bulkContactMode && !isFlagged && (
         <button
@@ -161,7 +165,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
       </div>
       <button 
         className="btn-primary w-full mt-auto" 
-        onClick={onContact}
+        onClick={() => setShowContactModal(true)}
         disabled={bulkContactMode}
       >
         Contact
@@ -176,6 +180,13 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
           isSubmitting={isSubmitting}
         />
       )}
+
+      {/* Contact Modal */}
+      <VendorContactModal
+        vendor={vendor}
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </div>
   );
 } 

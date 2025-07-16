@@ -3,7 +3,7 @@
 
 import React, { useEffect, useRef, useState, useReducer, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, deleteDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { Mail, Phone, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, X } from "lucide-react";
 import CategoryPill from "./CategoryPill";
@@ -16,6 +16,10 @@ import MessageDraftArea from './MessageDraftArea';
 import Banner from "./Banner";
 import LoadingBar from "./LoadingBar";
 import { useRouter } from "next/navigation";
+import GmailReauthNotification from './GmailReauthNotification';
+import GmailReauthBanner from './GmailReauthBanner';
+import DropdownMenu, { DropdownItem } from './DropdownMenu';
+import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 
 
 // Define interfaces for types needed in this component
@@ -253,7 +257,38 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Add reply state
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
+  
+  // Add re-authentication state
+  const [showReauthNotification, setShowReauthNotification] = useState(false);
+  const [showReauthBanner, setShowReauthBanner] = useState(false);
+
   const clearReply = () => setReplyingToMessage(null);
+
+
+
+  const handleDeleteMessage = async (message: Message) => {
+    if (!selectedContact || !currentUser) return;
+    
+    try {
+      // Remove from local state immediately for responsive UI
+      dispatch({ type: 'SET_MESSAGES', payload: state.messages.filter(m => m.id !== message.id) });
+      
+      // Delete from Firestore using the correct nested path
+      const messageRef = doc(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`, message.id);
+      await deleteDoc(messageRef);
+      
+      // Show success toast
+      showSuccessToast('Message removed successfully!');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      
+      // Revert local state if deletion failed
+      dispatch({ type: 'SET_MESSAGES', payload: [...state.messages, message] });
+      
+      // Show error toast
+      showErrorToast('Failed to remove message. Please try again.');
+    }
+  };
 
   // Auto-expand textarea as input changes
   useEffect(() => {
@@ -285,7 +320,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
+      const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
       
       let messagesQuery;
       if (state.lastDoc) {
@@ -362,7 +397,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      const messagesRef = collection(db, `artifacts/default-app-id/users/${currentUserId}/contacts/${currentContactId}/messages`);
+      const messagesRef = collection(db, `users/${currentUserId}/contacts/${currentContactId}/messages`);
       const messagesQuery = query(
         messagesRef,
         orderBy("timestamp", "asc"),
@@ -412,6 +447,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [isImportingGmail, setIsImportingGmail] = useState(false);
   const [isCheckingGmail, setIsCheckingGmail] = useState(false);
+  const [showImportConfigModal, setShowImportConfigModal] = useState(false);
 
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
@@ -423,6 +459,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
     try {
       setIsSending(true);
+      let gmailMessageId: string | undefined;
+      let threadId: string | undefined;
+      
       // If replying to a Gmail message, send via Gmail API
       if (replyingToMessage && replyingToMessage.source === 'gmail') {
         const attachments = await filesToBase64(selectedFiles);
@@ -442,10 +481,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Failed to send Gmail reply');
         showSuccessToast('Gmail reply sent!');
-        // Optionally, save the reply to Firestore for local display
+        
+        // Extract Gmail message ID from response for local storage
+        gmailMessageId = data.gmailRes?.id;
+        threadId = data.gmailRes?.threadId;
       }
       // If sending a new Gmail message (not a reply)
       let usedSubject = subject || input.split('\n')[0] || 'New Message';
+      
       if (!replyingToMessage && selectedChannel === 'Gmail') {
         const attachments = await filesToBase64(selectedFiles);
         const res = await fetch('/api/gmail-reply', {
@@ -462,11 +505,22 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           }),
         });
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Failed to send Gmail message');
+        if (!data.success) {
+          if (data.needsReauth) {
+            setShowReauthNotification(true);
+            setShowReauthBanner(true);
+            return; // Don't throw error, just return
+          }
+          throw new Error(data.error || 'Failed to send Gmail message');
+        }
         showSuccessToast('Gmail email sent!');
+        
+        // Extract Gmail message ID from response for local storage
+        gmailMessageId = data.gmailRes?.id;
+        threadId = data.gmailRes?.threadId;
       }
       // Always save to Firestore for local display
-      const path = `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`;
+      const path = `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`;
       const optimisticId = `optimistic-${Date.now()}`;
       const optimisticMessage: Message = {
         id: optimisticId,
@@ -481,6 +535,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...(replyingToMessage && { parentMessageId: replyingToMessage.id }),
         direction: 'sent',
         ...(selectedFiles.length > 0 && { attachments: selectedFiles.map(f => ({ name: f.name })) }),
+        ...(gmailMessageId && { gmailMessageId }),
+        ...(threadId && { threadId }),
       };
       dispatch({ type: 'SET_MESSAGES', payload: [...(state.messages || []), optimisticMessage] });
       const messageData = {
@@ -536,7 +592,29 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!selectedContact) return;
     try {
       setIsGenerating(true);
-      let draft = await generateDraft();
+      
+      // If replying to a message, generate a contextual response
+      let draft;
+      if (replyingToMessage) {
+        // For replies, we need to call the draft API directly with reply context
+        const res = await fetch("/api/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            contact: selectedContact, 
+            messages: [replyingToMessage.body],
+            isReply: true,
+            originalSubject: replyingToMessage.subject,
+            originalFrom: replyingToMessage.from
+          }),
+        });
+        const data = await res.json();
+        draft = data.draft || "Failed to generate response";
+      } else {
+        // Generate a new message draft
+        draft = await generateDraft();
+      }
+      
       if (draft) {
         // Replace placeholders with userName
         if (userName) {
@@ -564,11 +642,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           const finalHeight = Math.min(textareaRef.current.scrollHeight, 200);
           textareaRef.current.style.height = finalHeight + 'px';
         }
-        // Animate the text with a faster speed
+        // Animate the text with much faster speed
         let currentText = "";
-        const chunkSize = 3; // Process multiple characters at once for smoother animation
+        const chunkSize = 15; // Process more characters at once for much faster animation
         for (let i = 0; i < newBody.length; i += chunkSize) {
-          await new Promise(resolve => setTimeout(resolve, 10)); // Faster animation
+          await new Promise(resolve => setTimeout(resolve, 2)); // Much faster animation
           currentText += newBody.slice(i, i + chunkSize);
           setAnimatedDraft(currentText);
         }
@@ -585,7 +663,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // TEMP: Simple onSnapshot test
   useEffect(() => {
-    const path = `artifacts/default-app-id/users/${currentUser?.uid}/contacts/${selectedContact?.id}/messages`;
+          const path = `users/${currentUser?.uid}/contacts/${selectedContact?.id}/messages`;
     if (!currentUser?.uid || !selectedContact?.id) return;
     const unsub = onSnapshot(collection(db, path), (snapshot) => {
       console.log('Simple onSnapshot test:', snapshot.docs.map(doc => doc.data()));
@@ -594,6 +672,36 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     });
     return () => unsub();
   }, [currentUser?.uid, selectedContact?.id]);
+
+  // Check Gmail authentication status
+  const checkGmailAuthStatus = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const response = await fetch('/api/check-gmail-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.uid, contactEmail: 'test@example.com' }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        if (data.message?.includes('Google authentication required') || 
+            data.message?.includes('Failed to refresh Google authentication')) {
+          setShowReauthBanner(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking Gmail auth status:', error);
+    }
+  };
+
+  // Check Gmail authentication status on component mount
+  useEffect(() => {
+    if (currentUser?.uid) {
+      checkGmailAuthStatus();
+    }
+  }, [currentUser?.uid]);
 
   // Check Gmail eligibility for selected contact
   useEffect(() => {
@@ -624,7 +732,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         const data = await res.json();
         
         // Check if this contact has been imported before
-        const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+        const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
         const contactSnap = await getDoc(contactRef);
         const contactData = contactSnap.data();
         const hasBeenImported = contactData?.gmailImported || false;
@@ -672,9 +780,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // When importing or dismissing, update the cache as well
   const handleImportGmail = async () => {
+    setShowImportConfigModal(true);
+  };
+
+  const handleConfiguredImportGmail = async (config: ImportConfig) => {
     if (!currentUser?.uid || !selectedContact?.id) return;
     try {
       setIsImportingGmail(true);
+      setShowImportConfigModal(false);
       
       // First check if there's a Gmail account mismatch
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
@@ -710,7 +823,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       
       // First check if there are any existing messages for this contact
       const messagesQuery = query(
-        collection(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
+        collection(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`),
         where('source', '==', 'gmail')
       );
       const messagesSnapshot = await getDocs(messagesQuery);
@@ -732,7 +845,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const response = await fetch('/api/start-gmail-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.uid, contacts: [selectedContact] }),
+        body: JSON.stringify({ 
+          userId: currentUser.uid, 
+          contacts: [selectedContact],
+          config: config
+        }),
       });
 
       if (!response.ok) {
@@ -740,7 +857,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
 
       // Mark the contact as imported
-      const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+      const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
       await updateDoc(contactRef, {
         gmailImported: true,
         lastImportDate: new Date().toISOString(),
@@ -773,7 +890,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!currentUser?.uid || !selectedContact?.id) return;
     try {
       // Mark the banner as dismissed in Firestore
-      const contactRef = doc(db, `artifacts/default-app-id/users/${currentUser.uid}/contacts`, selectedContact.id);
+      const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
       await updateDoc(contactRef, {
         gmailBannerDismissed: true
       });
@@ -836,7 +953,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     <div className="flex flex-col h-full">
       {selectedContact && (
         <>
-          <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center">
+          <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center relative overflow-visible">
             {isMobile && (
               <button
                 onClick={() => setActiveMobileTab('contacts')}
@@ -854,27 +971,27 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                   </h4>
                   <CategoryPill category={selectedContact.category} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2 mt-1.5 flex-nowrap">
                   {selectedContact.email && (
                     <button
                       type="button"
                       onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                     >
-                      <Mail className="w-3 h-3" />
-                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.email}</span>
+                      <Mail className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate max-w-[120px] md:max-w-[150px]">{selectedContact.email}</span>
                     </button>
                   )}
                   {selectedContact.phone && (
                     <button
                       type="button"
                       onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                     >
-                      <Phone className="w-3 h-3" />
-                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.phone}</span>
+                      <Phone className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate max-w-[100px] md:max-w-[120px]">{selectedContact.phone}</span>
                     </button>
                   )}
                   {selectedContact?.website && (
@@ -882,46 +999,76 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                       href={selectedContact.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1"
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 flex-shrink-0"
                     >
                       <span>🌐</span>
-                      <span className="truncate max-w-[100px] md:max-w-none">{selectedContact.website}</span>
+                      <span className="truncate max-w-[80px] md:max-w-[100px]">{selectedContact.website}</span>
                     </a>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-nowrap">
                 {showGmailImport && (bannerDismissed || importedOnce) && (
-                  <>
-                    <button
-                      onClick={handleImportGmail}
-                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
-                      disabled={isImportingGmail || isCheckingGmail}
-                    >
-                      <FileUp className="w-4 h-4 mr-1" />
-                      {importedOnce ? 'Re-import Gmail' : 'Import Gmail'}
-                    </button>
-                    <button
-                      onClick={() => handleCheckNewGmail(true)}
-                      className="text-xs text-[#A85C36] border border-[#A85C36] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
-                      disabled={isImportingGmail || isCheckingGmail}
-                      style={{ marginLeft: 8 }}
-                    >
-                      <WandSparkles className="w-4 h-4 mr-1" />
-                      Check for new Gmail messages
-                    </button>
-                  </>
+                  <DropdownMenu
+                    trigger={
+                      <button
+                        className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
+                        disabled={isImportingGmail || isCheckingGmail}
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" viewBox="52 42 88 66" xmlns="http://www.w3.org/2000/svg">
+                          <path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/>
+                          <path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/>
+                          <path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/>
+                          <path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/>
+                          <path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/>
+                        </svg>
+                        <span className="truncate">Gmail Actions</span>
+                        <svg className="w-3 h-3 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    }
+                    items={[
+                      {
+                        label: 'Check for New Emails',
+                        icon: <WandSparkles className="w-4 h-4" />,
+                        onClick: () => handleCheckNewGmail(true)
+                      },
+                      {
+                        label: importedOnce ? 'Re-import Emails' : 'Import Emails',
+                        icon: <FileUp className="w-4 h-4" />,
+                        onClick: handleImportGmail
+                      }
+                    ]}
+                    width={220}
+                    zIndex={50}
+                    align="right"
+                  />
                 )}
               <button
                 onClick={() => setIsEditing(true)}
-                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0]"
+                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
               >
                 Edit
               </button>
             </div>
           </div>
           </div>
-          {showGmailBanner && !bannerDismissed && (
+          {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
+          {showReauthBanner && (
+            <div className="mt-0">
+              <GmailReauthBanner
+                currentUser={currentUser}
+                onReauth={() => {
+                  setShowReauthNotification(false);
+                  setShowReauthBanner(false);
+                }}
+              />
+            </div>
+          )}
+          
+          {/* Gmail Import Banner - Shows when Gmail history is available */}
+          {showGmailBanner && !bannerDismissed && !showReauthBanner && (
             <div className="mt-0">
               <Banner
                 message={
@@ -932,11 +1079,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                     </span>
                         <button
                       onClick={handleImportGmail}
-                      className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
+                      className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 whitespace-nowrap"
                       style={{ marginRight: 12 }}
                       disabled={checkingGmail}
                         >
-                      <FileUp className="w-4 h-4 mr-1" /> Import Gmail
+                      <FileUp className="w-4 h-4 mr-1" /> Import Emails
                         </button>
                   </div>
                 }
@@ -958,6 +1105,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           messagesEndRef={messagesEndRef}
           handleScroll={handleScroll}
           onReply={setReplyingToMessage}
+          onDelete={handleDeleteMessage}
           replyingToMessage={replyingToMessage}
         />
         <MessageDraftArea
@@ -1003,6 +1151,26 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         description="Checking for new Gmail messages..." 
         onComplete={() => {}} 
       />
+      
+      {/* Gmail Re-authentication Notification */}
+      <GmailReauthNotification
+        isVisible={showReauthNotification}
+        currentUser={currentUser}
+        onReauth={() => {
+          setShowReauthNotification(false);
+          setShowReauthBanner(false);
+        }}
+        onDismiss={() => setShowReauthNotification(false)}
+      />
+
+      {/* Gmail Import Configuration Modal */}
+      {showImportConfigModal && (
+        <GmailImportConfigModal
+          onClose={() => setShowImportConfigModal(false)}
+          onImport={handleConfiguredImportGmail}
+          isImporting={isImportingGmail}
+        />
+      )}
     </div>
   );
 };

@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     // Check if this contact has messages from a different Gmail account
-    const messagesCollectionPath = `artifacts/default-app-id/users/${userId}/contacts/${contactId}/messages`;
+            const messagesCollectionPath = `users/${userId}/contacts/${contactId}/messages`;
     const existingGmailMessagesQuery = await adminDb.collection(messagesCollectionPath)
       .where('source', '==', 'gmail')
       .limit(1)

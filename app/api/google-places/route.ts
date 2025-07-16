@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         'wedding reception',
         'wedding event venue'
       ];
-      let allResults = [];
+      let allResults: any[] = [];
       for (const q of queries) {
         let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}&type=${encodeURIComponent(category)}`;
         if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;

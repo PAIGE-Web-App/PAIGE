@@ -68,7 +68,7 @@ export async function POST(req: Request) {
           };
 
           // Get the user's todo items collection
-          const todoItemsRef = adminDb.collection(`artifacts/default-app-id/users/${userId}/todoItems`);
+          const todoItemsRef = adminDb.collection(`users/${userId}/todoItems`);
           
           // Check if todo item already exists
           const existingTodoDocRef = todoItemsRef.doc(paigeTodoId);

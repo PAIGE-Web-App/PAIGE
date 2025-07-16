@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import * as admin from 'firebase-admin';
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
-}
-const db = admin.firestore();
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
@@ -49,11 +41,13 @@ function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attach
 }
 
 async function getUserGmailTokens(userId) {
-  const userDoc = await db.collection('users').doc(userId).get();
+  const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+  const userDoc = await adminDb.collection('users').doc(userId).get();
   if (!userDoc.exists) return null;
-  const tokens = userDoc.data()?.googleTokens;
-  if (!tokens?.accessToken || !tokens?.refreshToken) return null;
-  return tokens;
+  const userData = userDoc.data();
+  const { accessToken, refreshToken } = userData?.googleTokens || {};
+  if (!accessToken || !refreshToken) return null;
+  return { accessToken, refreshToken };
 }
 
 // This is a scaffold for sending Gmail replies with attachments
@@ -91,20 +85,24 @@ export async function POST(req: NextRequest) {
       refresh_token: tokens.refreshToken,
     });
 
-    // Refresh token if needed
-    let accessToken = tokens.accessToken;
-    if (tokens.expiresAt && tokens.expiresAt < Date.now()) {
-      const { credentials } = await oAuth2Client.refreshAccessToken();
-      accessToken = credentials.access_token;
-      oAuth2Client.setCredentials(credentials);
-      // Update Firestore with new tokens
-      await db.collection('users').doc(userId).set({
-        googleTokens: {
-          accessToken: credentials.access_token,
-          refreshToken: credentials.refresh_token || tokens.refreshToken,
-          expiresAt: credentials.expiry_date,
-        },
-      }, { merge: true });
+    // Check if token needs refresh
+    const tokenExpiry = oAuth2Client.credentials.expiry_date;
+    if (tokenExpiry && tokenExpiry < Date.now()) {
+      try {
+        const { credentials } = await oAuth2Client.refreshAccessToken();
+        oAuth2Client.setCredentials(credentials);
+        const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+        await adminDb.collection('users').doc(userId).set({
+          googleTokens: {
+            accessToken: credentials.access_token,
+            refreshToken: credentials.refresh_token || tokens.refreshToken,
+            expiryDate: credentials.expiry_date,
+          },
+        }, { merge: true });
+      } catch (refreshError) {
+        console.error('Error refreshing token:', refreshError);
+        return NextResponse.json({ error: 'Failed to refresh Google authentication' }, { status: 401 });
+      }
     }
 
     const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
@@ -144,6 +142,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, gmailRes: gmailRes.data });
   } catch (error: any) {
     console.error('Gmail reply error:', error);
+    
+    // Handle specific Google OAuth errors
+    if (error.message?.includes('invalid_grant') || error.message?.includes('invalid_token')) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Google authentication expired. Please re-authenticate with Gmail.',
+        needsReauth: true 
+      }, { status: 401 });
+    }
+    
     return NextResponse.json({ success: false, error: error.message || 'Unknown error' }, { status: 500 });
   }
 } 

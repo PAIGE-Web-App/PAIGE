@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { File, Reply } from "lucide-react";
+import { File, Reply, Trash2, ExternalLink } from "lucide-react";
+import DOMPurify from "dompurify";
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ interface MessageListAreaProps {
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: () => void;
   onReply: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
   replyingToMessage: Message | null;
 }
 
@@ -43,6 +45,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   messagesEndRef,
   handleScroll,
   onReply,
+  onDelete,
   replyingToMessage,
 }) => {
   // Helper function to strip quoted text and signatures
@@ -60,6 +63,384 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     return text;
   };
 
+  // Helper function to clean up excessive whitespace in HTML
+  const cleanHtmlContent = (html: string): string => {
+    return html
+      // Remove excessive line breaks and whitespace
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace 3+ consecutive newlines with 2
+      .replace(/\r\n/g, '\n') // Normalize line endings
+      .replace(/\n\s*\n/g, '\n') // Replace double newlines with single
+      // Clean up excessive <br> tags
+      .replace(/(<br\s*\/?>\s*){3,}/gi, '<br /><br />') // Replace 3+ consecutive <br> tags with 2
+      .replace(/\s*<br\s*\/?>\s*<br\s*\/?>\s*/gi, '<br /><br />') // Clean up spacing around <br> tags
+      // Remove excessive whitespace
+      .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+      .trim();
+  };
+
+  // Helper function to clean up plain text content
+  const cleanPlainTextContent = (text: string): string => {
+    return text
+      // Remove excessive line breaks and whitespace
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace 3+ consecutive newlines with 2
+      .replace(/\r\n/g, '\n') // Normalize line endings
+      .replace(/\n\s*\n/g, '\n') // Replace double newlines with single
+      // Remove excessive whitespace at the beginning of lines
+      .replace(/^\s+/gm, '') // Remove leading whitespace from each line
+      .replace(/\s+$/gm, '') // Remove trailing whitespace from each line
+      // Remove excessive spaces
+      .replace(/\s{2,}/g, ' ') // Replace multiple spaces with single space
+      .trim();
+  };
+
+  // Helper function to clean up URLs by removing tracking parameters
+  const cleanUrlParams = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      // Remove common tracking parameters
+      const trackingParams = [
+        'elqTrackId', 'elq', 'elqaid', 'elqat', 'elqCampaignId',
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_content',
+        'utm_term', 'gclid', 'fbclid', 'msclkid'
+      ];
+      
+      trackingParams.forEach(param => {
+        urlObj.searchParams.delete(param);
+      });
+      
+      return urlObj.toString();
+    } catch {
+      return url;
+    }
+  };
+
+  // Helper function to decode HTML entities
+  const decodeHtmlEntities = (text: string): string => {
+    const entities: { [key: string]: string } = {
+      '&amp;': '&',
+      '&lt;': '<',
+      '&gt;': '>',
+      '&quot;': '"',
+      '&#39;': "'",
+      '&apos;': "'",
+      '&nbsp;': ' ',
+      '&copy;': '©',
+      '&reg;': '®',
+      '&trade;': '™',
+      '&ndash;': '–',
+      '&mdash;': '—',
+      '&hellip;': '…',
+      '&bull;': '•',
+      '&rsquo;': "'",
+      '&lsquo;': "'",
+      '&rdquo;': '"',
+      '&ldquo;': '"',
+    };
+    
+    return text.replace(/&[a-zA-Z0-9#]+;/g, (entity) => {
+      return entities[entity] || entity;
+    });
+  };
+
+  // Helper function to remove CSS from text
+  const removeCssFromText = (text: string): string => {
+    return text
+      // Remove @import statements
+      .replace(/@import[^;]+;/g, '')
+      // Remove CSS rules
+      .replace(/\{[^}]*\}/g, '')
+      // Remove CSS selectors
+      .replace(/[a-zA-Z][a-zA-Z0-9_-]*\s*\{/g, '')
+      // Remove CSS comments
+      .replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
+      // Remove media queries
+      .replace(/@media[^{]*\{[^}]*\}/g, '')
+      // Remove multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Performance-optimized email formatter with memoization
+  const formatImportedEmail = (() => {
+    // Cache for processed emails to avoid re-processing identical content
+    const emailCache = new Map<string, string>();
+    const MAX_CACHE_SIZE = 100; // Prevent memory leaks
+    
+    // Pre-compiled regex patterns for better performance
+    const patterns = {
+      url: /(https?:\/\/[^\s]+)/g,
+      keyValue: /^([^:]+):\s*(.+)$/,
+      allCaps: /^[A-Z][A-Z\s]+$/,
+      linkedinEngagement: /LIKE PRAISE EMPATHY \d+,\s*\d+ Comments/,
+      footer: /©|All rights reserved|This email was sent|You are receiving this|Unsubscribe|Privacy Policy|Contact Us/
+    };
+    
+    // Quick footer detection using regex
+    const isFooterLine = (line: string): boolean => {
+      return patterns.footer.test(line);
+    };
+    
+    // Fast URL processing with minimal string operations
+    const processUrls = (text: string): string => {
+      return text.replace(patterns.url, (url) => {
+        try {
+          const urlObj = new URL(url);
+          const domain = urlObj.hostname;
+          return `<a href="${url}" target="_blank" rel="noopener noreferrer">${domain}</a>`;
+        } catch {
+          return url;
+        }
+      });
+    };
+    
+    return (text: string): string => {
+      // Check cache first
+      if (emailCache.has(text)) {
+        return emailCache.get(text)!;
+      }
+      
+      // Early exit for very short content
+      if (text.length < 50) {
+        const result = `<div class="email-content">${processUrls(text)}</div>`;
+        emailCache.set(text, result);
+        return result;
+      }
+      
+      // Quick content type detection to avoid unnecessary processing
+      const hasComplexFormatting = text.includes('@import') || 
+                                  text.includes('font-family:') || 
+                                  text.includes('LIKE PRAISE EMPATHY') ||
+                                  text.includes('Showing Confirmed') ||
+                                  text.includes('Confirmation Number');
+      
+      // For simple content, do minimal processing
+      if (!hasComplexFormatting) {
+        const result = `<div class="email-content">${processUrls(text)}</div>`;
+        emailCache.set(text, result);
+        return result;
+      }
+      
+      // Full processing only for complex emails
+      let cleanedText = text;
+      
+      // Only do heavy processing if needed
+      if (text.includes('@import') || text.includes('font-family:')) {
+        cleanedText = removeCssFromText(text);
+        cleanedText = decodeHtmlEntities(cleanedText);
+      }
+      
+      cleanedText = cleanPlainTextContent(cleanedText);
+      
+      // Remove angle brackets around URLs
+      cleanedText = cleanedText.replace(/<([^>]+)>/g, (match, url) => {
+        return url.startsWith('http') ? url : match;
+      });
+      
+      const lines = cleanedText.split('\n');
+      const formattedLines: string[] = [];
+      let inFooter = false;
+      let processedLines = 0;
+      const MAX_LINES = 100; // Safety limit
+      
+      for (let i = 0; i < lines.length && processedLines < MAX_LINES; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        processedLines++;
+        
+        // Quick footer detection
+        if (isFooterLine(line)) {
+          inFooter = true;
+          continue;
+        }
+        
+        if (inFooter) continue;
+        
+        let formattedLine = line;
+        
+        // Fast pattern matching with early exits
+        if (line.includes(' liked this')) {
+          formattedLine = `👍 ${line}`;
+        } else if (line.includes(' shared a post:')) {
+          const parts = line.split(' shared a post:');
+          if (parts.length === 2) {
+            formattedLine = `<strong>${parts[0]}</strong> shared a post: ${parts[1]}`;
+          }
+        } else if (patterns.linkedinEngagement.test(line)) {
+          // Keep as is
+        } else if (line.includes('Read more:') || line.includes('See more on LinkedIn:')) {
+          const urlMatch = line.match(patterns.url);
+          if (urlMatch) {
+            const displayText = line.replace(urlMatch[1], '').replace(/Read more:|See more on LinkedIn:/, '').trim();
+            formattedLine = `${displayText} <a href="${urlMatch[1]}" target="_blank" rel="noopener noreferrer">→</a>`;
+          }
+        } else if (line.includes('Showing Confirmed') || line.includes('Confirmed')) {
+          formattedLine = `✅ ${line}`;
+        } else if (line.includes('Avenue') || line.includes('Street') || line.includes('Road') || line.includes('Drive') || line.includes('Lane')) {
+          formattedLine = `📍 ${line}`;
+        } else if (line.includes('PM') || line.includes('AM') || line.includes('CDT') || line.includes('CST')) {
+          formattedLine = `🕒 ${line}`;
+        } else if (line.includes('Agent') || line.includes('Realty') || line.includes('LLC')) {
+          formattedLine = `👤 ${line}`;
+        } else if (line.includes('View Listing') || line.includes('Directions')) {
+          formattedLine = `🔗 ${line}`;
+        } else if (line.includes('Buyer/Broker')) {
+          formattedLine = `👥 ${line}`;
+        } else if (patterns.allCaps.test(line)) {
+          formattedLine = `<strong>${line}</strong>`;
+        } else {
+          // Key-value pairs
+          const keyValueMatch = line.match(patterns.keyValue);
+          if (keyValueMatch) {
+            const key = keyValueMatch[1].trim();
+            const value = keyValueMatch[2].trim();
+            const urlMatch = value.match(patterns.url);
+            
+            if (urlMatch) {
+              try {
+                const urlObj = new URL(urlMatch[1]);
+                const displayText = value.replace(urlMatch[1], '');
+                formattedLine = `<strong>${key}:</strong> ${displayText} <a href="${urlMatch[1]}" target="_blank" rel="noopener noreferrer">${urlObj.hostname}</a>`;
+              } catch {
+                formattedLine = `<strong>${key}:</strong> ${value}`;
+              }
+            } else {
+              formattedLine = `<strong>${key}:</strong> ${value}`;
+            }
+          }
+        }
+        
+        // Process URLs efficiently
+        formattedLine = processUrls(formattedLine);
+        formattedLines.push(`<div class="email-content">${formattedLine}</div>`);
+      }
+      
+      const result = formattedLines.join('\n');
+      
+      // Cache the result
+      if (emailCache.size >= MAX_CACHE_SIZE) {
+        // Remove oldest entry
+        const firstKey = emailCache.keys().next().value;
+        emailCache.delete(firstKey);
+      }
+      emailCache.set(text, result);
+      
+      return result;
+    };
+  })();
+
+  // Helper function to safely render HTML content
+  const renderMessageContent = (message: Message) => {
+    const content = (message.body && message.body.trim()) 
+      ? stripQuotedText(message.body)
+      : (message.fullBody && message.fullBody.trim()) 
+        ? stripQuotedText(message.fullBody)
+        : '';
+
+    if (!content) {
+      return <span className="italic text-gray-400">(No message content)</span>;
+    }
+
+    // Apply universal formatting to all Gmail imported emails for better readability
+    // This handles LinkedIn, real estate, utility, and other formatted emails
+    if (message.source === 'gmail') {
+      // Performance optimization: Only format if content is substantial
+      if (content.length > 20) {
+        try {
+          // Format the email using the universal formatter
+          const formattedContent = formatImportedEmail(content);
+          
+          // Sanitize the formatted content
+          const sanitizedHtml = DOMPurify.sanitize(formattedContent, {
+            ALLOWED_TAGS: ['div', 'strong', 'a', 'br'],
+            ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+            ALLOW_DATA_ATTR: false,
+          });
+          
+          return (
+            <div 
+              className="formatted-email"
+              dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+              style={{
+                fontSize: 'inherit',
+                lineHeight: 'inherit',
+                color: 'inherit',
+              }}
+            />
+          );
+        } catch (error) {
+          console.error('Error rendering formatted email:', error);
+          // Fallback to cleaned plain text
+          const cleanedText = cleanPlainTextContent(content);
+          return <div className="whitespace-pre-wrap">{cleanedText}</div>;
+        }
+      } else {
+        // For very short content, just clean and display
+        const cleanedText = cleanPlainTextContent(content);
+        return <div className="whitespace-pre-wrap">{cleanedText}</div>;
+      }
+    }
+
+    // Enhanced HTML detection for manual messages (Gmail messages are handled above)
+    const isHtmlContent = message.source === 'manual' && (
+      content.includes('<html') || 
+      content.includes('<!DOCTYPE') || 
+      content.includes('<div') || 
+      content.includes('<p>') ||
+      content.includes('<a href') ||
+      content.includes('<br') ||
+      content.includes('<strong') ||
+      content.includes('<em') ||
+      content.includes('<ul') ||
+      content.includes('<ol') ||
+      content.includes('<li') ||
+      content.includes('<h1') ||
+      content.includes('<h2') ||
+      content.includes('<h3') ||
+      content.includes('<h4') ||
+      content.includes('<h5') ||
+      content.includes('<h6') ||
+      content.includes('<blockquote') ||
+      content.includes('<pre') ||
+      content.includes('<code')
+    );
+
+    if (isHtmlContent) {
+      try {
+        // Clean up the HTML content first
+        const cleanedContent = cleanHtmlContent(content);
+        
+        // Sanitize the HTML content
+        const sanitizedHtml = DOMPurify.sanitize(cleanedContent, {
+          ALLOWED_TAGS: ['p', 'br', 'div', 'span', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code'],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+          ALLOW_DATA_ATTR: false,
+        });
+        
+        return (
+          <div 
+            className="prose prose-sm max-w-none prose-compact"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+            style={{
+              fontSize: 'inherit',
+              lineHeight: 'inherit',
+              color: 'inherit',
+            }}
+          />
+        );
+      } catch (error) {
+        console.error('Error rendering HTML content:', error);
+        // Fallback to cleaned plain text if HTML rendering fails
+        const cleanedText = cleanPlainTextContent(content);
+        return <div className="whitespace-pre-wrap">{cleanedText}</div>;
+      }
+    }
+
+    // For non-Gmail messages or non-HTML content, clean and render as plain text
+    const cleanedText = cleanPlainTextContent(content);
+    return <div className="whitespace-pre-wrap">{cleanedText}</div>;
+  };
+
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -75,6 +456,14 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   const triggerBounce = (id: string) => {
     setBouncingId(id);
     setTimeout(() => setBouncingId(null), 700);
+  };
+
+  // Helper to open Gmail message
+  const openInGmail = (message: Message) => {
+    if (message.gmailMessageId) {
+      const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${message.gmailMessageId}`;
+      window.open(gmailUrl, '_blank');
+    }
   };
 
   return (
@@ -140,22 +529,26 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                   </span>
                   <div className="w-1/3 border-t border-[#AB9C95]"></div>
                 </div>
-                {group.messages.map((msg, msgIdx) => {
-                  // Find parent message if this is a reply
-                  let parentMsg: Message | undefined = undefined;
-                  if (msg.parentMessageId) {
-                    parentMsg = messages.find(m => m.id === msg.parentMessageId);
-                  }
-                  // Find replies to this message
-                  const replies = messages.filter(m => m.parentMessageId === msg.id);
-                  // Determine alignment
-                  const isSent = msg.direction === 'sent';
-                  const alignmentClass = isSent ? 'justify-end' : 'justify-start';
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${alignmentClass}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''} group`}
-                    >
+                <AnimatePresence mode="popLayout">
+                  {group.messages.map((msg, msgIdx) => {
+                    // Find parent message if this is a reply
+                    let parentMsg: Message | undefined = undefined;
+                    if (msg.parentMessageId) {
+                      parentMsg = messages.find(m => m.id === msg.parentMessageId);
+                    }
+                    // Find replies to this message
+                    const replies = messages.filter(m => m.parentMessageId === msg.id);
+                    // Determine alignment
+                    const isSent = msg.direction === 'sent';
+                    const alignmentClass = isSent ? 'justify-end' : 'justify-start';
+                    return (
+                      <motion.div
+                        key={msg.id}
+                        className={`flex ${alignmentClass}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''} group`}
+                        initial={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: isSent ? 50 : -50, scale: 0.95 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      >
                       <div className="flex flex-col items-end w-full max-w-[90%]">
                         {/* Faded parent message bubble above reply */}
                         {parentMsg && (
@@ -199,21 +592,39 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         >
                           <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
                             <span>{msg.source === 'gmail' ? 'Gmail' : 'Manual'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            <button
-                              className="text-xs text-[#A85C36] hover:underline ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150"
-                              onClick={() => onReply(msg)}
-                              title="Reply to this message"
-                            >
-                              <Reply className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              {msg.source === 'gmail' && msg.gmailMessageId && (
+                                <button
+                                  className="text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
+                                  onClick={() => openInGmail(msg)}
+                                  title="Open in Gmail"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+                              )}
+                              {onDelete && (
+                                <button
+                                  className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
+                                  onClick={() => onDelete(msg)}
+                                  title="Delete this message"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                className="text-xs text-[#A85C36] hover:underline ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150"
+                                onClick={() => onReply(msg)}
+                                title="Reply to this message"
+                              >
+                                <Reply className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                           {msg.source === 'gmail' && msg.subject && (
                             <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
                           )}
-                          <div className="whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                            {(msg.body && msg.body.trim()) ? stripQuotedText(msg.body)
-                              : (msg.fullBody && msg.fullBody.trim()) ? stripQuotedText(msg.fullBody)
-                              : <span className="italic text-gray-400">(No message content)</span>}
+                          <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            {renderMessageContent(msg)}
                           </div>
                           {/* Attachments */}
                           {msg.attachments && msg.attachments.length > 0 && (
@@ -234,9 +645,10 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
+                </AnimatePresence>
               </div>
             ));
           })()}

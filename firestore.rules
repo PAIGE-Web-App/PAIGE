@@ -10,30 +10,25 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // Combined rules for the 'users' collection and its direct subcollections
-    // This covers user profiles at /users/{userId} AND subcollections like /users/{userId}/todoLists/{listId}
+    // Rules for the 'users' collection and its subcollections
+    // This covers user profiles at /users/{userId} AND subcollections like /users/{userId}/contacts/{contactId}
     match /users/{userId} {
       // Allows authenticated users to read/write their own user profile document.
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      
-  
-        allow read: if request.auth != null && request.auth.uid == userId;
-        // --- END TEMPORARY CHANGE ---
 
-
-      // This nested rule specifically handles subcollections directly under /users/{userId}/
-      // This is crucial for your todoLists (e.g., /users/{userId}/todoLists/{listId})
+      // This nested rule handles subcollections directly under /users/{userId}/
+      // This covers contacts, todoItems, todoLists, etc.
       match /{collectionName}/{documentId} {
-        // --- START OF REQUIRED CHANGE ---
-        // For reads, check if the authenticated user's UID matches the userId in the document being read.
-        allow read: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
-        // For create, check if the authenticated user's UID matches the userId in the incoming data.
-        allow create: if request.auth != null && request.auth.uid == userId && request.resource.data.userId == userId;
-        // --- END OF REQUIRED CHANGE ---
-        allow update, delete: if request.auth != null && request.auth.uid == userId && resource.data.userId == userId;
-         allow read: if request.auth != null && request.auth.uid == userId;
-        // --- END TEMPORARY CHANGE ---
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if request.auth != null && request.auth.uid == userId;
+
+        // Add rules for nested collections under contacts (messages)
+        match /messages/{messageId} {
+          allow read: if request.auth != null && request.auth.uid == userId;
+          allow create: if request.auth != null && request.auth.uid == userId;
+          allow update, delete: if request.auth != null && request.auth.uid == userId;
+        }
       }
     }
 

@@ -365,3 +365,303 @@ input::placeholder {
   font-weight: 400;
   opacity: 1;
 }
+
+/* Prose styles for HTML email rendering */
+.prose {
+  color: inherit;
+  max-width: none;
+}
+
+.prose p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.prose p:first-child {
+  margin-top: 0;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Compact prose styles for tighter spacing */
+.prose-compact p {
+  margin: 0.25em 0;
+  line-height: 1.4;
+}
+
+.prose-compact div {
+  margin: 0.15em 0;
+}
+
+.prose-compact br {
+  margin: 0.15em 0;
+}
+
+.prose br {
+  display: block;
+  content: "";
+  margin: 0.25em 0;
+}
+
+.prose div {
+  margin: 0.25em 0;
+}
+
+.prose strong, .prose b {
+  font-weight: 600;
+}
+
+.prose em, .prose i {
+  font-style: italic;
+}
+
+.prose a {
+  color: #A85C36;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #784528;
+}
+
+.prose ul, .prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin: 0.25em 0;
+}
+
+.prose blockquote {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid #A85C36;
+  font-style: italic;
+}
+
+.prose pre {
+  background: #f3f4f6;
+  padding: 0.5em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.prose code {
+  background: #f3f4f6;
+  padding: 0.125em 0.25em;
+  border-radius: 2px;
+  font-size: 0.875em;
+}
+
+/* LinkedIn email formatting styles */
+.linkedin-email {
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.linkedin-email .linkedin-like {
+  color: #0a66c2;
+  font-weight: 500;
+  margin: 0.5em 0;
+  padding: 0.25em 0;
+}
+
+.linkedin-email .linkedin-share {
+  font-weight: 600;
+  margin: 0.75em 0 0.25em 0;
+  color: #1a1a1a;
+}
+
+.linkedin-email .linkedin-engagement {
+  color: #666;
+  font-size: 0.9em;
+  margin: 0.25em 0;
+  font-weight: 500;
+}
+
+.linkedin-email .linkedin-content {
+  margin: 0.25em 0;
+  line-height: 1.4;
+}
+
+.linkedin-email .linkedin-read-more,
+.linkedin-email .linkedin-see-more {
+  margin: 0.5em 0;
+}
+
+.linkedin-email .linkedin-read-more a,
+.linkedin-email .linkedin-see-more a {
+  color: #0a66c2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.linkedin-email .linkedin-read-more a:hover,
+.linkedin-email .linkedin-see-more a:hover {
+  text-decoration: underline;
+}
+
+.linkedin-email .linkedin-url a {
+  color: #0a66c2;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.linkedin-email .linkedin-url a:hover {
+  text-decoration: underline;
+}
+
+/* Utility email formatting styles */
+.utility-email {
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.utility-email .utility-header {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: #1a1a1a;
+  margin: 0.75em 0 0.5em 0;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.utility-email .utility-key-value {
+  margin: 0.5em 0;
+  padding: 0.25em 0;
+  line-height: 1.4;
+}
+
+.utility-email .utility-key-value strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.utility-email .utility-content {
+  margin: 0.25em 0;
+  line-height: 1.4;
+}
+
+.utility-email .utility-link {
+  margin: 0.5em 0;
+}
+
+.utility-email .utility-link a {
+  color: #0a66c2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.utility-email .utility-link a:hover {
+  text-decoration: underline;
+}
+
+.utility-email a {
+  color: #0a66c2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.utility-email a:hover {
+  text-decoration: underline;
+}
+
+/* Real estate email formatting styles */
+.real-estate-email {
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.real-estate-email .real-estate-status {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: #059669;
+  margin: 0.75em 0 0.5em 0;
+  padding: 0.5em 0;
+}
+
+.real-estate-email .real-estate-address {
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0.5em 0;
+  padding: 0.25em 0;
+  font-size: 1.05em;
+}
+
+.real-estate-email .real-estate-time {
+  color: #6b7280;
+  margin: 0.5em 0;
+  padding: 0.25em 0;
+  font-weight: 500;
+}
+
+.real-estate-email .real-estate-agent {
+  color: #374151;
+  margin: 0.75em 0 0.5em 0;
+  padding: 0.5em 0;
+  border-top: 1px solid #e5e7eb;
+  font-weight: 500;
+}
+
+.real-estate-email .real-estate-action {
+  margin: 0.75em 0;
+  padding: 0.5em 0;
+}
+
+.real-estate-email .real-estate-action a {
+  color: #0a66c2;
+  text-decoration: none;
+  font-weight: 500;
+  margin-right: 1em;
+}
+
+.real-estate-email .real-estate-action a:hover {
+  text-decoration: underline;
+}
+
+.real-estate-email .real-estate-role {
+  color: #6b7280;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+}
+
+.real-estate-email .real-estate-content {
+  margin: 0.25em 0;
+  line-height: 1.4;
+}
+
+.real-estate-email a {
+  color: #0a66c2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.real-estate-email a:hover {
+  text-decoration: underline;
+}
+
+/* Universal Email Formatter Styles */
+.formatted-email {
+  @apply text-sm leading-relaxed;
+}
+
+.formatted-email .email-content {
+  @apply text-gray-700 mb-1;
+}
+
+.formatted-email .email-content strong {
+  @apply text-gray-800 font-medium;
+}
+
+.formatted-email .email-content a {
+  @apply text-blue-600 hover:text-blue-800 underline;
+}
+
+/* Emoji spacing for better readability */
+.formatted-email .email-content:first-child {
+  @apply mb-2;
+}

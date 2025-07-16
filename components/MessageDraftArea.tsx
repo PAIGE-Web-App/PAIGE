@@ -75,6 +75,23 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
 
   return (
     <div className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10" style={{ minHeight: "120px", borderTopWidth: "0.5px" }}>
+      {/* Reply preview bar - positioned at very top */}
+      {replyingToMessage && (
+        <div className="flex items-center bg-[#E0DBD7] border-l-4 border-[#A85C36] px-3 py-2 mb-2 rounded-[10px] mx-3 mt-3">
+          <Reply className="w-4 h-4 text-[#A85C36] mr-2" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-xs text-[#332B42] truncate max-w-[200px]">
+              {`You're replying to ${replyingToMessage.source === 'gmail' ? 'this email' : 'this message'}`}
+            </span>
+            {replyingToMessage.subject && (
+              <span className="text-xs text-gray-700 truncate max-w-[200px]">
+                <span className="font-semibold">Subject:</span> {replyingToMessage.subject}
+              </span>
+            )}
+          </div>
+          <button className="ml-auto text-[#A85C36] hover:text-[#784528]" onClick={clearReply} title="Cancel reply"><X className="w-4 h-4" /></button>
+        </div>
+      )}
       <div className="px-3 pt-3">
         {/* Via selector at the top */}
         <div className="flex items-center gap-2 mb-2">
@@ -150,30 +167,13 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           )}
         </div>
       </div>
-      {/* Reply preview bar */}
-      {replyingToMessage && (
-        <div className="flex items-center bg-[#E0DBD7] border-l-4 border-[#A85C36] px-3 py-2 mb-2 rounded-t-[10px]">
-          <Reply className="w-4 h-4 text-[#A85C36] mr-2" />
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-xs text-[#332B42] truncate max-w-[200px]">
-              {`You replied to ${replyingToMessage.source === 'gmail' ? 'this email' : 'this message'}`}
-            </span>
-            {replyingToMessage.subject && (
-              <span className="text-xs text-gray-700 truncate max-w-[200px]">
-                <span className="font-semibold">Subject:</span> {replyingToMessage.subject}
-              </span>
-            )}
-          </div>
-          <button className="ml-auto text-[#A85C36] hover:text-[#784528]" onClick={clearReply} title="Cancel reply"><X className="w-4 h-4" /></button>
-        </div>
-      )}
       {/* Second row: All action buttons in one row, px-3, left/right aligned */}
       <div className="flex items-center justify-between py-3 px-3 border-t border-[#AB9C95] w-full" style={{ borderTopWidth: "0.5px" }}>
         <div className="flex items-center gap-4">
           <button
             onClick={handleGenerateDraft}
             disabled={draftLoading || isAnimatingOrGenerating}
-            className={`btn-secondary flex items-center gap-2 justify-center relative overflow-hidden transition-all duration-200 rounded-[10px] px-8 py-2 font-semibold text-base border border-[#a85c36] ${isGenerating ? 'generating-btn' : ''}`}
+            className={`btn-gradient-purple-large flex items-center gap-2 justify-center relative overflow-hidden transition-all duration-200 ${isGenerating ? 'generating-btn' : ''}`}
             style={isGenerating ? { pointerEvents: 'none', opacity: 1, color: '#fff' } : {}}
           >
             {isGenerating ? (
@@ -184,7 +184,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
             ) : (
               <>
                 <WandSparkles className="w-4 h-4" />
-                Draft AI Message
+                {replyingToMessage ? 'Draft AI Response' : 'Draft AI Message'}
               </>
             )}
           </button>
