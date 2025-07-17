@@ -1003,9 +1003,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
 
     if (!draggedTodoId) {
-      setDropIndicatorPosition({ id: null, position: null });
-      setDraggedTodoId(null);
-      setDragOverTodoId(null);
+    setDropIndicatorPosition({ id: null, position: null });
+    setDraggedTodoId(null);
+    setDragOverTodoId(null);
       return;
     }
 

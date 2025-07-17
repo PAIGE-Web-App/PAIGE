@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FlagVendorModal from './FlagVendorModal';
 import VendorContactModal from './VendorContactModal';
+import VendorEmailBadge from './VendorEmailBadge';
 
 function getFavorites() {
   if (typeof window === 'undefined') return [];
@@ -156,6 +157,10 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
         {vendor.source && vendor.source.url && (
           <a href={vendor.source.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#A85C36] underline mb-2 block">{vendor.source.name}</a>
         )}
+        
+        {/* Vendor Email Badge */}
+        <VendorEmailBadge placeId={vendor.id} className="mb-2" />
+        
         {/* Price estimate badge */}
         {vendor.estimate && (
           <div className="mt-2 mb-1 px-3 py-1 bg-[#E6EEF6] text-[#364257] text-base font-semibold rounded shadow-sm">

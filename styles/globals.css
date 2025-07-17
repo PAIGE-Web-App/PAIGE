@@ -205,6 +205,34 @@ a {
   transform: none;
 }
 
+.btn-purple-outline {
+  background: transparent;
+  color: #ffffff;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  gap: 8px; /* Equivalent to gap-2 */
+  border: 1px solid #fff;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.btn-purple-outline:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-purple-outline:active {
+  transform: translateY(0);
+}
+
 .icon-button {
   color: #332B42; /* Equivalent to text-[#332B42] */
   font-size: 0.875rem; /* Equivalent to text-sm */

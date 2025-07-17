@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { category, location, nextPageToken, minprice, maxprice, minrating, radius, opennow } = await req.json();
+    const { category, location, searchTerm, nextPageToken, minprice, maxprice, minrating, radius, opennow } = await req.json();
     if (!category || !location) {
       return NextResponse.json({ error: 'Missing category or location' }, { status: 400 });
     }
@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ results: deduped });
     } else {
-      let query = `${category} wedding ${location}`;
-      let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=${encodeURIComponent(category)}`;
+      let query = `${searchTerm} ${location}`;
+      console.log('Google Places API query:', query);
+      let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}`;
       if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
       if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
       if (radius !== undefined) baseUrl += `&radius=${radius}`;

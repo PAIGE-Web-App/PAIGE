@@ -134,6 +134,27 @@ const verifyEmailWithSMTP = async (email: string): Promise<boolean> => {
   });
 };
 
+// Function to get verified vendor emails from global database
+const getVendorEmails = async (placeId: string): Promise<string[]> => {
+  try {
+    const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+    const vendorEmailDoc = await adminDb.collection('vendorEmails').doc(placeId).get();
+    
+    if (vendorEmailDoc.exists) {
+      const data = vendorEmailDoc.data();
+      const emails = data?.emails || [];
+      // Return primary email first, then others
+      const primaryEmail = emails.find((e: any) => e.isPrimary);
+      const otherEmails = emails.filter((e: any) => !e.isPrimary);
+      return [primaryEmail?.email, ...otherEmails.map((e: any) => e.email)].filter(Boolean);
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching vendor emails:', error);
+    return [];
+  }
+};
+
 // Function to save vendor as contact
 const saveVendorAsContact = async (vendor: any, verifiedEmail: string | null, userId: string) => {
   try {
@@ -190,7 +211,8 @@ const saveVendorAsContact = async (vendor: any, verifiedEmail: string | null, us
       address: vendor.formatted_address || null,
       priceLevel: vendor.price_level || null,
       contactedAt: new Date().toISOString(),
-      lastContactMethod: verifiedEmail ? 'email' : 'website'
+      lastContactMethod: verifiedEmail ? 'email' : 'website',
+      isVendorContact: true
     };
     
     // Save to Firestore
@@ -320,8 +342,20 @@ export async function POST(req: NextRequest) {
     
     for (const vendor of vendorDetails) {
       try {
-        // Verify and get vendor email
-        const vendorEmail = await verifyVendorEmail(vendor);
+        // First, check for verified emails in global database
+        const verifiedEmails = await getVendorEmails(vendor.place_id);
+        let vendorEmail: string | null = null;
+        let emailSource = '';
+
+        if (verifiedEmails.length > 0) {
+          // Use verified email from global database
+          vendorEmail = verifiedEmails[0]; // Use primary email
+          emailSource = 'crowdsourced';
+        } else {
+          // Fallback to SMTP verification
+          vendorEmail = await verifyVendorEmail(vendor);
+          emailSource = 'smtp';
+        }
         
         if (vendorEmail) {
           // Send email via Gmail
@@ -353,7 +387,8 @@ export async function POST(req: NextRequest) {
             success: true,
             messageId: sentMessage.data.id,
             verified: true,
-            contactSaved: !!savedContact
+            contactSaved: !!savedContact,
+            emailSource: emailSource
           });
         } else {
           // Fallback: open website contact form

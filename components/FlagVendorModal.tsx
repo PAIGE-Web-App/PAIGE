@@ -69,7 +69,7 @@ const FlagVendorModal: React.FC<FlagVendorModalProps> = ({
           </button>
 
                   <h5 className="h5 mb-4 text-center">
-          Flag Vendor
+            Flag Vendor
         </h5>
 
           <div className="w-full mb-4">

@@ -98,22 +98,23 @@ Best regards,
 
       const data = await response.json();
       
-      if (data.success) {
-        const result = data.results[0];
-        if (result.method === 'email') {
-          const contactMessage = result.contactSaved ? ' and added to your contacts!' : '';
-          showSuccessToast(`✅ Email sent successfully to ${vendor.name}! (Verified: ${result.email})${contactMessage}`);
-        } else if (result.method === 'website') {
-          const contactMessage = result.contactSaved ? ' and added to your contacts!' : '';
-          showSuccessToast(`🌐 No verified email found - opening website for manual contact${contactMessage}`);
-          if (vendorDetails?.website) {
-            window.open(vendorDetails.website, '_blank');
+              if (data.success) {
+          const result = data.results[0];
+          if (result.method === 'email') {
+            const contactMessage = result.contactSaved ? ' and added to your contacts!' : '';
+            const emailSource = result.emailSource === 'crowdsourced' ? ' (Community verified)' : ' (SMTP verified)';
+            showSuccessToast(`✅ Email sent successfully to ${vendor.name}!${emailSource}${contactMessage}`);
+          } else if (result.method === 'website') {
+            const contactMessage = result.contactSaved ? ' and added to your contacts!' : '';
+            showSuccessToast(`🌐 No verified email found - opening website for manual contact${contactMessage}`);
+            if (vendorDetails?.website) {
+              window.open(vendorDetails.website, '_blank');
+            }
           }
+          onClose();
+        } else {
+          showErrorToast(data.error || 'Failed to send email');
         }
-        onClose();
-      } else {
-        showErrorToast(data.error || 'Failed to send email');
-      }
     } catch (error) {
       console.error('Error sending email:', error);
       showErrorToast('Failed to send email. Please try again.');
