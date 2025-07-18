@@ -21,6 +21,23 @@ a {
   text-decoration: underline;
 }
 
+/* Accent color utilities */
+.accent-color {
+  color: #A85C36;
+}
+
+.accent-color-hover:hover {
+  color: #784528;
+}
+
+.accent-bg {
+  background-color: #A85C36;
+}
+
+.accent-border {
+  border-color: #A85C36;
+}
+
 .fade-out {
   opacity: 0;
   transition: opacity 0.2s ease-out;
@@ -35,6 +52,11 @@ a {
   padding: 4px 12px; /* Updated padding */
   border-radius: 5px;
   gap: 8px; /* Equivalent to gap-2 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
 }
 
 .btn-primary:disabled {
@@ -51,6 +73,17 @@ a {
   padding: 4px 12px; /* Updated padding */
   border-radius: 5px;
   gap: 8px; /* Equivalent to gap-2 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #332B42;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primaryinverse:hover {
+  background: #F3F2F0;
 }
 
 .btn-primaryinverse-large {

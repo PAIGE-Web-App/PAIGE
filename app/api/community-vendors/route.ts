@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
       vendorCategory, 
       userId,
       selectedAsVenue = false,
-      selectedAsVendor = false
+      selectedAsVendor = false,
+      isFavorite = false
     } = await req.json();
 
     if (!placeId || !vendorName || !userId) {
@@ -55,10 +56,12 @@ export async function POST(req: NextRequest) {
         vendorName,
         vendorAddress: vendorAddress || '',
         vendorCategory: vendorCategory || 'Vendor',
-        totalSelections: 1,
+        totalSelections: selectedAsVendor ? 1 : 0,
         venueSelections: selectedAsVenue ? 1 : 0,
         vendorSelections: selectedAsVendor ? 1 : 0,
-        selectedBy: [userId],
+        totalFavorites: isFavorite ? 1 : 0,
+        favoritedBy: isFavorite ? [userId] : [],
+        selectedBy: selectedAsVendor ? [userId] : [],
         lastSelectedAt: now,
         createdAt: now,
         createdBy: userId
@@ -73,27 +76,37 @@ export async function POST(req: NextRequest) {
       }
       
       const selectedBy = existingData.selectedBy || [];
+      const favoritedBy = existingData.favoritedBy || [];
       
-      // Only increment if this user hasn't selected this vendor before
-      if (!selectedBy.includes(userId)) {
-        const updatedData = {
-          totalSelections: (existingData.totalSelections || 0) + 1,
-          venueSelections: (existingData.venueSelections || 0) + (selectedAsVenue ? 1 : 0),
-          vendorSelections: (existingData.vendorSelections || 0) + (selectedAsVendor ? 1 : 0),
-          selectedBy: [...selectedBy, userId],
-          lastSelectedAt: now,
-          vendorName: vendorName || existingData.vendorName,
-          vendorAddress: vendorAddress || existingData.vendorAddress,
-          vendorCategory: vendorCategory || existingData.vendorCategory
-        };
+      let updatedData: any = {
+        vendorName: vendorName || existingData.vendorName,
+        vendorAddress: vendorAddress || existingData.vendorAddress,
+        vendorCategory: vendorCategory || existingData.vendorCategory
+      };
 
-        await vendorRef.update(updatedData);
-      } else {
-        // User has already selected this vendor, just update the timestamp
-        await vendorRef.update({
-          lastSelectedAt: now
-        });
+      // Handle vendor selections
+      if (selectedAsVendor && !selectedBy.includes(userId)) {
+        updatedData.totalSelections = (existingData.totalSelections || 0) + 1;
+        updatedData.vendorSelections = (existingData.vendorSelections || 0) + 1;
+        updatedData.selectedBy = [...selectedBy, userId];
+        updatedData.lastSelectedAt = now;
       }
+
+      // Handle venue selections
+      if (selectedAsVenue) {
+        updatedData.venueSelections = (existingData.venueSelections || 0) + 1;
+      }
+
+      // Handle favorites
+      if (isFavorite && !favoritedBy.includes(userId)) {
+        updatedData.totalFavorites = (existingData.totalFavorites || 0) + 1;
+        updatedData.favoritedBy = [...favoritedBy, userId];
+      } else if (!isFavorite && favoritedBy.includes(userId)) {
+        updatedData.totalFavorites = Math.max((existingData.totalFavorites || 0) - 1, 0);
+        updatedData.favoritedBy = favoritedBy.filter(id => id !== userId);
+      }
+
+      await vendorRef.update(updatedData);
     }
 
     return NextResponse.json({ 

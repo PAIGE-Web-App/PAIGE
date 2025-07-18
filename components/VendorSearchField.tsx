@@ -50,7 +50,7 @@ export default function VendorSearchField({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            category: categories[0] || 'establishment', // Use first category or fallback to establishment
+            categories: categories, // Pass all categories
             location,
             searchTerm: term,
             maxResults: 5
@@ -88,7 +88,7 @@ export default function VendorSearchField({
     if (searchTerm) {
       debouncedSearch(searchTerm);
     }
-  }, [location, JSON.stringify(categories)]);
+  }, [location, categories]); // Remove JSON.stringify to properly detect changes
 
   useEffect(() => {
     console.log('VendorSearchField: value prop received:', value);
@@ -200,25 +200,46 @@ export default function VendorSearchField({
   const getVendorCategory = (vendor: any): string => {
     if (vendor.types && Array.isArray(vendor.types)) {
       const typeToCategory: Record<string, string> = {
-        'florist': 'Florist',
+        // Jewelry & Accessories
         'jewelry_store': 'Jewelry',
-        'bakery': 'Bakery',
-        'restaurant': 'Reception Venue',
-        'hair_care': 'Hair & Beauty',
-        'photographer': 'Photographer',
-        'videographer': 'Videographer',
-        'clothing_store': 'Bridal Salon',
+        
+        // Flowers & Decor
+        'florist': 'Florist',
+        
+        // Food & Beverage
+        'bakery': 'Baker',
+        'caterer': 'Caterer',
+        
+        // Venues
+        'restaurant': 'Venue',
+        
+        // Beauty & Styling
+        'hair_care': 'Hair Stylist',
         'beauty_salon': 'Beauty Salon',
         'spa': 'Spa',
-        'dj': 'DJ',
-        'band': 'Band',
-        'wedding_planner': 'Wedding Planner',
-        'caterer': 'Catering',
-        'car_rental': 'Car Rental',
-        'travel_agency': 'Travel Agency',
-        'officiant': 'Officiant',
-        'suit_rental': 'Suit/Tux Rental',
         'makeup_artist': 'Makeup Artist',
+        
+        // Photography & Video
+        'photographer': 'Photographer',
+        'videographer': 'Videographer',
+        
+        // Attire
+        'clothing_store': 'Dress Shop',
+        'suit_rental': 'Suit/Tux Rental',
+        
+        // Entertainment
+        'dj': 'DJ',
+        'band': 'Musician',
+        
+        // Planning & Services
+        'wedding_planner': 'Wedding Planner',
+        'officiant': 'Officiant',
+        'travel_agency': 'Travel Agency',
+        
+        // Transportation
+        'car_rental': 'Transportation',
+        
+        // Supplies & Extras
         'stationery': 'Stationery',
         'rentals': 'Rentals',
         'favors': 'Favors'

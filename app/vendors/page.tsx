@@ -341,7 +341,7 @@ export default function VendorsPage() {
                         {contact.placeId && (
                           <button
                             type="button"
-                            onClick={() => router.push(`/vendors/catalog/${contact.placeId}`)}
+                            onClick={() => router.push(`/vendors/${contact.placeId}`)}
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
                             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -357,7 +357,7 @@ export default function VendorsPage() {
                         items={[
                           ...(contact.placeId ? [{
                             label: 'View Details',
-                            onClick: () => router.push(`/vendors/catalog/${contact.placeId}`),
+                            onClick: () => router.push(`/vendors/${contact.placeId}`),
                             className: '',
                           }] : []),
                           {

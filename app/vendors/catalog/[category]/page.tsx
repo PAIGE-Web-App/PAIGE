@@ -1,14 +1,21 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, useParams } from 'next/navigation';
+import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import VendorCatalogFilters from '@/components/VendorCatalogFilters';
 import BulkContactModal from '@/components/BulkContactModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash.debounce';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { Search, X } from 'lucide-react';
+
+import Breadcrumb from '@/components/Breadcrumb';
+import VendorSearchBar from '@/components/VendorSearchBar';
+import VendorCatalogHeader from '@/components/VendorCatalogHeader';
+import VendorCatalogToolbar from '@/components/VendorCatalogToolbar';
+import BulkContactBanner from '@/components/BulkContactBanner';
+import WeddingBanner from '@/components/WeddingBanner';
+import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -51,16 +58,23 @@ const MOCK_VENDORS = Array.from({ length: 6 }).map((_, i) => ({
 // Skeleton card for loading state
 function VendorCatalogCardSkeleton() {
   return (
-    <div className="bg-white border rounded-[5px] p-4 flex flex-col items-start relative animate-pulse">
+    <div className="bg-white border rounded-[5px] p-4 flex flex-col items-start relative animate-pulse h-full min-h-[400px]">
       <div className="w-full h-32 bg-[#F3F2F0] rounded mb-2 flex items-center justify-center">
         <div className="h-20 w-20 bg-gray-200 rounded" />
       </div>
-      <div className="h-3 bg-gray-200 rounded w-2/3 mb-2" />
-      <div className="h-3 bg-gray-200 rounded w-1/3 mb-2" />
-      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-      <div className="h-3 bg-gray-100 rounded w-1/4 mb-2" />
-      <div className="h-3 bg-gray-100 rounded w-1/2 mb-4" />
-      <div className="h-8 bg-gray-200 rounded w-full mt-auto" />
+      <div className="flex-1 w-full flex flex-col justify-between">
+        <div>
+          <div className="h-3 bg-gray-200 rounded w-2/3 mb-2" />
+          <div className="h-3 bg-gray-200 rounded w-1/3 mb-2" />
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+          <div className="h-3 bg-gray-100 rounded w-1/4 mb-2" />
+          <div className="h-3 bg-gray-100 rounded w-1/2 mb-4" />
+        </div>
+      </div>
+      <div className="flex gap-2 w-full mt-auto">
+        <div className="h-8 bg-gray-200 rounded flex-1" />
+        <div className="h-8 bg-gray-200 rounded flex-1" />
+      </div>
     </div>
   );
 }
@@ -127,12 +141,15 @@ function SuggestVenueModal({ open, onClose, categoryLabel }) {
 }
 
 const VendorCategoryPage: React.FC = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { category = "" } = useParams() as { category: string };
   const location = searchParams?.get('location') || '';
   const categoryObj = CATEGORIES.find(cat => cat.value === category);
   const categoryLabel = categoryObj ? categoryObj.label : category;
   const categorySingular = categoryObj ? categoryObj.singular : category;
+  
+  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -457,146 +474,55 @@ const VendorCategoryPage: React.FC = () => {
 
   
   return (
-    <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
-      <nav className="flex items-center text-xs text-[#A85C36] mb-4" aria-label="Breadcrumb">
-        <a href="/vendors/catalog" className="hover:underline">Vendor Search</a>
-        <span className="mx-2 text-[#AB9C95]">/</span>
-        <span className="text-[#332B42] font-medium">{categoryLabel}</span>
-      </nav>
-      <h2 className="text-2xl font-playfair font-medium text-[#332B42] mb-2">
-        {isSearching 
-          ? `Searching for "${searchTerm}"...`
-          : searchResults.length > 0
-            ? `Search results for "${searchTerm}" (${searchResults.length} found)`
-            : searchTerm && !isSearching
-              ? `No results found for "${searchTerm}"`
-              : loading 
-                ? `Loading ${categoryLabel}...`
-                : vendors.length > 0
-                  ? nextPageToken && vendors.length === 20
-                    ? `20+ ${categoryLabel} in ${location || 'All Locations'}`
-                    : `${vendors.length} ${categoryLabel} in ${location || 'All Locations'}`
-                  : error
-                    ? `No ${categoryLabel} found`
-                    : `${categoryLabel} in ${location || 'All Locations'}`
-        }
-      </h2>
+    <div className="min-h-screen bg-linen">
+      <WeddingBanner
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={bannerLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
+      <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
+      <Breadcrumb
+        items={[
+          { label: 'Vendor Search', href: '/vendors/catalog' },
+          { label: location ? `${categoryLabel} in ${location}` : categoryLabel, isCurrent: true }
+        ]}
+      />
+      <VendorCatalogHeader
+        isSearching={isSearching}
+        searchTerm={searchTerm}
+        searchResults={searchResults}
+        loading={loading}
+        vendors={vendors}
+        nextPageToken={nextPageToken}
+        error={error}
+        categoryLabel={categoryLabel}
+        location={location}
+      />
       
-      {/* Filters, Search Bar, and Action Buttons in one row */}
-      <div className="flex items-center justify-between mb-4 gap-2 w-full">
-        {/* Filters on the left */}
-        <VendorCatalogFilters category={category} filterValues={{...apiFilterValues, ...clientFilterValues}} onChange={handleFilterChange} vendors={vendors} />
-        
-        {/* Search Bar in the middle */}
-        <div className={`relative flex-1 max-w-md ${searchResults.length > 0 ? 'bg-blue-50 p-2 rounded-lg border border-blue-200' : ''}`}>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder={`Search for specific ${categorySingular.toLowerCase()}...`}
-              className="w-full border border-[#AB9C95] px-4 py-1 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] pl-10 pr-10 h-8"
-            />
-            {searchTerm && (
-              <button
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-              </button>
-            )}
-          </div>
-          {searchTerm && (
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-gray-600">
-                {isSearching 
-                  ? 'Searching...' 
-                  : searchResults.length > 0 
-                    ? `Found ${searchResults.length} results` 
-                    : 'No results found. Try a different search term.'
-                }
-              </p>
-              {searchResults.length > 0 && (
-                <button 
-                  onClick={clearSearch}
-                  className="text-xs text-[#A85C36] hover:underline"
-                >
-                  Back to all {categoryLabel.toLowerCase()}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {/* Action buttons on the right */}
-        <div className="flex gap-2 flex-shrink-0">
-          <button
-            className={`flex items-center gap-2 ${
-              bulkContactMode 
-                ? 'btn-primary bg-[#A85C36] text-white' 
-                : 'btn-gradient-purple'
-            }`}
-            onClick={handleBulkContactToggle}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {!bulkContactMode && (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0L9.937 15.5Z" />
-              </svg>
-            )}
-            {bulkContactMode ? 'Cancel Bulk Contact' : 'Bulk Contact with AI'}
-          </button>
-          <button
-            className="btn-primaryinverse flex-shrink-0"
-            onClick={() => setShowSuggestModal(true)}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            Suggest a {categorySingular}
-          </button>
-        </div>
-      </div>
+      <VendorCatalogToolbar
+        category={category}
+        filterValues={{...apiFilterValues, ...clientFilterValues}}
+        onFilterChange={handleFilterChange}
+        vendors={vendors}
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        onClearSearch={clearSearch}
+        isSearching={isSearching}
+        searchResults={searchResults}
+        categorySingular={categorySingular}
+        bulkContactMode={bulkContactMode}
+        onBulkContactToggle={handleBulkContactToggle}
+        onSuggestVendor={() => setShowSuggestModal(true)}
+      />
       <SuggestVenueModal open={showSuggestModal} onClose={() => setShowSuggestModal(false)} categoryLabel={categorySingular} />
       {error && <div className="text-center text-red-500 py-8">{error}</div>}
       
-      {/* Bulk contact info banner */}
-      <AnimatePresence>
-        {bulkContactMode && (
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -20, opacity: 0 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 300, 
-              damping: 30,
-              duration: 0.3
-            }}
-          >
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-lg shadow-lg mb-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0L9.937 15.5Z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h5 className="font-semibold text-sm mb-1 text-white">Bulk Contact with AI</h5>
-                  <p className="text-sm opacity-90 text-white">
-                    Select the vendors you'd like to message all at once using AI! Once you've selected your vendors, click the Contact Vendors in Bulk button in the footer below to get in touch with multiple vendors efficiently and save time on your wedding planning.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <BulkContactBanner isVisible={bulkContactMode} />
       
 
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
         {isSearching
           ? Array.from({ length: 4 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />)
           : loading
@@ -627,16 +553,16 @@ const VendorCategoryPage: React.FC = () => {
                 }
                 
                 return (
-                  <div key={vendorId || `vendor-${idx}`}>
-                    <VendorCatalogCard
-                      vendor={vendor}
-                      onContact={() => {}}
-                      onFlagged={handleVendorFlagged}
-                      bulkContactMode={bulkContactMode}
-                      isSelected={selectedVendors.includes(vendor.id)}
-                      onSelectionChange={handleVendorSelection}
-                    />
-                  </div>
+                  <VendorCatalogCard
+                    key={vendorId || `vendor-${idx}`}
+                    vendor={vendor}
+                    onContact={() => {}}
+                    onFlagged={handleVendorFlagged}
+                    bulkContactMode={bulkContactMode}
+                    isSelected={selectedVendors.includes(vendor.id)}
+                    onSelectionChange={handleVendorSelection}
+                    location={location}
+                  />
                 );
               })
             : <div className="col-span-full text-center text-gray-500 py-8">
@@ -706,7 +632,7 @@ const VendorCategoryPage: React.FC = () => {
                   disabled={selectedVendors.length === 0}
                   style={{ minWidth: '220px' }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0L9.937 15.5Z" />
                   </svg>
                   Contact {selectedVendors.length} Vendor{selectedVendors.length !== 1 ? 's' : ''} in Bulk
@@ -728,6 +654,7 @@ const VendorCategoryPage: React.FC = () => {
           handleBulkContactComplete();
         }}
       />
+      </div>
     </div>
   );
 };
