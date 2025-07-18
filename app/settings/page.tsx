@@ -12,6 +12,7 @@ import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 // Import our new components
 import ProfileTabs, { TABS } from "./components/ProfileTabs";
 import { useProfileForm } from "./hooks/useProfileForm";
+import VendorEmailFlagReviewModal from "../../components/VendorEmailFlagReviewModal";
 
 // Lazy load tab components - only load when needed
 const AccountTab = dynamic(() => import("./components/AccountTab"), {
@@ -46,6 +47,7 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [jiggleWeddingDate, setJiggleWeddingDate] = useState(false);
+  const [showFlagReview, setShowFlagReview] = useState(false);
 
   useEffect(() => {
     if (searchParams?.get('highlight') === 'weddingDate' && activeTab === 'wedding') {
@@ -195,6 +197,19 @@ export default function ProfilePage() {
           )}
           
           {activeTab === "notifications" && <NotificationsTab />}
+          
+          {/* Admin Section */}
+          {user?.email === 'daveyoon@gmail.com' && (
+            <div className="mt-8 bg-white rounded-lg p-6 border border-[#AB9C95]">
+              <h4 className="text-lg font-medium text-[#332B42] mb-4">Admin Tools</h4>
+              <button
+                onClick={() => setShowFlagReview(true)}
+                className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+              >
+                Review Flagged Vendor Emails
+              </button>
+            </div>
+          )}
         </div>
       </div>
       
@@ -207,6 +222,12 @@ export default function ProfilePage() {
         }}
         title="Are you sure you want to do that?"
         message="Disconnecting or changing your Gmail will cause synced contacts and imported emails from Google to stop syncing and will not allow you to send emails anymore. This will NOT change your login method or email."
+      />
+      
+      {/* Flag Review Modal */}
+      <VendorEmailFlagReviewModal
+        isOpen={showFlagReview}
+        onClose={() => setShowFlagReview(false)}
       />
     </>
   );

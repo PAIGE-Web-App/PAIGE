@@ -12,7 +12,7 @@ import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { useCustomToast } from "../hooks/useCustomToast"; // Import useCustomToast
 import VendorSearchField from "./VendorSearchField";
-import Image from "next/image";
+import ContactModalBase from "./ContactModalBase";
 import { useUserProfileData } from "../hooks/useUserProfileData";
 
 // Moved outside the component
@@ -41,6 +41,7 @@ const VENDOR_CATEGORIES = [
   'restaurant',
   'hair_care',
   'photographer',
+  'videographer',
   'clothing_store',
   'beauty_salon',
   'spa',
@@ -50,6 +51,12 @@ const VENDOR_CATEGORIES = [
   'caterer',
   'car_rental',
   'travel_agency',
+  'officiant',
+  'suit_rental',
+  'makeup_artist',
+  'stationery',
+  'rentals',
+  'favors',
 ];
 
 
@@ -58,7 +65,6 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
     name: "",
     email: "",
     phone: "",
-    channel: "",
     category: "",
     website: "",
   });
@@ -71,10 +77,65 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { showSuccessToast, showErrorToast } = useCustomToast(); // Initialize useCustomToast
   
+  // Get relevant categories based on contact category
+  const getRelevantCategories = (contactCategory: string): string[] => {
+    // If no category is selected, search across all wedding vendor categories
+    if (!contactCategory || contactCategory === '') {
+      return VENDOR_CATEGORIES;
+    }
+
+    // If category is selected, map to specific Google Places types
+    const categoryToGoogleTypes: Record<string, string[]> = {
+      'Jewelry': ['jewelry_store'],
+      'Florist': ['florist'],
+      'Bakery': ['bakery'],
+      'Reception Venue': ['restaurant'],
+      'Hair & Beauty': ['hair_care', 'beauty_salon'],
+      'Photographer': ['photographer'],
+      'Videographer': ['videographer'],
+      'Bridal Salon': ['clothing_store'],
+      'Beauty Salon': ['beauty_salon'],
+      'Spa': ['spa'],
+      'DJ': ['dj'],
+      'Band': ['band'],
+      'Wedding Planner': ['wedding_planner'],
+      'Catering': ['caterer'],
+      'Car Rental': ['car_rental'],
+      'Travel Agency': ['travel_agency'],
+      'Officiant': ['officiant'],
+      'Suit/Tux Rental': ['suit_rental'],
+      'Makeup Artist': ['makeup_artist'],
+      'Stationery': ['stationery'],
+      'Rentals': ['rentals'],
+      'Favors': ['favors']
+    };
+
+    // Get the relevant Google Places types for this category
+    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
+    
+    // If we have specific types, use them; otherwise fall back to all categories
+    return relevantTypes.length > 0 ? relevantTypes : VENDOR_CATEGORIES;
+  };
+  
   // Vendor association state
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
   const { weddingLocation } = useUserProfileData();
   const [geoLocation, setGeoLocation] = useState<string | null>(null);
+
+  // Handle vendor selection and auto-populate fields
+  const handleVendorSelect = (vendor: any) => {
+    setSelectedVendor(vendor);
+    
+    // Auto-populate website if available and not already filled
+    if (vendor.website && !formData.website) {
+      setFormData(prev => ({ ...prev, website: vendor.website }));
+    }
+    
+    // Auto-populate phone if available and not already filled
+    if (vendor.formatted_phone_number && !formData.phone) {
+      setFormData(prev => ({ ...prev, phone: vendor.formatted_phone_number }));
+    }
+  };
 
 
   useEffect(() => {
@@ -175,7 +236,6 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
       name: formData.name.trim(),
       email: formData.email.trim() || null,
       phone: formData.phone.trim() || null,
-      channel: formData.channel.trim() || null,
       category: finalCategory,
       website: formData.website.trim() || null,
       avatarColor: avatarColor,
@@ -198,120 +258,12 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   };
 
   return (
-    <>
-      <div className="bg-white rounded-[5px] p-6 w-full max-w-md md:w-[400px] relative max-h-[90vh] overflow-y-auto"> {/* Adjusted width and added max-height/overflow */}
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-          title="Close"
-        >
-          <X size={20} />
-        </button>
-        <h2 className="text-lg font-playfair text-[#332B42] mb-4">Add New Contact</h2>
-
-
-        <div className="flex flex-col items-center mb-4">
-          <div
-            className="w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-normal"
-            style={{ backgroundColor: isMounted && avatarColor ? avatarColor : "#364257" }}
-          >
-            {formData.name.trim()
-              ? formData.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()
-              : "🙂"}
-          </div>
-
-          {formData.category && formData.category !== "" && (
-            <div className="mt-3">
-              <CategoryPill category={formData.category === "Other" ? customCategory.trim() : formData.category} />
-            </div>
-          )}
-        </div>
-
-
-        <div className="space-y-2">
-          <FormField
-            label="Name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Enter name"
-            error={errors.name}
-          />
-
-          <FormField
-            label="Email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter email"
-            error={errors.email}
-          />
-
-          <FormField
-            label="Phone Number"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            placeholder="Enter phone number"
-            error={errors.phone}
-          />
-          <FormField
-            label="Website"
-            name="website"
-            value={formData.website}
-            onChange={handleChange}
-            placeholder="Enter website"
-          />
-
-          <FormField
-            label="Channel"
-            name="channel"
-            value={formData.channel}
-            onChange={handleChange}
-            placeholder="e.g., Instagram"
-          />
-
-          <CategorySelectField
-            className="mt-4 mb-6"
-            userId={userId}
-            value={formData.category}
-            customCategoryValue={customCategory}
-            onChange={handleChange}
-            onCustomCategoryChange={handleCustomCategoryChange}
-            error={errors.category}
-            customCategoryError={errors.customCategory}
-            label="Category"
-            placeholder="Select a Category"
-          />
-
-          {/* Inline Vendor Search */}
-          {(formData.email || formData.phone) && (
-            <div className="mt-6">
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-[#332B42]">Link to Vendor (Optional)</span>
-                <VendorSearchField
-                  value={selectedVendor}
-                  onChange={setSelectedVendor}
-                  onClear={() => setSelectedVendor(null)}
-                  placeholder="Search for Vendor on Google"
-                  disabled={false}
-                  categories={VENDOR_CATEGORIES}
-                  location={vendorSearchLocation}
-                />
-                <p className="text-xs text-gray-600 mt-2">
-                  Share contact info so others can reach this vendor when Google doesn't have it
-                </p>
-              </label>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 mt-6">
+    <ContactModalBase
+      isOpen={true}
+      onClose={onClose}
+      title="Add New Contact"
+      footer={
+        <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
             className="btn-primaryinverse"
@@ -325,10 +277,107 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
             Submit
           </button>
         </div>
+      }
+    >
+      <div className="flex flex-col items-center mb-4">
+        <div
+          className="w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-normal"
+          style={{ backgroundColor: isMounted && avatarColor ? avatarColor : "#364257" }}
+        >
+          {formData.name.trim()
+            ? formData.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()
+            : "🙂"}
+        </div>
+
+        {formData.category && formData.category !== "" && (
+          <div className="mt-3">
+            <CategoryPill category={formData.category === "Other" ? customCategory.trim() : formData.category} />
+          </div>
+        )}
       </div>
 
-      {/* Vendor Association Drawer */}
-      {/* The VendorAssociationDrawer component is no longer used as the search field is inline */}
-    </>
+      <div className="space-y-2">
+        <FormField
+          label="Name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter name"
+          error={errors.name}
+        />
+
+        <FormField
+          label="Email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="Enter email"
+          error={errors.email}
+        />
+
+        <CategorySelectField
+          className="mt-4"
+          userId={userId}
+          value={formData.category}
+          customCategoryValue={customCategory}
+          onChange={handleChange}
+          onCustomCategoryChange={handleCustomCategoryChange}
+          error={errors.category}
+          customCategoryError={errors.customCategory}
+          label="Category"
+          placeholder="Select a Category"
+        />
+
+        {/* Inline Vendor Search */}
+        {(formData.email || formData.phone) && (
+          <div className="mt-4">
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-[#332B42]">Link to Vendor (Optional)</span>
+              <VendorSearchField
+                value={selectedVendor}
+                onChange={handleVendorSelect}
+                onClear={() => setSelectedVendor(null)}
+                placeholder={formData.category ? `Search for ${formData.category} vendors...` : "Search for any wedding vendor..."}
+                disabled={false}
+                categories={getRelevantCategories(formData.category)}
+                location={vendorSearchLocation}
+              />
+              <p className="text-xs text-gray-600 mt-2">
+                {formData.category 
+                  ? `Searching within ${formData.category} category. Clear category to search all vendors.`
+                  : "Searching across all wedding vendor categories. Select a category to narrow your search."
+                }
+                {selectedVendor && (
+                  <span className="block mt-1 text-green-600">
+                    ✓ Website and phone info auto-populated from Google
+                  </span>
+                )}
+              </p>
+            </label>
+          </div>
+        )}
+
+        <FormField
+          label="Phone Number"
+          name="phone"
+          value={formData.phone}
+          onChange={handleChange}
+          placeholder="Enter phone number"
+          error={errors.phone}
+        />
+        <FormField
+          label="Website"
+          name="website"
+          value={formData.website}
+          onChange={handleChange}
+          placeholder="Enter website"
+        />
+      </div>
+    </ContactModalBase>
   );
 }

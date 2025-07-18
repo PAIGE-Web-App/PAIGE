@@ -11,6 +11,7 @@ import { db, getUserCollectionRef } from "../lib/firebase";
 import { useCustomToast } from "../hooks/useCustomToast"; // Make sure this path is correct relative to MessageArea.tsx
 import { AnimatePresence, motion } from "framer-motion";
 import { Contact } from "../types/contact";
+import { Message } from "../types/message";
 import MessageListArea from './MessageListArea';
 import MessageDraftArea from './MessageDraftArea';
 import Banner from "./Banner";
@@ -23,23 +24,6 @@ import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 
 
 // Define interfaces for types needed in this component
-interface Message {
-  id: string;
-  subject: string;
-  body: string;
-  timestamp: string;
-  from: string;
-  to: string;
-  source: 'gmail' | 'manual';
-  isRead: boolean;
-  gmailMessageId?: string;
-  threadId?: string;
-  userId: string;
-  attachments?: { name: string }[];
-  direction: 'sent' | 'received';
-  parentMessageId?: string;
-  messageIdHeader?: string;
-}
 
 interface MessageAreaProps {
   selectedContact: Contact | null;
@@ -519,6 +503,35 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         gmailMessageId = data.gmailRes?.id;
         threadId = data.gmailRes?.threadId;
       }
+      
+      // Handle in-app messaging
+      if (selectedChannel === 'InApp') {
+        // For in-app messages, we don't send via external APIs
+        // Just save to Firestore and potentially send notifications
+        const inAppMessageId = `inapp-${Date.now()}`;
+        
+        // Send notification to the contact (only for in-app messages)
+        try {
+          await fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: currentUser.uid,
+              contactId: selectedContact.id,
+              messageId: inAppMessageId,
+              messageBody: input,
+              contactName: selectedContact.name,
+              messageSource: 'inapp' // Only send notifications for in-app messages
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to send notification:', error);
+          // Don't fail the message send if notification fails
+        }
+        
+        showSuccessToast('In-app message sent!');
+      }
+      
       // Always save to Firestore for local display
       const path = `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`;
       const optimisticId = `optimistic-${Date.now()}`;
@@ -529,7 +542,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         timestamp: new Date().toLocaleString(),
         from: userEmail,
         to: selectedContact.email || '',
-        source: (replyingToMessage && replyingToMessage.source === 'gmail') || selectedChannel === 'Gmail' ? 'gmail' : 'manual',
+        source: (replyingToMessage && replyingToMessage.source === 'gmail') || selectedChannel === 'Gmail' ? 'gmail' : 'inapp',
         isRead: true,
         userId: currentUser.uid,
         ...(replyingToMessage && { parentMessageId: replyingToMessage.id }),
@@ -537,6 +550,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...(selectedFiles.length > 0 && { attachments: selectedFiles.map(f => ({ name: f.name })) }),
         ...(gmailMessageId && { gmailMessageId }),
         ...(threadId && { threadId }),
+        ...(selectedChannel === 'InApp' && { inAppMessageId: `inapp-${Date.now()}` }),
       };
       dispatch({ type: 'SET_MESSAGES', payload: [...(state.messages || []), optimisticMessage] });
       const messageData = {

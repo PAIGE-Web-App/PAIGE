@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { Mail, Star, User, CheckCircle, Phone, Settings } from 'lucide-react';
+import type { VendorEmail } from '@/types/contact';
+import VendorEmailManagementModal from './VendorEmailManagementModal';
 
 interface VendorContactModalProps {
   vendor: any;
@@ -14,6 +17,10 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
   const [loading, setLoading] = useState(false);
   const [emailMessage, setEmailMessage] = useState('');
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [verifiedEmails, setVerifiedEmails] = useState<VendorEmail[]>([]);
+  const [linkedContactEmails, setLinkedContactEmails] = useState<any[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [showEmailManagement, setShowEmailManagement] = useState(false);
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
 
@@ -21,8 +28,61 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
     if (isOpen && vendor?.id) {
       fetchVendorDetails();
       generateEmailTemplate();
+      fetchVerifiedEmails();
     }
   }, [isOpen, vendor?.id]);
+
+  const fetchVerifiedEmails = async () => {
+    if (!vendor?.id) return;
+    
+    setLoadingEmails(true);
+    try {
+      console.log('Fetching verified emails for vendor:', vendor.id);
+      
+      // Fetch global verified emails
+      const response = await fetch(`/api/vendor-emails?placeId=${vendor.id}`);
+      const data = await response.json();
+      
+      console.log('Verified emails response:', data);
+      
+      if (data.emails) {
+        console.log('Raw verified emails data:', data.emails);
+        // Filter out any emails with empty email addresses
+        const validEmails = data.emails.filter(email => email && email.email && email.email.trim() !== '');
+        console.log('Filtered verified emails:', validEmails);
+        setVerifiedEmails(validEmails);
+      } else {
+        console.log('No verified emails found for this vendor');
+      }
+
+      // Fetch linked contact emails
+      if (user?.uid) {
+        const contactsResponse = await fetch(`/api/contacts?userId=${user.uid}&placeId=${vendor.id}`);
+        const contactsData = await contactsResponse.json();
+        
+        if (contactsData.contacts) {
+          console.log('Raw linked contacts data:', contactsData.contacts);
+          const linkedContacts = contactsData.contacts.filter((contact: any) => {
+            const isValid = contact && 
+              contact.placeId === vendor.id && 
+              (contact.email || contact.phone) &&
+              (contact.id || contact.name); // Ensure we have a valid identifier
+            
+            if (!isValid) {
+              console.log('Filtered out contact:', contact, 'reason: missing required fields');
+            }
+            return isValid;
+          });
+          console.log('Filtered linked contacts:', linkedContacts);
+          setLinkedContactEmails(linkedContacts);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching verified emails:', error);
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
 
   const fetchVendorDetails = async () => {
     setLoading(true);
@@ -157,10 +217,17 @@ Best regards,
     // You could add a toast notification here
   };
 
+  // Helper function to generate unique keys
+  const generateUniqueKey = (prefix: string, item: any, index: number) => {
+    const identifier = item?.email || item?.id || item?.name || `item-${index}`;
+    return `${prefix}-${identifier}-${index}`;
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="vendor-contact-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -193,13 +260,163 @@ Best regards,
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Verified Emails Section */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="text-lg font-medium text-[#332B42] mb-3 flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      Available Contact Information
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      {loadingEmails ? (
+                        <div key="loading-emails" className="flex items-center justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                          <span className="ml-2 text-sm text-gray-600">Loading contact information...</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Global Verified Emails */}
+                          {verifiedEmails && verifiedEmails.length > 0 && (
+                            <div className="mb-4">
+                              <h5 className="text-sm font-medium text-green-800 mb-2">Community Verified Emails</h5>
+                              {verifiedEmails.map((email, index) => (
+                                <div key={generateUniqueKey('global', email, index)} className="bg-white border border-green-200 rounded-lg p-3 mb-2">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Mail className="w-4 h-4 text-green-600" />
+                                        <span className="font-medium text-gray-900">{email.email}</span>
+                                        {email.isPrimary && (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                            <Star className="w-3 h-3" />
+                                            Primary
+                                          </span>
+                                        )}
+                                      </div>
+                                      {email.contactName && (
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <User className="w-3 h-3 text-gray-500" />
+                                          <span className="text-sm text-gray-600">{email.contactName}</span>
+                                        </div>
+                                      )}
+                                      {email.role && (
+                                        <p className="text-sm text-gray-600">{email.role}</p>
+                                      )}
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        Verified by community • {new Date(email.verifiedAt).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        const emailWithVerified = `To: ${email.email}\r\nSubject: Wedding Inquiry - ${vendor?.name}\r\n\r\n${emailMessage}`;
+                                        navigator.clipboard.writeText(emailWithVerified);
+                                        showSuccessToast('Email template copied with verified address!');
+                                      }}
+                                      className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                                    >
+                                      Use This Email
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Linked Contact Emails */}
+                          {linkedContactEmails && linkedContactEmails.length > 0 && (
+                            <div className="mb-4">
+                              <h5 className="text-sm font-medium text-blue-800 mb-2">Your Linked Contacts</h5>
+                              {linkedContactEmails.map((contact, index) => (
+                                <div key={generateUniqueKey('linked', contact, index)} className="bg-white border border-blue-200 rounded-lg p-3 mb-2">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <User className="w-4 h-4 text-blue-600" />
+                                        <span className="font-medium text-gray-900">{contact.name}</span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                          Your Contact
+                                        </span>
+                                      </div>
+                                      {contact.email && (
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <Mail className="w-3 h-3 text-gray-500" />
+                                          <span className="text-sm text-gray-600">{contact.email}</span>
+                                        </div>
+                                      )}
+                                      {contact.phone && (
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <Phone className="w-3 h-3 text-gray-500" />
+                                          <span className="text-sm text-gray-600">{contact.phone}</span>
+                                        </div>
+                                      )}
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        Linked from your contacts • {contact.category}
+                                      </p>
+                                    </div>
+                                    {contact.email && (
+                                      <button
+                                        onClick={() => {
+                                          const emailWithContact = `To: ${contact.email}\r\nSubject: Wedding Inquiry - ${vendor?.name}\r\n\r\n${emailMessage}`;
+                                          navigator.clipboard.writeText(emailWithContact);
+                                          showSuccessToast('Email template copied with contact address!');
+                                        }}
+                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                                      >
+                                        Use This Email
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* No emails found */}
+                          {(!verifiedEmails || verifiedEmails.length === 0) && (!linkedContactEmails || linkedContactEmails.length === 0) && (
+                            <div className="text-center py-4 bg-white border border-green-200 rounded-lg">
+                              <Mail className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-sm text-gray-600">No contact information found for this vendor</p>
+                              <p className="text-xs text-gray-500 mt-1">Link this vendor to a contact or add a verified email!</p>
+                              <button
+                                onClick={() => {
+                                  // TODO: Open vendor email association modal
+                                  showSuccessToast('Vendor email association feature coming soon!');
+                                }}
+                                className="mt-2 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                              >
+                                Add Verified Email
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Info text and Manage button */}
+                          {((verifiedEmails && verifiedEmails.length > 0) || (linkedContactEmails && linkedContactEmails.length > 0)) && (
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-green-700 bg-green-100 p-2 rounded flex-1">
+                                <strong>Contact Information:</strong> Community verified emails are shared by other users. Your linked contacts are from contacts you've associated with this vendor.
+                              </p>
+                              <button
+                                onClick={() => setShowEmailManagement(true)}
+                                className="ml-2 px-3 py-2 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
+                                title="Manage vendor emails"
+                              >
+                                <Settings className="w-3 h-3" />
+                                Manage
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Email Section - Primary Focus */}
                   <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
                     <h4 className="text-lg font-medium text-[#332B42] mb-3 flex items-center gap-2">
                       <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      Email Contact (Recommended)
+                      Email Contact (Fallback)
                     </h4>
                     
                     <div className="space-y-3">
@@ -307,7 +524,7 @@ Best regards,
                   {/* Note about contact information */}
                   <div className="bg-[#F3F2F0] rounded-lg p-3">
                     <p className="text-xs text-[#AB9C95]">
-                      <strong>Note:</strong> Since Google Places doesn't provide email addresses, we recommend using the email template above or visiting the vendor's website contact form for the most direct communication.
+                      <strong>Note:</strong> Community verified emails are the most reliable way to reach vendors. If no verified emails are available, we recommend using the email template above or visiting the vendor's website contact form.
                     </p>
                   </div>
                 </div>
@@ -316,6 +533,15 @@ Best regards,
           </motion.div>
         </motion.div>
       )}
+
+      {/* Email Management Modal */}
+      <VendorEmailManagementModal
+        key="email-management-modal"
+        isOpen={showEmailManagement}
+        onClose={() => setShowEmailManagement(false)}
+        vendor={vendor}
+        onEmailsUpdated={fetchVerifiedEmails}
+      />
     </AnimatePresence>
   );
 } 

@@ -176,9 +176,10 @@ export default function VendorEmailAssociationModal({
         'florist': 'Florist',
         'jewelry_store': 'Jewelry',
         'bakery': 'Bakery',
-        'restaurant': 'Venue',
+        'restaurant': 'Reception Venue',
         'hair_care': 'Hair & Beauty',
         'photographer': 'Photographer',
+        'videographer': 'Videographer',
         'clothing_store': 'Bridal Salon',
         'beauty_salon': 'Beauty Salon',
         'spa': 'Spa',
@@ -186,8 +187,14 @@ export default function VendorEmailAssociationModal({
         'band': 'Band',
         'wedding_planner': 'Wedding Planner',
         'caterer': 'Catering',
-        'car_rental': 'Transportation',
-        'travel_agency': 'Travel'
+        'car_rental': 'Car Rental',
+        'travel_agency': 'Travel Agency',
+        'officiant': 'Officiant',
+        'suit_rental': 'Suit/Tux Rental',
+        'makeup_artist': 'Makeup Artist',
+        'stationery': 'Stationery',
+        'rentals': 'Rentals',
+        'favors': 'Favors'
       };
       
       for (const type of vendor.types) {

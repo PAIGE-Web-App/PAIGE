@@ -8,7 +8,6 @@ export interface Contact {
   avatarColor: string;
   userId: string;
   orderIndex?: number;
-  channel: string | null;
   isOfficial?: boolean;
   // New fields for vendor association
   placeId?: string | null; // Google Places ID for vendor association

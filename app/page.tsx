@@ -41,6 +41,7 @@ import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import type { TodoItem } from '../types/todo';
 import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
+import { SimpleMessage } from "../types/message";
 import ContactsList from '../components/ContactsList';
 import MessagesPanel from '../components/MessagesPanel';
 import { handleLogout } from '../utils/logout';
@@ -50,16 +51,7 @@ declare const __app_id: string;
 declare const __firebase_config: string;
 declare const __initial_auth_token: string | undefined;
 
-interface Message {
-  id: string;
-  via: string;
-  timestamp: string;
-  body: string;
-  contactId: string;
-  createdAt: Date;
-  userId: string;
-  attachments?: { name: string; }[];
-}
+// Using SimpleMessage from shared types
 
 interface RightDashboardPanelProps {
   currentUser: User;
@@ -253,7 +245,7 @@ export default function Home() {
       })
     : null;
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<SimpleMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
@@ -380,8 +372,11 @@ export default function Home() {
             avatarColor: data.avatarColor,
             userId: data.userId,
             orderIndex: data.orderIndex !== undefined ? data.orderIndex : index,
-            channel: data.channel || null,
             isOfficial: data.isOfficial || false,
+            // Add vendor association fields
+            placeId: data.placeId || null,
+            isVendorContact: data.isVendorContact || false,
+            vendorEmails: data.vendorEmails || [],
           };
         });
         setContacts(fetchedContacts);
@@ -517,7 +512,7 @@ export default function Home() {
 
     const attachmentsToStore = selectedFiles.map(file => ({ name: file.name }));
 
-    const newMessage: Message = {
+    const newMessage: SimpleMessage = {
       id: uuidv4(),
       via: selectedChannel,
       timestamp: new Date().toLocaleTimeString([], {
@@ -746,9 +741,18 @@ export default function Home() {
       
       // Update user document
       if (user) {
+        // Convert selected channels to notification preferences
+        const notificationPreferences = {
+          sms: selectedChannelsFromModal.includes('SMS'),
+          email: selectedChannelsFromModal.includes('Gmail'), // Gmail integration enables email notifications
+          push: selectedChannelsFromModal.includes('Push'),
+          inApp: selectedChannelsFromModal.includes('InApp')
+        };
+
         await updateDoc(doc(db, "users", user.uid), {
           onboarded: true,
-          selectedChannels: selectedChannelsFromModal
+          selectedChannels: selectedChannelsFromModal,
+          notificationPreferences
         });
       }
       

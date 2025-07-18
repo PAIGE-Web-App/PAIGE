@@ -24,8 +24,11 @@ export const getAllContacts = async (userId: string) => {
       avatarColor: data.avatarColor ?? null,
       userId: data.userId,
       orderIndex: data.orderIndex,
-      channel: data.channel,
       isOfficial: data.isOfficial,
+      // Add vendor association fields
+      placeId: data.placeId ?? null,
+      isVendorContact: data.isVendorContact ?? false,
+      vendorEmails: data.vendorEmails ?? [],
     };
   }) as Contact[];
 };

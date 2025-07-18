@@ -35,19 +35,22 @@ export default function VendorSearchField({
   // Debounced search function
   const debouncedSearch = useRef(
     debounce(async (term: string) => {
+      console.log('VendorSearchField: Debounced search triggered with term:', term);
       if (!term.trim() || term.length < 2) {
+        console.log('VendorSearchField: Search term too short, clearing results');
         setResults([]);
         setLoading(false);
         return;
       }
 
+      console.log('VendorSearchField: Making API call with categories:', categories, 'location:', location);
       setLoading(true);
       try {
         const response = await fetch('/api/google-places', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            category: 'establishment', // Use establishment to search for any business
+            category: categories[0] || 'establishment', // Use first category or fallback to establishment
             location,
             searchTerm: term,
             maxResults: 5
@@ -55,14 +58,16 @@ export default function VendorSearchField({
         });
 
         const data = await response.json();
-        console.log('Vendor search response:', data);
+        console.log('VendorSearchField: Search API response:', data);
         if (data.results) {
+          console.log('VendorSearchField: Setting results:', data.results.length, 'vendors');
           setResults(data.results);
         } else {
+          console.log('VendorSearchField: No results in response');
           setResults([]);
         }
       } catch (error) {
-        console.error('Error searching vendors:', error);
+        console.error('VendorSearchField: Error searching vendors:', error);
         setResults([]);
       } finally {
         setLoading(false);
@@ -86,11 +91,17 @@ export default function VendorSearchField({
   }, [location, JSON.stringify(categories)]);
 
   useEffect(() => {
+    console.log('VendorSearchField: value prop received:', value);
+    console.log('VendorSearchField: current searchTerm:', searchTerm);
+    console.log('VendorSearchField: current vendorSelected:', vendorSelected);
+    
     // Set initial search term if value is provided
     if (value?.name && !searchTerm) {
+      console.log('VendorSearchField: Setting search term and marking as selected');
       setSearchTerm(value.name);
+      setVendorSelected(true); // Mark as selected when pre-populated
     }
-  }, [value]);
+  }, [value, searchTerm]);
 
   // Position dropdown using portal
   useEffect(() => {
@@ -108,6 +119,7 @@ export default function VendorSearchField({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
+    console.log('VendorSearchField: Input changed to:', term);
     setSearchTerm(term);
     setShowResults(true);
     setSelectedIndex(-1);
@@ -118,8 +130,29 @@ export default function VendorSearchField({
     }
   };
 
-  const handleVendorSelect = (vendor: any) => {
-    onChange(vendor);
+  const handleVendorSelect = async (vendor: any) => {
+    // Fetch additional details including website
+    try {
+      const response = await fetch(`/api/google-place-details?placeId=${vendor.place_id}`);
+      const details = await response.json();
+      
+      if (details.result) {
+        // Merge the details with the vendor data
+        const enrichedVendor = {
+          ...vendor,
+          website: details.result.website || vendor.website,
+          formatted_phone_number: details.result.formatted_phone_number || vendor.formatted_phone_number,
+          international_phone_number: details.result.international_phone_number || vendor.international_phone_number
+        };
+        onChange(enrichedVendor);
+      } else {
+        onChange(vendor);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor details:', error);
+      onChange(vendor);
+    }
+    
     setSearchTerm(vendor.name);
     setShowResults(false);
     setResults([]);
@@ -170,9 +203,10 @@ export default function VendorSearchField({
         'florist': 'Florist',
         'jewelry_store': 'Jewelry',
         'bakery': 'Bakery',
-        'restaurant': 'Venue',
+        'restaurant': 'Reception Venue',
         'hair_care': 'Hair & Beauty',
         'photographer': 'Photographer',
+        'videographer': 'Videographer',
         'clothing_store': 'Bridal Salon',
         'beauty_salon': 'Beauty Salon',
         'spa': 'Spa',
@@ -180,8 +214,14 @@ export default function VendorSearchField({
         'band': 'Band',
         'wedding_planner': 'Wedding Planner',
         'caterer': 'Catering',
-        'car_rental': 'Transportation',
-        'travel_agency': 'Travel'
+        'car_rental': 'Car Rental',
+        'travel_agency': 'Travel Agency',
+        'officiant': 'Officiant',
+        'suit_rental': 'Suit/Tux Rental',
+        'makeup_artist': 'Makeup Artist',
+        'stationery': 'Stationery',
+        'rentals': 'Rentals',
+        'favors': 'Favors'
       };
       
       for (const type of vendor.types) {
@@ -195,6 +235,7 @@ export default function VendorSearchField({
 
   return (
     <div className="relative">
+      {console.log('VendorSearchField: Rendering search field with searchTerm:', searchTerm, 'showResults:', showResults, 'results.length:', results.length)}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
@@ -206,6 +247,7 @@ export default function VendorSearchField({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={() => {
+            console.log('VendorSearchField: Input focused, vendorSelected:', vendorSelected);
             if (!vendorSelected) {
               setShowResults(true);
             }
@@ -280,10 +322,13 @@ export default function VendorSearchField({
       )}
 
       {/* Selected Vendor Display */}
-      {value && vendorSelected && (
+      {(() => {
+        console.log('VendorSearchField: Checking selected vendor display:', { value: !!value, vendorSelected, shouldShow: value && vendorSelected });
+        return value && vendorSelected;
+      })() && (
         <div className="mt-4 p-4 bg-white rounded-lg border border-[#AB9C95] overflow-hidden">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-playfair text-[#332B42]">Selected Vendor</h4>
+            <h4 className="text-sm font-playfair text-[#332B42]">{value.name}</h4>
             <button
               type="button"
               onClick={() => {
@@ -298,7 +343,6 @@ export default function VendorSearchField({
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <h6 className="text-[#3322]">{value.name}</h6>
               <p className="text-sm text-[#364257] mb-1">{value.formatted_address}</p>
               {value.rating && (
                 <div className="flex items-center gap-1">
@@ -309,16 +353,28 @@ export default function VendorSearchField({
                   )}
                 </div>
               )}
-              {value.url && (
-                <a
-                  href={value.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs hover:opacity-80"
-                >
-                  View on Google Maps
-                </a>
-              )}
+              <div className="flex gap-2 mt-2">
+                {value.website && (
+                  <a
+                    href={value.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Visit Website
+                  </a>
+                )}
+                {value.url && (
+                  <a
+                    href={value.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-600 hover:underline"
+                  >
+                    View on Google Maps
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>

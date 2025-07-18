@@ -26,45 +26,79 @@ export function useUserProfileData() {
   const [budgetRange, setBudgetRange] = useState<{ min: number; max: number } | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  // Notification preferences
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<{
+    sms: boolean;
+    email: boolean;
+    push: boolean;
+    inApp: boolean;
+  }>({
+    sms: false,
+    email: false,
+    push: false,
+    inApp: false
+  });
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUserName(data.userName || null);
-        setPartnerName(data.partnerName || null);
-        setGuestCount(data.guestCount || null);
-        setBudget(data.budget || null);
-        setCityState(data.cityState || null);
-        setStyle(data.style || null);
+      
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserName(data.userName || null);
+          setPartnerName(data.partnerName || null);
+          setGuestCount(data.guestCount || null);
+          setBudget(data.budget || null);
+          setCityState(data.cityState || null);
+          setStyle(data.style || null);
 
-        // Additional onboarding fields
-        setWeddingLocation(data.weddingLocation || null);
-        setWeddingLocationUndecided(data.weddingLocationUndecided || false);
-        setHasVenue(data.hasVenue || null);
-        setSelectedVenueMetadata(data.selectedVenueMetadata || null);
-        setVibe(data.vibe || []);
-        setVibeInputMethod(data.vibeInputMethod || 'pills');
-        setGeneratedVibes(data.generatedVibes || []);
-        setBudgetRange(data.budgetRange || null);
-        // Note: imagePreview is not stored in Firestore due to size limits
+          // Additional onboarding fields
+          setWeddingLocation(data.weddingLocation || null);
+          setWeddingLocationUndecided(data.weddingLocationUndecided || false);
+          setHasVenue(data.hasVenue || null);
+          setSelectedVenueMetadata(data.selectedVenueMetadata || null);
+          setVibe(data.vibe || []);
+          setVibeInputMethod(data.vibeInputMethod || 'pills');
+          setGeneratedVibes(data.generatedVibes || []);
+          setBudgetRange(data.budgetRange || null);
+          // Note: imagePreview is not stored in Firestore due to size limits
 
-        if (data.weddingDate?.seconds) {
-          const date = new Date(data.weddingDate.seconds * 1000);
-          setWeddingDate(date);
-          const today = new Date();
-          const diffTime = date.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysLeft(diffDays);
-        } else {
-          setWeddingDate(null);
-          setDaysLeft(null);
+          // Notification preferences
+          setPhoneNumber(data.phoneNumber || null);
+          setNotificationPreferences({
+            sms: data.notificationPreferences?.sms || false,
+            email: data.notificationPreferences?.email || false,
+            push: data.notificationPreferences?.push || false,
+            inApp: data.notificationPreferences?.inApp || false
+          });
+
+          if (data.weddingDate?.seconds) {
+            const date = new Date(data.weddingDate.seconds * 1000);
+            setWeddingDate(date);
+            const today = new Date();
+            const diffTime = date.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setDaysLeft(diffDays);
+          } else {
+            setWeddingDate(null);
+            setDaysLeft(null);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching user profile data:', error);
+      } finally {
+        setProfileLoading(false);
       }
-      setProfileLoading(false);
     };
-    if (!authLoading) fetchUserData();
+    
+    if (!authLoading && user) {
+      fetchUserData();
+    } else if (!authLoading && !user) {
+      setProfileLoading(false);
+    }
   }, [user, authLoading]);
 
   return { 
@@ -85,6 +119,9 @@ export function useUserProfileData() {
     vibe,
     vibeInputMethod,
     generatedVibes,
-    budgetRange
+    budgetRange,
+    // Notification preferences
+    phoneNumber,
+    notificationPreferences
   };
 } 

@@ -14,6 +14,7 @@ const CATEGORIES = [
   { value: 'restaurant', label: 'Reception Venues' },
   { value: 'hair_care', label: 'Hair & Beauty' },
   { value: 'photographer', label: 'Photographers' },
+  { value: 'videographer', label: 'Videographers' },
   { value: 'clothing_store', label: 'Bridal Salons' },
   { value: 'beauty_salon', label: 'Beauty Salons' },
   { value: 'spa', label: 'Spas' },
@@ -23,7 +24,12 @@ const CATEGORIES = [
   { value: 'caterer', label: 'Catering' },
   { value: 'car_rental', label: 'Car Rentals' },
   { value: 'travel_agency', label: 'Travel Agencies' },
-  // Add or remove as needed for your app
+  { value: 'officiant', label: 'Officiants' },
+  { value: 'suit_rental', label: 'Suit & Tux Rentals' },
+  { value: 'makeup_artist', label: 'Makeup Artists' },
+  { value: 'stationery', label: 'Stationery & Invitations' },
+  { value: 'rentals', label: 'Event Rentals' },
+  { value: 'favors', label: 'Wedding Favors' },
 ];
 
 export default function VendorCatalogPage() {

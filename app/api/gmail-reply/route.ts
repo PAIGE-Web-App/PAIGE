@@ -3,13 +3,31 @@ import { google } from 'googleapis';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
+  // Add Paige footer to the email body
+  const paigeFooter = `
+
+---
+Sent via Paige - Your Wedding Planning Assistant
+View full conversation and manage your wedding planning at https://paige.app`;
+  
+  const htmlFooter = `
+<br><br>
+<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+<p style="color: #666; font-size: 12px; margin: 0;">
+  Sent via <strong>Paige</strong> - Your Wedding Planning Assistant<br>
+  <a href="https://paige.app" style="color: #A85C36; text-decoration: none;">View full conversation and manage your wedding planning</a>
+</p>`;
+  
+  const bodyWithFooter = body + paigeFooter;
+  const htmlBody = body.replace(/\n/g, '<br>') + htmlFooter;
+  
   let boundary = '----=_Part_' + Math.random().toString(36).substring(2, 15);
   let headers = [
     `To: ${to}`,
     `From: ${from}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ];
   if (inReplyTo) headers.push(`In-Reply-To: <${inReplyTo}>`);
   if (references) headers.push(`References: <${references}>`);
@@ -19,14 +37,42 @@ function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attach
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 7bit',
     '',
-    body,
+    bodyWithFooter,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    `<html><body>${htmlBody}</body></html>`,
     '',
   ];
 
+  // If there are attachments, we need to wrap everything in a multipart/mixed
   if (attachments && attachments.length > 0) {
+    const mixedBoundary = '----=_Part_' + Math.random().toString(36).substring(2, 15);
+    const mixedHeaders = [
+      `To: ${to}`,
+      `From: ${from}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    ];
+    if (inReplyTo) mixedHeaders.push(`In-Reply-To: <${inReplyTo}>`);
+    if (references) mixedHeaders.push(`References: <${references}>`);
+
+    let mixedParts = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      ...messageParts,
+      `--${boundary}--`,
+      '',
+    ];
+
+    // Add attachments
     for (const att of attachments) {
-      messageParts.push(
-        `--${boundary}`,
+      mixedParts.push(
+        `--${mixedBoundary}`,
         `Content-Type: ${att.type}; name="${att.name}"`,
         'Content-Transfer-Encoding: base64',
         `Content-Disposition: attachment; filename="${att.name}"`,
@@ -35,7 +81,10 @@ function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attach
         ''
       );
     }
+    mixedParts.push(`--${mixedBoundary}--`, '');
+    return mixedHeaders.join('\r\n') + '\r\n\r\n' + mixedParts.join('\r\n');
   }
+
   messageParts.push(`--${boundary}--`, '');
   return headers.join('\r\n') + '\r\n\r\n' + messageParts.join('\r\n');
 }

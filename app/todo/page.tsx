@@ -94,8 +94,8 @@ export default function TodoPage() {
     }
   };
 
-  // Only show content when both loading is complete AND minimum time has passed
-  const isLoading = profileLoading;
+  // Only show content when profile loading is complete
+  const isLoading = profileLoading || loading;
 
   const { handleSetWeddingDate } = useWeddingBanner(router);
 
@@ -140,14 +140,35 @@ export default function TodoPage() {
   }, []);
 
   // Compute categories for the current selected list's to-do items, filtering out ID-like categories
-  const idLikeCategory = (cat) => typeof cat === 'string' && /^[a-zA-Z0-9]{15,}$/.test(cat);
+  const idLikeCategory = React.useCallback((cat) => typeof cat === 'string' && /^[a-zA-Z0-9]{15,}$/.test(cat), []);
   const categoriesForCurrentList = React.useMemo(() => {
     const items = todoLists.selectedList && todoLists.selectedList.id
       ? todoItems.todoItems.filter(item => item.listId === todoLists.selectedList?.id)
       : todoItems.todoItems;
     const cats = Array.from(new Set(items.map(item => item.category).filter(cat => typeof cat === 'string' && cat && !idLikeCategory(cat))));
     return cats as string[];
-  }, [todoLists.selectedList, todoItems.todoItems]);
+  }, [todoLists.selectedList, todoItems.todoItems, idLikeCategory]);
+
+  // Compute calendar events - must be before any early returns
+  const calendarEvents = React.useMemo(() => {
+    const events = [...viewOptions.filteredTodoItems];
+    if (weddingDate) {
+      events.push({
+        id: 'wedding-date-event',
+        name: 'Wedding Day 🎉',
+        deadline: weddingDate,
+        startDate: weddingDate,
+        endDate: weddingDate,
+        category: 'Wedding',
+        isCompleted: false,
+        userId: user?.uid || 'wedding',
+        createdAt: weddingDate,
+        orderIndex: -1,
+        listId: 'wedding',
+      });
+    }
+    return events;
+  }, [viewOptions.filteredTodoItems, weddingDate, user?.uid]);
 
   if (loading) {
     return (
@@ -168,25 +189,6 @@ export default function TodoPage() {
   // If not loading and no user, just return null (middleware will redirect)
   if (!user) {
     return null;
-  }
-
-  const calendarEvents = [
-    ...viewOptions.filteredTodoItems,
-  ];
-  if (weddingDate) {
-    calendarEvents.push({
-      id: 'wedding-date-event',
-      name: 'Wedding Day 🎉',
-      deadline: weddingDate,
-      startDate: weddingDate,
-      endDate: weddingDate,
-      category: 'Wedding',
-      isCompleted: false,
-      userId: user?.uid || 'wedding',
-      createdAt: weddingDate,
-      orderIndex: -1,
-      listId: 'wedding',
-    });
   }
 
   const handleCalendarEventClick = (event) => {

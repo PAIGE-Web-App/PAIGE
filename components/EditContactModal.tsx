@@ -12,6 +12,9 @@ import Banner from './Banner'; // NEW: Import the Banner component
 import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
 import { Contact } from "../types/contact";
 import CategoryPill from "./CategoryPill"; // ADD THIS LINE
+import VendorSearchField from "./VendorSearchField"; // ADD THIS LINE
+import ContactModalBase from "./ContactModalBase";
+import { useUserProfileData } from "../hooks/useUserProfileData"; // ADD THIS LINE
 
 
 interface EditContactModalProps {
@@ -44,7 +47,6 @@ export default function EditContactModal({
     phone: contact.phone || "",
     category: contact.category || "",
     website: contact.website || "",
-    channel: contact.channel || "", // Initialize channel
     avatarColor: (contact.avatarColor && typeof contact.avatarColor === 'string') ? contact.avatarColor : '#364257',
     userId: userId,
     orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
@@ -58,16 +60,80 @@ export default function EditContactModal({
   const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
+  
+  // Get relevant categories based on contact category
+  const getRelevantCategories = (contactCategory: string): string[] => {
+    // If no category is selected, search across all wedding vendor categories
+    if (!contactCategory || contactCategory === '') {
+      return ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+    }
+
+    // If category is selected, map to specific Google Places types
+    const categoryToGoogleTypes: Record<string, string[]> = {
+      'Jewelry': ['jewelry_store'],
+      'Florist': ['florist'],
+      'Bakery': ['bakery'],
+      'Reception Venue': ['restaurant'],
+      'Hair & Beauty': ['hair_care', 'beauty_salon'],
+      'Photographer': ['photographer'],
+      'Videographer': ['videographer'],
+      'Bridal Salon': ['clothing_store'],
+      'Beauty Salon': ['beauty_salon'],
+      'Spa': ['spa'],
+      'DJ': ['dj'],
+      'Band': ['band'],
+      'Wedding Planner': ['wedding_planner'],
+      'Catering': ['caterer'],
+      'Car Rental': ['car_rental'],
+      'Travel Agency': ['travel_agency'],
+      'Officiant': ['officiant'],
+      'Suit/Tux Rental': ['suit_rental'],
+      'Makeup Artist': ['makeup_artist'],
+      'Stationery': ['stationery'],
+      'Rentals': ['rentals'],
+      'Favors': ['favors']
+    };
+
+    // Get the relevant Google Places types for this category
+    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
+    
+    // If we have specific types, use them; otherwise fall back to all categories
+    return relevantTypes.length > 0 ? relevantTypes : ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+  };
+  
+  // Vendor association state
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
+  const [isLoadingVendor, setIsLoadingVendor] = useState(false);
+  const { weddingLocation } = useUserProfileData();
+  const [geoLocation, setGeoLocation] = useState<string | null>(null);
+
+  // Handle vendor selection and auto-populate fields
+  const handleVendorSelect = (vendor: any) => {
+    setSelectedVendor(vendor);
+    
+    // Auto-populate website if available and not already filled
+    if (vendor.website && !formData.website) {
+      setFormData(prev => ({ ...prev, website: vendor.website }));
+    }
+    
+    // Auto-populate phone if available and not already filled
+    if (vendor.formatted_phone_number && !formData.phone) {
+      setFormData(prev => ({ ...prev, phone: vendor.formatted_phone_number }));
+    }
+  };
  
 
   useEffect(() => {
+    console.log('EditContactModal: Contact data received:', contact);
+    console.log('EditContactModal: Contact placeId:', contact.placeId);
+    console.log('EditContactModal: Full contact object:', JSON.stringify(contact, null, 2));
+    
     setFormData({
       name: contact.name || "",
       email: contact.email || "",
       phone: contact.phone || "",
       category: contact.category || "",
       website: contact.website || "",
-      channel: contact.channel || "", // Update channel on contact change
       avatarColor: (contact.avatarColor && typeof contact.avatarColor === 'string') ? contact.avatarColor : '#364257',
       userId: userId,
       orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
@@ -79,7 +145,66 @@ export default function EditContactModal({
     );
     setErrors({});
     setConfirmDelete(false);
+    
+    // Pre-populate vendor if contact already has a placeId
+    if (contact.placeId) {
+      console.log('EditContactModal: Contact has placeId, fetching vendor details');
+      setIsLoadingVendor(true);
+      fetchVendorDetails(contact.placeId);
+    } else {
+      console.log('EditContactModal: Contact has no placeId');
+    }
   }, [contact, userId]);
+
+  const fetchVendorDetails = async (placeId: string) => {
+    try {
+      console.log('Fetching vendor details for placeId:', placeId);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const fetchPromise = fetch(`/api/google-place-details?placeId=${placeId}`);
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      const data = await response.json();
+      
+      console.log('Vendor details response:', data);
+      if (data.status === 'OK' && data.result) {
+        setSelectedVendor(data.result);
+        console.log('Set selected vendor:', data.result);
+      } else {
+        console.error('Failed to fetch vendor details:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor details:', error);
+      // Show error toast if needed
+      showErrorToast('Failed to load vendor details. You can still search for vendors.');
+    } finally {
+      setIsLoadingVendor(false);
+    }
+  };
+
+  // Location detection for vendor search
+  useEffect(() => {
+    if (!weddingLocation && !geoLocation) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const { latitude, longitude } = position.coords;
+          // Use a reverse geocoding API to get city/state from lat/lng
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          const city = data.address.city || data.address.town || data.address.village || '';
+          const state = data.address.state || '';
+          setGeoLocation(`${city}${city && state ? ', ' : ''}${state}` || 'United States');
+        }, () => setGeoLocation('United States'));
+      } else {
+        setGeoLocation('United States');
+      }
+    }
+  }, [weddingLocation, geoLocation]);
+
+  const vendorSearchLocation = weddingLocation || geoLocation || 'United States';
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -150,10 +275,12 @@ export default function EditContactModal({
       phone: formData.phone.trim() ? formData.phone.trim() : null,
       category: categoryToSave,
       website: formData.website.trim() ? formData.website.trim() : null,
-      channel: formData.channel.trim() ? formData.channel.trim() : null, // Include channel in updated contact
       avatarColor: formData.avatarColor || '#364257',
       orderIndex: formData.orderIndex,
       userId: formData.userId,
+      // Update vendor association if a new vendor was selected
+      placeId: selectedVendor?.place_id || contact.placeId || null,
+      isVendorContact: !!selectedVendor || contact.isVendorContact || false,
     };
 
     try {
@@ -167,10 +294,11 @@ export default function EditContactModal({
         phone: updatedContact.phone,
         category: updatedContact.category,
         website: updatedContact.website,
-        channel: updatedContact.channel,
         avatarColor: updatedContact.avatarColor,
         orderIndex: updatedContact.orderIndex,
         userId: updatedContact.userId,
+        placeId: updatedContact.placeId,
+        isVendorContact: updatedContact.isVendorContact,
       };
       
       // Only include isOfficial if it's defined
@@ -179,6 +307,8 @@ export default function EditContactModal({
       }
       
       await updateDoc(contactRef, updateData);
+      console.log('EditContactModal: Contact saved with placeId:', updatedContact.placeId);
+      console.log('EditContactModal: Updated contact data:', updatedContact);
       onSave(updatedContact);
       showSuccessToast("Contact updated successfully!"); // USE CUSTOM TOAST
       onClose();
@@ -214,15 +344,38 @@ export default function EditContactModal({
   };
 
   return (
-    <div className="bg-white rounded-[5px] p-6 w-full max-w-md md:w-[400px] relative max-h-[90vh] overflow-y-auto font-work"> {/* Adjusted width and added max-height/overflow */}
-      <button
-        onClick={onClose}
-        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-        title="Close"
-      >
-        <X size={20} />
-      </button>
-      <h2 className="text-lg font-playfair text-[#332B42] mb-2">Edit Contact</h2>
+    <ContactModalBase
+      isOpen={true}
+      onClose={onClose}
+      title="Edit Contact"
+      footer={
+        <div className="flex justify-between items-center gap-2">
+          <button
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+              } else {
+                handleDelete();
+              }
+            }}
+            className={`px-4 py-2 text-sm rounded-[5px] border ${
+              confirmDelete
+                ? "bg-red-600 text-white"
+                : "border-red-600 text-red-600 bg-white"
+            }`}
+          >
+            {confirmDelete ? "Confirm Deletion" : "Delete"}
+          </button>
+
+          <button
+            onClick={handleSubmit}
+            className="btn-primary"
+          >
+            Save
+          </button>
+        </div>
+      }
+    >
       <div className="flex flex-col items-center mb-4">
         <div
           className="h-8 w-8 flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
@@ -267,6 +420,54 @@ export default function EditContactModal({
           error={errors.email}
         />
 
+        <CategorySelectField
+          userId={userId}
+          value={formData.category}
+          customCategoryValue={customCategory}
+          onChange={handleChange}
+          onCustomCategoryChange={handleCustomCategoryChange}
+          error={errors.category}
+          customCategoryError={errors.customCategory}
+          label="Category"
+          placeholder="Select a Category"
+        />
+
+        {/* Vendor Association Section */}
+        {(formData.email || formData.phone) && (
+          <div className="mt-4">
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-[#332B42]">Link to Vendor (Optional)</span>
+              {isLoadingVendor ? (
+                <div className="flex items-center gap-2 p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
+                  <span className="text-sm text-gray-600">Loading linked vendor...</span>
+                </div>
+              ) : (
+                <VendorSearchField
+                  value={selectedVendor}
+                  onChange={handleVendorSelect}
+                  onClear={() => setSelectedVendor(null)}
+                  placeholder={formData.category ? `Search for ${formData.category} vendors...` : "Search for any wedding vendor..."}
+                  disabled={false}
+                  categories={getRelevantCategories(formData.category)}
+                  location={vendorSearchLocation}
+                />
+              )}
+              <p className="text-xs text-gray-600 mt-2">
+                {formData.category 
+                  ? `Searching within ${formData.category} category. Clear category to search all vendors.`
+                  : "Searching across all wedding vendor categories. Select a category to narrow your search."
+                }
+                {selectedVendor && (
+                  <span className="block mt-1 text-green-600">
+                    ✓ Website and phone info auto-populated from Google
+                  </span>
+                )}
+              </p>
+            </label>
+          </div>
+        )}
+
         <FormField
           label="Phone Number"
           name="phone"
@@ -282,53 +483,7 @@ export default function EditContactModal({
           onChange={handleChange}
           placeholder="Enter website"
         />
-
-        <FormField
-          label="Channel"
-          name="channel"
-          value={formData.channel}
-          onChange={handleChange}
-          placeholder="e.g., Instagram"
-        />
-
-        <CategorySelectField
-          userId={userId}
-          value={formData.category}
-          customCategoryValue={customCategory}
-          onChange={handleChange}
-          onCustomCategoryChange={handleCustomCategoryChange}
-          error={errors.category}
-          customCategoryError={errors.customCategory}
-          label="Category"
-          placeholder="Select a Category"
-        />
       </div>
-
-      <div className="flex justify-between items-center gap-2 mt-4">
-        <button
-          onClick={() => {
-            if (!confirmDelete) {
-              setConfirmDelete(true);
-            } else {
-              handleDelete();
-            }
-          }}
-          className={`px-4 py-2 text-sm rounded-[5px] border ${
-            confirmDelete
-              ? "bg-red-600 text-white"
-              : "border-red-600 text-red-600 bg-white"
-          }`}
-        >
-          {confirmDelete ? "Confirm Deletion" : "Delete"}
-        </button>
-
-        <button
-          onClick={handleSubmit}
-          className="btn-primary"
-        >
-          Save
-        </button>
-      </div>
-    </div>
+    </ContactModalBase>
   );
 }

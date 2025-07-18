@@ -1,25 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { File, Reply, Trash2, ExternalLink } from "lucide-react";
+import { File, Reply, Trash2, ExternalLink, MessageSquareText } from "lucide-react";
 import DOMPurify from "dompurify";
-
-interface Message {
-  id: string;
-  subject: string;
-  body: string;
-  timestamp: string;
-  from: string;
-  to: string;
-  source: 'gmail' | 'manual';
-  isRead: boolean;
-  gmailMessageId?: string;
-  threadId?: string;
-  userId: string;
-  attachments?: { name: string }[];
-  direction: 'sent' | 'received';
-  parentMessageId?: string;
-  fullBody?: string;
-}
+import { Message } from "../types/message";
 
 interface MessageListAreaProps {
   messages: Message[];
@@ -591,7 +574,21 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         >
                           <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
-                            <span>{msg.source === 'gmail' ? 'Gmail' : 'Manual'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="flex items-center gap-1">
+                              {msg.source === 'gmail' ? (
+                                <>
+                                  <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
+                                  Gmail
+                                </>
+                              ) : msg.source === 'inapp' ? (
+                                <>
+                                  <MessageSquareText className="w-3 h-3 text-blue-500" />
+                                  In-App Message
+                                </>
+                              ) : (
+                                'Manual'
+                              )} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                             <div className="flex items-center gap-1">
                               {msg.source === 'gmail' && msg.gmailMessageId && (
                                 <button

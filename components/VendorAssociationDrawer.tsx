@@ -21,6 +21,46 @@ export default function VendorAssociationDrawer({
   userId
 }: VendorAssociationDrawerProps) {
   
+  // Get relevant categories based on contact category
+  const getRelevantCategories = (contactCategory: string): string[] => {
+    // If no category is selected, search across all wedding vendor categories
+    if (!contactCategory || contactCategory === '') {
+      return ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+    }
+
+    // If category is selected, map to specific Google Places types
+    const categoryToGoogleTypes: Record<string, string[]> = {
+      'Jewelry': ['jewelry_store'],
+      'Florist': ['florist'],
+      'Bakery': ['bakery'],
+      'Reception Venue': ['restaurant'],
+      'Hair & Beauty': ['hair_care', 'beauty_salon'],
+      'Photographer': ['photographer'],
+      'Videographer': ['videographer'],
+      'Bridal Salon': ['clothing_store'],
+      'Beauty Salon': ['beauty_salon'],
+      'Spa': ['spa'],
+      'DJ': ['dj'],
+      'Band': ['band'],
+      'Wedding Planner': ['wedding_planner'],
+      'Catering': ['caterer'],
+      'Car Rental': ['car_rental'],
+      'Travel Agency': ['travel_agency'],
+      'Officiant': ['officiant'],
+      'Suit/Tux Rental': ['suit_rental'],
+      'Makeup Artist': ['makeup_artist'],
+      'Stationery': ['stationery'],
+      'Rentals': ['rentals'],
+      'Favors': ['favors']
+    };
+
+    // Get the relevant Google Places types for this category
+    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
+    
+    // If we have specific types, use them; otherwise fall back to all categories
+    return relevantTypes.length > 0 ? relevantTypes : ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+  };
+  
   if (!isOpen) return null;
 
   return (
@@ -89,7 +129,9 @@ export default function VendorAssociationDrawer({
                     value={selectedVendor}
                     onChange={onVendorSelect}
                     onClear={() => onVendorSelect(null)}
-                    placeholder="Search for a vendor to associate with this contact..."
+                    placeholder={contact?.category ? `Search for ${contact.category} vendors...` : "Search for any wedding vendor..."}
+                    categories={getRelevantCategories(contact?.category)}
+                    location="United States"
                   />
                 </div>
 

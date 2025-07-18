@@ -16,6 +16,26 @@ export async function POST(req: NextRequest) {
     const venueCategories = [
       'reception_venue', 'wedding_venue', 'banquet_hall', 'event_venue', 'reception', 'wedding', 'venue'
     ];
+
+    // Categories that need special search queries (no direct Google Places API type)
+    const specialSearchCategories = {
+      'dj': ['dj', 'disc jockey', 'wedding dj', 'mobile dj'],
+      'band': ['band', 'wedding band', 'live music', 'musicians'],
+      'wedding_planner': ['wedding planner', 'wedding coordinator', 'event planner', 'wedding consultant'],
+      'caterer': ['caterer', 'catering', 'wedding catering', 'event catering'],
+      'photographer': ['photographer', 'wedding photographer', 'portrait photographer'],
+      'videographer': ['videographer', 'wedding videographer', 'video production', 'wedding video'],
+      'hair_care': ['hair salon', 'hair stylist', 'wedding hair', 'bridal hair'],
+      'car_rental': ['car rental', 'limousine service', 'wedding transportation', 'luxury car rental'],
+      'travel_agency': ['travel agency', 'travel agent', 'honeymoon planning'],
+      'officiant': ['officiant', 'wedding officiant', 'minister', 'celebrant', 'wedding ceremony'],
+      'suit_rental': ['suit rental', 'tuxedo rental', 'formal wear rental', 'wedding suit rental'],
+      'makeup_artist': ['makeup artist', 'wedding makeup', 'bridal makeup', 'beauty artist'],
+      'stationery': ['stationery', 'wedding invitations', 'invitation designer', 'wedding stationery'],
+      'rentals': ['event rentals', 'party rentals', 'wedding rentals', 'equipment rental'],
+      'favors': ['wedding favors', 'party favors', 'wedding gifts', 'bridal favors']
+    };
+    
     let url;
     if (nextPageToken) {
       url = `https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=${nextPageToken}&key=${apiKey}`;
@@ -26,7 +46,7 @@ export async function POST(req: NextRequest) {
       const data = await response.json();
       return NextResponse.json(data);
     } else if (venueCategories.includes(category)) {
-      // Run multiple queries and merge results
+      // Run multiple queries and merge results for venues
       const queries = [
         'wedding venue',
         'banquet hall',
@@ -59,15 +79,46 @@ export async function POST(req: NextRequest) {
         return true;
       });
       return NextResponse.json({ results: deduped });
+    } else if (specialSearchCategories[category]) {
+      // Run multiple targeted queries for special categories
+      const queries = specialSearchCategories[category];
+      let allResults: any[] = [];
+      for (const q of queries) {
+        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}`;
+        if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
+        if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
+        if (radius !== undefined) baseUrl += `&radius=${radius}`;
+        if (opennow) baseUrl += `&opennow=true`;
+        baseUrl += `&key=${apiKey}`;
+        const response = await fetch(baseUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.results)) {
+            allResults = allResults.concat(data.results);
+          }
+        }
+      }
+      // Deduplicate by place_id
+      const seen = new Set();
+      const deduped = allResults.filter(place => {
+        if (!place.place_id || seen.has(place.place_id)) return false;
+        seen.add(place.place_id);
+        return true;
+      });
+      return NextResponse.json({ results: deduped });
     } else {
-      let query = `${searchTerm} ${location}`;
-      console.log('Google Places API query:', query);
-      let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}`;
+      // For standard categories with direct Google Places API types
+      let query = searchTerm ? `${searchTerm} ${location}` : location;
+      console.log('Google Places API query:', query, 'category:', category);
+      
+      let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=${encodeURIComponent(category)}`;
       if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
       if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
       if (radius !== undefined) baseUrl += `&radius=${radius}`;
       if (opennow) baseUrl += `&opennow=true`;
       baseUrl += `&key=${apiKey}`;
+      
+      console.log('Google Places API URL:', baseUrl);
       const response = await fetch(baseUrl);
       if (!response.ok) {
         return NextResponse.json({ error: 'Failed to fetch from Google Places' }, { status: 500 });

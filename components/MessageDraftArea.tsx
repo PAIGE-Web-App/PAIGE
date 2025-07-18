@@ -1,5 +1,5 @@
-import React, { useState, useRef, useLayoutEffect } from "react";
-import { FileUp, SmilePlus, WandSparkles, MoveRight, X, Reply } from "lucide-react";
+import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { FileUp, SmilePlus, WandSparkles, MoveRight, X, Reply, MessageSquareText, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface MessageDraftAreaProps {
@@ -62,6 +62,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
   subject,
   setSubject,
 }) => {
+  const [showChannelDropdown, setShowChannelDropdown] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const subjectMeasureRef = useRef<HTMLSpanElement>(null);
 
@@ -72,6 +73,20 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
       subjectInputRef.current.style.width = Math.max(minWidth, measured + 8) + "px";
     }
   }, [subject]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showChannelDropdown && !event.target) {
+        setShowChannelDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showChannelDropdown]);
 
   return (
     <div className="relative bg-[#F3F2F0] border-t border-[#AB9C95] z-10" style={{ minHeight: "120px", borderTopWidth: "0.5px" }}>
@@ -93,20 +108,54 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
         </div>
       )}
       <div className="px-3 pt-3">
-        {/* Via selector at the top */}
+        {/* Send Via selector at the top */}
         <div className="flex items-center gap-2 mb-2">
-          <label htmlFor="via" className="text-xs">
-            Via
+          <label className="text-xs">
+            Send Via
           </label>
-          <select
-            id="via"
-            value={selectedChannel}
-            onChange={e => setSelectedChannel(e.target.value)}
-            className="text-xs border px-2 py-1 rounded-[5px]"
-          >
-            <option value="Gmail">Gmail</option>
-            {/* Add more options if needed */}
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setShowChannelDropdown(!showChannelDropdown)}
+              className="flex items-center gap-2 text-xs border px-2 py-1 rounded-[5px] bg-white hover:bg-gray-50"
+            >
+              {selectedChannel === 'Gmail' ? (
+                <>
+                  <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
+                  Gmail
+                </>
+              ) : (
+                <>
+                  <MessageSquareText className="w-3 h-3 text-blue-500" />
+                  In-App Message
+                </>
+              )}
+              <ChevronDown className="w-3 h-3 text-gray-500" />
+            </button>
+            {showChannelDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white border rounded-[5px] shadow-lg z-20 min-w-[140px]">
+                <button
+                  onClick={() => {
+                    setSelectedChannel('Gmail');
+                    setShowChannelDropdown(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-50 text-left"
+                >
+                  <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
+                  Gmail
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedChannel('InApp');
+                    setShowChannelDropdown(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-50 text-left"
+                >
+                  <MessageSquareText className="w-3 h-3 text-blue-500" />
+                  In-App Message
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         {/* Subject input for Gmail */}
         {selectedChannel === "Gmail" && !replyingToMessage && (

@@ -7,6 +7,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import ToastOffsetSetter from "../components/ToastOffsetSetter";
+import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 
 const playfair = Playfair_Display({ 
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           {!hideNav && <AuthenticatedNavWrapper />}
           {!hideNav && <ToastOffsetSetter />}
+          <IdleTimeoutManager />
           <Toaster
             position="top-right"
             toastOptions={{

@@ -150,7 +150,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
         {vendor.price && (
           <div className="text-xs text-[#332B42] mb-1">{vendor.price}</div>
         )}
-        <div className="text-xs text-[#332B42] mb-1">{vendor.address || vendor.location}</div>
+        <div className="text-[10px] text-[#332B42] mb-1">{vendor.address || vendor.location}</div>
         {vendor.mainTypeLabel && (
           <div className="text-xs text-[#AB9C95] mb-1">{vendor.mainTypeLabel}</div>
         )}

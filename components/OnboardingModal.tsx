@@ -1,7 +1,7 @@
 // components/OnboardingModal.tsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle, Mail, MessageSquare, Phone } from "lucide-react";
+import { X, CheckCircle, Mail, MessageSquare, Phone, Bell, Smartphone } from "lucide-react";
 import FormField from "./FormField";
 import SelectField from "./SelectField";
 import { v4 as uuidv4 } from "uuid";
@@ -15,6 +15,8 @@ import { collection, query, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import Stepper from './Stepper';
 import OnboardingModalBase from "./OnboardingModalBase";
+import VendorSearchField from "./VendorSearchField";
+import { useUserProfileData } from "../hooks/useUserProfileData";
 
 interface OnboardingContact {
   id: string;
@@ -26,6 +28,9 @@ interface OnboardingContact {
   avatarColor: string;
   userId: string;
   orderIndex?: number;
+  // Vendor association fields
+  placeId?: string | null;
+  isVendorContact?: boolean;
 }
 
 interface OnboardingModalProps {
@@ -102,8 +107,92 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>({});
   const [channelErrors, setChannelErrors] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedVendors, setSelectedVendors] = useState<{ [key: string]: any }>({});
 
   const [gmailAuthStatus, setGmailAuthStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
+  const { weddingLocation } = useUserProfileData();
+  const [geoLocation, setGeoLocation] = useState<string | null>(null);
+
+  // Location detection for vendor search
+  useEffect(() => {
+    if (!weddingLocation && !geoLocation) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const { latitude, longitude } = position.coords;
+          // Use a reverse geocoding API to get city/state from lat/lng
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          const city = data.address.city || data.address.town || data.address.village || '';
+          const state = data.address.state || '';
+          setGeoLocation(`${city}${city && state ? ', ' : ''}${state}` || 'United States');
+        }, () => setGeoLocation('United States'));
+      } else {
+        setGeoLocation('United States');
+      }
+    }
+  }, [weddingLocation, geoLocation]);
+
+  const vendorSearchLocation = weddingLocation || geoLocation || 'United States';
+
+  // Get relevant categories for vendor search
+  const getRelevantCategories = (contactCategory: string): string[] => {
+    // If no category is selected, search across all wedding vendor categories
+    if (!contactCategory || contactCategory === '') {
+      return ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+    }
+
+    // If category is selected, map to specific Google Places types
+    const categoryToGoogleTypes: Record<string, string[]> = {
+      'Jewelry': ['jewelry_store'],
+      'Florist': ['florist'],
+      'Bakery': ['bakery'],
+      'Reception Venue': ['restaurant'],
+      'Hair & Beauty': ['hair_care', 'beauty_salon'],
+      'Photographer': ['photographer'],
+      'Videographer': ['videographer'],
+      'Bridal Salon': ['clothing_store'],
+      'Beauty Salon': ['beauty_salon'],
+      'Spa': ['spa'],
+      'DJ': ['dj'],
+      'Band': ['band'],
+      'Wedding Planner': ['wedding_planner'],
+      'Catering': ['caterer'],
+      'Car Rental': ['car_rental'],
+      'Travel Agency': ['travel_agency'],
+      'Officiant': ['officiant'],
+      'Suit/Tux Rental': ['suit_rental'],
+      'Makeup Artist': ['makeup_artist'],
+      'Stationery': ['stationery'],
+      'Rentals': ['rentals'],
+      'Favors': ['favors']
+    };
+
+    // Get the relevant Google Places types for this category
+    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
+    
+    // If we have specific types, use them; otherwise fall back to all categories
+    return relevantTypes.length > 0 ? relevantTypes : ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
+  };
+
+  // Handle vendor selection for a specific contact
+  const handleVendorSelect = (contactId: string, vendor: any) => {
+    setSelectedVendors(prev => ({ ...prev, [contactId]: vendor }));
+    
+    // Update the contact with vendor association
+    setOnboardingContacts(prev => prev.map(contact => {
+      if (contact.id === contactId) {
+        return {
+          ...contact,
+          placeId: vendor.place_id,
+          isVendorContact: true,
+          // Auto-populate website and phone if available
+          website: vendor.website || contact.website,
+          phone: vendor.formatted_phone_number || contact.phone
+        };
+      }
+      return contact;
+    }));
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -443,6 +532,48 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                           label="Category"
                           placeholder="Select Category"
                         />
+                        
+                        {/* Vendor Association */}
+                        {(contact.email || contact.phone) && (
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-[#332B42]">
+                              Link to Vendor (Optional)
+                            </label>
+                            <VendorSearchField
+                              value={selectedVendors[contact.id]}
+                              onChange={(vendor) => handleVendorSelect(contact.id, vendor)}
+                              onClear={() => {
+                                setSelectedVendors(prev => {
+                                  const newSelected = { ...prev };
+                                  delete newSelected[contact.id];
+                                  return newSelected;
+                                });
+                                // Remove vendor association from contact
+                                setOnboardingContacts(prev => prev.map(c => 
+                                  c.id === contact.id 
+                                    ? { ...c, placeId: null, isVendorContact: false }
+                                    : c
+                                ));
+                              }}
+                              placeholder={contact.category ? `Search for ${contact.category} vendors...` : "Search for any wedding vendor..."}
+                              disabled={false}
+                              categories={getRelevantCategories(contact.category)}
+                              location={vendorSearchLocation}
+                            />
+                            <p className="text-xs text-gray-600">
+                              {contact.category 
+                                ? `Searching within ${contact.category} category. Clear category to search all vendors.`
+                                : "Searching across all wedding vendor categories. Select a category to narrow your search."
+                              }
+                              {selectedVendors[contact.id] && (
+                                <span className="block mt-1 text-green-600">
+                                  ✓ Website and phone info auto-populated from Google
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        )}
+
                         <FormField
                           label="Contact Email"
                           name="email"
@@ -496,68 +627,68 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                     <div className="flex items-center">
                       <Mail size={20} className="text-red-500 mr-2" />
                       <div>
-                        <span className="font-medium text-[#332B42] block">Gmail</span>
-                        <span className="text-xs text-[#7A7A7A]">Lorem ipsum dolor</span>
+                        <span className="font-medium text-[#332B42] block">Gmail Integration</span>
+                        <span className="text-xs text-[#7A7A7A]">Import existing conversations & add footers to emails</span>
                       </div>
                     </div>
                   </label>
 
                   <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("iMessage")
+                    selectedCommunicationChannels.includes("SMS")
                       ? "border-[#A85C36] bg-[#EBE3DD]"
                       : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
                   }`}>
                     <input
                       type="checkbox"
-                      checked={selectedCommunicationChannels.includes("iMessage")}
-                      onChange={() => handleChannelToggle("iMessage")}
+                      checked={selectedCommunicationChannels.includes("SMS")}
+                      onChange={() => handleChannelToggle("SMS")}
+                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
+                    />
+                    <div className="flex items-center">
+                      <Bell size={20} className="text-green-500 mr-2" />
+                      <div>
+                        <span className="font-medium text-[#332B42] block">SMS Notifications</span>
+                        <span className="text-xs text-[#7A7A7A]">Get notified when you receive new messages</span>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
+                    selectedCommunicationChannels.includes("InApp")
+                      ? "border-[#A85C36] bg-[#EBE3DD]"
+                      : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCommunicationChannels.includes("InApp")}
+                      onChange={() => handleChannelToggle("InApp")}
                       className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
                     />
                     <div className="flex items-center">
                       <MessageSquare size={20} className="text-blue-500 mr-2" />
                       <div>
-                        <span className="font-medium text-[#332B42] block">iMessage</span>
-                        <span className="text-xs text-[#7A7A7A]">Lorem ipsum dolor</span>
+                        <span className="font-medium text-[#332B42] block">In-App Messaging</span>
+                        <span className="text-xs text-[#7A7A7A]">Message vendors directly through Paige</span>
                       </div>
                     </div>
                   </label>
 
                   <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("SMS Android")
+                    selectedCommunicationChannels.includes("Push")
                       ? "border-[#A85C36] bg-[#EBE3DD]"
                       : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
                   }`}>
                     <input
                       type="checkbox"
-                      checked={selectedCommunicationChannels.includes("SMS Android")}
-                      onChange={() => handleChannelToggle("SMS Android")}
+                      checked={selectedCommunicationChannels.includes("Push")}
+                      onChange={() => handleChannelToggle("Push")}
                       className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
                     />
                     <div className="flex items-center">
-                      <Phone size={20} className="text-green-500 mr-2" />
+                      <Smartphone size={20} className="text-purple-500 mr-2" />
                       <div>
-                        <span className="font-medium text-[#332B42] block">SMS Android</span>
-                        <span className="text-xs text-[#7A7A7A]">Lorem ipsum dolor</span>
-                      </div>
-                    </div>
-                  </label>
-
-                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("Whatsapp")
-                      ? "border-[#A85C36] bg-[#EBE3DD]"
-                      : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCommunicationChannels.includes("Whatsapp")}
-                      onChange={() => handleChannelToggle("Whatsapp")}
-                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
-                    />
-                    <div className="flex items-center">
-                      <MessageSquare size={20} className="text-emerald-500 mr-2" />
-                      <div>
-                        <span className="font-medium text-[#332B42] block">Whatsapp</span>
-                        <span className="text-xs text-[#7A7A7A]">Lorem ipsum dolor</span>
+                        <span className="font-medium text-[#332B42] block">Push Notifications</span>
+                        <span className="text-xs text-[#7A7A7A]">Real-time alerts for new messages</span>
                       </div>
                     </div>
                   </label>
@@ -604,10 +735,17 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                   </div>
                 )}
 
-                {(selectedCommunicationChannels.includes('iMessage') || selectedCommunicationChannels.includes('SMS Android') || selectedCommunicationChannels.includes('Whatsapp')) && (
+                {(selectedCommunicationChannels.includes('SMS') || selectedCommunicationChannels.includes('Push')) && (
                   <div className="p-4 border border-blue-200 bg-blue-50 rounded-md text-sm text-blue-800">
-                    <p className="font-semibold mb-1">Note for Messaging Apps:</p>
-                    <p>Direct API access for historical iMessage, SMS, and personal WhatsApp conversations is limited by Apple, Google, and Meta for third-party applications. We are exploring solutions to integrate these channels more deeply in the future. For now, you can still manage contacts and use other features.</p>
+                    <p className="font-semibold mb-1">Notification Setup:</p>
+                    <p>You'll be able to configure SMS and push notifications in your settings after onboarding. These will alert you when you receive new messages from vendors through Paige.</p>
+                  </div>
+                )}
+
+                {selectedCommunicationChannels.includes('InApp') && (
+                  <div className="p-4 border border-green-200 bg-green-50 rounded-md text-sm text-green-800">
+                    <p className="font-semibold mb-1">In-App Messaging:</p>
+                    <p>You can now message vendors directly through Paige, just like Airbnb or Rover. All conversations stay within the app for better organization and tracking.</p>
                   </div>
                 )}
 

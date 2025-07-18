@@ -103,47 +103,46 @@ export function useTodoItems(selectedList: TodoList | null) {
   // Fetch all todo items
   useEffect(() => {
     if (!user) return;
+    
     const q = query(
       getUserCollectionRef('todoItems', user.uid),
       orderBy('orderIndex', 'asc')
     );
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: TodoItem[] = snapshot.docs.map(doc => {
         const data = doc.data() as any;
-        let deadline = data.deadline;
-        if (deadline && typeof deadline.toDate === 'function') {
-          deadline = deadline.toDate();
-        } else if (deadline instanceof Date) {
-          // already a Date
-        } else {
-          deadline = undefined;
-        }
-        let endDate = data.endDate;
-        if (endDate && typeof endDate.toDate === 'function') {
-          endDate = endDate.toDate();
-        } else if (endDate instanceof Date) {
-          // already a Date
-        } else {
-          endDate = undefined;
-        }
+        
+        // Optimize date processing
+        const processDate = (dateField: any): Date | undefined => {
+          if (!dateField) return undefined;
+          if (typeof dateField.toDate === 'function') return dateField.toDate();
+          if (dateField instanceof Date) return dateField;
+          return undefined;
+        };
+        
         return {
           id: doc.id,
           listId: data.listId,
           name: data.name,
           isCompleted: data.isCompleted || false,
           category: data.category,
-          createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : (data.createdAt instanceof Date ? data.createdAt : new Date()),
+          createdAt: processDate(data.createdAt) || new Date(),
           userId: data.userId,
           orderIndex: data.orderIndex || 0,
-          deadline,
-          endDate,
+          deadline: processDate(data.deadline),
+          endDate: processDate(data.endDate),
           note: data.note || undefined,
           contactId: data.contactId,
-          completedAt: data.completedAt && typeof data.completedAt.toDate === 'function' ? data.completedAt.toDate() : (data.completedAt instanceof Date ? data.completedAt : undefined)
+          completedAt: processDate(data.completedAt)
         };
       });
+      
       setAllTodoItems(items);
+    }, (error) => {
+      console.error('Error fetching todo items:', error);
     });
+    
     return () => unsubscribe();
   }, [user]);
 

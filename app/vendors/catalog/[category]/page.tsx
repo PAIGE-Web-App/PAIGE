@@ -8,6 +8,7 @@ import BulkContactModal from '@/components/BulkContactModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash.debounce';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { Search, X } from 'lucide-react';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -16,6 +17,7 @@ const CATEGORIES = [
   { value: 'restaurant', label: 'Reception Venues', singular: 'Reception Venue' },
   { value: 'hair_care', label: 'Hair & Beauty', singular: 'Hair & Beauty' },
   { value: 'photographer', label: 'Photographers', singular: 'Photographer' },
+  { value: 'videographer', label: 'Videographers', singular: 'Videographer' },
   { value: 'clothing_store', label: 'Bridal Salons', singular: 'Bridal Salon' },
   { value: 'beauty_salon', label: 'Beauty Salons', singular: 'Beauty Salon' },
   { value: 'spa', label: 'Spas', singular: 'Spa' },
@@ -25,7 +27,12 @@ const CATEGORIES = [
   { value: 'caterer', label: 'Catering', singular: 'Caterer' },
   { value: 'car_rental', label: 'Car Rentals', singular: 'Car Rental' },
   { value: 'travel_agency', label: 'Travel Agencies', singular: 'Travel Agency' },
-  // Add or remove as needed for your app
+  { value: 'officiant', label: 'Officiants', singular: 'Officiant' },
+  { value: 'suit_rental', label: 'Suit & Tux Rentals', singular: 'Suit & Tux Rental' },
+  { value: 'makeup_artist', label: 'Makeup Artists', singular: 'Makeup Artist' },
+  { value: 'stationery', label: 'Stationery & Invitations', singular: 'Stationery' },
+  { value: 'rentals', label: 'Event Rentals', singular: 'Event Rental' },
+  { value: 'favors', label: 'Wedding Favors', singular: 'Wedding Favor' },
 ];
 
 const MOCK_VENDORS = Array.from({ length: 6 }).map((_, i) => ({
@@ -143,6 +150,9 @@ const VendorCategoryPage: React.FC = () => {
   const [bulkContactMode, setBulkContactMode] = useState(false);
   const [selectedVendors, setSelectedVendors] = useState<any[]>([]);
   const [showBulkContactModal, setShowBulkContactModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const { showSuccessToast } = useCustomToast();
 
   useEffect(() => {
@@ -325,6 +335,66 @@ const VendorCategoryPage: React.FC = () => {
     showSuccessToast('Vendors have been added to your contacts! You can view them in the Vendors section.');
   };
 
+  // Search function
+  const handleSearch = useCallback(async (term: string) => {
+    if (!term.trim() || term.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch('/api/google-places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category,
+          location,
+          searchTerm: term,
+          maxResults: 10
+        })
+      });
+
+      const data = await response.json();
+      if (data.results) {
+        setSearchResults(data.results);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching vendors:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [category, location]);
+
+  // Debounced search
+  const debouncedSearch = useRef(
+    debounce((term: string) => {
+      handleSearch(term);
+    }, 300)
+  ).current;
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    
+    if (term.trim()) {
+      debouncedSearch(term);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+  };
+
   // Map Google Places results to VendorCatalogCard props
   const typeLabels: Record<string, string> = {
     florist: 'Florist',
@@ -345,7 +415,10 @@ const VendorCategoryPage: React.FC = () => {
     // ...add more as needed
   };
 
-  const mappedVendors = vendors.length > 0 ? vendors.map((vendor: any) => {
+  // Use search results when searching, otherwise use regular vendors
+  const allVendors = searchResults.length > 0 ? searchResults : vendors;
+  
+  const mappedVendors = allVendors.length > 0 ? allVendors.map((vendor: any) => {
     const mainType = vendor.types?.find((type: string) => typeLabels[type]);
     const mainTypeLabel = mainType ? typeLabels[mainType] : null;
     
@@ -391,13 +464,74 @@ const VendorCategoryPage: React.FC = () => {
         <span className="text-[#332B42] font-medium">{categoryLabel}</span>
       </nav>
       <h2 className="text-2xl font-playfair font-medium text-[#332B42] mb-2">
-        {nextPageToken && mappedVendors.length === 20
-          ? `20+ ${categoryLabel} in ${location || 'All Locations'}`
-          : `${mappedVendors.length} ${categoryLabel} in ${location || 'All Locations'}`}
+        {isSearching 
+          ? `Searching for "${searchTerm}"...`
+          : searchResults.length > 0
+            ? `Search results for "${searchTerm}" (${searchResults.length} found)`
+            : searchTerm && !isSearching
+              ? `No results found for "${searchTerm}"`
+              : loading 
+                ? `Loading ${categoryLabel}...`
+                : vendors.length > 0
+                  ? nextPageToken && vendors.length === 20
+                    ? `20+ ${categoryLabel} in ${location || 'All Locations'}`
+                    : `${vendors.length} ${categoryLabel} in ${location || 'All Locations'}`
+                  : error
+                    ? `No ${categoryLabel} found`
+                    : `${categoryLabel} in ${location || 'All Locations'}`
+        }
       </h2>
-      {/* Filters and buttons in one row */}
-      <div className="flex items-center justify-between mb-4 gap-4 w-full">
+      
+      {/* Filters, Search Bar, and Action Buttons in one row */}
+      <div className="flex items-center justify-between mb-4 gap-2 w-full">
+        {/* Filters on the left */}
         <VendorCatalogFilters category={category} filterValues={{...apiFilterValues, ...clientFilterValues}} onChange={handleFilterChange} vendors={vendors} />
+        
+        {/* Search Bar in the middle */}
+        <div className={`relative flex-1 max-w-md ${searchResults.length > 0 ? 'bg-blue-50 p-2 rounded-lg border border-blue-200' : ''}`}>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder={`Search for specific ${categorySingular.toLowerCase()}...`}
+              className="w-full border border-[#AB9C95] px-4 py-1 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] pl-10 pr-10 h-8"
+            />
+            {searchTerm && (
+              <button
+                onClick={clearSearch}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+              </button>
+            )}
+          </div>
+          {searchTerm && (
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-gray-600">
+                {isSearching 
+                  ? 'Searching...' 
+                  : searchResults.length > 0 
+                    ? `Found ${searchResults.length} results` 
+                    : 'No results found. Try a different search term.'
+                }
+              </p>
+              {searchResults.length > 0 && (
+                <button 
+                  onClick={clearSearch}
+                  className="text-xs text-[#A85C36] hover:underline"
+                >
+                  Back to all {categoryLabel.toLowerCase()}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {/* Action buttons on the right */}
         <div className="flex gap-2 flex-shrink-0">
           <button
             className={`flex items-center gap-2 ${
@@ -463,9 +597,11 @@ const VendorCategoryPage: React.FC = () => {
 
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={i} />)
-          : clientFilteredVendors.length > 0 
+        {isSearching
+          ? Array.from({ length: 4 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />)
+          : loading
+            ? Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />)
+            : clientFilteredVendors.length > 0 
             ? clientFilteredVendors
               .filter(vendor => {
                 const vendorId = vendor.id;
@@ -491,7 +627,7 @@ const VendorCategoryPage: React.FC = () => {
                 }
                 
                 return (
-                  <div key={vendorId || idx}>
+                  <div key={vendorId || `vendor-${idx}`}>
                     <VendorCatalogCard
                       vendor={vendor}
                       onContact={() => {}}
@@ -503,7 +639,22 @@ const VendorCategoryPage: React.FC = () => {
                   </div>
                 );
               })
-            : <div className="col-span-full text-center text-gray-500 py-8">No vendors found</div>
+            : <div className="col-span-full text-center text-gray-500 py-8">
+                {searchTerm 
+                  ? (
+                    <div>
+                      <p>No vendors found for "{searchTerm}"</p>
+                      <button 
+                        onClick={clearSearch}
+                        className="mt-2 text-[#A85C36] hover:underline"
+                      >
+                        Clear search and show all {categoryLabel.toLowerCase()}
+                      </button>
+                    </div>
+                  ) 
+                  : 'No vendors found'
+                }
+              </div>
         }
       </div>
       {/* Infinite scroll loader */}
