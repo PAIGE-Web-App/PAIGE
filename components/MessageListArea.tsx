@@ -16,6 +16,12 @@ interface MessageListAreaProps {
   onReply: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
   replyingToMessage: Message | null;
+  // New props for vendor contact information
+  selectedContact?: any;
+  vendorDetails?: any;
+  vendorContactLoading?: boolean;
+  hasContactInfo?: boolean | null;
+  setIsEditing?: (isEditing: boolean) => void;
 }
 
 const MessageListArea: React.FC<MessageListAreaProps> = ({
@@ -30,7 +36,22 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   onReply,
   onDelete,
   replyingToMessage,
+  selectedContact,
+  vendorDetails,
+  vendorContactLoading,
+  hasContactInfo,
+  setIsEditing,
 }) => {
+  // Debug logging
+  console.log('🔍 MessageListArea props:', {
+    selectedContactName: selectedContact?.name,
+    selectedContactPlaceId: selectedContact?.placeId,
+    vendorContactLoading,
+    hasContactInfo,
+    messagesLength: messages.length,
+    loading
+  });
+
   // Helper function to strip quoted text and signatures
   const stripQuotedText = (text: string): string => {
     // Remove everything after "On ... wrote:" or "From: ..."
@@ -478,12 +499,81 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
             className="absolute inset-0 flex items-center justify-center"
           >
             <div className="flex flex-col items-center text-center text-[#7A7A7A] px-4">
-              <img
-                src="/Messages.svg"
-                alt="Start conversation"
-                className="w-24 h-24 mb-4 opacity-50"
-              />
-              <p>Send a message to start the conversation!</p>
+              {(() => {
+                console.log('🔍 Empty state condition check:', {
+                  vendorContactLoading,
+                  selectedContactPlaceId: selectedContact?.placeId,
+                  hasContactInfo,
+                  shouldShowNoContactInfo: selectedContact?.placeId && hasContactInfo === false
+                });
+                
+                if (vendorContactLoading) {
+                  return (
+                    <>
+                      <div className="w-24 h-24 mb-4 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
+                      </div>
+                      <p>Checking contact information...</p>
+                    </>
+                  );
+                } else if (selectedContact?.placeId && hasContactInfo === false) {
+                  return (
+                    <>
+                      <img
+                        src="/Messages.svg"
+                        alt="No contact information"
+                        className="w-24 h-24 mb-4 opacity-50"
+                      />
+                      <h3 className="text-lg font-medium text-[#332B42] mb-2">
+                        No Contact Information Available
+                      </h3>
+                      <p className="text-sm mb-4 max-w-md">
+                        We couldn't find an email address or phone number for {selectedContact.name}. 
+                        This vendor may not have provided contact information publicly.
+                      </p>
+                      <div className="space-y-3 w-full max-w-sm">
+                        {vendorDetails?.website && !vendorDetails.website.includes('maps.google.com') && (
+                          <a
+                            href={vendorDetails.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full bg-[#A85C36] text-white px-4 py-2 rounded-lg hover:bg-[#784528] transition-colors text-sm"
+                          >
+                            🌐 Visit Website
+                          </a>
+                        )}
+                        {vendorDetails?.formatted_phone_number && (
+                          <a
+                            href={`tel:${vendorDetails.formatted_phone_number}`}
+                            className="block w-full bg-[#A85C36] text-white px-4 py-2 rounded-lg hover:bg-[#784528] transition-colors text-sm"
+                          >
+                            📞 Call {vendorDetails.formatted_phone_number}
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            setIsEditing?.(true);
+                          }}
+                          className="block w-full bg-gray-100 text-[#332B42] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm border border-gray-300"
+                        >
+                          ✏️ Add Contact Information
+                        </button>
+                      </div>
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      <img
+                        src="/Messages.svg"
+                        alt="Start conversation"
+                        className="w-24 h-24 mb-4 opacity-50"
+                      />
+                      <p>Send a message to start the conversation!</p>
+                    </>
+                  );
+                }
+              })()}
             </div>
           </motion.div>
         </AnimatePresence>

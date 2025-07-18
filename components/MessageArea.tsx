@@ -43,6 +43,8 @@ interface MessageAreaProps {
   onContactSelect: (contact: Contact) => void;
   onSetupInbox: () => void;
   userName?: string;
+  jiggleEmailField?: boolean;
+  setJiggleEmailField?: (jiggle: boolean) => void;
 }
 
 const getRelativeDate = (dateInput: Date | string): string => {
@@ -190,6 +192,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   onContactSelect,
   onSetupInbox,
   userName,
+  jiggleEmailField,
+  setJiggleEmailField,
 }) => {
   const router = useRouter();
   const [state, dispatch] = useReducer(messageReducer, { 
@@ -227,6 +231,31 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     existingAccount: string | null;
     currentAccount: string | null;
   } | null>(null);
+
+  // New state for vendor contact information
+  const [vendorDetails, setVendorDetails] = useState<any>(null);
+  const [vendorContactLoading, setVendorContactLoading] = useState(false);
+  const [hasContactInfo, setHasContactInfo] = useState<boolean | null>(null);
+  
+  // Add a cache for vendor details to prevent flickering
+  const vendorDetailsCache = useRef<{[placeId: string]: any}>({});
+  const currentPlaceIdRef = useRef<string | null>(null);
+  
+  // Set default channel based on available contact info
+  useEffect(() => {
+    if (selectedContact) {
+      const hasEmail = selectedContact.email || (vendorDetails?.emails && vendorDetails.emails.length > 0);
+      const hasPhone = selectedContact.phone || vendorDetails?.formatted_phone_number;
+      
+      // If only phone is available, default to In-App Message
+      if (!hasEmail && hasPhone) {
+        setSelectedChannel("InApp");
+      } else if (hasEmail) {
+        // If email is available, default to Gmail
+        setSelectedChannel("Gmail");
+      }
+    }
+  }, [selectedContact, vendorDetails]);
 
   // Add a cache for Gmail eligibility per contact
   const [gmailEligibilityCache, setGmailEligibilityCache] = useState<{
@@ -961,66 +990,148 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedContact?.id]);
 
+  // Effect to fetch vendor details when a vendor contact is selected
+  useEffect(() => {
+    const fetchVendorContactInfo = async () => {
+      console.log('🔍 Checking vendor contact info for:', selectedContact?.name);
+      console.log('🔍 Contact placeId:', selectedContact?.placeId);
+      console.log('🔍 Contact email:', selectedContact?.email);
+      console.log('🔍 Contact phone:', selectedContact?.phone);
+      
+      if (!selectedContact?.placeId) {
+        console.log('❌ No placeId found, not a vendor contact');
+        setHasContactInfo(null);
+        // Only clear vendor details if we're switching to a different contact
+        if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact?.placeId) {
+          console.log('🔍 Clearing vendor details due to contact switch');
+          setVendorDetails(null);
+          currentPlaceIdRef.current = null;
+        }
+        return;
+      }
+
+      // Check if we're switching to a different placeId
+      if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact.placeId) {
+        console.log('🔍 Switching from placeId:', currentPlaceIdRef.current, 'to:', selectedContact.placeId);
+        setVendorDetails(null);
+      }
+      
+      currentPlaceIdRef.current = selectedContact.placeId;
+
+      // Check cache first
+      if (vendorDetailsCache.current[selectedContact.placeId]) {
+        console.log('✅ Found vendor details in cache for placeId:', selectedContact.placeId);
+        setVendorDetails(vendorDetailsCache.current[selectedContact.placeId]);
+        return;
+      }
+
+      // Don't refetch if we already have vendor details for this placeId
+      if (vendorDetails?.place_id === selectedContact.placeId) {
+        console.log('✅ Already have vendor details for this placeId, skipping fetch');
+        return;
+      }
+
+      setVendorContactLoading(true);
+      try {
+        // Fetch vendor details from Google Places API
+        const response = await fetch(`/api/google-place-details?placeId=${selectedContact.placeId}`);
+        const data = await response.json();
+        
+        console.log('🔍 Google Places API response:', data);
+        
+        if (data.status === 'OK' && data.result) {
+          console.log('✅ Setting vendor details:', data.result);
+          // Cache the vendor details
+          vendorDetailsCache.current[selectedContact.placeId] = data.result;
+          setVendorDetails(data.result);
+          
+          // Check if vendor has any contact information
+          const hasGooglePhone = data.result.formatted_phone_number;
+          const hasGoogleWebsite = data.result.website;
+          const hasContactEmail = selectedContact.email;
+          const hasContactPhone = selectedContact.phone;
+          
+          console.log('🔍 Contact info check:', {
+            hasGooglePhone,
+            hasGoogleWebsite,
+            hasContactEmail,
+            hasContactPhone
+          });
+          
+          // For messaging purposes, we need either an email address or a phone number
+          // Website alone is not sufficient for messaging
+          const hasMessagingContactInfo = !!(hasContactEmail || hasContactPhone || hasGooglePhone);
+          
+          // Also check for verified emails from our system
+          const verifiedEmailsResponse = await fetch(`/api/vendor-emails?placeId=${selectedContact.placeId}`);
+          const verifiedEmailsData = await verifiedEmailsResponse.json();
+          
+          console.log('🔍 Verified emails response:', verifiedEmailsData);
+          
+          const hasVerifiedEmails = verifiedEmailsData.emails && 
+                                   verifiedEmailsData.emails.length > 0 && 
+                                   verifiedEmailsData.emails.some((email: any) => email.email && email.email.trim() !== '');
+          
+          console.log('🔍 Has verified emails:', hasVerifiedEmails);
+          
+          const finalHasContactInfo = hasMessagingContactInfo || hasVerifiedEmails;
+          console.log('🔍 Final hasContactInfo result:', finalHasContactInfo);
+          
+          setHasContactInfo(finalHasContactInfo);
+        } else {
+          console.log('❌ Google Places API failed:', data);
+          setHasContactInfo(false);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching vendor contact info:', error);
+        setHasContactInfo(false);
+      } finally {
+        setVendorContactLoading(false);
+      }
+    };
+
+    fetchVendorContactInfo();
+  }, [selectedContact?.placeId]);
+
+  // Debug effect to track vendor details changes
+  useEffect(() => {
+    console.log('🔍 vendorDetails state changed:', {
+      vendorDetails: vendorDetails,
+      hasVendorDetails: !!vendorDetails,
+      vendorPlaceId: vendorDetails?.place_id,
+      vendorWebsite: vendorDetails?.website,
+      vendorPhone: vendorDetails?.formatted_phone_number,
+      selectedContactId: selectedContact?.id,
+      selectedContactName: selectedContact?.name
+    });
+  }, [vendorDetails, selectedContact?.id, selectedContact?.name]);
+
   console.log('UI messages:', state.messages);
 
   return (
     <div className="flex flex-col h-full">
       {selectedContact && (
         <>
-          <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex items-center relative overflow-visible">
-            {isMobile && (
-              <button
-                onClick={() => setActiveMobileTab('contacts')}
-                className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
-                aria-label="Back to contacts"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <div className="flex-1 flex justify-between items-start">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                    {selectedContact.name}
-                  </h4>
-                  <CategoryPill category={selectedContact.category} />
-                </div>
-                <div className="flex items-center gap-2 mt-1.5 flex-nowrap">
-                  {selectedContact.email && (
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                    >
-                      <Mail className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate max-w-[120px] md:max-w-[150px]">{selectedContact.email}</span>
-                    </button>
-                  )}
-                  {selectedContact.phone && (
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                    >
-                      <Phone className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate max-w-[100px] md:max-w-[120px]">{selectedContact.phone}</span>
-                    </button>
-                  )}
-                  {selectedContact?.website && (
-                    <a
-                      href={selectedContact.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 flex-shrink-0"
-                    >
-                      <span>🌐</span>
-                      <span className="truncate max-w-[80px] md:max-w-[100px]">{selectedContact.website}</span>
-                    </a>
-                  )}
-                </div>
+          <div className="bg-[#F3F2F0] w-full p-3 border-b border-[#AB9C95] flex flex-col relative overflow-visible">
+            {/* Top row: Back button (mobile) and name/category */}
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                {isMobile && (
+                  <button
+                    onClick={() => setActiveMobileTab('contacts')}
+                    className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                    aria-label="Back to contacts"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                )}
+                <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
+                  {selectedContact.name}
+                </h4>
+                <CategoryPill category={selectedContact.category} />
               </div>
+              
+              {/* Actions on the right */}
               <div className="flex items-center gap-2 flex-nowrap">
                 {showGmailImport && (bannerDismissed || importedOnce) && (
                   <DropdownMenu
@@ -1059,14 +1170,97 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                     align="right"
                   />
                 )}
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
-              >
-                Edit
-              </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
+                >
+                  Edit
+                </button>
+              </div>
             </div>
-          </div>
+            
+            {/* Bottom row: Contact metadata */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {(() => {
+                console.log('🔍 Header contact info debug:', {
+                  contactEmail: selectedContact.email,
+                  contactPhone: selectedContact.phone,
+                  contactWebsite: selectedContact.website,
+                  vendorPhone: vendorDetails?.formatted_phone_number,
+                  vendorWebsite: vendorDetails?.website,
+                  vendorPlaceId: vendorDetails?.place_id,
+                  vendorDetailsExists: !!vendorDetails
+                });
+                
+                return null;
+              })()}
+              
+              {selectedContact.email ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                  className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Mail className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-[120px] md:max-w-[150px]">{selectedContact.email}</span>
+                </button>
+              ) : (selectedContact.phone || vendorDetails?.formatted_phone_number) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    setJiggleEmailField?.(true);
+                    setTimeout(() => setJiggleEmailField?.(false), 1000);
+                  }}
+                  className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Mail className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-[120px] md:max-w-[150px]">Add email address</span>
+                </button>
+              )}
+              {(selectedContact.phone || vendorDetails?.formatted_phone_number) && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                  className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Phone className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-[100px] md:max-w-[120px]">
+                    {selectedContact.phone || vendorDetails?.formatted_phone_number}
+                  </span>
+                </button>
+              )}
+              {(() => {
+                // Get the real website (not Google Maps)
+                const realWebsite = (() => {
+                  if (vendorDetails?.website && !vendorDetails.website.includes('maps.google.com')) {
+                    return vendorDetails.website;
+                  }
+                  if (selectedContact?.website && !selectedContact.website.includes('maps.google.com')) {
+                    return selectedContact.website;
+                  }
+                  return null;
+                })();
+                
+                return realWebsite ? (
+                  <a
+                    href={realWebsite}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 flex-shrink-0"
+                  >
+                    <span>🌐</span>
+                    <span className="truncate max-w-[200px] md:max-w-[300px]">
+                      {realWebsite}
+                    </span>
+                  </a>
+                ) : null;
+              })()}
+
+            </div>
           </div>
           {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
           {showReauthBanner && (
@@ -1121,36 +1315,51 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           onReply={setReplyingToMessage}
           onDelete={handleDeleteMessage}
           replyingToMessage={replyingToMessage}
-        />
-        <MessageDraftArea
-          selectedChannel={selectedChannel}
-          setSelectedChannel={setSelectedChannel}
-          textareaRef={textareaRef}
-          input={input}
-          animatedDraft={animatedDraft}
-          isAnimating={isAnimating}
-          isGenerating={isGenerating}
-          handleInputChange={handleInputChange}
-          handleKeyDown={handleKeyDown}
           selectedContact={selectedContact}
-          selectedFiles={selectedFiles}
-          handleRemoveFile={handleRemoveFile}
-          handleGenerateDraft={handleGenerateDraft}
-          draftLoading={draftLoading}
-          fileInputRef={fileInputRef}
-          handleFileChange={handleFileChange}
-          showEmojiPicker={showEmojiPicker}
-          setShowEmojiPicker={setShowEmojiPicker}
-          emojiPickerRef={emojiPickerRef}
-          EmojiPicker={EmojiPicker}
-          handleEmojiSelect={handleEmojiSelect}
-          isAnimatingOrGenerating={isAnimating || isGenerating}
-          handleSendMessage={handleSendMessage}
-          replyingToMessage={replyingToMessage}
-          clearReply={clearReply}
-          subject={subject}
-          setSubject={setSubject}
+          vendorDetails={vendorDetails}
+          vendorContactLoading={vendorContactLoading}
+          hasContactInfo={hasContactInfo}
+          setIsEditing={setIsEditing}
         />
+        {(() => {
+          const shouldHideDraftArea = selectedContact?.placeId && hasContactInfo === false;
+          console.log('🔍 MessageDraftArea condition check:', {
+            selectedContactPlaceId: selectedContact?.placeId,
+            hasContactInfo,
+            shouldHideDraftArea
+          });
+          return !shouldHideDraftArea;
+        })() && (
+          <MessageDraftArea
+            selectedChannel={selectedChannel}
+            setSelectedChannel={setSelectedChannel}
+            textareaRef={textareaRef}
+            input={input}
+            animatedDraft={animatedDraft}
+            isAnimating={isAnimating}
+            isGenerating={isGenerating}
+            handleInputChange={handleInputChange}
+            handleKeyDown={handleKeyDown}
+            selectedContact={selectedContact}
+            selectedFiles={selectedFiles}
+            handleRemoveFile={handleRemoveFile}
+            handleGenerateDraft={handleGenerateDraft}
+            draftLoading={draftLoading}
+            fileInputRef={fileInputRef}
+            handleFileChange={handleFileChange}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            emojiPickerRef={emojiPickerRef}
+            EmojiPicker={EmojiPicker}
+            handleEmojiSelect={handleEmojiSelect}
+            isAnimatingOrGenerating={isAnimating || isGenerating}
+            handleSendMessage={handleSendMessage}
+            replyingToMessage={replyingToMessage}
+            clearReply={clearReply}
+            subject={subject}
+            setSubject={setSubject}
+          />
+        )}
       </div>
       <LoadingBar 
         isVisible={isSending} 

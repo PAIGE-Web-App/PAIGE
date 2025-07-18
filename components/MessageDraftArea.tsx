@@ -77,7 +77,10 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showChannelDropdown && !event.target) {
+      const target = event.target as Element;
+      const dropdownContainer = document.querySelector('[data-dropdown-container]');
+      
+      if (showChannelDropdown && dropdownContainer && !dropdownContainer.contains(target)) {
         setShowChannelDropdown(false);
       }
     };
@@ -113,7 +116,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           <label className="text-xs">
             Send Via
           </label>
-          <div className="relative">
+          <div className="relative" data-dropdown-container>
             <button
               onClick={() => setShowChannelDropdown(!showChannelDropdown)}
               className="flex items-center gap-2 text-xs border px-2 py-1 rounded-[5px] bg-white hover:bg-gray-50"
@@ -133,16 +136,20 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
             </button>
             {showChannelDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white border rounded-[5px] shadow-lg z-20 min-w-[140px]">
-                <button
-                  onClick={() => {
-                    setSelectedChannel('Gmail');
-                    setShowChannelDropdown(false);
-                  }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-50 text-left"
-                >
-                  <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
-                  Gmail
-                </button>
+                {/* Only show Gmail option if contact has email */}
+                {selectedContact?.email && (
+                  <button
+                    onClick={() => {
+                      setSelectedChannel('Gmail');
+                      setShowChannelDropdown(false);
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-50 text-left"
+                  >
+                    <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
+                    Gmail
+                  </button>
+                )}
+                {/* Always show In-App Message option */}
                 <button
                   onClick={() => {
                     setSelectedChannel('InApp');

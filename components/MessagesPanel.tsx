@@ -45,6 +45,8 @@ const MessagesPanel = ({
   setShowOnboardingModal,
   userName,
   showOnboardingModal,
+  jiggleEmailField,
+  setJiggleEmailField,
 }) => (
   contactsLoading ? (
     <div className="flex flex-1 min-h-full h-full w-full items-center justify-center bg-white">
@@ -91,6 +93,8 @@ const MessagesPanel = ({
           onContactSelect={onContactSelect}
           onSetupInbox={() => setShowOnboardingModal(true)}
           userName={userName || ''}
+          jiggleEmailField={jiggleEmailField}
+          setJiggleEmailField={setJiggleEmailField}
         />
       )}
     </section>

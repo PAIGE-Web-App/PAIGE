@@ -206,6 +206,7 @@ export default function Home() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [jiggleEmailField, setJiggleEmailField] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
   const [input, setInput] = useState("");
@@ -936,6 +937,8 @@ export default function Home() {
               setShowOnboardingModal={setShowOnboardingModal}
               userName={userName}
               showOnboardingModal={showOnboardingModal}
+              jiggleEmailField={jiggleEmailField}
+              setJiggleEmailField={setJiggleEmailField}
             />
           </main>
 
@@ -988,6 +991,7 @@ export default function Home() {
                     setIsEditing(false);
                   }, 300);
                 }}
+                jiggleEmailField={jiggleEmailField}
               />
             </div>
           )}

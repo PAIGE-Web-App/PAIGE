@@ -23,6 +23,7 @@ interface EditContactModalProps {
   onClose: () => void;
   onSave: (updatedContact: Contact) => void;
   onDelete: (deletedId: string) => void;
+  jiggleEmailField?: boolean;
 }
 
 // Moved outside the component
@@ -40,6 +41,7 @@ export default function EditContactModal({
   onClose,
   onSave,
   onDelete,
+  jiggleEmailField = false,
 }: EditContactModalProps) {
   const [formData, setFormData] = useState({
     name: contact.name || "",
@@ -200,6 +202,27 @@ export default function EditContactModal({
       if (data.status === 'OK' && data.result) {
         setSelectedVendor(data.result);
         console.log('Set selected vendor:', data.result);
+        
+        // Update form data with vendor details
+        setFormData(prev => {
+          const updates: any = {};
+          
+          // Update phone if vendor has it and contact doesn't
+          if (data.result.formatted_phone_number && !prev.phone) {
+            updates.phone = data.result.formatted_phone_number;
+          }
+          
+          // Update website if vendor has a real website (not Google Maps)
+          if (data.result.website && !data.result.website.includes('maps.google.com')) {
+            // Only update if contact doesn't have a real website
+            const hasRealWebsite = prev.website && !prev.website.includes('maps.google.com');
+            if (!hasRealWebsite) {
+              updates.website = data.result.website;
+            }
+          }
+          
+          return { ...prev, ...updates };
+        });
       } else {
         console.error('Failed to fetch vendor details:', data);
       }
@@ -438,14 +461,16 @@ export default function EditContactModal({
           error={errors.name}
         />
 
-        <FormField
-          label="Email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder="Enter email"
-          error={errors.email}
-        />
+        <div className={jiggleEmailField ? 'animate-jiggle' : ''}>
+          <FormField
+            label="Email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="Enter email"
+            error={errors.email}
+          />
+        </div>
 
         <CategorySelectField
           userId={userId}
@@ -468,6 +493,34 @@ export default function EditContactModal({
                 <div className="flex items-center gap-2 p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
                   <span className="text-sm text-gray-600">Loading linked vendor...</span>
+                </div>
+              ) : selectedVendor ? (
+                <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <h6 className="m-0">{selectedVendor.name}</h6>
+                    <button
+                      onClick={() => setSelectedVendor(null)}
+                      className="text-gray-500 hover:text-gray-700 p-1"
+                      aria-label="Remove vendor link"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-700">
+                    <div><strong>Name:</strong> {selectedVendor.name}</div>
+                    {selectedVendor.formatted_address && (
+                      <div><strong>Address:</strong> {selectedVendor.formatted_address}</div>
+                    )}
+                    {selectedVendor.formatted_phone_number && (
+                      <div><strong>Phone:</strong> {selectedVendor.formatted_phone_number}</div>
+                    )}
+                    {selectedVendor.website && !selectedVendor.website.includes('maps.google.com') && (
+                      <div><strong>Website:</strong> <a href={selectedVendor.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{selectedVendor.website}</a></div>
+                    )}
+                    {selectedVendor.rating && (
+                      <div><strong>Rating:</strong> {selectedVendor.rating} ⭐</div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <VendorSearchField
