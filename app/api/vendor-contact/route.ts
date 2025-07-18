@@ -134,6 +134,43 @@ const verifyEmailWithSMTP = async (email: string): Promise<boolean> => {
   });
 };
 
+// Function to get vendor category from types
+const getVendorCategory = (vendor: any): string => {
+  if (vendor.types && Array.isArray(vendor.types)) {
+    const typeToCategory: Record<string, string> = {
+      'florist': 'Florist',
+      'jewelry_store': 'Jewelry',
+      'bakery': 'Bakery',
+      'restaurant': 'Reception Venue',
+      'hair_care': 'Hair & Beauty',
+      'photographer': 'Photographer',
+      'videographer': 'Videographer',
+      'clothing_store': 'Bridal Salon',
+      'beauty_salon': 'Beauty Salon',
+      'spa': 'Spa',
+      'dj': 'DJ',
+      'band': 'Band',
+      'wedding_planner': 'Wedding Planner',
+      'caterer': 'Catering',
+      'car_rental': 'Car Rental',
+      'travel_agency': 'Travel Agency',
+      'officiant': 'Officiant',
+      'suit_rental': 'Suit/Tux Rental',
+      'makeup_artist': 'Makeup Artist',
+      'stationery': 'Stationery',
+      'rentals': 'Rentals',
+      'favors': 'Favors'
+    };
+    
+    for (const type of vendor.types) {
+      if (typeToCategory[type]) {
+        return typeToCategory[type];
+      }
+    }
+  }
+  return 'Vendor';
+};
+
 // Function to get verified vendor emails from global database
 const getVendorEmails = async (placeId: string): Promise<string[]> => {
   try {
@@ -165,40 +202,7 @@ const saveVendorAsContact = async (vendor: any, verifiedEmail: string | null, us
     const randomAvatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
     
     // Determine category from vendor types or use a default
-    let category = 'Vendor';
-    if (vendor.types && Array.isArray(vendor.types)) {
-      const typeToCategory: Record<string, string> = {
-        'florist': 'Florist',
-        'jewelry_store': 'Jewelry',
-        'bakery': 'Bakery',
-        'restaurant': 'Reception Venue',
-        'hair_care': 'Hair & Beauty',
-        'photographer': 'Photographer',
-        'videographer': 'Videographer',
-        'clothing_store': 'Bridal Salon',
-        'beauty_salon': 'Beauty Salon',
-        'spa': 'Spa',
-        'dj': 'DJ',
-        'band': 'Band',
-        'wedding_planner': 'Wedding Planner',
-        'caterer': 'Catering',
-        'car_rental': 'Car Rental',
-        'travel_agency': 'Travel Agency',
-        'officiant': 'Officiant',
-        'suit_rental': 'Suit/Tux Rental',
-        'makeup_artist': 'Makeup Artist',
-        'stationery': 'Stationery',
-        'rentals': 'Rentals',
-        'favors': 'Favors'
-      };
-      
-      for (const type of vendor.types) {
-        if (typeToCategory[type]) {
-          category = typeToCategory[type];
-          break;
-        }
-      }
-    }
+    const category = getVendorCategory(vendor);
     
     const contactData = {
       id: uuidv4(),
@@ -349,6 +353,31 @@ export async function POST(req: NextRequest) {
     
     for (const vendor of vendorDetails) {
       try {
+        // Add vendor to community database
+        try {
+          const communityResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/community-vendors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              placeId: vendor.place_id,
+              vendorName: vendor.name,
+              vendorAddress: vendor.formatted_address,
+              vendorCategory: getVendorCategory(vendor),
+              userId,
+              selectedAsVenue: false,
+              selectedAsVendor: true
+            })
+          });
+
+          if (!communityResponse.ok) {
+            console.error('Failed to add vendor to community database');
+          } else {
+            console.log('Successfully added vendor to community database');
+          }
+        } catch (error) {
+          console.error('Error adding vendor to community database:', error);
+        }
+
         // First, check for verified emails in global database
         const verifiedEmails = await getVendorEmails(vendor.place_id);
         let vendorEmail: string | null = null;

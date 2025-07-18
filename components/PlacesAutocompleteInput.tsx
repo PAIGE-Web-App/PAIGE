@@ -39,7 +39,7 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
       const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
       if (types.some((type: string) => venueTypes.includes(type))) {
         const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
-        placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url'] }, (place, status) => {
+        placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url', 'formatted_phone_number', 'website'] }, (place, status) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
             setVenueMetadata(place);
           } else {

@@ -32,7 +32,7 @@ export default function VenueCard({ venue, onDelete, showDeleteButton = true }: 
     >
       <motion.div layout="position">
         <div className="flex justify-between items-center mb-2">
-          <h4 className="text-sm font-playfair text-[#332B42]">Selected Venue</h4>
+          <h4 className="text-sm font-playfair text-[#332B42]">{venue.name}</h4>
           {showDeleteButton && onDelete && (
             <button
               type="button"
@@ -61,7 +61,6 @@ export default function VenueCard({ venue, onDelete, showDeleteButton = true }: 
           )}
           */}
           <div className="flex-1">
-            <h6 className="text-[#332B42]">{venue.name}</h6>
             <p className="text-sm text-[#364257] mb-1">{venue.formatted_address}</p>
             {venue.rating && (
               <div className="flex items-center gap-1">

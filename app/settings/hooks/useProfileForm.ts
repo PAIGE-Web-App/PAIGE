@@ -157,6 +157,42 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
           }));
         }
         updateData.selectedVenueMetadata = serializableVenue;
+
+        // Add venue to user's vendor list and community database
+        try {
+          const { addVendorToUserAndCommunity } = await import('../../../lib/addVendorToUserAndCommunity');
+          const result = await addVendorToUserAndCommunity({
+            userId: user.uid,
+            vendorMetadata: selectedVenueMetadata,
+            category: "Venue",
+            selectedAsVenue: true,
+            selectedAsVendor: false
+          });
+
+          if (result.success) {
+            console.log('Successfully added venue to user and community databases');
+            
+            // Mark the venue as official (starred) in the user's vendor list
+            try {
+              const { v4: uuidv4 } = await import('uuid');
+              const contactRef = doc(db, `users/${user.uid}/contacts`, result.contactId!);
+              await updateDoc(contactRef, {
+                isOfficial: true,
+                category: "Venue"
+              });
+              console.log('Marked venue as official in user vendor list');
+            } catch (error) {
+              console.error('Error marking venue as official:', error);
+              // Don't fail the save if this fails
+            }
+          } else {
+            console.error('Failed to add venue to databases:', result.error);
+            // Don't fail the save if this fails
+          }
+        } catch (error) {
+          console.error('Error adding venue to databases:', error);
+          // Don't fail the save if this fails
+        }
       } else {
         updateData.selectedVenueMetadata = null;
       }

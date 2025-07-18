@@ -338,21 +338,38 @@ export default function VendorsPage() {
                             <span className="truncate max-w-[100px] md:max-w-none">{contact.phone}</span>
                           </button>
                         )}
+                        {contact.placeId && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/vendors/catalog/${contact.placeId}`)}
+                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            <span className="underline">View Details</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                     {/* Right: Edit and Contact buttons */}
                     <div className="absolute top-4 right-4 flex gap-2">
                       <DropdownMenu
                         trigger={<button className="p-1 hover:bg-gray-100 rounded-full" title="More options"><MoreHorizontal size={16} className="text-gray-500" /></button>}
-                        items={[{
-                          label: 'Edit',
-                          onClick: () => setEditModal({ open: true, contact }),
-                          className: '',
-                        }, {
-                          label: 'Contact',
-                          onClick: () => router.push(`/?contactId=${contact.id}`),
-                          className: '',
-                        }]}
+                        items={[
+                          ...(contact.placeId ? [{
+                            label: 'View Details',
+                            onClick: () => router.push(`/vendors/catalog/${contact.placeId}`),
+                            className: '',
+                          }] : []),
+                          {
+                            label: 'Edit',
+                            onClick: () => setEditModal({ open: true, contact }),
+                            className: '',
+                          }, {
+                            label: 'Contact',
+                            onClick: () => router.push(`/?contactId=${contact.id}`),
+                            className: '',
+                          }
+                        ]}
                         width={160}
                         align="right"
                       />

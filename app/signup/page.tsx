@@ -434,6 +434,28 @@ export default function SignUp() {
           url,
           vicinity
         };
+
+        // Add venue to user's personal vendor list and community database
+        try {
+          const { addVendorToUserAndCommunity } = await import('../../lib/addVendorToUserAndCommunity');
+          const result = await addVendorToUserAndCommunity({
+            userId: user.uid,
+            vendorMetadata: stepData.selectedVenueMetadata,
+            category: "Venue",
+            selectedAsVenue: true,
+            selectedAsVendor: false
+          });
+
+          if (result.success) {
+            console.log('Successfully added venue to user and community databases');
+          } else {
+            console.error('Failed to add venue to databases:', result.error);
+            // Don't fail the signup if this fails
+          }
+        } catch (error) {
+          console.error('Error adding venue to databases:', error);
+          // Don't fail the signup if this fails
+        }
       }
 
       const cleanedStepData = cleanData(stepData);

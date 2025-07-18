@@ -123,7 +123,7 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   const [geoLocation, setGeoLocation] = useState<string | null>(null);
 
   // Handle vendor selection and auto-populate fields
-  const handleVendorSelect = (vendor: any) => {
+  const handleVendorSelect = async (vendor: any) => {
     setSelectedVendor(vendor);
     
     // Auto-populate website if available and not already filled
@@ -134,6 +134,33 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
     // Auto-populate phone if available and not already filled
     if (vendor.formatted_phone_number && !formData.phone) {
       setFormData(prev => ({ ...prev, phone: vendor.formatted_phone_number }));
+    }
+
+    // Add vendor to community database
+    try {
+      const response = await fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeId: vendor.place_id,
+          vendorName: vendor.name,
+          vendorAddress: vendor.formatted_address,
+          vendorCategory: formData.category || 'Vendor',
+          userId,
+          selectedAsVenue: false,
+          selectedAsVendor: true
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to add vendor to community database');
+        // Don't fail the operation if this fails
+      } else {
+        console.log('Successfully added vendor to community database');
+      }
+    } catch (error) {
+      console.error('Error adding vendor to community database:', error);
+      // Don't fail the operation if this fails
     }
   };
 

@@ -175,7 +175,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   };
 
   // Handle vendor selection for a specific contact
-  const handleVendorSelect = (contactId: string, vendor: any) => {
+  const handleVendorSelect = async (contactId: string, vendor: any) => {
     setSelectedVendors(prev => ({ ...prev, [contactId]: vendor }));
     
     // Update the contact with vendor association
@@ -192,6 +192,33 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       }
       return contact;
     }));
+
+    // Add vendor to community database
+    try {
+      const response = await fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeId: vendor.place_id,
+          vendorName: vendor.name,
+          vendorAddress: vendor.formatted_address,
+          vendorCategory: onboardingContacts.find(c => c.id === contactId)?.category || 'Vendor',
+          userId,
+          selectedAsVenue: false,
+          selectedAsVendor: true
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to add vendor to community database');
+        // Don't fail the operation if this fails
+      } else {
+        console.log('Successfully added vendor to community database');
+      }
+    } catch (error) {
+      console.error('Error adding vendor to community database:', error);
+      // Don't fail the operation if this fails
+    }
   };
 
   useEffect(() => {
