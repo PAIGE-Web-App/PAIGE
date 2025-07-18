@@ -1,7 +1,13 @@
 // components/MessageArea.tsx
 "use client"; // Important for client-side functionality
 
-import React, { useEffect, useRef, useState, useReducer, useCallback } from "react";
+import React, { useEffect, useRef, useState, useReducer, useCallback, useMemo } from "react";
+
+// Development-only logging
+const isDev = process.env.NODE_ENV === 'development';
+const devLog = (...args: any[]) => {
+  if (isDev) console.log(...args);
+};
 import { v4 as uuidv4 } from "uuid";
 import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, deleteDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
@@ -238,8 +244,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [hasContactInfo, setHasContactInfo] = useState<boolean | null>(null);
   
   // Add a cache for vendor details to prevent flickering
+  const MAX_CACHE_SIZE = 50;
   const vendorDetailsCache = useRef<{[placeId: string]: any}>({});
   const currentPlaceIdRef = useRef<string | null>(null);
+  
+  // Helper function to add to cache with size limits
+  const addToVendorCache = (placeId: string, data: any) => {
+    const cache = vendorDetailsCache.current;
+    if (Object.keys(cache).length >= MAX_CACHE_SIZE) {
+      const firstKey = Object.keys(cache)[0];
+      delete cache[firstKey];
+    }
+    cache[placeId] = data;
+  };
   
   // Set default channel based on available contact info
   useEffect(() => {
@@ -255,7 +272,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         setSelectedChannel("Gmail");
       }
     }
-  }, [selectedContact, vendorDetails]);
+  }, [selectedContact?.email, selectedContact?.phone, vendorDetails?.emails, vendorDetails?.formatted_phone_number]);
 
   // Add a cache for Gmail eligibility per contact
   const [gmailEligibilityCache, setGmailEligibilityCache] = useState<{
@@ -990,112 +1007,113 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedContact?.id]);
 
+  // Fetch vendor contact information when contact changes
+  const fetchVendorContactInfo = useCallback(async () => {
+    devLog('🔍 Checking vendor contact info for:', selectedContact?.name);
+    devLog('🔍 Contact placeId:', selectedContact?.placeId);
+    devLog('🔍 Contact email:', selectedContact?.email);
+    devLog('🔍 Contact phone:', selectedContact?.phone);
+    
+    if (!selectedContact?.placeId) {
+      devLog('❌ No placeId found, not a vendor contact');
+      setHasContactInfo(null);
+      // Only clear vendor details if we're switching to a different contact
+      if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact?.placeId) {
+        devLog('🔍 Clearing vendor details due to contact switch');
+        setVendorDetails(null);
+        currentPlaceIdRef.current = null;
+      }
+      return;
+    }
+
+    // Check if we're switching to a different placeId
+    if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact.placeId) {
+      devLog('🔍 Switching from placeId:', currentPlaceIdRef.current, 'to:', selectedContact.placeId);
+      setVendorDetails(null);
+    }
+    
+    currentPlaceIdRef.current = selectedContact.placeId;
+
+    // Check cache first
+    if (vendorDetailsCache.current[selectedContact.placeId]) {
+      devLog('✅ Found vendor details in cache for placeId:', selectedContact.placeId);
+      setVendorDetails(vendorDetailsCache.current[selectedContact.placeId]);
+      return;
+    }
+
+    // Don't refetch if we already have vendor details for this placeId
+    if (vendorDetails?.place_id === selectedContact.placeId) {
+      devLog('✅ Already have vendor details for this placeId, skipping fetch');
+      return;
+    }
+
+    setVendorContactLoading(true);
+    try {
+      // Fetch vendor details from Google Places API
+      const response = await fetch(`/api/google-place-details?placeId=${selectedContact.placeId}`);
+      const data = await response.json();
+      
+      devLog('🔍 Google Places API response:', data);
+      
+      if (data.status === 'OK' && data.result) {
+        devLog('✅ Setting vendor details:', data.result);
+        // Cache the vendor details with size limits
+        addToVendorCache(selectedContact.placeId, data.result);
+        setVendorDetails(data.result);
+        
+        // Check if vendor has any contact information
+        const hasGooglePhone = data.result.formatted_phone_number;
+        const hasGoogleWebsite = data.result.website;
+        const hasContactEmail = selectedContact.email;
+        const hasContactPhone = selectedContact.phone;
+        
+        devLog('🔍 Contact info check:', {
+          hasGooglePhone,
+          hasGoogleWebsite,
+          hasContactEmail,
+          hasContactPhone
+        });
+        
+        // For messaging purposes, we need either an email address or a phone number
+        // Website alone is not sufficient for messaging
+        const hasMessagingContactInfo = !!(hasContactEmail || hasContactPhone || hasGooglePhone);
+        
+        // Also check for verified emails from our system
+        const verifiedEmailsResponse = await fetch(`/api/vendor-emails?placeId=${selectedContact.placeId}`);
+        const verifiedEmailsData = await verifiedEmailsResponse.json();
+        
+        devLog('🔍 Verified emails response:', verifiedEmailsData);
+        
+        const hasVerifiedEmails = verifiedEmailsData.emails && 
+                                 verifiedEmailsData.emails.length > 0 && 
+                                 verifiedEmailsData.emails.some((email: any) => email.email && email.email.trim() !== '');
+        
+        devLog('🔍 Has verified emails:', hasVerifiedEmails);
+        
+        const finalHasContactInfo = hasMessagingContactInfo || hasVerifiedEmails;
+        devLog('🔍 Final hasContactInfo result:', finalHasContactInfo);
+        
+        setHasContactInfo(finalHasContactInfo);
+      } else {
+        devLog('❌ Google Places API failed:', data);
+        setHasContactInfo(false);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching vendor contact info:', error);
+      setHasContactInfo(false);
+    } finally {
+      setVendorContactLoading(false);
+    }
+  }, [selectedContact?.placeId, selectedContact?.email, selectedContact?.phone, vendorDetails?.place_id, addToVendorCache]);
+
   // Effect to fetch vendor details when a vendor contact is selected
   useEffect(() => {
-    const fetchVendorContactInfo = async () => {
-      console.log('🔍 Checking vendor contact info for:', selectedContact?.name);
-      console.log('🔍 Contact placeId:', selectedContact?.placeId);
-      console.log('🔍 Contact email:', selectedContact?.email);
-      console.log('🔍 Contact phone:', selectedContact?.phone);
-      
-      if (!selectedContact?.placeId) {
-        console.log('❌ No placeId found, not a vendor contact');
-        setHasContactInfo(null);
-        // Only clear vendor details if we're switching to a different contact
-        if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact?.placeId) {
-          console.log('🔍 Clearing vendor details due to contact switch');
-          setVendorDetails(null);
-          currentPlaceIdRef.current = null;
-        }
-        return;
-      }
-
-      // Check if we're switching to a different placeId
-      if (currentPlaceIdRef.current && currentPlaceIdRef.current !== selectedContact.placeId) {
-        console.log('🔍 Switching from placeId:', currentPlaceIdRef.current, 'to:', selectedContact.placeId);
-        setVendorDetails(null);
-      }
-      
-      currentPlaceIdRef.current = selectedContact.placeId;
-
-      // Check cache first
-      if (vendorDetailsCache.current[selectedContact.placeId]) {
-        console.log('✅ Found vendor details in cache for placeId:', selectedContact.placeId);
-        setVendorDetails(vendorDetailsCache.current[selectedContact.placeId]);
-        return;
-      }
-
-      // Don't refetch if we already have vendor details for this placeId
-      if (vendorDetails?.place_id === selectedContact.placeId) {
-        console.log('✅ Already have vendor details for this placeId, skipping fetch');
-        return;
-      }
-
-      setVendorContactLoading(true);
-      try {
-        // Fetch vendor details from Google Places API
-        const response = await fetch(`/api/google-place-details?placeId=${selectedContact.placeId}`);
-        const data = await response.json();
-        
-        console.log('🔍 Google Places API response:', data);
-        
-        if (data.status === 'OK' && data.result) {
-          console.log('✅ Setting vendor details:', data.result);
-          // Cache the vendor details
-          vendorDetailsCache.current[selectedContact.placeId] = data.result;
-          setVendorDetails(data.result);
-          
-          // Check if vendor has any contact information
-          const hasGooglePhone = data.result.formatted_phone_number;
-          const hasGoogleWebsite = data.result.website;
-          const hasContactEmail = selectedContact.email;
-          const hasContactPhone = selectedContact.phone;
-          
-          console.log('🔍 Contact info check:', {
-            hasGooglePhone,
-            hasGoogleWebsite,
-            hasContactEmail,
-            hasContactPhone
-          });
-          
-          // For messaging purposes, we need either an email address or a phone number
-          // Website alone is not sufficient for messaging
-          const hasMessagingContactInfo = !!(hasContactEmail || hasContactPhone || hasGooglePhone);
-          
-          // Also check for verified emails from our system
-          const verifiedEmailsResponse = await fetch(`/api/vendor-emails?placeId=${selectedContact.placeId}`);
-          const verifiedEmailsData = await verifiedEmailsResponse.json();
-          
-          console.log('🔍 Verified emails response:', verifiedEmailsData);
-          
-          const hasVerifiedEmails = verifiedEmailsData.emails && 
-                                   verifiedEmailsData.emails.length > 0 && 
-                                   verifiedEmailsData.emails.some((email: any) => email.email && email.email.trim() !== '');
-          
-          console.log('🔍 Has verified emails:', hasVerifiedEmails);
-          
-          const finalHasContactInfo = hasMessagingContactInfo || hasVerifiedEmails;
-          console.log('🔍 Final hasContactInfo result:', finalHasContactInfo);
-          
-          setHasContactInfo(finalHasContactInfo);
-        } else {
-          console.log('❌ Google Places API failed:', data);
-          setHasContactInfo(false);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching vendor contact info:', error);
-        setHasContactInfo(false);
-      } finally {
-        setVendorContactLoading(false);
-      }
-    };
-
     fetchVendorContactInfo();
-  }, [selectedContact?.placeId]);
+  }, [fetchVendorContactInfo]);
 
   // Debug effect to track vendor details changes
   useEffect(() => {
-    console.log('🔍 vendorDetails state changed:', {
+    devLog('🔍 vendorDetails state changed:', {
       vendorDetails: vendorDetails,
       hasVendorDetails: !!vendorDetails,
       vendorPlaceId: vendorDetails?.place_id,
@@ -1104,9 +1122,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       selectedContactId: selectedContact?.id,
       selectedContactName: selectedContact?.name
     });
-  }, [vendorDetails, selectedContact?.id, selectedContact?.name]);
+  }, [vendorDetails?.place_id, vendorDetails?.website, vendorDetails?.formatted_phone_number, selectedContact?.id, selectedContact?.name]);
 
-  console.log('UI messages:', state.messages);
+  devLog('UI messages:', state.messages);
 
   return (
     <div className="flex flex-col h-full">
@@ -1133,7 +1151,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               
               {/* Actions on the right */}
               <div className="flex items-center gap-2 flex-nowrap">
-                {showGmailImport && (bannerDismissed || importedOnce) && (
+                {showGmailImport && (bannerDismissed || importedOnce) && selectedContact?.email && (
                   <DropdownMenu
                     trigger={
                       <button
@@ -1181,8 +1199,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             
             {/* Bottom row: Contact metadata */}
             <div className="flex items-center gap-2 flex-wrap">
-              {(() => {
-                console.log('🔍 Header contact info debug:', {
+              {useMemo(() => {
+                devLog('🔍 Header contact info debug:', {
                   contactEmail: selectedContact.email,
                   contactPhone: selectedContact.phone,
                   contactWebsite: selectedContact.website,
@@ -1193,7 +1211,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 });
                 
                 return null;
-              })()}
+              }, [selectedContact?.email, selectedContact?.phone, selectedContact?.website, vendorDetails?.formatted_phone_number, vendorDetails?.website, vendorDetails?.place_id, vendorDetails])}
               
               {selectedContact.email ? (
                 <button
@@ -1233,7 +1251,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                   </span>
                 </button>
               )}
-              {(() => {
+              {useMemo(() => {
                 // Get the real website (not Google Maps)
                 const realWebsite = (() => {
                   if (vendorDetails?.website && !vendorDetails.website.includes('maps.google.com')) {
@@ -1258,7 +1276,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                     </span>
                   </a>
                 ) : null;
-              })()}
+              }, [vendorDetails?.website, selectedContact?.website])}
 
             </div>
           </div>
@@ -1321,15 +1339,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           hasContactInfo={hasContactInfo}
           setIsEditing={setIsEditing}
         />
-        {(() => {
+        {useMemo(() => {
           const shouldHideDraftArea = selectedContact?.placeId && hasContactInfo === false;
-          console.log('🔍 MessageDraftArea condition check:', {
+          devLog('🔍 MessageDraftArea condition check:', {
             selectedContactPlaceId: selectedContact?.placeId,
             hasContactInfo,
             shouldHideDraftArea
           });
           return !shouldHideDraftArea;
-        })() && (
+        }, [selectedContact?.placeId, hasContactInfo]) && (
           <MessageDraftArea
             selectedChannel={selectedChannel}
             setSelectedChannel={setSelectedChannel}

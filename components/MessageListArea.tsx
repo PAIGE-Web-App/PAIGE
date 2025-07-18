@@ -4,6 +4,12 @@ import { File, Reply, Trash2, ExternalLink, MessageSquareText } from "lucide-rea
 import DOMPurify from "dompurify";
 import { Message } from "../types/message";
 
+// Development-only logging
+const isDev = process.env.NODE_ENV === 'development';
+const devLog = (...args: any[]) => {
+  if (isDev) console.log(...args);
+};
+
 interface MessageListAreaProps {
   messages: Message[];
   loading: boolean;
@@ -43,7 +49,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   setIsEditing,
 }) => {
   // Debug logging
-  console.log('🔍 MessageListArea props:', {
+  devLog('🔍 MessageListArea props:', {
     selectedContactName: selectedContact?.name,
     selectedContactPlaceId: selectedContact?.placeId,
     vendorContactLoading,
