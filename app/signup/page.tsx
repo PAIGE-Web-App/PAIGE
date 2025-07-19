@@ -19,6 +19,7 @@ import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
+import VenueSearchInput from '@/components/VenueSearchInput';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -72,6 +73,7 @@ export default function SignUp() {
   const [saving, setSaving] = useState(false);
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
   const [disableSignup, setDisableSignup] = useState(false);
+  const [weddingLocationCoords, setWeddingLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Auto-correct invalid state
   useEffect(() => {
@@ -789,6 +791,7 @@ export default function SignUp() {
                   if (!newValue) {
                       setSelectedVenueMetadata(null);
                       setHasVenue(null);
+                      setWeddingLocationCoords(null);
                   }
               }}
               setVenueMetadata={(metadata) => {
@@ -796,6 +799,17 @@ export default function SignUp() {
                   if (metadata) {
                       setWeddingLocation(metadata.name);
                       setHasVenue(true);
+                      // Store coordinates for venue search bias
+                      if (metadata.geometry?.location) {
+                          const coords = {
+                              lat: metadata.geometry.location.lat(),
+                              lng: metadata.geometry.location.lng()
+                          };
+                          console.log('Setting wedding location coordinates:', coords);
+                          setWeddingLocationCoords(coords);
+                      } else {
+                          console.log('No geometry found in metadata:', metadata);
+                      }
                   }
               }}
               setSelectedLocationType={setSelectedLocationType}
@@ -871,16 +885,15 @@ export default function SignUp() {
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Search for your venue <span className="text-[#A85C36]">*</span>
                 </label>
-                <PlacesAutocompleteInput
+                <VenueSearchInput
                   value={venueSearchQuery}
                   onChange={setVenueSearchQuery}
                   setVenueMetadata={(metadata) => {
                     setSelectedVenueMetadata(metadata);
                     setVenueSearchQuery(metadata?.name || '');
                   }}
-                  setSelectedLocationType={() => {}} // Not needed here
-                  placeholder="Enter venue name"
-                  types={['establishment']}
+                  placeholder="Search for your venue"
+                  weddingLocation={weddingLocation}
                 />
 
                 {selectedVenueMetadata && (

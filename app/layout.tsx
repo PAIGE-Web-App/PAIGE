@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import { Playfair_Display, Work_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../contexts/AuthContext";
+import { SWRProvider } from "../contexts/SWRProvider";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import ToastOffsetSetter from "../components/ToastOffsetSetter";
@@ -35,26 +36,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
-          {!hideNav && <AuthenticatedNavWrapper />}
-          {!hideNav && <ToastOffsetSetter />}
-          <IdleTimeoutManager />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                backgroundColor: '#332B42',
-                color: '#F3F2F0',
-                borderRadius: '5px',
-                border: '1px solid #A85C36',
-                padding: '10px 15px',
-                fontSize: '14px',
-                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-              },
-              success: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
-              error: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
-            }}
-          />
-          {children}
+          <SWRProvider>
+            {!hideNav && <AuthenticatedNavWrapper />}
+            {!hideNav && <ToastOffsetSetter />}
+            <IdleTimeoutManager />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  backgroundColor: '#332B42',
+                  color: '#F3F2F0',
+                  borderRadius: '5px',
+                  border: '1px solid #A85C36',
+                  padding: '10px 15px',
+                  fontSize: '14px',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                },
+                success: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
+                error: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
+              }}
+            />
+            {children}
+          </SWRProvider>
         </AuthProvider>
       </body>
     </html>

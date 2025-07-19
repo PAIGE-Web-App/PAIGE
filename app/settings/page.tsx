@@ -97,6 +97,7 @@ export default function ProfilePage() {
     setBudgetRange,
     selectedLocationType,
     setSelectedLocationType,
+    weddingLocationCoords,
     hasUnsavedAccountChanges,
     hasUnsavedWeddingChanges,
     handleWeddingSave,
@@ -180,6 +181,7 @@ export default function ProfilePage() {
               setBudgetRange={setBudgetRange}
               selectedLocationType={selectedLocationType}
               setSelectedLocationType={setSelectedLocationType}
+              weddingLocationCoords={weddingLocationCoords}
               jiggleAnimate={jiggleWeddingDate ? 'animate-jiggle' : ''}
               saving={saving}
               hasUnsavedWeddingChanges={hasUnsavedWeddingChanges}

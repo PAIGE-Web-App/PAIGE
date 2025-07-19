@@ -46,6 +46,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
   const [budgetRange, setBudgetRange] = useState<[number, number]>([30000, 50000]);
   const [guestCount, setGuestCount] = useState(120);
   const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
+  const [weddingLocationCoords, setWeddingLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Sync with Firestore data
   useEffect(() => {
@@ -61,6 +62,15 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
       setWeddingLocationUndecided(firestoreWeddingLocationUndecided || false);
       setHasVenue(firestoreHasVenue);
       setSelectedVenueMetadata(firestoreSelectedVenueMetadata);
+      // Set coordinates from venue metadata if available
+      if (firestoreSelectedVenueMetadata?.geometry?.location) {
+        setWeddingLocationCoords({
+          lat: firestoreSelectedVenueMetadata.geometry.location.lat,
+          lng: firestoreSelectedVenueMetadata.geometry.location.lng
+        });
+      } else {
+        setWeddingLocationCoords(null);
+      }
       setVibe(firestoreVibe || []);
       setVibeInputMethod(firestoreVibeInputMethod || 'pills');
       setGeneratedVibes(firestoreGeneratedVibes || []);
@@ -243,6 +253,25 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     }
   }, []);
 
+  const handleSetWeddingLocation = useCallback((location: string) => {
+    setWeddingLocation(location);
+    // Clear coordinates when location changes
+    setWeddingLocationCoords(null);
+  }, []);
+
+  const handleSetSelectedVenueMetadata = useCallback((metadata: any) => {
+    setSelectedVenueMetadata(metadata);
+    // Update coordinates when venue metadata changes
+    if (metadata?.geometry?.location) {
+      setWeddingLocationCoords({
+        lat: metadata.geometry.location.lat(),
+        lng: metadata.geometry.location.lng()
+      });
+    } else {
+      setWeddingLocationCoords(null);
+    }
+  }, []);
+
   return {
     // State
     saving,
@@ -261,13 +290,13 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     weddingDate,
     setWeddingDate,
     weddingLocation,
-    setWeddingLocation,
+    setWeddingLocation: handleSetWeddingLocation,
     weddingLocationUndecided,
     setWeddingLocationUndecided,
     hasVenue,
     setHasVenue,
     selectedVenueMetadata,
-    setSelectedVenueMetadata,
+    setSelectedVenueMetadata: handleSetSelectedVenueMetadata,
     venueSearch,
     setVenueSearch,
     vibe,
@@ -282,6 +311,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     setGuestCount,
     selectedLocationType,
     setSelectedLocationType,
+    weddingLocationCoords,
     
     // Computed values
     hasUnsavedAccountChanges,

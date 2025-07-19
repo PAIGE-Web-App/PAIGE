@@ -1,33 +1,39 @@
 "use client";
 
-import { useEffect } from 'react';
-import usePlacesAutocomplete from 'use-places-autocomplete';
+import { useEffect, useState, useRef } from 'react';
 
-export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; }) {
-  const {
-    ready,
-    value: inputValue,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      types,
-    },
-    debounce: 300,
-  });
+export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; }) {
+  
+  // Debug logging
+  console.log('PlacesAutocompleteInput - locationBias:', locationBias);
+  console.log('PlacesAutocompleteInput - types:', types);
+  
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const autocompleteService = useRef<any>(null);
+  const sessionToken = useRef<any>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync internal state with parent state
+  // Initialize Google Places Autocomplete service
   useEffect(() => {
-    if (value !== inputValue) {
-      setValue(value, false);
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
+      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+      sessionToken.current = new window.google.maps.places.AutocompleteSessionToken();
     }
-  }, [value, inputValue, setValue]);
+
+    // Cleanup function
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
+  // No need for this useEffect - we handle value changes in handleInputChange
 
   const handleSelect = (suggestion: any) => () => {
-    setValue(suggestion.description, false);
     onChange(suggestion.description);
-    clearSuggestions();
+    setSuggestions([]);
 
     const { place_id, types } = suggestion;
 
@@ -53,22 +59,74 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(e.target.value);
-    onChange(e.target.value);
+    const inputValue = e.target.value;
+    onChange(inputValue);
+    
+    // Clear previous timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Clear suggestions if input is empty
+    if (!inputValue.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    // Debounce the API call
+    debounceTimer.current = setTimeout(() => {
+      if (!autocompleteService.current || inputValue.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsLoading(true);
+      
+      // For venue searches, include location in the search query itself
+      let searchInput = inputValue;
+      if (types.includes('establishment') && locationBias) {
+        // For venue searches, include the wedding location in the search
+        // This is more reliable than location bias
+        searchInput = `${inputValue} wedding venue`;
+      }
+
+      const request: any = {
+        input: searchInput,
+        types: types,
+        sessionToken: sessionToken.current,
+      };
+
+      // Only use location bias for non-venue searches (like city selection)
+      if (locationBias && !types.includes('establishment')) {
+        request.locationBias = `circle:${locationBias.radius || 50000}@${locationBias.lat},${locationBias.lng}`;
+        console.log('Using location bias for non-venue search:', request.locationBias);
+      }
+
+      autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+        setIsLoading(false);
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          console.log('Autocomplete results:', predictions);
+          setSuggestions(predictions);
+        } else {
+          console.log('Autocomplete status:', status);
+          setSuggestions([]);
+        }
+      });
+    }, 300);
   };
 
   return (
     <div className="relative">
       <input
-        value={inputValue}
+        value={value}
         onChange={handleInputChange}
-        disabled={disabled || !ready}
+        disabled={disabled}
         placeholder={placeholder}
         className={`w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${disabled ? 'bg-[#F3F2F0] text-[#AB9C95] cursor-not-allowed' : 'bg-white text-[#332B42]'}`}
       />
-      {status === "OK" && data.length > 0 && !disabled && (
+      {suggestions.length > 0 && !disabled && (
         <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
-          {data.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <li
               key={suggestion.place_id}
               className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
@@ -87,6 +145,11 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
             </li>
           ))}
         </ul>
+      )}
+      {isLoading && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
+        </div>
       )}
     </div>
   );

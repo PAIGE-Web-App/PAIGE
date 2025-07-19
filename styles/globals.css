@@ -59,6 +59,33 @@ a {
   transition: all 0.2s ease-in-out;
 }
 
+/* Custom button style for vendor search that matches input field heights */
+.btn-search-match {
+  background-color: #332B42;
+  color: #F3F2F0;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.875rem; /* text-sm to match input text */
+  padding: 6px 12px; /* Reduced padding to make button smaller */
+  border-radius: 5px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  height: 36px; /* Slightly reduced height to better match input fields */
+  min-width: 70px; /* Reduced minimum width */
+}
+
+.btn-search-match:hover {
+  background-color: #2A2235;
+}
+
+.btn-search-match:active {
+  background-color: #1F1A2A;
+}
+
 .btn-primary:disabled {
   background-color: #D7D0CC; /* Updated to #D7D0CC */
   color: #ffffff;

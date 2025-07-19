@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
+import VenueSearchInput from '@/components/VenueSearchInput';
 import VenueCard from '@/components/VenueCard';
 import BudgetSlider from '@/components/BudgetSlider';
 
@@ -28,6 +29,7 @@ interface WeddingTabProps {
   setBudgetRange: (range: [number, number]) => void;
   selectedLocationType: string | null;
   setSelectedLocationType: (type: string | null) => void;
+  weddingLocationCoords: { lat: number; lng: number } | null;
   jiggleAnimate: string;
   saving: boolean;
   hasUnsavedWeddingChanges: boolean;
@@ -55,6 +57,7 @@ export default function WeddingTab({
   setBudgetRange,
   selectedLocationType,
   setSelectedLocationType,
+  weddingLocationCoords,
   jiggleAnimate,
   saving,
   hasUnsavedWeddingChanges,
@@ -150,13 +153,12 @@ export default function WeddingTab({
                       }}
                     />
                   ) : (
-                    <PlacesAutocompleteInput
+                    <VenueSearchInput
                       value={venueSearch}
                       onChange={setVenueSearch}
                       setVenueMetadata={setSelectedVenueMetadata}
-                      setSelectedLocationType={setSelectedLocationType}
-                      placeholder="Enter venue name"
-                      types={['establishment']}
+                      placeholder="Search for your venue"
+                      weddingLocation={weddingLocation}
                     />
                   )}
                 </div>

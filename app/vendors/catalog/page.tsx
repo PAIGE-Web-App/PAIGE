@@ -88,7 +88,7 @@ export default function VendorCatalogPage() {
                 Update Default Value
               </a>
             </div>
-            <button className="btn-primary px-6 py-2 mt-6" onClick={handleSearch}>Search</button>
+            <button className="btn-search-match mt-6" onClick={handleSearch}>Search</button>
           </div>
         </div>
         <div>
