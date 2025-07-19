@@ -412,13 +412,18 @@ export default function SignUp() {
         const { name, formatted_address, geometry, place_id, photos, url, vicinity } = stepData.selectedVenueMetadata;
         
         // Ensure geometry and photos are handled safely
-        const serializedGeometry = geometry ? {
-          location: {
-            lat: geometry.location.lat(),
-            lng: geometry.location.lng(),
-          },
-          viewport: geometry.viewport,
-        } : undefined;
+        let serializedGeometry: any = undefined;
+        if (geometry && geometry.location) {
+          const lat = typeof geometry.location.lat === 'function' ? geometry.location.lat() : geometry.location.lat;
+          const lng = typeof geometry.location.lng === 'function' ? geometry.location.lng() : geometry.location.lng;
+          
+          if (typeof lat === 'number' && typeof lng === 'number') {
+            serializedGeometry = {
+              location: { lat, lng },
+              viewport: geometry.viewport,
+            };
+          }
+        }
 
         const serializedPhotos = photos ? photos.map(photo => ({
           height: photo.height,
@@ -437,7 +442,7 @@ export default function SignUp() {
           vicinity
         };
 
-        // Add venue to user's personal vendor list and community database
+        // Add venue to user's vendor management system (NOT as a messaging contact)
         try {
           const { addVendorToUserAndCommunity } = await import('../../lib/addVendorToUserAndCommunity');
           const result = await addVendorToUserAndCommunity({
@@ -449,13 +454,27 @@ export default function SignUp() {
           });
 
           if (result.success) {
-            console.log('Successfully added venue to user and community databases');
+            console.log('Successfully added venue to user vendor management system');
+            
+            // Mark the venue as official (starred) in the user's vendor list
+            try {
+              const { doc, updateDoc } = await import('firebase/firestore');
+              const vendorRef = doc(db, `users/${user.uid}/vendors`, result.vendorId!);
+              await updateDoc(vendorRef, {
+                isOfficial: true,
+                category: "Venue"
+              });
+              console.log('Marked venue as official in user vendor management system');
+            } catch (error) {
+              console.error('Error marking venue as official:', error);
+              // Don't fail the signup if this fails
+            }
           } else {
-            console.error('Failed to add venue to databases:', result.error);
+            console.error('Failed to add venue to vendor management system:', result.error);
             // Don't fail the signup if this fails
           }
         } catch (error) {
-          console.error('Error adding venue to databases:', error);
+          console.error('Error adding venue to vendor management system:', error);
           // Don't fail the signup if this fails
         }
       }
@@ -539,9 +558,25 @@ export default function SignUp() {
                     onBlur={() => setTimeout(() => setShowPasswordPopover(false), 100)}
                     ref={passwordInputRef}
                     placeholder="Password"
-                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                    className="w-full px-3 py-2 pr-10 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#7A7A7A] hover:text-[#332B42]"
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                   {showPasswordPopover && (
                     <div className="absolute left-0 top-12 z-10 w-64 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg p-3 text-xs text-[#332B42] animate-fade-in">
                       <div className="font-semibold mb-2">Password must contain:</div>
@@ -566,14 +601,32 @@ export default function SignUp() {
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Confirm Password<span className="text-[#A85C36]">*</span>
                 </label>
+                <div className="relative">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm Password"
-                  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]${!confirmPasswordMatches ? ' border-red-500' : ''}`}
+                    className={`w-full px-3 py-2 pr-10 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]${!confirmPasswordMatches ? ' border-red-500' : ''}`}
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#7A7A7A] hover:text-[#332B42]"
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {!confirmPasswordMatches && (
                   <div className="text-xs text-red-600 mt-1">Passwords do not match.</div>
                 )}
@@ -802,8 +855,8 @@ export default function SignUp() {
                       // Store coordinates for venue search bias
                       if (metadata.geometry?.location) {
                           const coords = {
-                              lat: metadata.geometry.location.lat(),
-                              lng: metadata.geometry.location.lng()
+                              lat: typeof metadata.geometry.location.lat === 'function' ? metadata.geometry.location.lat() : metadata.geometry.location.lat,
+                              lng: typeof metadata.geometry.location.lng === 'function' ? metadata.geometry.location.lng() : metadata.geometry.location.lng
                           };
                           console.log('Setting wedding location coordinates:', coords);
                           setWeddingLocationCoords(coords);

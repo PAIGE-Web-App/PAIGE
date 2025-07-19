@@ -32,3 +32,35 @@ export const getAllContacts = async (userId: string) => {
     };
   }) as Contact[];
 };
+
+// New function to get vendors from the vendor management collection
+export const getAllVendors = async (userId: string) => {
+  const vendorsCollection = getUserCollectionRef<any>("vendors", userId);
+  const q = query(vendorsCollection, where("userId", "==", userId));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      name: data.name,
+      placeId: data.placeId,
+      category: data.category,
+      website: data.website ?? null,
+      phone: data.phone ?? null,
+      address: data.address,
+      userId: data.userId,
+      isOfficial: data.isOfficial ?? false,
+      selectedAsVenue: data.selectedAsVenue ?? false,
+      selectedAsVendor: data.selectedAsVendor ?? false,
+      addedAt: data.addedAt,
+      rating: data.rating ?? null,
+      reviewCount: data.reviewCount ?? null,
+      vicinity: data.vicinity ?? null,
+      types: data.types ?? [],
+      // For compatibility with existing UI, add these fields
+      email: null, // Vendors don't have direct email in management system
+      avatarColor: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`, // Generate consistent color
+      orderIndex: data.addedAt ? -new Date(data.addedAt).getTime() : 0, // Sort by added date
+    };
+  });
+};

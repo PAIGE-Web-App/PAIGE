@@ -168,7 +168,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
         }
         updateData.selectedVenueMetadata = serializableVenue;
 
-        // Add venue to user's vendor list and community database
+        // Add venue to user's vendor management system (NOT as a messaging contact)
         try {
           const { addVendorToUserAndCommunity } = await import('../../../lib/addVendorToUserAndCommunity');
           const result = await addVendorToUserAndCommunity({
@@ -180,27 +180,26 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
           });
 
           if (result.success) {
-            console.log('Successfully added venue to user and community databases');
+            console.log('Successfully added venue to user vendor management system');
             
             // Mark the venue as official (starred) in the user's vendor list
             try {
-              const { v4: uuidv4 } = await import('uuid');
-              const contactRef = doc(db, `users/${user.uid}/contacts`, result.contactId!);
-              await updateDoc(contactRef, {
+              const vendorRef = doc(db, `users/${user.uid}/vendors`, result.vendorId!);
+              await updateDoc(vendorRef, {
                 isOfficial: true,
                 category: "Venue"
               });
-              console.log('Marked venue as official in user vendor list');
+              console.log('Marked venue as official in user vendor management system');
             } catch (error) {
               console.error('Error marking venue as official:', error);
               // Don't fail the save if this fails
             }
           } else {
-            console.error('Failed to add venue to databases:', result.error);
+            console.error('Failed to add venue to vendor management system:', result.error);
             // Don't fail the save if this fails
           }
         } catch (error) {
-          console.error('Error adding venue to databases:', error);
+          console.error('Error adding venue to vendor management system:', error);
           // Don't fail the save if this fails
         }
       } else {
@@ -264,8 +263,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     // Update coordinates when venue metadata changes
     if (metadata?.geometry?.location) {
       setWeddingLocationCoords({
-        lat: metadata.geometry.location.lat(),
-        lng: metadata.geometry.location.lng()
+        lat: typeof metadata.geometry.location.lat === 'function' ? metadata.geometry.location.lat() : metadata.geometry.location.lat,
+        lng: typeof metadata.geometry.location.lng === 'function' ? metadata.geometry.location.lng() : metadata.geometry.location.lng
       });
     } else {
       setWeddingLocationCoords(null);

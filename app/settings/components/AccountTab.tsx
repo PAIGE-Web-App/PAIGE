@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User, Pencil } from 'lucide-react';
+import { User, Pencil, Trash2 } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
@@ -10,6 +10,7 @@ import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import { validateEmail, validateName, addCacheBuster } from '../utils/profileValidation';
 import AvatarUploadModal from './AvatarUploadModal';
+import DeleteAccountModal from '../../../components/DeleteAccountModal';
 
 interface AccountTabProps {
   user: any;
@@ -41,6 +42,8 @@ export default function AccountTab({
   hasUnsavedChanges,
 }: AccountTabProps) {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [userNameError, setUserNameError] = useState("");
   const [partnerNameError, setPartnerNameError] = useState("");
 
@@ -83,6 +86,38 @@ export default function AccountTab({
     } catch (error) {
       console.error("Error uploading avatar:", error);
       toast.error("Failed to upload profile image.");
+    }
+  };
+
+  const handleDeleteAccount = async (reason: string) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.uid,
+          reason: reason
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Account deleted successfully');
+        // Sign out the user
+        const auth = getAuth();
+        await auth.signOut();
+        // Redirect to login page
+        window.location.href = '/login';
+      } else {
+        const data = await response.json();
+        toast.error(data.error || 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -184,6 +219,22 @@ export default function AccountTab({
               </button>
             </div>
           )}
+          
+          {/* Delete Account Section */}
+          <div className="mb-4 pt-4 border-t border-[#E0D6D0]">
+            <label className="block text-xs font-work-sans text-[#332B42] mb-1">Danger Zone</label>
+            <button
+              className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+            >
+              <Trash2 className="w-3 h-3" />
+              Delete Account
+            </button>
+            <p className="text-xs text-gray-500 mt-1">
+              This action cannot be undone. All your data will be permanently deleted.
+            </p>
+          </div>
           <div className="flex justify-end items-center mt-6 gap-3">
             <button
               className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
@@ -199,6 +250,12 @@ export default function AccountTab({
         isOpen={showAvatarModal}
         onClose={() => setShowAvatarModal(false)}
         onUpload={handleAvatarUpload}
+      />
+      <DeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onDeleteAccount={handleDeleteAccount}
+        isDeleting={isDeleting}
       />
     </>
   );

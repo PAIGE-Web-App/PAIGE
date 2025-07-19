@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getAllContacts } from '@/lib/getContacts';
-import { saveContactToFirestore } from '@/lib/saveContactToFirestore';
+import { getAllVendors } from '@/lib/getContacts';
+import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ListFilter, Search } from 'lucide-react';
@@ -84,12 +84,12 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
 export default function VendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
-  const [confirmModal, setConfirmModal] = useState<{ open: boolean; contact: Contact | null; action: 'star' | 'unstar' }>({ open: false, contact: null, action: 'star' });
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; vendor: any | null; action: 'star' | 'unstar' }>({ open: false, vendor: null, action: 'star' });
   const [isSaving, setIsSaving] = useState(false);
-  const [editModal, setEditModal] = useState<{ open: boolean; contact: Contact | null }>({ open: false, contact: null });
+  const [editModal, setEditModal] = useState<{ open: boolean; vendor: any | null }>({ open: false, vendor: null });
   const [isLoading, setIsLoading] = useState(true);
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
@@ -99,29 +99,29 @@ export default function VendorsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
 
-  // Filtered and searched contacts
-  const filteredContacts = contacts.filter((c) => {
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(c.category);
-    const matchesSearch = vendorSearch.trim() === '' || c.name.toLowerCase().includes(vendorSearch.toLowerCase()) || (c.email && c.email.toLowerCase().includes(vendorSearch.toLowerCase()));
+  // Filtered and searched vendors
+  const filteredVendors = vendors.filter((v) => {
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
+    const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   useEffect(() => {
     if (user?.uid) {
       setIsLoading(true);
-      getAllContacts(user.uid).then((data) => {
-        setContacts(data);
+      getAllVendors(user.uid).then((data) => {
+        setVendors(data);
         // Count categories
         const counts: Record<string, number> = {};
-        data.forEach((contact) => {
-          if (contact.category) {
-            counts[contact.category] = (counts[contact.category] || 0) + 1;
+        data.forEach((vendor) => {
+          if (vendor.category) {
+            counts[vendor.category] = (counts[vendor.category] || 0) + 1;
           }
         });
         setCategoryCounts(counts);
         setIsLoading(false);
       }).catch((error) => {
-        console.error('Error loading contacts:', error);
+        console.error('Error loading vendors:', error);
         setIsLoading(false);
       });
     }
@@ -136,54 +136,54 @@ export default function VendorsPage() {
   const categories = Object.keys(categoryCounts)
     .filter(cat => !isFirestoreDocumentId(cat))
     .sort((a, b) => a.localeCompare(b));
-  const allCount = contacts.length;
+  const allCount = vendors.length;
 
   // Find official vendor for each category
   const officialByCategory: Record<string, string> = {};
-  contacts.forEach((c) => {
-    if (c.isOfficial && c.category) officialByCategory[c.category] = c.id;
+  vendors.forEach((v) => {
+    if (v.isOfficial && v.category) officialByCategory[v.category] = v.id;
   });
 
   // Handler to set a vendor as official
-  const handleSetOfficial = async (contact: Contact) => {
+  const handleSetOfficial = async (vendor: any) => {
     setIsSaving(true);
     try {
       // Unmark all in this category, then mark this one
-      const updates = contacts
-        .filter((c) => c.category === contact.category)
-        .map((c) =>
-          saveContactToFirestore({ ...c, isOfficial: c.id === contact.id })
+      const updates = vendors
+        .filter((v) => v.category === vendor.category)
+        .map((v) =>
+          saveVendorToFirestore({ ...v, isOfficial: v.id === vendor.id })
         );
       await Promise.all(updates);
       // Update local state
-      setContacts((prev) => 
-        prev.map((c) => ({ ...c, isOfficial: c.category === contact.category ? c.id === contact.id : false }))
+      setVendors((prev) => 
+        prev.map((v) => ({ ...v, isOfficial: v.category === vendor.category ? v.id === vendor.id : false }))
       );
-      toast.success(`${contact.name} marked as official ${contact.category}`);
+      toast.success(`${vendor.name} marked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error setting official vendor:', error);
       toast.error('Failed to mark vendor as official');
     }
     setIsSaving(false);
-    setConfirmModal({ open: false, contact: null, action: 'star' });
+    setConfirmModal({ open: false, vendor: null, action: 'star' });
   };
 
   // Handler to unset a vendor as official (unstar)
-  const handleUnsetOfficial = async (contact: Contact) => {
+  const handleUnsetOfficial = async (vendor: any) => {
     setIsSaving(true);
     try {
-      await saveContactToFirestore({ ...contact, isOfficial: false });
+      await saveVendorToFirestore({ ...vendor, isOfficial: false });
       // Update local state
-      setContacts((prev) => 
-        prev.map((c) => c.id === contact.id ? { ...c, isOfficial: false } : c)
+      setVendors((prev) => 
+        prev.map((v) => v.id === vendor.id ? { ...v, isOfficial: false } : v)
       );
-      toast.success(`${contact.name} unmarked as official ${contact.category}`);
+      toast.success(`${vendor.name} unmarked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error unsetting official vendor:', error);
       toast.error('Failed to unmark vendor as official');
     }
     setIsSaving(false);
-    setConfirmModal({ open: false, contact: null, action: 'unstar' });
+    setConfirmModal({ open: false, vendor: null, action: 'unstar' });
   };
 
   return (
@@ -252,10 +252,10 @@ export default function VendorsPage() {
               {/* Standardized Header with Filter and Search */}
               <SectionHeaderBar
                 title={
-                  <div className="flex items-center gap-2">
-                    Your Vendors
-                    <BadgeCount count={filteredContacts.length} />
-                  </div>
+                                  <div className="flex items-center gap-2">
+                  Your Vendors
+                  <BadgeCount count={filteredVendors.length} />
+                </div>
                 }
               >
                 <div className="flex items-center gap-3 flex-grow min-w-0" style={{ height: '32px' }}>
@@ -283,20 +283,20 @@ export default function VendorsPage() {
                   Array.from({ length: 5 }).map((_, index) => (
                     <VendorSkeleton key={index} />
                   ))
-                ) : filteredContacts.length === 0 ? (
+                ) : filteredVendors.length === 0 ? (
                   <div className="text-sm text-gray-500 text-center py-4">No matching vendors found.</div>
                 ) : (
-                  filteredContacts.map((contact) => (
-                  <div key={contact.id} className="border rounded-[5px] border-[#AB9C95] p-4 flex flex-row items-center gap-4 relative">
-                    {/* Left: Star, Name, Category, Email, Phone */}
+                  filteredVendors.map((vendor) => (
+                  <div key={vendor.id} className="border rounded-[5px] border-[#AB9C95] p-4 flex flex-row items-center gap-4 relative">
+                    {/* Left: Star, Name, Category, Phone, Address */}
                     <div className="flex flex-col flex-1 gap-1 pr-40">
                       <div className="flex items-center gap-2">
-                        {officialByCategory[contact.category] === contact.id ? (
+                        {officialByCategory[vendor.category] === vendor.id ? (
                           <button
                             className="text-[#A85C36] text-lg hover:text-[#AB9C95] transition-colors"
                             title="Unmark as Official Vendor"
                             disabled={isSaving}
-                            onClick={() => setConfirmModal({ open: true, contact, action: 'unstar' })}
+                            onClick={() => setConfirmModal({ open: true, vendor, action: 'unstar' })}
                           >
                             ★
                           </button>
@@ -305,43 +305,36 @@ export default function VendorsPage() {
                             className="text-[#AB9C95] text-lg hover:text-[#A85C36] transition-colors"
                             title="Set as Official Vendor"
                             disabled={isSaving}
-                            onClick={() => setConfirmModal({ open: true, contact, action: 'star' })}
+                            onClick={() => setConfirmModal({ open: true, vendor, action: 'star' })}
                           >
                             ☆
                           </button>
                         )}
                         <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                          {highlightText(contact.name, vendorSearch)}
+                          {highlightText(vendor.name, vendorSearch)}
                         </h4>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        {contact.category && <CategoryPill category={contact.category} />}
-                        {contact.email && (
+                        {vendor.category && <CategoryPill category={vendor.category} />}
+                        {vendor.phone && (
                           <button
                             type="button"
-                            onClick={() => router.push(`/?contactId=${contact.id}`)}
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                          >
-                            <Mail className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{highlightText(contact.email, vendorSearch)}</span>
-                          </button>
-                        )}
-                        {contact.phone && (
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/?contactId=${contact.id}`)}
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
                             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
                             <Phone className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{contact.phone}</span>
+                            <span className="truncate max-w-[100px] md:max-w-none">{vendor.phone}</span>
                           </button>
                         )}
-                        {contact.placeId && (
+                        {vendor.address && (
+                          <span className="text-[11px] text-[#364257]">
+                            📍 {vendor.address}
+                          </span>
+                        )}
+                        {vendor.placeId && (
                           <button
                             type="button"
-                            onClick={() => router.push(`/vendors/${contact.placeId}`)}
+                            onClick={() => router.push(`/vendors/${vendor.placeId}`)}
                             className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
                             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -355,18 +348,18 @@ export default function VendorsPage() {
                       <DropdownMenu
                         trigger={<button className="p-1 hover:bg-gray-100 rounded-full" title="More options"><MoreHorizontal size={16} className="text-gray-500" /></button>}
                         items={[
-                          ...(contact.placeId ? [{
+                          ...(vendor.placeId ? [{
                             label: 'View Details',
-                            onClick: () => router.push(`/vendors/${contact.placeId}`),
+                            onClick: () => router.push(`/vendors/${vendor.placeId}`),
                             className: '',
                           }] : []),
                           {
                             label: 'Edit',
-                            onClick: () => setEditModal({ open: true, contact }),
+                            onClick: () => setEditModal({ open: true, vendor }),
                             className: '',
                           }, {
-                            label: 'Contact',
-                            onClick: () => router.push(`/?contactId=${contact.id}`),
+                            label: 'Add Contact Person',
+                            onClick: () => router.push(`/?addContactForVendor=${vendor.placeId}`),
                             className: '',
                           }
                         ]}
@@ -436,34 +429,34 @@ export default function VendorsPage() {
         </aside>
         <ConfirmOfficialModal
           open={confirmModal.open}
-          onClose={() => setConfirmModal({ open: false, contact: null, action: 'star' })}
+          onClose={() => setConfirmModal({ open: false, vendor: null, action: 'star' })}
           onConfirm={() => {
-            if (confirmModal.contact) {
+            if (confirmModal.vendor) {
               if (confirmModal.action === 'star') {
-                handleSetOfficial(confirmModal.contact);
+                handleSetOfficial(confirmModal.vendor);
               } else {
-                handleUnsetOfficial(confirmModal.contact);
+                handleUnsetOfficial(confirmModal.vendor);
               }
             }
           }}
-          vendorName={confirmModal.contact?.name || ''}
-          category={confirmModal.contact?.category || ''}
+          vendorName={confirmModal.vendor?.name || ''}
+          category={confirmModal.vendor?.category || ''}
           action={confirmModal.action}
         />
-        {/* EditContactModal overlay */}
-        {editModal.open && editModal.contact && user?.uid && (
+        {/* EditContactModal overlay - For now, we'll keep this but it should be updated for vendor editing */}
+        {editModal.open && editModal.vendor && user?.uid && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
             <EditContactModal
-              contact={editModal.contact}
+              contact={editModal.vendor}
               userId={user.uid}
-              onClose={() => setEditModal({ open: false, contact: null })}
+              onClose={() => setEditModal({ open: false, vendor: null })}
               onSave={(updated) => {
-                setContacts((prev) => prev.map((c) => c.id === updated.id ? updated : c));
-                setEditModal({ open: false, contact: null });
+                setVendors((prev) => prev.map((v) => v.id === updated.id ? updated : v));
+                setEditModal({ open: false, vendor: null });
               }}
               onDelete={(deletedId) => {
-                setContacts((prev) => prev.filter((c) => c.id !== deletedId));
-                setEditModal({ open: false, contact: null });
+                setVendors((prev) => prev.filter((v) => v.id !== deletedId));
+                setEditModal({ open: false, vendor: null });
               }}
             />
           </div>
@@ -474,9 +467,9 @@ export default function VendorsPage() {
               userId={user.uid}
               onClose={() => setAddContactModal(false)}
               onSave={(newContact) => {
-                setContacts((prev) => [...prev, newContact]);
+                // This should add a contact person, not a vendor
                 setAddContactModal(false);
-                toast.success(`Vendor "${newContact.name}" added successfully!`);
+                toast.success(`Contact "${newContact.name}" added successfully!`);
               }}
             />
           </div>

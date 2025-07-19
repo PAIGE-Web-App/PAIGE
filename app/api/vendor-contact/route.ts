@@ -192,46 +192,38 @@ const getVendorEmails = async (placeId: string): Promise<string[]> => {
   }
 };
 
-// Function to save vendor as contact
+// Function to save vendor as contact for messaging
 const saveVendorAsContact = async (vendor: any, verifiedEmail: string | null, userId: string) => {
   try {
-    const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+    const { addVendorAsContact } = await import('@/lib/addVendorToUserAndCommunity');
     
-    // Generate avatar color
-    const avatarColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
-    const randomAvatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+    // Use the new function to add vendor as a messaging contact
+    const result = await addVendorAsContact({
+      userId,
+      vendorMetadata: vendor,
+      category: getVendorCategory(vendor),
+      selectedAsVenue: false,
+      selectedAsVendor: true
+    });
     
-    // Determine category from vendor types or use a default
-    const category = getVendorCategory(vendor);
-    
-    const contactData = {
-      id: uuidv4(),
-      name: vendor.name,
-      email: verifiedEmail,
-      phone: vendor.formatted_phone_number || null,
-      category: category,
-      website: vendor.website || null,
-      avatarColor: randomAvatarColor,
-      userId: userId,
-      orderIndex: -new Date().getTime(), // Sort to top
-      channel: 'Vendor Catalog',
-      isOfficial: false,
-      placeId: vendor.place_id,
-      rating: vendor.rating || null,
-      reviewCount: vendor.user_ratings_total || null,
-      address: vendor.formatted_address || null,
-      priceLevel: vendor.price_level || null,
-      contactedAt: new Date().toISOString(),
-      lastContactMethod: verifiedEmail ? 'email' : 'website',
-      isVendorContact: true
-    };
-    
-    // Save to Firestore
-    const contactRef = adminDb.collection(`users/${userId}/contacts`).doc(contactData.id);
-    await contactRef.set(contactData);
-    
-    console.log(`✅ Vendor saved as contact: ${vendor.name}`);
-    return contactData;
+    if (result.success) {
+      console.log(`✅ Vendor saved as contact: ${vendor.name}`);
+      
+      // Update the contact with additional information
+      const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+      const contactRef = adminDb.collection(`users/${userId}/contacts`).doc(result.contactId!);
+      await contactRef.update({
+        email: verifiedEmail,
+        contactedAt: new Date().toISOString(),
+        lastContactMethod: verifiedEmail ? 'email' : 'website',
+        channel: 'Vendor Catalog'
+      });
+      
+      return { id: result.contactId, name: vendor.name };
+    } else {
+      console.error(`Error saving vendor as contact: ${vendor.name}`, result.error);
+      return null;
+    }
   } catch (error) {
     console.error(`Error saving vendor as contact: ${vendor.name}`, error);
     return null;
@@ -353,29 +345,24 @@ export async function POST(req: NextRequest) {
     
     for (const vendor of vendorDetails) {
       try {
-        // Add vendor to community database
+        // Add vendor to community database and user's vendor management system
         try {
-          const communityResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/community-vendors`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              placeId: vendor.place_id,
-              vendorName: vendor.name,
-              vendorAddress: vendor.formatted_address,
-              vendorCategory: getVendorCategory(vendor),
-              userId,
-              selectedAsVenue: false,
-              selectedAsVendor: true
-            })
+          const { addVendorToUserAndCommunity } = await import('@/lib/addVendorToUserAndCommunity');
+          const result = await addVendorToUserAndCommunity({
+            userId,
+            vendorMetadata: vendor,
+            category: getVendorCategory(vendor),
+            selectedAsVenue: false,
+            selectedAsVendor: true
           });
 
-          if (!communityResponse.ok) {
-            console.error('Failed to add vendor to community database');
+          if (!result.success) {
+            console.error('Failed to add vendor to management system:', result.error);
           } else {
-            console.log('Successfully added vendor to community database');
+            console.log('Successfully added vendor to management system');
           }
         } catch (error) {
-          console.error('Error adding vendor to community database:', error);
+          console.error('Error adding vendor to management system:', error);
         }
 
         // First, check for verified emails in global database

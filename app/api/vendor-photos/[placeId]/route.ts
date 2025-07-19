@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { placeId: string } }
+  { params }: { params: Promise<{ placeId: string }> }
 ) {
-  const placeId = params.placeId;
+  const { placeId } = await params;
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   if (!placeId || !apiKey) {

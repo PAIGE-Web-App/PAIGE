@@ -29,3 +29,28 @@ export const saveContactToFirestore = async (contact: any) => {
     throw error; // Re-throw the error so the calling function can handle it
   }
 };
+
+// New function to save vendors to the vendor management collection
+export const saveVendorToFirestore = async (vendor: any) => {
+  console.log("saveVendorToFirestore: Attempting to save vendor:", vendor);
+  console.log("saveVendorToFirestore: userId being saved:", vendor.userId);
+  console.log("saveVendorToFirestore: vendor.id being saved:", vendor.id);
+
+  if (!vendor.userId) {
+    console.error("saveVendorToFirestore: Vendor object is missing userId!");
+    throw new Error("Vendor must have a userId.");
+  }
+
+  try {
+    // Use getUserCollectionRef to get the correct document path for the user's vendors
+    const vendorDocRef = doc(getUserCollectionRef("vendors", vendor.userId), vendor.id);
+    
+    // Use { merge: true } to ensure that if a document with this ID already exists,
+    // new fields are added without overwriting existing ones.
+    await setDoc(vendorDocRef, vendor, { merge: true });
+    console.log("saveVendorToFirestore: Document successfully written to Firestore.");
+  } catch (error) {
+    console.error("saveVendorToFirestore: Error writing document to Firestore:", error);
+    throw error; // Re-throw the error so the calling function can handle it
+  }
+};
