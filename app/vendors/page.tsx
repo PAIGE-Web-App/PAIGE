@@ -187,7 +187,7 @@ export default function VendorsPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-linen">
+    <div className="flex flex-col h-full bg-linen">
       <WeddingBanner
         daysLeft={daysLeft}
         userName={userName}

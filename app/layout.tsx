@@ -7,6 +7,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
+import VerticalNavWrapper from "../components/VerticalNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 
@@ -25,6 +26,7 @@ const workSans = Work_Sans({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideNav = pathname === '/login' || pathname === '/signup';
+  
   return (
     <html lang="en" className={`${playfair.variable} ${workSans.variable}`}>
       <head>
@@ -36,7 +38,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
           <SWRProvider>
-            {!hideNav && <AuthenticatedNavWrapper />}
+            {/* Keep old TopNav hidden but available for fallback */}
+            <div className="hidden">
+              {!hideNav && <AuthenticatedNavWrapper />}
+            </div>
+            
+            {/* New Vertical Navigation */}
+            {!hideNav && <VerticalNavWrapper>{children}</VerticalNavWrapper>}
+            {hideNav && children}
+            
             <IdleTimeoutManager />
             <Toaster
               position="bottom-center"
@@ -59,7 +69,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 error: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
               }}
             />
-            {children}
           </SWRProvider>
         </AuthProvider>
       </body>

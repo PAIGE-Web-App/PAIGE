@@ -407,7 +407,7 @@ h6 {
 /* Shared container for consistent max-width across all components */
 .app-container {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1800px;
   margin-left: auto;
   margin-right: auto;
   box-sizing: border-box;
@@ -415,7 +415,7 @@ h6 {
 
 .app-content-container {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1800px;
   margin-left: auto;
   margin-right: auto;
   padding: 1rem;

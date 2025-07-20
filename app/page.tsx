@@ -868,7 +868,7 @@ export default function Home() {
   }, [user]);
 
   return (
-    <div className="flex flex-col h-screen bg-linen">
+    <div className="flex flex-col h-full bg-linen">
       {/* Show loading spinner during onboarding check */}
       {onboardingCheckLoading && (
         <div className="flex items-center justify-center min-h-screen">
