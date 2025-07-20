@@ -63,7 +63,7 @@ const MessagesPanel = ({
       {contacts.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full">
           <img src="/wine.png" alt="Cheers" className="w-48 h-48 mb-6" />
-          <h4 className="text-2xl font-playfair font-semibold text-[#332B42] mb-2">Cheers to your next chapter!</h4>
+          <h4 className="mb-2">Cheers to your next chapter!</h4>
           <p className="text-base text-[#364257] mb-6 max-w-md text-center">
             Add your contacts to get started
           </p>

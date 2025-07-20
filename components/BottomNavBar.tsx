@@ -1,10 +1,10 @@
 // components/BottomNavBar.tsx
 import React from 'react';
-import { ClipboardList, MessageSquare, Users } from 'lucide-react';
+import { ClipboardList, MessageSquare, Users, DollarSign } from 'lucide-react';
 
 interface BottomNavBarProps {
-  activeTab: 'contacts' | 'messages' | 'todo';
-  onTabChange: (tab: 'contacts' | 'messages' | 'todo') => void;
+  activeTab: 'contacts' | 'messages' | 'todo' | 'budget';
+  onTabChange: (tab: 'contacts' | 'messages' | 'todo' | 'budget') => void;
 }
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChange }) => {
@@ -27,6 +27,15 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChange }) =
       >
         <ClipboardList className="w-5 h-5 mb-1" />
         To-do
+      </button>
+      <button
+        onClick={() => onTabChange('budget')}
+        className={`flex flex-col items-center text-xs font-medium px-3 py-1 rounded-md transition-colors
+          ${activeTab === 'budget' ? 'text-[#A85C36] bg-[#EBE3DD]' : 'text-[#332B42] hover:bg-[#E0DBD7]'}
+        `}
+      >
+        <DollarSign className="w-5 h-5 mb-1" />
+        Budget
       </button>
     </div>
   );

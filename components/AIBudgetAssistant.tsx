@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Sparkles, DollarSign, ClipboardList, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Sparkles, DollarSign, ClipboardList, Zap, AlertTriangle } from 'lucide-react';
 
 interface AIBudgetAssistantProps {
   isOpen: boolean;
@@ -24,10 +25,29 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
   const [budgetAmount, setBudgetAmount] = useState(totalBudget?.toString() || '');
   const [selectedOption, setSelectedOption] = useState<'budget' | 'todo' | 'integrated'>('integrated');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!description.trim()) return;
     
+    console.log('AI Budget Assistant - handleGenerate called:', {
+      selectedOption,
+      hasExistingBudget: totalBudget && totalBudget > 0,
+      totalBudget
+    });
+    
+    // Show overwrite warning for budget-related options if user has existing budget
+    if ((selectedOption === 'budget' || selectedOption === 'integrated') && totalBudget && totalBudget > 0) {
+      console.log('Showing overwrite warning');
+      setShowOverwriteWarning(true);
+      return;
+    }
+    
+    await performGeneration();
+  };
+
+  const performGeneration = async () => {
     console.log('AI Budget Assistant - Starting generation:', {
       selectedOption,
       description,
@@ -36,6 +56,8 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
     });
     
     setIsGenerating(true);
+    setError(null);
+    
     try {
       const budget = parseFloat(budgetAmount) || 0;
       
@@ -58,8 +80,9 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
       
       console.log('Generation completed successfully');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating:', error);
+      setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -68,20 +91,33 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-[5px] p-6 w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#332B42] flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#A85C36]" />
-            AI Budget Assistant
-          </h2>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+        onClick={onClose} // Close modal when clicking outside
+      >
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -50, opacity: 0 }}
+          className="bg-white rounded-[5px] shadow-xl max-w-xl w-full max-w-sm p-6 relative"
+          onClick={(e) => e.stopPropagation()} // Prevent click from closing modal
+        >
           <button
             onClick={onClose}
-            className="text-[#AB9C95] hover:text-[#332B42]"
+            className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+            title="Close"
           >
-            <X className="w-5 h-5" />
+            <X size={20} />
           </button>
-        </div>
+
+          <h5 className="h5 mb-4 text-center flex items-center justify-center gap-2">
+            <Sparkles className="w-5 h-5 text-[#A85C36]" />
+            AI Budget Assistant
+          </h5>
 
         <div className="space-y-4">
           <div>
@@ -179,9 +215,27 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
               </p>
             </div>
           )}
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-[5px]">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">Generation Failed</p>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-xs text-red-600 hover:text-red-800 mt-2 underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center justify-between mt-6">
+        <div className="flex justify-center w-full mt-6 gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
@@ -191,14 +245,68 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
           <button
             onClick={handleGenerate}
             disabled={!description.trim() || isGenerating}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Sparkles className="w-4 h-4" />
             {isGenerating ? 'Generating...' : 'Generate'}
           </button>
         </div>
-      </div>
-    </div>
+
+        {/* Overwrite Warning Modal */}
+        {showOverwriteWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]"
+            onClick={() => setShowOverwriteWarning(false)}
+          >
+            <motion.div
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#332B42]">Overwrite Existing Budget?</h3>
+                  <p className="text-sm text-[#AB9C95]">This action cannot be undone</p>
+                </div>
+              </div>
+              
+              <p className="text-sm text-[#332B42] mb-6">
+                You currently have a budget of ${totalBudget?.toLocaleString()}. 
+                {selectedOption === 'integrated' 
+                  ? ' This will create a new budget AND todo list, replacing your current budget.'
+                  : ' This will create a new budget, replacing your current one.'
+                }
+              </p>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowOverwriteWarning(false)}
+                  className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowOverwriteWarning(false);
+                    performGeneration();
+                  }}
+                  className="btn-primary px-4 py-2 text-sm"
+                >
+                  Continue
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

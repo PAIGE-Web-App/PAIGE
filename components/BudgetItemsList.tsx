@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Edit2, Trash2, DollarSign, Link } from 'lucide-react';
 import { BudgetItem, BudgetCategory } from '@/types/budget';
+import MicroMenu from './MicroMenu';
 
 interface BudgetItemsListProps {
   selectedCategory: BudgetCategory | null;
@@ -9,6 +10,8 @@ interface BudgetItemsListProps {
   onEditItem: (item: BudgetItem) => void;
   onDeleteItem: (itemId: string) => void;
   onLinkVendor: (item: BudgetItem) => void;
+  onEditCategory?: (category: BudgetCategory) => void;
+  onDeleteCategory?: (category: BudgetCategory) => void;
 }
 
 const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
@@ -18,6 +21,8 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   onEditItem,
   onDeleteItem,
   onLinkVendor,
+  onEditCategory,
+  onDeleteCategory,
 }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -67,13 +72,33 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
               {formatCurrency(totalSpent)} of {formatCurrency(selectedCategory.allocatedAmount)} spent
             </p>
           </div>
-          <button
-            onClick={onAddItem}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Item
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onAddItem}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Item
+            </button>
+            
+            {/* Category Edit/Delete Menu */}
+            {(onEditCategory || onDeleteCategory) && (
+              <MicroMenu
+                items={[
+                  ...(onEditCategory ? [{
+                    label: 'Edit Category',
+                    onClick: () => onEditCategory(selectedCategory)
+                  }] : []),
+                  ...(onDeleteCategory ? [{
+                    label: 'Delete Category',
+                    onClick: () => onDeleteCategory(selectedCategory),
+                    className: 'text-red-600'
+                  }] : [])
+                ]}
+                title="Category options"
+              />
+            )}
+          </div>
         </div>
 
         {/* Progress Bar */}

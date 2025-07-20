@@ -65,6 +65,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [allCategories, setAllCategories] = React.useState<string[]>([]);
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [aiGenerationData, setAiGenerationData] = React.useState<any>(null);
 
   React.useEffect(() => {
     if (user?.uid) {
@@ -78,6 +79,32 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       });
     }
   }, [user]);
+
+  // Handle AI generation from budget page
+  React.useEffect(() => {
+    const handleAiGeneration = (event: any) => {
+      setAiGenerationData(event.detail);
+      setSelectedTab('ai');
+      setStep(2);
+    };
+    
+    window.addEventListener('create-todo-list-from-ai', handleAiGeneration);
+    
+    // Check URL params for AI generation
+    const urlParams = new URLSearchParams(window.location.search);
+    const aiGenerate = urlParams.get('ai-generate');
+    const description = urlParams.get('description');
+    
+    if (aiGenerate === 'true' && description) {
+      setAiGenerationData({ description });
+      setSelectedTab('ai');
+      setStep(2);
+    }
+    
+    return () => {
+      window.removeEventListener('create-todo-list-from-ai', handleAiGeneration);
+    };
+  }, []);
 
   const handleContinue = () => setStep(2);
   const handleBack = () => setStep(1);
@@ -295,14 +322,15 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                 <ImportListCreationForm />
               )}
               {selectedTab === 'ai' && (
-                <AIListCreationForm
-                  isGenerating={false}
-                  handleBuildWithAI={handleBuildWithAI}
-                  setAiListResult={setAiListResult}
-                  aiListResult={aiListResult}
-                  allCategories={allCategories}
-                  weddingDate={weddingDate}
-                />
+                            <AIListCreationForm
+              isGenerating={false}
+              handleBuildWithAI={handleBuildWithAI}
+              setAiListResult={setAiListResult}
+              aiListResult={aiListResult}
+              allCategories={allCategories}
+              weddingDate={weddingDate}
+              aiGenerationData={aiGenerationData}
+            />
               )}
             </div>
           </div>
@@ -475,12 +503,19 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null }) => {
-  const [description, setDescription] = React.useState('');
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any }) => {
+  const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-generate if description is pre-filled from budget page
+  React.useEffect(() => {
+    if (aiGenerationData?.description && !aiListResult && !isLoading) {
+      handleGenerate();
+    }
+  }, [aiGenerationData]);
 
   // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
   function formatDateForInputWithTime(date: Date | string | undefined): string | undefined {

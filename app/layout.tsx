@@ -7,7 +7,6 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
-import ToastOffsetSetter from "../components/ToastOffsetSetter";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 
@@ -38,11 +37,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <SWRProvider>
             {!hideNav && <AuthenticatedNavWrapper />}
-            {!hideNav && <ToastOffsetSetter />}
             <IdleTimeoutManager />
             <Toaster
-              position="top-right"
+              position="bottom-center"
+              reverseOrder={false}
+              gutter={4}
+              containerClassName="toast-container-bottom-center"
               toastOptions={{
+                duration: 4000,
                 style: {
                   backgroundColor: '#332B42',
                   color: '#F3F2F0',
@@ -51,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   padding: '10px 15px',
                   fontSize: '14px',
                   boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                  margin: '4px 0',
                 },
                 success: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
                 error: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },

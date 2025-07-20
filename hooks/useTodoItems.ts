@@ -141,6 +141,7 @@ export function useTodoItems(selectedList: TodoList | null) {
       setAllTodoItems(items);
     }, (error) => {
       console.error('Error fetching todo items:', error);
+      setAllTodoItems([]); // Set empty array on error
     });
     
     return () => unsubscribe();

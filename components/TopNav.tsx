@@ -56,6 +56,7 @@ export default function TopNav() {
   const navItems = [ // Moved outside component
     { name: "Dashboard", href: "/" },
     { name: "To-do Lists", href: "/todo" },
+    { name: "Budget", href: "/budget" },
     { name: "Vendors", href: "/vendors" },
     { name: "Files", href: "/files" },
     { name: "Inspiration", href: "/inspiration" },

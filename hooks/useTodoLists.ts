@@ -107,20 +107,21 @@ export function useTodoLists() {
       console.log('Fetched todo lists:', lists);
       setTodoLists(lists);
 
-      if (lists.length > 0) {
+      // Only auto-select if we have lists and no explicit selection
+      if (lists.length > 0 && !explicitAllSelected) {
         if (selectedList && lists.some(list => list.id === selectedList.id)) {
           // Keep current selection if it exists in the new list
           return;
         }
-        if (!explicitAllSelected) {
-          setSelectedList(lists[0]);
-        }
-        // If explicitAllSelected, do not auto-select
+        setSelectedList(lists[0]);
       }
+    }, (error) => {
+      console.error('Error fetching todo lists:', error);
+      setTodoLists([]); // Set empty array on error
     });
 
     return () => unsubscribeLists();
-  }, [user, explicitAllSelected]);
+  }, [user, explicitAllSelected, selectedList]);
 
   // Add new list
   const handleAddList = async (nameOrEvent: string | React.MouseEvent, tasks?: any[]) => {

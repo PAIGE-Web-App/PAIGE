@@ -892,7 +892,7 @@ export default function Home() {
           <div className="app-content-container flex-1 overflow-hidden">
             <div className="flex h-full gap-4 md:flex-row flex-col">
 
-          <main className={`flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden`}>
+          <main className="unified-container">
             <ContactsList
               contacts={contacts}
               contactsLoading={contactsLoading}

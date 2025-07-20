@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Link } from 'lucide-react';
 import type { BudgetItem } from '@/types/budget';
 
@@ -31,7 +32,7 @@ const VendorIntegrationModal: React.FC<VendorIntegrationModalProps> = ({
 
   const handleLinkVendor = () => {
     if (selectedVendor) {
-      onLinkVendor(budgetItem.id, {
+      onLinkVendor(budgetItem.id!, {
         vendorId: selectedVendor.id,
         vendorName: selectedVendor.name,
         vendorPlaceId: selectedVendor.placeId,
@@ -43,17 +44,30 @@ const VendorIntegrationModal: React.FC<VendorIntegrationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-[5px] p-6 w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#332B42]">Link Vendor to Budget Item</h2>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+        onClick={onClose} // Close modal when clicking outside
+      >
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -50, opacity: 0 }}
+          className="bg-white rounded-[5px] shadow-xl max-w-xl w-full max-w-sm p-6 relative"
+          onClick={(e) => e.stopPropagation()} // Prevent click from closing modal
+        >
           <button
             onClick={onClose}
-            className="text-[#AB9C95] hover:text-[#332B42]"
+            className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+            title="Close"
           >
-            <X className="w-5 h-5" />
+            <X size={20} />
           </button>
-        </div>
+
+          <h5 className="h5 mb-4 text-center">Link Vendor to Budget Item</h5>
 
         <div className="mb-4">
           <p className="text-sm text-[#332B42] mb-2">
@@ -111,7 +125,7 @@ const VendorIntegrationModal: React.FC<VendorIntegrationModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between mt-6">
+        <div className="flex justify-center w-full mt-6">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
@@ -121,14 +135,15 @@ const VendorIntegrationModal: React.FC<VendorIntegrationModalProps> = ({
           <button
             onClick={handleLinkVendor}
             disabled={!selectedVendor}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Link className="w-4 h-4" />
             Link Vendor
           </button>
         </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

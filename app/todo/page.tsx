@@ -95,7 +95,7 @@ export default function TodoPage() {
   };
 
   // Only show content when profile loading is complete
-  const isLoading = profileLoading || loading;
+  const isLoading = profileLoading || loading || todoLists.todoLists === undefined;
 
   const { handleSetWeddingDate } = useWeddingBanner(router);
 
@@ -136,7 +136,29 @@ export default function TodoPage() {
       setShowNewListModal(true);
     };
     window.addEventListener('open-new-list-modal', handler);
-    return () => window.removeEventListener('open-new-list-modal', handler);
+    
+    // Handle AI generation from budget page
+    const aiHandler = (event: any) => {
+      setShowNewListModal(true);
+      // The modal will handle the AI generation with the provided data
+    };
+    window.addEventListener('create-todo-list-from-ai', aiHandler);
+    
+    // Check URL params for AI generation
+    const urlParams = new URLSearchParams(window.location.search);
+    const aiGenerate = urlParams.get('ai-generate');
+    const description = urlParams.get('description');
+    
+    if (aiGenerate === 'true' && description) {
+      setShowNewListModal(true);
+      // Clear the URL params
+      window.history.replaceState({}, '', '/todo');
+    }
+    
+    return () => {
+      window.removeEventListener('open-new-list-modal', handler);
+      window.removeEventListener('create-todo-list-from-ai', aiHandler);
+    };
   }, []);
 
   // Compute categories for the current selected list's to-do items, filtering out ID-like categories
@@ -170,7 +192,7 @@ export default function TodoPage() {
     return events;
   }, [viewOptions.filteredTodoItems, weddingDate, user?.uid]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-linen">
         <WeddingBanner
@@ -208,37 +230,38 @@ export default function TodoPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="app-content-container flex-1 flex flex-col overflow-hidden min-h-0">
-        <div className="flex h-full gap-4">
-          <TodoSidebar
-            todoLists={todoLists.todoLists}
-            selectedList={todoLists.selectedList}
-            setSelectedList={todoLists.setSelectedList}
-            selectedListId={todoLists.selectedList?.id || null}
-            setSelectedListId={(id) => {
-              const list = todoLists.todoLists.find(l => l.id === id);
-              if (list) todoLists.setSelectedList(list);
-            }}
-            userId={user?.uid || ''}
-            showCompletedItems={viewOptions.showCompletedItems}
-            setShowCompletedItems={viewOptions.setShowCompletedItems}
-            showNewListInput={todoLists.showNewListInput}
-            setShowNewListInput={todoLists.setShowNewListInput}
-            newListName={todoLists.newListName}
-            setNewListName={todoLists.setNewListName}
-            handleAddList={todoLists.handleAddList}
-            listTaskCounts={todoItems.listTaskCounts}
-            setTodoSearchQuery={viewOptions.setTodoSearchQuery}
-            setExplicitAllSelected={(val) => {
-              // This is handled internally by the hook, so we can ignore this prop
-            }}
-            allTodoCount={todoItems.allTodoCount}
-            allTodoItems={todoItems.allTodoItems}
-            allCategories={todoItems.allCategories}
-            showUpgradeModal={() => todoLists.setShowUpgradeModal(true)}
-          />
+      <div className="app-content-container flex-1 overflow-hidden">
+        <div className="flex h-full gap-4 md:flex-row flex-col">
+          <main className="unified-container">
+            <TodoSidebar
+              todoLists={todoLists.todoLists}
+              selectedList={todoLists.selectedList}
+              setSelectedList={todoLists.setSelectedList}
+              selectedListId={todoLists.selectedList?.id || null}
+              setSelectedListId={(id) => {
+                const list = todoLists.todoLists.find(l => l.id === id);
+                if (list) todoLists.setSelectedList(list);
+              }}
+              userId={user?.uid || ''}
+              showCompletedItems={viewOptions.showCompletedItems}
+              setShowCompletedItems={viewOptions.setShowCompletedItems}
+              showNewListInput={todoLists.showNewListInput}
+              setShowNewListInput={todoLists.setShowNewListInput}
+              newListName={todoLists.newListName}
+              setNewListName={todoLists.setNewListName}
+              handleAddList={todoLists.handleAddList}
+              listTaskCounts={todoItems.listTaskCounts}
+              setTodoSearchQuery={viewOptions.setTodoSearchQuery}
+              setExplicitAllSelected={(val) => {
+                // This is handled internally by the hook, so we can ignore this prop
+              }}
+              allTodoCount={todoItems.allTodoCount}
+              allTodoItems={todoItems.allTodoItems}
+              allCategories={todoItems.allCategories}
+              showUpgradeModal={() => todoLists.setShowUpgradeModal(true)}
+            />
 
-          <main className="flex-1 flex flex-col bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden">
+            <div className="unified-main-content">
             {/* Conditional rendering for loading state */}
             {loading && !user ? (
               <div className="flex-1 flex items-center justify-center">
@@ -369,8 +392,9 @@ export default function TodoPage() {
                   )}
                 </div>
               </>
-          )}
-            </main>
+            )}
+            </div>
+          </main>
           
           {todoItems.selectedTaskForSideCard && (
             <TaskSideCard

@@ -54,11 +54,11 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
   return (
     <div className="bg-white border-b border-[#AB9C95] p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-[#332B42]">Wedding Budget</h1>
+        <h5>Wedding Budget</h5>
         <div className="flex items-center gap-2">
           <button
             onClick={onShowAIAssistant}
-            className="btn-primary flex items-center gap-2"
+            className="btn-gradient-purple flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
             AI Assistant

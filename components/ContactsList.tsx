@@ -48,10 +48,9 @@ const ContactsList = ({
   setIsAdding,
 }) => (
   <aside
-    className={`w-[320px] bg-[#F3F2F0] p-4 border-r border-[#AB9C95] relative flex-shrink-0 min-h-full
+    className={`unified-sidebar
       ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
     `}
-    style={{ maxHeight: '100%', overflowY: 'auto' }}
   >
     {contactsLoading ? (
       <AnimatePresence mode="wait">
@@ -67,7 +66,7 @@ const ContactsList = ({
       </AnimatePresence>
     ) : (
       <>
-        <div className="flex items-center gap-4 mb-4 relative">
+        <div className="flex items-center gap-4 p-4 border-b border-[#AB9C95] bg-[#F3F2F0] sticky top-0 z-10">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-20"
@@ -148,36 +147,37 @@ const ContactsList = ({
             )}
           </AnimatePresence>
         </div>
-        {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {selectedCategoryFilter.map((category) => (
-              <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                Category: {category}
-                <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            {sortOption !== 'name-asc' && (
-              <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                Sort: {
-                  sortOption === 'name-desc' ? 'Name (Z-A)' :
-                  sortOption === 'recent-desc' ? 'Most recent' : ''
-                }
-                <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-        {displayContacts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12">
-            <div className="text-base text-[#332B42] font-playfair font-semibold mb-2">Set up your unified inbox</div>
-            <div className="text-sm text-gray-500">Add your first contact to get started!</div>
-          </div>
-        ) : (
-          <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto p-4">
+          {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {selectedCategoryFilter.map((category) => (
+                <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                  Category: {category}
+                  <button onClick={() => handleClearCategoryFilter(category)} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              {sortOption !== 'name-asc' && (
+                <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                  Sort: {
+                    sortOption === 'name-desc' ? 'Name (Z-A)' :
+                    sortOption === 'recent-desc' ? 'Most recent' : ''
+                  }
+                  <button onClick={handleClearSortOption} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+          {displayContacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full py-12">
+              <h6 className="mb-2">Set up your unified inbox</h6>
+              <div className="text-sm text-gray-500">Add your first contact to get started!</div>
+            </div>
+          ) : (
+            <div className="space-y-2">
             {displayContacts.map((contact, index) => {
               const name = contact.name;
               const matchIndex = name.toLowerCase().indexOf(
@@ -223,8 +223,9 @@ const ContactsList = ({
                 </div>
               );
             })}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </>
     )}
   </aside>

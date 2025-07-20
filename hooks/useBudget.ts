@@ -525,15 +525,30 @@ export function useBudget() {
         }
       }
 
-      const response = await fetch('/api/generate-integrated-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, totalBudget, weddingDate }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to generate integrated plan: ${response.status} - ${errorText}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      let response;
+      try {
+        response = await fetch('/api/generate-integrated-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, totalBudget, weddingDate }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to generate integrated plan: ${response.status} - ${errorText}`);
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please try again.');
+        }
+        throw error;
       }
       
       const data: IntegratedPlan = await response.json();

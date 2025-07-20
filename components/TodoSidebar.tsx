@@ -104,7 +104,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   };
 
   return (
-    <aside className="w-[320px] bg-[#F3F2F0] border-r border-[#E0DBD7] flex flex-col justify-between min-h-full p-0">
+    <aside className="unified-sidebar">
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between p-6 pb-2 border-b border-[#E0DBD7]">
           <h4 className="text-lg font-playfair font-medium text-[#332B42] flex items-center">To-do Lists</h4>
