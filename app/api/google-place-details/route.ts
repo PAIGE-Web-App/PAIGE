@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   if (!placeId || !apiKey) {
     return NextResponse.json({ error: 'Missing placeId or API key' }, { status: 400 });
   }
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,photos,rating,user_ratings_total,price_level,types,website,formatted_phone_number,international_phone_number&key=${apiKey}`;
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,photos,rating,user_ratings_total,price_level,types,website,formatted_phone_number,international_phone_number,editorial_summary,reviews,opening_hours,business_status,url,vicinity&key=${apiKey}`;
   const res = await fetch(url);
   const data = await res.json();
   return NextResponse.json(data);

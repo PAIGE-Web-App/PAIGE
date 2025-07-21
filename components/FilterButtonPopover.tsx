@@ -38,10 +38,10 @@ const FilterButtonPopover: React.FC<FilterButtonPopoverProps> = ({
   };
 
   return (
-    <>
+    <div className="relative inline-block">
       <button
         onClick={() => setShowFilters(!showFilters)}
-        className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-20 flex-shrink-0"
+        className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-10 flex-shrink-0"
         aria-label="Toggle Filter"
         type="button"
       >
@@ -50,7 +50,7 @@ const FilterButtonPopover: React.FC<FilterButtonPopoverProps> = ({
       {showFilters && (
         <div
           ref={filterPopoverRef}
-          className="absolute mt-2 left-0 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 space-y-3"
+          className="absolute mt-2 right-0 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 space-y-3"
           style={{ top: '100%', minWidth: 300, maxWidth: '90vw', width: 300 }}
         >
           <div className="flex items-center justify-between mb-2">
@@ -71,7 +71,7 @@ const FilterButtonPopover: React.FC<FilterButtonPopoverProps> = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

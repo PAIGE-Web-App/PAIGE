@@ -57,6 +57,7 @@ export const getAllVendors = async (userId: string) => {
       reviewCount: data.reviewCount ?? null,
       vicinity: data.vicinity ?? null,
       types: data.types ?? [],
+      image: data.image ?? '/Venue.png', // Include the image field from Firestore
       // For compatibility with existing UI, add these fields
       email: null, // Vendors don't have direct email in management system
       avatarColor: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`, // Generate consistent color

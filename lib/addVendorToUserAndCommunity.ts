@@ -58,6 +58,13 @@ export async function addVendorToUserAndCommunity({
       return { success: true, vendorId: existingVendor.id };
     }
 
+    // Get main image URL from Google Places photos array if available
+    let image = '/Venue.png';
+    if (vendorMetadata.photos && vendorMetadata.photos.length > 0) {
+      const photoRef = vendorMetadata.photos[0].photo_reference;
+      image = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photoRef}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+    }
+
     // 1. Add to user's vendor management system (NOT as a messaging contact)
     const vendorId = uuidv4();
     const vendorData = {
@@ -77,7 +84,8 @@ export async function addVendorToUserAndCommunity({
       rating: vendorMetadata.rating || null,
       reviewCount: vendorMetadata.user_ratings_total || null,
       vicinity: vendorMetadata.vicinity || null,
-      types: vendorMetadata.types || []
+      types: vendorMetadata.types || [],
+      image // Save the main image URL
     };
 
     console.log('Creating vendor with data:', vendorData);

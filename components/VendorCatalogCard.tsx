@@ -15,7 +15,7 @@ function setFavorites(favs) {
   localStorage.setItem('vendorFavorites', JSON.stringify(favs));
 }
 
-export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '' }) {
+export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', isFavoriteOverride = false }) {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
@@ -150,7 +150,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
 
   return (
     <div 
-      className={`bg-white border rounded-[5px] p-4 flex flex-col items-start relative h-full min-h-[400px] cursor-pointer hover:shadow-lg hover:shadow-gray-300/50 transition-all duration-200 hover:-translate-y-1${isFlagged ? ' border-red-500' : ''}${isSelected ? ' border-[#A85C36] border-2' : ''}`}
+      className={`group bg-white border rounded-[5px] p-4 flex flex-col items-start relative h-full min-h-[320px] cursor-pointer hover:shadow-lg hover:shadow-gray-300/50 transition-all duration-200 hover:-translate-y-1${isFlagged ? ' border-red-500' : ''}${isSelected ? ' border-[#A85C36] border-2' : ''}`}
       onClick={handleCardClick}
     >
 
@@ -174,7 +174,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
           onClick={toggleFavorite}
           aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          {isFavorite ? (
+          {(isFavorite || isFavoriteOverride) ? (
             <svg width="18" height="18" fill="#A85C36" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           ) : (
             <svg width="18" height="18" fill="none" stroke="#A85C36" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
@@ -240,7 +240,7 @@ export default function VendorCatalogCard({ vendor, onContact, onFlagged, bulkCo
           )}
         </div>
       </div>
-      <div className="flex gap-2 w-full mt-auto">
+      <div className="flex gap-2 w-full mt-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
         <button 
           className="btn-primaryinverse flex-1" 
           onClick={() => setShowContactModal(true)}

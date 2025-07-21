@@ -5,7 +5,7 @@ import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ListFilter, Search } from 'lucide-react';
+import { X, ListFilter, Search, Clock, Heart } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
@@ -23,6 +23,7 @@ import { highlightText } from '@/utils/searchHighlight';
 import AddContactModal from '@/components/AddContactModal';
 import DropdownMenu from '@/components/DropdownMenu';
 import { MoreHorizontal } from 'lucide-react';
+import VendorCatalogCard from '@/components/VendorCatalogCard';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -81,6 +82,45 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
   );
 }
 
+// Recently viewed tracking functions
+function getRecentlyViewedVendors() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem('paige_recently_viewed_vendors');
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error reading recently viewed vendors:', error);
+    return [];
+  }
+}
+
+function addRecentlyViewedVendor(vendor) {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const recent = getRecentlyViewedVendors();
+    const existingIndex = recent.findIndex(v => v.id === vendor.id);
+    
+    // Remove if already exists
+    if (existingIndex > -1) {
+      recent.splice(existingIndex, 1);
+    }
+    
+    // Add to beginning (most recent first)
+    recent.unshift({
+      ...vendor,
+      viewedAt: new Date().toISOString()
+    });
+    
+    // Keep only last 12 vendors
+    const trimmed = recent.slice(0, 12);
+    
+    localStorage.setItem('paige_recently_viewed_vendors', JSON.stringify(trimmed));
+  } catch (error) {
+    console.error('Error saving recently viewed vendor:', error);
+  }
+}
+
 export default function VendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -98,6 +138,8 @@ export default function VendorsPage() {
   // Ensure searchOpen is false by default
   const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
+  const [recentlyViewedVendors, setRecentlyViewedVendors] = useState<any[]>([]);
+  const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
 
   // Filtered and searched vendors
   const filteredVendors = vendors.filter((v) => {
@@ -126,6 +168,37 @@ export default function VendorsPage() {
       });
     }
   }, [user, isSaving]);
+
+  // Load recently viewed vendors
+  useEffect(() => {
+    const recent = getRecentlyViewedVendors();
+    setRecentlyViewedVendors(recent);
+  }, []);
+
+  // Helper to get favorite vendor IDs from localStorage
+  function getFavoriteVendorIds() {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  // Update favorite vendors when vendors or favorites change
+  useEffect(() => {
+    const updateFavorites = () => {
+      const favIds = getFavoriteVendorIds();
+      // Find vendor data in user's vendors list
+      const favs = favIds
+        .map((id: string) => vendors.find((v) => v.id === id || v.placeId === id))
+        .filter(Boolean);
+      setFavoriteVendors(favs);
+    };
+    updateFavorites();
+    window.addEventListener('storage', updateFavorites);
+    return () => window.removeEventListener('storage', updateFavorites);
+  }, [vendors]);
 
   // Helper function to identify Firestore document IDs
   const isFirestoreDocumentId = (category) => {
@@ -186,6 +259,38 @@ export default function VendorsPage() {
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });
   };
 
+  // Convert vendor data to match VendorCatalogCard format
+  const convertVendorToCatalogFormat = (vendor) => {
+    // Try to get the Google Places image from recently viewed data
+    const recentlyViewed = getRecentlyViewedVendors();
+    const recentlyViewedVendor = recentlyViewed.find(rv => 
+      rv.id === vendor.placeId || rv.id === vendor.id || rv.placeId === vendor.placeId
+    );
+    
+    // Prioritize Google Places images from recently viewed data
+    const bestImage = recentlyViewedVendor?.image || 
+                     recentlyViewedVendor?.images?.[0] || 
+                     vendor.image || 
+                     vendor.images?.[0] || 
+                     '/Venue.png';
+    
+    return {
+      id: vendor.placeId || vendor.id,
+      name: vendor.name,
+      address: vendor.address,
+      location: vendor.address,
+      rating: vendor.rating || recentlyViewedVendor?.rating || 0,
+      reviewCount: vendor.reviewCount || recentlyViewedVendor?.reviewCount || 0,
+      price: vendor.price || recentlyViewedVendor?.price || '',
+      mainTypeLabel: vendor.category,
+      image: bestImage,
+      source: vendor.source || recentlyViewedVendor?.source || { name: 'Manual Entry', url: '' },
+      estimate: vendor.estimate || '',
+      phone: vendor.phone,
+      email: vendor.email
+    };
+  };
+
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner
@@ -194,287 +299,248 @@ export default function VendorsPage() {
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
-      <div className="app-content-container flex h-full gap-4 md:flex-row flex-col">
-        {/* Main Vendors Area */}
-        <main className="flex flex-1 flex-col bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-3 border-b border-[#AB9C95] bg-[#F3F2F0]">
-            <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
-            <div className="flex gap-2">
-              <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
-              <button className="btn-primary" onClick={() => router.push('/vendors/catalog')}>Browse all</button>
-            </div>
+      <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative">
+        {/* Vendor Hub Header */}
+        <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
+          <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendor Hub</h4>
+          <div className="flex gap-2">
+            <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
+            <button className="btn-primary" onClick={() => router.push('/vendors/catalog')}>Browse all</button>
           </div>
-          
-          <div className="flex flex-row flex-1 min-h-0">
-            {/* Sidebar Categories */}
-            <aside className="w-[320px] border-r border-[#AB9C95] bg-[#F3F2F0] flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-6 pt-0">
-                  <div className="space-y-1">
-                    {/* All Vendors */}
-                    <div
-                      className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer mt-4 mb-2 transition-colors ${selectedCategories.length === 0 ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
-                      onClick={() => setSelectedCategories([])}
-                    >
-                      <span>All Vendors</span>
-                      <BadgeCount count={allCount} className="ml-auto" />
+        </div>
+        {/* Main Content */}
+        <div className="app-content-container flex-1 pt-24">
+          {/* My Vendors Section */}
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <h5>My Vendors</h5>
+                <BadgeCount count={filteredVendors.length} />
+              </div>
+              <div className="flex items-center gap-3">
+                <FilterButtonPopover
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectCategories={setSelectedCategories}
+                  showFilters={showFilters}
+                  setShowFilters={setShowFilters}
+                />
+                <SearchBar
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  placeholder="Search vendors by name"
+                  isOpen={searchOpen}
+                  setIsOpen={setSearchOpen}
+                />
+              </div>
+            </div>
+            
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-[960px]">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-80 animate-pulse">
+                    <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
                     </div>
-                    {/* Dynamic categories */}
-                    {categories.map((cat) => (
-                      <div
-                        key={cat}
-                        className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer transition-colors ${selectedCategories.includes(cat) ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
-                        onClick={() => {
-                          setSelectedCategories(prev => {
-                            const newSelected = [...prev];
-                            const index = newSelected.indexOf(cat);
-                            if (index > -1) {
-                              newSelected.splice(index, 1);
-                            } else {
-                              newSelected.push(cat);
-                            }
-                            return newSelected;
-                          });
-                        }}
-                      >
-                        <span>{cat}</span>
-                        <BadgeCount count={categoryCounts[cat]} className="ml-auto" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredVendors.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-500 mb-4">No vendors found</div>
+                <button 
+                  className="btn-primary"
+                  onClick={() => router.push('/vendors/catalog')}
+                >
+                  Browse Vendor Catalog
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                    {filteredVendors.slice(0, 6).map((vendor) => (
+                      <div key={vendor.id} className="w-80 flex-shrink-0">
+                        <VendorCatalogCard
+                          vendor={convertVendorToCatalogFormat(vendor)}
+                          onContact={() => {
+                            // Handle contact action
+                          }}
+                          onFlagged={(vendorId) => {
+                            // Handle flagged action
+                          }}
+                          onSelectionChange={() => {
+                            // Handle selection change (not used in this context)
+                          }}
+                        />
                       </div>
                     ))}
+                    {filteredVendors.length > 6 && (
+                      <div className="flex items-center justify-center w-40">
+                        <button
+                          className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
+                          onClick={() => router.push('/vendors')}
+                        >
+                          View All
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <button className="border-t border-[#AB9C95] py-3 text-xs text-[#A85C36] hover:bg-[#F3F2F0] transition-colors">+ New Category</button>
-            </aside>
-            
-            {/* Vendor List */}
-            <section className="flex-1 flex flex-col min-h-0">
-              {/* Standardized Header with Filter and Search */}
-              <SectionHeaderBar
-                title={
-                                  <div className="flex items-center gap-2">
-                  Your Vendors
-                  <BadgeCount count={filteredVendors.length} />
-                </div>
-                }
-              >
-                <div className="flex items-center gap-3 flex-grow min-w-0" style={{ height: '32px' }}>
-                  <FilterButtonPopover
-                    categories={categories}
-                    selectedCategories={selectedCategories}
-                    onSelectCategories={setSelectedCategories}
-                    showFilters={showFilters}
-                    setShowFilters={setShowFilters}
-                  />
-                  <SearchBar
-                    value={vendorSearch}
-                    onChange={setVendorSearch}
-                    placeholder="Search vendors by name"
-                    isOpen={searchOpen}
-                    setIsOpen={setSearchOpen}
-                  />
-                </div>
-              </SectionHeaderBar>
+              </>
+            )}
+          </section>
 
-              {/* Vendor List */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-                {isLoading ? (
-                  // Show skeleton loading states
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <VendorSkeleton key={index} />
-                  ))
-                ) : filteredVendors.length === 0 ? (
-                  <div className="text-sm text-gray-500 text-center py-4">No matching vendors found.</div>
-                ) : (
-                  filteredVendors.map((vendor) => (
-                  <div key={vendor.id} className="border rounded-[5px] border-[#AB9C95] p-4 flex flex-row items-center gap-4 relative">
-                    {/* Left: Star, Name, Category, Phone, Address */}
-                    <div className="flex flex-col flex-1 gap-1 pr-40">
-                      <div className="flex items-center gap-2">
-                        {officialByCategory[vendor.category] === vendor.id ? (
-                          <button
-                            className="text-[#A85C36] text-lg hover:text-[#AB9C95] transition-colors"
-                            title="Unmark as Official Vendor"
-                            disabled={isSaving}
-                            onClick={() => setConfirmModal({ open: true, vendor, action: 'unstar' })}
-                          >
-                            ★
-                          </button>
-                        ) : (
-                          <button
-                            className="text-[#AB9C95] text-lg hover:text-[#A85C36] transition-colors"
-                            title="Set as Official Vendor"
-                            disabled={isSaving}
-                            onClick={() => setConfirmModal({ open: true, vendor, action: 'star' })}
-                          >
-                            ☆
-                          </button>
-                        )}
-                        <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                          {highlightText(vendor.name, vendorSearch)}
-                        </h4>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        {vendor.category && <CategoryPill category={vendor.category} />}
-                        {vendor.phone && (
-                          <button
-                            type="button"
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                          >
-                            <Phone className="w-3 h-3" />
-                            <span className="truncate max-w-[100px] md:max-w-none">{vendor.phone}</span>
-                          </button>
-                        )}
-                        {vendor.address && (
-                          <span className="text-[11px] text-[#364257]">
-                            📍 {vendor.address}
-                          </span>
-                        )}
-                        {vendor.placeId && (
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/vendors/${vendor.placeId}`)}
-                            className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none"
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                          >
-                            <span className="underline">View Details</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {/* Right: Edit and Contact buttons */}
-                    <div className="absolute top-4 right-4 flex gap-2">
-                      <DropdownMenu
-                        trigger={<button className="p-1 hover:bg-gray-100 rounded-full" title="More options"><MoreHorizontal size={16} className="text-gray-500" /></button>}
-                        items={[
-                          ...(vendor.placeId ? [{
-                            label: 'View Details',
-                            onClick: () => router.push(`/vendors/${vendor.placeId}`),
-                            className: '',
-                          }] : []),
-                          {
-                            label: 'Edit',
-                            onClick: () => setEditModal({ open: true, vendor }),
-                            className: '',
-                          }, {
-                            label: 'Add Contact Person',
-                            onClick: () => router.push(`/?addContactForVendor=${vendor.placeId}`),
-                            className: '',
-                          }
-                        ]}
-                        width={160}
-                        align="right"
+          {/* Recently Viewed Section */}
+          {recentlyViewedVendors.length > 0 && (
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-[#A85C36]" />
+                    <h5>Recently Viewed</h5>
+                  </div>
+                  <BadgeCount count={recentlyViewedVendors.length} />
+                </div>
+                <button 
+                  className="text-sm text-[#A85C36] hover:text-[#332B42] transition-colors"
+                  onClick={() => {
+                    localStorage.removeItem('paige_recently_viewed_vendors');
+                    setRecentlyViewedVendors([]);
+                  }}
+                >
+                  Clear History
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                  {recentlyViewedVendors.slice(0, 6).map((vendor) => (
+                    <div key={vendor.id} className="w-80 flex-shrink-0">
+                      <VendorCatalogCard
+                        vendor={vendor}
+                        onContact={() => {
+                          // Handle contact action
+                        }}
+                        onFlagged={(vendorId) => {
+                          // Handle flagged action
+                        }}
+                        onSelectionChange={() => {
+                          // Handle selection change (not used in this context)
+                        }}
                       />
                     </div>
-                  </div>
-                ))
-                )}
+                  ))}
+                  {recentlyViewedVendors.length > 6 && (
+                    <div className="flex items-center justify-center w-40">
+                      <button
+                        className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
+                        onClick={() => router.push('/vendors/recently-viewed')}
+                      >
+                        View All
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
-          </div>
-        </main>
-        
-        {/* Right Panel (Favorites and Comments) */}
-        <aside className="md:w-[420px] w-full flex flex-col gap-6 min-h-full">
-          {/* Favorites */}
-          <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-playfair text-[#332B42] text-base font-semibold">Favorites <span className="text-xs text-[#AB9C95]">12</span></span>
-              <button className="text-xs text-[#A85C36] underline">View all</button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {/* Example Favorite Cards */}
-              <div className="min-w-[180px] border rounded-[5px] border-[#AB9C95] p-2 flex flex-col items-start">
-                <div className="w-full h-20 bg-[#F3F2F0] rounded mb-2 flex items-center justify-center">[Image]</div>
-                <span className="text-xs text-[#A85C36] mb-1">Contacted Jan 14 2025</span>
-                <span className="font-medium text-[#332B42] text-sm mb-1">The Milestone | Aubrey by Walters Wedding Estates</span>
-                <span className="text-xs text-[#364257] mb-1">Dallas, TX</span>
-                <span className="text-xs text-[#364257] mb-1">300+ Guests • $ • Outdoor Event Space</span>
-                <span className="text-xs text-[#A85C36] underline mb-2">The Knot</span>
-                <button className="border border-[#AB9C95] rounded px-2 py-1 text-xs text-[#332B42]">Contact</button>
+          )}
+
+          {/* My Favorites Section */}
+          {favoriteVendors.length > 0 && (
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-[#A85C36] fill-current" />
+                    <h5>My Favorites</h5>
+                  </div>
+                  <BadgeCount count={favoriteVendors.length} />
+                </div>
               </div>
-              <div className="min-w-[180px] border rounded-[5px] border-[#AB9C95] p-2 flex flex-col items-start">
-                <div className="w-full h-20 bg-[#F3F2F0] rounded mb-2 flex items-center justify-center">[Image]</div>
-                <span className="font-medium text-[#332B42] text-sm mb-1">The Aubrey Courtyard by the Grand Estates West Texas</span>
-                <span className="text-xs text-[#364257] mb-1">Dallas, TX</span>
-                <span className="text-xs text-[#364257] mb-1">300+ Guests • $ • Outdoor Event Space</span>
-                <span className="text-xs text-[#A85C36] underline mb-2">The Knot</span>
-                <button className="border border-[#AB9C95] rounded px-2 py-1 text-xs text-[#332B42]">Contact</button>
+              <div className="overflow-x-auto">
+                <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                  {favoriteVendors.slice(0, 6).map((vendor) => (
+                    <div key={vendor.id} className="w-80 flex-shrink-0">
+                      <VendorCatalogCard
+                        vendor={convertVendorToCatalogFormat(vendor)}
+                        onContact={() => {}}
+                        onFlagged={() => {}}
+                        onSelectionChange={() => {}}
+                        // Force heart filled
+                        isFavoriteOverride={true}
+                      />
+                    </div>
+                  ))}
+                  {favoriteVendors.length > 6 && (
+                    <div className="flex items-center justify-center w-40">
+                      <button
+                        className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
+                        onClick={() => router.push('/vendors/favorites')}
+                      >
+                        View All
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              {/* ...more favorite cards... */}
-            </div>
-          </div>
-          {/* Comments */}
-          <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 flex flex-col flex-1 min-h-[200px]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-playfair text-[#332B42] text-base font-semibold">Comments <span className="text-xs text-[#AB9C95]">3 unread</span></span>
-              <button className="text-xs text-[#A85C36] underline">View all</button>
-            </div>
-            <div className="flex flex-col gap-2 overflow-y-auto">
-              {/* Example Comment Cards */}
-              <div className="border rounded-[5px] border-[#AB9C95] p-2 flex flex-col">
-                <span className="font-medium text-[#332B42] text-xs mb-1">The Milestone | Aubrey by Walters Wedding Estates</span>
-                <span className="text-xs text-[#364257] mb-1">Meh, not bad</span>
-                <span className="text-xs text-[#AB9C95] ml-auto">You • 2 days</span>
-              </div>
-              <div className="border rounded-[5px] border-[#AB9C95] p-2 flex flex-col">
-                <span className="font-medium text-[#332B42] text-xs mb-1">The Aubrey Courtyard by the Grand Estates West Texas</span>
-                <span className="text-xs text-[#364257] mb-1">Pretty nice area with an all inclusive setting!</span>
-                <span className="text-xs text-[#AB9C95] ml-auto">Annie Borne • 4 days</span>
-              </div>
-              {/* ...more comment cards... */}
-            </div>
-          </div>
-        </aside>
-        <ConfirmOfficialModal
-          open={confirmModal.open}
-          onClose={() => setConfirmModal({ open: false, vendor: null, action: 'star' })}
-          onConfirm={() => {
-            if (confirmModal.vendor) {
-              if (confirmModal.action === 'star') {
-                handleSetOfficial(confirmModal.vendor);
-              } else {
-                handleUnsetOfficial(confirmModal.vendor);
-              }
-            }
-          }}
-          vendorName={confirmModal.vendor?.name || ''}
-          category={confirmModal.vendor?.category || ''}
-          action={confirmModal.action}
-        />
-        {/* EditContactModal overlay - For now, we'll keep this but it should be updated for vendor editing */}
-        {editModal.open && editModal.vendor && user?.uid && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <EditContactModal
-              contact={editModal.vendor}
-              userId={user.uid}
-              onClose={() => setEditModal({ open: false, vendor: null })}
-              onSave={(updated) => {
-                setVendors((prev) => prev.map((v) => v.id === updated.id ? updated : v));
-                setEditModal({ open: false, vendor: null });
-              }}
-              onDelete={(deletedId) => {
-                setVendors((prev) => prev.filter((v) => v.id !== deletedId));
-                setEditModal({ open: false, vendor: null });
-              }}
-            />
-          </div>
-        )}
-        {addContactModal && user?.uid && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <AddContactModal
-              userId={user.uid}
-              onClose={() => setAddContactModal(false)}
-              onSave={(newContact) => {
-                // This should add a contact person, not a vendor
-                setAddContactModal(false);
-                toast.success(`Contact "${newContact.name}" added successfully!`);
-              }}
-            />
-          </div>
-        )}
+            </section>
+          )}
+        </div>
       </div>
+
+      <ConfirmOfficialModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, vendor: null, action: 'star' })}
+        onConfirm={() => {
+          if (confirmModal.vendor) {
+            if (confirmModal.action === 'star') {
+              handleSetOfficial(confirmModal.vendor);
+            } else {
+              handleUnsetOfficial(confirmModal.vendor);
+            }
+          }
+        }}
+        vendorName={confirmModal.vendor?.name || ''}
+        category={confirmModal.vendor?.category || ''}
+        action={confirmModal.action}
+      />
+      
+      {/* EditContactModal overlay - For now, we'll keep this but it should be updated for vendor editing */}
+      {editModal.open && editModal.vendor && user?.uid && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <EditContactModal
+            contact={editModal.vendor}
+            userId={user.uid}
+            onClose={() => setEditModal({ open: false, vendor: null })}
+            onSave={(updated) => {
+              setVendors((prev) => prev.map((v) => v.id === updated.id ? updated : v));
+              setEditModal({ open: false, vendor: null });
+            }}
+            onDelete={(deletedId) => {
+              setVendors((prev) => prev.filter((v) => v.id !== deletedId));
+              setEditModal({ open: false, vendor: null });
+            }}
+          />
+        </div>
+      )}
+      
+      {addContactModal && user?.uid && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <AddContactModal
+            userId={user.uid}
+            onClose={() => setAddContactModal(false)}
+            onSave={(newContact) => {
+              // This should add a contact person, not a vendor
+              setAddContactModal(false);
+              toast.success(`Contact "${newContact.name}" added successfully!`);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 } 

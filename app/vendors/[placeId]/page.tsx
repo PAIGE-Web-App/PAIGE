@@ -11,9 +11,22 @@ import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
-// Helper function to map Google Places types to our category names
-const mapGoogleTypesToCategory = (types: string[]): string => {
+// Helper function to detect if a venue is likely a wedding venue based on name
+const isLikelyWeddingVenue = (name: string): boolean => {
+  const venueKeywords = [
+    'vineyard', 'winery', 'estate', 'mansion', 'manor', 'castle', 'palace',
+    'garden', 'farm', 'ranch', 'barn', 'lodge', 'resort', 'hotel', 'inn',
+    'club', 'hall', 'center', 'venue', 'wedding', 'events', 'reception',
+    'ballroom', 'terrace', 'pavilion', 'gazebo', 'chapel', 'church'
+  ];
+  
+  const lowerName = name.toLowerCase();
+  return venueKeywords.some(keyword => lowerName.includes(keyword));
+};
+
+const mapGoogleTypesToCategory = (types: string[], venueName?: string): string => {
   if (!types || types.length === 0) return 'Other';
   
   const typeMap: Record<string, string> = {
@@ -37,17 +50,63 @@ const mapGoogleTypesToCategory = (types: string[]): string => {
     'rentals': 'Event Rental',
     'favors': 'Wedding Favor',
     'band': 'Musician',
-    'dj': 'DJ'
+    'dj': 'DJ',
+    // Specific venue types
+    'lodging': 'Venue',
+    'tourist_attraction': 'Venue',
+    'amusement_park': 'Venue',
+    'aquarium': 'Venue',
+    'art_gallery': 'Venue',
+    'museum': 'Venue',
+    'park': 'Venue',
+    'zoo': 'Venue'
   };
   
+  // First, try to match specific types
   for (const type of types) {
     if (typeMap[type]) {
       return typeMap[type];
     }
   }
   
+  // If we have generic types and a venue name, try to detect if it's a wedding venue
+  const genericTypes = ['food', 'establishment', 'point_of_interest'];
+  const hasGenericTypes = types.some(type => genericTypes.includes(type));
+  
+  if (hasGenericTypes && venueName && isLikelyWeddingVenue(venueName)) {
+    return 'Venue';
+  }
+  
   return 'Other';
 };
+
+// Recently viewed tracking function
+function addRecentlyViewedVendor(vendor) {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const recent = JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
+    const existingIndex = recent.findIndex(v => v.id === vendor.id);
+    
+    // Remove if already exists
+    if (existingIndex > -1) {
+      recent.splice(existingIndex, 1);
+    }
+    
+    // Add to beginning (most recent first)
+    recent.unshift({
+      ...vendor,
+      viewedAt: new Date().toISOString()
+    });
+    
+    // Keep only last 12 vendors
+    const trimmed = recent.slice(0, 12);
+    
+    localStorage.setItem('paige_recently_viewed_vendors', JSON.stringify(trimmed));
+  } catch (error) {
+    console.error('Error saving recently viewed vendor:', error);
+  }
+}
 
 // Helper function to convert category name to URL slug
 const categoryToSlug = (category: string): string => {
@@ -147,15 +206,49 @@ export default function VendorDetailPage() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  
+  const [isOfficialVendor, setIsOfficialVendor] = useState(false);
+  const [communityData, setCommunityData] = useState<any>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
   // Check if vendor is in user's favorites on mount
   useEffect(() => {
-    if (vendor && typeof window !== 'undefined') {
-      const favs = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-      setIsFavorite(favs.includes(vendor.id));
-    }
-  }, [vendor?.id]);
-  const [communityData, setCommunityData] = useState<any>(null);
+    if (!vendor || !user?.uid) return;
+    
+    // Check if vendor is favorited
+    const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+    console.log('Checking favorites for vendor:', vendor.id, 'Current favorites:', favorites);
+    const isVendorFavorited = favorites.includes(vendor.id);
+    console.log('Setting isFavorite to:', isVendorFavorited);
+    setIsFavorite(isVendorFavorited);
+    
+    // Check if vendor is an official vendor (in user's vendors list)
+    const checkIfOfficialVendor = async () => {
+      try {
+        console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
+        // Check if vendor exists in user's My Vendors collection
+        const response = await fetch(`/api/check-vendor-exists?placeId=${vendor.id}&userId=${user.uid}`);
+        const data = await response.json();
+        console.log('Vendor existence check result:', data);
+        console.log('Response status:', response.status);
+        console.log('Full response data:', data);
+        if (data.exists) {
+          console.log('Setting isOfficialVendor to true');
+          setIsOfficialVendor(true);
+        } else {
+          console.log('Setting isOfficialVendor to false');
+          setIsOfficialVendor(false);
+        }
+        
+        // Mark data as loaded after official vendor check
+        setDataLoaded(true);
+      } catch (error) {
+        console.error('Error checking official vendor status:', error);
+        setDataLoaded(true);
+      }
+    };
+    
+    checkIfOfficialVendor();
+  }, [vendor, user]);
 
   // Handle escape key to close gallery
   useEffect(() => {
@@ -218,6 +311,12 @@ export default function VendorDetailPage() {
         // For testing, use mock data if placeId is not a real Google Places ID
         if (!placeId || placeId.length < 10) {
           setVendor(mockVendor);
+          addRecentlyViewedVendor({
+            ...mockVendor,
+            image: mockVendor.images?.[0] || '/Venue.png',
+            mainTypeLabel: mockVendor.category,
+            source: { name: 'Mock Data', url: '' }
+          });
           setLoading(false);
           return;
         }
@@ -228,12 +327,24 @@ export default function VendorDetailPage() {
         
         if (data.error || data.status === 'ZERO_RESULTS') {
           setVendor(mockVendor);
+          addRecentlyViewedVendor({
+            ...mockVendor,
+            image: mockVendor.images?.[0] || '/Venue.png',
+            mainTypeLabel: mockVendor.category,
+            source: { name: 'Mock Data', url: '' }
+          });
           setLoading(false);
           return;
         }
         
         if (!data.result) {
           setVendor(mockVendor);
+          addRecentlyViewedVendor({
+            ...mockVendor,
+            image: mockVendor.images?.[0] || '/Venue.png',
+            mainTypeLabel: mockVendor.category,
+            source: { name: 'Mock Data', url: '' }
+          });
           setLoading(false);
           return;
         }
@@ -246,10 +357,57 @@ export default function VendorDetailPage() {
           reviewCount: data.result?.user_ratings_total,
           price: data.result?.price_level ? '$'.repeat(data.result.price_level) : undefined,
           amenities: data.result?.types || [],
-          category: mapGoogleTypesToCategory(data.result?.types || []),
+          category: mapGoogleTypesToCategory(data.result?.types || [], data.result?.name),
           address: data.result?.formatted_address,
           website: data.result?.website,
-          about: data.result?.editorial_summary?.overview || 'The Milestone Mansion is a stunning Georgian Estate-style Mansion sitting on 52 acres in the Aubrey countryside, nestled between towering oak trees. Two of our private suites, comfortable for your entire wedding party and family, while your guests arrive into the grand foyer to mix and mingle...',
+          about: (() => {
+            // Create a proper venue description from available data
+            const venueName = data.result?.name || 'this venue';
+            const rating = data.result?.rating;
+            const reviewCount = data.result?.user_ratings_total;
+            const types = data.result?.types || [];
+            const category = mapGoogleTypesToCategory(types, venueName);
+            
+            // Create a professional description
+            let description = `${venueName} is a beautiful ${category.toLowerCase()}`;
+            
+            // Add location context if available
+            if (data.result?.vicinity) {
+              description += ` located in ${data.result.vicinity}`;
+            }
+            
+            // Add rating context
+            if (rating && reviewCount) {
+              description += `. With a ${rating}-star rating from ${reviewCount} guests`;
+            } else if (rating) {
+              description += `. With a ${rating}-star rating`;
+            }
+            
+            // Add what they offer based on category
+            if (category === 'Venue') {
+              description += ', this venue provides an elegant setting for weddings and special events';
+            } else if (category === 'Reception Venue') {
+              description += ', offering a perfect space for wedding receptions and celebrations';
+            } else if (category === 'Photographer') {
+              description += ', specializing in capturing beautiful moments for your special day';
+            } else if (category === 'Florist') {
+              description += ', creating stunning floral arrangements for weddings and events';
+            } else if (category === 'Caterer') {
+              description += ', providing exceptional dining experiences for special occasions';
+            } else if (category === 'Baker') {
+              description += ', crafting delicious wedding cakes and desserts';
+            } else if (category === 'DJ') {
+              description += ', providing entertainment and music for celebrations';
+            } else if (category === 'Beauty Salon') {
+              description += ', offering professional beauty services for brides and wedding parties';
+            } else {
+              description += ', providing excellent services for your wedding day';
+            }
+            
+            description += '.';
+            
+            return description;
+          })(),
           images: [
             "/Venue.png",
             "/Venue.png",
@@ -284,12 +442,25 @@ export default function VendorDetailPage() {
         
         setVendor(vendorDetails);
         
+        // Add to recently viewed vendors
+        addRecentlyViewedVendor({
+          ...vendorDetails,
+          image: vendorDetails.images?.[0] || '/Venue.png',
+          mainTypeLabel: vendorDetails.category,
+          source: { name: 'Google Places', url: '' }
+        });
+        
         // Fetch community vendor data
         try {
+          console.log('Fetching community data for vendor:', placeId);
           const communityResponse = await fetch(`/api/community-vendors?placeId=${placeId}`);
           const communityData = await communityResponse.json();
+          console.log('Initial community data response:', communityData);
           if (communityData.vendor) {
             setCommunityData(communityData.vendor);
+            console.log('Set initial community data:', communityData.vendor);
+          } else {
+            console.log('No vendor data in community response');
           }
         } catch (error) {
           console.error('Error fetching community data:', error);
@@ -331,8 +502,29 @@ export default function VendorDetailPage() {
   };
 
   const toggleFavorite = async () => {
+    console.log('toggleFavorite function called!');
     const newFavoriteState = !isFavorite;
     setIsFavorite(newFavoriteState);
+    
+    // Update localStorage
+    try {
+      const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+      if (newFavoriteState) {
+        // Add to favorites if not already there
+        if (!favorites.includes(vendor?.id)) {
+          favorites.push(vendor?.id);
+        }
+      } else {
+        // Remove from favorites
+        const index = favorites.indexOf(vendor?.id);
+        if (index > -1) {
+          favorites.splice(index, 1);
+        }
+      }
+      localStorage.setItem('vendorFavorites', JSON.stringify(favorites));
+    } catch (error) {
+      console.error('Error updating localStorage favorites:', error);
+    }
     
     // Show toast message
     if (newFavoriteState) {
@@ -344,6 +536,7 @@ export default function VendorDetailPage() {
     // Update community favorites count
     if (vendor && user?.uid) {
       try {
+        console.log('Updating community favorites for vendor:', vendor.id, 'new state:', newFavoriteState);
         const response = await fetch('/api/community-vendors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -360,12 +553,22 @@ export default function VendorDetailPage() {
         });
         
         if (response.ok) {
+          console.log('Community update successful, refreshing data...');
           // Refresh community data
           const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
           const communityData = await communityResponse.json();
+          console.log('Refreshed community data:', communityData);
           if (communityData.vendor) {
             setCommunityData(communityData.vendor);
+            console.log('Updated community data state:', communityData.vendor);
+            console.log('totalFavorites value:', communityData.vendor.totalFavorites);
+            console.log('All community data fields:', Object.keys(communityData.vendor));
+            console.log('Full community data object:', JSON.stringify(communityData.vendor, null, 2));
+          } else {
+            console.log('No vendor data in community response');
           }
+        } else {
+          console.error('Community update failed:', response.status, response.statusText);
         }
       } catch (error) {
         console.error('Error updating community favorites:', error);
@@ -373,15 +576,92 @@ export default function VendorDetailPage() {
     }
   };
 
+  const toggleOfficialVendor = async () => {
+    if (!vendor || !user?.uid) return;
+
+    const newOfficialState = !isOfficialVendor;
+    setIsOfficialVendor(newOfficialState);
+
+    // Show toast message
+    if (newOfficialState) {
+      toast.success(`Marked as Official Vendor and Added to My Vendors!`);
+    } else {
+      toast.success(`Removed as Official Vendor and Removed from My Vendors!`);
+    }
+
+    try {
+      if (newOfficialState) {
+        // Add vendor to My Vendors
+        const { addVendorToUserAndCommunity } = await import('@/lib/addVendorToUserAndCommunity');
+        const result = await addVendorToUserAndCommunity({
+          userId: user.uid,
+          vendorMetadata: {
+            place_id: vendor.id,
+            name: vendor.name,
+            formatted_address: vendor.address || '',
+            website: vendor.website || '',
+            formatted_phone_number: '',
+            rating: vendor.rating,
+            user_ratings_total: vendor.reviewCount,
+            types: vendor.amenities || []
+            // photos will be fetched by the function using place_id
+          },
+          category: vendor.category,
+          selectedAsVenue: false,
+          selectedAsVendor: false
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add vendor');
+        }
+      } else {
+        // Remove vendor from My Vendors
+        // We'll need to implement this - for now, just update community status
+        const response = await fetch('/api/community-vendors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            placeId: vendor.id,
+            vendorName: vendor.name,
+            vendorAddress: vendor.address || '',
+            vendorCategory: vendor.category,
+            userId: user.uid,
+            selectedAsVenue: false,
+            selectedAsVendor: false,
+            isOfficialVendor: false
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update community status');
+        }
+      }
+
+      // Update community data
+      const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
+      const communityData = await communityResponse.json();
+      if (communityData.vendor) {
+        setCommunityData(communityData.vendor);
+      }
+    } catch (error) {
+      console.error('Error updating official vendor status:', error);
+      // Revert state on error
+      setIsOfficialVendor(!newOfficialState);
+      toast.error('Failed to update official vendor status');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-linen">
-        <div className="app-content-container py-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-96 bg-gray-200 rounded mb-6"></div>
-            <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+        <div className="max-w-6xl mx-auto">
+          <div className="app-content-container py-8">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-96 bg-gray-200 rounded mb-6"></div>
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -391,16 +671,18 @@ export default function VendorDetailPage() {
   if (!vendor) {
     return (
       <div className="min-h-screen bg-linen">
-        <div className="app-content-container py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-playfair text-[#332B42] mb-4">Vendor Not Found</h1>
-            <p className="text-[#364257] mb-4">The vendor you're looking for doesn't exist or has been removed.</p>
-            <button 
-              onClick={() => router.back()}
-              className="btn-primary"
-            >
-              Go Back
-            </button>
+        <div className="max-w-6xl mx-auto">
+          <div className="app-content-container py-8">
+            <div className="text-center">
+              <h1 className="text-2xl font-playfair text-[#332B42] mb-4">Vendor Not Found</h1>
+              <p className="text-[#364257] mb-4">The vendor you're looking for doesn't exist or has been removed.</p>
+              <button 
+                onClick={() => router.back()}
+                className="btn-primary"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -415,192 +697,218 @@ export default function VendorDetailPage() {
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
-      <div className="app-content-container py-8">
-        {/* Breadcrumb */}
-        <Breadcrumb
-          items={[
-            { label: 'Vendor Search', href: '/vendors/catalog' },
-            { 
-              label: location ? `${getCategoryLabel(vendor.category)} in ${location}` : getCategoryLabel(vendor.category), 
-              href: location ? `/vendors/catalog/${getCategorySlug(vendor.category)}?location=${encodeURIComponent(location)}` : `/vendors/catalog/${getCategorySlug(vendor.category)}` 
-            },
-            { label: vendor.name, isCurrent: true }
-          ]}
-        />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Vendor Details */}
-          <div className="lg:col-span-2">
-            {/* Vendor Name and Overview */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4>
-                  {vendor.name}
-                </h4>
+      <div className="max-w-6xl mx-auto">
+        <div className="app-content-container py-8">
+          {/* Breadcrumb */}
+          <Breadcrumb
+            items={[
+              { label: 'Vendor Search', href: '/vendors/catalog' },
+              { 
+                label: location ? `${getCategoryLabel(vendor.category)} in ${location}` : getCategoryLabel(vendor.category), 
+                href: location ? `/vendors/catalog/${getCategorySlug(vendor.category)}?location=${encodeURIComponent(location)}` : `/vendors/catalog/${getCategorySlug(vendor.category)}` 
+              },
+              { label: vendor.name, isCurrent: true }
+            ]}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - Vendor Details */}
+            <div className="lg:col-span-2">
+              {/* Vendor Name and Overview */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4>
+                    {vendor.name}
+                  </h4>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3">
+                    {/* Official Vendor Toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#364257]">Official Vendor</span>
+                      {dataLoaded ? (
+                        <button
+                          onClick={toggleOfficialVendor}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
+                            isOfficialVendor ? 'bg-[#A85C36]' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              isOfficialVendor ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <div className="h-6 w-11 bg-gray-200 rounded-full animate-pulse" />
+                      )}
+                    </div>
+
+                    {dataLoaded ? (
+                      <button
+                        onClick={toggleFavorite}
+                        className={`btn-primaryinverse ${
+                          isFavorite ? 'bg-[#A85C36] text-white border-[#A85C36]' : ''
+                        }`}
+                      >
+                        <Heart className={`w-3 h-3 ${isFavorite ? 'fill-white' : ''}`} />
+                        {isFavorite ? 'Favorited' : 'Favorite'}
+                      </button>
+                    ) : (
+                      <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+                    )}
+
+                    <button
+                      onClick={() => setShowContactModal(true)}
+                      className="btn-primary"
+                    >
+                      Contact
+                    </button>
+                  </div>
+                </div>
                 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleFavorite}
-                    className={`btn-primaryinverse ${
-                      isFavorite ? 'bg-[#A85C36] text-white border-[#A85C36]' : ''
-                    }`}
-                  >
-                    <Heart className={`w-3 h-3 ${isFavorite ? 'fill-current' : ''}`} />
-                    {isFavorite ? 'Favorited' : 'Favorite'}
-                  </button>
-
-                  <button
-                    onClick={() => setShowContactModal(true)}
-                    className="btn-primary"
-                  >
-                    Contact
-                  </button>
+                <div className="flex items-center gap-4 mb-4">
+                  {vendor.rating && (
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                      <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                    </div>
+                  )}
+                  <CategoryPill category={vendor.category} />
+                  {communityData?.totalFavorites > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Heart className="w-3 h-3 text-[#A85C36]" />
+                      <span className="text-sm text-[#364257]">{communityData.totalFavorites} favorited</span>
+                    </div>
+                  )}
+                  {location && (
+                    <div className="flex items-center gap-1 text-sm text-[#364257]">
+                      <span>in</span>
+                      <MapPin className="w-3 h-3" />
+                      <span>{location}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-4 mb-4">
-                {vendor.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
-                  </div>
-                )}
-                <CategoryPill category={vendor.category} />
-                {location && (
-                  <div className="flex items-center gap-1 text-sm text-[#364257]">
-                    <span>in</span>
-                    <MapPin className="w-3 h-3" />
-                    <span>{location}</span>
-                  </div>
-                )}
-                {/* Community Favorites Metadata */}
-                {communityData && communityData.totalFavorites > 0 && (
-                  <div className="flex items-center gap-1 text-sm text-[#364257]">
-                    <Heart className="w-3 h-3 text-pink-500 fill-current" />
-                    <span>{communityData.totalFavorites} {communityData.totalFavorites === 1 ? 'user' : 'users'}</span>
-                  </div>
-                )}
+
+
               </div>
 
-
-            </div>
-
-            {/* Image Gallery */}
-            <div className="mb-8">
-              <div className="relative h-96 bg-[#F3F2F0] rounded-lg overflow-hidden mb-4">
-                {vendor.images && vendor.images.length > 0 && (
-                  <>
-                    <img
-                      src={vendor.images[currentImageIndex]}
-                      alt={`${vendor.name} - Image ${currentImageIndex + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    
-                    {/* Navigation Arrows */}
-                    <button
-                      onClick={handlePreviousImage}
-                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    
-                    <button
-                      onClick={handleNextImage}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Image Counter and Actions */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#364257]">
-                  {currentImageIndex + 1} of {vendor.images?.length || 0}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors">
-                    <MapPin className="w-3 h-3" />
-                    Map
-                  </button>
-                  <button 
-                    onClick={() => setShowImageGallery(true)}
-                    className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors"
-                  >
-                    <Grid className="w-3 h-3" />
-                    View all
-                  </button>
+              {/* Image Gallery */}
+              <div className="mb-8">
+                <div className="relative h-96 bg-[#F3F2F0] rounded-lg overflow-hidden mb-4">
+                  {vendor.images && vendor.images.length > 0 && (
+                    <>
+                      <img
+                        src={vendor.images[currentImageIndex]}
+                        alt={`${vendor.name} - Image ${currentImageIndex + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Navigation Arrows */}
+                      <button
+                        onClick={handlePreviousImage}
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      
+                      <button
+                        onClick={handleNextImage}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
-            </div>
 
-            {/* Basic Details */}
-            <div className="mb-8">
-              <h2 className="text-xl font-playfair font-medium text-[#332B42] mb-4">
-                Basic Details
-              </h2>
-              <div className="space-y-3">
-                {vendor.address && (
-                  <div className="flex items-center gap-2 text-[#364257]">
-                    <MapPin className="w-3 h-3 text-[#A85C36]" />
-                    <span>{vendor.address}</span>
-                  </div>
-                )}
-                {vendor.website && (
+                {/* Image Counter and Actions */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#364257]">
+                    {currentImageIndex + 1} of {vendor.images?.length || 0}
+                  </span>
                   <div className="flex items-center gap-2">
-                    <Globe className="w-3 h-3 text-[#A85C36]" />
-                    <a 
-                      href={vendor.website} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[#A85C36] hover:text-[#784528] underline"
+                    <button className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors">
+                      <MapPin className="w-3 h-3" />
+                      Map
+                    </button>
+                    <button 
+                      onClick={() => setShowImageGallery(true)}
+                      className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors"
                     >
-                      Website
-                    </a>
+                      <Grid className="w-3 h-3" />
+                      View all
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            {/* About */}
-            {vendor.about && (
+              {/* Basic Details */}
               <div className="mb-8">
                 <h2 className="text-xl font-playfair font-medium text-[#332B42] mb-4">
-                  About
+                  Basic Details
                 </h2>
-                <p className="text-[#364257] leading-relaxed">
-                  {vendor.about}
-                </p>
+                <div className="space-y-3">
+                  {vendor.address && (
+                    <div className="flex items-center gap-2 text-[#364257]">
+                      <MapPin className="w-3 h-3 text-[#A85C36]" />
+                      <span>{vendor.address}</span>
+                    </div>
+                  )}
+                  {vendor.website && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3 h-3 text-[#A85C36]" />
+                      <a 
+                        href={vendor.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#A85C36] hover:text-[#784528] underline"
+                      >
+                        Website
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Right Column - Comments */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <h3 className="text-lg font-playfair font-medium text-[#332B42] mb-4">
-                Comments
-              </h3>
-              
-              {/* Comments Area */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 min-h-[200px]">
-                <p className="text-sm text-gray-500 text-center">
-                  No comments yet. Be the first to share your experience!
-                </p>
-              </div>
+              {/* About */}
+              {vendor.about && (
+                <div className="mb-8">
+                  <h2 className="text-xl font-playfair font-medium text-[#332B42] mb-4">
+                    About
+                  </h2>
+                  <p className="text-[#364257] leading-relaxed">
+                    {vendor.about}
+                  </p>
+                </div>
+              )}
+            </div>
 
-              {/* Add Comment */}
-              <div className="space-y-3">
-                <textarea
-                  placeholder="Add a comment. To tag someone enter @ and add their names."
-                  className="w-full p-3 border border-[#AB9C95] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent"
-                  rows={3}
-                />
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#332B42] text-white rounded-lg hover:bg-[#2A2335] transition-colors">
-                  <span className="text-sm font-medium">Send</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
+            {/* Right Column - Comments */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <h3 className="text-lg font-playfair font-medium text-[#332B42] mb-4">
+                  Comments
+                </h3>
+                
+                {/* Comments Area */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-4 min-h-[200px]">
+                  <p className="text-sm text-gray-500 text-center">
+                    No comments yet. Be the first to share your experience!
+                  </p>
+                </div>
+
+                {/* Add Comment */}
+                <div className="space-y-3">
+                  <textarea
+                    placeholder="Add a comment. To tag someone enter @ and add their names."
+                    className="w-full p-3 border border-[#AB9C95] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent"
+                    rows={3}
+                  />
+                  <button className="flex items-center gap-2 px-4 py-2 bg-[#332B42] text-white rounded-lg hover:bg-[#2A2335] transition-colors">
+                    <span className="text-sm font-medium">Send</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
