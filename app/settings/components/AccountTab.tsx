@@ -49,8 +49,12 @@ export default function AccountTab({
 
   const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com';
 
+  // Helper to capitalize each word
+  const capitalizeWords = (str: string) =>
+    str.replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleUserNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newUserName = e.target.value;
+    const newUserName = capitalizeWords(e.target.value);
     setUserName(newUserName);
     const error = validateName(newUserName, "Your full name");
     setUserNameError(error);
@@ -62,7 +66,7 @@ export default function AccountTab({
   };
 
   const handlePartnerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPartnerName = e.target.value;
+    const newPartnerName = capitalizeWords(e.target.value);
     setPartnerName(newPartnerName);
     const error = validateName(newPartnerName, "Your partner's name");
     setPartnerNameError(error);
@@ -170,27 +174,29 @@ export default function AccountTab({
           <div className="mb-4 flex gap-4">
             <div className="flex-1">
               <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
-              <input 
-                type="text" 
-                value={userName} 
-                onChange={handleUserNameChange} 
-                onBlur={handleUserNameBlur} 
-                className={`w-full px-3 py-2 border rounded bg-white text-sm focus:outline-none focus:ring-2 ${
-                  userNameError ? "border-red-500 focus:ring-red-500" : "border-[#AB9C95] focus:ring-[#A85C36]"
-                }`}
+              <input
+                type="text"
+                id="userName"
+                value={userName}
+                onChange={handleUserNameChange}
+                onBlur={handleUserNameBlur}
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
+                autoComplete="name"
+                disabled={saving}
               />
               {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
             </div>
             <div className="flex-1">
               <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Partner's Name*</label>
-              <input 
-                type="text" 
-                value={partnerName} 
-                onChange={handlePartnerNameChange} 
-                onBlur={handlePartnerNameBlur} 
-                className={`w-full px-3 py-2 border rounded bg-white text-sm focus:outline-none focus:ring-2 ${
-                  partnerNameError ? "border-red-500 focus:ring-red-500" : "border-[#AB9C95] focus:ring-[#A85C36]"
-                }`}
+              <input
+                type="text"
+                id="partnerName"
+                value={partnerName}
+                onChange={handlePartnerNameChange}
+                onBlur={handlePartnerNameBlur}
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
+                autoComplete="name"
+                disabled={saving}
               />
               {partnerNameError && <p className="text-red-500 text-xs mt-1">{partnerNameError}</p>}
             </div>

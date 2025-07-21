@@ -11,6 +11,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
   const [jiggleAnimate, setJiggleAnimate] = useState('');
   const [showGmailConfirmModal, setShowGmailConfirmModal] = useState<string | null>(null);
   const [pendingGoogleAction, setPendingGoogleAction] = useState<(() => Promise<void>) | null>(null);
+  // Remove: const [forceProfileReload, setForceProfileReload] = useState(0);
 
   const {
     weddingDate: firestoreWeddingDate,
@@ -26,6 +27,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     generatedVibes: firestoreGeneratedVibes,
     budgetRange: firestoreBudgetRange,
     profileLoading,
+    reload: reloadUserProfile,
   } = useUserProfileData();
 
   // Account form state
@@ -179,12 +181,15 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
             selectedAsVendor: false
           });
 
+          console.log('Result from addVendorToUserAndCommunity:', result);
+
           if (result.success) {
             console.log('Successfully added venue to user vendor management system');
             
             // Mark the venue as official (starred) in the user's vendor list
             try {
               const vendorRef = doc(db, `users/${user.uid}/vendors`, result.vendorId!);
+              console.log('Updating vendor to isOfficial: true for vendorId:', result.vendorId);
               await updateDoc(vendorRef, {
                 isOfficial: true,
                 category: "Venue"
@@ -208,6 +213,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
       await updateDoc(userRef, updateData);
       await updateUser(updateData);
+      reloadUserProfile(); // Trigger profile data reload
       toast.success("Wedding details saved successfully!");
     } catch (error) {
       console.error("Error saving wedding details:", error);
@@ -230,6 +236,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
       await updateDoc(userRef, updateData);
       await updateUser(updateData);
+      reloadUserProfile(); // Trigger profile data reload
       toast.success("Account details saved successfully!");
     } catch (error) {
       console.error("Error saving account details:", error);

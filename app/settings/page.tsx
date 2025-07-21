@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from "framer-motion";
@@ -48,6 +48,8 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [jiggleWeddingDate, setJiggleWeddingDate] = useState(false);
   const [showFlagReview, setShowFlagReview] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const pendingTabKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (searchParams?.get('highlight') === 'weddingDate' && activeTab === 'wedding') {
@@ -55,13 +57,6 @@ export default function ProfilePage() {
       setTimeout(() => setJiggleWeddingDate(false), 1000);
     }
   }, [searchParams, activeTab]);
-
-  const handleTabChange = (tabKey: string) => {
-    setActiveTab(tabKey);
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    params.set('tab', tabKey);
-    router.push(`/settings?${params.toString()}`, { scroll: false });
-  };
 
   const updateUserAsync = async (data: any) => {
     updateUser(data);
@@ -108,6 +103,47 @@ export default function ProfilePage() {
     setPendingGoogleAction,
   } = useProfileForm(user, updateUserAsync);
 
+  // Intercept tab changes if there are unsaved changes
+  const handleTabChange = (tabKey: string) => {
+    if ((hasUnsavedAccountChanges || hasUnsavedWeddingChanges) && tabKey !== activeTab) {
+      pendingTabKeyRef.current = tabKey;
+      setShowUnsavedModal(true);
+    } else {
+      setActiveTab(tabKey);
+      const params = new URLSearchParams(searchParams?.toString() || '');
+      params.set('tab', tabKey);
+      router.push(`/settings?${params.toString()}`, { scroll: false });
+    }
+  };
+
+  // Warn on browser navigation (refresh/close)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedAccountChanges || hasUnsavedWeddingChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedAccountChanges, hasUnsavedWeddingChanges]);
+
+  // Handle modal actions
+  const handleUnsavedCancel = () => {
+    setShowUnsavedModal(false);
+    pendingTabKeyRef.current = null;
+  };
+  const handleUnsavedConfirm = () => {
+    setShowUnsavedModal(false);
+    if (pendingTabKeyRef.current) {
+      setActiveTab(pendingTabKeyRef.current);
+      const params = new URLSearchParams(searchParams?.toString() || '');
+      params.set('tab', pendingTabKeyRef.current);
+      router.push(`/settings?${params.toString()}`, { scroll: false });
+      pendingTabKeyRef.current = null;
+    }
+  };
+
   // Wedding banner logic
   const { daysLeft, isLoading: bannerLoading } = useWeddingBanner(router, weddingDate);
 
@@ -136,12 +172,10 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
       
-      <div className="min-h-screen bg-[#F3F2F0] flex flex-col items-center py-12">
-        <div className="app-container">
+      <div className="app-content-container">
+        <div className="max-w-[900px] mx-auto w-full">
           <h3 className="mb-8">Settings</h3>
-          
           <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
-          
           {activeTab === "account" && (
             <AccountTab
               user={user}
@@ -158,7 +192,6 @@ export default function ProfilePage() {
               hasUnsavedChanges={hasUnsavedAccountChanges}
             />
           )}
-          
           {activeTab === "wedding" && (
             <WeddingTab
               weddingDate={weddingDate}
@@ -188,49 +221,27 @@ export default function ProfilePage() {
               onSave={handleWeddingSave}
             />
           )}
-          
           {activeTab === "plan" && <PlanTab />}
-          
           {activeTab === "integrations" && (
             <IntegrationsTab
               user={user}
               onGoogleAction={handleGoogleAction}
             />
           )}
-          
           {activeTab === "notifications" && <NotificationsTab />}
-          
-          {/* Admin Section */}
-          {user?.email === 'daveyoon@gmail.com' && (
-            <div className="mt-8 bg-white rounded-lg p-6 border border-[#AB9C95]">
-              <h4 className="text-lg font-medium text-[#332B42] mb-4">Admin Tools</h4>
-              <button
-                onClick={() => setShowFlagReview(true)}
-                className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-              >
-                Review Flagged Vendor Emails
-              </button>
-            </div>
+          <UnsavedChangesModal
+            isOpen={showUnsavedModal}
+            onConfirm={handleUnsavedConfirm}
+            onCancel={handleUnsavedCancel}
+          />
+          {showFlagReview && (
+            <VendorEmailFlagReviewModal
+              isOpen={showFlagReview}
+              onClose={() => setShowFlagReview(false)}
+            />
           )}
         </div>
       </div>
-      
-      <UnsavedChangesModal
-        isOpen={!!showGmailConfirmModal}
-        onCancel={() => setShowGmailConfirmModal(null)}
-        onConfirm={async () => {
-          setShowGmailConfirmModal(null);
-          if (pendingGoogleAction) await pendingGoogleAction();
-        }}
-        title="Are you sure you want to do that?"
-        message="Disconnecting or changing your Gmail will cause synced contacts and imported emails from Google to stop syncing and will not allow you to send emails anymore. This will NOT change your login method or email."
-      />
-      
-      {/* Flag Review Modal */}
-      <VendorEmailFlagReviewModal
-        isOpen={showFlagReview}
-        onClose={() => setShowFlagReview(false)}
-      />
     </>
   );
 }

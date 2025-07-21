@@ -54,7 +54,7 @@ export async function addVendorToUserAndCommunity({
     if (!querySnapshot.empty) {
       // Vendor already exists, return the existing vendor ID
       const existingVendor = querySnapshot.docs[0];
-      console.log('Vendor already exists, returning existing vendor ID:', existingVendor.id);
+      console.log('Vendor already exists, returning existing vendor ID:', existingVendor.id, existingVendor.data());
       return { success: true, vendorId: existingVendor.id };
     }
 
@@ -79,6 +79,8 @@ export async function addVendorToUserAndCommunity({
       vicinity: vendorMetadata.vicinity || null,
       types: vendorMetadata.types || []
     };
+
+    console.log('Creating vendor with data:', vendorData);
 
     // Save vendor to user's vendor management collection
     const vendorRef = doc(db, `users/${userId}/vendors`, vendorId);

@@ -40,6 +40,9 @@ export function useUserProfileData() {
     inApp: false
   });
 
+  const [reloadCount, setReloadCount] = useState(0);
+  const reload = () => setReloadCount((c) => c + 1);
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
@@ -99,7 +102,7 @@ export function useUserProfileData() {
     } else if (!authLoading && !user) {
       setProfileLoading(false);
     }
-  }, [user, authLoading]);
+  }, [authLoading, user, reloadCount]);
 
   return { 
     userName, 
@@ -120,8 +123,10 @@ export function useUserProfileData() {
     vibeInputMethod,
     generatedVibes,
     budgetRange,
+    imagePreview,
     // Notification preferences
     phoneNumber,
-    notificationPreferences
+    notificationPreferences,
+    reload,
   };
 } 

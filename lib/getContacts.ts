@@ -38,7 +38,7 @@ export const getAllVendors = async (userId: string) => {
   const vendorsCollection = getUserCollectionRef<any>("vendors", userId);
   const q = query(vendorsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
+  const vendors = querySnapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -63,4 +63,6 @@ export const getAllVendors = async (userId: string) => {
       orderIndex: data.addedAt ? -new Date(data.addedAt).getTime() : 0, // Sort by added date
     };
   });
+  console.log('Fetched vendors for user:', userId, vendors);
+  return vendors;
 };
