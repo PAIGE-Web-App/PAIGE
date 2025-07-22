@@ -134,38 +134,29 @@ export interface EmailContent {
 
 export const sendEmail = async (emailContent: EmailContent, userId?: string): Promise<boolean> => {
   try {
-    let transporter: any = null;
-    
-    // Try Gmail API OAuth first if userId is provided
-    if (userId) {
-      transporter = await createGmailTransporter(userId);
-    }
-    
-    // Fallback to SendGrid if Gmail OAuth fails or isn't available
-    if (!transporter) {
-      transporter = createSendGridTransporter();
-    }
-    
-    if (!transporter) {
-      console.error('No email service configured. Please set up Gmail OAuth or SendGrid credentials.');
-      return false;
+    // Queue the email for background processing
+    const response = await fetch('/api/email/queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: emailContent.to,
+        subject: emailContent.subject,
+        body: emailContent.html || emailContent.text,
+        from: process.env.GMAIL_USER || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
+        priority: 'normal',
+        userId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to queue email: ${response.statusText}`);
     }
 
-    const fromEmail = process.env.GMAIL_USER || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app';
-    
-    const mailOptions = {
-      from: fromEmail,
-      to: emailContent.to,
-      subject: emailContent.subject,
-      text: emailContent.text,
-      html: emailContent.html
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.messageId);
+    const result = await response.json();
+    console.log('Email queued successfully:', result.jobId);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error queuing email:', error);
     return false;
   }
 };
