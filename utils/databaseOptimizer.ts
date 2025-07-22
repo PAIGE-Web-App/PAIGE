@@ -18,6 +18,7 @@ import {
   QueryConstraint,
   orderBy as firestoreOrderBy
 } from 'firebase/firestore';
+import { advancedCache, cacheUtils } from './advancedCache';
 
 // Cache for frequently accessed data
 const queryCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -39,7 +40,7 @@ interface PaginationOptions {
 export class VendorQueryOptimizer {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  static async getVendorsByCategory(
+    static async getVendorsByCategory(
     category: string, 
     options: OptimizedQueryOptions = {}
   ): Promise<DocumentData[]> {
