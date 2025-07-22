@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
+import { debounce, googlePlacesBatcher } from '@/utils/requestBatcher';
 
 export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; }) {
   
@@ -12,7 +13,6 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
   const [isLoading, setIsLoading] = useState(false);
   const autocompleteService = useRef<any>(null);
   const sessionToken = useRef<any>(null);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize Google Places Autocomplete service
   useEffect(() => {
@@ -23,9 +23,7 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
 
     // Cleanup function
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+      // Cleanup handled by debounce utility
     };
   }, []);
 
@@ -44,75 +42,78 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
     if (setVenueMetadata) {
       const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
       if (types.some((type: string) => venueTypes.includes(type))) {
-        const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
-        placesService.getDetails({ placeId: place_id, fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'rating', 'user_ratings_total', 'types', 'url', 'formatted_phone_number', 'website'] }, (place, status) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-            setVenueMetadata(place);
-          } else {
+        // Use our batcher for place details
+        googlePlacesBatcher.getPlaceDetails(place_id)
+          .then((result) => {
+            if (result && result.success && result.data) {
+              setVenueMetadata(result.data);
+            } else {
+              setVenueMetadata(null);
+            }
+          })
+          .catch((error) => {
+            console.error('Error fetching place details:', error);
             setVenueMetadata(null);
-          }
-        });
+          });
       } else {
         setVenueMetadata(null);
       }
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Create debounced search function
+  const debouncedSearch = debounce((inputValue: string) => {
+    if (!autocompleteService.current || inputValue.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // For venue searches, include location in the search query itself
+    let searchInput = inputValue;
+    if (types.includes('establishment') && locationBias) {
+      // For venue searches, include the wedding location in the search
+      // This is more reliable than location bias
+      searchInput = `${inputValue} wedding venue`;
+    }
+
+    const request: any = {
+      input: searchInput,
+      types: types,
+      sessionToken: sessionToken.current,
+    };
+
+    // Only use location bias for non-venue searches (like city selection)
+    if (locationBias && !types.includes('establishment')) {
+      request.locationBias = `circle:${locationBias.radius || 50000}@${locationBias.lat},${locationBias.lng}`;
+      console.log('Using location bias for non-venue search:', request.locationBias);
+    }
+
+    autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+      setIsLoading(false);
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+        console.log('Autocomplete results:', predictions);
+        setSuggestions(predictions);
+      } else {
+        console.log('Autocomplete status:', status);
+        setSuggestions([]);
+      }
+    });
+  }, 300);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     onChange(inputValue);
     
-    // Clear previous timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
     // Clear suggestions if input is empty
     if (!inputValue.trim()) {
       setSuggestions([]);
       return;
     }
 
-    // Debounce the API call
-    debounceTimer.current = setTimeout(() => {
-      if (!autocompleteService.current || inputValue.length < 2) {
-        setSuggestions([]);
-        return;
-      }
-
-      setIsLoading(true);
-      
-      // For venue searches, include location in the search query itself
-      let searchInput = inputValue;
-      if (types.includes('establishment') && locationBias) {
-        // For venue searches, include the wedding location in the search
-        // This is more reliable than location bias
-        searchInput = `${inputValue} wedding venue`;
-      }
-
-      const request: any = {
-        input: searchInput,
-        types: types,
-        sessionToken: sessionToken.current,
-      };
-
-      // Only use location bias for non-venue searches (like city selection)
-      if (locationBias && !types.includes('establishment')) {
-        request.locationBias = `circle:${locationBias.radius || 50000}@${locationBias.lat},${locationBias.lng}`;
-        console.log('Using location bias for non-venue search:', request.locationBias);
-      }
-
-      autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
-        setIsLoading(false);
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          console.log('Autocomplete results:', predictions);
-          setSuggestions(predictions);
-        } else {
-          console.log('Autocomplete status:', status);
-          setSuggestions([]);
-        }
-      });
-    }, 300);
+    // Use debounced search
+    debouncedSearch(inputValue);
   };
 
   return (
