@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
@@ -24,6 +24,12 @@ import AddContactModal from '@/components/AddContactModal';
 import DropdownMenu from '@/components/DropdownMenu';
 import { MoreHorizontal } from 'lucide-react';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
+import { 
+  getRecentlyViewedVendors, 
+  convertVendorToCatalogFormat,
+  mapGoogleTypesToCategory
+} from '@/utils/vendorUtils';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -83,17 +89,6 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
 }
 
 // Recently viewed tracking functions
-function getRecentlyViewedVendors() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem('paige_recently_viewed_vendors');
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    console.error('Error reading recently viewed vendors:', error);
-    return [];
-  }
-}
-
 function addRecentlyViewedVendor(vendor) {
   if (typeof window === 'undefined') return;
   
@@ -124,6 +119,14 @@ function addRecentlyViewedVendor(vendor) {
 export default function VendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  
+  // Get user's wedding location from profile data
+  const { weddingLocation, profileLoading } = useUserProfileData();
+  
+  // Use user's wedding location or fallback to default
+  const defaultLocation = weddingLocation || 'Dallas, TX';
+  
   const [vendors, setVendors] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
@@ -131,11 +134,8 @@ export default function VendorsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [editModal, setEditModal] = useState<{ open: boolean; vendor: any | null }>({ open: false, vendor: null });
   const [isLoading, setIsLoading] = useState(true);
-  // Use centralized WeddingBanner hook
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const [showFilters, setShowFilters] = useState(false);
   const [vendorSearch, setVendorSearch] = useState('');
-  // Ensure searchOpen is false by default
   const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
   const [recentlyViewedVendors, setRecentlyViewedVendors] = useState<any[]>([]);
@@ -259,38 +259,6 @@ export default function VendorsPage() {
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });
   };
 
-  // Convert vendor data to match VendorCatalogCard format
-  const convertVendorToCatalogFormat = (vendor) => {
-    // Try to get the Google Places image from recently viewed data
-    const recentlyViewed = getRecentlyViewedVendors();
-    const recentlyViewedVendor = recentlyViewed.find(rv => 
-      rv.id === vendor.placeId || rv.id === vendor.id || rv.placeId === vendor.placeId
-    );
-    
-    // Prioritize Google Places images from recently viewed data
-    const bestImage = recentlyViewedVendor?.image || 
-                     recentlyViewedVendor?.images?.[0] || 
-                     vendor.image || 
-                     vendor.images?.[0] || 
-                     '/Venue.png';
-    
-    return {
-      id: vendor.placeId || vendor.id,
-      name: vendor.name,
-      address: vendor.address,
-      location: vendor.address,
-      rating: vendor.rating || recentlyViewedVendor?.rating || 0,
-      reviewCount: vendor.reviewCount || recentlyViewedVendor?.reviewCount || 0,
-      price: vendor.price || recentlyViewedVendor?.price || '',
-      mainTypeLabel: vendor.category,
-      image: bestImage,
-      source: vendor.source || recentlyViewedVendor?.source || { name: 'Manual Entry', url: '' },
-      estimate: vendor.estimate || '',
-      phone: vendor.phone,
-      email: vendor.email
-    };
-  };
-
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner
@@ -361,7 +329,7 @@ export default function VendorsPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                  <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
                     {filteredVendors.slice(0, 6).map((vendor) => (
                       <div key={vendor.id} className="w-80 flex-shrink-0">
                         <VendorCatalogCard
@@ -375,6 +343,8 @@ export default function VendorsPage() {
                           onSelectionChange={() => {
                             // Handle selection change (not used in this context)
                           }}
+                          location={defaultLocation}
+                          category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
                         />
                       </div>
                     ))}
@@ -417,7 +387,7 @@ export default function VendorsPage() {
               </div>
               
               <div className="overflow-x-auto">
-                <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
                   {recentlyViewedVendors.slice(0, 6).map((vendor) => (
                     <div key={vendor.id} className="w-80 flex-shrink-0">
                       <VendorCatalogCard
@@ -431,6 +401,8 @@ export default function VendorsPage() {
                         onSelectionChange={() => {
                           // Handle selection change (not used in this context)
                         }}
+                        location={defaultLocation}
+                        category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
                       />
                     </div>
                   ))}
@@ -462,7 +434,7 @@ export default function VendorsPage() {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <div className="flex gap-6 pb-4" style={{ minWidth: 'max-content' }}>
+                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
                   {favoriteVendors.slice(0, 6).map((vendor) => (
                     <div key={vendor.id} className="w-80 flex-shrink-0">
                       <VendorCatalogCard
@@ -472,6 +444,8 @@ export default function VendorsPage() {
                         onSelectionChange={() => {}}
                         // Force heart filled
                         isFavoriteOverride={true}
+                        location={defaultLocation}
+                        category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
                       />
                     </div>
                   ))}

@@ -12,165 +12,15 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-
-// Helper function to detect if a venue is likely a wedding venue based on name
-const isLikelyWeddingVenue = (name: string): boolean => {
-  const venueKeywords = [
-    'vineyard', 'winery', 'estate', 'mansion', 'manor', 'castle', 'palace',
-    'garden', 'farm', 'ranch', 'barn', 'lodge', 'resort', 'hotel', 'inn',
-    'club', 'hall', 'center', 'venue', 'wedding', 'events', 'reception',
-    'ballroom', 'terrace', 'pavilion', 'gazebo', 'chapel', 'church'
-  ];
-  
-  const lowerName = name.toLowerCase();
-  return venueKeywords.some(keyword => lowerName.includes(keyword));
-};
-
-const mapGoogleTypesToCategory = (types: string[], venueName?: string): string => {
-  if (!types || types.length === 0) return 'Other';
-  
-  const typeMap: Record<string, string> = {
-    'restaurant': 'Reception Venue',
-    'bakery': 'Baker',
-    'jewelry_store': 'Jeweler',
-    'hair_care': 'Hair Stylist',
-    'clothing_store': 'Dress Shop',
-    'beauty_salon': 'Beauty Salon',
-    'spa': 'Spa',
-    'photographer': 'Photographer',
-    'florist': 'Florist',
-    'caterer': 'Caterer',
-    'car_rental': 'Transportation',
-    'travel_agency': 'Travel Agency',
-    'wedding_planner': 'Wedding Planner',
-    'officiant': 'Officiant',
-    'suit_rental': 'Suit & Tux Rental',
-    'makeup_artist': 'Makeup Artist',
-    'stationery': 'Stationery',
-    'rentals': 'Event Rental',
-    'favors': 'Wedding Favor',
-    'band': 'Musician',
-    'dj': 'DJ',
-    // Specific venue types
-    'lodging': 'Venue',
-    'tourist_attraction': 'Venue',
-    'amusement_park': 'Venue',
-    'aquarium': 'Venue',
-    'art_gallery': 'Venue',
-    'museum': 'Venue',
-    'park': 'Venue',
-    'zoo': 'Venue'
-  };
-  
-  // First, try to match specific types
-  for (const type of types) {
-    if (typeMap[type]) {
-      return typeMap[type];
-    }
-  }
-  
-  // If we have generic types and a venue name, try to detect if it's a wedding venue
-  const genericTypes = ['food', 'establishment', 'point_of_interest'];
-  const hasGenericTypes = types.some(type => genericTypes.includes(type));
-  
-  if (hasGenericTypes && venueName && isLikelyWeddingVenue(venueName)) {
-    return 'Venue';
-  }
-  
-  return 'Other';
-};
-
-// Recently viewed tracking function
-function addRecentlyViewedVendor(vendor) {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    const recent = JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
-    const existingIndex = recent.findIndex(v => v.id === vendor.id);
-    
-    // Remove if already exists
-    if (existingIndex > -1) {
-      recent.splice(existingIndex, 1);
-    }
-    
-    // Add to beginning (most recent first)
-    recent.unshift({
-      ...vendor,
-      viewedAt: new Date().toISOString()
-    });
-    
-    // Keep only last 12 vendors
-    const trimmed = recent.slice(0, 12);
-    
-    localStorage.setItem('paige_recently_viewed_vendors', JSON.stringify(trimmed));
-  } catch (error) {
-    console.error('Error saving recently viewed vendor:', error);
-  }
-}
-
-// Helper function to convert category name to URL slug
-const categoryToSlug = (category: string): string => {
-  return category.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-};
-
-// Helper function to map display category back to Google Places type for URL
-const getCategorySlug = (displayCategory: string): string => {
-  const categoryToGoogleType: Record<string, string> = {
-    'Reception Venue': 'restaurant',
-    'Baker': 'bakery',
-    'Jeweler': 'jewelry_store',
-    'Hair Stylist': 'hair_care',
-    'Dress Shop': 'clothing_store',
-    'Beauty Salon': 'beauty_salon',
-    'Spa': 'spa',
-    'Photographer': 'photographer',
-    'Florist': 'florist',
-    'Caterer': 'caterer',
-    'Transportation': 'car_rental',
-    'Travel Agency': 'travel_agency',
-    'Wedding Planner': 'wedding_planner',
-    'Officiant': 'officiant',
-    'Suit & Tux Rental': 'suit_rental',
-    'Makeup Artist': 'makeup_artist',
-    'Stationery': 'stationery',
-    'Event Rental': 'rentals',
-    'Wedding Favor': 'favors',
-    'Musician': 'band',
-    'DJ': 'dj'
-  };
-  
-  return categoryToGoogleType[displayCategory] || categoryToSlug(displayCategory);
-};
-
-// Helper function to get the plural form for breadcrumb consistency
-const getCategoryLabel = (displayCategory: string): string => {
-  const categoryToPlural: Record<string, string> = {
-    'Reception Venue': 'Reception Venues',
-    'Baker': 'Bakeries & Cakes',
-    'Jeweler': 'Jewelers',
-    'Hair Stylist': 'Hair & Beauty',
-    'Dress Shop': 'Bridal Salons',
-    'Beauty Salon': 'Beauty Salons',
-    'Spa': 'Spas',
-    'Photographer': 'Photographers',
-    'Florist': 'Florists',
-    'Caterer': 'Catering',
-    'Transportation': 'Car Rentals',
-    'Travel Agency': 'Travel Agencies',
-    'Wedding Planner': 'Wedding Planners',
-    'Officiant': 'Officiants',
-    'Suit & Tux Rental': 'Suit & Tux Rentals',
-    'Makeup Artist': 'Makeup Artists',
-    'Stationery': 'Stationery & Invitations',
-    'Event Rental': 'Event Rentals',
-    'Wedding Favor': 'Wedding Favors',
-    'Musician': 'Bands',
-    'DJ': 'DJs',
-    'Videographer': 'Videographers'
-  };
-  
-  return categoryToPlural[displayCategory] || displayCategory;
-};
+import { 
+  isLikelyWeddingVenue, 
+  mapGoogleTypesToCategory, 
+  categoryToSlug, 
+  getCategorySlug, 
+  getCategoryLabel,
+  addRecentlyViewedVendor 
+} from '@/utils/vendorUtils';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 interface VendorDetails {
   id: string;
@@ -193,22 +43,43 @@ export default function VendorDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { showErrorToast, showSuccessToast } = useCustomToast();
   const { user } = useAuth();
+  const { showSuccessToast } = useCustomToast();
+  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  
+  // Get user's wedding location from profile data
+  const { weddingLocation: userWeddingLocation } = useUserProfileData();
+  
   const placeId = params?.placeId as string;
   const location = searchParams?.get('location') || '';
+  const categoryFromUrl = searchParams?.get('category') || '';
   
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
-
   const [vendor, setVendor] = useState<VendorDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showContactModal, setShowContactModal] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isOfficialVendor, setIsOfficialVendor] = useState(false);
-  const [communityData, setCommunityData] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [communityData, setCommunityData] = useState<any>(null);
+
+  // Extract location from vendor address if not provided in URL
+  const getLocationFromAddress = (address?: string): string => {
+    if (location) return location;
+    if (!address) return userWeddingLocation || 'Dallas, TX'; // Use user's wedding location as fallback
+    
+    // Try to extract city and state from address
+    const addressParts = address.split(',').map(part => part.trim());
+    if (addressParts.length >= 2) {
+      const city = addressParts[addressParts.length - 2];
+      const state = addressParts[addressParts.length - 1].split(' ')[0]; // Get state before ZIP
+      return `${city}, ${state}`;
+    }
+    
+    return userWeddingLocation || 'Dallas, TX'; // Use user's wedding location as fallback
+  };
 
   // Check if vendor is in user's favorites on mount
   useEffect(() => {
@@ -469,7 +340,7 @@ export default function VendorDetailPage() {
         console.error('Error fetching vendor details:', error);
         // Use a try-catch for the toast to avoid infinite loops
         try {
-          showErrorToast('Failed to load vendor details');
+          showSuccessToast('Failed to load vendor details');
         } catch (toastError) {
           console.error('Toast error:', toastError);
         }
@@ -704,8 +575,8 @@ export default function VendorDetailPage() {
             items={[
               { label: 'Vendor Search', href: '/vendors/catalog' },
               { 
-                label: location ? `${getCategoryLabel(vendor.category)} in ${location}` : getCategoryLabel(vendor.category), 
-                href: location ? `/vendors/catalog/${getCategorySlug(vendor.category)}?location=${encodeURIComponent(location)}` : `/vendors/catalog/${getCategorySlug(vendor.category)}` 
+                label: getLocationFromAddress(vendor.address) ? `${getCategoryLabel(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))} in ${getLocationFromAddress(vendor.address)}` : getCategoryLabel(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category)), 
+                href: getLocationFromAddress(vendor.address) ? `/vendors/catalog/${getCategorySlug(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))}?location=${encodeURIComponent(getLocationFromAddress(vendor.address))}` : `/vendors/catalog/${getCategorySlug(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))}` 
               },
               { label: vendor.name, isCurrent: true }
             ]}

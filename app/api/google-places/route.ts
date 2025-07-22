@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
 
     // Categories that need special search queries (no direct Google Places API type)
     const specialSearchCategories = {
+      'florist': ['florist', 'wedding florist', 'flower shop', 'bridal flowers'],
+      'jewelry_store': ['jewelry store', 'jewelry shop', 'wedding rings', 'engagement rings'],
+      'bakery': ['bakery', 'wedding cake', 'cake shop', 'pastry shop'],
+      'beauty_salon': ['beauty salon', 'salon', 'bridal salon', 'wedding beauty'],
+      'spa': ['spa', 'day spa', 'wedding spa', 'bridal spa'],
       'dj': ['dj', 'disc jockey', 'wedding dj', 'mobile dj'],
       'band': ['band', 'wedding band', 'live music', 'musicians'],
       'wedding_planner': ['wedding planner', 'wedding coordinator', 'event planner', 'wedding consultant'],
@@ -79,22 +84,46 @@ export async function POST(req: NextRequest) {
         return true;
       });
       return NextResponse.json({ results: deduped });
-    } else if (specialSearchCategories[category]) {
+    } else if (specialSearchCategories[category] || specialSearchCategories[category + 's']) {
       // Run multiple targeted queries for special categories
-      const queries = specialSearchCategories[category];
+      const queries = specialSearchCategories[category] || specialSearchCategories[category + 's'];
+      console.log('Using special search categories for:', category, 'queries:', queries);
       let allResults: any[] = [];
-      for (const q of queries) {
-        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}`;
+      
+      if (searchTerm) {
+        // If there's a search term, search for it specifically within the category
+        const searchQuery = `${searchTerm} ${queries[0]} ${location}`;
+        console.log('Search query with term:', searchQuery);
+        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}`;
         if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
         if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
         if (radius !== undefined) baseUrl += `&radius=${radius}`;
         if (opennow) baseUrl += `&opennow=true`;
         baseUrl += `&key=${apiKey}`;
+        
+        console.log('Search API URL:', baseUrl);
         const response = await fetch(baseUrl);
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data.results)) {
             allResults = allResults.concat(data.results);
+          }
+        }
+      } else {
+        // If no search term, use the predefined queries
+        for (const q of queries) {
+          let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}`;
+          if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
+          if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
+          if (radius !== undefined) baseUrl += `&radius=${radius}`;
+          if (opennow) baseUrl += `&opennow=true`;
+          baseUrl += `&key=${apiKey}`;
+          const response = await fetch(baseUrl);
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data.results)) {
+              allResults = allResults.concat(data.results);
+            }
           }
         }
       }
@@ -108,6 +137,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results: deduped });
     } else {
       // For standard categories with direct Google Places API types
+      console.log('Using standard search for category:', category);
       let query = searchTerm ? `${searchTerm} ${location}` : location;
       console.log('Google Places API query:', query, 'category:', category);
       

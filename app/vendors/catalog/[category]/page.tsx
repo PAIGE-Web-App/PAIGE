@@ -5,6 +5,8 @@ import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import VendorCatalogFilters from '@/components/VendorCatalogFilters';
 import BulkContactModal from '@/components/BulkContactModal';
+import FlagVendorModal from '@/components/FlagVendorModal';
+import VendorContactModal from '@/components/VendorContactModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash.debounce';
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -16,6 +18,7 @@ import VendorCatalogToolbar from '@/components/VendorCatalogToolbar';
 import BulkContactBanner from '@/components/BulkContactBanner';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -144,12 +147,16 @@ const VendorCategoryPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { category = "" } = useParams() as { category: string };
-  const location = searchParams?.get('location') || '';
+  const urlLocation = searchParams?.get('location') || '';
   const categoryObj = CATEGORIES.find(cat => cat.value === category);
   const categoryLabel = categoryObj ? categoryObj.label : category;
   const categorySingular = categoryObj ? categoryObj.singular : category;
   
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  const { weddingLocation } = useUserProfileData();
+
+  // Use URL location or fallback to user's wedding location
+  const location = urlLocation || weddingLocation || 'Dallas, TX';
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,6 +177,9 @@ const VendorCategoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
   const { showSuccessToast } = useCustomToast();
 
   useEffect(() => {
@@ -197,15 +207,19 @@ const VendorCategoryPage: React.FC = () => {
 
   // Handle filter change
   const handleFilterChange = (key, value) => {
+    console.log('Filter change:', key, value);
     // Define which filters are API-backed
     const apiKeys = ['price', 'distance', 'rating', 'openNow'];
     if (apiKeys.includes(key)) {
+      console.log('API filter changed:', key, value);
       setApiFilterValues(prev => {
         const next = { ...prev, [key]: value };
+        console.log('New API filter values:', next);
         debouncedFetchVendors(next);
         return next;
       });
     } else {
+      console.log('Client filter changed:', key, value);
       setClientFilterValues(prev => ({ ...prev, [key]: value }));
     }
   };
@@ -234,7 +248,9 @@ const VendorCategoryPage: React.FC = () => {
 
   // Fetch vendors (API filters only)
   const fetchVendors = useCallback(async (isNextPage = false, filterValuesArg = apiFilterValues) => {
+    console.log('fetchVendors called:', { isNextPage, filterValuesArg });
     if (!category || !location) {
+      console.log('Missing category or location');
       setVendors([]);
       return;
     }
@@ -244,9 +260,11 @@ const VendorCategoryPage: React.FC = () => {
     setError(null);
     try {
       const apiFilters = getApiFilters(filterValuesArg);
+      console.log('API filters:', apiFilters);
       const body = isNextPage
         ? { category, location, nextPageToken, ...apiFilters }
         : { category, location, ...apiFilters };
+      console.log('Fetch request body:', body);
       const res = await fetch('/api/google-places', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -354,29 +372,39 @@ const VendorCategoryPage: React.FC = () => {
 
   // Search function
   const handleSearch = useCallback(async (term: string) => {
+    console.log('handleSearch called with term:', term);
     if (!term.trim() || term.length < 2) {
+      console.log('Search term too short, clearing results');
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
 
+    console.log('Starting search for:', term);
     setIsSearching(true);
     try {
+      const requestBody = {
+        category,
+        location,
+        searchTerm: term,
+        maxResults: 10
+      };
+      console.log('Search request body:', requestBody);
+      
       const response = await fetch('/api/google-places', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category,
-          location,
-          searchTerm: term,
-          maxResults: 10
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
+      console.log('Search response:', data);
       if (data.results) {
+        console.log('Setting search results:', data.results.length, 'items');
+        console.log('First few search results:', data.results.slice(0, 3).map(r => r.name));
         setSearchResults(data.results);
       } else {
+        console.log('No search results found');
         setSearchResults([]);
       }
     } catch (error) {
@@ -397,11 +425,14 @@ const VendorCategoryPage: React.FC = () => {
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
+    console.log('Search term changed:', term);
     setSearchTerm(term);
     
-    if (term.trim()) {
+    if (term.trim() && term.length >= 2) {
+      console.log('Triggering search for:', term);
       debouncedSearch(term);
-    } else {
+    } else if (!term.trim()) {
+      console.log('Clearing search results');
       setSearchResults([]);
     }
   };
@@ -410,6 +441,42 @@ const VendorCategoryPage: React.FC = () => {
   const clearSearch = () => {
     setSearchTerm('');
     setSearchResults([]);
+  };
+
+  // Modal handlers
+  const handleShowContactModal = (vendor: any) => {
+    setSelectedVendor(vendor);
+    setShowContactModal(true);
+  };
+
+  const handleShowFlagModal = (vendor: any) => {
+    setSelectedVendor(vendor);
+    setShowFlagModal(true);
+  };
+
+  const handleFlagVendor = async (reason: string, customReason?: string) => {
+    if (!selectedVendor) return;
+    
+    try {
+      const response = await fetch('/api/flag-vendor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          vendorId: selectedVendor.id,
+          reason,
+          customReason
+        }),
+      });
+      
+      if (response.ok) {
+        setFlaggedVendorIds(prev => [...prev, selectedVendor.id]);
+        setShowFlagModal(false);
+        setSelectedVendor(null);
+        showSuccessToast('Vendor flagged successfully');
+      }
+    } catch (error) {
+      console.error('Error flagging vendor:', error);
+    }
   };
 
   // Map Google Places results to VendorCatalogCard props
@@ -434,6 +501,13 @@ const VendorCategoryPage: React.FC = () => {
 
   // Use search results when searching, otherwise use regular vendors
   const allVendors = searchResults.length > 0 ? searchResults : vendors;
+  console.log('allVendors:', { 
+    searchResultsLength: searchResults.length, 
+    vendorsLength: vendors.length, 
+    allVendorsLength: allVendors.length,
+    firstFewVendors: vendors.slice(0, 3).map(v => v.name),
+    firstFewSearchResults: searchResults.slice(0, 3).map(v => v.name)
+  });
   
   const mappedVendors = allVendors.length > 0 ? allVendors.map((vendor: any) => {
     const mainType = vendor.types?.find((type: string) => typeLabels[type]);
@@ -468,6 +542,7 @@ const VendorCategoryPage: React.FC = () => {
     let filtered = mappedVendors;
     filtered = filterByCuisine(filtered, clientFilterValues.cuisine);
     // Add more client-side filters as needed
+    console.log('clientFilteredVendors:', { mappedVendorsLength: mappedVendors.length, filteredLength: filtered.length });
     return filtered;
   }, [mappedVendors, clientFilterValues.cuisine]);
 
@@ -481,54 +556,64 @@ const VendorCategoryPage: React.FC = () => {
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
-      <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
-      <Breadcrumb
-        items={[
-          { label: 'Vendor Search', href: '/vendors/catalog' },
-          { label: location ? `${categoryLabel} in ${location}` : categoryLabel, isCurrent: true }
-        ]}
-      />
-      <VendorCatalogHeader
-        isSearching={isSearching}
-        searchTerm={searchTerm}
-        searchResults={searchResults}
-        loading={loading}
-        vendors={vendors}
-        nextPageToken={nextPageToken}
-        error={error}
-        categoryLabel={categoryLabel}
-        location={location}
-      />
-      
-      <VendorCatalogToolbar
-        category={category}
-        filterValues={{...apiFilterValues, ...clientFilterValues}}
-        onFilterChange={handleFilterChange}
-        vendors={vendors}
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-        onClearSearch={clearSearch}
-        isSearching={isSearching}
-        searchResults={searchResults}
-        categorySingular={categorySingular}
-        bulkContactMode={bulkContactMode}
-        onBulkContactToggle={handleBulkContactToggle}
-        onSuggestVendor={() => setShowSuggestModal(true)}
-      />
-      <SuggestVenueModal open={showSuggestModal} onClose={() => setShowSuggestModal(false)} categoryLabel={categorySingular} />
-      {error && <div className="text-center text-red-500 py-8">{error}</div>}
-      
-      <BulkContactBanner isVisible={bulkContactMode} />
+      <div className="max-w-6xl mx-auto">
+        <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
+          <Breadcrumb
+            items={[
+              { label: 'Vendor Search', href: '/vendors/catalog' },
+              { label: location ? `${categoryLabel} in ${location}` : categoryLabel, isCurrent: true }
+            ]}
+          />
+          <VendorCatalogHeader
+            isSearching={isSearching}
+            searchTerm={searchTerm}
+            searchResults={searchResults}
+            loading={loading}
+            vendors={vendors}
+            nextPageToken={nextPageToken}
+            error={error}
+            categoryLabel={categoryLabel}
+            location={location}
+          />
+          
+          <VendorCatalogToolbar
+            category={category}
+            filterValues={{...apiFilterValues, ...clientFilterValues}}
+            onFilterChange={handleFilterChange}
+            vendors={vendors}
+            searchTerm={searchTerm}
+            onSearchChange={handleSearchChange}
+            onClearSearch={clearSearch}
+            isSearching={isSearching}
+            searchResults={searchResults}
+            categorySingular={categorySingular}
+            bulkContactMode={bulkContactMode}
+            onBulkContactToggle={handleBulkContactToggle}
+            onSuggestVendor={() => setShowSuggestModal(true)}
+          />
+          <SuggestVenueModal open={showSuggestModal} onClose={() => setShowSuggestModal(false)} categoryLabel={categorySingular} />
+          {error && <div className="text-center text-red-500 py-8">{error}</div>}
+          
+          <BulkContactBanner isVisible={bulkContactMode} />
       
 
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
-        {isSearching
-          ? Array.from({ length: 4 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />)
-          : loading
-            ? Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />)
-            : clientFilteredVendors.length > 0 
-            ? clientFilteredVendors
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
+        {(() => {
+          console.log('Rendering state:', { 
+            isSearching, 
+            loading, 
+            clientFilteredVendorsLength: clientFilteredVendors.length,
+            searchResultsLength: searchResults.length,
+            searchTerm
+          });
+          
+          if (isSearching) {
+            return Array.from({ length: 4 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />);
+          } else if (loading) {
+            return Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />);
+          } else if (clientFilteredVendors.length > 0) {
+            return clientFilteredVendors
               .filter(vendor => {
                 const vendorId = vendor.id;
                 const isFlagged = flaggedVendorIds.includes(vendorId);
@@ -538,8 +623,6 @@ const VendorCategoryPage: React.FC = () => {
                 if (isFlagged && !isRemoving) {
                   console.log('Filtering out flagged vendor:', vendorId);
                 }
-                
-
                 
                 return shouldShow;
               })
@@ -562,10 +645,15 @@ const VendorCategoryPage: React.FC = () => {
                     isSelected={selectedVendors.includes(vendor.id)}
                     onSelectionChange={handleVendorSelection}
                     location={location}
+                    category={category}
+                    onShowContactModal={handleShowContactModal}
+                    onShowFlagModal={handleShowFlagModal}
                   />
                 );
-              })
-            : <div className="col-span-full text-center text-gray-500 py-8">
+              });
+          } else {
+            return (
+              <div className="col-span-full text-center text-gray-500 py-8">
                 {searchTerm 
                   ? (
                     <div>
@@ -574,14 +662,16 @@ const VendorCategoryPage: React.FC = () => {
                         onClick={clearSearch}
                         className="mt-2 text-[#A85C36] hover:underline"
                       >
-                        Clear search and show all {categoryLabel.toLowerCase()}
+                        Clear search and show all {categoryLabel}
                       </button>
                     </div>
                   ) 
                   : 'No vendors found'
                 }
               </div>
-        }
+            );
+          }
+        })()}
       </div>
       {/* Infinite scroll loader */}
       {nextPageToken && (
@@ -654,6 +744,31 @@ const VendorCategoryPage: React.FC = () => {
           handleBulkContactComplete();
         }}
       />
+
+      {/* Modals */}
+      {showFlagModal && selectedVendor && (
+        <FlagVendorModal
+          vendor={selectedVendor}
+          onClose={() => {
+            setShowFlagModal(false);
+            setSelectedVendor(null);
+          }}
+          onSubmit={handleFlagVendor}
+          isSubmitting={false}
+        />
+      )}
+
+      {showContactModal && selectedVendor && (
+        <VendorContactModal
+          vendor={selectedVendor}
+          isOpen={showContactModal}
+          onClose={() => {
+            setShowContactModal(false);
+            setSelectedVendor(null);
+          }}
+        />
+      )}
+        </div>
       </div>
     </div>
   );

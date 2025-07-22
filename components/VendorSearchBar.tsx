@@ -30,7 +30,7 @@ export default function VendorSearchBar({
           type="text"
           value={searchTerm}
           onChange={onSearchChange}
-          placeholder={`Search for specific ${categorySingular.toLowerCase()}...`}
+          placeholder={`Search for specific ${categorySingular}...`}
           className="w-full border border-[#AB9C95] px-4 py-1 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] pl-10 pr-10 h-8"
         />
         {searchTerm && (
@@ -57,7 +57,7 @@ export default function VendorSearchBar({
               onClick={onClearSearch}
               className="text-xs text-[#A85C36] hover:underline"
             >
-              Back to all {categoryLabel.toLowerCase()}
+              Back to all {categoryLabel}
             </button>
           )}
         </div>
