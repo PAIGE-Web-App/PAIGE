@@ -254,12 +254,25 @@ export const convertVendorToCatalogFormat = (vendor: any, recentlyViewed?: any[]
     rv.id === vendor.placeId || rv.id === vendor.id || rv.placeId === vendor.placeId
   );
   
-  // Prioritize Google Places images from recently viewed data
-  const bestImage = recentlyViewedVendor?.image || 
-                   recentlyViewedVendor?.images?.[0] || 
-                   vendor.image || 
+  // Prioritize Google Places images from Firestore, then recently viewed data
+  const bestImage = vendor.image || 
                    vendor.images?.[0] || 
+                   recentlyViewedVendor?.image || 
+                   recentlyViewedVendor?.images?.[0] || 
                    '/Venue.png';
+  
+  console.log('🔄 Converting vendor to catalog format:', {
+    vendorName: vendor.name,
+    vendorImage: vendor.image,
+    vendorPlaceId: vendor.placeId,
+    recentlyViewedVendor: recentlyViewedVendor ? {
+      name: recentlyViewedVendor.name,
+      image: recentlyViewedVendor.image,
+      id: recentlyViewedVendor.id
+    } : null,
+    bestImage: bestImage,
+    finalImage: bestImage
+  });
   
   return {
     id: vendor.placeId || vendor.id,

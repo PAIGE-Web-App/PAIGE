@@ -45,18 +45,7 @@ const CATEGORIES = [
   { value: 'favors', label: 'Wedding Favors', singular: 'Wedding Favor' },
 ];
 
-const MOCK_VENDORS = Array.from({ length: 6 }).map((_, i) => ({
-  id: `vendor${i}`,
-  name: 'The Milestone | Aubrey by Walters Wedding Estates',
-  location: 'Dallas, TX',
-  rating: 4.8,
-  reviewCount: 129,
-  image: '/public/Venue.png',
-  price: '$',
-  guestCapacity: '300+',
-  amenities: ['Outdoor Event Space'],
-  source: { name: 'The Knot', url: 'https://www.theknot.com/' },
-}));
+
 
 // Skeleton card for loading state
 function VendorCatalogCardSkeleton() {
@@ -535,7 +524,7 @@ const VendorCategoryPage: React.FC = () => {
       address: vendor.formatted_address,
       types: vendor.types, // Keep original types for filtering
     };
-  }) : MOCK_VENDORS;
+  }) : [];
 
   // Memoized client-side filtering (applied to mapped vendors)
   const clientFilteredVendors = useMemo(() => {

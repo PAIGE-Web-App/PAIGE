@@ -27,7 +27,7 @@ export async function GET(
 
     // Generate photo URLs for the first 16 photos
     const photoUrls = detailsData.result.photos.slice(0, 16).map((photo: any) => 
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}&key=${apiKey}`
+      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${apiKey}`
     );
 
     return NextResponse.json({ images: photoUrls });

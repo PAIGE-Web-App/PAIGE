@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 // import MessagingModal from '../../../components/MessagingModal'; // TODO: Use your real messaging modal
 
 export default function VendorCatalogDetailsPage() {
   const [showContact, setShowContact] = useState(false);
   const [vendor, setVendor] = useState<any>(null);
   const { placeId } = useParams() as { placeId: string };
+  const { weddingLocation } = useUserProfileData();
 
   useEffect(() => {
     async function fetchDetails() {
@@ -28,7 +30,7 @@ export default function VendorCatalogDetailsPage() {
   return (
     <div className="flex flex-col min-h-screen bg-linen">
       <div className="app-content-container flex flex-col gap-6 py-8">
-        <a href="/vendors/catalog" className="text-xs text-[#A85C36] underline mb-2">&lt; Texas Wedding Venues</a>
+        <a href="/vendors/catalog" className="text-xs text-[#A85C36] underline mb-2">&lt; {weddingLocation ? `${weddingLocation} Wedding Venues` : 'Texas Wedding Venues'}</a>
         <div className="flex gap-8">
           <div className="flex-1">
             {/* Image carousel placeholder */}
@@ -68,7 +70,7 @@ export default function VendorCatalogDetailsPage() {
       </div>
       {/* Contact Modal */}
       {/* TODO: Use your real messaging modal from app/page.tsx */}
-      {/* {showContact && <MessagingModal vendor={MOCK_VENDOR} onClose={() => setShowContact(false)} />} */}
+      
     </div>
   );
 } 

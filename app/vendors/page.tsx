@@ -5,7 +5,7 @@ import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ListFilter, Search, Clock, Heart } from 'lucide-react';
+import { X, ListFilter, Search } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
@@ -25,10 +25,12 @@ import DropdownMenu from '@/components/DropdownMenu';
 import { MoreHorizontal } from 'lucide-react';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import { 
-  getRecentlyViewedVendors, 
   convertVendorToCatalogFormat,
   mapGoogleTypesToCategory
 } from '@/utils/vendorUtils';
+import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection';
+import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
+import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
@@ -88,33 +90,7 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
   );
 }
 
-// Recently viewed tracking functions
-function addRecentlyViewedVendor(vendor) {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    const recent = getRecentlyViewedVendors();
-    const existingIndex = recent.findIndex(v => v.id === vendor.id);
-    
-    // Remove if already exists
-    if (existingIndex > -1) {
-      recent.splice(existingIndex, 1);
-    }
-    
-    // Add to beginning (most recent first)
-    recent.unshift({
-      ...vendor,
-      viewedAt: new Date().toISOString()
-    });
-    
-    // Keep only last 12 vendors
-    const trimmed = recent.slice(0, 12);
-    
-    localStorage.setItem('paige_recently_viewed_vendors', JSON.stringify(trimmed));
-  } catch (error) {
-    console.error('Error saving recently viewed vendor:', error);
-  }
-}
+
 
 export default function VendorsPage() {
   const { user, loading } = useAuth();
@@ -138,7 +114,7 @@ export default function VendorsPage() {
   const [vendorSearch, setVendorSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
-  const [recentlyViewedVendors, setRecentlyViewedVendors] = useState<any[]>([]);
+
   const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
 
   // Filtered and searched vendors
@@ -152,6 +128,8 @@ export default function VendorsPage() {
     if (user?.uid) {
       setIsLoading(true);
       getAllVendors(user.uid).then((data) => {
+        console.log('🏪 Vendor Hub - Loaded vendors from Firestore:', JSON.stringify(data, null, 2));
+        console.log('🏪 Vendor Hub - Vendor images:', data.map(v => ({ name: v.name, image: v.image, placeId: v.placeId })));
         setVendors(data);
         // Count categories
         const counts: Record<string, number> = {};
@@ -169,11 +147,7 @@ export default function VendorsPage() {
     }
   }, [user, isSaving]);
 
-  // Load recently viewed vendors
-  useEffect(() => {
-    const recent = getRecentlyViewedVendors();
-    setRecentlyViewedVendors(recent);
-  }, []);
+
 
   // Helper to get favorite vendor IDs from localStorage
   function getFavoriteVendorIds() {
@@ -279,190 +253,55 @@ export default function VendorsPage() {
         {/* Main Content */}
         <div className="app-content-container flex-1 pt-24">
           {/* My Vendors Section */}
-          <section className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <h5>My Vendors</h5>
-                <BadgeCount count={filteredVendors.length} />
-              </div>
-              <div className="flex items-center gap-3">
-                <FilterButtonPopover
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectCategories={setSelectedCategories}
-                  showFilters={showFilters}
-                  setShowFilters={setShowFilters}
-                />
-                <SearchBar
-                  value={vendorSearch}
-                  onChange={setVendorSearch}
-                  placeholder="Search vendors by name"
-                  isOpen={searchOpen}
-                  setIsOpen={setSearchOpen}
-                />
-              </div>
-            </div>
-            
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-[960px]">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-80 animate-pulse">
-                    <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredVendors.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-500 mb-4">No vendors found</div>
-                <button 
-                  className="btn-primary"
-                  onClick={() => router.push('/vendors/catalog')}
-                >
-                  Browse Vendor Catalog
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
-                    {filteredVendors.slice(0, 6).map((vendor) => (
-                      <div key={vendor.id} className="w-80 flex-shrink-0">
-                        <VendorCatalogCard
-                          vendor={convertVendorToCatalogFormat(vendor)}
-                          onContact={() => {
-                            // Handle contact action
-                          }}
-                          onFlagged={(vendorId) => {
-                            // Handle flagged action
-                          }}
-                          onSelectionChange={() => {
-                            // Handle selection change (not used in this context)
-                          }}
-                          location={defaultLocation}
-                          category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-                        />
-                      </div>
-                    ))}
-                    {filteredVendors.length > 6 && (
-                      <div className="flex items-center justify-center w-40">
-                        <button
-                          className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
-                          onClick={() => router.push('/vendors')}
-                        >
-                          View All
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
+          <MyVendorsSection
+            vendors={filteredVendors}
+            defaultLocation={defaultLocation}
+            isLoading={isLoading}
+            onContact={(vendor) => {
+              // Handle contact action
+            }}
+            onFlagged={(vendorId) => {
+              // Handle flagged action
+            }}
+          >
+            <FilterButtonPopover
+              categories={categories}
+              selectedCategories={selectedCategories}
+              onSelectCategories={setSelectedCategories}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+            />
+            <SearchBar
+              value={vendorSearch}
+              onChange={setVendorSearch}
+              placeholder="Search vendors by name"
+              isOpen={searchOpen}
+              setIsOpen={setSearchOpen}
+            />
+          </MyVendorsSection>
 
           {/* Recently Viewed Section */}
-          {recentlyViewedVendors.length > 0 && (
-            <section className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-[#A85C36]" />
-                    <h5>Recently Viewed</h5>
-                  </div>
-                  <BadgeCount count={recentlyViewedVendors.length} />
-                </div>
-                <button 
-                  className="text-sm text-[#A85C36] hover:text-[#332B42] transition-colors"
-                  onClick={() => {
-                    localStorage.removeItem('paige_recently_viewed_vendors');
-                    setRecentlyViewedVendors([]);
-                  }}
-                >
-                  Clear History
-                </button>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
-                  {recentlyViewedVendors.slice(0, 6).map((vendor) => (
-                    <div key={vendor.id} className="w-80 flex-shrink-0">
-                      <VendorCatalogCard
-                        vendor={vendor}
-                        onContact={() => {
-                          // Handle contact action
-                        }}
-                        onFlagged={(vendorId) => {
-                          // Handle flagged action
-                        }}
-                        onSelectionChange={() => {
-                          // Handle selection change (not used in this context)
-                        }}
-                        location={defaultLocation}
-                        category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-                      />
-                    </div>
-                  ))}
-                  {recentlyViewedVendors.length > 6 && (
-                    <div className="flex items-center justify-center w-40">
-                      <button
-                        className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
-                        onClick={() => router.push('/vendors/recently-viewed')}
-                      >
-                        View All
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
+          <RecentlyViewedSection
+            defaultLocation={defaultLocation}
+            onContact={(vendor) => {
+              // Handle contact action
+            }}
+            onFlagged={(vendorId) => {
+              // Handle flagged action
+            }}
+          />
 
           {/* My Favorites Section */}
-          {favoriteVendors.length > 0 && (
-            <section className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Heart className="w-5 h-5 text-[#A85C36] fill-current" />
-                    <h5>My Favorites</h5>
-                  </div>
-                  <BadgeCount count={favoriteVendors.length} />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
-                  {favoriteVendors.slice(0, 6).map((vendor) => (
-                    <div key={vendor.id} className="w-80 flex-shrink-0">
-                      <VendorCatalogCard
-                        vendor={convertVendorToCatalogFormat(vendor)}
-                        onContact={() => {}}
-                        onFlagged={() => {}}
-                        onSelectionChange={() => {}}
-                        // Force heart filled
-                        isFavoriteOverride={true}
-                        location={defaultLocation}
-                        category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-                      />
-                    </div>
-                  ))}
-                  {favoriteVendors.length > 6 && (
-                    <div className="flex items-center justify-center w-40">
-                      <button
-                        className="text-sm text-[#A85C36] hover:text-[#332B42] underline font-medium transition-colors"
-                        onClick={() => router.push('/vendors/favorites')}
-                      >
-                        View All
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
+          <MyFavoritesSection
+            vendors={favoriteVendors}
+            defaultLocation={defaultLocation}
+            onContact={(vendor) => {
+              // Handle contact action
+            }}
+            onFlagged={(vendorId) => {
+              // Handle flagged action
+            }}
+          />
         </div>
       </div>
 

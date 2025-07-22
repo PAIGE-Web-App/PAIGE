@@ -198,7 +198,9 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     }
     
     // In normal mode, navigate to vendor detail page
-    const url = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    const photoRef = vendor.image.includes('photoreference=') ? vendor.image.split('photoreference=')[1]?.split('&')[0] : '';
+    const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    const url = photoRef ? `${baseUrl}&photoRef=${encodeURIComponent(photoRef)}` : baseUrl;
     router.push(url);
   }, [bulkContactMode, onSelectionChange, vendor.id, location, router, category]);
 
@@ -213,9 +215,11 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   }, [onShowContactModal, vendor]);
 
   const handleViewDetailsClick = useCallback(() => {
-    const url = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    const photoRef = vendor.image.includes('photoreference=') ? vendor.image.split('photoreference=')[1]?.split('&')[0] : '';
+    const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    const url = photoRef ? `${baseUrl}&photoRef=${encodeURIComponent(photoRef)}` : baseUrl;
     router.push(url);
-  }, [vendor.id, location, router, category]);
+  }, [vendor.id, location, router, category, vendor.image]);
 
   const handleSelectionChange = useCallback(() => {
     if (onSelectionChange) {

@@ -21,6 +21,9 @@ import {
   addRecentlyViewedVendor 
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useVendorDetails } from '@/hooks/useVendorCache';
+import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
+import { fetchVendorPhotos, fetchCommunityVendor, checkVendorExists } from '@/utils/apiService';
 
 interface VendorDetails {
   id: string;
@@ -53,6 +56,7 @@ export default function VendorDetailPage() {
   const placeId = params?.placeId as string;
   const location = searchParams?.get('location') || '';
   const categoryFromUrl = searchParams?.get('category') || '';
+  const photoRefFromUrl = searchParams?.get('photoRef') || '';
   
   const [vendor, setVendor] = useState<VendorDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,21 +69,7 @@ export default function VendorDetailPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [communityData, setCommunityData] = useState<any>(null);
 
-  // Extract location from vendor address if not provided in URL
-  const getLocationFromAddress = (address?: string): string => {
-    if (location) return location;
-    if (!address) return userWeddingLocation || 'Dallas, TX'; // Use user's wedding location as fallback
-    
-    // Try to extract city and state from address
-    const addressParts = address.split(',').map(part => part.trim());
-    if (addressParts.length >= 2) {
-      const city = addressParts[addressParts.length - 2];
-      const state = addressParts[addressParts.length - 1].split(' ')[0]; // Get state before ZIP
-      return `${city}, ${state}`;
-    }
-    
-    return userWeddingLocation || 'Dallas, TX'; // Use user's wedding location as fallback
-  };
+
 
   // Check if vendor is in user's favorites on mount
   useEffect(() => {
@@ -96,13 +86,10 @@ export default function VendorDetailPage() {
     const checkIfOfficialVendor = async () => {
       try {
         console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
-        // Check if vendor exists in user's My Vendors collection
-        const response = await fetch(`/api/check-vendor-exists?placeId=${vendor.id}&userId=${user.uid}`);
-        const data = await response.json();
+        // Check if vendor exists in user's My Vendors collection using optimized API service
+        const data = await checkVendorExists(vendor.id, user.uid);
         console.log('Vendor existence check result:', data);
-        console.log('Response status:', response.status);
-        console.log('Full response data:', data);
-        if (data.exists) {
+        if ((data as any).exists) {
           console.log('Setting isOfficialVendor to true');
           setIsOfficialVendor(true);
         } else {
@@ -140,221 +127,203 @@ export default function VendorDetailPage() {
     };
   }, [showImageGallery]);
 
-  // Mock data for now - replace with actual API call
-  const mockVendor: VendorDetails = {
-    id: placeId,
-    name: "The Milestone | Aubrey by Walters Wedding Estates",
-    rating: 4.8,
-    reviewCount: 129,
-    guestCapacity: "300+ Guests",
-    price: "$",
-    amenities: ["Outdoor Event Space"],
-    source: { name: "The Knot", url: "https://www.theknot.com/" },
-    category: "Reception Venue",
-    address: "1301 W Sherman Drive, Aubrey, TX",
-    website: "https://www.themilestone.com",
-    about: "The Milestone Mansion is a stunning Georgian Estate-style Mansion sitting on 52 acres in the Aubrey countryside, nestled between towering oak trees. Two of our private suites, comfortable for your entire wedding party and family, while your guests arrive into the grand foyer to mix and mingle...",
-    images: [
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png",
-      "/Venue.png"
-    ]
-  };
 
+
+  // Use optimized vendor details hook
+  const { vendorDetails: googleData, error: vendorError, isLoading: vendorLoading } = useVendorDetails(placeId);
+
+  // Process vendor data from the hook
   useEffect(() => {
-    const fetchVendorDetails = async () => {
-      try {
+    if (!placeId) return;
+
+
+
+    // Debug: Log the googleData state
+    console.log('🔍 Vendor Detail Debug:', {
+      placeId,
+      googleData: !!googleData,
+      googleDataStatus: googleData?.status,
+      googleDataError: googleData?.error,
+      googleDataResult: !!googleData?.result,
+      vendorError,
+      vendorLoading,
+      googleDataKeys: googleData ? Object.keys(googleData) : 'no data'
+    });
+
+    // Use cached vendor details from hook
+    if (!googleData || googleData.status !== 'OK' || !googleData.result) {
+      console.log('❌ Falling back to error state because:', {
+        noGoogleData: !googleData,
+        statusNotOK: googleData?.status !== 'OK',
+        noResult: !googleData?.result,
+        actualStatus: googleData?.status
+      });
+      
+      if (vendorError) {
+        console.error('Vendor details error:', vendorError);
+      }
+      if (vendorLoading) {
+        console.log('⏳ Still loading vendor data...');
         setLoading(true);
+        return;
+      }
+      // Show error state if we're not loading and have an error
+      setError('Failed to load vendor details');
+      setLoading(false);
+      return;
+    }
+
+    console.log('✅ Using real vendor data:', googleData.result?.name);
+
+    // Transform Google Places data to our vendor format
+    const vendorDetails: VendorDetails = {
+      id: placeId,
+      name: googleData.result?.name || 'Unknown Vendor',
+      rating: googleData.result?.rating,
+      reviewCount: googleData.result?.user_ratings_total,
+      price: googleData.result?.price_level ? '$'.repeat(googleData.result.price_level) : undefined,
+      amenities: googleData.result?.types || [],
+      category: mapGoogleTypesToCategory(googleData.result?.types || [], googleData.result?.name),
+      address: googleData.result?.formatted_address,
+      website: googleData.result?.website,
+      about: (() => {
+        // Create a proper venue description from available data
+        const venueName = googleData.result?.name || 'this venue';
+        const rating = googleData.result?.rating;
+        const reviewCount = googleData.result?.user_ratings_total;
+        const types = googleData.result?.types || [];
+        const category = mapGoogleTypesToCategory(types, venueName);
         
-        // For testing, use mock data if placeId is not a real Google Places ID
-        if (!placeId || placeId.length < 10) {
-          setVendor(mockVendor);
-          addRecentlyViewedVendor({
-            ...mockVendor,
-            image: mockVendor.images?.[0] || '/Venue.png',
-            mainTypeLabel: mockVendor.category,
-            source: { name: 'Mock Data', url: '' }
-          });
-          setLoading(false);
-          return;
+        // Create a professional description
+        let description = `${venueName} is a beautiful ${category.toLowerCase()}`;
+        
+        // Add location context if available
+        if (googleData.result?.vicinity) {
+          description += ` located in ${googleData.result.vicinity}`;
         }
         
-        // Fetch vendor details from Google Places API
-        const response = await fetch(`/api/google-place-details?placeId=${placeId}`);
-        const data = await response.json();
-        
-        if (data.error || data.status === 'ZERO_RESULTS') {
-          setVendor(mockVendor);
-          addRecentlyViewedVendor({
-            ...mockVendor,
-            image: mockVendor.images?.[0] || '/Venue.png',
-            mainTypeLabel: mockVendor.category,
-            source: { name: 'Mock Data', url: '' }
-          });
-          setLoading(false);
-          return;
+        // Add rating context
+        if (rating && reviewCount) {
+          description += `. With a ${rating}-star rating from ${reviewCount} guests`;
+        } else if (rating) {
+          description += `. With a ${rating}-star rating`;
         }
         
-        if (!data.result) {
-          setVendor(mockVendor);
-          addRecentlyViewedVendor({
-            ...mockVendor,
-            image: mockVendor.images?.[0] || '/Venue.png',
-            mainTypeLabel: mockVendor.category,
-            source: { name: 'Mock Data', url: '' }
-          });
-          setLoading(false);
-          return;
+        // Add what they offer based on category
+        if (category === 'Venue') {
+          description += ', this venue provides an elegant setting for weddings and special events';
+        } else if (category === 'Reception Venue') {
+          description += ', offering a perfect space for wedding receptions and celebrations';
+        } else if (category === 'Photographer') {
+          description += ', specializing in capturing beautiful moments for your special day';
+        } else if (category === 'Florist') {
+          description += ', creating stunning floral arrangements for weddings and events';
+        } else if (category === 'Caterer') {
+          description += ', providing exceptional dining experiences for special occasions';
+        } else if (category === 'Baker') {
+          description += ', crafting delicious wedding cakes and desserts';
+        } else if (category === 'DJ') {
+          description += ', providing entertainment and music for celebrations';
+        } else if (category === 'Beauty Salon') {
+          description += ', offering professional beauty services for brides and wedding parties';
+        } else {
+          description += ', providing excellent services for your wedding day';
         }
         
-        // Transform Google Places data to our vendor format
-        const vendorDetails: VendorDetails = {
-          id: placeId,
-          name: data.result?.name || 'Unknown Vendor',
-          rating: data.result?.rating,
-          reviewCount: data.result?.user_ratings_total,
-          price: data.result?.price_level ? '$'.repeat(data.result.price_level) : undefined,
-          amenities: data.result?.types || [],
-          category: mapGoogleTypesToCategory(data.result?.types || [], data.result?.name),
-          address: data.result?.formatted_address,
-          website: data.result?.website,
-          about: (() => {
-            // Create a proper venue description from available data
-            const venueName = data.result?.name || 'this venue';
-            const rating = data.result?.rating;
-            const reviewCount = data.result?.user_ratings_total;
-            const types = data.result?.types || [];
-            const category = mapGoogleTypesToCategory(types, venueName);
-            
-            // Create a professional description
-            let description = `${venueName} is a beautiful ${category.toLowerCase()}`;
-            
-            // Add location context if available
-            if (data.result?.vicinity) {
-              description += ` located in ${data.result.vicinity}`;
-            }
-            
-            // Add rating context
-            if (rating && reviewCount) {
-              description += `. With a ${rating}-star rating from ${reviewCount} guests`;
-            } else if (rating) {
-              description += `. With a ${rating}-star rating`;
-            }
-            
-            // Add what they offer based on category
-            if (category === 'Venue') {
-              description += ', this venue provides an elegant setting for weddings and special events';
-            } else if (category === 'Reception Venue') {
-              description += ', offering a perfect space for wedding receptions and celebrations';
-            } else if (category === 'Photographer') {
-              description += ', specializing in capturing beautiful moments for your special day';
-            } else if (category === 'Florist') {
-              description += ', creating stunning floral arrangements for weddings and events';
-            } else if (category === 'Caterer') {
-              description += ', providing exceptional dining experiences for special occasions';
-            } else if (category === 'Baker') {
-              description += ', crafting delicious wedding cakes and desserts';
-            } else if (category === 'DJ') {
-              description += ', providing entertainment and music for celebrations';
-            } else if (category === 'Beauty Salon') {
-              description += ', offering professional beauty services for brides and wedding parties';
-            } else {
-              description += ', providing excellent services for your wedding day';
-            }
-            
-            description += '.';
-            
-            return description;
-          })(),
-          images: [
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png",
-            "/Venue.png"
+        description += '.';
+        
+        return description;
+      })(),
+      images: photoRefFromUrl 
+        ? [
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoRefFromUrl}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            ...Array(15).fill("/Venue.png") // Fill remaining slots with placeholder
           ]
-        };
+        : googleData.result?.photos && googleData.result.photos.length > 0
+        ? [
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${googleData.result.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            ...Array(15).fill("/Venue.png") // Fill remaining slots with placeholder
+          ]
+        : Array(16).fill("/Venue.png")
+    };
+
+    // Fetch photos and community data in parallel using optimized API service
+    const fetchAdditionalData = async () => {
+      try {
+        console.log('🖼️ Fetching additional vendor data for:', placeId);
         
-        // Fetch photos separately
+        // Test the photos API directly first
         try {
           const photosResponse = await fetch(`/api/vendor-photos/${placeId}`);
           const photosData = await photosResponse.json();
-          if (photosData.images && photosData.images.length > 0) {
-            vendorDetails.images = photosData.images;
-          }
+          console.log('📸 Direct photos API response:', photosResponse.status, photosData);
         } catch (error) {
-          console.error('Error fetching vendor photos:', error);
-          // Keep default images if photo fetch fails
+          console.error('❌ Direct photos API error:', error);
         }
         
-        setVendor(vendorDetails);
+        const [photosData, communityData] = await Promise.all([
+          fetchVendorPhotos(placeId),
+          fetchCommunityVendor(placeId)
+        ]);
         
-        // Add to recently viewed vendors
-        addRecentlyViewedVendor({
-          ...vendorDetails,
-          image: vendorDetails.images?.[0] || '/Venue.png',
-          mainTypeLabel: vendorDetails.category,
-          source: { name: 'Google Places', url: '' }
-        });
+        console.log('📸 Photos data:', photosData);
+        console.log('👥 Community data:', communityData);
         
-        // Fetch community vendor data
-        try {
-          console.log('Fetching community data for vendor:', placeId);
-          const communityResponse = await fetch(`/api/community-vendors?placeId=${placeId}`);
-          const communityData = await communityResponse.json();
-          console.log('Initial community data response:', communityData);
-          if (communityData.vendor) {
-            setCommunityData(communityData.vendor);
-            console.log('Set initial community data:', communityData.vendor);
-          } else {
-            console.log('No vendor data in community response');
-          }
-        } catch (error) {
-          console.error('Error fetching community data:', error);
+        if ((photosData as any).images && (photosData as any).images.length > 0) {
+          console.log('✅ Setting vendor images:', (photosData as any).images.length, 'images');
+          // Keep the first image from the catalog page approach, add additional images
+          const additionalImages = (photosData as any).images.slice(1, 16); // Skip first image, take up to 15 more
+          const allImages = [
+            vendorDetails.images?.[0] || '/Venue.png', // Keep the first image (same as catalog)
+            ...additionalImages
+          ];
+          
+          // Update the vendor state with new images
+          setVendor(prev => ({
+            ...prev!,
+            images: allImages
+          }));
+        } else {
+          console.log('❌ No additional photos found, keeping first image from catalog approach');
+        }
+        
+        if ((communityData as any).vendor) {
+          console.log('✅ Setting community data');
+          setCommunityData((communityData as any).vendor);
+        } else {
+          console.log('❌ No community data found');
         }
       } catch (error) {
-        console.error('Error fetching vendor details:', error);
-        // Use a try-catch for the toast to avoid infinite loops
-        try {
-          showSuccessToast('Failed to load vendor details');
-        } catch (toastError) {
-          console.error('Toast error:', toastError);
-        }
-        // Fallback to mock data for now
-        setVendor(mockVendor);
-      } finally {
-        setLoading(false);
+        console.error('❌ Error fetching vendor photos or community data:', error);
+        // Keep default images if photo fetch fails
       }
     };
 
-    if (placeId) {
-      fetchVendorDetails();
-    }
-  }, [placeId]); // Removed showErrorToast dependency
+    console.log('🎯 Setting vendor details:', {
+      name: vendorDetails.name,
+      imageCount: vendorDetails.images?.length || 0,
+      firstImage: vendorDetails.images?.[0]
+    });
+    
+    setVendor(vendorDetails);
+    setLoading(false);
+    
+    // Add to recently viewed vendors
+    addRecentlyViewedVendor({
+      ...vendorDetails,
+      image: vendorDetails.images?.[0] || '/Venue.png',
+      mainTypeLabel: vendorDetails.category,
+      source: { name: 'Google Places', url: '' }
+    });
+
+    // Fetch additional data in background
+    console.log('🚀 Starting to fetch additional data...');
+    fetchAdditionalData().then(() => {
+      console.log('✅ Additional data fetch completed');
+    }).catch((error) => {
+      console.error('❌ Additional data fetch failed:', error);
+    });
+  }, [placeId, googleData, vendorError, vendorLoading]);
 
   const handlePreviousImage = () => {
     if (vendor?.images) {
@@ -572,14 +541,14 @@ export default function VendorDetailPage() {
         <div className="app-content-container py-8">
           {/* Breadcrumb */}
           <Breadcrumb
-            items={[
-              { label: 'Vendor Search', href: '/vendors/catalog' },
-              { 
-                label: getLocationFromAddress(vendor.address) ? `${getCategoryLabel(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))} in ${getLocationFromAddress(vendor.address)}` : getCategoryLabel(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category)), 
-                href: getLocationFromAddress(vendor.address) ? `/vendors/catalog/${getCategorySlug(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))}?location=${encodeURIComponent(getLocationFromAddress(vendor.address))}` : `/vendors/catalog/${getCategorySlug(categoryFromUrl || (vendor.amenities && vendor.amenities.length > 0 ? mapGoogleTypesToCategory(vendor.amenities, vendor.name) : vendor.category))}` 
-              },
-              { label: vendor.name, isCurrent: true }
-            ]}
+            items={generateVendorDetailBreadcrumbs({
+              category: categoryFromUrl,
+              location: userWeddingLocation || location,
+              vendorName: vendor.name,
+              vendorTypes: vendor.amenities,
+              vendorAddress: vendor.address,
+              userWeddingLocation: userWeddingLocation || undefined
+            })}
           />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Vendor Details */}
