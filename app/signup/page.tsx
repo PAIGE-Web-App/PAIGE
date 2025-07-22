@@ -1544,61 +1544,66 @@ export default function SignUp() {
               {step === 1 && (
                 <motion.img
                   key="glasses"
-                  src="/glasses.png"
+                  src="/api/optimize-image?src=/glasses.png&f=webp&q=85&w=320"
                   alt="Onboarding visual"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.4 }}
+                  loading="eager"
                 />
               )}
               {step === 2 && (
                 <motion.img
                   key="heart"
-                  src="/heart.png"
+                  src="/api/optimize-image?src=/heart.png&f=webp&q=85&w=320"
                   alt="Wedding heart illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.4 }}
+                  loading="eager"
                 />
               )}
               {step === 3 && (
                 <motion.img
                   key="weather"
-                  src="/weather.png"
+                  src="/api/optimize-image?src=/weather.png&f=webp&q=85&w=320"
                   alt="Wedding style illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.4 }}
+                  loading="eager"
                 />
               )}
               {step === 4 && (
                 <motion.img
                   key="vibe"
-                  src="/vibe.png"
+                  src="/api/optimize-image?src=/vibe.png&f=webp&q=85&w=320"
                   alt="Vibe inspiration illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.4 }}
+                  loading="eager"
                 />
               )}
               {step === 5 && (
                 <motion.img
                   key="budget"
-                  src="/budget.png"
+                  src="/api/optimize-image?src=/budget.png&f=webp&q=85&w=320"
                   alt="Budget illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.4 }}
+                  loading="eager"
                 />
               )}
             </AnimatePresence>
