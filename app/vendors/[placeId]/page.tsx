@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X } from 'lucide-react';
+import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck } from 'lucide-react';
 import VendorContactModal from '@/components/VendorContactModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import Breadcrumb from '@/components/Breadcrumb';
 import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
+import RelatedVendorsSection from '@/components/RelatedVendorsSection';
+import VendorComments from '@/components/VendorComments';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -187,47 +189,109 @@ export default function VendorDetailPage() {
       address: googleData.result?.formatted_address,
       website: googleData.result?.website,
       about: (() => {
-        // Create a proper venue description from available data
+        // Use Google's editorial summary if available (best quality)
+        if (googleData.result?.editorial_summary?.overview) {
+          return googleData.result.editorial_summary.overview;
+        }
+
+        // Enhanced template-based description using Google data
         const venueName = googleData.result?.name || 'this venue';
         const rating = googleData.result?.rating;
         const reviewCount = googleData.result?.user_ratings_total;
         const types = googleData.result?.types || [];
         const category = mapGoogleTypesToCategory(types, venueName);
+        const priceLevel = googleData.result?.price_level;
+        const businessStatus = googleData.result?.business_status;
+        const openingHours = googleData.result?.opening_hours;
         
-        // Create a professional description
-        let description = `${venueName} is a beautiful ${category.toLowerCase()}`;
+        // Start with a more engaging description
+        let description = `${venueName}`;
         
-        // Add location context if available
+        // Add category-specific context
+        if (category === 'Venue' || category === 'Reception Venue') {
+          description += ` is a premier ${category.toLowerCase()}`;
+        } else if (category === 'Photographer') {
+          description += ` is a talented ${category.toLowerCase()}`;
+        } else if (category === 'Florist') {
+          description += ` is a creative ${category.toLowerCase()}`;
+        } else if (category === 'Caterer') {
+          description += ` is an experienced ${category.toLowerCase()}`;
+        } else if (category === 'Baker') {
+          description += ` is a skilled ${category.toLowerCase()}`;
+        } else if (category === 'DJ') {
+          description += ` is a professional ${category.toLowerCase()}`;
+        } else if (category === 'Beauty Salon') {
+          description += ` is a luxurious ${category.toLowerCase()}`;
+        } else if (category === 'Officiant') {
+          description += ` is a dedicated ${category.toLowerCase()}`;
+        } else {
+          description += ` is a trusted ${category.toLowerCase()}`;
+        }
+        
+        // Add location context
         if (googleData.result?.vicinity) {
           description += ` located in ${googleData.result.vicinity}`;
         }
         
-        // Add rating context
+        // Add price level context
+        if (priceLevel !== undefined) {
+          const priceDescriptions = {
+            0: 'offering budget-friendly options',
+            1: 'providing affordable services',
+            2: 'delivering quality at a fair price',
+            3: 'offering premium services',
+            4: 'providing luxury experiences'
+          };
+          description += `, ${priceDescriptions[priceLevel] || 'offering excellent value'}`;
+        }
+        
+        // Add rating context with more personality
         if (rating && reviewCount) {
-          description += `. With a ${rating}-star rating from ${reviewCount} guests`;
+          if (rating >= 4.5) {
+            description += `. With an outstanding ${rating}-star rating from ${reviewCount} satisfied customers`;
+          } else if (rating >= 4.0) {
+            description += `. With a strong ${rating}-star rating from ${reviewCount} happy clients`;
+          } else {
+            description += `. With a ${rating}-star rating from ${reviewCount} reviews`;
+          }
         } else if (rating) {
           description += `. With a ${rating}-star rating`;
         }
         
-        // Add what they offer based on category
-        if (category === 'Venue') {
-          description += ', this venue provides an elegant setting for weddings and special events';
-        } else if (category === 'Reception Venue') {
-          description += ', offering a perfect space for wedding receptions and celebrations';
+        // Add business status context
+        if (businessStatus === 'OPERATIONAL') {
+          description += ', they are actively serving couples';
+        } else if (businessStatus === 'CLOSED_TEMPORARILY') {
+          description += ' (currently closed temporarily)';
+        }
+        
+        // Add opening hours context for wedding-relevant businesses
+        if (openingHours?.weekday_text && (category === 'Venue' || category === 'Beauty Salon' || category === 'Photographer')) {
+          const hasWeekendHours = openingHours.weekday_text.some(day => day.includes('Saturday') || day.includes('Sunday'));
+          if (hasWeekendHours) {
+            description += ' and offer weekend availability for your special day';
+          }
+        }
+        
+        // Add category-specific value propositions
+        if (category === 'Venue' || category === 'Reception Venue') {
+          description += '. Their elegant spaces provide the perfect backdrop for unforgettable wedding celebrations';
         } else if (category === 'Photographer') {
-          description += ', specializing in capturing beautiful moments for your special day';
+          description += '. They specialize in capturing the authentic moments and emotions that make your wedding day truly special';
         } else if (category === 'Florist') {
-          description += ', creating stunning floral arrangements for weddings and events';
+          description += '. Their artistic floral designs bring beauty and elegance to every wedding celebration';
         } else if (category === 'Caterer') {
-          description += ', providing exceptional dining experiences for special occasions';
+          description += '. They create memorable dining experiences that delight your guests and complement your special day';
         } else if (category === 'Baker') {
-          description += ', crafting delicious wedding cakes and desserts';
+          description += '. Their custom wedding cakes and desserts are crafted with care to sweeten your celebration';
         } else if (category === 'DJ') {
-          description += ', providing entertainment and music for celebrations';
+          description += '. They keep the celebration alive with music that gets everyone dancing and creates lasting memories';
         } else if (category === 'Beauty Salon') {
-          description += ', offering professional beauty services for brides and wedding parties';
+          description += '. They help brides and wedding parties look and feel their most beautiful on the big day';
+        } else if (category === 'Officiant') {
+          description += '. They create personalized ceremonies that reflect your love story and make your wedding day meaningful';
         } else {
-          description += ', providing excellent services for your wedding day';
+          description += '. They are committed to making your wedding day everything you\'ve dreamed of';
         }
         
         description += '.';
@@ -555,26 +619,31 @@ export default function VendorDetailPage() {
             <div className="lg:col-span-2">
               {/* Vendor Name and Overview */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4>
+                <div className="flex items-center justify-between gap-6 mb-4">
+                  <h4 className="flex-1 min-w-0">
                     {vendor.name}
                   </h4>
                   
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     {/* Official Vendor Toggle */}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#364257]">Official Vendor</span>
+                      <div className="flex items-center gap-1">
+                        {isOfficialVendor && dataLoaded && (
+                          <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
+                        )}
+                        <span className="text-xs text-[#364257]">Official Vendor</span>
+                      </div>
                       {dataLoaded ? (
                         <button
                           onClick={toggleOfficialVendor}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
                             isOfficialVendor ? 'bg-[#A85C36]' : 'bg-gray-200'
                           }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              isOfficialVendor ? 'translate-x-6' : 'translate-x-1'
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                              isOfficialVendor ? 'translate-x-5' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -684,9 +753,9 @@ export default function VendorDetailPage() {
 
               {/* Basic Details */}
               <div className="mb-8">
-                <h2 className="text-xl font-playfair font-medium text-[#332B42] mb-4">
+                <h5 className="mb-4">
                   Basic Details
-                </h2>
+                </h5>
                 <div className="space-y-3">
                   {vendor.address && (
                     <div className="flex items-center gap-2 text-[#364257]">
@@ -713,43 +782,31 @@ export default function VendorDetailPage() {
               {/* About */}
               {vendor.about && (
                 <div className="mb-8">
-                  <h2 className="text-xl font-playfair font-medium text-[#332B42] mb-4">
+                  <h5 className="mb-4">
                     About
-                  </h2>
+                  </h5>
                   <p className="text-[#364257] leading-relaxed">
                     {vendor.about}
                   </p>
                 </div>
               )}
+
+              {/* Related Vendors */}
+              <RelatedVendorsSection
+                currentVendorId={vendor.id}
+                category={vendor.category}
+                location={userWeddingLocation || location}
+              />
             </div>
 
             {/* Right Column - Comments */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                <h3 className="text-lg font-playfair font-medium text-[#332B42] mb-4">
-                  Comments
-                </h3>
-                
-                {/* Comments Area */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-4 min-h-[200px]">
-                  <p className="text-sm text-gray-500 text-center">
-                    No comments yet. Be the first to share your experience!
-                  </p>
-                </div>
-
-                {/* Add Comment */}
-                <div className="space-y-3">
-                  <textarea
-                    placeholder="Add a comment. To tag someone enter @ and add their names."
-                    className="w-full p-3 border border-[#AB9C95] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent"
-                    rows={3}
-                  />
-                  <button className="flex items-center gap-2 px-4 py-2 bg-[#332B42] text-white rounded-lg hover:bg-[#2A2335] transition-colors">
-                    <span className="text-sm font-medium">Send</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
+            <div className="lg:col-span-1 sticky top-4 h-[calc(100vh-14rem)]">
+              {vendor && (
+                <VendorComments 
+                  vendorId={vendor.id} 
+                  vendorName={vendor.name} 
+                />
+              )}
             </div>
           </div>
         </div>

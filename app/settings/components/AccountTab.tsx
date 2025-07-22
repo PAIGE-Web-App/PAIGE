@@ -5,12 +5,15 @@ import { User, Pencil, Trash2 } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
-import { storage } from "../../../lib/firebase";
-import { db } from "../../../lib/firebase";
+import { storage, db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import { validateEmail, validateName, addCacheBuster } from '../utils/profileValidation';
 import AvatarUploadModal from './AvatarUploadModal';
 import DeleteAccountModal from '../../../components/DeleteAccountModal';
+import UpgradePlanModal from '../../../components/UpgradePlanModal';
+import WeddingPlannerSearchInput from '../../../components/WeddingPlannerSearchInput';
+import PlannerCard from '../../../components/PlannerCard';
+import { CircleArrowUp } from 'lucide-react';
 
 interface AccountTabProps {
   user: any;
@@ -24,6 +27,17 @@ interface AccountTabProps {
   setUserName: (name: string) => void;
   partnerName: string;
   setPartnerName: (name: string) => void;
+  partnerEmail: string;
+  setPartnerEmail: (email: string) => void;
+  plannerName: string;
+  setPlannerName: (name: string) => void;
+  plannerEmail: string;
+  setPlannerEmail: (email: string) => void;
+  // Wedding Planner state (for AccountTab only)
+  selectedPlannerMetadata: any;
+  setSelectedPlannerMetadata: (metadata: any) => void;
+  plannerSearch: string;
+  setPlannerSearch: (search: string) => void;
   hasUnsavedChanges: boolean;
 }
 
@@ -39,15 +53,32 @@ export default function AccountTab({
   setUserName,
   partnerName,
   setPartnerName,
+  partnerEmail,
+  setPartnerEmail,
+  plannerName,
+  setPlannerName,
+  plannerEmail,
+  setPlannerEmail,
+  // Wedding Planner state (for AccountTab only)
+  selectedPlannerMetadata,
+  setSelectedPlannerMetadata,
+  plannerSearch,
+  setPlannerSearch,
   hasUnsavedChanges,
 }: AccountTabProps) {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [userNameError, setUserNameError] = useState("");
   const [partnerNameError, setPartnerNameError] = useState("");
 
   const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com';
+
+  // Check if user has premium features (check if partner/planner names are set up)
+  const hasPremiumFeatures = () => {
+    return (partnerName && partnerName.trim()) || (plannerName && plannerName.trim());
+  };
 
   // Helper to capitalize each word
   const capitalizeWords = (str: string) =>
@@ -127,8 +158,9 @@ export default function AccountTab({
 
   return (
     <>
-      <div className="flex gap-8 pb-8">
-        <div className="flex-1 bg-white rounded-lg p-6 shadow">
+      <div className="space-y-6 pb-8">
+        {/* Account Details Container */}
+        <div className="bg-white rounded-lg p-6 shadow-sm">
           <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Account Details</h2>
           <div className="flex flex-col items-center mb-4">
             <div
@@ -171,35 +203,19 @@ export default function AccountTab({
               />
             )}
           </div>
-          <div className="mb-4 flex gap-4">
-            <div className="flex-1">
-              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
-              <input
-                type="text"
-                id="userName"
-                value={userName}
-                onChange={handleUserNameChange}
-                onBlur={handleUserNameBlur}
-                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
-                autoComplete="name"
-                disabled={saving}
-              />
-              {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Partner's Name*</label>
-              <input
-                type="text"
-                id="partnerName"
-                value={partnerName}
-                onChange={handlePartnerNameChange}
-                onBlur={handlePartnerNameBlur}
-                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
-                autoComplete="name"
-                disabled={saving}
-              />
-              {partnerNameError && <p className="text-red-500 text-xs mt-1">{partnerNameError}</p>}
-            </div>
+          <div className="mb-4">
+            <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
+            <input
+              type="text"
+              id="userName"
+              value={userName}
+              onChange={handleUserNameChange}
+              onBlur={handleUserNameBlur}
+              className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
+              autoComplete="name"
+              disabled={saving}
+            />
+            {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
           </div>
           {!isGoogleUser && (
             <div className="mb-4">
@@ -225,31 +241,147 @@ export default function AccountTab({
               </button>
             </div>
           )}
+        </div>
+
+        {/* Collaboration Banner */}
+        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <CircleArrowUp className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-white">Invite your Partner and Wedding Planner</h4>
+              <p className="text-xs opacity-90">Maximize your collaboration and get everything done in one space. Upgrade for maximum collaboration features and more!</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Partner Profile Container */}
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Partner Profile</h3>
+          <p className="text-xs text-gray-600 mb-4">Manage your partner's information for @mention notifications and collaboration.</p>
           
-          {/* Delete Account Section */}
-          <div className="mb-4 pt-4 border-t border-[#E0D6D0]">
-            <label className="block text-xs font-work-sans text-[#332B42] mb-1">Danger Zone</label>
-            <button
-              className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-            >
-              <Trash2 className="w-3 h-3" />
-              Delete Account
-            </button>
-            <p className="text-xs text-gray-500 mt-1">
-              This action cannot be undone. All your data will be permanently deleted.
-            </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Partner Name</label>
+              <input
+                type="text"
+                id="partnerName"
+                value={partnerName}
+                onChange={handlePartnerNameChange}
+                onBlur={handlePartnerNameBlur}
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
+                autoComplete="name"
+                disabled={saving}
+              />
+              {partnerNameError && <p className="text-red-500 text-xs mt-1">{partnerNameError}</p>}
+            </div>
+            
+            <div>
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Partner Email</label>
+              <input 
+                type="email" 
+                value={partnerEmail || ''} 
+                onChange={e => setPartnerEmail(e.target.value)} 
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" 
+                placeholder="Enter your partner's email"
+                disabled={saving}
+              />
+              <p className="text-xs text-gray-500 mt-1">Your partner will receive @mention notifications via email</p>
+            </div>
           </div>
-          <div className="flex justify-end items-center mt-6 gap-3">
-            <button
-              className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
-              onClick={onSave}
-              disabled={saving || !hasUnsavedChanges || !!userNameError || !!partnerNameError}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+        </div>
+
+        {/* Wedding Planner Profile Container */}
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Wedding Planner Profile</h3>
+          <p className="text-xs text-gray-600 mb-4">Manage your wedding planner's information for @mention notifications and collaboration.</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Wedding Planner Name</label>
+              <input 
+                type="text" 
+                value={plannerName || ''} 
+                onChange={e => setPlannerName(e.target.value)} 
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" 
+                placeholder="Enter your wedding planner's name"
+                disabled={saving}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Wedding Planner Email</label>
+              <input 
+                type="email" 
+                value={plannerEmail || ''} 
+                onChange={e => setPlannerEmail(e.target.value)} 
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" 
+                placeholder="Enter your wedding planner's email"
+                disabled={saving}
+              />
+              <p className="text-xs text-gray-500 mt-1">Your wedding planner will receive @mention notifications via email</p>
+            </div>
+
+            {/* Wedding Planner Search */}
+            <div className="pt-4 border-t border-gray-100">
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Search for your Wedding Planner via Google</label>
+              <p className="text-xs text-gray-500 mb-2">Linking a Wedding Planner here will add the Planner to your Vendors</p>
+              <WeddingPlannerSearchInput
+                value={plannerSearch}
+                onChange={(value) => {
+                  setPlannerSearch(value);
+                }}
+                setPlannerMetadata={(planner) => {
+                  setSelectedPlannerMetadata(planner);
+                  if (planner?.name) {
+                    setPlannerName(planner.name);
+                  }
+                }}
+                placeholder="Search for wedding planners..."
+                disabled={saving}
+              />
+              {selectedPlannerMetadata && (
+                <div className="mt-4">
+                  <PlannerCard
+                    planner={selectedPlannerMetadata}
+                                    onDelete={() => {
+                  setSelectedPlannerMetadata(null);
+                  setPlannerSearch("");
+                  setPlannerName("");
+                }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Danger Zone Container */}
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Danger Zone</h3>
+          <button
+            className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <Trash2 className="w-3 h-3" />
+            Delete Account
+          </button>
+          <p className="text-xs text-gray-500 mt-1">
+            This action cannot be undone. All your data will be permanently deleted.
+          </p>
+        </div>
+
+        {/* Save Changes Button */}
+        <div className="flex justify-end items-center">
+          <button
+            className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
+            onClick={onSave}
+            disabled={saving || !hasUnsavedChanges || !!userNameError || !!partnerNameError}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
         </div>
       </div>
       <AvatarUploadModal
@@ -263,6 +395,12 @@ export default function AccountTab({
         onDeleteAccount={handleDeleteAccount}
         isDeleting={isDeleting}
       />
+      {showUpgradeModal && (
+        <UpgradePlanModal
+          reason="collaboration"
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
     </>
   );
 } 

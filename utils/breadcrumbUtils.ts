@@ -89,12 +89,7 @@ export const generateVendorDetailBreadcrumbs = (config: BreadcrumbConfig): Bread
     });
   }
   
-  if (vendorName) {
-    breadcrumbs.push({
-      label: vendorName,
-      isCurrent: true
-    });
-  }
+  // Don't add current page (vendor name) to breadcrumbs since it's already displayed prominently on the page
   
   // Cache the result
   breadcrumbCache.set(cacheKey, breadcrumbs);

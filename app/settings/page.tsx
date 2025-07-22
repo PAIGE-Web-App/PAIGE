@@ -72,6 +72,12 @@ export default function ProfilePage() {
     setUserName,
     partnerName,
     setPartnerName,
+    partnerEmail,
+    setPartnerEmail,
+    plannerName,
+    setPlannerName,
+    plannerEmail,
+    setPlannerEmail,
     weddingDate,
     setWeddingDate,
     weddingLocation,
@@ -84,6 +90,11 @@ export default function ProfilePage() {
     setSelectedVenueMetadata,
     venueSearch,
     setVenueSearch,
+    // Wedding Planner state
+    selectedPlannerMetadata,
+    setSelectedPlannerMetadata,
+    plannerSearch,
+    setPlannerSearch,
     vibe,
     generatedVibes,
     guestCount,
@@ -189,6 +200,17 @@ export default function ProfilePage() {
               setUserName={setUserName}
               partnerName={partnerName}
               setPartnerName={setPartnerName}
+              partnerEmail={partnerEmail}
+              setPartnerEmail={setPartnerEmail}
+              plannerName={plannerName}
+              setPlannerName={setPlannerName}
+              plannerEmail={plannerEmail}
+              setPlannerEmail={setPlannerEmail}
+              // Wedding Planner state (for AccountTab only)
+              selectedPlannerMetadata={selectedPlannerMetadata}
+              setSelectedPlannerMetadata={setSelectedPlannerMetadata}
+              plannerSearch={plannerSearch}
+              setPlannerSearch={setPlannerSearch}
               hasUnsavedChanges={hasUnsavedAccountChanges}
             />
           )}

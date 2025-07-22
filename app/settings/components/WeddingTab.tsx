@@ -165,6 +165,7 @@ export default function WeddingTab({
               </motion.div>
             )}
           </AnimatePresence>
+          
           {(vibe.length > 0 || generatedVibes.length > 0) && (
             <div>
               <label className="block text-xs font-work-sans text-[#332B42] mb-1">Wedding Vibe</label>
@@ -192,6 +193,8 @@ export default function WeddingTab({
               className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]" 
             />
           </div>
+          
+
           <div>
             <label className="block text-xs font-work-sans text-[#332B42] mb-1">What's your budget?</label>
             <BudgetSlider

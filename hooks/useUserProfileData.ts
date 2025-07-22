@@ -10,6 +10,9 @@ export function useUserProfileData() {
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [partnerEmail, setPartnerEmail] = useState<string | null>(null);
+  const [plannerName, setPlannerName] = useState<string | null>(null);
+  const [plannerEmail, setPlannerEmail] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number | null>(null);
   const [budget, setBudget] = useState<string | null>(null);
   const [cityState, setCityState] = useState<string | null>(null);
@@ -20,6 +23,7 @@ export function useUserProfileData() {
   const [weddingLocationUndecided, setWeddingLocationUndecided] = useState<boolean>(false);
   const [hasVenue, setHasVenue] = useState<boolean | null>(null);
   const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any>(null);
+  const [selectedPlannerMetadata, setSelectedPlannerMetadata] = useState<any>(null);
   const [vibe, setVibe] = useState<string[]>([]);
   const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
@@ -53,6 +57,9 @@ export function useUserProfileData() {
           const data = userDoc.data();
           setUserName(data.userName || null);
           setPartnerName(data.partnerName || null);
+          setPartnerEmail(data.partnerEmail || null);
+          setPlannerName(data.plannerName || null);
+          setPlannerEmail(data.plannerEmail || null);
           setGuestCount(data.guestCount || null);
           setBudget(data.budget || null);
           setCityState(data.cityState || null);
@@ -63,6 +70,7 @@ export function useUserProfileData() {
           setWeddingLocationUndecided(data.weddingLocationUndecided || false);
           setHasVenue(data.hasVenue || null);
           setSelectedVenueMetadata(data.selectedVenueMetadata || null);
+          setSelectedPlannerMetadata(data.selectedPlannerMetadata || null);
           setVibe(data.vibe || []);
           setVibeInputMethod(data.vibeInputMethod || 'pills');
           setGeneratedVibes(data.generatedVibes || []);
@@ -104,29 +112,31 @@ export function useUserProfileData() {
     }
   }, [authLoading, user, reloadCount]);
 
-  return { 
-    userName, 
-    weddingDate, 
-    daysLeft, 
-    profileLoading, 
-    partnerName, 
-    guestCount, 
-    budget, 
-    cityState, 
+  return {
+    userName,
+    weddingDate,
+    daysLeft,
+    profileLoading,
+    partnerName,
+    partnerEmail,
+    plannerName,
+    plannerEmail,
+    guestCount,
+    budget,
+    cityState,
     style,
-    // Additional onboarding fields
     weddingLocation,
     weddingLocationUndecided,
     hasVenue,
     selectedVenueMetadata,
+    selectedPlannerMetadata,
     vibe,
     vibeInputMethod,
     generatedVibes,
     budgetRange,
     imagePreview,
-    // Notification preferences
     phoneNumber,
     notificationPreferences,
-    reload,
+    reload
   };
 } 
