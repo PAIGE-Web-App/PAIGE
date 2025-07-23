@@ -1,4 +1,4 @@
-import { mapGoogleTypesToCategory, getCategorySlug, getCategoryLabel } from './vendorUtils';
+import { mapGoogleTypesToCategory, getCategorySlug, getCategoryLabel, getCategoryFromSlug } from './vendorUtils';
 
 export interface BreadcrumbItem {
   label: string;
@@ -73,16 +73,20 @@ export const generateVendorDetailBreadcrumbs = (config: BreadcrumbConfig): Bread
   ];
   
   if (actualCategory && actualLocation) {
-    const categoryLabel = getCategoryLabel(actualCategory);
-    const categorySlug = getCategorySlug(actualCategory);
+    // Convert category slug to display category if needed
+    const displayCategory = getCategoryFromSlug(actualCategory);
+    const categoryLabel = getCategoryLabel(displayCategory);
+    const categorySlug = getCategorySlug(displayCategory);
     
     breadcrumbs.push({
       label: `${categoryLabel} in ${actualLocation}`,
       href: `/vendors/catalog/${categorySlug}?location=${encodeURIComponent(actualLocation)}`
     });
   } else if (actualCategory) {
-    const categoryLabel = getCategoryLabel(actualCategory);
-    const categorySlug = getCategorySlug(actualCategory);
+    // Convert category slug to display category if needed
+    const displayCategory = getCategoryFromSlug(actualCategory);
+    const categoryLabel = getCategoryLabel(displayCategory);
+    const categorySlug = getCategorySlug(displayCategory);
     
     breadcrumbs.push({
       label: categoryLabel,
@@ -108,13 +112,17 @@ export const generateCatalogBreadcrumbs = (config: BreadcrumbConfig): Breadcrumb
   ];
   
   if (category && location) {
-    const categoryLabel = getCategoryLabel(category);
+    // Convert category slug to display category if needed
+    const displayCategory = getCategoryFromSlug(category);
+    const categoryLabel = getCategoryLabel(displayCategory);
     breadcrumbs.push({
       label: `${categoryLabel} in ${location}`,
       isCurrent: true
     });
   } else if (category) {
-    const categoryLabel = getCategoryLabel(category);
+    // Convert category slug to display category if needed
+    const displayCategory = getCategoryFromSlug(category);
+    const categoryLabel = getCategoryLabel(displayCategory);
     breadcrumbs.push({
       label: categoryLabel,
       isCurrent: true

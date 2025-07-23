@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import Breadcrumb from '@/components/Breadcrumb';
 import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
+import { getCategoryFromSlug } from '@/utils/vendorUtils';
 // import MessagingModal from '../../../components/MessagingModal'; // TODO: Use your real messaging modal
 
 export default function VendorCatalogDetailsPage() {
@@ -34,7 +35,7 @@ export default function VendorCatalogDetailsPage() {
       <div className="app-content-container flex flex-col gap-6 py-8">
         <Breadcrumb
           items={generateVendorDetailBreadcrumbs({
-            category: category,
+            category: getCategoryFromSlug(category),
             location: weddingLocation || undefined,
             vendorName: vendor?.name,
             vendorAddress: vendor?.formatted_address,

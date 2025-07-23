@@ -20,6 +20,7 @@ import {
   categoryToSlug, 
   getCategorySlug, 
   getCategoryLabel,
+  getCategoryFromSlug,
   addRecentlyViewedVendor 
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
@@ -606,7 +607,7 @@ export default function VendorDetailPage() {
           {/* Breadcrumb */}
           <Breadcrumb
             items={generateVendorDetailBreadcrumbs({
-              category: categoryFromUrl,
+              category: categoryFromUrl ? getCategoryFromSlug(categoryFromUrl) : undefined,
               location: userWeddingLocation || location,
               vendorName: vendor.name,
               vendorTypes: vendor.amenities,

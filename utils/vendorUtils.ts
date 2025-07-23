@@ -209,6 +209,37 @@ export const getCategoryLabel = (displayCategory: string): string => {
   return categoryToPlural[displayCategory] || displayCategory;
 };
 
+// Helper function to convert URL slug back to display category
+export const getCategoryFromSlug = (slug: string): string => {
+  const slugToCategory: Record<string, string> = {
+    'restaurant': 'Reception Venue',
+    'church': 'Church',
+    'night_club': 'Night Club',
+    'bakery': 'Baker',
+    'jewelry_store': 'Jeweler',
+    'hair_care': 'Hair Stylist',
+    'clothing_store': 'Dress Shop',
+    'beauty_salon': 'Beauty Salon',
+    'spa': 'Spa',
+    'photographer': 'Photographer',
+    'florist': 'Florist',
+    'caterer': 'Caterer',
+    'car_rental': 'Car Rental',
+    'travel_agency': 'Travel Agency',
+    'wedding_planner': 'Wedding Planner',
+    'officiant': 'Officiant',
+    'suit_rental': 'Suit & Tux Rental',
+    'makeup_artist': 'Makeup Artist',
+    'stationery': 'Stationery',
+    'rentals': 'Event Rental',
+    'favors': 'Wedding Favor',
+    'band': 'Band',
+    'dj': 'DJ'
+  };
+  
+  return slugToCategory[slug] || slug.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 // Recently viewed tracking functions
 export const getRecentlyViewedVendors = () => {
   if (typeof window === 'undefined') return [];
