@@ -1,9 +1,6 @@
 // page.tsx (Login/Onboarding)
 "use client";
 
-import { db } from "../../lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useState, useEffect } from "react";
@@ -11,11 +8,10 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
-import { updateProfile } from "firebase/auth";
-import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { ChevronDown } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -25,15 +21,17 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1);
-  const [step2Errors, setStep2Errors] = useState<{ userName?: string; partnerName?: string }>({});
-  const [userName, setUserName] = useState("");
-  const [partnerName, setPartnerName] = useState("");
-  const [weddingDate, setWeddingDate] = useState("");
-  const [undecidedDate, setUndecidedDate] = useState(false);
-  const [weddingDateError, setWeddingDateError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+
+  // Google account detection state
+  const [googleAccount, setGoogleAccount] = useState<{
+    email: string;
+    name: string;
+    picture: string;
+  } | null>(null);
+  const [detectingGoogleAccount, setDetectingGoogleAccount] = useState(true);
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -62,6 +60,35 @@ export default function Login() {
       toast.error("Looks like you're already a user. Please log in.");
     }
   }, [searchParams]);
+
+  // Detect if user is already signed into Google
+  useEffect(() => {
+    const detectGoogleAccount = () => {
+      try {
+        setDetectingGoogleAccount(true);
+        
+        // Check if the user has previously signed in with Google
+        const lastSignInMethod = localStorage.getItem('lastSignInMethod');
+        const lastGoogleEmail = localStorage.getItem('lastGoogleEmail');
+        const lastGoogleName = localStorage.getItem('lastGoogleName');
+        const lastGooglePicture = localStorage.getItem('lastGooglePicture');
+        
+        if (lastSignInMethod === 'google' && lastGoogleEmail) {
+          setGoogleAccount({
+            email: lastGoogleEmail,
+            name: lastGoogleName || lastGoogleEmail.split('@')[0],
+            picture: lastGooglePicture || ''
+          });
+        }
+      } catch (error) {
+        console.log('Error detecting Google account:', error);
+      } finally {
+        setDetectingGoogleAccount(false);
+      }
+    };
+
+    detectGoogleAccount();
+  }, []);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -130,6 +157,14 @@ export default function Login() {
         displayName: result.user.displayName
       });
       
+      // Save Google account info for future detection
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastSignInMethod', 'google');
+        localStorage.setItem('lastGoogleEmail', result.user.email || '');
+        localStorage.setItem('lastGoogleName', result.user.displayName || '');
+        localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
+      }
+      
       const idToken = await result.user.getIdToken();
       console.log('🔍 [Google Login] Got ID token, calling session login...');
       
@@ -189,6 +224,21 @@ export default function Login() {
     }
   };
 
+  // Function to clear Google account and switch to email sign-in
+  const handleSwitchToEmail = () => {
+    setGoogleAccount(null);
+    // Clear stored Google account data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('lastSignInMethod');
+      localStorage.removeItem('lastGoogleEmail');
+      localStorage.removeItem('lastGoogleName');
+      localStorage.removeItem('lastGooglePicture');
+    }
+  };
+
+  // State to control whether to show email form
+  const [showEmailForm, setShowEmailForm] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
       <div className="w-full max-w-[1280px] flex">
@@ -214,51 +264,106 @@ export default function Login() {
           </h4>
 
                     <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
-              <div>
-                <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-2 text-base font-normal rounded-[5px] ${loading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primary"}`}
-              >
-                {loading ? "Logging in..." : "Log In"}
-              </button>
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
-              >
-                <span className="w-4 h-4 flex items-center justify-center">
-                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
-                </span>
-                Login with Google
-              </button>
+              {/* Only show email/password form if no Google account detected OR user clicked "Sign in with email" */}
+              {(!googleAccount || showEmailForm) && (
+                <>
+                  <div>
+                    <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email address"
+                      className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                      required
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`w-full py-2 text-base font-normal rounded-[5px] ${loading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primary"}`}
+                  >
+                    {loading ? "Logging in..." : "Log In"}
+                  </button>
+                </>
+              )}
+              {/* LinkedIn-style Google Account Button */}
+              {detectingGoogleAccount ? (
+                <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : googleAccount && !showEmailForm ? (
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="w-full py-3 px-4 bg-[#163c57] text-white rounded-[5px] flex items-center justify-between hover:bg-[#0f2a3f] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {googleAccount.picture ? (
+                      <img 
+                        src={googleAccount.picture} 
+                        alt={googleAccount.name}
+                        className="w-8 h-8 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                        <span className="text-[#163c57] font-semibold text-sm">
+                          {googleAccount.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium text-sm">Continue as {googleAccount.name}</span>
+                      <span className="text-xs opacity-90">{googleAccount.email}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ChevronDown className="w-4 h-4" />
+                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" />
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
+                >
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                  </span>
+                  Login with Google
+                </button>
+              )}
+              
+              {/* Login with email option when Google account is detected */}
+              {googleAccount && !showEmailForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(true)}
+                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px]"
+                >
+                  Login with Email
+                </button>
+              )}
+
+
             </form>
 
             <p className="text-xs text-center font-work-sans text-[#332B42] mt-8">
@@ -273,144 +378,6 @@ export default function Login() {
             </div>
               </>
             )}
-            {step === 2 && (
-  <>
-    
-    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
-      First things first...
-    </h1>
-    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
-      Tell us about your big day
-    </h4>
-
-    <form className="w-full max-w-xs space-y-4">
-      <div>
-        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-  Your Full Name<span className="text-[#A85C36]">*</span>
-</label>
-        <input
-          type="text"
-          placeholder="Full Name"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-        />
-        {step2Errors.userName && (
-<p className="text-xs text-[#A85C36] mt-1">{step2Errors.userName}</p>
-)}
-      </div>
-      <h2 className="text-2xl font-playfair font-semibold text-[#332B42] text-left">&</h2>
-
-
-      <div>
-       <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-  Your Partner's Name<span className="text-[#A85C36]">*</span>
-</label>
-        <input
-          type="text"
-          placeholder="Partner's Name"
-          value={partnerName}
-          onChange={(e) => setPartnerName(e.target.value)}
-          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-        />
-          {step2Errors.partnerName && (
- <p className="text-xs text-[#A85C36] mt-1">{step2Errors.partnerName}</p>
-)}
-      </div>
-    
-
-      <div>
-  <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-    When's the big day?
-  </label>
-  <div className="relative">
-   <input
-  type="date"
-  id="weddingDate"
-  value={weddingDate}
-  onChange={(e) => setWeddingDate(e.target.value)}
-  disabled={undecidedDate}
-  min={new Date().toISOString().split("T")[0]}
-  placeholder={undecidedDate ? "We're working on it!" : "Select a date"}
-  className={`w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] text-sm text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] bg-white appearance-none ${
-    undecidedDate ? "text-[#999]" : ""
-  }`}
-/>
-{weddingDateError && (
-  <p className="text-[#A85C36] text-xs mt-1">{weddingDateError}</p>
-)}
-
-  </div>
-  <label className="mt-2 flex items-center text-sm text-[#332B42] gap-2">
-    <input
-      type="checkbox"
-      checked={undecidedDate}
-      onChange={() => setUndecidedDate(!undecidedDate)}
-      className="form-checkbox rounded border-[#AB9C95] text-[#A85C36]"
-    />
-    We haven't decided yet
-  </label>
-</div>
-
-
-     <button
-  type="button"
-  className="btn-primary w-full mt-6"
- onClick={async () => {
-  const errors: { userName?: string; partnerName?: string } = {};
-  if (!userName.trim()) errors.userName = "Your name is required";
-  if (!partnerName.trim()) errors.partnerName = "Partner's name is required";
-  if (!undecidedDate && weddingDate) {
-  const selectedDate = new Date(weddingDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (selectedDate < today) {
-    setWeddingDateError("Please select a future date.");
-    return;
-  } else {
-    setWeddingDateError("");
-  }
-}
-
-  if (Object.keys(errors).length > 0) {
-    setStep2Errors(errors);
-  } else {
-    setStep2Errors({});
-
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (user) {
-        await setDoc(doc(db, "users", user.uid), {
-          userName: userName.trim(),
-          partnerName: partnerName.trim(),
-          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
-          email: user.email,
-          createdAt: new Date(),
-        });
-        console.log("User onboarding data saved!");
-        router.push("/"); // Redirect to dashboard after saving
-      } else {
-        console.error("No authenticated user.");
-      }
-    } catch (error) {
-      console.error("Error saving onboarding data:", error);
-    }
-  }
-}}
->
-  Complete
-</button>
-
-    </form>
-  </>
-)}
-
-{/* Step 3 is now unused, as Google sign-up also goes to Step 2 */}
-{step === 3 && (
-  <></>
-)}
 
             </motion.div>
           </AnimatePresence>
