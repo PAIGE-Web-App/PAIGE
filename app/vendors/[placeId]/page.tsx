@@ -21,6 +21,7 @@ import {
   getCategorySlug, 
   getCategoryLabel,
   getCategoryFromSlug,
+  getFavoritingText,
   addRecentlyViewedVendor 
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
@@ -687,7 +688,9 @@ export default function VendorDetailPage() {
                   {communityData?.totalFavorites > 0 && (
                     <div className="flex items-center gap-1">
                       <Heart className="w-3 h-3 text-[#A85C36]" />
-                      <span className="text-sm text-[#364257]">{communityData.totalFavorites} favorited</span>
+                      <span className="text-sm text-[#364257]">
+                        {getFavoritingText(communityData, user?.uid)}
+                      </span>
                     </div>
                   )}
                   {location && (

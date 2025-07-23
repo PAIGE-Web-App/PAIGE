@@ -4,6 +4,7 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { getFavoritingText } from '@/utils/vendorUtils';
 
 // Move utility functions outside component to prevent recreation
 function getFavorites() {
@@ -303,7 +304,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           {communityData && communityData.totalFavorites > 0 && (
             <div className="flex items-center gap-1 text-xs text-[#364257] mb-1">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
-              <span>Favorited by {communityData.totalFavorites} {communityData.totalFavorites === 1 ? 'user' : 'users'}</span>
+              <span>{getFavoritingText(communityData, user?.uid)}</span>
             </div>
           )}
           
