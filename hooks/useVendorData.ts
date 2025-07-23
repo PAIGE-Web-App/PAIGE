@@ -41,7 +41,21 @@ export const useVendorData = (): UseVendorDataReturn => {
       setIsLoading(true);
       setError(null);
       const data = await getAllVendors(user.uid);
-      setVendors(data);
+      
+      // The getAllVendors function now returns sorted data, but let's ensure it's sorted here too
+      const sortedData = data.sort((a, b) => {
+        // Use orderIndex if available (negative timestamp for recent first)
+        if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
+          return a.orderIndex - b.orderIndex;
+        }
+        
+        // Fallback to addedAt timestamp
+        const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+        const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+        return bTime - aTime; // Most recent first
+      });
+      
+      setVendors(sortedData);
     } catch (err) {
       console.error('Error loading vendors:', err);
       setError('Failed to load vendors');

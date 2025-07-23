@@ -64,6 +64,20 @@ export const getAllVendors = async (userId: string) => {
       orderIndex: data.addedAt ? -new Date(data.addedAt).getTime() : 0, // Sort by added date
     };
   });
-  console.log('Fetched vendors for user:', userId, vendors);
-  return vendors;
+  
+  // Sort vendors by most recently added first
+  const sortedVendors = vendors.sort((a, b) => {
+    // Use orderIndex if available (negative timestamp for recent first)
+    if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
+      return a.orderIndex - b.orderIndex;
+    }
+    
+    // Fallback to addedAt timestamp
+    const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+    const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+    return bTime - aTime; // Most recent first
+  });
+  
+  console.log('Fetched vendors for user:', userId, sortedVendors);
+  return sortedVendors;
 };

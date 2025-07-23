@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import Breadcrumb from '@/components/Breadcrumb';
+import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
 // import MessagingModal from '../../../components/MessagingModal'; // TODO: Use your real messaging modal
 
 export default function VendorCatalogDetailsPage() {
   const [showContact, setShowContact] = useState(false);
   const [vendor, setVendor] = useState<any>(null);
-  const { placeId } = useParams() as { placeId: string };
+  const { placeId, category } = useParams() as { placeId: string; category: string };
   const { weddingLocation } = useUserProfileData();
 
   useEffect(() => {
@@ -30,7 +32,15 @@ export default function VendorCatalogDetailsPage() {
   return (
     <div className="flex flex-col min-h-screen bg-linen">
       <div className="app-content-container flex flex-col gap-6 py-8">
-        <a href="/vendors/catalog" className="text-xs text-[#A85C36] underline mb-2">&lt; {weddingLocation ? `${weddingLocation} Wedding Venues` : 'Texas Wedding Venues'}</a>
+        <Breadcrumb
+          items={generateVendorDetailBreadcrumbs({
+            category: category,
+            location: weddingLocation || undefined,
+            vendorName: vendor?.name,
+            vendorAddress: vendor?.formatted_address,
+            userWeddingLocation: weddingLocation || undefined
+          })}
+        />
         <div className="flex gap-8">
           <div className="flex-1">
             {/* Image carousel placeholder */}

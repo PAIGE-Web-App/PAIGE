@@ -19,6 +19,7 @@ import BulkContactBanner from '@/components/BulkContactBanner';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { generateCatalogBreadcrumbs } from '@/utils/breadcrumbUtils';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -548,10 +549,10 @@ const VendorCategoryPage: React.FC = () => {
       <div className="max-w-6xl mx-auto">
         <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
           <Breadcrumb
-            items={[
-              { label: 'Vendor Search', href: '/vendors/catalog' },
-              { label: location ? `${categoryLabel} in ${location}` : categoryLabel, isCurrent: true }
-            ]}
+            items={generateCatalogBreadcrumbs({
+              category: category,
+              location: location
+            })}
           />
           <VendorCatalogHeader
             isSearching={isSearching}

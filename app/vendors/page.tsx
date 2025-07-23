@@ -1,11 +1,11 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ListFilter, Search } from 'lucide-react';
+import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
@@ -116,13 +116,52 @@ export default function VendorsPage() {
   const [addContactModal, setAddContactModal] = useState(false);
 
   const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
+  const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
 
-  // Filtered and searched vendors
-  const filteredVendors = vendors.filter((v) => {
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
-    const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Filtered, searched, and sorted vendors
+  const filteredVendors = useMemo(() => {
+    let filtered = vendors.filter((v) => {
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
+      const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+
+    // Apply sorting
+    switch (sortOption) {
+      case 'name-asc':
+        return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-desc':
+        return [...filtered].sort((a, b) => b.name.localeCompare(a.name));
+      case 'recent-desc':
+        return [...filtered].sort((a, b) => {
+          // Use orderIndex if available (negative timestamp for recent first)
+          if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
+            return a.orderIndex - b.orderIndex;
+          }
+          
+          // Fallback to addedAt timestamp
+          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+          return bTime - aTime; // Most recent first
+        });
+      case 'category-asc':
+        return [...filtered].sort((a, b) => {
+          const categoryA = a.category || '';
+          const categoryB = b.category || '';
+          return categoryA.localeCompare(categoryB);
+        });
+      case 'rating-desc':
+        return [...filtered].sort((a, b) => {
+          const ratingA = a.rating || 0;
+          const ratingB = b.rating || 0;
+          return ratingB - ratingA;
+        });
+      default:
+        return filtered;
+    }
+  }, [vendors, selectedCategories, vendorSearch, sortOption]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -130,10 +169,25 @@ export default function VendorsPage() {
       getAllVendors(user.uid).then((data) => {
         console.log('🏪 Vendor Hub - Loaded vendors from Firestore:', JSON.stringify(data, null, 2));
         console.log('🏪 Vendor Hub - Vendor images:', data.map(v => ({ name: v.name, image: v.image, placeId: v.placeId })));
-        setVendors(data);
+        
+        // Sort vendors by most recently added first
+        const sortedVendors = data.sort((a, b) => {
+          // Use orderIndex if available (negative timestamp for recent first)
+          if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
+            return a.orderIndex - b.orderIndex;
+          }
+          
+          // Fallback to addedAt timestamp
+          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+          return bTime - aTime; // Most recent first
+        });
+        
+        setVendors(sortedVendors);
+        
         // Count categories
         const counts: Record<string, number> = {};
-        data.forEach((vendor) => {
+        sortedVendors.forEach((vendor) => {
           if (vendor.category) {
             counts[vendor.category] = (counts[vendor.category] || 0) + 1;
           }
@@ -233,6 +287,29 @@ export default function VendorsPage() {
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });
   };
 
+  // Function to handle sort option selection
+  const handleSortOptionSelect = (option: string) => {
+    setSortOption(option);
+    setShowSortMenu(false);
+  };
+
+  // Close sort menu on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+    }
+
+    if (showSortMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSortMenu]);
+
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner
@@ -245,13 +322,30 @@ export default function VendorsPage() {
         {/* Vendor Hub Header */}
         <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
           <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendor Hub</h4>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
             <button className="btn-primary" onClick={() => router.push('/vendors/catalog')}>Browse all</button>
           </div>
         </div>
         {/* Main Content */}
         <div className="app-content-container flex-1 pt-24">
+          {/* Applied sort filter pill above vendor sections */}
+          {sortOption && sortOption !== 'recent-desc' && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                Sort: {
+                  sortOption === 'name-asc' ? 'Name (A-Z)' :
+                  sortOption === 'name-desc' ? 'Name (Z-A)' :
+                  sortOption === 'category-asc' ? 'Category (A-Z)' :
+                  sortOption === 'rating-desc' ? 'Highest rated' : ''
+                }
+                <button onClick={() => handleSortOptionSelect('recent-desc')} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            </div>
+          )}
+          
           {/* My Vendors Section */}
           <MyVendorsSection
             vendors={filteredVendors}
@@ -264,6 +358,58 @@ export default function VendorsPage() {
               // Handle flagged action
             }}
           >
+            {/* Sort Button */}
+            <div className="relative" ref={sortMenuRef}>
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
+                title="Sort vendors"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+              </button>
+              <AnimatePresence>
+                {showSortMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 flex flex-col min-w-[200px]"
+                  >
+                    <button
+                      onClick={() => handleSortOptionSelect('recent-desc')}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'recent-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                    >
+                      Most recently added
+                    </button>
+                    <button
+                      onClick={() => handleSortOptionSelect('name-asc')}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                    >
+                      Name (A-Z)
+                    </button>
+                    <button
+                      onClick={() => handleSortOptionSelect('name-desc')}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                    >
+                      Name (Z-A)
+                    </button>
+                    <button
+                      onClick={() => handleSortOptionSelect('category-asc')}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'category-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                    >
+                      Category (A-Z)
+                    </button>
+                    <button
+                      onClick={() => handleSortOptionSelect('rating-desc')}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'rating-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                    >
+                      Highest rated
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <FilterButtonPopover
               categories={categories}
               selectedCategories={selectedCategories}

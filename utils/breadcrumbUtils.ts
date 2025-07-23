@@ -68,6 +68,7 @@ export const generateVendorDetailBreadcrumbs = (config: BreadcrumbConfig): Bread
   
   // Generate breadcrumb items
   const breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Vendor Hub', href: '/vendors' },
     { label: 'Vendor Search', href: '/vendors/catalog' }
   ];
   
@@ -102,6 +103,7 @@ export const generateCatalogBreadcrumbs = (config: BreadcrumbConfig): Breadcrumb
   const { category, location } = config;
   
   const breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Vendor Hub', href: '/vendors' },
     { label: 'Vendor Search', href: '/vendors/catalog' }
   ];
   
