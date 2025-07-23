@@ -5,7 +5,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "optimize-images": "node scripts/optimize-images.js"
+    "optimize-images": "node scripts/optimize-images.js",
+    "validate-categories": "node scripts/validate-categories.js",
+    "pre-commit-validation": "node scripts/pre-commit-validation.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

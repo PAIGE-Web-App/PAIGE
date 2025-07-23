@@ -1,5 +1,18 @@
 // utils/vendorUtils.ts
 
+// ============================================================================
+// CATEGORY MAPPING SYSTEM - CRITICAL FOR BREADCRUMB CONSISTENCY
+// ============================================================================
+// 
+// IMPORTANT: This system ensures consistent category formatting across the app.
+// Any changes to category mappings must be made in ALL THREE places:
+// 1. getCategorySlug() - converts display category to URL slug
+// 2. getCategoryFromSlug() - converts URL slug back to display category  
+// 3. getCategoryLabel() - converts display category to plural form
+//
+// VALIDATION: Run validateCategoryMappings() to ensure all mappings are consistent.
+// ============================================================================
+
 // Helper function to detect if a venue is likely a wedding venue based on name
 export const isLikelyWeddingVenue = (name: string): boolean => {
   const venueKeywords = [
@@ -177,6 +190,37 @@ export const getCategorySlug = (displayCategory: string): string => {
   return categoryToGoogleType[displayCategory] || categoryToSlug(displayCategory);
 };
 
+// Helper function to convert URL slug back to display category
+export const getCategoryFromSlug = (slug: string): string => {
+  const slugToCategory: Record<string, string> = {
+    'restaurant': 'Reception Venue',
+    'church': 'Church',
+    'night_club': 'Night Club',
+    'bakery': 'Baker',
+    'jewelry_store': 'Jeweler',
+    'hair_care': 'Hair Stylist',
+    'clothing_store': 'Dress Shop',
+    'beauty_salon': 'Beauty Salon',
+    'spa': 'Spa',
+    'photographer': 'Photographer',
+    'florist': 'Florist',
+    'caterer': 'Caterer',
+    'car_rental': 'Car Rental',
+    'travel_agency': 'Travel Agency',
+    'wedding_planner': 'Wedding Planner',
+    'officiant': 'Officiant',
+    'suit_rental': 'Suit & Tux Rental',
+    'makeup_artist': 'Makeup Artist',
+    'stationery': 'Stationery',
+    'rentals': 'Event Rental',
+    'favors': 'Wedding Favor',
+    'band': 'Band',
+    'dj': 'DJ'
+  };
+  
+  return slugToCategory[slug] || slug.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 // Helper function to get the plural form for breadcrumb consistency
 export const getCategoryLabel = (displayCategory: string): string => {
   const categoryToPlural: Record<string, string> = {
@@ -209,9 +253,28 @@ export const getCategoryLabel = (displayCategory: string): string => {
   return categoryToPlural[displayCategory] || displayCategory;
 };
 
-// Helper function to convert URL slug back to display category
-export const getCategoryFromSlug = (slug: string): string => {
-  const slugToCategory: Record<string, string> = {
+// ============================================================================
+// VALIDATION AND MAINTENANCE FUNCTIONS
+// ============================================================================
+
+/**
+ * Validates that all category mappings are consistent across all three functions.
+ * Run this function to ensure no mapping inconsistencies exist.
+ * 
+ * @returns {Object} Validation results with any inconsistencies found
+ */
+export const validateCategoryMappings = (): {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  missingMappings: string[];
+} => {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const missingMappings: string[] = [];
+
+  // Get all unique categories from all three mappings
+  const slugToCategory = {
     'restaurant': 'Reception Venue',
     'church': 'Church',
     'night_club': 'Night Club',
@@ -236,8 +299,141 @@ export const getCategoryFromSlug = (slug: string): string => {
     'band': 'Band',
     'dj': 'DJ'
   };
-  
-  return slugToCategory[slug] || slug.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const categoryToSlug = {
+    'Venue': 'restaurant',
+    'Reception Venue': 'restaurant',
+    'Church': 'church',
+    'Night Club': 'night_club',
+    'Baker': 'bakery',
+    'Jeweler': 'jewelry_store',
+    'Hair Stylist': 'hair_care',
+    'Dress Shop': 'clothing_store',
+    'Beauty Salon': 'beauty_salon',
+    'Spa': 'spa',
+    'Photographer': 'photographer',
+    'Florist': 'florist',
+    'Caterer': 'caterer',
+    'Car Rental': 'car_rental',
+    'Travel Agency': 'travel_agency',
+    'Wedding Planner': 'wedding_planner',
+    'Officiant': 'officiant',
+    'Suit & Tux Rental': 'suit_rental',
+    'Makeup Artist': 'makeup_artist',
+    'Stationery': 'stationery',
+    'Event Rental': 'rentals',
+    'Wedding Favor': 'favors',
+    'Band': 'band',
+    'DJ': 'DJ'
+  };
+
+  const categoryToPlural = {
+    'Venue': 'Venues',
+    'Reception Venue': 'Reception Venues',
+    'Church': 'Churches',
+    'Night Club': 'Night Clubs',
+    'Baker': 'Bakeries & Cakes',
+    'Jeweler': 'Jewelers',
+    'Hair Stylist': 'Hair & Beauty',
+    'Dress Shop': 'Bridal Salons',
+    'Beauty Salon': 'Beauty Salons',
+    'Spa': 'Spas',
+    'Photographer': 'Photographers',
+    'Florist': 'Florists',
+    'Caterer': 'Catering',
+    'Car Rental': 'Car Rentals',
+    'Travel Agency': 'Travel Agencies',
+    'Wedding Planner': 'Wedding Planners',
+    'Officiant': 'Officiants',
+    'Suit & Tux Rental': 'Suit & Tux Rentals',
+    'Makeup Artist': 'Makeup Artists',
+    'Stationery': 'Stationery & Invitations',
+    'Event Rental': 'Event Rentals',
+    'Wedding Favor': 'Wedding Favors',
+    'Band': 'Bands',
+    'DJ': 'DJs'
+  };
+
+  // Check for bidirectional consistency
+  for (const [slug, category] of Object.entries(slugToCategory)) {
+    if (categoryToSlug[category] !== slug) {
+      errors.push(`Inconsistent mapping: ${slug} -> ${category} but ${category} -> ${categoryToSlug[category]}`);
+    }
+  }
+
+  // Check for missing plural mappings
+  for (const category of Object.values(slugToCategory)) {
+    if (!categoryToPlural[category]) {
+      missingMappings.push(`Missing plural mapping for: ${category}`);
+    }
+  }
+
+  // Check for orphaned mappings (excluding special cases like 'Venue' which maps to 'restaurant')
+  for (const category of Object.keys(categoryToPlural)) {
+    if (!Object.values(slugToCategory).includes(category)) {
+      // Special case: 'Venue' maps to 'restaurant' slug, so it's not orphaned
+      if (category !== 'Venue') {
+        warnings.push(`Orphaned plural mapping: ${category} (not in slug mappings)`);
+      }
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    missingMappings
+  };
+};
+
+/**
+ * Gets all available categories in a structured format for easy reference.
+ * Useful for building category selectors or validating user input.
+ */
+export const getAllCategories = (): {
+  slugs: string[];
+  displayNames: string[];
+  pluralNames: string[];
+  mappings: Array<{ slug: string; display: string; plural: string }>;
+} => {
+  const slugToCategory = {
+    'restaurant': 'Reception Venue',
+    'church': 'Church',
+    'night_club': 'Night Club',
+    'bakery': 'Baker',
+    'jewelry_store': 'Jeweler',
+    'hair_care': 'Hair Stylist',
+    'clothing_store': 'Dress Shop',
+    'beauty_salon': 'Beauty Salon',
+    'spa': 'Spa',
+    'photographer': 'Photographer',
+    'florist': 'Florist',
+    'caterer': 'Caterer',
+    'car_rental': 'Car Rental',
+    'travel_agency': 'Travel Agency',
+    'wedding_planner': 'Wedding Planner',
+    'officiant': 'Officiant',
+    'suit_rental': 'Suit & Tux Rental',
+    'makeup_artist': 'Makeup Artist',
+    'stationery': 'Stationery',
+    'rentals': 'Event Rental',
+    'favors': 'Wedding Favor',
+    'band': 'Band',
+    'dj': 'DJ'
+  };
+
+  const mappings = Object.entries(slugToCategory).map(([slug, display]) => ({
+    slug,
+    display,
+    plural: getCategoryLabel(display)
+  }));
+
+  return {
+    slugs: Object.keys(slugToCategory),
+    displayNames: Object.values(slugToCategory),
+    pluralNames: Object.values(slugToCategory).map(getCategoryLabel),
+    mappings
+  };
 };
 
 // Recently viewed tracking functions

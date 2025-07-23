@@ -204,18 +204,18 @@ export default function AccountTab({
             )}
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
-            <input
-              type="text"
-              id="userName"
-              value={userName}
-              onChange={handleUserNameChange}
-              onBlur={handleUserNameBlur}
-              className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
-              autoComplete="name"
-              disabled={saving}
-            />
-            {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Full Name*</label>
+              <input
+                type="text"
+                id="userName"
+                value={userName}
+                onChange={handleUserNameChange}
+                onBlur={handleUserNameBlur}
+                className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42] text-transform: capitalize;"
+                autoComplete="name"
+                disabled={saving}
+              />
+              {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
           </div>
           {!isGoogleUser && (
             <div className="mb-4">
@@ -242,7 +242,7 @@ export default function AccountTab({
             </div>
           )}
         </div>
-
+          
         {/* Collaboration Banner */}
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
           <div className="flex items-center gap-3">
@@ -360,28 +360,28 @@ export default function AccountTab({
         {/* Danger Zone Container */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
           <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Danger Zone</h3>
-          <button
-            className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            <Trash2 className="w-3 h-3" />
-            Delete Account
-          </button>
-          <p className="text-xs text-gray-500 mt-1">
-            This action cannot be undone. All your data will be permanently deleted.
-          </p>
-        </div>
+            <button
+              className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+            >
+              <Trash2 className="w-3 h-3" />
+              Delete Account
+            </button>
+            <p className="text-xs text-gray-500 mt-1">
+              This action cannot be undone. All your data will be permanently deleted.
+            </p>
+          </div>
 
         {/* Save Changes Button */}
         <div className="flex justify-end items-center">
-          <button
-            className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
-            onClick={onSave}
-            disabled={saving || !hasUnsavedChanges || !!userNameError || !!partnerNameError}
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
+            <button
+              className="btn-primary px-8 py-2 rounded font-semibold text-base disabled:opacity-60"
+              onClick={onSave}
+              disabled={saving || !hasUnsavedChanges || !!userNameError || !!partnerNameError}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
         </div>
       </div>
       <AvatarUploadModal

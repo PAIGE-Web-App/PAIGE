@@ -633,7 +633,7 @@ export default function VendorDetailPage() {
                         {isOfficialVendor && dataLoaded && (
                           <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
                         )}
-                        <span className="text-xs text-[#364257]">Official Vendor</span>
+                      <span className="text-xs text-[#364257]">Official Vendor</span>
                       </div>
                       {dataLoaded ? (
                         <button
@@ -798,7 +798,7 @@ export default function VendorDetailPage() {
                 category={vendor.category}
                 location={userWeddingLocation || location}
               />
-            </div>
+                </div>
 
             {/* Right Column - Comments */}
             <div className="lg:col-span-1 sticky top-4 h-[calc(100vh-14rem)]">
