@@ -254,34 +254,6 @@ export const getCategoryLabel = (displayCategory: string): string => {
 };
 
 // ============================================================================
-// FAVORITING UTILITIES
-// ============================================================================
-
-/**
- * Generates personalized favoriting text based on community data and current user
- * @param communityData - Community vendor data with favoritedBy array
- * @param currentUserId - Current user's ID
- * @returns Personalized favoriting text
- */
-export const getFavoritingText = (communityData: any, currentUserId?: string): string => {
-  if (!communityData || !communityData.totalFavorites || communityData.totalFavorites === 0) {
-    return '';
-  }
-
-  const favoritedBy = communityData.favoritedBy || [];
-  const isUserFavorited = currentUserId && favoritedBy.includes(currentUserId);
-  const otherUsersCount = favoritedBy.length - (isUserFavorited ? 1 : 0);
-  
-  if (isUserFavorited && otherUsersCount === 0) {
-    return 'Favorited by You';
-  } else if (isUserFavorited && otherUsersCount > 0) {
-    return `Favorited by You + ${otherUsersCount} ${otherUsersCount === 1 ? 'user' : 'users'}`;
-  } else {
-    return `Favorited by ${communityData.totalFavorites} ${communityData.totalFavorites === 1 ? 'user' : 'users'}`;
-  }
-};
-
-// ============================================================================
 // VALIDATION AND MAINTENANCE FUNCTIONS
 // ============================================================================
 
