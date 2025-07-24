@@ -439,20 +439,25 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   };
 
   // Assignment handlers
-  const handleAssignTodo = async (assigneeId: string, assigneeName: string, assigneeType: 'user' | 'contact') => {
+  const handleAssignTodo = async (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
     try {
       // Update the todo item with assignment info
       const todoRef = doc(db, `users/${currentUser?.uid}/todoItems`, todo.id);
       const updateData: any = {
-        assignedTo: assigneeId || null,
+        assignedTo: assigneeIds.length > 0 ? assigneeIds : null,
         assignedBy: currentUser?.uid || null,
-        assignedAt: assigneeId ? new Date() : null,
+        assignedAt: assigneeIds.length > 0 ? new Date() : null,
         notificationRead: false,
       };
       
       await updateDoc(todoRef, updateData);
       
-      toast.success(assigneeId ? `Assigned to ${assigneeName}` : 'Assignment removed');
+      if (assigneeIds.length > 0) {
+        const namesText = assigneeNames.join(', ');
+        toast.success(`Assigned to ${namesText}`);
+      } else {
+        toast.success('Assignment removed');
+      }
       setShowAssignmentModal(false);
     } catch (error) {
       console.error('Error assigning todo:', error);
@@ -466,10 +471,13 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
 
   // Get assignee info for display
   const getAssigneeInfo = () => {
-    if (!todo.assignedTo) return null;
+    if (!todo.assignedTo || todo.assignedTo.length === 0) return null;
+    
+    // For now, show the first assignee (we'll update this to show multiple avatars later)
+    const firstAssigneeId = todo.assignedTo[0];
     
     // Check if it's the current user
-    if (todo.assignedTo === currentUser?.uid) {
+    if (firstAssigneeId === currentUser?.uid) {
       return {
         id: currentUser.uid,
         name: userName || 'You',
@@ -479,7 +487,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     }
     
     // Check if it's partner or planner
-    if (todo.assignedTo === 'partner' && partnerName) {
+    if (firstAssigneeId === 'partner' && partnerName) {
       return {
         id: 'partner',
         name: partnerName,
@@ -487,7 +495,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       };
     }
     
-    if (todo.assignedTo === 'planner' && plannerName) {
+    if (firstAssigneeId === 'planner' && plannerName) {
       return {
         id: 'planner',
         name: plannerName,
@@ -897,11 +905,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           <span className="text-xs text-[#AB9C95]">|</span>
 
           {/* Assignment Section */}
-          <div className="flex items-center gap-1">
-            <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
-              Assigned to:
-            </span>
-            {assigneeInfo ? (
+          {todo.assignedTo && todo.assignedTo.length > 0 ? (
+            <div className="flex items-center gap-1">
+              <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
+                Assigned to:
+              </span>
               <button
                 onClick={() => setShowAssignmentModal(true)}
                 disabled={todo.isCompleted}
@@ -910,28 +918,55 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 }`}
                 title={todo.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
               >
-                <UserAvatar
-                  userId={assigneeInfo.id}
-                  userName={assigneeInfo.name}
-                  profileImageUrl={assigneeInfo.profileImageUrl}
-                  size="sm"
-                  showTooltip={true}
-                />
+                {todo.assignedTo.slice(0, 3).map((assigneeId, index) => {
+                  // Get assignee info for each ID
+                  let assigneeName = '';
+                  let profileImageUrl = undefined;
+                  
+                  if (assigneeId === currentUser?.uid) {
+                    assigneeName = userName || 'You';
+                    profileImageUrl = profileImageUrl;
+                  } else if (assigneeId === 'partner' && partnerName) {
+                    assigneeName = partnerName;
+                  } else if (assigneeId === 'planner' && plannerName) {
+                    assigneeName = plannerName;
+                  }
+                  
+                  return (
+                    <div key={assigneeId} className="relative">
+                      <UserAvatar
+                        userId={assigneeId}
+                        userName={assigneeName}
+                        profileImageUrl={profileImageUrl}
+                        size="sm"
+                        showTooltip={true}
+                      />
+                      {index < 2 && todo.assignedTo && index < todo.assignedTo.length - 1 && (
+                        <div className="absolute -right-1 top-0 w-2 h-2 bg-[#A85C36] rounded-full border border-white"></div>
+                      )}
+                    </div>
+                  );
+                })}
+                {todo.assignedTo && todo.assignedTo.length > 3 && (
+                  <div className="w-6 h-6 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center">
+                    +{todo.assignedTo.length - 3}
+                  </div>
+                )}
               </button>
-            ) : (
-              <button
-                onClick={() => setShowAssignmentModal(true)}
-                disabled={todo.isCompleted}
-                className={`flex items-center gap-1 text-xs text-[#364257] underline hover:text-[#A85C36] transition-colors ${
-                  todo.isCompleted ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                title={todo.isCompleted ? 'Mark as incomplete to assign' : 'Assign to someone'}
-              >
-                <UserPlus size={12} />
-                Assign
-              </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              disabled={todo.isCompleted}
+              className={`flex items-center gap-1 text-xs text-[#364257] underline hover:text-[#A85C36] transition-colors ${
+                todo.isCompleted ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title={todo.isCompleted ? 'Mark as incomplete to assign' : 'Assign to someone'}
+            >
+              <UserPlus size={12} />
+              Assign
+            </button>
+          )}
         </div>
         {/* Completed On field should be after the category/contact info block, as its own line */}
         {todo.isCompleted && todo.completedAt && (

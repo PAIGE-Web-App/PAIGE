@@ -9,7 +9,7 @@ import { Contact } from '@/types/contact';
 interface TodoAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAssign: (assigneeId: string, assigneeName: string, assigneeType: 'user' | 'contact') => void;
+  onAssign: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => void;
   currentAssignee?: {
     id: string;
     name: string;
@@ -37,7 +37,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   const { user } = useAuth();
   const { userName, partnerName, plannerName } = useUserProfileData();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAssignee, setSelectedAssignee] = useState<AssigneeOption | null>(null);
+  const [selectedAssignees, setSelectedAssignees] = useState<AssigneeOption[]>([]);
 
   // Build assignee options - only users, no contacts/vendors
   const assigneeOptions: AssigneeOption[] = [
@@ -71,25 +71,28 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   );
 
   const handleAssign = () => {
-    if (selectedAssignee) {
-      onAssign(selectedAssignee.id, selectedAssignee.name, selectedAssignee.type);
+    if (selectedAssignees.length > 0) {
+      const assigneeIds = selectedAssignees.map(a => a.id);
+      const assigneeNames = selectedAssignees.map(a => a.name);
+      const assigneeTypes = selectedAssignees.map(a => a.type);
+      onAssign(assigneeIds, assigneeNames, assigneeTypes);
       onClose();
     }
   };
 
   const handleUnassign = () => {
-    onAssign('', '', 'user');
+    onAssign([], [], []);
     onClose();
   };
 
   // Reset selection when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setSelectedAssignee(currentAssignee ? {
+      setSelectedAssignees(currentAssignee ? [{
         id: currentAssignee.id,
         name: currentAssignee.name,
         type: currentAssignee.type,
-      } : null);
+      }] : []);
       setSearchQuery('');
     }
   }, [isOpen, currentAssignee]);
@@ -141,43 +144,63 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {filteredAssignees.map((assignee) => (
-                    <button
-                      key={assignee.id}
-                      onClick={() => setSelectedAssignee(assignee)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-[5px] text-left transition-colors ${
-                        selectedAssignee?.id === assignee.id
-                          ? 'bg-[#EBE3DD] border border-[#A85C36]'
-                          : 'hover:bg-[#F3F2F0] border border-transparent'
-                      }`}
-                    >
-                      <UserAvatar
-                        userId={assignee.id}
-                        userName={assignee.name}
-                        profileImageUrl={assignee.profileImageUrl}
-                        avatarColor={assignee.avatarColor}
-                        size="sm"
-                        showTooltip={true}
-                      />
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[#332B42] truncate">
-                            {assignee.name}
-                          </span>
-                          {assignee.type === 'contact' && (
-                            <Users className="w-3 h-3 text-[#AB9C95]" />
+                  {filteredAssignees.map((assignee) => {
+                    const isSelected = selectedAssignees.some(a => a.id === assignee.id);
+                    return (
+                      <button
+                        key={assignee.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedAssignees(prev => prev.filter(a => a.id !== assignee.id));
+                          } else {
+                            setSelectedAssignees(prev => [...prev, assignee]);
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-[5px] text-left transition-colors ${
+                          isSelected
+                            ? 'bg-[#EBE3DD] border border-[#A85C36]'
+                            : 'hover:bg-[#F3F2F0] border border-transparent'
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                          isSelected 
+                            ? 'bg-[#A85C36] border-[#A85C36]' 
+                            : 'border-[#AB9C95]'
+                        }`}>
+                          {isSelected && (
+                            <div className="w-2 h-2 bg-white rounded-sm"></div>
                           )}
                         </div>
-                        {assignee.email && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Mail className="w-3 h-3" />
-                            <span className="truncate">{assignee.email}</span>
+
+                        <UserAvatar
+                          userId={assignee.id}
+                          userName={assignee.name}
+                          profileImageUrl={assignee.profileImageUrl}
+                          avatarColor={assignee.avatarColor}
+                          size="sm"
+                          showTooltip={true}
+                        />
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-[#332B42] truncate">
+                              {assignee.name}
+                            </span>
+                            {assignee.type === 'contact' && (
+                              <Users className="w-3 h-3 text-[#AB9C95]" />
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                          {assignee.email && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <Mail className="w-3 h-3" />
+                              <span className="truncate">{assignee.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -194,7 +217,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
               )}
               <button
                 onClick={handleAssign}
-                disabled={!selectedAssignee}
+                disabled={selectedAssignees.length === 0}
                 className="flex-1 btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {currentAssignee ? 'Reassign' : 'Assign'}

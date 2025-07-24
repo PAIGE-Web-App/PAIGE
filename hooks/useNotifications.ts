@@ -95,7 +95,7 @@ export function useNotifications() {
             // Check for new todos assigned by others (notifications)
             // This would need a 'notificationRead' field to track properly
             // For now, we'll count todos assigned by others as notifications
-            if (data.assignedTo && data.assignedTo !== user.uid && !data.notificationRead) {
+            if (data.assignedTo && Array.isArray(data.assignedTo) && data.assignedTo.includes(user.uid) && !data.notificationRead) {
               newAssignedCount++;
             }
           });

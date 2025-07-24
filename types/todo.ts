@@ -17,7 +17,7 @@ export interface TodoItem {
   completedAt?: Date | null;
   justUpdated?: boolean;
   // New assignment fields
-  assignedTo?: string | null; // userId of the assignee
+  assignedTo?: string[] | null; // array of userIds of assignees
   assignedBy?: string | null; // userId of who assigned it
   assignedAt?: Date | null; // when it was assigned
   notificationRead?: boolean; // for tracking if assignee has seen the notification
