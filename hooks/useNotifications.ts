@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -23,6 +23,75 @@ export function useNotifications() {
     total: 0
   });
   const [loading, setLoading] = useState(true);
+
+  // Function to mark notifications as read
+  const markNotificationAsRead = async (type: keyof NotificationCounts) => {
+    if (!user) return;
+
+    try {
+      switch (type) {
+        case 'todoAssigned':
+          // Mark assigned todos as read
+          const todoItemsRef = collection(db, `users/${user.uid}/todoItems`);
+          const todoQuery = query(
+            todoItemsRef,
+            where('assignedTo', 'array-contains', user.uid),
+            where('assignedBy', '!=', user.uid),
+            where('notificationRead', '==', false)
+          );
+          const todoSnapshot = await getDocs(todoQuery);
+          const batch = writeBatch(db);
+          todoSnapshot.docs.forEach(doc => {
+            batch.update(doc.ref, { notificationRead: true });
+          });
+          await batch.commit();
+          break;
+
+        case 'messages':
+          // Mark messages as read
+          const contactsRef = collection(db, `users/${user.uid}/contacts`);
+          const contactsSnapshot = await getDocs(contactsRef);
+          const messageBatch = writeBatch(db);
+          
+          for (const contactDoc of contactsSnapshot.docs) {
+            const messagesRef = collection(db, `users/${user.uid}/contacts/${contactDoc.id}/messages`);
+            const messageQuery = query(
+              messagesRef,
+              where('isRead', '==', false),
+              where('direction', '==', 'received')
+            );
+            const messageSnapshot = await getDocs(messageQuery);
+            messageSnapshot.docs.forEach(doc => {
+              messageBatch.update(doc.ref, { isRead: true });
+            });
+          }
+          await messageBatch.commit();
+          break;
+
+        case 'vendors':
+          // Mark vendor comments as read
+          const vendorCommentsRef = collection(db, `users/${user.uid}/vendorComments`);
+          const vendorQuery = query(
+            vendorCommentsRef,
+            where('isRead', '==', false)
+          );
+          const vendorSnapshot = await getDocs(vendorQuery);
+          const vendorBatch = writeBatch(db);
+          vendorSnapshot.docs.forEach(doc => {
+            vendorBatch.update(doc.ref, { isRead: true });
+          });
+          await vendorBatch.commit();
+          break;
+
+        case 'budget':
+          // Budget notifications resolve when budget is fixed, so we don't mark as read
+          // They'll disappear when the budget issue is resolved
+          break;
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   useEffect(() => {
     if (!user?.uid) {
@@ -187,6 +256,7 @@ export function useNotifications() {
 
   return {
     notificationCounts,
-    loading
+    loading,
+    markNotificationAsRead
   };
 } 

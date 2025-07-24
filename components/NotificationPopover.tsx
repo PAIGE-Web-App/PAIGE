@@ -7,6 +7,7 @@ interface NotificationPopoverProps {
   notificationCounts: NotificationCounts;
   onClose: () => void;
   onNotificationClick: (type: keyof NotificationCounts) => void;
+  onMarkAsRead?: (type: keyof NotificationCounts) => void;
 }
 
 const notificationIcons = {
@@ -37,7 +38,8 @@ export default function NotificationPopover({
   isOpen,
   notificationCounts,
   onClose,
-  onNotificationClick
+  onNotificationClick,
+  onMarkAsRead
 }: NotificationPopoverProps) {
   if (!isOpen) return null;
 
@@ -93,30 +95,46 @@ export default function NotificationPopover({
               const bgColor = color === 'blue' ? 'bg-blue-500' : 'bg-red-500';
               
               return (
-                <button
+                <div
                   key={key}
-                  onClick={() => onNotificationClick(key as keyof NotificationCounts)}
-                  className="w-full px-3 py-3 hover:bg-[#F8F6F4] cursor-pointer text-left transition-colors"
+                  className="w-full px-3 py-3 hover:bg-[#F8F6F4] transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#EBE3DD] flex items-center justify-center">
-                        <Icon className="w-4 h-4 text-[#A85C36]" />
+                    <button
+                      onClick={() => onNotificationClick(key as keyof NotificationCounts)}
+                      className="flex-1 flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#EBE3DD] flex items-center justify-center">
+                          <Icon className="w-4 h-4 text-[#A85C36]" />
+                        </div>
+                        <div className="text-left">
+                          <span className="text-sm font-medium text-[#332B42] block">
+                            {label}
+                          </span>
+                          <span className="text-xs text-[#AB9C95]">
+                            {count} {count === 1 ? 'item' : 'items'} requiring attention
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <span className="text-sm font-medium text-[#332B42] block">
-                          {label}
-                        </span>
-                        <span className="text-xs text-[#AB9C95]">
-                          {count} {count === 1 ? 'item' : 'items'} requiring attention
-                        </span>
-                      </div>
-                    </div>
-                    <span className={`text-xs ${bgColor} text-white px-2 py-1 rounded-full font-medium`}>
-                      {count > 9 ? '9+' : count}
-                    </span>
+                      <span className={`text-xs ${bgColor} text-white px-2 py-1 rounded-full font-medium`}>
+                        {count > 9 ? '9+' : count}
+                      </span>
+                    </button>
+                    {onMarkAsRead && key !== 'todo' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead(key as keyof NotificationCounts);
+                        }}
+                        className="ml-2 text-xs text-[#AB9C95] hover:text-[#A85C36] transition-colors"
+                        title="Mark as read"
+                      >
+                        Dismiss
+                      </button>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

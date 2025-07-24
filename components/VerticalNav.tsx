@@ -36,7 +36,7 @@ export default function VerticalNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, profileImageUrl, profileImageLQIP } = useAuth();
-  const { notificationCounts } = useNotifications();
+  const { notificationCounts, markNotificationAsRead } = useNotifications();
 
   const navItems: NavItem[] = [
     { name: "Dashboard", href: "/", icon: Home, notificationKey: "messages" },
@@ -183,6 +183,7 @@ export default function VerticalNav() {
                   break;
               }
             }}
+            onMarkAsRead={markNotificationAsRead}
           />
 
           {/* Hover Tooltip for Notifications */}
