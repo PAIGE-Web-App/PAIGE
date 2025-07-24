@@ -460,6 +460,10 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     }
   };
 
+  // Get user profile data for assignment
+  const { userName, partnerName, plannerName } = useUserProfileData();
+  const { profileImageUrl } = useAuth();
+
   // Get assignee info for display
   const getAssigneeInfo = () => {
     if (!todo.assignedTo) return null;
@@ -493,10 +497,6 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     
     return null;
   };
-
-  // Get user profile data for assignment
-  const { userName, partnerName, plannerName } = useUserProfileData();
-  const { profileImageUrl } = useAuth();
 
   const assigneeInfo = getAssigneeInfo();
 
