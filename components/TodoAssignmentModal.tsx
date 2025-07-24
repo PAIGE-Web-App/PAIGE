@@ -10,11 +10,11 @@ interface TodoAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAssign: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => void;
-  currentAssignee?: {
+  currentAssignees?: {
     id: string;
     name: string;
     type: 'user' | 'contact';
-  } | null;
+  }[];
   contacts?: Contact[];
 }
 
@@ -31,7 +31,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   isOpen,
   onClose,
   onAssign,
-  currentAssignee,
+  currentAssignees = [],
   contacts = [],
 }) => {
   const { user } = useAuth();
@@ -88,14 +88,14 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   // Reset selection when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setSelectedAssignees(currentAssignee ? [{
-        id: currentAssignee.id,
-        name: currentAssignee.name,
-        type: currentAssignee.type,
-      }] : []);
+      setSelectedAssignees(currentAssignees.map(assignee => ({
+        id: assignee.id,
+        name: assignee.name,
+        type: assignee.type,
+      })));
       setSearchQuery('');
     }
-  }, [isOpen, currentAssignee]);
+  }, [isOpen, currentAssignees]);
 
   return (
     <AnimatePresence>
@@ -207,7 +207,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
 
             {/* Action Buttons */}
             <div className="flex gap-3">
-              {currentAssignee && (
+              {currentAssignees.length > 0 && (
                 <button
                   onClick={handleUnassign}
                   className="flex-1 btn-primaryinverse text-sm"
@@ -220,7 +220,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
                 disabled={selectedAssignees.length === 0}
                 className="flex-1 btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {currentAssignee ? 'Reassign' : 'Assign'}
+                {currentAssignees.length > 0 ? 'Reassign' : 'Assign'}
               </button>
             </div>
           </motion.div>
