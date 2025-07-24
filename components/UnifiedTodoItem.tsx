@@ -493,10 +493,10 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     return null;
   };
 
-  const assigneeInfo = getAssigneeInfo();
-
   // Get user profile data for assignment
   const { userName, partnerName, plannerName } = useUserProfileData();
+
+  const assigneeInfo = getAssigneeInfo();
 
   return (
     <>
