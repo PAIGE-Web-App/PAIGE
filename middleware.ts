@@ -110,24 +110,19 @@ export function middleware(request: NextRequest) {
   // Get the Firebase auth token from the cookies
   const token = request.cookies.get('__session')?.value || '';
 
-  console.log('Middleware:', { path, isPublicPath, hasToken: !!token });
-
   // If user is on a public path (login/signup), always allow access
   if (isPublicPath) {
-    console.log('Middleware: Allowing access to public path');
     return NextResponse.next();
   }
 
   // If user is not on a public path and has no token, redirect to login
   if (!token) {
-    console.log('Middleware: No token, redirecting to login');
     const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.set('show-toast', 'Please login to access this page');
     return response;
   }
 
   // User has token and is accessing protected route - allow access
-  console.log('Middleware: Token present, allowing access to protected route');
   return NextResponse.next();
 }
 
