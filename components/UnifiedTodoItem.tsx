@@ -13,6 +13,7 @@ import { highlightText } from '@/utils/searchHighlight';
 import UserAvatar from './UserAvatar';
 import TodoAssignmentModal from './TodoAssignmentModal';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -469,7 +470,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         id: currentUser.uid,
         name: userName || 'You',
         type: 'user' as const,
-        profileImageUrl: currentUser.photoURL || undefined,
+        profileImageUrl: profileImageUrl || undefined,
       };
     }
     
@@ -495,6 +496,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
 
   // Get user profile data for assignment
   const { userName, partnerName, plannerName } = useUserProfileData();
+  const { profileImageUrl } = useAuth();
 
   const assigneeInfo = getAssigneeInfo();
 
