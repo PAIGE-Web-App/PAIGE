@@ -17,6 +17,7 @@ import Stepper from './Stepper';
 import OnboardingModalBase from "./OnboardingModalBase";
 import VendorSearchField from "./VendorSearchField";
 import { useUserProfileData } from "../hooks/useUserProfileData";
+import { getRelevantCategories } from "../utils/vendorSearchUtils";
 
 interface OnboardingContact {
   id: string;
@@ -134,45 +135,8 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
   const vendorSearchLocation = weddingLocation || geoLocation || 'United States';
 
-  // Get relevant categories for vendor search
-  const getRelevantCategories = (contactCategory: string): string[] => {
-    // If no category is selected, search across all wedding vendor categories
-    if (!contactCategory || contactCategory === '') {
-      return ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
-    }
-
-    // If category is selected, map to specific Google Places types
-    const categoryToGoogleTypes: Record<string, string[]> = {
-      'Jewelry': ['jewelry_store'],
-      'Florist': ['florist'],
-      'Bakery': ['bakery'],
-      'Reception Venue': ['restaurant'],
-      'Hair & Beauty': ['hair_care', 'beauty_salon'],
-      'Photographer': ['photographer'],
-      'Videographer': ['videographer'],
-      'Bridal Salon': ['clothing_store'],
-      'Beauty Salon': ['beauty_salon'],
-      'Spa': ['spa'],
-      'DJ': ['dj'],
-      'Band': ['band'],
-      'Wedding Planner': ['wedding_planner'],
-      'Catering': ['caterer'],
-      'Car Rental': ['car_rental'],
-      'Travel Agency': ['travel_agency'],
-      'Officiant': ['officiant'],
-      'Suit/Tux Rental': ['suit_rental'],
-      'Makeup Artist': ['makeup_artist'],
-      'Stationery': ['stationery'],
-      'Rentals': ['rentals'],
-      'Favors': ['favors']
-    };
-
-    // Get the relevant Google Places types for this category
-    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
-    
-    // If we have specific types, use them; otherwise fall back to all categories
-    return relevantTypes.length > 0 ? relevantTypes : ['jewelry_store', 'florist', 'bakery', 'restaurant', 'hair_care', 'photographer', 'videographer', 'clothing_store', 'beauty_salon', 'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 'stationery', 'rentals', 'favors'];
-  };
+  // Use centralized vendor search utility
+  // getRelevantCategories is now imported from utils/vendorSearchUtils
 
   // Handle vendor selection for a specific contact
   const handleVendorSelect = async (contactId: string, vendor: any) => {

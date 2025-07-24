@@ -252,7 +252,8 @@ export default function Home() {
       if (!response.ok) {
         const data = await response.json();
         if (data.message?.includes('Google authentication required') || 
-            data.message?.includes('Failed to refresh Google authentication')) {
+            data.message?.includes('Failed to refresh Google authentication') ||
+            data.message?.includes('Google authentication expired')) {
           setShowGmailReauthBanner(true);
         }
       }
@@ -694,10 +695,10 @@ export default function Home() {
     }
   }, []);
 
-  // Add effect to handle Gmail import on page load
+  // Handle Gmail re-authentication success - just clear URL parameters
   useEffect(() => {
     if (!user) {
-      console.log('No current user, skipping Gmail import check');
+      console.log('No current user, skipping Gmail auth check');
       return;
     }
 
@@ -714,32 +715,18 @@ export default function Home() {
     });
 
     if (gmailAuth === 'success' && userId === user.uid) {
-      console.log('Gmail auth success detected, triggering import');
-      const triggerImport = async () => {
-        try {
-          const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-          const contactsQuery = query(contactsCollectionRef);
-          const contactsSnapshot = await getDocs(contactsQuery);
-          const contacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
-          
-          console.log('Triggering Gmail import with contacts:', contacts);
-          await triggerGmailImport(user.uid, contacts);
-          console.log('Gmail import completed successfully');
-
-          // Clear URL parameters
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-          console.log('Cleared URL parameters');
-
-          // Show success toast
-          toast.success('Gmail messages imported successfully!');
-        } catch (error) {
-          console.error('Error during Gmail import:', error);
-          toast.error('Failed to import Gmail messages. Please try again.');
-        }
-      };
-
-      triggerImport();
+      console.log('Gmail re-authentication success detected, clearing URL parameters');
+      
+      // Clear URL parameters without triggering import
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      console.log('Cleared URL parameters after Gmail re-auth');
+      
+      // Hide the reauth banner since authentication is now valid
+      setShowGmailReauthBanner(false);
+      
+      // Show success toast
+      toast.success('Gmail re-authentication successful!');
     } else {
       console.log('No Gmail auth success or user ID mismatch', {
         gmailAuth,
@@ -930,20 +917,20 @@ export default function Home() {
             onSetWeddingDate={handleSetWeddingDate}
           />
 
-          {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
-          {showGmailReauthBanner && (
-            <div className="app-content-container">
-              <GmailReauthBanner
-                currentUser={user}
-                onReauth={() => {
-                  setShowGmailReauthBanner(false);
-                }}
-              />
-            </div>
-          )}
+          <div className="app-content-container flex-1 overflow-hidden flex flex-col">
+            {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
+            {showGmailReauthBanner && (
+              <div className="flex-shrink-0">
+                <GmailReauthBanner
+                  currentUser={user}
+                  onReauth={() => {
+                    setShowGmailReauthBanner(false);
+                  }}
+                />
+              </div>
+            )}
 
-          <div className="app-content-container flex-1 overflow-hidden">
-            <div className="flex h-full gap-4 md:flex-row flex-col">
+            <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
 
           <main className="unified-container">
             <ContactsList

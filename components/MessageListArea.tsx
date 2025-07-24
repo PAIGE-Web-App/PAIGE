@@ -60,17 +60,56 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
 
   // Helper function to strip quoted text and signatures
   const stripQuotedText = (text: string): string => {
-    // Remove everything after "On ... wrote:" or "From: ..."
-    const onWroteMatch = text.match(/On.*wrote:/i);
-    const fromMatch = text.match(/From:.*/i);
+    // Split text into lines
+    const lines = text.split('\n');
+    const cleanLines: string[] = [];
+    let inQuotedSection = false;
+    let consecutiveQuotedLines = 0;
     
-    if (onWroteMatch) {
-      return text.substring(0, onWroteMatch.index).trim();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check for quoted line patterns (lines starting with >)
+      const isQuotedLine = line.startsWith('>') || /^\s*>\s/.test(line);
+      
+      // Check for email reply headers
+      const isReplyHeader = /On.*wrote:/i.test(line) || 
+                           /From:.*/i.test(line) ||
+                           /Sent:.*/i.test(line) ||
+                           /To:.*/i.test(line) ||
+                           /Subject:.*/i.test(line) ||
+                           /Date:.*/i.test(line);
+      
+      // If we hit a reply header, stop processing
+      if (isReplyHeader) {
+        break;
+      }
+      
+      // If we find a quoted line, start tracking quoted section
+      if (isQuotedLine) {
+        if (!inQuotedSection) {
+          inQuotedSection = true;
+          consecutiveQuotedLines = 0;
+        }
+        consecutiveQuotedLines++;
+        
+        // If we have more than 2 consecutive quoted lines, we're in a quoted section
+        if (consecutiveQuotedLines > 2) {
+          continue; // Skip this line
+        }
+      } else {
+        // Reset quoted section tracking
+        inQuotedSection = false;
+        consecutiveQuotedLines = 0;
+      }
+      
+      // Only add non-quoted lines or the first few quoted lines (which might be context)
+      if (!inQuotedSection || consecutiveQuotedLines <= 2) {
+        cleanLines.push(line);
+      }
     }
-    if (fromMatch) {
-      return text.substring(0, fromMatch.index).trim();
-    }
-    return text;
+    
+    return cleanLines.join('\n').trim();
   };
 
   // Helper function to clean up excessive whitespace in HTML

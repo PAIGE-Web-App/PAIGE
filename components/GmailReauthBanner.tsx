@@ -21,7 +21,7 @@ export default function GmailReauthBanner({ onReauth, currentUser }: GmailReauth
     <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4"
+      className="bg-yellow-50 border border-yellow-300 border-l-4 border-l-yellow-400 p-3 mb-2 rounded-md shadow-sm"
     >
       <div className="flex items-center">
         <div className="flex-shrink-0">
@@ -43,7 +43,7 @@ export default function GmailReauthBanner({ onReauth, currentUser }: GmailReauth
               onClick={handleReauth}
               className="ml-4 bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center gap-2 whitespace-nowrap"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3 h-3" />
               Re-authenticate
             </button>
           </div>

@@ -800,15 +800,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         
         let showImport = false;
         let showBanner = false;
-        let imported = false;
-        let dismissed = false;
+        let imported = hasBeenImported; // Set imported to true if contact was previously imported
+        let dismissed = hasDismissedBanner;
         if (data.hasHistory) {
           showImport = true;
           if (!hasBeenImported && !hasDismissedBanner) {
             showBanner = true;
-          } else {
-            imported = hasBeenImported;
-            dismissed = hasDismissedBanner;
           }
         }
         if (isMounted) {
@@ -1151,7 +1148,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               
               {/* Actions on the right */}
               <div className="flex items-center gap-2 flex-nowrap">
-                {showGmailImport && (bannerDismissed || importedOnce) && selectedContact?.email && (
+                {(showGmailImport || importedOnce) && selectedContact?.email && (
                   <DropdownMenu
                     trigger={
                       <button

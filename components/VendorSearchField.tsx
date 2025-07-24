@@ -34,40 +34,36 @@ export default function VendorSearchField({
 
   // Debounced search function
   const debouncedSearch = useRef(
-    debounce(async (term: string) => {
-      console.log('VendorSearchField: Debounced search triggered with term:', term);
+    debounce(async (term: string, currentCategories: string[], currentLocation: string) => {
       if (!term.trim() || term.length < 2) {
-        console.log('VendorSearchField: Search term too short, clearing results');
         setResults([]);
         setLoading(false);
         return;
       }
 
-      console.log('VendorSearchField: Making API call with categories:', categories, 'location:', location);
       setLoading(true);
       try {
+        const requestBody = {
+          category: currentCategories[0] || 'restaurant',
+          location: currentLocation,
+          searchTerm: term,
+          maxResults: 5
+        };
+        
         const response = await fetch('/api/google-places', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            categories: categories, // Pass all categories
-            location,
-            searchTerm: term,
-            maxResults: 5
-          })
+          body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
-        console.log('VendorSearchField: Search API response:', data);
         if (data.results) {
-          console.log('VendorSearchField: Setting results:', data.results.length, 'vendors');
           setResults(data.results);
         } else {
-          console.log('VendorSearchField: No results in response');
           setResults([]);
         }
       } catch (error) {
-        console.error('VendorSearchField: Error searching vendors:', error);
+        console.error('Error searching vendors:', error);
         setResults([]);
       } finally {
         setLoading(false);
@@ -75,33 +71,27 @@ export default function VendorSearchField({
     }, 300)
   ).current;
 
+  // Single useEffect to handle all search triggers
   useEffect(() => {
-    if (searchTerm) {
-      debouncedSearch(searchTerm);
+    if (searchTerm && searchTerm.length >= 2) {
+      debouncedSearch(searchTerm, categories, location);
     } else {
       setResults([]);
     }
-  }, [searchTerm, debouncedSearch]);
-
-  // Re-run search if location or categories change and there is a search term
-  useEffect(() => {
-    if (searchTerm) {
-      debouncedSearch(searchTerm);
-    }
-  }, [location, categories]); // Remove JSON.stringify to properly detect changes
+  }, [searchTerm, categories, location]);
 
   useEffect(() => {
-    console.log('VendorSearchField: value prop received:', value);
-    console.log('VendorSearchField: current searchTerm:', searchTerm);
-    console.log('VendorSearchField: current vendorSelected:', vendorSelected);
-    
     // Set initial search term if value is provided
     if (value?.name && !searchTerm) {
-      console.log('VendorSearchField: Setting search term and marking as selected');
       setSearchTerm(value.name);
-      setVendorSelected(true); // Mark as selected when pre-populated
+      setVendorSelected(true);
     }
-  }, [value, searchTerm]);
+    
+    // Reset vendorSelected if value is cleared
+    if (!value && vendorSelected) {
+      setVendorSelected(false);
+    }
+  }, [value, searchTerm, vendorSelected]);
 
   // Position dropdown using portal
   useEffect(() => {
@@ -117,9 +107,28 @@ export default function VendorSearchField({
     }
   }, [showResults, inputRef.current]);
 
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showResults && inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        // Check if click is on dropdown results
+        const resultsElement = resultsRef.current;
+        if (resultsElement && !resultsElement.contains(event.target as Node)) {
+          setShowResults(false);
+        }
+      }
+    };
+
+    if (showResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showResults]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
-    console.log('VendorSearchField: Input changed to:', term);
     setSearchTerm(term);
     setShowResults(true);
     setSelectedIndex(-1);
@@ -256,7 +265,6 @@ export default function VendorSearchField({
 
   return (
     <div className="relative">
-      {console.log('VendorSearchField: Rendering search field with searchTerm:', searchTerm, 'showResults:', showResults, 'results.length:', results.length)}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
@@ -268,8 +276,7 @@ export default function VendorSearchField({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={() => {
-            console.log('VendorSearchField: Input focused, vendorSelected:', vendorSelected);
-            if (!vendorSelected) {
+            if (searchTerm && searchTerm.length >= 2) {
               setShowResults(true);
             }
           }}
@@ -343,10 +350,7 @@ export default function VendorSearchField({
       )}
 
       {/* Selected Vendor Display */}
-      {(() => {
-        console.log('VendorSearchField: Checking selected vendor display:', { value: !!value, vendorSelected, shouldShow: value && vendorSelected });
-        return value && vendorSelected;
-      })() && (
+      {value && vendorSelected && (
         <div className="mt-4 p-4 bg-white rounded-lg border border-[#AB9C95] overflow-hidden">
           <div className="flex justify-between items-center mb-2">
             <h4 className="text-sm font-playfair text-[#332B42]">{value.name}</h4>

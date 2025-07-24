@@ -10,10 +10,11 @@ import { getCategoryStyle } from "../utils/categoryStyle";
 import { getAuth } from "firebase/auth";
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
-import { useCustomToast } from "../hooks/useCustomToast"; // Import useCustomToast
+import { useCustomToast } from "../hooks/useCustomToast";
 import VendorSearchField from "./VendorSearchField";
 import ContactModalBase from "./ContactModalBase";
 import { useUserProfileData } from "../hooks/useUserProfileData";
+import { getRelevantCategories } from "../utils/vendorSearchUtils";
 
 // Moved outside the component
 const adaColors = [
@@ -77,45 +78,8 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { showSuccessToast, showErrorToast } = useCustomToast(); // Initialize useCustomToast
   
-  // Get relevant categories based on contact category
-  const getRelevantCategories = (contactCategory: string): string[] => {
-    // If no category is selected, search across all wedding vendor categories
-    if (!contactCategory || contactCategory === '') {
-      return VENDOR_CATEGORIES;
-    }
-
-    // If category is selected, map to specific Google Places types
-    const categoryToGoogleTypes: Record<string, string[]> = {
-      'Jewelry': ['jewelry_store'],
-      'Florist': ['florist'],
-      'Bakery': ['bakery'],
-      'Reception Venue': ['restaurant'],
-      'Hair & Beauty': ['hair_care', 'beauty_salon'],
-      'Photographer': ['photographer'],
-      'Videographer': ['videographer'],
-      'Bridal Salon': ['clothing_store'],
-      'Beauty Salon': ['beauty_salon'],
-      'Spa': ['spa'],
-      'DJ': ['dj'],
-      'Band': ['band'],
-      'Wedding Planner': ['wedding_planner'],
-      'Catering': ['caterer'],
-      'Car Rental': ['car_rental'],
-      'Travel Agency': ['travel_agency'],
-      'Officiant': ['officiant'],
-      'Suit/Tux Rental': ['suit_rental'],
-      'Makeup Artist': ['makeup_artist'],
-      'Stationery': ['stationery'],
-      'Rentals': ['rentals'],
-      'Favors': ['favors']
-    };
-
-    // Get the relevant Google Places types for this category
-    const relevantTypes = categoryToGoogleTypes[contactCategory] || [];
-    
-    // If we have specific types, use them; otherwise fall back to all categories
-    return relevantTypes.length > 0 ? relevantTypes : VENDOR_CATEGORIES;
-  };
+  // Use centralized vendor search utility
+  // getRelevantCategories is now imported from utils/vendorSearchUtils
   
   // Vendor association state
   const [selectedVendor, setSelectedVendor] = useState<any>(null);

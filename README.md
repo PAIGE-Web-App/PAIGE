@@ -34,6 +34,32 @@ To automatically validate category mappings before commits:
 npm run pre-commit-validation
 ```
 
+## Vendor Search Category Mapping System
+
+The vendor search category mapping system ensures consistent and accurate vendor search functionality when adding contacts. This system is **critical for ensuring users can find relevant vendors**.
+
+### Quick Validation
+
+To validate vendor search mappings are consistent:
+
+```bash
+npm run validate-vendor-search
+```
+
+### Documentation
+
+For detailed information about the vendor search system, see:
+- [Vendor Search System Guide](./VENDOR_SEARCH_SYSTEM_GUIDE.md)
+- [Validation Scripts](./scripts/validate-vendor-search.js)
+
+### Pre-commit Validation
+
+To automatically validate vendor search mappings before commits:
+
+```bash
+npm run pre-commit-vendor-search
+```
+
 ## Development
 
 ```bash

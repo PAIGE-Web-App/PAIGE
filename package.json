@@ -7,7 +7,9 @@
     "start": "next start",
     "optimize-images": "node scripts/optimize-images.js",
     "validate-categories": "node scripts/validate-categories.js",
-    "pre-commit-validation": "node scripts/pre-commit-validation.js"
+    "pre-commit-validation": "node scripts/pre-commit-validation.js",
+    "validate-vendor-search": "node scripts/validate-vendor-search.js",
+    "pre-commit-vendor-search": "node scripts/pre-commit-vendor-search.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

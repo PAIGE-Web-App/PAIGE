@@ -87,13 +87,11 @@ export async function POST(req: NextRequest) {
     } else if (specialSearchCategories[category] || specialSearchCategories[category + 's']) {
       // Run multiple targeted queries for special categories
       const queries = specialSearchCategories[category] || specialSearchCategories[category + 's'];
-      console.log('Using special search categories for:', category, 'queries:', queries);
       let allResults: any[] = [];
       
       if (searchTerm) {
         // If there's a search term, search for it specifically within the category
         const searchQuery = `${searchTerm} ${queries[0]} ${location}`;
-        console.log('Search query with term:', searchQuery);
         let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}`;
         if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
         if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
@@ -101,7 +99,6 @@ export async function POST(req: NextRequest) {
         if (opennow) baseUrl += `&opennow=true`;
         baseUrl += `&key=${apiKey}`;
         
-        console.log('Search API URL:', baseUrl);
         const response = await fetch(baseUrl);
         if (response.ok) {
           const data = await response.json();
@@ -137,9 +134,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ results: deduped });
     } else {
       // For standard categories with direct Google Places API types
-      console.log('Using standard search for category:', category);
       let query = searchTerm ? `${searchTerm} ${location}` : location;
-      console.log('Google Places API query:', query, 'category:', category);
       
       let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=${encodeURIComponent(category)}`;
       if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
@@ -147,8 +142,6 @@ export async function POST(req: NextRequest) {
       if (radius !== undefined) baseUrl += `&radius=${radius}`;
       if (opennow) baseUrl += `&opennow=true`;
       baseUrl += `&key=${apiKey}`;
-      
-      console.log('Google Places API URL:', baseUrl);
       const response = await fetch(baseUrl);
       if (!response.ok) {
         return NextResponse.json({ error: 'Failed to fetch from Google Places' }, { status: 500 });
