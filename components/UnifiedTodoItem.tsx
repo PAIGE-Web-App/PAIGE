@@ -813,76 +813,78 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 mt-2">
-          {/* Conditional rendering for Category */}
-          {isEditingCategory ? (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <div className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 bg-gray-100 opacity-70 cursor-not-allowed select-none">
-                  {editingCategoryDropdownValue || 'Select Category'}
-                </div>
-                {editingCategoryDropdownValue === "Other" && (
-                  <input
-                    type="text"
-                    value={editingCustomCategoryValue}
-                    onChange={handleCustomCategoryInputChange}
-                    placeholder="Enter custom category"
-                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
-                    disabled
+        <div className="flex items-center gap-2 mt-2">
+          {/* Category Section */}
+          <div className="flex items-center gap-1">
+            {isEditingCategory ? (
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <div className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 bg-gray-100 opacity-70 cursor-not-allowed select-none">
+                    {editingCategoryDropdownValue || 'Select Category'}
+                  </div>
+                  {editingCategoryDropdownValue === "Other" && (
+                    <input
+                      type="text"
+                      value={editingCustomCategoryValue}
+                      onChange={handleCustomCategoryInputChange}
+                      placeholder="Enter custom category"
+                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+                      disabled
+                    />
+                  )}
+                  <div className="flex gap-2 mt-1">
+                    <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
+                    <button className="btn-primaryinverse text-xs px-2 py-1" disabled> Cancel </button>
+                  </div>
+                </span>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <CategorySelectField
+                    userId={currentUser?.uid || ''}
+                    value={editingCategoryDropdownValue}
+                    customCategoryValue={editingCustomCategoryValue}
+                    onChange={handleCategoryDropdownChange}
+                    onCustomCategoryChange={handleCustomCategoryInputChange}
+                    label=""
+                    placeholder="Select Category"
                   />
-                )}
-                <div className="flex gap-2 mt-1">
-                  <button className="btn-primary text-xs px-2 py-1" disabled> Update </button>
-                  <button className="btn-primaryinverse text-xs px-2 py-1" disabled> Cancel </button>
+                  {editingCategoryDropdownValue === "Other" && (
+                    <input
+                      type="text"
+                      value={editingCustomCategoryValue}
+                      onChange={handleCustomCategoryInputChange}
+                      placeholder="Enter custom category"
+                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
+                    />
+                  )}
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
+                    <button onClick={handleCategoryBlur} className="btn-primaryinverse text-xs px-2 py-1"> Cancel </button>
+                  </div>
                 </div>
-              </span>
-            ) : (
-              <div className="flex flex-col gap-1">
-                <CategorySelectField
-                  userId={currentUser?.uid || ''}
-                  value={editingCategoryDropdownValue}
-                  customCategoryValue={editingCustomCategoryValue}
-                  onChange={handleCategoryDropdownChange}
-                  onCustomCategoryChange={handleCustomCategoryInputChange}
-                  label=""
-                  placeholder="Select Category"
-                />
-                {editingCategoryDropdownValue === "Other" && (
-                  <input
-                    type="text"
-                    value={editingCustomCategoryValue}
-                    onChange={handleCustomCategoryInputChange}
-                    placeholder="Enter custom category"
-                    className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block mt-1"
-                  />
-                )}
-                <div className="flex gap-2 mt-1">
-                  <button onClick={handleUpdateCategoryClick} className="btn-primary text-xs px-2 py-1"> Update </button>
-                  <button onClick={handleCategoryBlur} className="btn-primaryinverse text-xs px-2 py-1"> Cancel </button>
-                </div>
-              </div>
-            )
-          ) : todo.category ? (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <button className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none opacity-70 cursor-not-allowed`} disabled>
+              )
+            ) : todo.category ? (
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <button className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none opacity-70 cursor-not-allowed`} disabled>
+                    <CategoryPill category={todo.category} />
+                  </button>
+                </span>
+              ) : (
+                <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none`}>
                   <CategoryPill category={todo.category} />
                 </button>
-              </span>
+              )
             ) : (
-              <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none`}>
-                <CategoryPill category={todo.category} />
-              </button>
-            )
-          ) : (
-            todo.isCompleted ? (
-              <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-                <button className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none text-gray-500`} disabled> Add Category </button>
-              </span>
-            ) : (
-              <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none`}> Add Category </button>
-            )
-          )}
+              todo.isCompleted ? (
+                <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
+                  <button className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none text-gray-500`} disabled> Add Category </button>
+                </span>
+              ) : (
+                <button onClick={handleEditCategoryClick} className={`text-xs font-normal text-[#364257] underline text-left p-0 bg-transparent border-none`}> Add Category </button>
+              )
+            )}
+          </div>
 
           {/* Contact information */}
           {todo.contactId && (
@@ -891,10 +893,23 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
             </span>
           )}
 
-          {/* Assignment information */}
+          {/* Separator */}
+          <span className="text-xs text-[#AB9C95]">|</span>
+
+          {/* Assignment Section */}
           <div className="flex items-center gap-1">
+            <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
+              Assigned to:
+            </span>
             {assigneeInfo ? (
-              <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowAssignmentModal(true)}
+                disabled={todo.isCompleted}
+                className={`flex items-center gap-1 hover:opacity-80 transition-opacity ${
+                  todo.isCompleted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                }`}
+                title={todo.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
+              >
                 <UserAvatar
                   userId={assigneeInfo.id}
                   userName={assigneeInfo.name}
@@ -902,10 +917,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                   size="sm"
                   showTooltip={true}
                 />
-                <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
-                  {assigneeInfo.name}
-                </span>
-              </div>
+              </button>
             ) : (
               <button
                 onClick={() => setShowAssignmentModal(true)}
