@@ -38,6 +38,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Banner from "../components/Banner";
 import WeddingBanner from "../components/WeddingBanner";
 import { useWeddingBanner } from "../hooks/useWeddingBanner";
+import GmailReauthBanner from "../components/GmailReauthBanner";
 import type { TodoItem } from '../types/todo';
 import { toast } from "react-hot-toast";
 import { Contact } from "../types/contact";
@@ -237,6 +238,29 @@ export default function Home() {
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
+  // Check Gmail authentication status globally
+  const checkGmailAuthStatus = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const response = await fetch('/api/check-gmail-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, contactEmail: 'test@example.com' }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        if (data.message?.includes('Google authentication required') || 
+            data.message?.includes('Failed to refresh Google authentication')) {
+          setShowGmailReauthBanner(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking Gmail auth status:', error);
+    }
+  };
+
   const fuse = contacts.length
     ? new Fuse(contacts, {
         keys: ["name"],
@@ -259,6 +283,9 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null);
 
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Gmail authentication state
+  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
 
   // Effect to handle progressive loading
   useEffect(() => {
@@ -298,6 +325,20 @@ export default function Home() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Check Gmail authentication status when user is available
+  useEffect(() => {
+    if (user?.uid && !authLoading) {
+      checkGmailAuthStatus();
+      
+      // Set up periodic check every 5 minutes
+      const interval = setInterval(() => {
+        checkGmailAuthStatus();
+      }, 5 * 60 * 1000); // 5 minutes
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.uid, authLoading]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -888,6 +929,18 @@ export default function Home() {
             isLoading={bannerLoading}
             onSetWeddingDate={handleSetWeddingDate}
           />
+
+          {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
+          {showGmailReauthBanner && (
+            <div className="app-content-container">
+              <GmailReauthBanner
+                currentUser={user}
+                onReauth={() => {
+                  setShowGmailReauthBanner(false);
+                }}
+              />
+            </div>
+          )}
 
           <div className="app-content-container flex-1 overflow-hidden">
             <div className="flex h-full gap-4 md:flex-row flex-col">
