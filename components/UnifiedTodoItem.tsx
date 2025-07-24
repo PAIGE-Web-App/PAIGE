@@ -13,6 +13,8 @@ import { highlightText } from '@/utils/searchHighlight';
 import UserAvatar from './UserAvatar';
 import TodoAssignmentModal from './TodoAssignmentModal';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface UnifiedTodoItemProps {
   todo: TodoItem;
@@ -438,9 +440,18 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   // Assignment handlers
   const handleAssignTodo = async (assigneeId: string, assigneeName: string, assigneeType: 'user' | 'contact') => {
     try {
-      // This would need to be implemented in the parent component
-      // For now, we'll just show a toast
-      toast.success(`Assigned to ${assigneeName}`);
+      // Update the todo item with assignment info
+      const todoRef = doc(db, `users/${currentUser?.uid}/todoItems`, todo.id);
+      const updateData: any = {
+        assignedTo: assigneeId || null,
+        assignedBy: currentUser?.uid || null,
+        assignedAt: assigneeId ? new Date() : null,
+        notificationRead: false,
+      };
+      
+      await updateDoc(todoRef, updateData);
+      
+      toast.success(assigneeId ? `Assigned to ${assigneeName}` : 'Assignment removed');
       setShowAssignmentModal(false);
     } catch (error) {
       console.error('Error assigning todo:', error);
@@ -452,17 +463,6 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   const getAssigneeInfo = () => {
     if (!todo.assignedTo) return null;
     
-    // Check if it's a contact
-    const contact = contacts.find(c => c.id === todo.assignedTo);
-    if (contact) {
-      return {
-        id: contact.id,
-        name: contact.name,
-        type: 'contact' as const,
-        avatarColor: contact.avatarColor,
-      };
-    }
-    
     // Check if it's the current user
     if (todo.assignedTo === currentUser?.uid) {
       return {
@@ -473,7 +473,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       };
     }
     
-    // Check if it's partner or planner (these would need to be stored differently)
+    // Check if it's partner or planner
     if (todo.assignedTo === 'partner' && partnerName) {
       return {
         id: 'partner',
@@ -897,7 +897,6 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                   userId={assigneeInfo.id}
                   userName={assigneeInfo.name}
                   profileImageUrl={assigneeInfo.profileImageUrl}
-                  avatarColor={assigneeInfo.avatarColor}
                   size="sm"
                   showTooltip={true}
                 />

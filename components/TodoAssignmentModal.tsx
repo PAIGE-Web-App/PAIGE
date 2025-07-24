@@ -39,7 +39,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssignee, setSelectedAssignee] = useState<AssigneeOption | null>(null);
 
-  // Build assignee options
+  // Build assignee options - only users, no contacts/vendors
   const assigneeOptions: AssigneeOption[] = [
     // Current user
     {
@@ -62,14 +62,6 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
       type: 'user' as const,
       email: '', // Planner email would come from user profile
     }] : []),
-    // Contacts
-    ...contacts.map(contact => ({
-      id: contact.id,
-      name: contact.name,
-      type: 'contact' as const,
-      email: contact.email || undefined,
-      avatarColor: contact.avatarColor,
-    })),
   ];
 
   // Filter assignees based on search
