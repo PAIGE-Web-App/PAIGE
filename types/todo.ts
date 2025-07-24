@@ -16,6 +16,11 @@ export interface TodoItem {
   listId: string;
   completedAt?: Date | null;
   justUpdated?: boolean;
+  // New assignment fields
+  assignedTo?: string | null; // userId of the assignee
+  assignedBy?: string | null; // userId of who assigned it
+  assignedAt?: Date | null; // when it was assigned
+  notificationRead?: boolean; // for tracking if assignee has seen the notification
 }
 
 export interface TodoList {

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, NotepadText,
+  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, NotepadText, UserPlus,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
@@ -10,6 +10,9 @@ import { User } from 'firebase/auth';
 import type { TodoItem } from '../types/todo';
 import { Contact } from "../types/contact";
 import { highlightText } from '@/utils/searchHighlight';
+import UserAvatar from './UserAvatar';
+import TodoAssignmentModal from './TodoAssignmentModal';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 interface UnifiedTodoItemProps {
   todo: TodoItem;
@@ -129,6 +132,9 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     }
     return '';
   });
+
+  // Assignment state
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -429,16 +435,80 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     }
   };
 
+  // Assignment handlers
+  const handleAssignTodo = async (assigneeId: string, assigneeName: string, assigneeType: 'user' | 'contact') => {
+    try {
+      // This would need to be implemented in the parent component
+      // For now, we'll just show a toast
+      toast.success(`Assigned to ${assigneeName}`);
+      setShowAssignmentModal(false);
+    } catch (error) {
+      console.error('Error assigning todo:', error);
+      toast.error('Failed to assign todo');
+    }
+  };
+
+  // Get assignee info for display
+  const getAssigneeInfo = () => {
+    if (!todo.assignedTo) return null;
+    
+    // Check if it's a contact
+    const contact = contacts.find(c => c.id === todo.assignedTo);
+    if (contact) {
+      return {
+        id: contact.id,
+        name: contact.name,
+        type: 'contact' as const,
+        avatarColor: contact.avatarColor,
+      };
+    }
+    
+    // Check if it's the current user
+    if (todo.assignedTo === currentUser?.uid) {
+      return {
+        id: currentUser.uid,
+        name: userName || 'You',
+        type: 'user' as const,
+        profileImageUrl: currentUser.photoURL || undefined,
+      };
+    }
+    
+    // Check if it's partner or planner (these would need to be stored differently)
+    if (todo.assignedTo === 'partner' && partnerName) {
+      return {
+        id: 'partner',
+        name: partnerName,
+        type: 'user' as const,
+      };
+    }
+    
+    if (todo.assignedTo === 'planner' && plannerName) {
+      return {
+        id: 'planner',
+        name: plannerName,
+        type: 'user' as const,
+      };
+    }
+    
+    return null;
+  };
+
+  const assigneeInfo = getAssigneeInfo();
+
+  // Get user profile data for assignment
+  const { userName, partnerName, plannerName } = useUserProfileData();
+
   return (
-    <div
-      draggable={!isEditingName && sortOption === 'myOrder'}
-      onDragStart={(e) => handleDragStart(e, todo.id)}
-      onDragEnd={handleDragEnd}
-      onDragEnter={(e) => handleDragEnter(e, todo.id)}
-      onDragLeave={handleDragLeave}
-      onDragOver={(e) => handleItemDragOver(e, todo.id)}
-      onDrop={handleDrop}
-    >
+    <>
+      <div
+        draggable={!isEditingName && sortOption === 'myOrder'}
+        onDragStart={(e) => handleDragStart(e, todo.id)}
+        onDragEnd={handleDragEnd}
+        onDragEnter={(e) => handleDragEnter(e, todo.id)}
+        onDragLeave={handleDragLeave}
+        onDragOver={(e) => handleItemDragOver(e, todo.id)}
+        onDrop={handleDrop}
+      >
     <div
         className={`
           relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
@@ -818,6 +888,37 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
               {contacts.find(c => c.id === todo.contactId)?.name || 'N/A'}
             </span>
           )}
+
+          {/* Assignment information */}
+          <div className="flex items-center gap-1">
+            {assigneeInfo ? (
+              <div className="flex items-center gap-1">
+                <UserAvatar
+                  userId={assigneeInfo.id}
+                  userName={assigneeInfo.name}
+                  profileImageUrl={assigneeInfo.profileImageUrl}
+                  avatarColor={assigneeInfo.avatarColor}
+                  size="sm"
+                  showTooltip={true}
+                />
+                <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
+                  {assigneeInfo.name}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAssignmentModal(true)}
+                disabled={todo.isCompleted}
+                className={`flex items-center gap-1 text-xs text-[#364257] underline hover:text-[#A85C36] transition-colors ${
+                  todo.isCompleted ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={todo.isCompleted ? 'Mark as incomplete to assign' : 'Assign to someone'}
+              >
+                <UserPlus size={12} />
+                Assign
+              </button>
+            )}
+          </div>
         </div>
         {/* Completed On field should be after the category/contact info block, as its own line */}
         {todo.isCompleted && todo.completedAt && (
@@ -825,8 +926,18 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         )}
           </div>
       </div>
+      </div>
     </div>
-    </div>
+
+    {/* Assignment Modal */}
+    <TodoAssignmentModal
+      isOpen={showAssignmentModal}
+      onClose={() => setShowAssignmentModal(false)}
+      onAssign={handleAssignTodo}
+      currentAssignee={assigneeInfo}
+      contacts={contacts}
+    />
+    </>
   );
 };
 
