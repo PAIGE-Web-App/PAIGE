@@ -10,31 +10,39 @@ import {
   Heart, 
   Settings, 
   LogOut,
-  User
+  User,
+  Bell
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { handleLogout } from '../utils/logout';
+import { useNotifications, NotificationCounts } from '../hooks/useNotifications';
+import NotificationPopover from './NotificationPopover';
+import NotificationBadge from './NotificationBadge';
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  notificationKey?: string;
 }
 
 export default function VerticalNav() {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { user, profileImageUrl, profileImageLQIP } = useAuth();
+  const { notificationCounts } = useNotifications();
 
   const navItems: NavItem[] = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "To-do Lists", href: "/todo", icon: ClipboardList },
-    { name: "Budget", href: "/budget", icon: DollarSign },
-    { name: "Vendors", href: "/vendors", icon: Users },
+    { name: "Dashboard", href: "/", icon: Home, notificationKey: "messages" },
+    { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
+    { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
+    { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
     { name: "Files", href: "/files", icon: FileText },
     { name: "Inspiration", href: "/inspiration", icon: Heart },
   ];
@@ -44,15 +52,18 @@ export default function VerticalNav() {
     { name: "Logout", href: "#", icon: LogOut, onClick: () => handleLogout(router) },
   ];
 
-  // Handle click outside for user menu
+  // Handle click outside for user menu and notifications
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
     };
 
-    if (showUserMenu) {
+    if (showUserMenu || showNotifications) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -61,13 +72,18 @@ export default function VerticalNav() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUserMenu]);
+  }, [showUserMenu, showNotifications]);
 
   const isActive = (href: string) => {
     if (href === '/') {
       return pathname === '/';
     }
     return pathname?.startsWith(href);
+  };
+
+  const getNotificationCount = (notificationKey?: string) => {
+    if (!notificationKey) return 0;
+    return notificationCounts[notificationKey as keyof NotificationCounts] || 0;
   };
 
   return (
@@ -84,6 +100,7 @@ export default function VerticalNav() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
+            const notificationCount = getNotificationCount(item.notificationKey);
             
             return (
               <div key={item.name} className="relative group">
@@ -96,17 +113,83 @@ export default function VerticalNav() {
                   }`}
                 >
                   <Icon className="w-5 h-5" />
+                  {notificationCount > 0 && (
+                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${
+                      item.notificationKey === 'todo' ? 'bg-blue-500' : 'bg-red-500'
+                    }`}>
+                      <span className="text-[10px] text-white font-medium">
+                        {notificationCount > 9 ? '9+' : notificationCount}
+                      </span>
+                    </div>
+                  )}
                 </a>
                 
                 {/* Hover Tooltip */}
                 <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                   {item.name}
+                  {notificationCount > 0 && (
+                    <span className="ml-1 text-[#A85C36]">
+                      ({notificationCount})
+                    </span>
+                  )}
                   {/* Tooltip arrow */}
                   <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
                 </div>
               </div>
             );
           })}
+        </div>
+
+        {/* Notifications Bell */}
+        <div className="relative group mt-4">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group-hover:bg-[#F3F2F0] ${
+              showNotifications 
+                ? 'bg-[#EBE3DD] text-[#A85C36]' 
+                : 'text-[#364257] hover:text-[#A85C36]'
+            }`}
+          >
+            <Bell className="w-5 h-5" />
+            <NotificationBadge 
+              count={notificationCounts.messages + notificationCounts.budget + notificationCounts.vendors + notificationCounts.todoAssigned} 
+              size="md" 
+              color="red"
+            />
+          </button>
+
+          {/* Notifications Popover */}
+          <NotificationPopover
+            isOpen={showNotifications}
+            notificationCounts={notificationCounts}
+            onClose={() => setShowNotifications(false)}
+            onNotificationClick={(type) => {
+              setShowNotifications(false);
+              // Navigate to appropriate section based on notification type
+              switch (type) {
+                case 'messages':
+                  router.push('/');
+                  break;
+                case 'todo':
+                  router.push('/todo');
+                  break;
+                case 'budget':
+                  router.push('/budget');
+                  break;
+                case 'vendors':
+                  router.push('/vendors');
+                  break;
+                default:
+                  break;
+              }
+            }}
+          />
+
+          {/* Hover Tooltip for Notifications */}
+          <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+            Notifications
+            <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+          </div>
         </div>
       </div>
 
@@ -164,7 +247,7 @@ export default function VerticalNav() {
                   <a
                     key={item.name}
                     href={item.href}
-                    className="block px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] flex items-center gap-2 no-underline"
+                    className="block px-3 py-2 text-sm text-[#332B42] hover:bg-[#F8F6F4] flex items-center gap-2 no-underline"
                   >
                     {item.icon && <item.icon className="w-4 h-4" />}
                     {item.name}
