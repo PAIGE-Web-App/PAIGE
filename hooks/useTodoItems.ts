@@ -134,7 +134,12 @@ export function useTodoItems(selectedList: TodoList | null) {
           endDate: processDate(data.endDate),
           note: data.note || undefined,
           contactId: data.contactId,
-          completedAt: processDate(data.completedAt)
+          completedAt: processDate(data.completedAt),
+          // Assignment fields
+          assignedTo: data.assignedTo || null,
+          assignedBy: data.assignedBy || null,
+          assignedAt: processDate(data.assignedAt),
+          notificationRead: data.notificationRead || false
         };
       });
       

@@ -292,7 +292,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
               : (data.endDate === null ? undefined : data.endDate);
           const note = data.note === null ? undefined : data.note;
           const category = data.category === null ? undefined : data.category;
-          const assignedTo = data.contactId === null ? undefined : data.contactId;
+          const assignedTo = data.assignedTo === null ? undefined : data.assignedTo;
           const createdAt = data.createdAt && typeof data.createdAt === 'object' && typeof (data.createdAt as any).toDate === 'function'
             ? (data.createdAt as any).toDate()
             : data.createdAt instanceof Date
