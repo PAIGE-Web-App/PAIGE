@@ -163,15 +163,12 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
                         }`}
                       >
                         {/* Checkbox */}
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                          isSelected 
-                            ? 'bg-[#A85C36] border-[#A85C36]' 
-                            : 'border-[#AB9C95]'
-                        }`}>
-                          {isSelected && (
-                            <div className="w-2 h-2 bg-white rounded-sm"></div>
-                          )}
-                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // Handled by button onClick
+                          className="w-4 h-4 text-[#A85C36] bg-white border-[#AB9C95] rounded focus:ring-[#A85C36] focus:ring-2"
+                        />
 
                         <UserAvatar
                           userId={assignee.id}

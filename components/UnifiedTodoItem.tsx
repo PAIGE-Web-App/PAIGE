@@ -910,35 +910,32 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
 
           {/* Assignment Section */}
           {todo.assignedTo && (Array.isArray(todo.assignedTo) ? todo.assignedTo.length > 0 : todo.assignedTo) ? (
-            <div className="flex items-center gap-1">
-              <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
-                Assigned to:
-              </span>
-              <button
-                onClick={() => setShowAssignmentModal(true)}
-                disabled={todo.isCompleted}
-                className={`flex items-center hover:opacity-80 transition-opacity ${
-                  todo.isCompleted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                }`}
-                title={todo.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
-              >
-                <div className="flex items-center -space-x-2">
-                  {(Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo]).slice(0, 3).map((assigneeId, index) => {
-                    // Get assignee info for each ID
-                    let assigneeName = '';
-                    let assigneeProfileImageUrl: string | undefined = undefined;
-                    
-                    if (assigneeId === currentUser?.uid) {
-                      assigneeName = userName || 'You';
-                      assigneeProfileImageUrl = profileImageUrl || undefined;
-                    } else if (assigneeId === 'partner' && partnerName) {
-                      assigneeName = partnerName;
-                    } else if (assigneeId === 'planner' && plannerName) {
-                      assigneeName = plannerName;
-                    }
-                    
-                    return (
-                      <div key={assigneeId} className="relative">
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              disabled={todo.isCompleted}
+              className={`flex items-center hover:opacity-80 transition-opacity ${
+                todo.isCompleted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+              title={todo.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
+            >
+              <div className="flex items-center -space-x-2">
+                {(Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo]).slice(0, 3).map((assigneeId, index) => {
+                  // Get assignee info for each ID
+                  let assigneeName = '';
+                  let assigneeProfileImageUrl: string | undefined = undefined;
+                  
+                  if (assigneeId === currentUser?.uid) {
+                    assigneeName = userName || 'You';
+                    assigneeProfileImageUrl = profileImageUrl || undefined;
+                  } else if (assigneeId === 'partner' && partnerName) {
+                    assigneeName = partnerName;
+                  } else if (assigneeId === 'planner' && plannerName) {
+                    assigneeName = plannerName;
+                  }
+                  
+                  return (
+                    <div key={assigneeId} className="relative">
+                      <div className="border border-white rounded-full">
                         <UserAvatar
                           userId={assigneeId}
                           userName={assigneeName}
@@ -947,16 +944,16 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                           showTooltip={true}
                         />
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
+              </div>
+              {Array.isArray(todo.assignedTo) && todo.assignedTo.length > 3 && (
+                <div className="ml-1 w-6 h-6 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center border border-white">
+                  +{todo.assignedTo.length - 3}
                 </div>
-                {Array.isArray(todo.assignedTo) && todo.assignedTo.length > 3 && (
-                  <div className="ml-1 w-6 h-6 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center">
-                    +{todo.assignedTo.length - 3}
-                  </div>
-                )}
-              </button>
-            </div>
+              )}
+            </button>
           ) : (
             <button
               onClick={() => setShowAssignmentModal(true)}
