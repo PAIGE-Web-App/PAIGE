@@ -19,7 +19,7 @@ interface TodoSidebarProps {
   handleAddList: (name: string, tasks: any[]) => Promise<void>;
   listTaskCounts: Map<string, number>;
   setTodoSearchQuery: (val: string) => void;
-  setExplicitAllSelected: (val: boolean) => void;
+  selectAllItems: () => void;
   allTodoCount: number;
   allTodoItems: any[];
   allCategories?: any[];
@@ -42,7 +42,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   handleAddList,
   listTaskCounts,
   setTodoSearchQuery,
-  setExplicitAllSelected,
+  selectAllItems,
   allTodoCount,
   allTodoItems,
   allCategories = [],
@@ -122,7 +122,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
           <div className="space-y-1">
             <div
               className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && !showCompletedItems ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
-              onClick={() => { setSelectedList(null); setExplicitAllSelected(true); setShowCompletedItems(false); setTodoSearchQuery(''); }}
+              onClick={() => { selectAllItems(); setShowCompletedItems(false); setTodoSearchQuery(''); }}
             >
               <span className="mr-2" title="All To-Do Items">
                 {/* ListChecks icon should be imported where this component is used */}
@@ -135,7 +135,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
             </div>
             <div
               className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && showCompletedItems ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mb-8`}
-              onClick={() => { setSelectedList(null); setExplicitAllSelected(true); setShowCompletedItems(true); setTodoSearchQuery(''); }}
+              onClick={() => { selectAllItems(); setShowCompletedItems(true); setTodoSearchQuery(''); }}
             >
               <span className="mr-2" title="Completed To-Do Items">
                 {/* CircleCheck icon should be imported where this component is used */}

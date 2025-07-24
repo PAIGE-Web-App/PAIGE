@@ -416,14 +416,9 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   };
 
   return (
-    <motion.div
+    <div
       key={todo.id}
       id={`todo-item-${todo.id}`}
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
       className={`relative flex items-start gap-0 py-3 border-b-[0.5px] border-[#AB9C95] ${sortOption === 'myOrder' ? 'cursor-grab' : ''} ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''} ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''} ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''} ${className || ''}`}
       draggable={sortOption === 'myOrder'}
       onDragStart={((e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, todo.id)) as any}
@@ -762,7 +757,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
           <p className="block text-xs text-[#364257] mt-2 italic">Completed On: {todo.completedAt.toLocaleDateString()} {todo.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

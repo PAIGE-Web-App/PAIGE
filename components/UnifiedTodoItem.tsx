@@ -439,11 +439,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       onDragOver={(e) => handleItemDragOver(e, todo.id)}
       onDrop={handleDrop}
     >
-    <motion.div
-        initial={{ opacity: 0.8, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+    <div
         className={`
           relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
           transition-all duration-300 ease-in-out
@@ -829,7 +825,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         )}
           </div>
       </div>
-    </motion.div>
+    </div>
     </div>
   );
 };

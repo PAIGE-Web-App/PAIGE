@@ -107,12 +107,8 @@ export function useTodoLists() {
       console.log('Fetched todo lists:', lists);
       setTodoLists(lists);
 
-      // Only auto-select if we have lists and no explicit selection
-      if (lists.length > 0 && !explicitAllSelected) {
-        if (selectedList && lists.some(list => list.id === selectedList.id)) {
-          // Keep current selection if it exists in the new list
-          return;
-        }
+      // Only auto-select if we have lists, no explicit selection, and no current selection
+      if (lists.length > 0 && !explicitAllSelected && !selectedList) {
         setSelectedList(lists[0]);
       }
     }, (error) => {
@@ -419,6 +415,12 @@ export function useTodoLists() {
     return a.orderIndex - b.orderIndex;
   });
 
+  // Function to select "All To-Do Items" view
+  const selectAllItems = () => {
+    setSelectedList(null);
+    setExplicitAllSelected(true);
+  };
+
   return {
     // State
     todoLists: sortedTodoLists,
@@ -459,5 +461,6 @@ export function useTodoLists() {
     handleRenameList,
     handleCloneList,
     executeDeleteList,
+    selectAllItems,
   };
 } 

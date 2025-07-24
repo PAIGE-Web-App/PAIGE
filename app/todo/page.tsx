@@ -252,9 +252,7 @@ export default function TodoPage() {
               handleAddList={todoLists.handleAddList}
               listTaskCounts={todoItems.listTaskCounts}
               setTodoSearchQuery={viewOptions.setTodoSearchQuery}
-              setExplicitAllSelected={(val) => {
-                // This is handled internally by the hook, so we can ignore this prop
-              }}
+              selectAllItems={todoLists.selectAllItems}
               allTodoCount={todoItems.allTodoCount}
               allTodoItems={todoItems.allTodoItems}
               allCategories={todoItems.allCategories}
