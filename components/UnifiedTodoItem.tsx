@@ -925,11 +925,11 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 {(Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo]).slice(0, 3).map((assigneeId, index) => {
                   // Get assignee info for each ID
                   let assigneeName = '';
-                  let profileImageUrl = undefined;
+                  let assigneeProfileImageUrl: string | undefined = undefined;
                   
                   if (assigneeId === currentUser?.uid) {
                     assigneeName = userName || 'You';
-                    profileImageUrl = profileImageUrl;
+                    assigneeProfileImageUrl = profileImageUrl || undefined;
                   } else if (assigneeId === 'partner' && partnerName) {
                     assigneeName = partnerName;
                   } else if (assigneeId === 'planner' && plannerName) {
@@ -941,12 +941,12 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                       <UserAvatar
                         userId={assigneeId}
                         userName={assigneeName}
-                        profileImageUrl={profileImageUrl}
+                        profileImageUrl={assigneeProfileImageUrl}
                         size="sm"
                         showTooltip={true}
                       />
                       {index < 2 && Array.isArray(todo.assignedTo) && index < todo.assignedTo.length - 1 && (
-                        <div className="absolute -right-1 top-0 w-2 h-2 bg-[#A85C36] rounded-full border border-white"></div>
+                        <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-[#AB9C95] rounded-full border border-white"></div>
                       )}
                     </div>
                   );
