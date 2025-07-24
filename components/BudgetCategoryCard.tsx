@@ -32,6 +32,7 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
   const categoryPercentage = category.allocatedAmount > 0 ? (categorySpent / category.allocatedAmount) * 100 : 0;
 
   const handleSaveEdit = () => {
+    if (!category.id) return;
     onEditCategory(category.id, {
       name: editName,
       allocatedAmount: parseFloat(editAmount) || 0,
@@ -98,7 +99,7 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
                 <Edit className="w-3 h-3" />
               </button>
               <button
-                onClick={() => onDeleteCategory(category.id)}
+                onClick={() => category.id && onDeleteCategory(category.id)}
                 className="p-1 text-[#AB9C95] hover:text-red-600"
               >
                 <Trash2 className="w-3 h-3" />
@@ -147,7 +148,7 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
                 <Edit className="w-3 h-3" />
               </button>
               <button
-                onClick={() => onDeleteItem(item.id)}
+                onClick={() => item.id && onDeleteItem(item.id)}
                 className="p-1 text-[#AB9C95] hover:text-red-600"
               >
                 <Trash2 className="w-3 h-3" />

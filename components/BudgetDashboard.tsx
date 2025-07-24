@@ -229,7 +229,7 @@ const BudgetDashboard: React.FC<BudgetDashboardProps> = ({
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-[#332B42]">{category.name}</h3>
                     <button
-                      onClick={() => onAddBudgetItem(category.id)}
+                      onClick={() => category.id && onAddBudgetItem(category.id)}
                       className="text-[#A85C36] hover:text-[#8B4513] text-sm"
                     >
                       + Add Item

@@ -68,9 +68,9 @@ export default function WeddingTab({
   const highlightWeddingLocation = searchParams?.get('highlight') === 'weddingLocation';
 
   return (
-    <div className="flex gap-8 pb-8">
-      <div className="flex-1 bg-white rounded-lg p-6 shadow">
-        <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Wedding Details</h2>
+    <div className="space-y-6 pb-8">
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <h5 className="mb-6">Wedding Details</h5>
         <div className="flex flex-col gap-4">
           <div ref={weddingDateRef} className={`relative col-span-1 ${jiggleAnimate}`}>
             <label htmlFor="wedding-date" className="block text-xs font-work-sans text-[#332B42] mb-1">When's the big day?*</label>

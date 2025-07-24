@@ -62,4 +62,16 @@ export interface IntegratedPlan {
   budget: AIGeneratedBudget;
   todoList: AIGeneratedTodoList;
   totalAllocated: number;
+}
+
+export interface BudgetRecommendation {
+  id: string;
+  userId: string;
+  type: 'optimization' | 'category' | 'vendor' | 'todo';
+  message: string;
+  potentialSavings?: number;
+  categoryId?: string;
+  priority: 'high' | 'medium' | 'low';
+  actionable: boolean;
+  createdAt: Date;
 } 

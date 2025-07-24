@@ -1,6 +1,6 @@
 import React from 'react';
 import { NotificationCounts } from '../hooks/useNotifications';
-import { MessageSquare, ClipboardList, DollarSign, Users, X } from 'lucide-react';
+import { MessageSquare, ClipboardList, DollarSign, Users, X, ThumbsUp } from 'lucide-react';
 
 interface NotificationPopoverProps {
   isOpen: boolean;
@@ -58,29 +58,29 @@ export default function NotificationPopover({
       </div>
       
       {!hasNotifications ? (
-        <div className="px-3 py-8 text-center text-sm text-[#AB9C95]">
-          <div className="mb-2">
-            <MessageSquare className="w-8 h-8 mx-auto text-[#AB9C95]" />
-          </div>
-          <p>No new notifications</p>
-          <p className="text-xs mt-1">You're all caught up!</p>
-        </div>
-      ) : (
         <>
-          {/* Legend */}
-          <div className="px-3 py-2 border-b border-[#AB9C95] bg-[#F8F6F4]">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-[#332B42] font-medium">Urgent</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-[#332B42] font-medium">Your Work</span>
-              </div>
+          <div className="px-3 py-8 text-center text-sm text-[#AB9C95]">
+            <div className="mb-2">
+              <ThumbsUp className="w-8 h-8 mx-auto text-[#AB9C95]" />
             </div>
+            <p>You're all caught up!</p>
+            <p className="text-xs mt-1">Nothing new to review</p>
           </div>
           
+          <div className="px-3 py-2 border-t border-[#AB9C95]">
+            <button
+              onClick={() => {
+                // Navigate to settings notifications tab
+                window.location.href = '/settings?tab=notifications';
+              }}
+              className="w-full text-center text-xs text-[#A85C36] hover:text-[#784528] font-medium transition-colors"
+            >
+              View notification settings
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
           <div className="py-1">
             {Object.entries(notificationCounts).map(([key, count]) => {
               if (key === 'total' || count === 0) return null;
@@ -141,10 +141,13 @@ export default function NotificationPopover({
           
           <div className="px-3 py-2 border-t border-[#AB9C95]">
             <button
-              onClick={() => onNotificationClick('total')}
+              onClick={() => {
+                // Navigate to settings notifications tab
+                window.location.href = '/settings?tab=notifications';
+              }}
               className="w-full text-center text-xs text-[#A85C36] hover:text-[#784528] font-medium transition-colors"
             >
-              View all notifications
+              View notification settings
             </button>
           </div>
         </>

@@ -128,7 +128,7 @@ export function useNotifications() {
           const unsubscribe = onSnapshot(q, (snapshot) => {
             setNotificationCounts(prev => {
               const newMessages = snapshot.docs.length;
-              const newTotal = prev.todo + prev.budget + prev.vendors + newMessages;
+              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + newMessages;
               return {
                 ...prev,
                 messages: newMessages,
@@ -198,7 +198,7 @@ export function useNotifications() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
           setNotificationCounts(prev => {
             const newBudget = snapshot.docs.length;
-            const newTotal = prev.messages + prev.todo + prev.vendors + newBudget;
+            const newTotal = prev.messages + prev.todoAssigned + prev.vendors + newBudget;
             return {
               ...prev,
               budget: newBudget,
@@ -225,7 +225,7 @@ export function useNotifications() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
           setNotificationCounts(prev => {
             const newVendors = snapshot.docs.length;
-            const newTotal = prev.messages + prev.todo + prev.budget + newVendors;
+            const newTotal = prev.messages + prev.todoAssigned + prev.budget + newVendors;
             return {
               ...prev,
               vendors: newVendors,

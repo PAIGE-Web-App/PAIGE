@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { toast } from "react-hot-toast";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useUserProfileData } from "../../../hooks/useUserProfileData";
-import { toast } from "react-hot-toast";
-import { Bell, Mail, Save, CheckCircle, XCircle, MessageSquare, ClipboardList, DollarSign, Users } from "lucide-react";
+import { Bell, Mail, CheckCircle, XCircle, MessageSquare, ClipboardList, DollarSign, Users } from 'lucide-react';
+import NotificationsTabSkeleton from './NotificationsTabSkeleton';
 
 export default function NotificationsTab() {
   const { user } = useAuth();
@@ -111,17 +112,7 @@ export default function NotificationsTab() {
   };
 
   if (profileLoading) {
-    return (
-      <div className="flex gap-8 pb-8">
-        <div className="flex-1 bg-white rounded-lg p-6 shadow">
-          <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Notifications</h2>
-          <div className="text-center py-12">
-            <div className="w-8 h-8 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-[#332B42] text-sm mt-4">Loading notification settings...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <NotificationsTabSkeleton />;
   }
 
   return (
@@ -221,7 +212,7 @@ export default function NotificationsTab() {
         
         {/* External Notifications Info */}
         <div className="p-4 bg-[#F8F6F4] rounded-md">
-          <h5 className="font-semibold text-[#332B42] mb-2">How External Notifications Work</h5>
+          <h6 className="font-semibold text-[#332B42] mb-2">How External Notifications Work</h6>
           <ul className="text-sm text-[#7A7A7A] space-y-1">
             <li>• <strong>SMS:</strong> Receive text messages when vendors send you messages through Paige</li>
             <li>• <strong>Email:</strong> Get email notifications with message previews and direct links to reply</li>
@@ -241,7 +232,7 @@ export default function NotificationsTab() {
         
         {/* Notification Legend */}
         <div className="mb-6 p-4 bg-[#F8F6F4] rounded-md">
-          <h4 className="font-semibold text-[#332B42] mb-3">Notification Types</h4>
+          <h6 className="font-semibold text-[#332B42] mb-3">Notification Types</h6>
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
@@ -336,7 +327,7 @@ export default function NotificationsTab() {
 
         {/* In-App Notifications Info */}
         <div className="mt-6 p-4 bg-[#F8F6F4] rounded-md">
-          <h5 className="font-semibold text-[#332B42] mb-2">How In-App Notifications Work</h5>
+          <h6 className="font-semibold text-[#332B42] mb-2">How In-App Notifications Work</h6>
           <ul className="text-sm text-[#7A7A7A] space-y-1">
             <li>• <strong>Bell Icon:</strong> Shows total count of urgent notifications (red badge)</li>
             <li>• <strong>Navigation Dots:</strong> Blue dots show work items, red dots show urgent items</li>

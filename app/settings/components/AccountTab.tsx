@@ -161,7 +161,7 @@ export default function AccountTab({
       <div className="space-y-6 pb-8">
         {/* Account Details Container */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Account Details</h2>
+          <h5 className="mb-6">Account Details</h5>
           <div className="flex flex-col items-center mb-4">
             <div
               className="w-16 h-16 rounded-full mb-2 flex items-center justify-center overflow-hidden"
@@ -258,7 +258,7 @@ export default function AccountTab({
 
         {/* Partner Profile Container */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Partner Profile</h3>
+          <h5 className="mb-6">Partner Profile</h5>
           <p className="text-xs text-gray-600 mb-4">Manage your partner's information for @mention notifications and collaboration.</p>
           
           <div className="space-y-4">
@@ -294,7 +294,7 @@ export default function AccountTab({
 
         {/* Wedding Planner Profile Container */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Wedding Planner Profile</h3>
+          <h5 className="mb-6">Wedding Planner Profile</h5>
           <p className="text-xs text-gray-600 mb-4">Manage your wedding planner's information for @mention notifications and collaboration.</p>
           
           <div className="space-y-4">
@@ -359,7 +359,7 @@ export default function AccountTab({
 
         {/* Danger Zone Container */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h3 className="text-base font-playfair font-medium text-[#332B42] mb-4">Danger Zone</h3>
+          <h5 className="mb-6">Danger Zone</h5>
             <button
               className="text-xs text-red-600 underline hover:opacity-80 mt-1 text-left flex items-center gap-1"
               type="button"

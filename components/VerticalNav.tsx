@@ -141,7 +141,7 @@ export default function VerticalNav() {
         </div>
 
         {/* Notifications Bell */}
-        <div className="relative group mt-4">
+        <div className="relative group mt-4" ref={notificationsRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group-hover:bg-[#F3F2F0] ${
@@ -186,11 +186,13 @@ export default function VerticalNav() {
             onMarkAsRead={markNotificationAsRead}
           />
 
-          {/* Hover Tooltip for Notifications */}
-          <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-            Notifications
-            <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
-          </div>
+          {/* Hover Tooltip for Notifications - Only show when popover is closed */}
+          {!showNotifications && (
+            <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+              Notifications
+              <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { doc, getDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { Calendar, Mail, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
+import SettingsTabSkeleton from './SettingsTabSkeleton';
 
 interface IntegrationsTabProps {
   user: any;
@@ -185,22 +186,13 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
   };
 
   if (loading) {
-    return (
-      <div className="flex gap-8 pb-8">
-        <div className="flex-1 bg-white rounded-lg p-6 shadow">
-          <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Integrations</h2>
-          <div className="flex items-center justify-center py-10">
-            <p className="text-sm text-gray-500">Loading integration status...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <SettingsTabSkeleton />;
   }
 
   return (
-    <div className="flex gap-8 pb-8">
-      <div className="flex-1 bg-white rounded-lg p-6 shadow">
-        <h2 className="text-lg font-playfair font-semibold mb-6 text-[#332B42]">Integrations</h2>
+    <div className="space-y-6 pb-8">
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <h5 className="mb-6">Integrations</h5>
         <div className="space-y-6">
           <div className="border border-[#AB9C95] rounded-lg p-4">
             <div className="flex items-center gap-3 mb-2">

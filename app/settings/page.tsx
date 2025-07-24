@@ -13,26 +13,29 @@ import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 import ProfileTabs, { TABS } from "./components/ProfileTabs";
 import { useProfileForm } from "./hooks/useProfileForm";
 import VendorEmailFlagReviewModal from "../../components/VendorEmailFlagReviewModal";
+import SettingsTabSkeleton from "./components/SettingsTabSkeleton";
+import AccountTabSkeleton from "./components/AccountTabSkeleton";
+import NotificationsTabSkeleton from "./components/NotificationsTabSkeleton";
 
 // Lazy load tab components - only load when needed
 const AccountTab = dynamic(() => import("./components/AccountTab"), {
-  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+  loading: () => <AccountTabSkeleton />
 });
 
 const WeddingTab = dynamic(() => import("./components/WeddingTab"), {
-  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+  loading: () => <SettingsTabSkeleton />
 });
 
 const PlanTab = dynamic(() => import("./components/PlanTab"), {
-  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+  loading: () => <SettingsTabSkeleton />
 });
 
 const IntegrationsTab = dynamic(() => import("./components/IntegrationsTab"), {
-  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+  loading: () => <SettingsTabSkeleton />
 });
 
 const NotificationsTab = dynamic(() => import("./components/NotificationsTab"), {
-  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
+  loading: () => <NotificationsTabSkeleton />
 });
 
 export default function ProfilePage() {
