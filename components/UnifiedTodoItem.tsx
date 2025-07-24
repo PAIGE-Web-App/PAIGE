@@ -471,10 +471,14 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
 
   // Get assignee info for display
   const getAssigneeInfo = () => {
-    if (!todo.assignedTo || todo.assignedTo.length === 0) return null;
+    if (!todo.assignedTo) return null;
+    
+    // Handle both old string format and new array format
+    const assigneeIds = Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo];
+    if (assigneeIds.length === 0) return null;
     
     // For now, show the first assignee (we'll update this to show multiple avatars later)
-    const firstAssigneeId = todo.assignedTo[0];
+    const firstAssigneeId = assigneeIds[0];
     
     // Check if it's the current user
     if (firstAssigneeId === currentUser?.uid) {
@@ -905,7 +909,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           <span className="text-xs text-[#AB9C95]">|</span>
 
           {/* Assignment Section */}
-          {todo.assignedTo && todo.assignedTo.length > 0 ? (
+          {todo.assignedTo && (Array.isArray(todo.assignedTo) ? todo.assignedTo.length > 0 : todo.assignedTo) ? (
             <div className="flex items-center gap-1">
               <span className={`text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-500' : ''}`}>
                 Assigned to:
@@ -918,7 +922,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 }`}
                 title={todo.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
               >
-                {todo.assignedTo.slice(0, 3).map((assigneeId, index) => {
+                {(Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo]).slice(0, 3).map((assigneeId, index) => {
                   // Get assignee info for each ID
                   let assigneeName = '';
                   let profileImageUrl = undefined;
@@ -941,13 +945,13 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                         size="sm"
                         showTooltip={true}
                       />
-                      {index < 2 && todo.assignedTo && index < todo.assignedTo.length - 1 && (
+                      {index < 2 && Array.isArray(todo.assignedTo) && index < todo.assignedTo.length - 1 && (
                         <div className="absolute -right-1 top-0 w-2 h-2 bg-[#A85C36] rounded-full border border-white"></div>
                       )}
                     </div>
                   );
                 })}
-                {todo.assignedTo && todo.assignedTo.length > 3 && (
+                {Array.isArray(todo.assignedTo) && todo.assignedTo.length > 3 && (
                   <div className="w-6 h-6 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center">
                     +{todo.assignedTo.length - 3}
                   </div>
