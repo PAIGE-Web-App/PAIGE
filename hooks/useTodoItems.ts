@@ -6,6 +6,7 @@ import Fuse from 'fuse.js';
 import { useCustomToast } from './useCustomToast';
 import { useAuth } from './useAuth';
 import type { TodoItem, TodoList } from '@/types/todo';
+import { sendTodoUpdateNotification } from '@/utils/todoNotifications';
 
 // Utility functions
 function removeUndefinedFields<T extends object>(obj: T): Partial<T> {
@@ -221,6 +222,19 @@ export function useTodoItems(selectedList: TodoList | null) {
 
       await updateDoc(itemRef, updateData);
       
+      // Send notification for completion if assigned to others
+      if (todo.assignedTo && Array.isArray(todo.assignedTo) && todo.assignedTo.length > 0) {
+        const currentUserName = user.displayName || 'You';
+        await sendTodoUpdateNotification(
+          user.uid,
+          todo.id,
+          todo.name,
+          'completed',
+          currentUserName,
+          todo.assignedTo
+        );
+      }
+      
       // Trigger green flash animation for incomplete items (moving from completed back to main list)
       if (todo.isCompleted) {
         setJustMovedItemId(todo.id);
@@ -240,6 +254,21 @@ export function useTodoItems(selectedList: TodoList | null) {
     try {
       const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
       await updateDoc(itemRef, { name: newName.trim(), userId: user.uid });
+      
+      // Send notification for name update if assigned to others
+      const todoItem = allTodoItems.find(item => item.id === todoId);
+      if (todoItem && todoItem.assignedTo && Array.isArray(todoItem.assignedTo) && todoItem.assignedTo.length > 0) {
+        const currentUserName = user.displayName || 'You';
+        await sendTodoUpdateNotification(
+          user.uid,
+          todoId,
+          newName.trim(),
+          'updated',
+          currentUserName,
+          todoItem.assignedTo
+        );
+      }
+      
       showSuccessToast('Task name updated!');
     } catch (error: any) {
       console.error('Error updating task name:', error);
@@ -254,6 +283,21 @@ export function useTodoItems(selectedList: TodoList | null) {
     try {
       const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
       await updateDoc(itemRef, { category: newCategory || null, userId: user.uid });
+      
+      // Send notification for category update if assigned to others
+      const todoItem = allTodoItems.find(item => item.id === todoId);
+      if (todoItem && todoItem.assignedTo && Array.isArray(todoItem.assignedTo) && todoItem.assignedTo.length > 0) {
+        const currentUserName = user.displayName || 'You';
+        await sendTodoUpdateNotification(
+          user.uid,
+          todoId,
+          todoItem.name,
+          'updated',
+          currentUserName,
+          todoItem.assignedTo
+        );
+      }
+      
       showSuccessToast('Category updated!');
     } catch (error: any) {
       console.error('Error updating category:', error);

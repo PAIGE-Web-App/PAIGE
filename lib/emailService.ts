@@ -220,3 +220,42 @@ export const sendNotificationEmail = async (
 
   return sendEmail(emailContent, userId);
 }; 
+
+export const sendTodoNotificationEmail = async (
+  toEmail: string, 
+  userName: string, 
+  todoName: string,
+  action: 'assigned' | 'updated' | 'completed',
+  assignedBy: string,
+  userId?: string
+): Promise<boolean> => {
+  const actionText = action === 'assigned' ? 'assigned to you' : 
+                    action === 'updated' ? 'updated' : 'marked as completed';
+  
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `To-do item "${todoName}" ${actionText} in Paige`,
+    text: `Hello ${userName},\n\n${assignedBy} has ${actionText} the to-do item "${todoName}" in Paige.\n\nView and manage your tasks at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #A85C36;">To-do Item ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}</h2>
+        <p>Hello ${userName},</p>
+        <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; line-height: 1.6;"><strong>${assignedBy}</strong> has ${actionText} the to-do item:</p>
+          <h3 style="color: #332B42; margin: 10px 0;">"${todoName}"</h3>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}/todo" 
+             style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            View Tasks in Paige
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px; text-align: center;">
+          This notification was sent from Paige - your wedding planning assistant
+        </p>
+      </div>
+    `
+  };
+
+  return sendEmail(emailContent, userId);
+}; 

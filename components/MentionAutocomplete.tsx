@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, Heart, Crown } from 'lucide-react';
 import { MentionableUser, filterMentionableUsers } from '@/utils/mentionUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 interface MentionAutocompleteProps {
   searchTerm: string;
@@ -19,10 +20,31 @@ export default function MentionAutocomplete({
   onClose
 }: MentionAutocompleteProps) {
   const { profileImageUrl } = useAuth();
+  const { partnerEmail, plannerEmail } = useUserProfileData();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredUsers = filterMentionableUsers(mentionableUsers, searchTerm);
+
+  // Get email for a user based on their type
+  const getUserEmail = (user: MentionableUser) => {
+    if (user.type === 'partner') {
+      return partnerEmail;
+    } else if (user.type === 'planner') {
+      return plannerEmail;
+    }
+    return user.email;
+  };
+
+  // Check if user has valid email for @ mentions
+  const hasValidEmail = (user: MentionableUser) => {
+    return !!getUserEmail(user);
+  };
+
+  const handleAddEmailClick = (role: string) => {
+    // Open settings page with the appropriate tab
+    window.open('/settings?tab=account', '_blank');
+  };
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -47,7 +69,7 @@ export default function MentionAutocomplete({
           break;
         case 'Enter':
           e.preventDefault();
-          if (filteredUsers[selectedIndex]) {
+          if (filteredUsers[selectedIndex] && hasValidEmail(filteredUsers[selectedIndex])) {
             onSelectUser(filteredUsers[selectedIndex]);
           }
           break;
@@ -124,18 +146,22 @@ export default function MentionAutocomplete({
       ref={containerRef}
       className="absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
     >
-      {filteredUsers.map((user, index) => (
-        <button
-          key={user.id}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onSelectUser(user);
-          }}
-          className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-            index === selectedIndex ? 'bg-gray-100' : ''
-          }`}
-        >
+      {filteredUsers.map((user, index) => {
+        const isValid = hasValidEmail(user);
+        return (
+          <div
+            key={user.id}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+              index === selectedIndex ? 'bg-gray-100' : ''
+            } ${!isValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isValid) {
+                onSelectUser(user);
+              }
+            }}
+          >
           {/* Avatar */}
           <div className="flex-shrink-0">
             {user.avatar || (user.type === 'user' && profileImageUrl) ? (
@@ -159,12 +185,42 @@ export default function MentionAutocomplete({
               </span>
               {getUserIcon(user.type)}
             </div>
-            <span className="text-xs text-gray-500">
-              {getUserTypeLabel(user.type)}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">
+                {getUserTypeLabel(user.type)}
+              </span>
+              {/* Email section with separator */}
+              <span className="text-xs text-[#AB9C95]">|</span>
+              {getUserEmail(user) ? (
+                <span className="text-xs text-gray-500 truncate">
+                  {getUserEmail(user)}
+                </span>
+              ) : (
+                <span
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddEmailClick(user.type);
+                  }}
+                  className="text-xs text-[#A85C36] underline hover:text-[#8B4A2A] transition-colors cursor-pointer"
+                >
+                  Add email address
+                </span>
+              )}
+            </div>
           </div>
-        </button>
-      ))}
+          
+          {/* Validation message for users without emails */}
+          {!isValid && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">
+                No email
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    })}
     </div>
   );
 } 

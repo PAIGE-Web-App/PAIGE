@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, User, Users, Mail } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { X, Search, User, Users, Mail, Heart, Crown, Info } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import UserAvatar from './UserAvatar';
 import { Contact } from '@/types/contact';
@@ -14,6 +14,7 @@ interface TodoAssignmentModalProps {
     id: string;
     name: string;
     type: 'user' | 'contact';
+    role?: string;
   }[];
   contacts?: Contact[];
 }
@@ -25,6 +26,8 @@ interface AssigneeOption {
   email?: string;
   profileImageUrl?: string;
   avatarColor?: string;
+  role?: string; // New field for role labels
+  roleType?: 'user' | 'partner' | 'planner'; // New field for role type
 }
 
 const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
@@ -34,10 +37,11 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
   currentAssignees = [],
   contacts = [],
 }) => {
-  const { user } = useAuth();
-  const { userName, partnerName, plannerName } = useUserProfileData();
+  const { user, profileImageUrl } = useAuth();
+  const { userName, partnerName, partnerEmail, plannerName, plannerEmail } = useUserProfileData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssignees, setSelectedAssignees] = useState<AssigneeOption[]>([]);
+  const [showInfoBanner, setShowInfoBanner] = useState(true);
 
   // Build assignee options - only users, no contacts/vendors
   const assigneeOptions: AssigneeOption[] = [
@@ -46,29 +50,54 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
       id: user?.uid || '',
       name: userName || 'You',
       type: 'user',
-      profileImageUrl: user?.photoURL || undefined,
+      profileImageUrl: profileImageUrl || undefined,
+      role: 'You',
+      roleType: 'user',
+      email: user?.email || undefined,
     },
     // Partner (if exists)
     ...(partnerName ? [{
       id: 'partner',
       name: partnerName,
       type: 'user' as const,
-      email: '', // Partner email would come from user profile
+      email: partnerEmail || undefined,
+      role: 'Partner',
+      roleType: 'partner' as const,
     }] : []),
     // Wedding planner (if exists)
     ...(plannerName ? [{
       id: 'planner',
       name: plannerName,
       type: 'user' as const,
-      email: '', // Planner email would come from user profile
+      email: plannerEmail || undefined,
+      role: 'Wedding Planner',
+      roleType: 'planner' as const,
     }] : []),
   ];
 
   // Filter assignees based on search
   const filteredAssignees = assigneeOptions.filter(option =>
     option.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    option.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    option.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    option.role?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Get role icon (consistent with MentionAutocomplete)
+  const getRoleIcon = (roleType?: string) => {
+    switch (roleType) {
+      case 'partner':
+        return <Heart className="w-3 h-3 text-pink-500" />;
+      case 'planner':
+        return <Crown className="w-3 h-3 text-purple-500" />;
+      default:
+        return <User className="w-3 h-3 text-gray-500" />;
+    }
+  };
+
+  const handleAddEmailClick = (role: string) => {
+    // Open settings page with the appropriate tab
+    window.open('/settings?tab=account', '_blank');
+  };
 
   const handleAssign = () => {
     if (selectedAssignees.length > 0) {
@@ -92,6 +121,8 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
         id: assignee.id,
         name: assignee.name,
         type: assignee.type,
+        role: assignee.role,
+        roleType: assignee.type === 'user' ? 'user' : assignee.role?.includes('Partner') ? 'partner' : 'planner',
       })));
       setSearchQuery('');
     }
@@ -123,6 +154,26 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
             </button>
 
             <h5 className="h5 mb-4">Assign To-Do Item</h5>
+
+            {/* Info Banner */}
+            {showInfoBanner && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-blue-800">
+                      Assigned users will receive email notifications about their assignment and any changes to this item. If you add an email address later, they'll receive a summary of all pending tasks.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowInfoBanner(false)}
+                    className="text-blue-600 hover:text-blue-800 p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Search */}
             <div className="relative mb-4">
@@ -184,14 +235,39 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
                             <span className="text-sm font-medium text-[#332B42] truncate">
                               {assignee.name}
                             </span>
-                            {assignee.type === 'contact' && (
-                              <Users className="w-3 h-3 text-[#AB9C95]" />
-                            )}
+                            {getRoleIcon(assignee.roleType)}
                           </div>
-                          {assignee.email && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
-                              <Mail className="w-3 h-3" />
-                              <span className="truncate">{assignee.email}</span>
+                          {assignee.role && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-500">
+                                {assignee.role}
+                              </span>
+                              {/* Email section with separator */}
+                              {assignee.roleType !== 'user' && (
+                                <>
+                                  <span className="text-xs text-[#AB9C95]">|</span>
+                                  {assignee.email ? (
+                                    <span className="text-xs text-gray-500 truncate">
+                                      {assignee.email}
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleAddEmailClick(assignee.role || '')}
+                                      className="text-xs text-[#A85C36] underline hover:text-[#8B4A2A] transition-colors"
+                                    >
+                                      Add email address
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              {assignee.email && assignee.roleType === 'user' && (
+                                <>
+                                  <span className="text-xs text-[#AB9C95]">|</span>
+                                  <span className="text-xs text-gray-500 truncate">
+                                    {assignee.email}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

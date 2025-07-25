@@ -354,6 +354,49 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
       await updateDoc(userRef, updateData);
       await updateUser(updateData);
       reloadUserProfile(); // Trigger profile data reload
+      
+      // Send pending notifications if email was added
+      const previousPartnerEmail = firestorePartnerEmail;
+      const previousPlannerEmail = firestorePlannerEmail;
+      
+      // Check if partner email was added
+      if (partnerEmail && partnerEmail !== previousPartnerEmail && partnerName) {
+        try {
+          await fetch('/api/notifications/send-pending', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.uid,
+              assigneeType: 'partner',
+              assigneeEmail: partnerEmail,
+              assigneeName: partnerName
+            })
+          });
+          console.log('Sent pending notifications to partner');
+        } catch (error) {
+          console.error('Failed to send pending notifications to partner:', error);
+        }
+      }
+      
+      // Check if planner email was added
+      if (plannerEmail && plannerEmail !== previousPlannerEmail && plannerName) {
+        try {
+          await fetch('/api/notifications/send-pending', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.uid,
+              assigneeType: 'planner',
+              assigneeEmail: plannerEmail,
+              assigneeName: plannerName
+            })
+          });
+          console.log('Sent pending notifications to planner');
+        } catch (error) {
+          console.error('Failed to send pending notifications to planner:', error);
+        }
+      }
+      
       toast.success("Account details saved successfully!");
     } catch (error) {
       console.error("Error saving account details:", error);

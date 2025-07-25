@@ -452,7 +452,35 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       
       await updateDoc(todoRef, updateData);
       
+      // Send notifications for assignments to others (not self)
       if (assigneeIds.length > 0) {
+        const currentUserName = userName || 'You';
+        
+        for (const assigneeId of assigneeIds) {
+          // Don't send notification if assigning to self
+          if (assigneeId === currentUser?.uid) continue;
+          
+          // Send notification for partner or planner assignments
+          if (assigneeId === 'partner' || assigneeId === 'planner') {
+            try {
+              await fetch('/api/notifications/todo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: currentUser?.uid,
+                  todoId: todo.id,
+                  todoName: todo.name,
+                  action: 'assigned',
+                  assignedBy: currentUserName,
+                  assignedTo: assigneeId
+                })
+              });
+            } catch (error) {
+              console.error('Failed to send todo assignment notification:', error);
+            }
+          }
+        }
+        
         const namesText = assigneeNames.join(', ');
         toast.success(`Assigned to ${namesText}`);
       } else {
@@ -985,19 +1013,24 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       currentAssignees={todo.assignedTo ? (Array.isArray(todo.assignedTo) ? todo.assignedTo : [todo.assignedTo]).map(assigneeId => {
         let assigneeName = '';
         let assigneeType: 'user' | 'contact' = 'user';
+        let assigneeRole = '';
         
         if (assigneeId === currentUser?.uid) {
           assigneeName = userName || 'You';
+          assigneeRole = 'You';
         } else if (assigneeId === 'partner' && partnerName) {
           assigneeName = partnerName;
+          assigneeRole = 'Partner';
         } else if (assigneeId === 'planner' && plannerName) {
           assigneeName = plannerName;
+          assigneeRole = 'Wedding Planner';
         }
         
         return {
           id: assigneeId,
           name: assigneeName,
           type: assigneeType,
+          role: assigneeRole,
         };
       }) : []}
       contacts={contacts}
