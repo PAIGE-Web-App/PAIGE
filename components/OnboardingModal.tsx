@@ -60,33 +60,7 @@ const getRandomAvatarColor = () => {
 // Moved outside the component
 const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
-// Add triggerGmailImport function
-const triggerGmailImport = async (userId: string, contacts: OnboardingContact[]) => {
-  try {
-    const response = await fetch('/api/start-gmail-import', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        contacts,
-      }),
-    });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to start Gmail import');
-    }
-
-    console.log('Gmail import started successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error starting Gmail import:', error);
-    throw error;
-  }
-};
 
 export default function OnboardingModal({ userId, onClose, onComplete }: OnboardingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -188,39 +162,16 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gmailAuth = params.get('gmailAuth');
-    const userId = params.get('userId');
+    const urlUserId = params.get('userId');
 
-    console.log("OnboardingModal: useEffect running. gmailAuth param:", gmailAuth, "userId:", userId); 
+    console.log("OnboardingModal: useEffect running. gmailAuth param:", gmailAuth, "urlUserId:", urlUserId); 
 
-    if (gmailAuth === 'success' && userId === userId) {
+    if (gmailAuth === 'success' && urlUserId === userId) {
       setGmailAuthStatus('success');
       toast.success("Gmail connected successfully!");
       setCurrentStep(4);
       console.log("OnboardingModal: Gmail auth success. Setting currentStep to 4.");
-
-      // Trigger Gmail import
-      const triggerImport = async () => {
-        try {
-          if (!userId) {
-            console.error("OnboardingModal: userId is null, cannot proceed with Gmail import");
-            toast.error("User ID is missing. Please try again.");
-            return;
-          }
-          const contactsCollectionRef = getUserCollectionRef<OnboardingContact>("contacts", userId);
-          const contactsQuery = query(contactsCollectionRef);
-          const contactsSnapshot = await getDocs(contactsQuery);
-          const contacts = contactsSnapshot.docs.map(doc => doc.data() as OnboardingContact);
-          
-          console.log("OnboardingModal: Triggering Gmail import with contacts:", contacts);
-          await triggerGmailImport(userId, contacts);
-          console.log("OnboardingModal: Gmail import completed successfully");
-        } catch (error) {
-          console.error("OnboardingModal: Error during Gmail import:", error);
-          toast.error("Failed to import Gmail messages. Please try again.");
-        }
-      };
-
-      triggerImport();
+      // Removed automatic Gmail import trigger - will be handled by main page when onboarding completes
     } else if (gmailAuth === 'error') {
       setGmailAuthStatus('failed');
       toast.error("Failed to connect Gmail. Please try again.");

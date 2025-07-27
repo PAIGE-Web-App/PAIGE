@@ -169,25 +169,8 @@ export default function BudgetPage() {
                   selectedCategory={selectedCategory}
                   budgetItems={budget.budgetItems}
                   onAddItem={() => {
-                    if (selectedCategory) {
-                      // Create a new empty budget item for the modal
-                      const newItem: BudgetItem = {
-                        id: 'new',
-                        userId: user?.uid || '',
-                        categoryId: selectedCategory.id!,
-                        name: '',
-                        amount: 0,
-                        notes: '',
-                        isCustom: true,
-                        isCompleted: false,
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                      };
-                      budget.setSelectedBudgetItem(newItem);
-                      budget.setShowBudgetItemModal(true);
-                    } else {
-                      toast.error('Please select a category first');
-                    }
+                    // This is now handled inline in BudgetItemsList
+                    // Keeping for backward compatibility but it won't be used
                   }}
                   onEditItem={(item) => {
                     setSelectedBudgetItem(item);
