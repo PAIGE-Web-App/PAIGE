@@ -133,8 +133,9 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
           <div className="col-span-3">Item Name</div>
           <div className="col-span-2 text-right">Amount</div>
-          <div className="col-span-4">Notes</div>
+          <div className="col-span-3">Notes</div>
           <div className="col-span-2">Vendor</div>
+          <div className="col-span-1 text-center">Assignees</div>
           <div className="col-span-1 text-center">Actions</div>
         </div>
       </div>
@@ -191,7 +192,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 </div>
 
                 {/* Notes */}
-                <div className="col-span-4 flex items-center">
+                <div className="col-span-3 flex items-center">
                   <EditableField
                     value={item.notes || ''}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'notes'}
@@ -218,9 +219,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                   </button>
                 </div>
 
-                {/* Actions */}
-                <div className="col-span-1 flex items-center justify-center gap-1">
-                  {/* Assignment - Show avatars if assigned, UserPlus if not */}
+                {/* Assignees */}
+                <div className="col-span-1 flex items-center justify-center">
                   {item.assignedTo && (Array.isArray(item.assignedTo) ? item.assignedTo.length > 0 : item.assignedTo) ? (
                     <button
                       onClick={(e) => {
@@ -278,6 +278,10 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                       <UserPlus className="w-3 h-3 text-[#AB9C95]" />
                     </button>
                   )}
+                </div>
+
+                {/* Actions */}
+                <div className="col-span-1 flex items-center justify-center">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -307,7 +311,10 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
               {formatCurrency(totalAmount)}
             </span>
           </div>
-          <div className="col-span-7"></div>
+          <div className="col-span-3"></div>
+          <div className="col-span-2"></div>
+          <div className="col-span-1"></div>
+          <div className="col-span-1"></div>
         </div>
       </div>
 
