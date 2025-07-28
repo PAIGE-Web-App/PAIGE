@@ -197,10 +197,10 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
               )}
               <button
                 onClick={() => onDeleteItem(budgetItem.id!)}
-                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-[#F3F2F0] flex items-center gap-2"
+                className="p-1 hover:bg-gray-100 rounded-full"
+                title="Delete"
               >
                 <Trash2 size={16} className="text-red-500" />
-                Delete
               </button>
             </div>
           )}

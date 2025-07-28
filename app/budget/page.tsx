@@ -94,9 +94,9 @@ export default function BudgetPage() {
   const [triggerAddItem, setTriggerAddItem] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'cards' | 'table'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('budgetViewMode') as 'cards' | 'table') || 'cards';
+      return (localStorage.getItem('budgetViewMode') as 'cards' | 'table') || 'table';
     }
-    return 'cards';
+    return 'table';
   });
 
   // Track if we've initialized the category selection

@@ -211,7 +211,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                       e.stopPropagation();
                       item.id && onDeleteItem(item.id);
                     }}
-                    className="p-1 hover:bg-[#FDEAEA] rounded"
+                    className="p-1 hover:bg-gray-100 rounded-full"
                     title="Delete"
                   >
                     <Trash2 size={16} className="text-red-500" />
