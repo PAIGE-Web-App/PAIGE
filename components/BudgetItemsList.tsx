@@ -18,6 +18,7 @@ interface BudgetItemsListProps {
   onEditItem: (item: BudgetItem) => void;
   onDeleteItem: (itemId: string) => void;
   onLinkVendor: (item: BudgetItem) => void;
+  onAssign?: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId: string) => Promise<void>;
   viewMode: 'cards' | 'table';
 }
 
@@ -30,6 +31,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   onEditItem,
   onDeleteItem,
   onLinkVendor,
+  onAssign,
   viewMode,
 }) => {
   const { user } = useAuth();
@@ -144,10 +146,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
             budgetItems={categoryItems}
             onDeleteItem={onDeleteItem}
             onLinkVendor={onLinkVendor}
-            onAssign={(item) => {
-              // TODO: Implement assignment functionality
-              console.log('Assign item:', item);
-            }}
+            onAssign={onAssign}
             onAddItem={handleAddItem}
             newlyAddedItems={newlyAddedItems}
           />
@@ -160,10 +159,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
               budgetItem={item}
               onDeleteItem={onDeleteItem}
               onLinkVendor={onLinkVendor}
-              onAssign={(item) => {
-                // TODO: Implement assignment functionality
-                console.log('Assign item:', item);
-              }}
+              onAssign={onAssign}
               isNewlyAdded={isNewlyAdded(item.id!)}
             />
           ))}

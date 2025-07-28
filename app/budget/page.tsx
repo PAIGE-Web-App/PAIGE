@@ -296,6 +296,10 @@ export default function BudgetPage() {
                       setSelectedBudgetItem(item);
                       budget.setShowVendorIntegrationModal(true);
                     }}
+                    onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
+                      // Pass the itemId to the budget handler
+                      await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
+                    }}
                     viewMode={viewMode}
                   />
                 </div>

@@ -19,12 +19,15 @@ import toast from 'react-hot-toast';
 import { useBudgetItemEditing } from '@/hooks/useBudgetItemEditing';
 import { useAnimationState } from '@/hooks/useAnimationState';
 import EditableField from './common/EditableField';
+import TodoAssignmentModal from './TodoAssignmentModal';
+import UserAvatar from './UserAvatar';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 interface BudgetItemComponentProps {
   budgetItem: BudgetItem;
   onDeleteItem: (itemId: string) => void;
   onLinkVendor: (item: BudgetItem) => void;
-  onAssign?: (item: BudgetItem) => void;
+  onAssign?: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId: string) => Promise<void>;
   className?: string;
   isNewlyAdded?: boolean;
 }
@@ -39,10 +42,12 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { userName, partnerName, plannerName } = useUserProfileData();
   
   // State for inline editing
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   
   // Use custom hooks for editing and animations
   const editing = useBudgetItemEditing({
@@ -98,6 +103,61 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
     return false;
   }, []);
 
+  // Assignment handlers
+  const handleAssignBudgetItem = async (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
+    if (!onAssign) return;
+    
+    try {
+      // Pass the itemId as the last parameter
+      await onAssign(assigneeIds, assigneeNames, assigneeTypes, budgetItem.id!);
+      setShowAssignmentModal(false);
+    } catch (error) {
+      console.error('Error assigning budget item:', error);
+    }
+  };
+
+  // Get assignee info for display
+  const getAssigneeInfo = () => {
+    if (!budgetItem.assignedTo) return null;
+    
+    // Handle both old string format and new array format
+    const assigneeIds = Array.isArray(budgetItem.assignedTo) ? budgetItem.assignedTo : [budgetItem.assignedTo];
+    if (assigneeIds.length === 0) return null;
+    
+    // For now, show the first assignee (we'll update this to show multiple avatars later)
+    const firstAssigneeId = assigneeIds[0];
+    
+    // Check if it's the current user
+    if (firstAssigneeId === user?.uid) {
+      return {
+        id: user.uid,
+        name: userName || 'You',
+        type: 'user' as const,
+      };
+    }
+    
+    // Check if it's partner or planner
+    if (firstAssigneeId === 'partner' && partnerName) {
+      return {
+        id: 'partner',
+        name: partnerName,
+        type: 'user' as const,
+      };
+    }
+    
+    if (firstAssigneeId === 'planner' && plannerName) {
+      return {
+        id: 'planner',
+        name: plannerName,
+        type: 'user' as const,
+      };
+    }
+    
+    return null;
+  };
+
+  const assigneeInfo = getAssigneeInfo();
+
   const triggerJustUpdated = (itemId: string) => {
     setJustUpdated(true);
     setTimeout(() => setJustUpdated(false), 1000);
@@ -144,11 +204,12 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
 
 
   return (
-    <div
-      className={`relative bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 hover:border-[#A85C36] transition-colors ${
-        justUpdated ? 'bg-green-100' : ''
-      } ${showNewlyAdded ? 'bg-green-100' : ''} ${className}`}
-    >
+    <>
+      <div
+        className={`relative bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 hover:border-[#A85C36] transition-colors ${
+          justUpdated ? 'bg-green-100' : ''
+        } ${showNewlyAdded ? 'bg-green-100' : ''} ${className}`}
+      >
       {/* Header with name and more menu */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -188,7 +249,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
               </button>
               {onAssign && (
                 <button
-                  onClick={() => onAssign(budgetItem)}
+                  onClick={() => setShowAssignmentModal(true)}
                   className="w-full text-left px-3 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] flex items-center gap-2"
                 >
                   <UserPlus size={14} />
@@ -253,6 +314,70 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
         </div>
       </div>
 
+      {/* Assignment section */}
+      <div className="mt-2">
+        <div className="flex items-center gap-1">
+          <UserPlus size={14} className="text-[#364257] mt-0.5" />
+          {budgetItem.assignedTo && (Array.isArray(budgetItem.assignedTo) ? budgetItem.assignedTo.length > 0 : budgetItem.assignedTo) ? (
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              disabled={budgetItem.isCompleted}
+              className={`flex items-center hover:opacity-80 transition-opacity ${
+                budgetItem.isCompleted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+              title={budgetItem.isCompleted ? 'Mark as incomplete to reassign' : 'Click to reassign'}
+            >
+              <div className="flex items-center -space-x-2">
+                {(Array.isArray(budgetItem.assignedTo) ? budgetItem.assignedTo : [budgetItem.assignedTo]).slice(0, 3).map((assigneeId, index) => {
+                  // Get assignee info for each ID
+                  let assigneeName = '';
+                  let assigneeProfileImageUrl: string | undefined = undefined;
+                  
+                  if (assigneeId === user?.uid) {
+                    assigneeName = userName || 'You';
+                  } else if (assigneeId === 'partner' && partnerName) {
+                    assigneeName = partnerName;
+                  } else if (assigneeId === 'planner' && plannerName) {
+                    assigneeName = plannerName;
+                  }
+                  
+                  return (
+                    <div key={assigneeId} className="relative">
+                      <div className="border border-white rounded-full">
+                        <UserAvatar
+                          userId={assigneeId}
+                          userName={assigneeName}
+                          profileImageUrl={assigneeProfileImageUrl}
+                          size="sm"
+                          showTooltip={true}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {Array.isArray(budgetItem.assignedTo) && budgetItem.assignedTo.length > 3 && (
+                <div className="ml-1 w-6 h-6 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center border border-white">
+                  +{budgetItem.assignedTo.length - 3}
+                </div>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              disabled={budgetItem.isCompleted}
+              className={`flex items-center gap-1 text-xs text-[#364257] underline hover:text-[#A85C36] transition-colors ${
+                budgetItem.isCompleted ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title={budgetItem.isCompleted ? 'Mark as incomplete to assign' : 'Assign to someone'}
+            >
+              <UserPlus size={12} />
+              Assign
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Action links */}
       <div className="flex items-center gap-4 mt-3 pt-2 border-t border-[#E0DBD7] text-xs">
         <button
@@ -263,7 +388,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
         </button>
         {onAssign && (
           <button
-            onClick={() => onAssign(budgetItem)}
+            onClick={() => setShowAssignmentModal(true)}
             className="text-[#A85C36] hover:text-[#8B4513] underline flex items-center gap-1"
           >
             <UserPlus size={12} />
@@ -280,6 +405,38 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
         </div>
       )}
     </div>
+
+    {/* Assignment Modal */}
+    <TodoAssignmentModal
+      isOpen={showAssignmentModal}
+      onClose={() => setShowAssignmentModal(false)}
+      onAssign={handleAssignBudgetItem}
+      currentAssignees={budgetItem.assignedTo ? (Array.isArray(budgetItem.assignedTo) ? budgetItem.assignedTo : [budgetItem.assignedTo]).map(assigneeId => {
+        let assigneeName = '';
+        let assigneeType: 'user' | 'contact' = 'user';
+        let assigneeRole = '';
+        
+        if (assigneeId === user?.uid) {
+          assigneeName = userName || 'You';
+          assigneeRole = 'You';
+        } else if (assigneeId === 'partner' && partnerName) {
+          assigneeName = partnerName;
+          assigneeRole = 'Partner';
+        } else if (assigneeId === 'planner' && plannerName) {
+          assigneeName = plannerName;
+          assigneeRole = 'Wedding Planner';
+        }
+        
+        return {
+          id: assigneeId,
+          name: assigneeName,
+          type: assigneeType,
+          role: assigneeRole,
+        };
+      }) : []}
+      contacts={[]}
+    />
+    </>
   );
 };
 

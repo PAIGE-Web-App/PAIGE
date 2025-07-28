@@ -12,6 +12,11 @@ export interface BudgetItem {
   vendorId?: string;
   vendorName?: string;
   vendorPlaceId?: string;
+  // Assignment fields (same as TodoItem)
+  assignedTo?: string[] | null; // array of userIds of assignees
+  assignedBy?: string | null; // userId of who assigned it
+  assignedAt?: Date | null; // when it was assigned
+  notificationRead?: boolean; // for tracking if assignee has seen the notification
 }
 
 export interface BudgetCategory {

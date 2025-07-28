@@ -133,6 +133,15 @@ export function useBudget() {
     const unsubscribeItems = onSnapshot(q, (snapshot) => {
       const items: BudgetItem[] = snapshot.docs.map(doc => {
         const data = doc.data() as any;
+        
+        // Optimize date processing
+        const processDate = (dateField: any): Date | undefined => {
+          if (!dateField) return undefined;
+          if (typeof dateField.toDate === 'function') return dateField.toDate();
+          if (dateField instanceof Date) return dateField;
+          return undefined;
+        };
+        
         return {
           id: doc.id,
           userId: data.userId,
@@ -145,8 +154,13 @@ export function useBudget() {
           notes: data.notes,
           isCustom: data.isCustom || false,
           isCompleted: data.isCompleted || false,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
+          createdAt: processDate(data.createdAt) || new Date(),
+          updatedAt: processDate(data.updatedAt) || new Date(),
+          // Assignment fields
+          assignedTo: data.assignedTo || null,
+          assignedBy: data.assignedBy || null,
+          assignedAt: processDate(data.assignedAt),
+          notificationRead: data.notificationRead || false
         };
       });
       setBudgetItems(items);
@@ -634,6 +648,63 @@ export function useBudget() {
     }
   };
 
+  // Assignment handler for budget items (same as todo items)
+  const handleAssignBudgetItem = async (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId?: string) => {
+    if (!user) return;
+
+    try {
+      // Update the budget item with assignment info
+      const itemRef = doc(getUserCollectionRef('budgetItems', user.uid), itemId);
+      const updateData: any = {
+        assignedTo: assigneeIds.length > 0 ? assigneeIds : null,
+        assignedBy: assigneeIds.length > 0 ? user.uid : null,
+        assignedAt: assigneeIds.length > 0 ? new Date() : null,
+        notificationRead: false,
+        updatedAt: new Date(),
+      };
+      
+      await updateDoc(itemRef, updateData);
+      
+      // Send notifications for assignments to others (not self)
+      if (assigneeIds.length > 0) {
+        const currentUserName = user.displayName || user.email || 'You';
+        
+        for (const assigneeId of assigneeIds) {
+          // Don't send notification if assigning to self
+          if (assigneeId === user.uid) continue;
+          
+          // Send notification for partner or planner assignments
+          if (assigneeId === 'partner' || assigneeId === 'planner') {
+            try {
+              await fetch('/api/notifications/todo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: user.uid,
+                  todoId: itemId,
+                  todoName: budgetItems.find(item => item.id === itemId)?.name || 'Budget Item',
+                  action: 'assigned',
+                  assignedBy: currentUserName,
+                  assignedTo: assigneeId
+                })
+              });
+            } catch (error) {
+              console.error('Failed to send budget item assignment notification:', error);
+            }
+          }
+        }
+        
+        const namesText = assigneeNames.join(', ');
+        showSuccessToast(`Assigned to ${namesText}`);
+      } else {
+        showSuccessToast('Assignment removed');
+      }
+    } catch (error) {
+      console.error('Error assigning budget item:', error);
+      showErrorToast('Failed to assign budget item');
+    }
+  };
+
   // Calculate average budget for backward compatibility
   const userTotalBudget = userBudgetRange ? Math.round((userBudgetRange.min + userBudgetRange.max) / 2) : null;
 
@@ -670,6 +741,7 @@ export function useBudget() {
     handleDeleteBudgetItem,
     handleEditBudgetItem,
     handleLinkVendor,
+    handleAssignBudgetItem,
     handleGenerateBudget,
     handleGenerateTodoList,
     handleGenerateIntegratedPlan,

@@ -7,12 +7,15 @@ import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import EditableField from './common/EditableField';
+import TodoAssignmentModal from './TodoAssignmentModal';
+import UserAvatar from './UserAvatar';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
 
 interface BudgetItemsTableProps {
   budgetItems: BudgetItem[];
   onDeleteItem: (itemId: string) => void;
   onLinkVendor: (item: BudgetItem) => void;
-  onAssign?: (item: BudgetItem) => void;
+  onAssign?: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId: string) => Promise<void>;
   onAddItem: () => void;
   newlyAddedItems?: Set<string>;
 }
@@ -27,8 +30,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { userName, partnerName, plannerName } = useUserProfileData();
   const [editingCell, setEditingCell] = useState<{ itemId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [selectedItemForAssignment, setSelectedItemForAssignment] = useState<BudgetItem | null>(null);
 
   // Memoized values for performance
   const totalAmount = useMemo(() => {
@@ -98,6 +104,24 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
     } else if (e.key === 'Escape') {
       handleEditCancel();
     }
+  };
+
+  // Assignment handlers
+  const handleAssignBudgetItem = async (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
+    if (!onAssign || !selectedItemForAssignment) return;
+    
+    try {
+      await onAssign(assigneeIds, assigneeNames, assigneeTypes, selectedItemForAssignment.id!);
+      setShowAssignmentModal(false);
+      setSelectedItemForAssignment(null);
+    } catch (error) {
+      console.error('Error assigning budget item:', error);
+    }
+  };
+
+  const handleAssignClick = (item: BudgetItem) => {
+    setSelectedItemForAssignment(item);
+    setShowAssignmentModal(true);
   };
 
   // totalAmount is now memoized above
@@ -199,7 +223,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onAssign?.(item);
+                      handleAssignClick(item);
                     }}
                     className="p-1 hover:bg-[#EBE3DD] rounded"
                     title="Assign"
@@ -238,6 +262,42 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
           <div className="col-span-7"></div>
         </div>
       </div>
+
+      {/* Assignment Modal */}
+      {selectedItemForAssignment && (
+        <TodoAssignmentModal
+          isOpen={showAssignmentModal}
+          onClose={() => {
+            setShowAssignmentModal(false);
+            setSelectedItemForAssignment(null);
+          }}
+          onAssign={handleAssignBudgetItem}
+          currentAssignees={selectedItemForAssignment.assignedTo ? (Array.isArray(selectedItemForAssignment.assignedTo) ? selectedItemForAssignment.assignedTo : [selectedItemForAssignment.assignedTo]).map(assigneeId => {
+            let assigneeName = '';
+            let assigneeType: 'user' | 'contact' = 'user';
+            let assigneeRole = '';
+            
+            if (assigneeId === user?.uid) {
+              assigneeName = userName || 'You';
+              assigneeRole = 'You';
+            } else if (assigneeId === 'partner' && partnerName) {
+              assigneeName = partnerName;
+              assigneeRole = 'Partner';
+            } else if (assigneeId === 'planner' && plannerName) {
+              assigneeName = plannerName;
+              assigneeRole = 'Wedding Planner';
+            }
+            
+            return {
+              id: assigneeId,
+              name: assigneeName,
+              type: assigneeType,
+              role: assigneeRole,
+            };
+          }) : []}
+          contacts={[]}
+        />
+      )}
     </div>
   );
 };
