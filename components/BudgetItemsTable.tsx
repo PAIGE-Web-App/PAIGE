@@ -220,16 +220,64 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
 
                 {/* Actions */}
                 <div className="col-span-1 flex items-center justify-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAssignClick(item);
-                    }}
-                    className="p-1 hover:bg-[#EBE3DD] rounded"
-                    title="Assign"
-                  >
-                    <UserPlus className="w-3 h-3 text-[#AB9C95]" />
-                  </button>
+                  {/* Assignment - Show avatars if assigned, UserPlus if not */}
+                  {item.assignedTo && (Array.isArray(item.assignedTo) ? item.assignedTo.length > 0 : item.assignedTo) ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAssignClick(item);
+                      }}
+                      className="flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+                      title="Click to reassign"
+                    >
+                      <div className="flex items-center -space-x-1">
+                        {(Array.isArray(item.assignedTo) ? item.assignedTo : [item.assignedTo]).slice(0, 2).map((assigneeId, index) => {
+                          // Get assignee info for each ID
+                          let assigneeName = '';
+                          let assigneeProfileImageUrl: string | undefined = undefined;
+                          
+                          if (assigneeId === user?.uid) {
+                            assigneeName = userName || 'You';
+                            assigneeProfileImageUrl = user.photoURL || undefined;
+                          } else if (assigneeId === 'partner' && partnerName) {
+                            assigneeName = partnerName;
+                          } else if (assigneeId === 'planner' && plannerName) {
+                            assigneeName = plannerName;
+                          }
+                          
+                          return (
+                            <div key={assigneeId} className="relative">
+                              <div className="border border-white rounded-full">
+                                <UserAvatar
+                                  userId={assigneeId}
+                                  userName={assigneeName}
+                                  profileImageUrl={assigneeProfileImageUrl}
+                                  size="sm"
+                                  showTooltip={true}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {Array.isArray(item.assignedTo) && item.assignedTo.length > 2 && (
+                        <div className="ml-1 w-4 h-4 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center border border-white">
+                          +{item.assignedTo.length - 2}
+                        </div>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAssignClick(item);
+                      }}
+                      className="p-1 hover:bg-[#EBE3DD] rounded"
+                      title="Assign"
+                    >
+                      <UserPlus className="w-3 h-3 text-[#AB9C95]" />
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
