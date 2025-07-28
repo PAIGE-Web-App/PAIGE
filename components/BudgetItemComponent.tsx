@@ -115,9 +115,9 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   }, [budgetItem.name, budgetItem.isCompleted, editing]);
 
   const handleNameSave = useCallback(async (value: string) => {
-    await handleUpdateName(budgetItem.id!, value);
+    await editing.saveEdit(value);
     triggerJustUpdated(budgetItem.id!);
-  }, [budgetItem.id]);
+  }, [budgetItem.id, editing]);
 
   // Amount editing handlers
   const handleAmountClick = useCallback(() => {
@@ -126,10 +126,9 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   }, [budgetItem.amount, budgetItem.isCompleted, editing]);
 
   const handleAmountSave = useCallback(async (value: string) => {
-    const newAmount = parseFloat(value) || 0;
-    await handleUpdateAmount(budgetItem.id!, newAmount);
+    await editing.saveEdit(value);
     triggerJustUpdated(budgetItem.id!);
-  }, [budgetItem.id]);
+  }, [budgetItem.id, editing]);
 
   // Note editing handlers
   const handleAddNoteClick = useCallback(() => {
@@ -138,55 +137,11 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   }, [budgetItem.notes, budgetItem.isCompleted, editing]);
 
   const handleNoteSave = useCallback(async (value: string) => {
-    await handleUpdateNote(budgetItem.id!, value);
+    await editing.saveEdit(value);
     triggerJustUpdated(budgetItem.id!);
-  }, [budgetItem.id]);
+  }, [budgetItem.id, editing]);
 
-  // Update handlers
-  const handleUpdateName = async (itemId: string, newName: string) => {
-    if (!user) {
-      showErrorToast('User not authenticated.');
-      return;
-    }
-    try {
-      const itemRef = doc(getUserCollectionRef('budgetItems', user.uid), itemId);
-      await setDoc(itemRef, { name: newName, updatedAt: new Date() }, { merge: true });
-      showSuccessToast('Item name updated!');
-    } catch (error: any) {
-      console.error('Error updating item name:', error);
-      showErrorToast(`Failed to update item name: ${error.message}`);
-    }
-  };
 
-  const handleUpdateAmount = async (itemId: string, newAmount: number) => {
-    if (!user) {
-      showErrorToast('User not authenticated.');
-      return;
-    }
-    try {
-      const itemRef = doc(getUserCollectionRef('budgetItems', user.uid), itemId);
-      await setDoc(itemRef, { amount: newAmount, updatedAt: new Date() }, { merge: true });
-      showSuccessToast('Amount updated!');
-    } catch (error: any) {
-      console.error('Error updating amount:', error);
-      showErrorToast(`Failed to update amount: ${error.message}`);
-    }
-  };
-
-  const handleUpdateNote = async (itemId: string, newNote: string) => {
-    if (!user) {
-      showErrorToast('User not authenticated.');
-      return;
-    }
-    try {
-      const itemRef = doc(getUserCollectionRef('budgetItems', user.uid), itemId);
-      await setDoc(itemRef, { notes: newNote, updatedAt: new Date() }, { merge: true });
-      showSuccessToast(`Note ${newNote ? 'updated' : 'removed'}!`);
-    } catch (error: any) {
-      console.error('Error updating note:', error);
-      showErrorToast(`Failed to update note: ${error.message}`);
-    }
-  };
 
   return (
     <div

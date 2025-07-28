@@ -40,7 +40,11 @@ const BudgetCategoryItem: React.FC<BudgetCategoryItemProps> = memo(({
       }`}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="truncate">{category.name}</span>
+        <span className={`truncate ${
+          spentAmount > category.allocatedAmount ? 'text-red-600 font-medium' : ''
+        }`}>
+          {category.name}
+        </span>
         <span className="text-xs text-[#AB9C95]">
           {formatCurrency(spentAmount)} / {formatCurrency(category.allocatedAmount)}
         </span>

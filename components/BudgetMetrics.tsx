@@ -61,14 +61,24 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
               <h3 className="text-sm font-medium text-[#AB9C95] mb-3">Category Budget</h3>
               
               <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
-                <h3 className="text-sm font-medium text-[#AB9C95] mb-2">{selectedCategory.name}</h3>
+                <h3 className={`text-sm font-medium mb-2 ${
+                  (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount 
+                    ? 'text-red-600' 
+                    : 'text-[#AB9C95]'
+                }`}>
+                  {selectedCategory.name}
+                </h3>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
                   {formatCurrency(selectedCategory.spentAmount || 0)} of {formatCurrency(selectedCategory.allocatedAmount)}
                 </div>
                 <div className="text-sm text-[#AB9C95]">
                   {((selectedCategory.spentAmount || 0) / selectedCategory.allocatedAmount * 100).toFixed(1)}% used
                 </div>
-                <div className="text-xs text-green-600 font-medium mt-1">
+                <div className={`text-xs font-medium mt-1 ${
+                  (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount 
+                    ? 'text-red-600' 
+                    : 'text-green-600'
+                }`}>
                   {formatCurrency(selectedCategory.allocatedAmount - (selectedCategory.spentAmount || 0))} remaining
                 </div>
               </div>

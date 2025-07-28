@@ -50,27 +50,28 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
     setEditValue(field === 'amount' ? item.amount.toString() : (item[field as keyof BudgetItem]?.toString() || ''));
   };
 
-  const handleEditSave = async (item: BudgetItem) => {
+  const handleEditSave = async (item: BudgetItem, value?: string) => {
     if (!editingCell || !user) return;
 
     try {
       const updates: any = {};
+      const valueToUse = value || editValue;
       
       if (editingCell.field === 'amount') {
-        const numValue = parseFloat(editValue);
+        const numValue = parseFloat(valueToUse);
         if (isNaN(numValue)) {
           showErrorToast('Please enter a valid amount');
           return;
         }
         updates.amount = numValue;
       } else if (editingCell.field === 'name') {
-        if (!editValue.trim()) {
+        if (!valueToUse.trim()) {
           showErrorToast('Name cannot be empty');
           return;
         }
-        updates.name = editValue.trim();
+        updates.name = valueToUse.trim();
       } else if (editingCell.field === 'notes') {
-        updates.notes = editValue.trim() || null;
+        updates.notes = valueToUse.trim() || null;
       }
 
       updates.updatedAt = new Date();
@@ -142,10 +143,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                     value={item.name}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'name'}
                     onStartEdit={() => handleEditStart(item, 'name')}
-                    onSave={(value) => {
-                      setEditValue(value);
-                      handleEditSave(item);
-                    }}
+                    onSave={(value) => handleEditSave(item, value)}
                     onCancel={handleEditCancel}
                     placeholder="Enter item name..."
                     className="text-sm text-[#332B42] flex-1"
@@ -159,10 +157,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                     value={item.amount.toString()}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'amount'}
                     onStartEdit={() => handleEditStart(item, 'amount')}
-                    onSave={(value) => {
-                      setEditValue(value);
-                      handleEditSave(item);
-                    }}
+                    onSave={(value) => handleEditSave(item, value)}
                     onCancel={handleEditCancel}
                     type="number"
                     placeholder="0"
@@ -177,10 +172,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                     value={item.notes || ''}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'notes'}
                     onStartEdit={() => handleEditStart(item, 'notes')}
-                    onSave={(value) => {
-                      setEditValue(value);
-                      handleEditSave(item);
-                    }}
+                    onSave={(value) => handleEditSave(item, value)}
                     onCancel={handleEditCancel}
                     placeholder="Add notes..."
                     className="text-sm text-[#AB9C95] flex-1 truncate"

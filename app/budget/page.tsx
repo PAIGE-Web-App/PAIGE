@@ -34,6 +34,10 @@ const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
   loading: () => <div className="h-32 bg-white border-b border-[#AB9C95] animate-pulse" />
 });
 
+const BudgetOverBudgetBanner = dynamic(() => import('@/components/budget/BudgetOverBudgetBanner'), {
+  loading: () => <div className="h-20 bg-red-50 animate-pulse" />
+});
+
 
 
 // Lazy load modals
@@ -249,7 +253,12 @@ export default function BudgetPage() {
 
               {/* Budget Metrics - After Category Title and Actions */}
               <BudgetMetrics
-                selectedCategory={selectedCategory}
+                selectedCategory={selectedCategory ? {
+                  ...selectedCategory,
+                  spentAmount: budget.budgetStats?.categoryBreakdown?.find(
+                    (cat: any) => cat.categoryId === selectedCategory.id
+                  )?.spent || 0
+                } : null}
                 totalBudget={budget.userTotalBudget}
                 totalSpent={budget.totalSpent}
                 budgetRange={budget.userBudgetRange}
@@ -257,23 +266,39 @@ export default function BudgetPage() {
 
               {/* Budget Items List */}
               <div className="flex-1 flex gap-4 min-h-0">
-                <BudgetItemsList
-                  selectedCategory={selectedCategory}
-                  budgetItems={budget.budgetItems}
-                  searchQuery={budgetSearchQuery}
-                  triggerAddItem={triggerAddItem}
-                  onTriggerAddItemComplete={() => setTriggerAddItem(false)}
-                  onEditItem={(item) => {
-                    // Editing is now handled inline in BudgetItemComponent
-                    console.log('Edit item:', item);
-                  }}
-                  onDeleteItem={budget.handleDeleteBudgetItem}
-                  onLinkVendor={(item) => {
-                    setSelectedBudgetItem(item);
-                    budget.setShowVendorIntegrationModal(true);
-                  }}
-                  viewMode={viewMode}
-                />
+                <div className="flex-1 flex flex-col">
+                  {/* Over Budget Warning Banner */}
+                  {selectedCategory && budget.budgetStats?.categoryBreakdown && (() => {
+                    const categoryBreakdown = budget.budgetStats.categoryBreakdown.find(
+                      (cat: any) => cat.categoryId === selectedCategory.id
+                    );
+                    return categoryBreakdown && categoryBreakdown.spent > selectedCategory.allocatedAmount ? (
+                      <BudgetOverBudgetBanner
+                        categoryName={selectedCategory.name}
+                        spentAmount={categoryBreakdown.spent}
+                        allocatedAmount={selectedCategory.allocatedAmount}
+                      />
+                    ) : null;
+                  })()}
+                  
+                  <BudgetItemsList
+                    selectedCategory={selectedCategory}
+                    budgetItems={budget.budgetItems}
+                    searchQuery={budgetSearchQuery}
+                    triggerAddItem={triggerAddItem}
+                    onTriggerAddItemComplete={() => setTriggerAddItem(false)}
+                    onEditItem={(item) => {
+                      // Editing is now handled inline in BudgetItemComponent
+                      console.log('Edit item:', item);
+                    }}
+                    onDeleteItem={budget.handleDeleteBudgetItem}
+                    onLinkVendor={(item) => {
+                      setSelectedBudgetItem(item);
+                      budget.setShowVendorIntegrationModal(true);
+                    }}
+                    viewMode={viewMode}
+                  />
+                </div>
 
                 {/* Budget Item Side Card - Right Panel */}
                 {showItemSideCard && selectedBudgetItem && (

@@ -54,27 +54,28 @@ export const useBudgetItemEditing = ({
     setEditingState(prev => ({ ...prev, value }));
   }, []);
 
-  const saveEdit = useCallback(async () => {
+  const saveEdit = useCallback(async (value?: string) => {
     if (!editingState.field || !user) return;
 
     try {
       const updates: any = { updatedAt: new Date() };
+      const valueToUse = value || editingState.value;
       
       if (editingState.field === 'amount') {
-        const numValue = parseFloat(editingState.value);
+        const numValue = parseFloat(valueToUse);
         if (isNaN(numValue)) {
           showErrorToast('Please enter a valid amount');
           return;
         }
         updates.amount = numValue;
       } else if (editingState.field === 'name') {
-        if (!editingState.value.trim()) {
+        if (!valueToUse.trim()) {
           showErrorToast('Name cannot be empty');
           return;
         }
-        updates.name = editingState.value.trim();
+        updates.name = valueToUse.trim();
       } else if (editingState.field === 'notes') {
-        updates.notes = editingState.value.trim() || null;
+        updates.notes = valueToUse.trim() || null;
       }
 
       if (onUpdate) {
