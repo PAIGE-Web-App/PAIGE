@@ -251,12 +251,15 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
                                       {assignee.email}
                                     </span>
                                   ) : (
-                                    <button
-                                      onClick={() => handleAddEmailClick(assignee.role || '')}
-                                      className="text-xs text-[#A85C36] underline hover:text-[#8B4A2A] transition-colors"
+                                    <div
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddEmailClick(assignee.role || '');
+                                      }}
+                                      className="text-xs text-[#A85C36] underline hover:text-[#8B4A2A] transition-colors cursor-pointer"
                                     >
                                       Add email address
-                                    </button>
+                                    </div>
                                   )}
                                 </>
                               )}
