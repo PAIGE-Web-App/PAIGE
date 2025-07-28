@@ -390,6 +390,8 @@ export default function BudgetPage() {
             setEditingCategory(null);
           }}
           category={editingCategory}
+          budgetCategories={budget.budgetCategories}
+          userBudgetRange={budget.userBudgetRange}
           onSave={(categoryId, updates) => {
             if (categoryId === 'new') {
               budget.handleAddCategory(updates.name!, updates.allocatedAmount || 0);
