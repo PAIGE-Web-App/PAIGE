@@ -110,28 +110,28 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
         <div className="flex-shrink-0 flex justify-end items-center gap-3 ml-auto">
           {/* View Toggle - Only show when category is selected */}
           {selectedCategory && (
-            <div className="flex items-center bg-white border border-[#E0DBD7] rounded-[5px] p-1">
+            <div className="flex rounded-full border border-gray-400 overflow-hidden" style={{ height: 32 }}>
               <button
+                className={`flex items-center justify-center px-2 transition-colors duration-150 ${
+                  viewMode === 'cards' ? 'bg-[#EBE3DD]' : 'bg-white'
+                } border-r border-gray-300`}
+                style={{ outline: 'none' }}
                 onClick={() => onViewModeChange('cards')}
-                className={`p-2 rounded-[3px] transition-colors ${
-                  viewMode === 'cards' 
-                    ? 'bg-[#A85C36] text-white' 
-                    : 'text-[#AB9C95] hover:bg-[#F8F6F4]'
-                }`}
+                type="button"
                 title="Card View"
               >
-                <Grid className="w-4 h-4" />
+                <Grid size={18} stroke={viewMode === 'cards' ? '#A85C36' : '#364257'} />
               </button>
               <button
-                onClick={() => onViewModeChange('table')}
-                className={`p-2 rounded-[3px] transition-colors ${
-                  viewMode === 'table' 
-                    ? 'bg-[#A85C36] text-white' 
-                    : 'text-[#AB9C95] hover:bg-[#F8F6F4]'
+                className={`flex items-center justify-center px-2 transition-colors duration-150 ${
+                  viewMode === 'table' ? 'bg-[#EBE3DD]' : 'bg-white'
                 }`}
+                style={{ outline: 'none' }}
+                onClick={() => onViewModeChange('table')}
+                type="button"
                 title="Table View"
               >
-                <List className="w-4 h-4" />
+                <List size={18} stroke={viewMode === 'table' ? '#A85C36' : '#364257'} />
               </button>
             </div>
           )}
