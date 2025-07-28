@@ -33,6 +33,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [newlyAddedItems, setNewlyAddedItems] = React.useState<Set<string>>(new Set());
   
   // Handle trigger add item from top bar
   React.useEffect(() => {
@@ -41,6 +42,16 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
       onTriggerAddItemComplete?.();
     }
   }, [triggerAddItem, selectedCategory]);
+
+  // Clear newly added items after animation
+  React.useEffect(() => {
+    if (newlyAddedItems.size > 0) {
+      const timer = setTimeout(() => {
+        setNewlyAddedItems(new Set());
+      }, 1000); // Clear after 1 second (same as animation duration)
+      return () => clearTimeout(timer);
+    }
+  }, [newlyAddedItems]);
   
 
   const formatCurrency = (amount: number) => {
@@ -79,7 +90,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
     }
     
     try {
-      await addDoc(getUserCollectionRef('budgetItems', user.uid), {
+      const docRef = await addDoc(getUserCollectionRef('budgetItems', user.uid), {
         categoryId: selectedCategory.id,
         name: 'New Budget Item (Click to Edit)',
         amount: 0,
@@ -90,6 +101,9 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      
+      // Track newly added item for green flash animation
+      setNewlyAddedItems(prev => new Set(prev).add(docRef.id));
       
       showSuccessToast('Budget item added successfully!');
     } catch (error: any) {
@@ -113,7 +127,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white h-full min-h-0">
       {/* Items List */}
       {categoryItems.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-[#AB9C95]">
@@ -124,16 +138,19 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
           </div>
         </div>
       ) : viewMode === 'table' ? (
-        <BudgetItemsTable
-          budgetItems={categoryItems}
-          onDeleteItem={onDeleteItem}
-          onLinkVendor={onLinkVendor}
-          onAssign={(item) => {
-            // TODO: Implement assignment functionality
-            console.log('Assign item:', item);
-          }}
-          onAddItem={handleAddItem}
-        />
+        <div className="flex-1 flex flex-col h-full min-h-0">
+          <BudgetItemsTable
+            budgetItems={categoryItems}
+            onDeleteItem={onDeleteItem}
+            onLinkVendor={onLinkVendor}
+            onAssign={(item) => {
+              // TODO: Implement assignment functionality
+              console.log('Assign item:', item);
+            }}
+            onAddItem={handleAddItem}
+            newlyAddedItems={newlyAddedItems}
+          />
+        </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {categoryItems.map((item) => (
@@ -146,6 +163,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
                 // TODO: Implement assignment functionality
                 console.log('Assign item:', item);
               }}
+              isNewlyAdded={newlyAddedItems.has(item.id!)}
             />
           ))}
         </div>

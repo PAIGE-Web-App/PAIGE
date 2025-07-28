@@ -107,7 +107,7 @@ export function useTodoItems(selectedList: TodoList | null) {
     
     const q = query(
       getUserCollectionRef('todoItems', user.uid),
-      orderBy('orderIndex', 'asc')
+      orderBy('createdAt', 'desc')
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {

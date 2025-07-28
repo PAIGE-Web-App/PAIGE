@@ -127,7 +127,7 @@ export function useBudget() {
     // Follow existing architecture - no need for userId filter since getUserCollectionRef already scopes to user
     const q = query(
       getUserCollectionRef('budgetItems', user.uid),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribeItems = onSnapshot(q, (snapshot) => {

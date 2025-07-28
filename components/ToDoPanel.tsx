@@ -77,6 +77,7 @@ interface ToDoPanelProps {
   setShowUpgradeModal: (val: boolean) => void;
   allTodoCount: number;
   handleDrop: (e: any) => void;
+  newlyAddedTodoItems?: Set<string>;
 }
 
 const ToDoPanel = ({
@@ -141,7 +142,8 @@ const ToDoPanel = ({
   router,
   setShowUpgradeModal,
   allTodoCount,
-  handleDrop
+  handleDrop,
+  newlyAddedTodoItems = new Set()
 }: ToDoPanelProps) => {
   // Dropdown state
   const [showListDropdown, setShowListDropdown] = useState(false);
@@ -553,6 +555,7 @@ const ToDoPanel = ({
                     mode="page"
                     {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
                     searchQuery={searchQuery}
+                    isNewlyAdded={newlyAddedTodoItems.has(todo.id)}
                   />
                 ))}
               </AnimatePresence>

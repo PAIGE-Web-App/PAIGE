@@ -47,6 +47,7 @@ interface UnifiedTodoItemProps {
   onRemove?: () => void;
   isJustMoved?: boolean;
   searchQuery?: string;
+  isNewlyAdded?: boolean;
 }
 
 // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
@@ -105,6 +106,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   onRemove,
   isJustMoved,
   searchQuery,
+  isNewlyAdded = false,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
@@ -172,6 +174,16 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       nameInputRef.current.focus();
     }
   }, [isEditingName]);
+
+  // Handle newly added animation
+  useEffect(() => {
+    if (isNewlyAdded) {
+      const timer = setTimeout(() => {
+        // The animation will be handled by the CSS class
+      }, 1000); // Flash for 1 second (same as justUpdated)
+      return () => clearTimeout(timer);
+    }
+  }, [isNewlyAdded]);
 
   const handleToggleMenu = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -558,7 +570,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
           ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
           ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
-          ${(justUpdated || isJustMoved || isJustUpdatedFromParent) ? 'bg-green-100' : ''}
+          ${(justUpdated || isJustMoved || isJustUpdatedFromParent || isNewlyAdded) ? 'bg-green-100' : ''}
           ${className || ''}
         `}
     >

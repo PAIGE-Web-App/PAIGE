@@ -150,6 +150,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // New state for upgrade modal
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false); // Controls visibility of the upgrade modal
   const [showListLimitBanner, setShowListLimitBanner] = useState<boolean>(true); // Controls visibility of the banner
+  const [newlyAddedTodoItems, setNewlyAddedTodoItems] = useState<Set<string>>(new Set());
+
+  // Clear newly added items after animation
+  useEffect(() => {
+    if (newlyAddedTodoItems.size > 0) {
+      const timer = setTimeout(() => {
+        setNewlyAddedTodoItems(new Set());
+      }, 1000); // Clear after 1 second (same as animation duration)
+      return () => clearTimeout(timer);
+    }
+  }, [newlyAddedTodoItems]);
 
 
   // Ref for each list's more button
@@ -461,10 +472,14 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     };
 
     try {
-      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
+      const docRef = await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
         ...newTodo,
         createdAt: newTodo.createdAt,
       });
+      
+      // Track newly added item for green flash animation
+      setNewlyAddedTodoItems(prev => new Set(prev).add(docRef.id));
+      
       toast.success('New To-do item added!');
     } catch (error: any) {
       console.error('Error adding To-do item:', error);
@@ -1293,6 +1308,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
                             handleItemDragOver={handleItemDragOver}
                             handleDragEnd={handleDragEnd}
             handleDrop={handleListDrop}
+            newlyAddedTodoItems={newlyAddedTodoItems}
             showCompletedTasks={showCompletedTasks}
             setShowCompletedTasks={setShowCompletedTasks}
             router={router}

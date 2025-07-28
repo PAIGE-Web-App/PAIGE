@@ -13,6 +13,7 @@ interface BudgetItemsTableProps {
   onLinkVendor: (item: BudgetItem) => void;
   onAssign?: (item: BudgetItem) => void;
   onAddItem: () => void;
+  newlyAddedItems?: Set<string>;
 }
 
 const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
@@ -21,6 +22,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   onLinkVendor,
   onAssign,
   onAddItem,
+  newlyAddedItems = new Set(),
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -94,7 +96,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   const totalAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex flex-col bg-white h-full min-h-0">
       {/* Table Header - Fixed */}
       <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-t-[5px] p-3 flex-shrink-0">
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
@@ -107,7 +109,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
       </div>
 
       {/* Table Body - Scrollable */}
-      <div className="flex-1 overflow-y-auto border border-t-0 border-[#E0DBD7]">
+      <div className="flex-1 overflow-y-auto border border-t-0 border-[#E0DBD7] min-h-0">
         {budgetItems.length === 0 ? (
           <div className="p-8 text-center text-[#AB9C95]">
             <p className="text-sm mb-2">No budget items yet</p>
@@ -126,7 +128,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 key={item.id}
                 className={`grid grid-cols-12 gap-4 p-3 border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-colors group cursor-pointer ${
                   index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
-                }`}
+                } ${newlyAddedItems.has(item.id!) ? 'bg-green-100' : ''}`}
               >
                 {/* Item Name */}
                 <div 

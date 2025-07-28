@@ -23,6 +23,7 @@ interface BudgetItemComponentProps {
   onLinkVendor: (item: BudgetItem) => void;
   onAssign?: (item: BudgetItem) => void;
   className?: string;
+  isNewlyAdded?: boolean;
 }
 
 const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
@@ -31,6 +32,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   onLinkVendor,
   onAssign,
   className = '',
+  isNewlyAdded = false,
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -44,6 +46,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   const [editingNoteValue, setEditingNoteValue] = useState(budgetItem.notes || '');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
+  const [showNewlyAdded, setShowNewlyAdded] = useState(isNewlyAdded);
 
   // Refs
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -75,6 +78,15 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
       amountInputRef.current.focus();
     }
   }, [isEditingAmount]);
+
+  // Handle newly added animation
+  useEffect(() => {
+    if (isNewlyAdded) {
+      setShowNewlyAdded(true);
+      const timer = setTimeout(() => setShowNewlyAdded(false), 1000); // Flash for 1 second (same as justUpdated)
+      return () => clearTimeout(timer);
+    }
+  }, [isNewlyAdded]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -237,7 +249,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
     <div
       className={`relative bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 hover:border-[#A85C36] transition-colors ${
         justUpdated ? 'bg-green-100' : ''
-      } ${className}`}
+      } ${showNewlyAdded ? 'bg-green-100' : ''} ${className}`}
     >
       {/* Header with name and more menu */}
       <div className="flex items-start justify-between mb-3">
