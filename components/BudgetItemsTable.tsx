@@ -214,7 +214,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                     className="p-1 hover:bg-[#FDEAEA] rounded"
                     title="Delete"
                   >
-                    <Trash2 className="w-3 h-3 text-red-500" />
+                    <Trash2 size={16} className="text-red-500" />
                   </button>
                 </div>
               </div>
