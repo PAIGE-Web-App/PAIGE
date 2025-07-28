@@ -53,8 +53,9 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
 
   return (
     <div className="bg-white border-b border-[#AB9C95] p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h5>Wedding Budget</h5>
+      {/* Header with title and action buttons */}
+      <div className="flex items-center justify-between mb-3">
+        <h5 className="text-lg font-semibold text-[#332B42]">Wedding Budget</h5>
         <div className="flex items-center gap-2">
           <button
             onClick={onShowAIAssistant}
@@ -74,34 +75,46 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
       </div>
 
       {/* Budget Overview Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
-          <h3 className="text-sm font-medium text-[#AB9C95] mb-1">Total Budget</h3>
-          <div className="text-lg font-bold text-[#332B42]">
-            {budgetRange ? `${formatCurrency(budgetRange.min)} - ${formatCurrency(budgetRange.max)}` : formatCurrency(totalBudget || 0)}
-          </div>
-          {budgetRange && (
-            <div className="text-sm text-[#AB9C95]">
-              Average: {formatCurrency((budgetRange.min + budgetRange.max) / 2)}
+      <div className="grid grid-cols-3 gap-4 mb-3">
+        {/* Budget Range Card */}
+        {budgetRange && (
+          <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-[#AB9C95]">Budget Range</h3>
+              <button 
+                onClick={() => window.location.href = '/settings'}
+                className="text-[#A85C36] hover:underline text-xs"
+                title="Update in settings"
+              >
+                edit
+              </button>
             </div>
-          )}
-        </div>
-
+            <div className="text-lg font-bold text-[#332B42] mb-1">
+              {formatCurrency(budgetRange.min)} - {formatCurrency(budgetRange.max)}
+            </div>
+            <div className="text-sm text-[#AB9C95]">
+              Avg: {formatCurrency((budgetRange.min + budgetRange.max) / 2)}
+            </div>
+          </div>
+        )}
+        
+        {/* Spent Card */}
         <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
-          <h3 className="text-sm font-medium text-[#AB9C95] mb-1">Spent</h3>
-          <div className="text-lg font-bold text-[#332B42]">
+          <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Spent</h3>
+          <div className="text-lg font-bold text-[#332B42] mb-1">
             {formatCurrency(totalSpent)}
           </div>
           {budgetRange && (
             <div className="text-sm text-[#AB9C95]">
-              {((totalSpent / ((budgetRange.min + budgetRange.max) / 2)) * 100).toFixed(1)}% of average budget
+              {((totalSpent / ((budgetRange.min + budgetRange.max) / 2)) * 100).toFixed(1)}% of average
             </div>
           )}
         </div>
-
+        
+        {/* Remaining Card */}
         <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
-          <h3 className="text-sm font-medium text-[#AB9C95] mb-1">Remaining</h3>
-          <div className="text-lg font-bold text-[#332B42]">
+          <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Remaining</h3>
+          <div className="text-lg font-bold text-[#332B42] mb-1">
             {formatCurrency((totalBudget || 0) - totalSpent)}
           </div>
           <div className="text-sm text-green-600 font-medium">
@@ -122,17 +135,11 @@ const BudgetSummary: React.FC<BudgetSummaryProps> = ({
         </div>
       </div>
 
-      {/* Budget Status */}
-      <div className="text-sm">
-        <span className="text-[#AB9C95]">Budget Status: </span>
+      {/* Compact Budget Status */}
+      <div className="text-sm text-[#AB9C95]">
         <span className={budgetStatus.color}>
           {budgetStatus.message}
         </span>
-        {budgetRange && (
-          <span className="text-[#AB9C95]">
-            {` Range: ${formatCurrency(budgetRange.min)} - ${formatCurrency(budgetRange.max)} | Average: ${formatCurrency((budgetRange.min + budgetRange.max) / 2)} | Spent: ${formatCurrency(totalSpent)}`}
-          </span>
-        )}
       </div>
     </div>
   );

@@ -26,8 +26,12 @@ const BudgetItemSideCard = dynamic(() => import('@/components/BudgetItemSideCard
   loading: () => <div className="w-80 bg-white animate-pulse" />
 });
 
-const BudgetSummary = dynamic(() => import('@/components/BudgetSummary'), {
-  loading: () => <div className="h-32 bg-white animate-pulse" />
+const BudgetTopBar = dynamic(() => import('@/components/BudgetTopBar'), {
+  loading: () => <div className="h-16 bg-white border-b border-[#AB9C95] animate-pulse" />
+});
+
+const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
+  loading: () => <div className="h-32 bg-white border-b border-[#AB9C95] animate-pulse" />
 });
 
 
@@ -80,6 +84,68 @@ export default function BudgetPage() {
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<any>(null);
   const [deletingCategory, setDeletingCategory] = React.useState<any>(null);
+  
+  // State for budget top bar
+  const [budgetSearchQuery, setBudgetSearchQuery] = React.useState('');
+  const [triggerAddItem, setTriggerAddItem] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<'cards' | 'table'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('budgetViewMode') as 'cards' | 'table') || 'cards';
+    }
+    return 'cards';
+  });
+
+  // Track if we've initialized the category selection
+  const hasInitializedSelection = React.useRef(false);
+
+  // Category persistence and auto-selection
+  React.useEffect(() => {
+    if (budget.budgetCategories && budget.budgetCategories.length > 0 && !hasInitializedSelection.current) {
+      hasInitializedSelection.current = true;
+      
+      // Try to restore the previously selected category from localStorage
+      const savedCategoryId = localStorage.getItem('selectedBudgetCategoryId');
+      
+      if (savedCategoryId) {
+        const savedCategory = budget.budgetCategories.find(cat => cat.id === savedCategoryId);
+        if (savedCategory) {
+          setSelectedCategory(savedCategory);
+          return;
+        }
+      }
+      
+      // If no saved category or saved category doesn't exist, select the first category
+      if (budget.budgetCategories[0] && budget.budgetCategories[0].id) {
+        setSelectedCategory(budget.budgetCategories[0]);
+        localStorage.setItem('selectedBudgetCategoryId', budget.budgetCategories[0].id);
+      }
+    }
+  }, [budget.budgetCategories]);
+
+  // Reset initialization flag when categories change significantly
+  React.useEffect(() => {
+    if (budget.budgetCategories && budget.budgetCategories.length === 0) {
+      hasInitializedSelection.current = false;
+    }
+  }, [budget.budgetCategories]);
+
+  // Save selected category to localStorage whenever it changes
+  React.useEffect(() => {
+    if (selectedCategory && selectedCategory.id) {
+      localStorage.setItem('selectedBudgetCategoryId', selectedCategory.id);
+    }
+  }, [selectedCategory]);
+
+  // Clear localStorage if selected category is deleted
+  React.useEffect(() => {
+    if (budget.budgetCategories && selectedCategory) {
+      const categoryStillExists = budget.budgetCategories.some(cat => cat.id === selectedCategory.id);
+      if (!categoryStillExists) {
+        localStorage.removeItem('selectedBudgetCategoryId');
+        setSelectedCategory(null);
+      }
+    }
+  }, [budget.budgetCategories, selectedCategory]);
 
   // Handle mobile tab change
   const handleMobileTabChange = (tab: string) => {
@@ -154,41 +220,59 @@ export default function BudgetPage() {
 
             {/* Main Content Area */}
             <div className="unified-main-content">
-              {/* Budget Summary Header */}
-              <BudgetSummary
+              {/* Budget Top Bar - Category Title and Actions */}
+              <BudgetTopBar
+                selectedCategory={selectedCategory}
+                budgetSearchQuery={budgetSearchQuery}
+                setBudgetSearchQuery={setBudgetSearchQuery}
+                onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                onShowCSVUpload={() => budget.setShowCSVUpload(true)}
+                onAddItem={() => {
+                  if (selectedCategory) {
+                    setTriggerAddItem(true);
+                  }
+                }}
+                onEditCategory={(category) => {
+                  setEditingCategory(category);
+                  setShowCategoryModal(true);
+                }}
+                onDeleteCategory={(category) => {
+                  setDeletingCategory(category);
+                  setShowDeleteCategoryModal(true);
+                }}
+                viewMode={viewMode}
+                onViewModeChange={(mode) => {
+                  setViewMode(mode);
+                  localStorage.setItem('budgetViewMode', mode);
+                }}
+              />
+
+              {/* Budget Metrics - After Category Title and Actions */}
+              <BudgetMetrics
+                selectedCategory={selectedCategory}
                 totalBudget={budget.userTotalBudget}
                 totalSpent={budget.totalSpent}
                 budgetRange={budget.userBudgetRange}
-                onShowAIAssistant={() => budget.setShowAIAssistant(true)}
-                onShowCSVUpload={() => budget.setShowCSVUpload(true)}
               />
 
-              {/* Budget Items List - Middle Section */}
+              {/* Budget Items List */}
               <div className="flex-1 flex gap-4 min-h-0">
                 <BudgetItemsList
                   selectedCategory={selectedCategory}
                   budgetItems={budget.budgetItems}
-                  onAddItem={() => {
-                    // This is now handled inline in BudgetItemsList
-                    // Keeping for backward compatibility but it won't be used
-                  }}
+                  searchQuery={budgetSearchQuery}
+                  triggerAddItem={triggerAddItem}
+                  onTriggerAddItemComplete={() => setTriggerAddItem(false)}
                   onEditItem={(item) => {
-                    setSelectedBudgetItem(item);
-                    setShowItemSideCard(true);
+                    // Editing is now handled inline in BudgetItemComponent
+                    console.log('Edit item:', item);
                   }}
                   onDeleteItem={budget.handleDeleteBudgetItem}
                   onLinkVendor={(item) => {
                     setSelectedBudgetItem(item);
                     budget.setShowVendorIntegrationModal(true);
                   }}
-                  onEditCategory={(category) => {
-                    setEditingCategory(category);
-                    setShowCategoryModal(true);
-                  }}
-                  onDeleteCategory={(category) => {
-                    setDeletingCategory(category);
-                    setShowDeleteCategoryModal(true);
-                  }}
+                  viewMode={viewMode}
                 />
 
                 {/* Budget Item Side Card - Right Panel */}

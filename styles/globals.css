@@ -770,3 +770,10 @@ input::placeholder {
 .formatted-email .email-content:first-child {
   @apply mb-2;
 }
+
+/* Budget status text style */
+.budget-status-text {
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 500;
+  line-height: 1.2;
+}
