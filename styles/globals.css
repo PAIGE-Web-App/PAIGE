@@ -777,3 +777,46 @@ input::placeholder {
   font-weight: 500;
   line-height: 1.2;
 }
+
+/* Editable field utilities */
+.editable-field {
+  @apply cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5 transition-colors;
+}
+
+.editable-field-editing {
+  @apply border border-[#AB9C95] rounded-[3px] px-2 py-1 focus:outline-none focus:border-[#A85C36];
+}
+
+.animation-green-flash {
+  @apply bg-green-100 transition-colors duration-1000;
+}
+
+/* Table utilities */
+.table-row-hover {
+  @apply hover:bg-[#F8F6F4] transition-colors;
+}
+
+.table-row-striped {
+  @apply even:bg-[#FAF9F8];
+}
+
+/* Animation utilities */
+.animate-fade-in {
+  @apply opacity-0 animate-pulse;
+  animation: fadeIn 0.2s ease-in-out forwards;
+}
+
+.animate-fade-out {
+  @apply opacity-100;
+  animation: fadeOut 0.2s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

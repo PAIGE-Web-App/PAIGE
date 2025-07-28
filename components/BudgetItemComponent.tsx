@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
   Edit2, 
   Trash2, 
@@ -16,6 +16,9 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, setDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import toast from 'react-hot-toast';
+import { useBudgetItemEditing } from '@/hooks/useBudgetItemEditing';
+import { useAnimationState } from '@/hooks/useAnimationState';
+import EditableField from './common/EditableField';
 
 interface BudgetItemComponentProps {
   budgetItem: BudgetItem;
@@ -38,15 +41,22 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   // State for inline editing
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editingNameValue, setEditingNameValue] = useState(budgetItem.name);
-  const [isEditingAmount, setIsEditingAmount] = useState(false);
-  const [editingAmountValue, setEditingAmountValue] = useState(budgetItem.amount.toString());
-  const [isEditingNote, setIsEditingNote] = useState(false);
-  const [editingNoteValue, setEditingNoteValue] = useState(budgetItem.notes || '');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
-  const [showNewlyAdded, setShowNewlyAdded] = useState(isNewlyAdded);
+  
+  // Use custom hooks for editing and animations
+  const editing = useBudgetItemEditing({
+    itemId: budgetItem.id!,
+    initialValues: {
+      name: budgetItem.name,
+      amount: budgetItem.amount,
+      notes: budgetItem.notes || ''
+    }
+  });
+  
+  const { isAnimating: showNewlyAdded } = useAnimationState({ 
+    initialValue: isNewlyAdded 
+  });
 
   // Refs
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -66,36 +76,27 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
     };
   }, []);
 
-  // Autofocus inputs when editing starts
-  useEffect(() => {
-    if (isEditingName && nameInputRef.current) {
-      nameInputRef.current.focus();
-    }
-  }, [isEditingName]);
-
-  useEffect(() => {
-    if (isEditingAmount && amountInputRef.current) {
-      amountInputRef.current.focus();
-    }
-  }, [isEditingAmount]);
-
   // Handle newly added animation
   useEffect(() => {
     if (isNewlyAdded) {
-      setShowNewlyAdded(true);
-      const timer = setTimeout(() => setShowNewlyAdded(false), 1000); // Flash for 1 second (same as justUpdated)
-      return () => clearTimeout(timer);
+      // Animation is handled by the hook
     }
   }, [isNewlyAdded]);
 
-  const formatCurrency = (amount: number) => {
+  // Memoized values for performance
+  const formattedAmount = useMemo(() => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
-  };
+    }).format(budgetItem.amount);
+  }, [budgetItem.amount]);
+
+  const isOverBudget = useMemo(() => {
+    // This could be enhanced with category data if needed
+    return false;
+  }, []);
 
   const triggerJustUpdated = (itemId: string) => {
     setJustUpdated(true);
@@ -110,94 +111,36 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   // Name editing handlers
   const handleNameDoubleClick = useCallback(() => {
     if (budgetItem.isCompleted) return;
-    setIsEditingName(true);
-    setEditingNameValue(budgetItem.name);
-  }, [budgetItem.name, budgetItem.isCompleted]);
+    editing.startEditing('name', budgetItem.name);
+  }, [budgetItem.name, budgetItem.isCompleted, editing]);
 
-  const handleNameBlur = useCallback(async () => {
-    if (editingNameValue.trim() !== budgetItem.name) {
-      if (!editingNameValue.trim()) {
-        showErrorToast('Item name cannot be empty.');
-        setEditingNameValue(budgetItem.name);
-      } else {
-        await handleUpdateName(budgetItem.id!, editingNameValue.trim());
-        triggerJustUpdated(budgetItem.id!);
-      }
-    }
-    setIsEditingName(false);
-  }, [editingNameValue, budgetItem.id, budgetItem.name]);
-
-  const handleNameKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    } else if (e.key === 'Escape') {
-      setEditingNameValue(budgetItem.name);
-      setIsEditingName(false);
-      e.currentTarget.blur();
-    }
-  }, [budgetItem.name]);
+  const handleNameSave = useCallback(async (value: string) => {
+    await handleUpdateName(budgetItem.id!, value);
+    triggerJustUpdated(budgetItem.id!);
+  }, [budgetItem.id]);
 
   // Amount editing handlers
   const handleAmountClick = useCallback(() => {
     if (budgetItem.isCompleted) return;
-    setIsEditingAmount(true);
-    setEditingAmountValue(budgetItem.amount.toString());
-  }, [budgetItem.amount, budgetItem.isCompleted]);
+    editing.startEditing('amount', budgetItem.amount);
+  }, [budgetItem.amount, budgetItem.isCompleted, editing]);
 
-  const handleAmountBlur = useCallback(async () => {
-    const newAmount = parseFloat(editingAmountValue) || 0;
-    if (newAmount !== budgetItem.amount) {
-      await handleUpdateAmount(budgetItem.id!, newAmount);
-      triggerJustUpdated(budgetItem.id!);
-    }
-    setIsEditingAmount(false);
-  }, [editingAmountValue, budgetItem.id, budgetItem.amount]);
-
-  const handleAmountKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    } else if (e.key === 'Escape') {
-      setEditingAmountValue(budgetItem.amount.toString());
-      setIsEditingAmount(false);
-      e.currentTarget.blur();
-    }
-  }, [budgetItem.amount]);
+  const handleAmountSave = useCallback(async (value: string) => {
+    const newAmount = parseFloat(value) || 0;
+    await handleUpdateAmount(budgetItem.id!, newAmount);
+    triggerJustUpdated(budgetItem.id!);
+  }, [budgetItem.id]);
 
   // Note editing handlers
   const handleAddNoteClick = useCallback(() => {
     if (budgetItem.isCompleted) return;
-    setIsEditingNote(true);
-    setEditingNoteValue(budgetItem.notes || '');
-  }, [budgetItem.notes, budgetItem.isCompleted]);
+    editing.startEditing('notes', budgetItem.notes || '');
+  }, [budgetItem.notes, budgetItem.isCompleted, editing]);
 
-  const handleUpdateNoteClick = useCallback(async () => {
-    await handleUpdateNote(budgetItem.id!, editingNoteValue);
-    setIsEditingNote(false);
-  }, [budgetItem.id, editingNoteValue]);
-
-  const handleNoteKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      await handleUpdateNote(budgetItem.id!, editingNoteValue);
-      setIsEditingNote(false);
-    } else if (e.key === 'Escape') {
-      setEditingNoteValue(budgetItem.notes || '');
-      setIsEditingNote(false);
-      e.currentTarget.blur();
-    }
-  }, [budgetItem.id, budgetItem.notes, editingNoteValue]);
-
-  const handleNoteCancel = useCallback(() => {
-    setEditingNoteValue(budgetItem.notes || '');
-    setIsEditingNote(false);
-  }, [budgetItem.notes]);
-
-  const handleNoteBlur = useCallback(async () => {
-    if (editingNoteValue !== budgetItem.notes) {
-      await handleUpdateNote(budgetItem.id!, editingNoteValue);
-      triggerJustUpdated(budgetItem.id!);
-    }
-    setIsEditingNote(false);
-  }, [editingNoteValue, budgetItem.id, budgetItem.notes]);
+  const handleNoteSave = useCallback(async (value: string) => {
+    await handleUpdateNote(budgetItem.id!, value);
+    triggerJustUpdated(budgetItem.id!);
+  }, [budgetItem.id]);
 
   // Update handlers
   const handleUpdateName = async (itemId: string, newName: string) => {
@@ -254,28 +197,19 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
       {/* Header with name and more menu */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          {isEditingName ? (
-            <input
-              ref={nameInputRef}
-              type="text"
-              value={editingNameValue}
-              onChange={(e) => setEditingNameValue(e.target.value)}
-              onBlur={handleNameBlur}
-              onKeyDown={handleNameKeyDown}
-              className="w-full text-sm font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-2 py-1 focus:outline-none focus:border-[#A85C36]"
-              autoFocus
-            />
-          ) : (
-            <div
-              onDoubleClick={handleNameDoubleClick}
-              className={`text-sm font-medium text-[#332B42] cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5 ${
-                budgetItem.isCompleted ? 'line-through text-gray-500' : ''
-              }`}
-              title={budgetItem.isCompleted ? 'Mark as incomplete to edit' : 'Double-click to edit'}
-            >
-              {budgetItem.name || 'New Budget Item (Click to Edit)'}
-            </div>
-          )}
+          <EditableField
+            value={budgetItem.name || 'New Budget Item (Click to Edit)'}
+            isEditing={editing.editingField === 'name'}
+            onStartEdit={handleNameDoubleClick}
+            onSave={handleNameSave}
+            onCancel={editing.cancelEdit}
+            placeholder="Enter item name..."
+            className={`text-sm font-medium text-[#332B42] ${
+              budgetItem.isCompleted ? 'line-through text-gray-500' : ''
+            }`}
+            disabled={budgetItem.isCompleted}
+            showEditIcon={false}
+          />
         </div>
         
         {/* More menu */}
@@ -320,49 +254,21 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
 
       {/* Amount section */}
       <div className="mb-3">
-        {isEditingAmount ? (
-          <div className="flex items-center gap-2">
-            <DollarSign size={16} className="text-[#A85C36]" />
-            <input
-              ref={amountInputRef}
-              type="number"
-              value={editingAmountValue}
-              onChange={(e) => setEditingAmountValue(e.target.value)}
-              onBlur={handleAmountBlur}
-              onKeyDown={handleAmountKeyDown}
-              className="text-sm font-semibold text-[#A85C36] border border-[#AB9C95] rounded-[3px] px-2 py-1 focus:outline-none focus:border-[#A85C36] w-24"
-              min="0"
-              step="0.01"
-              autoFocus
-            />
-            <button
-              onClick={handleAmountBlur}
-              className="btn-primary text-xs px-2 py-1"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => {
-                setEditingAmountValue(budgetItem.amount.toString());
-                setIsEditingAmount(false);
-              }}
-              className="btn-primaryinverse text-xs px-2 py-1"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <div
-            onClick={handleAmountClick}
-            className="flex items-center gap-2 cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5"
-            title={budgetItem.isCompleted ? 'Mark as incomplete to edit' : 'Click to edit amount'}
-          >
-            <DollarSign size={16} className="text-[#A85C36]" />
-            <span className="text-sm font-semibold text-[#A85C36]">
-              {formatCurrency(budgetItem.amount)}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <DollarSign size={16} className="text-[#A85C36]" />
+          <EditableField
+            value={budgetItem.amount.toString()}
+            isEditing={editing.editingField === 'amount'}
+            onStartEdit={handleAmountClick}
+            onSave={handleAmountSave}
+            onCancel={editing.cancelEdit}
+            type="number"
+            placeholder="0"
+            className="text-sm font-semibold text-[#A85C36] w-24"
+            disabled={budgetItem.isCompleted}
+            showEditIcon={false}
+          />
+        </div>
       </div>
 
       {/* Vendor association */}
@@ -374,38 +280,23 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
       )}
 
       {/* Notes section */}
-      {isEditingNote ? (
-        <div className="mt-2">
-          <textarea
-            value={editingNoteValue}
-            onChange={(e) => setEditingNoteValue(e.target.value)}
-            placeholder="Add a note..."
-            rows={2}
-            onBlur={handleNoteBlur}
-            onKeyDown={handleNoteKeyDown}
-            className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 focus:outline-none focus:border-[#A85C36]"
-            autoFocus
-          />
-          <div className="flex gap-2 mt-1">
-            <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">
-              Update
-            </button>
-            <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div 
-          className="flex items-start gap-1 mt-2 cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5"
-          onClick={handleAddNoteClick}
-        >
+      <div className="mt-2">
+        <div className="flex items-start gap-1">
           <NotepadText size={14} className="text-[#364257] mt-0.5" />
-          <span className="text-xs text-[#364257]">
-            {budgetItem.notes || '+ Add Note'}
-          </span>
+          <EditableField
+            value={budgetItem.notes || ''}
+            isEditing={editing.editingField === 'notes'}
+            onStartEdit={handleAddNoteClick}
+            onSave={handleNoteSave}
+            onCancel={editing.cancelEdit}
+            type="textarea"
+            placeholder="+ Add Note"
+            className="text-xs text-[#364257]"
+            disabled={budgetItem.isCompleted}
+            showEditIcon={false}
+          />
         </div>
-      )}
+      </div>
 
       {/* Action links */}
       <div className="flex items-center gap-4 mt-3 pt-2 border-t border-[#E0DBD7] text-xs">

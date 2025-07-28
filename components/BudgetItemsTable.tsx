@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Edit2, Trash2, Link, UserPlus, DollarSign, NotepadText, MoreHorizontal, CheckCircle, Circle, Plus } from 'lucide-react';
 import { BudgetItem } from '@/types/budget';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +6,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import toast from 'react-hot-toast';
+import EditableField from './common/EditableField';
 
 interface BudgetItemsTableProps {
   budgetItems: BudgetItem[];
@@ -28,6 +29,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [editingCell, setEditingCell] = useState<{ itemId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  // Memoized values for performance
+  const totalAmount = useMemo(() => {
+    return budgetItems.reduce((sum, item) => sum + item.amount, 0);
+  }, [budgetItems]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -93,7 +99,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
     }
   };
 
-  const totalAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+  // totalAmount is now memoized above
 
   return (
     <div className="flex flex-col bg-white h-full min-h-0">
@@ -131,77 +137,55 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 } ${newlyAddedItems.has(item.id!) ? 'bg-green-100' : ''}`}
               >
                 {/* Item Name */}
-                <div 
-                  className="col-span-3 flex items-center"
-                  onClick={() => handleEditStart(item, 'name')}
-                >
-                  {editingCell && editingCell.itemId === item.id && editingCell.field === 'name' ? (
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, item)}
-                      onBlur={() => handleEditSave(item)}
-                      className="w-full px-2 py-1 border border-[#A85C36] rounded text-sm"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 w-full">
-                      <span className="text-sm text-[#332B42] flex-1">{item.name}</span>
-                      <Edit2 className="w-3 h-3 text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
+                <div className="col-span-3 flex items-center">
+                  <EditableField
+                    value={item.name}
+                    isEditing={editingCell?.itemId === item.id && editingCell?.field === 'name'}
+                    onStartEdit={() => handleEditStart(item, 'name')}
+                    onSave={(value) => {
+                      setEditValue(value);
+                      handleEditSave(item);
+                    }}
+                    onCancel={handleEditCancel}
+                    placeholder="Enter item name..."
+                    className="text-sm text-[#332B42] flex-1"
+                    showEditIcon={true}
+                  />
                 </div>
 
                 {/* Amount */}
-                <div 
-                  className="col-span-2 flex items-center justify-end"
-                  onClick={() => handleEditStart(item, 'amount')}
-                >
-                  {editingCell && editingCell.itemId === item.id && editingCell.field === 'amount' ? (
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, item)}
-                      onBlur={() => handleEditSave(item)}
-                      className="w-full px-2 py-1 border border-[#A85C36] rounded text-sm text-right"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[#332B42]">
-                        {formatCurrency(item.amount)}
-                      </span>
-                      <Edit2 className="w-3 h-3 text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
+                <div className="col-span-2 flex items-center justify-end">
+                  <EditableField
+                    value={item.amount.toString()}
+                    isEditing={editingCell?.itemId === item.id && editingCell?.field === 'amount'}
+                    onStartEdit={() => handleEditStart(item, 'amount')}
+                    onSave={(value) => {
+                      setEditValue(value);
+                      handleEditSave(item);
+                    }}
+                    onCancel={handleEditCancel}
+                    type="number"
+                    placeholder="0"
+                    className="text-sm font-medium text-[#332B42] text-right"
+                    showEditIcon={true}
+                  />
                 </div>
 
                 {/* Notes */}
-                <div 
-                  className="col-span-4 flex items-center"
-                  onClick={() => handleEditStart(item, 'notes')}
-                >
-                  {editingCell && editingCell.itemId === item.id && editingCell.field === 'notes' ? (
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, item)}
-                      onBlur={() => handleEditSave(item)}
-                      className="w-full px-2 py-1 border border-[#A85C36] rounded text-sm"
-                      placeholder="Add notes..."
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 w-full">
-                      <span className="text-sm text-[#AB9C95] flex-1 truncate">
-                        {item.notes || '—'}
-                      </span>
-                      <NotepadText className="w-3 h-3 text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
+                <div className="col-span-4 flex items-center">
+                  <EditableField
+                    value={item.notes || ''}
+                    isEditing={editingCell?.itemId === item.id && editingCell?.field === 'notes'}
+                    onStartEdit={() => handleEditStart(item, 'notes')}
+                    onSave={(value) => {
+                      setEditValue(value);
+                      handleEditSave(item);
+                    }}
+                    onCancel={handleEditCancel}
+                    placeholder="Add notes..."
+                    className="text-sm text-[#AB9C95] flex-1 truncate"
+                    showEditIcon={true}
+                  />
                 </div>
 
                 {/* Vendor */}

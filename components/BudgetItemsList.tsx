@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { addDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useNewlyAddedItems } from '@/hooks/useNewlyAddedItems';
 
 interface BudgetItemsListProps {
   selectedCategory: BudgetCategory | null;
@@ -33,7 +34,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
-  const [newlyAddedItems, setNewlyAddedItems] = React.useState<Set<string>>(new Set());
+  const { newlyAddedItems, addNewItem, isNewlyAdded } = useNewlyAddedItems();
   
   // Handle trigger add item from top bar
   React.useEffect(() => {
@@ -47,7 +48,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   React.useEffect(() => {
     if (newlyAddedItems.size > 0) {
       const timer = setTimeout(() => {
-        setNewlyAddedItems(new Set());
+        // Auto-cleared by the hook
       }, 1000); // Clear after 1 second (same as animation duration)
       return () => clearTimeout(timer);
     }
@@ -103,7 +104,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
       });
       
       // Track newly added item for green flash animation
-      setNewlyAddedItems(prev => new Set(prev).add(docRef.id));
+      addNewItem(docRef.id);
       
       showSuccessToast('Budget item added successfully!');
     } catch (error: any) {
@@ -163,7 +164,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
                 // TODO: Implement assignment functionality
                 console.log('Assign item:', item);
               }}
-              isNewlyAdded={newlyAddedItems.has(item.id!)}
+              isNewlyAdded={isNewlyAdded(item.id!)}
             />
           ))}
         </div>
