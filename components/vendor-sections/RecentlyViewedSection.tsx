@@ -4,6 +4,7 @@ import { MapPin, Star, Heart, Clock } from 'lucide-react';
 import { getRecentlyViewedVendors, mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 import BadgeCount from '@/components/BadgeCount';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RecentlyViewedSectionProps {
   defaultLocation: string;
@@ -18,6 +19,7 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
 }) => {
   const router = useRouter();
   const { showSuccessToast } = useCustomToast();
+  const { user } = useAuth();
   const [recentlyViewedVendors, setRecentlyViewedVendors] = useState<any[]>([]);
   const [enhancedVendors, setEnhancedVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,10 +90,12 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
   }, [recentlyViewedVendors]);
 
   // Handle favorite toggle
-  const toggleFavorite = (vendorId: string) => {
+  const toggleFavorite = async (vendorId: string) => {
     const newFavorites = favorites.includes(vendorId)
       ? favorites.filter(id => id !== vendorId)
       : [...favorites, vendorId];
+    
+    const wasFavorite = favorites.includes(vendorId);
     
     setFavorites(newFavorites);
     localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
@@ -101,8 +105,34 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
       detail: { favorites: newFavorites }
     }));
     
+    // Show toast message
     if (newFavorites.includes(vendorId)) {
       showSuccessToast('Added to favorites!');
+    } else {
+      showSuccessToast('Removed from favorites');
+    }
+    
+    // Find the vendor data for community update
+    const vendor = enhancedVendors.find(v => v.id === vendorId || v.placeId === vendorId);
+    if (vendor && user?.uid) {
+      // Send API request to update community favorites (don't wait for it)
+      fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeId: vendor.placeId || vendor.id,
+          vendorName: vendor.name,
+          vendorAddress: vendor.address || vendor.location || '',
+          vendorCategory: vendor.category || 'Vendor',
+          userId: user.uid,
+          selectedAsVenue: false,
+          selectedAsVendor: false,
+          isFavorite: !wasFavorite
+        })
+      }).catch(error => {
+        console.error('Error updating community favorites:', error);
+        // Don't show error toast as the favorite was still added locally
+      });
     }
   };
 

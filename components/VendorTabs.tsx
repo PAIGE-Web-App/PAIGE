@@ -16,7 +16,7 @@ export default function VendorTabs({ activeTab, onTabChange, myVendorsCount, fav
   ];
 
   return (
-    <div className="flex gap-2 mb-4">
+    <div className="flex gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.key}

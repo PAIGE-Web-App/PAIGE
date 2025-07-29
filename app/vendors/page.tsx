@@ -262,11 +262,38 @@ export default function VendorsPage() {
   useEffect(() => {
     const updateFavorites = () => {
       const favIds = getFavoriteVendorIds();
+      
+      // Get recently viewed vendors from localStorage
+      const getRecentlyViewedVendors = () => {
+        if (typeof window === 'undefined') return [];
+        try {
+          return JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
+        } catch {
+          return [];
+        }
+      };
+      
+      const recentlyViewedVendors = getRecentlyViewedVendors();
+      
       // Find vendor data in user's vendors list
-      const favs = favIds
+      const favsFromUserVendors = favIds
         .map((id: string) => vendors.find((v) => v.id === id || v.placeId === id))
         .filter(Boolean);
-      setFavoriteVendors(favs);
+      
+      // Find vendor data in recently viewed vendors list
+      const favsFromRecentlyViewed = favIds
+        .map((id: string) => recentlyViewedVendors.find((v) => v.id === id || v.placeId === id))
+        .filter(Boolean);
+      
+      // Combine both lists, removing duplicates
+      const allFavs = [...favsFromUserVendors];
+      favsFromRecentlyViewed.forEach(recentlyViewedVendor => {
+        if (!allFavs.some(v => v.id === recentlyViewedVendor.id || v.placeId === recentlyViewedVendor.placeId)) {
+          allFavs.push(recentlyViewedVendor);
+        }
+      });
+      
+      setFavoriteVendors(allFavs);
     };
     updateFavorites();
     
@@ -393,7 +420,7 @@ export default function VendorsPage() {
           />
 
           {/* Vendor Tabs and Action Buttons Row */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             {/* Vendor Tabs */}
             <VendorTabs 
               activeTab={activeTab} 

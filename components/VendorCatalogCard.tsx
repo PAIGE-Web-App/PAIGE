@@ -16,18 +16,7 @@ function setFavorites(favorites: string[]) {
   localStorage.setItem('vendorFavorites', JSON.stringify(favorites));
 }
 
-// Memoized heart icon components
-const FilledHeartIcon = () => (
-  <svg width="18" height="18" fill="#A85C36" viewBox="0 0 24 24">
-    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-  </svg>
-);
-
-const EmptyHeartIcon = () => (
-  <svg width="18" height="18" fill="none" stroke="#A85C36" strokeWidth="2" viewBox="0 0 24 24">
-    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-  </svg>
-);
+// Removed custom heart icons - now using Lucide React Heart component for consistency
 
 interface VendorCatalogCardProps {
   vendor: {
@@ -276,12 +265,15 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       {/* Heart icon - hidden in bulk mode */}
       {!bulkContactMode && (
         <button
-          className="absolute z-10 bg-white/80 rounded-full p-1 shadow hover:bg-[#F8F6F4]"
-          style={{ top: '1.25rem', right: '1.25rem', border: 'none', position: 'absolute' }}
           onClick={toggleFavorite}
+          className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
+            (isFavorite || isFavoriteOverride)
+              ? 'bg-[#A85C36] text-white'
+              : 'bg-white/80 text-gray-600 hover:bg-white'
+          }`}
           aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          {(isFavorite || isFavoriteOverride) ? <FilledHeartIcon /> : <EmptyHeartIcon />}
+          <Heart className={`w-3 h-3 ${(isFavorite || isFavoriteOverride) ? 'fill-current' : ''}`} />
         </button>
       )}
       
