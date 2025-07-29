@@ -129,7 +129,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
             <X size={20} />
           </button>
 
-          <h5 className="h5 mb-4 text-center">Edit Category</h5>
+          <h5 className="h5 mb-4 text-left">Edit Category</h5>
 
           {/* Budget Warning Banner */}
           {showBudgetWarning && budgetWarningData && (
@@ -166,7 +166,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
                     </label>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => {
                         setShowBudgetWarning(false);
@@ -219,23 +219,25 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-center w-full mt-6">
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="btn-primary px-4 py-2 text-sm flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              Save
-            </button>
+        {!showBudgetWarning && (
+          <div className="flex justify-end w-full mt-6">
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="btn-primary px-4 py-2 text-sm flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
