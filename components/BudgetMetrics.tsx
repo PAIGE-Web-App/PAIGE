@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 
 interface BudgetMetricsProps {
   selectedCategory: any;
@@ -13,6 +14,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
   totalSpent,
   budgetRange,
 }) => {
+  const router = useRouter();
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -103,11 +105,11 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium text-[#AB9C95]">Budget Range</h3>
                   <button 
-                    onClick={() => window.location.href = '/settings'}
-                    className="text-[#A85C36] hover:underline text-xs"
+                    onClick={() => router.push('/settings?tab=wedding&highlight=budgetRange')}
+                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
                     title="Update in settings"
                   >
-                    edit
+                    Edit
                   </button>
                 </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">

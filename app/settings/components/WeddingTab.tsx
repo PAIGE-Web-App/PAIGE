@@ -31,6 +31,7 @@ interface WeddingTabProps {
   setSelectedLocationType: (type: string | null) => void;
   weddingLocationCoords: { lat: number; lng: number } | null;
   jiggleAnimate: string;
+  jiggleBudgetRange: string;
   saving: boolean;
   hasUnsavedWeddingChanges: boolean;
   onSave: () => Promise<void>;
@@ -59,6 +60,7 @@ export default function WeddingTab({
   setSelectedLocationType,
   weddingLocationCoords,
   jiggleAnimate,
+  jiggleBudgetRange,
   saving,
   hasUnsavedWeddingChanges,
   onSave
@@ -195,7 +197,7 @@ export default function WeddingTab({
           </div>
           
 
-          <div>
+          <div className={jiggleBudgetRange}>
             <label className="block text-xs font-work-sans text-[#332B42] mb-1">What's your budget?</label>
             <BudgetSlider
               value={budgetRange}
