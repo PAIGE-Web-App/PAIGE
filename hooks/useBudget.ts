@@ -241,6 +241,25 @@ export function useBudget() {
     }
   };
 
+  // Function to update user's budget range
+  const updateUserBudgetRange = async (newBudgetRange: { min: number; max: number }) => {
+    if (!user) return;
+
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        budgetRange: newBudgetRange,
+        updatedAt: new Date(),
+      });
+
+      setUserBudgetRange(newBudgetRange);
+      showSuccessToast('Budget range updated successfully!');
+    } catch (error) {
+      console.error('Error updating budget range:', error);
+      showErrorToast('Failed to update budget range.');
+    }
+  };
+
   // Function to update budget categories when budget range changes
   const updateBudgetCategoriesFromRange = async (newBudgetRange: { min: number; max: number }) => {
     if (!user) return;
@@ -745,6 +764,7 @@ export function useBudget() {
     handleGenerateBudget,
     handleGenerateTodoList,
     handleGenerateIntegratedPlan,
+    updateUserBudgetRange,
     updateBudgetCategoriesFromRange,
   };
 } 
