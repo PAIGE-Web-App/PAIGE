@@ -224,8 +224,15 @@ export default function VendorsPage() {
       setFavoriteVendors(favs);
     };
     updateFavorites();
+    
+    // Listen for both storage events (from other tabs) and custom events (from same tab)
     window.addEventListener('storage', updateFavorites);
-    return () => window.removeEventListener('storage', updateFavorites);
+    window.addEventListener('vendorFavoritesChanged', updateFavorites);
+    
+    return () => {
+      window.removeEventListener('storage', updateFavorites);
+      window.removeEventListener('vendorFavoritesChanged', updateFavorites);
+    };
   }, [vendors]);
 
   // Helper function to identify Firestore document IDs

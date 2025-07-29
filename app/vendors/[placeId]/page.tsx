@@ -71,6 +71,7 @@ export default function VendorDetailPage() {
   const [isOfficialVendor, setIsOfficialVendor] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [communityData, setCommunityData] = useState<any>(null);
+  const [isUpdatingOfficial, setIsUpdatingOfficial] = useState(false);
 
 
 
@@ -87,6 +88,9 @@ export default function VendorDetailPage() {
     
     // Check if vendor is an official vendor (in user's vendors list)
     const checkIfOfficialVendor = async () => {
+      // Skip check if we're in the middle of an optimistic update
+      if (isUpdatingOfficial) return;
+      
       try {
         console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
         // Check if vendor exists in user's My Vendors collection using optimized API service
@@ -411,6 +415,18 @@ export default function VendorDetailPage() {
     const newFavoriteState = !isFavorite;
     setIsFavorite(newFavoriteState);
     
+    // Prevent any interference from useEffect checks
+    const currentFavorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+    const updatedFavorites = newFavoriteState 
+      ? [...currentFavorites, vendor?.id].filter(Boolean)
+      : currentFavorites.filter((id: string) => id !== vendor?.id);
+    localStorage.setItem('vendorFavorites', JSON.stringify(updatedFavorites));
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
+      detail: { favorites: updatedFavorites }
+    }));
+    
     // Update localStorage
     try {
       const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
@@ -438,14 +454,23 @@ export default function VendorDetailPage() {
       showSuccessToast(`Removed ${vendor?.name} from favorites`);
     }
     
-    // Update community favorites count
+    // Optimistically update community data immediately
+    if (vendor && user?.uid && communityData) {
+      const currentFavorites = communityData.totalFavorites || 0;
+      const newFavorites = newFavoriteState ? currentFavorites + 1 : Math.max(0, currentFavorites - 1);
+      
+      setCommunityData(prev => ({
+        ...prev,
+        totalFavorites: newFavorites
+      }));
+    }
+    
+    // Send API request in background (don't wait for it)
     if (vendor && user?.uid) {
-      try {
-        console.log('Updating community favorites for vendor:', vendor.id, 'new state:', newFavoriteState);
-        const response = await fetch('/api/community-vendors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
+      fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           placeId: vendor.id,
           vendorName: vendor.name,
           vendorAddress: vendor.address || '',
@@ -453,31 +478,35 @@ export default function VendorDetailPage() {
           userId: user.uid,
           selectedAsVenue: false,
           selectedAsVendor: false,
-          isFavorite: newFavoriteState // Add to favorites if favoriting
+          isFavorite: newFavoriteState
         })
-        });
-        
-        if (response.ok) {
-          console.log('Community update successful, refreshing data...');
-          // Refresh community data
-          const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
-          const communityData = await communityResponse.json();
-          console.log('Refreshed community data:', communityData);
-          if (communityData.vendor) {
-            setCommunityData(communityData.vendor);
-            console.log('Updated community data state:', communityData.vendor);
-            console.log('totalFavorites value:', communityData.vendor.totalFavorites);
-            console.log('All community data fields:', Object.keys(communityData.vendor));
-            console.log('Full community data object:', JSON.stringify(communityData.vendor, null, 2));
-          } else {
-            console.log('No vendor data in community response');
-          }
-        } else {
+      }).then(response => {
+        if (!response.ok) {
           console.error('Community update failed:', response.status, response.statusText);
+          // Revert optimistic update on failure
+          if (communityData) {
+            const currentFavorites = communityData.totalFavorites || 0;
+            const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
+            setCommunityData(prev => ({
+              ...prev,
+              totalFavorites: revertedFavorites
+            }));
+          }
+          toast.error('Failed to update community data');
         }
-      } catch (error) {
+      }).catch(error => {
         console.error('Error updating community favorites:', error);
-      }
+        // Revert optimistic update on error
+        if (communityData) {
+          const currentFavorites = communityData.totalFavorites || 0;
+          const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
+          setCommunityData(prev => ({
+            ...prev,
+            totalFavorites: revertedFavorites
+          }));
+        }
+        toast.error('Failed to update community data');
+      });
     }
   };
 
@@ -486,6 +515,7 @@ export default function VendorDetailPage() {
 
     const newOfficialState = !isOfficialVendor;
     setIsOfficialVendor(newOfficialState);
+    setIsUpdatingOfficial(true);
 
     // Show toast message
     if (newOfficialState) {
@@ -542,17 +572,15 @@ export default function VendorDetailPage() {
         }
       }
 
-      // Update community data
-      const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
-      const communityData = await communityResponse.json();
-      if (communityData.vendor) {
-        setCommunityData(communityData.vendor);
-      }
+      // Don't refresh community data - keep optimistic state
+      // The official vendor status is already updated in the UI
     } catch (error) {
       console.error('Error updating official vendor status:', error);
       // Revert state on error
       setIsOfficialVendor(!newOfficialState);
       toast.error('Failed to update official vendor status');
+    } finally {
+      setIsUpdatingOfficial(false);
     }
   };
 

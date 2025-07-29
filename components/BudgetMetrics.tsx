@@ -62,27 +62,29 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           <>
             <div className="w-80">
               {/* Category Budget Title */}
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-[#AB9C95]">Category Budget</h3>
-                {onEditCategory && (
-                  <button 
-                    onClick={() => onEditCategory(selectedCategory)}
-                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
-                    title="Edit category"
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
+              <h3 className="text-sm font-medium text-[#AB9C95] mb-3">Category Budget</h3>
               
               <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4">
-                <h3 className={`text-sm font-medium mb-2 ${
-                  (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount 
-                    ? 'text-red-600' 
-                    : 'text-[#AB9C95]'
-                }`}>
-                  {selectedCategory.name}
-                </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className={`text-sm font-medium ${
+                    (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount 
+                      ? 'text-red-600' 
+                      : 'text-[#AB9C95]'
+                  }`}>
+                    {selectedCategory.name}
+                  </h3>
+                  {onEditCategory && (
+                    <button 
+                      onClick={() => onEditCategory(selectedCategory)}
+                      className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors"
+                      title="Edit category"
+                    >
+                      <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
+                        ✏️
+                      </span>
+                    </button>
+                  )}
+                </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
                   {formatCurrency(selectedCategory.spentAmount || 0)} of {formatCurrency(selectedCategory.allocatedAmount)}
                 </div>
@@ -107,26 +109,26 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
         {/* Global Metrics Section */}
         <div className="flex-1">
           {/* Global Metrics Title */}
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-[#AB9C95]">
-              {selectedCategory ? 'Total Budget' : 'Budget Overview'}
-            </h3>
-            {budgetRange && (
-              <button 
-                onClick={() => router.push('/settings?tab=wedding&highlight=budgetRange')}
-                className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
-                title="Update in settings"
-              >
-                Edit
-              </button>
-            )}
-          </div>
+          <h3 className="text-sm font-medium text-[#AB9C95] mb-3">
+            {selectedCategory ? 'Total Budget' : 'Budget Overview'}
+          </h3>
           
           <div className={`grid gap-2 ${selectedCategory ? 'grid-cols-4' : 'grid-cols-4'}`}>
             {/* Budget Range Card */}
             {budgetRange && (
               <div className="border border-[#E0DBD7] rounded-[5px] p-4">
-                <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Budget Range</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-[#AB9C95]">Budget Range</h3>
+                  <button 
+                    onClick={() => router.push('/settings?tab=wedding&highlight=budgetRange')}
+                    className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors"
+                    title="Update in settings"
+                  >
+                    <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
+                      ✏️
+                    </span>
+                  </button>
+                </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
                   {formatCurrency(budgetRange.min)} - {formatCurrency(budgetRange.max)}
                 </div>

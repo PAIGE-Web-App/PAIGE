@@ -148,6 +148,11 @@ export default function RelatedVendorsSection({
     setFavorites(newFavorites);
     localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
     
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
+      detail: { favorites: newFavorites }
+    }));
+    
     if (newFavorites.includes(vendorId)) {
       showSuccessToast('Added to favorites!');
     }

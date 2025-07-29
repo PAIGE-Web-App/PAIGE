@@ -123,6 +123,11 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     setFavorites(updated);
     setIsFavorite(updated.includes(vendor.id));
     
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
+      detail: { favorites: updated }
+    }));
+    
     // Show toast message
     if (updated.includes(vendor.id)) {
       showSuccessToast(`Added ${vendor.name} to favorites!`);
@@ -130,34 +135,58 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       showSuccessToast(`Removed ${vendor.name} from favorites`);
     }
     
-    // Update community favorites count
-    try {
-      const response = await fetch('/api/community-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          placeId: vendor.id,
-          vendorName: vendor.name,
-          vendorAddress: vendorData.address,
-          vendorCategory: vendorData.category,
-          userId: user?.uid || '',
-          selectedAsVenue: false,
-          selectedAsVendor: false,
-          isFavorite: !wasFavorite
-        })
-      });
+    // Optimistically update community data immediately
+    if (communityData) {
+      const currentFavorites = communityData.totalFavorites || 0;
+      const newFavorites = !wasFavorite ? currentFavorites + 1 : Math.max(0, currentFavorites - 1);
       
-      if (response.ok) {
-        // Refresh community data
-        const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
-        const communityData = await communityResponse.json();
-        if (communityData.vendor) {
-          setCommunityData(communityData.vendor);
-        }
-      }
-    } catch (error) {
-      console.error('Error updating community favorites:', error);
+      setCommunityData(prev => ({
+        ...prev,
+        totalFavorites: newFavorites
+      }));
     }
+    
+    // Send API request in background (don't wait for it)
+    fetch('/api/community-vendors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        placeId: vendor.id,
+        vendorName: vendor.name,
+        vendorAddress: vendorData.address,
+        vendorCategory: vendorData.category,
+        userId: user?.uid || '',
+        selectedAsVenue: false,
+        selectedAsVendor: false,
+        isFavorite: !wasFavorite
+      })
+    }).then(response => {
+      if (!response.ok) {
+        console.error('Community update failed:', response.status, response.statusText);
+        // Revert optimistic update on failure
+        if (communityData) {
+          const currentFavorites = communityData.totalFavorites || 0;
+          const revertedFavorites = !wasFavorite ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
+          setCommunityData(prev => ({
+            ...prev,
+            totalFavorites: revertedFavorites
+          }));
+        }
+        showSuccessToast('Failed to update community data');
+      }
+    }).catch(error => {
+      console.error('Error updating community favorites:', error);
+      // Revert optimistic update on error
+      if (communityData) {
+        const currentFavorites = communityData.totalFavorites || 0;
+        const revertedFavorites = !wasFavorite ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
+        setCommunityData(prev => ({
+          ...prev,
+          totalFavorites: revertedFavorites
+        }));
+      }
+      showSuccessToast('Failed to update community data');
+    });
   }, [vendor.id, vendor.name, vendorData, user?.uid, showSuccessToast]);
 
   const handleFlagVendor = useCallback(async (reason, customReason) => {
