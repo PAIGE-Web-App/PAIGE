@@ -88,6 +88,7 @@ export default function BudgetPage() {
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<any>(null);
   const [deletingCategory, setDeletingCategory] = React.useState<any>(null);
+  const [jiggleAllocatedAmount, setJiggleAllocatedAmount] = React.useState(false);
   
   // State for budget top bar
   const [budgetSearchQuery, setBudgetSearchQuery] = React.useState('');
@@ -262,6 +263,13 @@ export default function BudgetPage() {
                 totalBudget={budget.userTotalBudget}
                 totalSpent={budget.totalSpent}
                 budgetRange={budget.userBudgetRange}
+                onEditCategory={(category) => {
+                  setEditingCategory(category);
+                  setJiggleAllocatedAmount(true);
+                  setShowCategoryModal(true);
+                  // Reset jiggle after animation
+                  setTimeout(() => setJiggleAllocatedAmount(false), 1000);
+                }}
               />
 
               {/* Budget Items List */}
@@ -393,6 +401,7 @@ export default function BudgetPage() {
           budgetCategories={budget.budgetCategories}
           userBudgetRange={budget.userBudgetRange}
           onUpdateBudgetRange={budget.updateUserBudgetRange}
+          jiggleAllocatedAmount={jiggleAllocatedAmount}
           onSave={(categoryId, updates) => {
             if (categoryId === 'new') {
               budget.handleAddCategory(updates.name!, updates.allocatedAmount || 0);

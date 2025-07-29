@@ -12,6 +12,7 @@ interface BudgetCategoryModalProps {
   budgetCategories: BudgetCategory[];
   userBudgetRange: { min: number; max: number } | null;
   onUpdateBudgetRange?: (newRange: { min: number; max: number }) => Promise<void>;
+  jiggleAllocatedAmount?: boolean;
 }
 
 const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
@@ -23,6 +24,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
   budgetCategories,
   userBudgetRange,
   onUpdateBudgetRange,
+  jiggleAllocatedAmount = false,
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -229,7 +231,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
             />
           </div>
 
-          <div>
+          <div className={jiggleAllocatedAmount ? 'animate-jiggle' : ''}>
             <label className="block text-sm font-medium text-[#332B42] mb-1">
               Allocated Amount
             </label>
