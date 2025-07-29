@@ -132,7 +132,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
       <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-t-[5px] p-3 flex-shrink-0">
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
           <div className="col-span-3">Item Name</div>
-          <div className="col-span-2 text-right">Amount</div>
+          <div className="col-span-2">Amount</div>
           <div className="col-span-3">Notes</div>
           <div className="col-span-2">Vendor</div>
           <div className="col-span-1 text-center">Assignees</div>
@@ -177,7 +177,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 </div>
 
                 {/* Amount */}
-                <div className="col-span-2 flex items-center justify-end">
+                <div className="col-span-2 flex items-center">
                   <EditableField
                     value={item.amount.toString()}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'amount'}
@@ -186,7 +186,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                     onCancel={handleEditCancel}
                     type="number"
                     placeholder="0"
-                    className="text-sm font-medium text-[#332B42] text-right"
+                    className="text-sm font-medium text-[#332B42] flex-1"
                     showEditIcon={true}
                   />
                 </div>
@@ -306,7 +306,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
           <div className="col-span-3">
             <span className="text-sm font-medium text-[#332B42]">Total</span>
           </div>
-          <div className="col-span-2 text-right">
+          <div className="col-span-2">
             <span className="text-sm font-bold text-[#332B42]">
               {formatCurrency(totalAmount)}
             </span>
