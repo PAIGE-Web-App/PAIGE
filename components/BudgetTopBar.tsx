@@ -113,25 +113,25 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
             <div className="flex rounded-full border border-gray-400 overflow-hidden" style={{ height: 32 }}>
               <button
                 className={`flex items-center justify-center px-2 transition-colors duration-150 ${
-                  viewMode === 'cards' ? 'bg-[#EBE3DD]' : 'bg-white'
-                } border-r border-gray-300`}
-                style={{ outline: 'none' }}
-                onClick={() => onViewModeChange('cards')}
-                type="button"
-                title="Card View"
-              >
-                <Grid size={18} stroke={viewMode === 'cards' ? '#A85C36' : '#364257'} />
-              </button>
-              <button
-                className={`flex items-center justify-center px-2 transition-colors duration-150 ${
                   viewMode === 'table' ? 'bg-[#EBE3DD]' : 'bg-white'
-                }`}
+                } border-r border-gray-300`}
                 style={{ outline: 'none' }}
                 onClick={() => onViewModeChange('table')}
                 type="button"
                 title="Table View"
               >
                 <List size={18} stroke={viewMode === 'table' ? '#A85C36' : '#364257'} />
+              </button>
+              <button
+                className={`flex items-center justify-center px-2 transition-colors duration-150 ${
+                  viewMode === 'cards' ? 'bg-[#EBE3DD]' : 'bg-white'
+                }`}
+                style={{ outline: 'none' }}
+                onClick={() => onViewModeChange('cards')}
+                type="button"
+                title="Card View"
+              >
+                <Grid size={18} stroke={viewMode === 'cards' ? '#A85C36' : '#364257'} />
               </button>
             </div>
           )}
