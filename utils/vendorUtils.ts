@@ -464,8 +464,8 @@ export const addRecentlyViewedVendor = (vendor: any) => {
       viewedAt: new Date().toISOString()
     });
     
-    // Keep only last 12 vendors
-    const trimmed = recent.slice(0, 12);
+    // Keep only last 10 vendors
+    const trimmed = recent.slice(0, 10);
     
     localStorage.setItem('paige_recently_viewed_vendors', JSON.stringify(trimmed));
   } catch (error) {

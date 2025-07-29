@@ -61,6 +61,10 @@ const DeleteCategoryModal = dynamic(() => import('@/components/DeleteCategoryMod
   ssr: false
 });
 
+const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
+  ssr: false
+});
+
 // Custom hooks
 import { useUserProfileData } from "@/hooks/useUserProfileData";
 import { useWeddingBanner } from "@/hooks/useWeddingBanner";
@@ -89,6 +93,10 @@ export default function BudgetPage() {
   const [editingCategory, setEditingCategory] = React.useState<any>(null);
   const [deletingCategory, setDeletingCategory] = React.useState<any>(null);
   const [jiggleAllocatedAmount, setJiggleAllocatedAmount] = React.useState(false);
+  
+  // Link Vendor Modal state
+  const [showLinkVendorModal, setShowLinkVendorModal] = React.useState(false);
+  const [linkingBudgetItem, setLinkingBudgetItem] = React.useState<any>(null);
   
   // State for budget top bar
   const [budgetSearchQuery, setBudgetSearchQuery] = React.useState('');
@@ -159,6 +167,34 @@ export default function BudgetPage() {
     } else if (tab === 'todo') {
       router.push('/todo');
     }
+  };
+
+  // Handle linking vendor to budget item
+  const handleLinkVendor = async (vendor: any) => {
+    if (!linkingBudgetItem || !user?.uid) return;
+
+    try {
+      // Use the budget hook's handleLinkVendor method
+      await budget.handleLinkVendor(linkingBudgetItem.id!, {
+        vendorId: vendor.place_id,
+        vendorName: vendor.name,
+        vendorPlaceId: vendor.place_id
+      });
+      
+      // Close the modal
+      setShowLinkVendorModal(false);
+      setLinkingBudgetItem(null);
+      
+    } catch (error) {
+      console.error('Error linking vendor:', error);
+      throw error;
+    }
+  };
+
+  // Open link vendor modal
+  const openLinkVendorModal = (budgetItem: any) => {
+    setLinkingBudgetItem(budgetItem);
+    setShowLinkVendorModal(true);
   };
 
   // Only show content when profile loading is complete
@@ -301,8 +337,7 @@ export default function BudgetPage() {
                     }}
                     onDeleteItem={budget.handleDeleteBudgetItem}
                     onLinkVendor={(item) => {
-                      setSelectedBudgetItem(item);
-                      budget.setShowVendorIntegrationModal(true);
+                      openLinkVendorModal(item);
                     }}
                     onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
                       // Pass the itemId to the budget handler
@@ -328,8 +363,7 @@ export default function BudgetPage() {
                       setShowItemSideCard(false);
                     }}
                     onLinkVendor={() => {
-                      budget.setSelectedBudgetItem(selectedBudgetItem);
-                      budget.setShowVendorIntegrationModal(true);
+                      openLinkVendorModal(selectedBudgetItem);
                       setShowItemSideCard(false);
                     }}
                   />
@@ -375,6 +409,19 @@ export default function BudgetPage() {
             budget.handleLinkVendor(itemId, vendorData);
             budget.setShowVendorIntegrationModal(false);
           }}
+        />
+      )}
+
+      {showLinkVendorModal && linkingBudgetItem && (
+        <LinkVendorModal
+          isOpen={showLinkVendorModal}
+          onClose={() => {
+            setShowLinkVendorModal(false);
+            setLinkingBudgetItem(null);
+          }}
+          onLinkVendor={handleLinkVendor}
+          budgetItem={linkingBudgetItem}
+          userId={user?.uid || ''}
         />
       )}
 

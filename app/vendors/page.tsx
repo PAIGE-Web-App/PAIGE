@@ -32,6 +32,7 @@ import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection'
 import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
 import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import VendorTabs from '@/components/VendorTabs';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -119,6 +120,7 @@ export default function VendorsPage() {
   const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState('my-vendors');
 
   // Filtered, searched, and sorted vendors
   const filteredVendors = useMemo(() => {
@@ -162,6 +164,49 @@ export default function VendorsPage() {
         return filtered;
     }
   }, [vendors, selectedCategories, vendorSearch, sortOption]);
+
+  // Filtered, searched, and sorted favorites
+  const filteredFavorites = useMemo(() => {
+    let filtered = favoriteVendors.filter((v) => {
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
+      const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+
+    // Apply sorting
+    switch (sortOption) {
+      case 'name-asc':
+        return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-desc':
+        return [...filtered].sort((a, b) => b.name.localeCompare(a.name));
+      case 'recent-desc':
+        return [...filtered].sort((a, b) => {
+          // Use orderIndex if available (negative timestamp for recent first)
+          if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
+            return a.orderIndex - b.orderIndex;
+          }
+          
+          // Fallback to addedAt timestamp
+          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+          return bTime - aTime; // Most recent first
+        });
+      case 'category-asc':
+        return [...filtered].sort((a, b) => {
+          const categoryA = a.category || '';
+          const categoryB = b.category || '';
+          return categoryA.localeCompare(categoryB);
+        });
+      case 'rating-desc':
+        return [...filtered].sort((a, b) => {
+          const ratingA = a.rating || 0;
+          const ratingB = b.rating || 0;
+          return ratingB - ratingA;
+        });
+      default:
+        return filtered;
+    }
+  }, [favoriteVendors, selectedCategories, vendorSearch, sortOption]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -336,104 +381,7 @@ export default function VendorsPage() {
         </div>
         {/* Main Content */}
         <div className="app-content-container flex-1 pt-24">
-          {/* Applied sort filter pill above vendor sections */}
-          {sortOption && sortOption !== 'recent-desc' && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                Sort: {
-                  sortOption === 'name-asc' ? 'Name (A-Z)' :
-                  sortOption === 'name-desc' ? 'Name (Z-A)' :
-                  sortOption === 'category-asc' ? 'Category (A-Z)' :
-                  sortOption === 'rating-desc' ? 'Highest rated' : ''
-                }
-                <button onClick={() => handleSortOptionSelect('recent-desc')} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            </div>
-          )}
-          
-          {/* My Vendors Section */}
-          <MyVendorsSection
-            vendors={filteredVendors}
-            defaultLocation={defaultLocation}
-            isLoading={isLoading}
-            onContact={(vendor) => {
-              // Handle contact action
-            }}
-            onFlagged={(vendorId) => {
-              // Handle flagged action
-            }}
-          >
-            {/* Sort Button */}
-            <div className="relative" ref={sortMenuRef}>
-              <button
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
-                title="Sort vendors"
-              >
-                <ArrowUpDown className="w-4 h-4" />
-              </button>
-              <AnimatePresence>
-                {showSortMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 flex flex-col min-w-[200px]"
-                  >
-                    <button
-                      onClick={() => handleSortOptionSelect('recent-desc')}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'recent-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                    >
-                      Most recently added
-                    </button>
-                    <button
-                      onClick={() => handleSortOptionSelect('name-asc')}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                    >
-                      Name (A-Z)
-                    </button>
-                    <button
-                      onClick={() => handleSortOptionSelect('name-desc')}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                    >
-                      Name (Z-A)
-                    </button>
-                    <button
-                      onClick={() => handleSortOptionSelect('category-asc')}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'category-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                    >
-                      Category (A-Z)
-                    </button>
-                    <button
-                      onClick={() => handleSortOptionSelect('rating-desc')}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'rating-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                    >
-                      Highest rated
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <FilterButtonPopover
-              categories={categories}
-              selectedCategories={selectedCategories}
-              onSelectCategories={setSelectedCategories}
-              showFilters={showFilters}
-              setShowFilters={setShowFilters}
-            />
-            <SearchBar
-              value={vendorSearch}
-              onChange={setVendorSearch}
-              placeholder="Search vendors by name"
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-            />
-          </MyVendorsSection>
-
-          {/* Recently Viewed Section */}
+          {/* Recently Viewed Section - Now at the top */}
           <RecentlyViewedSection
             defaultLocation={defaultLocation}
             onContact={(vendor) => {
@@ -444,17 +392,149 @@ export default function VendorsPage() {
             }}
           />
 
-          {/* My Favorites Section */}
-          <MyFavoritesSection
-            vendors={favoriteVendors}
-            defaultLocation={defaultLocation}
-            onContact={(vendor) => {
-              // Handle contact action
-            }}
-            onFlagged={(vendorId) => {
-              // Handle flagged action
-            }}
-          />
+          {/* Vendor Tabs and Action Buttons Row */}
+          <div className="flex items-center justify-between mb-4">
+            {/* Vendor Tabs */}
+            <VendorTabs 
+              activeTab={activeTab} 
+              onTabChange={setActiveTab}
+              myVendorsCount={filteredVendors.length}
+              favoritesCount={filteredFavorites.length}
+            />
+
+            {/* Action Buttons - Show for both My Vendors and Favorites tabs */}
+            {(activeTab === 'my-vendors' || activeTab === 'favorites') && (
+              <div className="flex items-center gap-3">
+                {/* Sort Button */}
+                <div className="relative" ref={sortMenuRef}>
+                  <button
+                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
+                    title="Sort vendors"
+                  >
+                    <ArrowUpDown className="w-4 h-4" />
+                  </button>
+                  <AnimatePresence>
+                    {showSortMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 flex flex-col min-w-[200px]"
+                      >
+                        <button
+                          onClick={() => handleSortOptionSelect('recent-desc')}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'recent-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                        >
+                          Most recently added
+                        </button>
+                        <button
+                          onClick={() => handleSortOptionSelect('name-asc')}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                        >
+                          Name (A-Z)
+                        </button>
+                        <button
+                          onClick={() => handleSortOptionSelect('name-desc')}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                        >
+                          Name (Z-A)
+                        </button>
+                        <button
+                          onClick={() => handleSortOptionSelect('category-asc')}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'category-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                        >
+                          Category (A-Z)
+                        </button>
+                        <button
+                          onClick={() => handleSortOptionSelect('rating-desc')}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'rating-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                        >
+                          Highest rated
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <FilterButtonPopover
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectCategories={setSelectedCategories}
+                  showFilters={showFilters}
+                  setShowFilters={setShowFilters}
+                />
+                <SearchBar
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  placeholder="Search vendors by name"
+                  isOpen={searchOpen}
+                  setIsOpen={setSearchOpen}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Applied filter pills above vendor sections */}
+          {(activeTab === 'my-vendors' || activeTab === 'favorites') && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {/* Sort filter pill */}
+              {sortOption && sortOption !== 'recent-desc' && (
+                <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                  Sort: {
+                    sortOption === 'name-asc' ? 'Name (A-Z)' :
+                    sortOption === 'name-desc' ? 'Name (Z-A)' :
+                    sortOption === 'category-asc' ? 'Category (A-Z)' :
+                    sortOption === 'rating-desc' ? 'Highest rated' : ''
+                  }
+                  <button onClick={() => handleSortOptionSelect('recent-desc')} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              
+              {/* Category filter pills */}
+              {selectedCategories.map((category) => (
+                <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+                  {category}
+                  <button 
+                    onClick={() => setSelectedCategories(prev => prev.filter(cat => cat !== category))} 
+                    className="ml-1 text-[#A85C36] hover:text-[#784528]"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Tab Content */}
+          {activeTab === 'my-vendors' && (
+            <MyVendorsSection
+              vendors={filteredVendors}
+              defaultLocation={defaultLocation}
+              isLoading={isLoading}
+              onContact={(vendor) => {
+                // Handle contact action
+              }}
+              onFlagged={(vendorId) => {
+                // Handle flagged action
+              }}
+            />
+          )}
+
+          {activeTab === 'favorites' && (
+            <MyFavoritesSection
+              vendors={filteredFavorites}
+              defaultLocation={defaultLocation}
+              onContact={(vendor) => {
+                // Handle contact action
+              }}
+              onFlagged={(vendorId) => {
+                // Handle flagged action
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -26,15 +26,6 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
 
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-[#A85C36] fill-current" />
-            <h5>My Favorites</h5>
-          </div>
-          <BadgeCount count={vendors.length} />
-        </div>
-      </div>
       <div className="overflow-x-auto">
         <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
           {vendors.slice(0, 6).map((vendor) => (

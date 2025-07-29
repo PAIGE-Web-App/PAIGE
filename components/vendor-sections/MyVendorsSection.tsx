@@ -11,7 +11,6 @@ interface MyVendorsSectionProps {
   isLoading?: boolean;
   onContact?: (vendor: any) => void;
   onFlagged?: (vendorId: string) => void;
-  children?: React.ReactNode; // For search and filter components
 }
 
 export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
@@ -19,22 +18,12 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
   defaultLocation,
   isLoading = false,
   onContact,
-  onFlagged,
-  children
+  onFlagged
 }) => {
   const router = useRouter();
 
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h5>My Vendors</h5>
-          <BadgeCount count={vendors.length} />
-        </div>
-        <div className="flex items-center gap-3">
-          {children}
-        </div>
-      </div>
       
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-[960px]">
