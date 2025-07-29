@@ -66,7 +66,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
     
     const newTotalAllocated = currentTotalAllocated + allocatedAmount;
     
-    if (userBudgetRange && newTotalAllocated > userBudgetRange.max) {
+    if (userBudgetRange && newTotalAllocated > userBudgetRange.max && !showBudgetWarning) {
       const exceedAmount = newTotalAllocated - userBudgetRange.max;
       const newBudgetRange = {
         min: userBudgetRange.min,
@@ -85,6 +85,32 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
     // If auto-update is enabled, update budget range first
     if (autoUpdateBudget && budgetWarningData && onUpdateBudgetRange) {
       onUpdateBudgetRange(budgetWarningData.newBudgetRange);
+    }
+
+    onSave(category.id!, {
+      name: formData.name.trim(),
+      allocatedAmount: allocatedAmount,
+    });
+    onClose();
+  };
+
+  const handleContinueWithUpdate = async () => {
+    if (!category) return;
+    
+    if (!formData.name.trim()) {
+      alert('Category name cannot be empty');
+      return;
+    }
+
+    const allocatedAmount = parseFloat(formData.allocatedAmount);
+    if (isNaN(allocatedAmount) || allocatedAmount < 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    // Update budget range first if checkbox is checked
+    if (autoUpdateBudget && budgetWarningData && onUpdateBudgetRange) {
+      await onUpdateBudgetRange(budgetWarningData.newBudgetRange);
     }
 
     onSave(category.id!, {
@@ -178,7 +204,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
                       Cancel
                     </button>
                     <button
-                      onClick={handleSave}
+                      onClick={handleContinueWithUpdate}
                       className="px-3 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700"
                     >
                       Continue with Update
