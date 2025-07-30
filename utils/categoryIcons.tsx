@@ -1,98 +1,42 @@
 import React from 'react';
-import { 
-  Camera, 
-  Flower, 
-  Cake, 
-  Building2, 
-  Scissors, 
-  Dress, 
-  Sparkles, 
-  Car, 
-  Plane, 
-  Calendar, 
-  User, 
-  Music, 
-  Palette, 
-  FileText, 
-  Gift, 
-  Suitcase, 
-  Heart,
-  MapPin,
-  Star,
-  Users,
-  Briefcase,
-  Home,
-  Church,
-  Crown,
-  Gem,
-  Utensils,
-  Truck,
-  Palette as MakeupPalette,
-  BookOpen,
-  PartyPopper,
-  Microphone,
-  Guitar
-} from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
-// Category to icon mapping
+// Use one consistent icon for all categories
 export const CATEGORY_ICONS: Record<string, React.ComponentType<any>> = {
-  // Venues
-  'Venue': Building2,
-  'Reception Venue': Building2,
-  'Church': Church,
-  'Night Club': Music,
-  
-  // Food & Beverage
-  'Baker': Cake,
-  'Caterer': Utensils,
-  
-  // Jewelry & Accessories
-  'Jeweler': Gem,
-  'Jewelry': Gem,
-  
-  // Beauty & Styling
-  'Hair Stylist': Scissors,
-  'Beauty Salon': Sparkles,
-  'Spa': Heart,
-  'Makeup Artist': MakeupPalette,
-  
-  // Attire
-  'Dress Shop': Dress,
-  'Bridal Salon': Dress,
-  'Suit & Tux Rental': Suitcase,
-  'Suit/Tux Rental': Suitcase,
-  
-  // Photography & Video
-  'Photographer': Camera,
-  'Videographer': Camera,
-  
-  // Flowers & Decor
-  'Florist': Flower,
-  'Florist': Flower,
-  
-  // Entertainment
-  'DJ': Microphone,
-  'Band': Guitar,
-  'Musician': Guitar,
-  
-  // Planning & Services
-  'Wedding Planner': Calendar,
-  'Officiant': User,
-  'Travel Agency': Plane,
-  
-  // Transportation
-  'Car Rental': Car,
-  'Transportation': Car,
-  
-  // Supplies & Extras
-  'Stationery': FileText,
-  'Stationery & Invitations': FileText,
-  'Event Rental': Briefcase,
-  'Rentals': Briefcase,
-  'Wedding Favor': Gift,
-  'Favors': Gift,
-  
-  // Default fallback
+  // All categories use the same icon for consistency
+  'Venue': MapPin,
+  'Reception Venue': MapPin,
+  'Church': MapPin,
+  'Night Club': MapPin,
+  'Baker': MapPin,
+  'Caterer': MapPin,
+  'Jeweler': MapPin,
+  'Jewelry': MapPin,
+  'Hair Stylist': MapPin,
+  'Beauty Salon': MapPin,
+  'Spa': MapPin,
+  'Makeup Artist': MapPin,
+  'Dress Shop': MapPin,
+  'Bridal Salon': MapPin,
+  'Suit & Tux Rental': MapPin,
+  'Suit/Tux Rental': MapPin,
+  'Photographer': MapPin,
+  'Videographer': MapPin,
+  'Florist': MapPin,
+  'DJ': MapPin,
+  'Band': MapPin,
+  'Musician': MapPin,
+  'Wedding Planner': MapPin,
+  'Officiant': MapPin,
+  'Travel Agency': MapPin,
+  'Car Rental': MapPin,
+  'Transportation': MapPin,
+  'Stationery': MapPin,
+  'Stationery & Invitations': MapPin,
+  'Event Rental': MapPin,
+  'Rentals': MapPin,
+  'Wedding Favor': MapPin,
+  'Favors': MapPin,
   'Vendor': MapPin
 };
 
@@ -115,64 +59,42 @@ export const CategoryIcon = ({
   return <IconComponent className={className} {...props} />;
 };
 
-// Category color mapping for consistent theming
+// Use one consistent color for all categories
 export const CATEGORY_COLORS: Record<string, string> = {
-  // Venues - Blue
-  'Venue': '#3B82F6',
-  'Reception Venue': '#3B82F6',
-  'Church': '#3B82F6',
-  'Night Club': '#3B82F6',
-  
-  // Food & Beverage - Orange
-  'Baker': '#F97316',
-  'Caterer': '#F97316',
-  
-  // Jewelry & Accessories - Purple
-  'Jeweler': '#8B5CF6',
-  'Jewelry': '#8B5CF6',
-  
-  // Beauty & Styling - Pink
-  'Hair Stylist': '#EC4899',
-  'Beauty Salon': '#EC4899',
-  'Spa': '#EC4899',
-  'Makeup Artist': '#EC4899',
-  
-  // Attire - Rose
-  'Dress Shop': '#F43F5E',
-  'Bridal Salon': '#F43F5E',
-  'Suit & Tux Rental': '#F43F5E',
-  'Suit/Tux Rental': '#F43F5E',
-  
-  // Photography & Video - Indigo
-  'Photographer': '#6366F1',
-  'Videographer': '#6366F1',
-  
-  // Flowers & Decor - Green
-  'Florist': '#10B981',
-  
-  // Entertainment - Yellow
-  'DJ': '#EAB308',
-  'Band': '#EAB308',
-  'Musician': '#EAB308',
-  
-  // Planning & Services - Teal
-  'Wedding Planner': '#14B8A6',
-  'Officiant': '#14B8A6',
-  'Travel Agency': '#14B8A6',
-  
-  // Transportation - Gray
-  'Car Rental': '#6B7280',
-  'Transportation': '#6B7280',
-  
-  // Supplies & Extras - Amber
-  'Stationery': '#F59E0B',
-  'Stationery & Invitations': '#F59E0B',
-  'Event Rental': '#F59E0B',
-  'Rentals': '#F59E0B',
-  'Wedding Favor': '#F59E0B',
-  'Favors': '#F59E0B',
-  
-  // Default
+  // All categories use the same color for consistency
+  'Venue': '#A85C36',
+  'Reception Venue': '#A85C36',
+  'Church': '#A85C36',
+  'Night Club': '#A85C36',
+  'Baker': '#A85C36',
+  'Caterer': '#A85C36',
+  'Jeweler': '#A85C36',
+  'Jewelry': '#A85C36',
+  'Hair Stylist': '#A85C36',
+  'Beauty Salon': '#A85C36',
+  'Spa': '#A85C36',
+  'Makeup Artist': '#A85C36',
+  'Dress Shop': '#A85C36',
+  'Bridal Salon': '#A85C36',
+  'Suit & Tux Rental': '#A85C36',
+  'Suit/Tux Rental': '#A85C36',
+  'Photographer': '#A85C36',
+  'Videographer': '#A85C36',
+  'Florist': '#A85C36',
+  'DJ': '#A85C36',
+  'Band': '#A85C36',
+  'Musician': '#A85C36',
+  'Wedding Planner': '#A85C36',
+  'Officiant': '#A85C36',
+  'Travel Agency': '#A85C36',
+  'Car Rental': '#A85C36',
+  'Transportation': '#A85C36',
+  'Stationery': '#A85C36',
+  'Stationery & Invitations': '#A85C36',
+  'Event Rental': '#A85C36',
+  'Rentals': '#A85C36',
+  'Wedding Favor': '#A85C36',
+  'Favors': '#A85C36',
   'Vendor': '#A85C36'
 };
 
