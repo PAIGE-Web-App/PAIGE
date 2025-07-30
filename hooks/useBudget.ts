@@ -351,6 +351,21 @@ export function useBudget() {
         createdAt: new Date(),
       });
 
+      // Update user's budget range to reflect the new total
+      if (allocatedAmount > 0) {
+        const newTotalBudget = budgetCategories.reduce((sum, cat) => sum + cat.allocatedAmount, 0) + allocatedAmount;
+        const newBudgetRange = {
+          min: Math.round(newTotalBudget * 0.8), // 20% buffer below
+          max: Math.round(newTotalBudget * 1.2), // 20% buffer above
+        };
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        await updateDoc(userDocRef, {
+          budgetRange: newBudgetRange,
+          updatedAt: new Date(),
+        });
+      }
+
       showSuccessToast(`Category "${name}" added!`);
     } catch (error: any) {
       console.error('Error adding category:', error);
@@ -369,6 +384,29 @@ export function useBudget() {
         updatedAt: new Date(),
       });
 
+      // If allocated amount changed, update the user's budget range
+      if (updates.allocatedAmount !== undefined) {
+        // Calculate new total budget from all categories
+        const currentCategory = budgetCategories.find(cat => cat.id === categoryId);
+        const otherCategoriesTotal = budgetCategories
+          .filter(cat => cat.id !== categoryId)
+          .reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+        
+        const newTotalBudget = otherCategoriesTotal + updates.allocatedAmount;
+        
+        // Update user's budget range to reflect the new total
+        const newBudgetRange = {
+          min: Math.round(newTotalBudget * 0.8), // 20% buffer below
+          max: Math.round(newTotalBudget * 1.2), // 20% buffer above
+        };
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        await updateDoc(userDocRef, {
+          budgetRange: newBudgetRange,
+          updatedAt: new Date(),
+        });
+      }
+
       showSuccessToast('Category updated!');
     } catch (error: any) {
       console.error('Error updating category:', error);
@@ -381,6 +419,9 @@ export function useBudget() {
     if (!user) return;
 
     try {
+      // Get the category being deleted to calculate new total
+      const categoryToDelete = budgetCategories.find(cat => cat.id === categoryId);
+      
       // Delete all items in the category
       const categoryItems = budgetItems.filter(item => item.categoryId === categoryId);
       const batch = writeBatch(getUserCollectionRef('budgetItems', user.uid).firestore);
@@ -395,6 +436,25 @@ export function useBudget() {
       batch.delete(categoryRef);
 
       await batch.commit();
+
+      // Update user's budget range to reflect the new total
+      if (categoryToDelete && categoryToDelete.allocatedAmount > 0) {
+        const newTotalBudget = budgetCategories
+          .filter(cat => cat.id !== categoryId)
+          .reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+        
+        const newBudgetRange = {
+          min: Math.round(newTotalBudget * 0.8), // 20% buffer below
+          max: Math.round(newTotalBudget * 1.2), // 20% buffer above
+        };
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        await updateDoc(userDocRef, {
+          budgetRange: newBudgetRange,
+          updatedAt: new Date(),
+        });
+      }
+
       showSuccessToast('Category deleted!');
     } catch (error: any) {
       console.error('Error deleting category:', error);
@@ -722,8 +782,8 @@ export function useBudget() {
     }
   };
 
-  // Calculate average budget for backward compatibility
-  const userTotalBudget = userBudgetRange ? Math.round((userBudgetRange.min + userBudgetRange.max) / 2) : null;
+  // Calculate total budget from actual category allocations
+  const userTotalBudget = budgetCategories.reduce((sum, category) => sum + category.allocatedAmount, 0);
 
   return {
     // State
