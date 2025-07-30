@@ -138,7 +138,7 @@ export default function VendorCatalogPage() {
                     style={{ outline: 'none', border: '1px solid #E0DBD7' }}
                   >
                     <div className="w-16 h-16 flex items-center justify-center mb-3">
-                      <IconComponent className="w-8 h-8 text-[#A85C36]" />
+                      <IconComponent className="w-8 h-8 text-[#A85C36] stroke-[1.5]" />
                     </div>
                     <span className="text-sm font-medium text-[#332B42] text-center leading-tight">{cat.label}</span>
                   </button>
