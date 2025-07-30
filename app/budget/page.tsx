@@ -454,6 +454,13 @@ export default function BudgetPage() {
               budget.handleAddCategory(updates.name!, updates.allocatedAmount || 0);
             } else {
               budget.handleEditCategory(categoryId, updates);
+              // Update selectedCategory if it's the one being edited
+              if (selectedCategory && selectedCategory.id === categoryId) {
+                setSelectedCategory({
+                  ...selectedCategory,
+                  ...updates
+                });
+              }
             }
             setShowCategoryModal(false);
             setEditingCategory(null);
