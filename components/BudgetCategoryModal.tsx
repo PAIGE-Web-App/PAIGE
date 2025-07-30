@@ -39,13 +39,13 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    if (category) {
+    if (category && isOpen) {
       setFormData({
         name: category.name,
         allocatedAmount: category.allocatedAmount.toString(),
       });
     }
-  }, [category]);
+  }, [category, isOpen]);
 
   const handleSave = () => {
     if (!category) return;
@@ -93,6 +93,12 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
       name: formData.name.trim(),
       allocatedAmount: allocatedAmount,
     });
+    
+    // Reset form data and close modal
+    setFormData({ name: '', allocatedAmount: '' });
+    setShowBudgetWarning(false);
+    setBudgetWarningData(null);
+    setAutoUpdateBudget(false);
     onClose();
   };
 
@@ -119,6 +125,12 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
       name: formData.name.trim(),
       allocatedAmount: allocatedAmount,
     });
+    
+    // Reset form data and close modal
+    setFormData({ name: '', allocatedAmount: '' });
+    setShowBudgetWarning(false);
+    setBudgetWarningData(null);
+    setAutoUpdateBudget(false);
     onClose();
   };
 
@@ -127,8 +139,22 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
     
     if (window.confirm(`Are you sure you want to delete "${category.name}"? This will also delete all items in this category.`)) {
       onDelete(category.id!);
+      // Reset form data and close modal
+      setFormData({ name: '', allocatedAmount: '' });
+      setShowBudgetWarning(false);
+      setBudgetWarningData(null);
+      setAutoUpdateBudget(false);
       onClose();
     }
+  };
+
+  const handleClose = () => {
+    // Reset form data and close modal
+    setFormData({ name: '', allocatedAmount: '' });
+    setShowBudgetWarning(false);
+    setBudgetWarningData(null);
+    setAutoUpdateBudget(false);
+    onClose();
   };
 
   if (!isOpen || !category) return null;
@@ -140,7 +166,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
-        onClick={onClose} // Close modal when clicking outside
+        onClick={handleClose} // Close modal when clicking outside
       >
         <motion.div
           initial={{ y: -50, opacity: 0 }}
@@ -150,7 +176,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
           onClick={(e) => e.stopPropagation()} // Prevent click from closing modal
         >
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
             title="Close"
           >
@@ -251,7 +277,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
           <div className="flex justify-end w-full mt-6">
             <div className="flex gap-2">
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-4 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] hover:bg-[#F3F2F0]"
               >
                 Cancel
