@@ -26,7 +26,7 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
     <section className="mb-8">
       
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-[960px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-[960px]">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-80 animate-pulse">
               <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
@@ -51,7 +51,7 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
       ) : (
         <>
           {/* 2x4 Grid Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {vendors.slice(0, 8).map((vendor) => (
               <div key={vendor.id} className="w-full">
                 <VendorCatalogCard

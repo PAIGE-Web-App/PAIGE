@@ -106,7 +106,7 @@ export default function VendorCatalogPage() {
           </div>
           <div>
             <h3 className="text-lg font-playfair mb-2">Popular Categories</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat.value}

@@ -1,4 +1,5 @@
 // utils/vendorUtils.ts
+import { getVendorImageImmediate } from './vendorImageUtils';
 
 // ============================================================================
 // CATEGORY MAPPING SYSTEM - CRITICAL FOR BREADCRUMB CONSISTENCY
@@ -481,12 +482,15 @@ export const convertVendorToCatalogFormat = (vendor: any, recentlyViewed?: any[]
     rv.id === vendor.placeId || rv.id === vendor.id || rv.placeId === vendor.placeId
   );
   
-  // Prioritize Google Places images from Firestore, then recently viewed data
-  const bestImage = vendor.image || 
-                   vendor.images?.[0] || 
-                   recentlyViewedVendor?.image || 
-                   recentlyViewedVendor?.images?.[0] || 
-                   '/Venue.png';
+  // Use unified image handling
+  const vendorWithRecentData = {
+    ...vendor,
+    // Merge with recently viewed data for better image selection
+    image: vendor.image || recentlyViewedVendor?.image,
+    images: vendor.images || recentlyViewedVendor?.images
+  };
+  
+  const bestImage = getVendorImageImmediate(vendorWithRecentData);
   
   console.log('🔄 Converting vendor to catalog format:', {
     vendorName: vendor.name,

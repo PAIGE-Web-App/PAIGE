@@ -4,6 +4,7 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
 
 // Move utility functions outside component to prevent recreation
 function getFavorites() {
@@ -50,14 +51,14 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
-  const [imgSrc, setImgSrc] = useState(vendor.image);
+  const [imgSrc, setImgSrc] = useState(getVendorImageImmediate(vendor));
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFlagged, setIsFlagged] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [communityData, setCommunityData] = useState<any>(null);
 
-  const isPlaceholder = useMemo(() => imgSrc === '/Venue.png', [imgSrc]);
+  const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
   // Memoized vendor data
   const vendorData = useMemo(() => ({
@@ -216,10 +217,8 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     }
     
     // In normal mode, navigate to vendor detail page
-    const photoRef = vendor.image.includes('photoreference=') ? vendor.image.split('photoreference=')[1]?.split('&')[0] : '';
     const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
-    const url = photoRef ? `${baseUrl}&photoRef=${encodeURIComponent(photoRef)}` : baseUrl;
-    router.push(url);
+    router.push(baseUrl);
   }, [bulkContactMode, onSelectionChange, vendor.id, location, router, category]);
 
   const handleImageError = useCallback(() => {
@@ -233,11 +232,9 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   }, [onShowContactModal, vendor]);
 
   const handleViewDetailsClick = useCallback(() => {
-    const photoRef = vendor.image.includes('photoreference=') ? vendor.image.split('photoreference=')[1]?.split('&')[0] : '';
     const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
-    const url = photoRef ? `${baseUrl}&photoRef=${encodeURIComponent(photoRef)}` : baseUrl;
-    router.push(url);
-  }, [vendor.id, location, router, category, vendor.image]);
+    router.push(baseUrl);
+  }, [vendor.id, location, router, category]);
 
   const handleSelectionChange = useCallback(() => {
     if (onSelectionChange) {

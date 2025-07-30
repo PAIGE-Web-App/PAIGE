@@ -5,6 +5,7 @@ import { getRecentlyViewedVendors, mapGoogleTypesToCategory } from '@/utils/vend
 import BadgeCount from '@/components/BadgeCount';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useAuth } from '@/contexts/AuthContext';
+import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 
 interface RecentlyViewedSectionProps {
   defaultLocation: string;
@@ -39,54 +40,27 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
     }
   }, []);
 
-  // Enhance vendors with Google Places images
+  // Enhance vendors with unified image handling
   useEffect(() => {
-    const enhanceVendorsWithImages = async () => {
+    const enhanceVendors = async () => {
       if (recentlyViewedVendors.length === 0) {
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      const enhanced = await Promise.all(
-        recentlyViewedVendors.map(async (vendor) => {
-          try {
-            // If vendor already has a Google Places image, use it
-            if (vendor.image && vendor.image.includes('maps.googleapis.com')) {
-              return vendor;
-            }
-
-            // If vendor has a placeId, fetch the latest image from Google Places
-            if (vendor.placeId || vendor.id) {
-              const placeId = vendor.placeId || vendor.id;
-              
-              // Fetch vendor photos from our API
-              const response = await fetch(`/api/vendor-photos/${placeId}`);
-              const data = await response.json();
-              
-              if (data.images && data.images.length > 0) {
-                return {
-                  ...vendor,
-                  image: data.images[0], // Use the first image
-                  images: data.images
-                };
-              }
-            }
-            
-            // Return vendor as-is if no image found
-            return vendor;
-          } catch (error) {
-            console.error('Error enhancing vendor with image:', error);
-            return vendor;
-          }
-        })
-      );
-
-      setEnhancedVendors(enhanced);
-      setLoading(false);
+      try {
+        const enhanced = await enhanceVendorsWithImages(recentlyViewedVendors);
+        setEnhancedVendors(enhanced);
+      } catch (error) {
+        console.error('Error enhancing vendors with images:', error);
+        setEnhancedVendors(recentlyViewedVendors);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    enhanceVendorsWithImages();
+    enhanceVendors();
   }, [recentlyViewedVendors]);
 
   // Handle favorite toggle

@@ -27,6 +27,7 @@ import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useVendorDetails } from '@/hooks/useVendorCache';
 import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
 import { fetchVendorPhotos, fetchCommunityVendor, checkVendorExists } from '@/utils/apiService';
+import { getVendorImages } from '@/utils/vendorImageUtils';
 
 interface VendorDetails {
   id: string;
@@ -303,67 +304,58 @@ export default function VendorDetailPage() {
         
         return description;
       })(),
-      images: photoRefFromUrl 
-        ? [
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoRefFromUrl}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
-            ...Array(15).fill("/Venue.png") // Fill remaining slots with placeholder
-          ]
-        : googleData.result?.photos && googleData.result.photos.length > 0
-        ? [
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${googleData.result.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
-            ...Array(15).fill("/Venue.png") // Fill remaining slots with placeholder
-          ]
-        : Array(16).fill("/Venue.png")
+      images: Array(16).fill("/Venue.png") // Start with placeholders, will be updated with real images
     };
 
-    // Fetch photos and community data in parallel using optimized API service
+    // Fetch photos and community data using unified image handling
     const fetchAdditionalData = async () => {
       try {
-        console.log('🖼️ Fetching additional vendor data for:', placeId);
+        console.log('🖼️ Fetching vendor images using unified system for:', placeId);
         
-        // Test the photos API directly first
-        try {
-          const photosResponse = await fetch(`/api/vendor-photos/${placeId}`);
-          const photosData = await photosResponse.json();
-          console.log('📸 Direct photos API response:', photosResponse.status, photosData);
-        } catch (error) {
-          console.error('❌ Direct photos API error:', error);
-        }
+        // Create a vendor object for the unified image system
+        const vendorForImages = {
+          id: placeId,
+          placeId: placeId,
+          name: vendorDetails.name,
+          image: vendorDetails.images?.[0],
+          images: vendorDetails.images
+        };
         
-        const [photosData, communityData] = await Promise.all([
-          fetchVendorPhotos(placeId),
-          fetchCommunityVendor(placeId)
-        ]);
+        // Use unified image handling to get the best available images
+        const imageData = await getVendorImages(vendorForImages);
         
-        console.log('📸 Photos data:', photosData);
-        console.log('👥 Community data:', communityData);
+        console.log('📸 Unified image data:', {
+          primaryImage: imageData.primaryImage,
+          imageCount: imageData.allImages.length,
+          hasRealImages: imageData.hasRealImages
+        });
         
-        if ((photosData as any).images && (photosData as any).images.length > 0) {
-          console.log('✅ Setting vendor images:', (photosData as any).images.length, 'images');
-          // Keep the first image from the catalog page approach, add additional images
-          const additionalImages = (photosData as any).images.slice(1, 16); // Skip first image, take up to 15 more
-          const allImages = [
-            vendorDetails.images?.[0] || '/Venue.png', // Keep the first image (same as catalog)
-            ...additionalImages
-          ];
+        if (imageData.hasRealImages && imageData.allImages.length > 0) {
+          console.log('✅ Setting vendor images from unified system:', imageData.allImages.length, 'images');
           
-          // Update the vendor state with new images
+          // Update the vendor state with real images
           setVendor(prev => ({
             ...prev!,
-            images: allImages
+            images: imageData.allImages
           }));
         } else {
-          console.log('❌ No additional photos found, keeping first image from catalog approach');
+          console.log('❌ No real images found, keeping placeholders');
         }
         
-        if ((communityData as any).vendor) {
-          console.log('✅ Setting community data');
-          setCommunityData((communityData as any).vendor);
-        } else {
-          console.log('❌ No community data found');
+        // Fetch community data separately
+        try {
+          const communityData = await fetchCommunityVendor(placeId);
+          if ((communityData as any).vendor) {
+            console.log('✅ Setting community data');
+            setCommunityData((communityData as any).vendor);
+          } else {
+            console.log('❌ No community data found');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching community data:', error);
         }
       } catch (error) {
-        console.error('❌ Error fetching vendor photos or community data:', error);
+        console.error('❌ Error fetching vendor images:', error);
         // Keep default images if photo fetch fails
       }
     };
@@ -883,7 +875,7 @@ export default function VendorDetailPage() {
               
               {/* Gallery Grid */}
               <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {vendor.images?.map((image, index) => (
                     <div 
                       key={index}

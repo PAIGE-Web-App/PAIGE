@@ -27,7 +27,7 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
   return (
     <section className="mb-8">
       {/* 2x4 Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {vendors.slice(0, 8).map((vendor) => (
           <div key={vendor.id} className="w-full">
             <VendorCatalogCard

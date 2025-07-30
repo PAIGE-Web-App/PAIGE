@@ -13,6 +13,7 @@ import {
   mapGoogleTypesToCategory
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 
 export default function MyFavoritesPage() {
   const { user, loading } = useAuth();
@@ -21,6 +22,7 @@ export default function MyFavoritesPage() {
   
   const [vendors, setVendors] = useState<any[]>([]);
   const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
+  const [enhancedFavoriteVendors, setEnhancedFavoriteVendors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [vendorSearch, setVendorSearch] = useState('');
@@ -90,9 +92,34 @@ export default function MyFavoritesPage() {
     };
   }, [vendors]);
 
+  // Enhance favorite vendors with unified image handling
+  useEffect(() => {
+    const enhanceFavorites = async () => {
+      if (favoriteVendors.length === 0) {
+        setEnhancedFavoriteVendors([]);
+        return;
+      }
+
+      try {
+        console.log('🖼️ Enhancing My Favorites with images:', favoriteVendors.length, 'vendors');
+        const enhanced = await enhanceVendorsWithImages(favoriteVendors);
+        setEnhancedFavoriteVendors(enhanced);
+        console.log('✅ Enhanced My Favorites with images:', enhanced.length, 'vendors');
+      } catch (error) {
+        console.error('Error enhancing favorite vendors with images:', error);
+        setEnhancedFavoriteVendors(favoriteVendors);
+      }
+    };
+
+    enhanceFavorites();
+  }, [favoriteVendors]);
+
   // Filtered, searched, and sorted favorites
   const filteredFavorites = useMemo(() => {
-    let filtered = favoriteVendors.filter((v) => {
+    // Use enhanced favorite vendors if available, otherwise fall back to original favorites
+    const favoritesToFilter = enhancedFavoriteVendors.length > 0 ? enhancedFavoriteVendors : favoriteVendors;
+    
+    let filtered = favoritesToFilter.filter((v) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
       const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -228,7 +255,7 @@ export default function MyFavoritesPage() {
               My Favorites
             </h1>
             <span className="text-sm text-[#7A7A7A]">
-              {favoriteVendors.length} favorite{favoriteVendors.length !== 1 ? 's' : ''}
+              {enhancedFavoriteVendors.length > 0 ? enhancedFavoriteVendors.length : favoriteVendors.length} favorite{enhancedFavoriteVendors.length > 0 ? (enhancedFavoriteVendors.length !== 1 ? 's' : '') : (favoriteVendors.length !== 1 ? 's' : '')}
             </span>
           </div>
           <button
@@ -332,7 +359,7 @@ export default function MyFavoritesPage() {
 
       {/* Favorites Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <VendorSkeleton key={index} />
           ))}
@@ -359,7 +386,7 @@ export default function MyFavoritesPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredFavorites.map((vendor) => (
             <div key={vendor.id} className="w-full">
               <VendorCatalogCard

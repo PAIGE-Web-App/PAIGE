@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
@@ -23,6 +23,8 @@ import {
   mapGoogleTypesToCategory
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import Breadcrumb from '@/components/Breadcrumb';
+import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -87,6 +89,7 @@ export default function MyVendorsPage() {
   const { weddingLocation } = useUserProfileData();
   
   const [vendors, setVendors] = useState<any[]>([]);
+  const [enhancedVendors, setEnhancedVendors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
@@ -94,14 +97,19 @@ export default function MyVendorsPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState('recent-desc');
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; vendor: any; action: 'star' | 'unstar' }>({ open: false, vendor: null, action: 'star' });
 
   const defaultLocation = weddingLocation || 'United States';
 
   // Filtered, searched, and sorted vendors
   const filteredVendors = useMemo(() => {
-    let filtered = vendors.filter((v) => {
+    // Use enhanced vendors if available, otherwise fall back to original vendors
+    const vendorsToFilter = enhancedVendors.length > 0 ? enhancedVendors : vendors;
+    
+    let filtered = vendorsToFilter.filter((v) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
       const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -179,6 +187,28 @@ export default function MyVendorsPage() {
     }
   }, [user, isSaving]);
 
+  // Enhance vendors with unified image handling
+  useEffect(() => {
+    const enhanceVendors = async () => {
+      if (vendors.length === 0) {
+        setEnhancedVendors([]);
+        return;
+      }
+
+      try {
+        console.log('🖼️ Enhancing My Vendors with images:', vendors.length, 'vendors');
+        const enhanced = await enhanceVendorsWithImages(vendors);
+        setEnhancedVendors(enhanced);
+        console.log('✅ Enhanced My Vendors with images:', enhanced.length, 'vendors');
+      } catch (error) {
+        console.error('Error enhancing vendors with images:', error);
+        setEnhancedVendors(vendors);
+      }
+    };
+
+    enhanceVendors();
+  }, [vendors]);
+
   // Helper function to identify Firestore document IDs
   const isFirestoreDocumentId = (category) => {
     return typeof category === 'string' && /^[a-zA-Z0-9_-]{15,}$/.test(category);
@@ -254,142 +284,166 @@ export default function MyVendorsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSortMenu]);
 
-  // Close filter menu on outside click
+  // Close sort menu on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (showFilterMenu && !(event.target as Element).closest('.filter-menu')) {
-        setShowFilterMenu(false);
+      if (showSortMenu && !(event.target as Element).closest('.sort-menu')) {
+        setShowSortMenu(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilterMenu]);
+  }, [showSortMenu]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
   return (
-    <div className="app-content-container">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/vendors')}
-              className="text-sm text-[#A85C36] hover:text-[#332B42] transition-colors"
-            >
-              ← Back to Vendor Hub
-            </button>
-            <h1 className="text-2xl font-playfair font-semibold text-[#332B42]">
-              My Vendors
-            </h1>
-            <span className="text-sm text-[#7A7A7A]">
-              {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
+    <div className="flex flex-col h-full bg-linen">
+      <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative">
+        <div className="app-content-container flex-1 pt-24">
+          <Breadcrumb
+            items={[
+              { label: 'Vendor Hub', href: '/vendors' },
+              { label: 'My Vendors', isCurrent: true }
+            ]}
+          />
+          
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-playfair font-semibold text-[#332B42]">
+                  My Vendors
+                </h1>
+                            <span className="text-sm text-[#7A7A7A]">
+              {enhancedVendors.length > 0 ? enhancedVendors.length : vendors.length} vendor{enhancedVendors.length > 0 ? (enhancedVendors.length !== 1 ? 's' : '') : (vendors.length !== 1 ? 's' : '')}
             </span>
+              </div>
+              <button
+                onClick={() => router.push('/vendors/catalog')}
+                className="btn-primary"
+              >
+                Add Vendor
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => router.push('/vendors/catalog')}
-            className="btn-primary"
-          >
-            Add Vendor
-          </button>
-        </div>
-      </div>
 
       {/* Search and Filter Bar */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex-1 max-w-md">
-          <input
-            type="text"
+          <SearchBar
             value={vendorSearch}
-            onChange={(e) => setVendorSearch(e.target.value)}
-            placeholder="Search vendors..."
-            className="w-full px-3 py-2 border border-[#E0D6D0] rounded-lg text-sm text-[#332B42] focus:outline-none focus:border-[#A85C36]"
+            onChange={setVendorSearch}
+            placeholder="Search vendors by name"
+            isOpen={searchOpen}
+            setIsOpen={setSearchOpen}
           />
         </div>
         
         <div className="flex gap-2">
           {/* Sort Button */}
-          <div className="relative sort-menu">
+          <div className="relative sort-menu" ref={sortMenuRef}>
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-2 px-3 py-2 bg-white border border-[#E0D6D0] rounded-lg text-sm text-[#332B42] hover:bg-[#F3F2F0] transition-colors"
+              className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
+              title="Sort vendors"
             >
               <ArrowUpDown className="w-4 h-4" />
-              Sort
             </button>
             
-            {showSortMenu && (
-              <div className="absolute top-full right-0 mt-1 bg-white border border-[#E0D6D0] rounded-lg shadow-lg z-10 min-w-[200px]">
-                <div className="p-2">
-                  {[
-                    { value: 'recent-desc', label: 'Most Recent' },
-                    { value: 'name-asc', label: 'Name A-Z' },
-                    { value: 'name-desc', label: 'Name Z-A' },
-                    { value: 'category-asc', label: 'Category A-Z' },
-                    { value: 'rating-desc', label: 'Highest Rated' }
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleSortOptionSelect(option.value)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-[#F3F2F0] transition-colors ${
-                        sortOption === option.value ? 'bg-[#F3F2F0] text-[#A85C36]' : 'text-[#332B42]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <AnimatePresence>
+              {showSortMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 flex flex-col min-w-[200px]"
+                >
+                  <button
+                    onClick={() => handleSortOptionSelect('recent-desc')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'recent-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                  >
+                    Most recently added
+                  </button>
+                  <button
+                    onClick={() => handleSortOptionSelect('name-asc')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                  >
+                    Name (A-Z)
+                  </button>
+                  <button
+                    onClick={() => handleSortOptionSelect('name-desc')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                  >
+                    Name (Z-A)
+                  </button>
+                  <button
+                    onClick={() => handleSortOptionSelect('category-asc')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'category-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                  >
+                    Category (A-Z)
+                  </button>
+                  <button
+                    onClick={() => handleSortOptionSelect('rating-desc')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'rating-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
+                  >
+                    Highest rated
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Filter Button */}
-          <button
-            onClick={() => setShowFilterMenu(!showFilterMenu)}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-[#E0D6D0] rounded-lg text-sm text-[#332B42] hover:bg-[#F3F2F0] transition-colors"
-          >
-            <ListFilter className="w-4 h-4" />
-            Filter
-          </button>
+          <FilterButtonPopover
+            categories={categories}
+            selectedCategories={selectedCategories}
+            onSelectCategories={setSelectedCategories}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+          />
         </div>
       </div>
 
       {/* Active Filters */}
       {(selectedCategories.length > 0 || sortOption !== 'recent-desc') && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {selectedCategories.map((category) => (
-            <span
-              key={category}
-              className="inline-flex items-center gap-2 px-3 py-1 bg-[#A85C36] text-white text-sm rounded-full"
-            >
-              {category}
-              <button
-                onClick={() => setSelectedCategories(prev => prev.filter(c => c !== category))}
-                className="text-white hover:text-gray-200"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          {sortOption !== 'recent-desc' && (
-            <span className="inline-flex items-center gap-2 px-3 py-1 bg-[#A85C36] text-white text-sm rounded-full">
-              Sort: {sortOption === 'name-asc' ? 'Name A-Z' : sortOption === 'name-desc' ? 'Name Z-A' : sortOption === 'category-asc' ? 'Category A-Z' : 'Highest Rated'}
-              <button
-                onClick={() => setSortOption('recent-desc')}
-                className="text-white hover:text-gray-200"
-              >
-                ×
+        <div className="flex flex-wrap gap-2 mb-4">
+          {/* Sort filter pill */}
+          {sortOption && sortOption !== 'recent-desc' && (
+            <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+              Sort: {
+                sortOption === 'name-asc' ? 'Name (A-Z)' :
+                sortOption === 'name-desc' ? 'Name (Z-A)' :
+                sortOption === 'category-asc' ? 'Category (A-Z)' :
+                sortOption === 'rating-desc' ? 'Highest rated' : ''
+              }
+              <button onClick={() => handleSortOptionSelect('recent-desc')} className="ml-1 text-[#A85C36] hover:text-[#784528]">
+                <X className="w-3 h-3" />
               </button>
             </span>
           )}
+          
+          {/* Category filter pills */}
+          {selectedCategories.map((category) => (
+            <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
+              {category}
+              <button 
+                onClick={() => setSelectedCategories(prev => prev.filter(cat => cat !== category))} 
+                className="ml-1 text-[#A85C36] hover:text-[#784528]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
       {/* Vendors Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <VendorSkeleton key={index} />
           ))}
@@ -416,7 +470,7 @@ export default function MyVendorsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredVendors.map((vendor) => (
             <div key={vendor.id} className="w-full">
               <VendorCatalogCard
@@ -451,6 +505,8 @@ export default function MyVendorsPage() {
         category={confirmModal.vendor?.category || ''}
         action={confirmModal.action}
       />
+        </div>
+      </div>
     </div>
   );
 } 

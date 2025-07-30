@@ -250,7 +250,7 @@ export default function AdminCurationPage() {
         {loadingSuggestions && <div className="text-gray-500">Loading suggestions...</div>}
         {suggestionError && <div className="text-red-500">{suggestionError}</div>}
         {!loadingSuggestions && suggestions.length === 0 && <div className="text-gray-500">No suggestions yet.</div>}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
           {suggestions.map((s, idx) => (
             <div key={s.id || idx} className="h-full">
               {renderSuggestionCard(s)}
@@ -263,7 +263,7 @@ export default function AdminCurationPage() {
         {loadingFlagged && <div className="text-gray-500">Loading flagged vendors...</div>}
         {flaggedError && <div className="text-red-500">{flaggedError}</div>}
         {!loadingFlagged && flagged.length === 0 && <div className="text-gray-500">No flagged vendors.</div>}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
           {flagged.map((f, idx) => (
             <div key={f.vendorId || idx} className="h-full">
               {flaggedDetails[f.vendorId]
