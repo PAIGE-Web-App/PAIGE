@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface BudgetMetricsProps {
@@ -17,6 +17,55 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
   onEditCategory,
 }) => {
   const router = useRouter();
+  
+  // Animation state for value updates
+  const [animatingValues, setAnimatingValues] = useState<{
+    categoryAllocated: boolean;
+    totalBudget: boolean;
+    budgetRange: boolean;
+  }>({
+    categoryAllocated: false,
+    totalBudget: false,
+    budgetRange: false,
+  });
+  
+  // Refs to track previous values
+  const prevValues = useRef({
+    categoryAllocated: selectedCategory?.allocatedAmount || 0,
+    totalBudget: totalBudget || 0,
+    budgetRange: budgetRange ? { min: budgetRange.min, max: budgetRange.max } : null,
+  });
+  
+  // Check for value changes and trigger animations
+  useEffect(() => {
+    const currentCategoryAllocated = selectedCategory?.allocatedAmount || 0;
+    const currentTotalBudget = totalBudget || 0;
+    const currentBudgetRange = budgetRange ? { min: budgetRange.min, max: budgetRange.max } : null;
+    
+    // Check if category allocated amount changed
+    if (currentCategoryAllocated !== prevValues.current.categoryAllocated) {
+      setAnimatingValues(prev => ({ ...prev, categoryAllocated: true }));
+      setTimeout(() => setAnimatingValues(prev => ({ ...prev, categoryAllocated: false })), 600);
+      prevValues.current.categoryAllocated = currentCategoryAllocated;
+    }
+    
+    // Check if total budget changed
+    if (currentTotalBudget !== prevValues.current.totalBudget) {
+      setAnimatingValues(prev => ({ ...prev, totalBudget: true }));
+      setTimeout(() => setAnimatingValues(prev => ({ ...prev, totalBudget: false })), 600);
+      prevValues.current.totalBudget = currentTotalBudget;
+    }
+    
+    // Check if budget range changed
+    if (currentBudgetRange && prevValues.current.budgetRange) {
+      if (currentBudgetRange.min !== prevValues.current.budgetRange.min || 
+          currentBudgetRange.max !== prevValues.current.budgetRange.max) {
+        setAnimatingValues(prev => ({ ...prev, budgetRange: true }));
+        setTimeout(() => setAnimatingValues(prev => ({ ...prev, budgetRange: false })), 600);
+        prevValues.current.budgetRange = currentBudgetRange;
+      }
+    }
+  }, [selectedCategory?.allocatedAmount, totalBudget, budgetRange]);
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -86,7 +135,10 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                   )}
                 </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
-                  {formatCurrency(selectedCategory.spentAmount || 0)} of {formatCurrency(selectedCategory.allocatedAmount)}
+                  {formatCurrency(selectedCategory.spentAmount || 0)} of{' '}
+                  <span className={animatingValues.categoryAllocated ? 'animate-value-update' : ''}>
+                    {formatCurrency(selectedCategory.allocatedAmount)}
+                  </span>
                 </div>
                 <div className="text-sm text-[#AB9C95]">
                   {((selectedCategory.spentAmount || 0) / selectedCategory.allocatedAmount * 100).toFixed(1)}% used
@@ -130,7 +182,9 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                   </button>
                 </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
-                  {formatCurrency(budgetRange.min)} - {formatCurrency(budgetRange.max)}
+                  <span className={animatingValues.budgetRange ? 'animate-value-update' : ''}>
+                    {formatCurrency(budgetRange.min)} - {formatCurrency(budgetRange.max)}
+                  </span>
                 </div>
                 <div className="text-sm text-[#AB9C95]">
                   Avg: {formatCurrency((budgetRange.min + budgetRange.max) / 2)}
@@ -159,7 +213,9 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                 {selectedCategory ? 'Remaining Budget' : 'Remaining Budget'}
               </h3>
               <div className="text-lg font-bold text-[#332B42] mb-1">
-                {formatCurrency(remaining)}
+                <span className={animatingValues.totalBudget ? 'animate-value-update' : ''}>
+                  {formatCurrency(remaining)}
+                </span>
               </div>
               <div className="budget-status-text text-green-600">
                 On track

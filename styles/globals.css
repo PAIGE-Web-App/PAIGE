@@ -404,6 +404,33 @@ h6 {
   animation: jiggle 0.7s cubic-bezier(.36,.07,.19,.97) both;
 }
 
+/* Value update animation for budget changes */
+@keyframes value-update {
+  0% {
+    transform: scale(1);
+    background-color: transparent;
+  }
+  25% {
+    transform: scale(1.05);
+    background-color: rgba(168, 92, 54, 0.1);
+  }
+  50% {
+    transform: scale(1.02);
+    background-color: rgba(168, 92, 54, 0.05);
+  }
+  100% {
+    transform: scale(1);
+    background-color: transparent;
+  }
+}
+
+.animate-value-update {
+  animation: value-update 0.6s ease-in-out;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
 /* Shared container for consistent max-width across all components */
 .app-container {
   width: 100%;
