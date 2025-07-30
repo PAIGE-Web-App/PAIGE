@@ -91,33 +91,31 @@ export function useBudget() {
     return () => unsubscribeCategories();
   }, [user]);
 
-  // Fetch user's budget range from profile
+  // Fetch user's budget range from profile with real-time updates
   useEffect(() => {
     if (!user) return;
 
-    const fetchUserBudget = async () => {
-      try {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          if (userData.budgetRange && userData.budgetRange.min && userData.budgetRange.max) {
-            setUserBudgetRange({
-              min: userData.budgetRange.min,
-              max: userData.budgetRange.max
-            });
-          } else {
-            setUserBudgetRange(null);
-          }
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.budgetRange && userData.budgetRange.min && userData.budgetRange.max) {
+          setUserBudgetRange({
+            min: userData.budgetRange.min,
+            max: userData.budgetRange.max
+          });
+        } else {
+          setUserBudgetRange(null);
         }
-      } catch (error) {
-        console.error('Error fetching user budget:', error);
+      } else {
         setUserBudgetRange(null);
       }
-    };
+    }, (error) => {
+      console.error('Error fetching user budget:', error);
+      setUserBudgetRange(null);
+    });
 
-    fetchUserBudget();
+    return () => unsubscribeUser();
   }, [user]);
 
   // Fetch budget items
@@ -252,7 +250,7 @@ export function useBudget() {
         updatedAt: new Date(),
       });
 
-      setUserBudgetRange(newBudgetRange);
+      // The onSnapshot listener will automatically update the local state
       showSuccessToast('Budget range updated successfully!');
     } catch (error) {
       console.error('Error updating budget range:', error);
