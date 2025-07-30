@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Info } from 'lucide-react';
+import { X, Info, Building } from 'lucide-react';
 import VendorSearchField from './VendorSearchField';
 import CategorySelectField from './CategorySelectField';
 import ContactModalBase from './ContactModalBase';
@@ -167,7 +167,7 @@ export default function LinkVendorModal({
     <ContactModalBase
       isOpen={isOpen}
       onClose={onClose}
-      title={hasExistingVendor ? "Vendor Details" : "Link Vendor to Budget Item"}
+      title="Link Vendor to Budget Item"
       maxWidth="max-w-2xl"
       footer={
         <div className="flex justify-end gap-3">
@@ -178,15 +178,6 @@ export default function LinkVendorModal({
           >
             Cancel
           </button>
-          {hasExistingVendor && onUnlinkVendor && (
-            <button
-              onClick={handleUnlinkVendor}
-              className="btn-delete px-4 py-2"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Unlinking...' : 'Unlink Vendor'}
-            </button>
-          )}
           {!hasExistingVendor && (
             <button
               onClick={handleLinkVendor}
@@ -208,17 +199,33 @@ export default function LinkVendorModal({
 
       {/* Existing Vendor Info */}
       {hasExistingVendor && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="font-medium text-blue-900 mb-2">Currently Linked Vendor</h4>
-          <div className="space-y-2">
-            <p className="text-blue-900 font-semibold">{budgetItem.vendorName}</p>
-            {budgetItem.vendorId && (
-              <p className="text-sm text-blue-700">Vendor ID: {budgetItem.vendorId}</p>
-            )}
-            <p className="text-sm text-blue-700">
-              This vendor is currently linked to your budget item. You can unlink it or search for a different vendor below.
+        <div className="mb-6">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-[#332B42]">Linked Vendor</span>
+            <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
+              <div className="flex items-center justify-between mb-2">
+                <h6 className="m-0 font-medium text-[#332B42]">{budgetItem.vendorName}</h6>
+                <button
+                  onClick={handleUnlinkVendor}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                  aria-label="Unlink vendor"
+                  disabled={isSubmitting}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-1 text-xs text-gray-700">
+                <div><strong>Name:</strong> {budgetItem.vendorName}</div>
+                {budgetItem.vendorId && (
+                  <div><strong>Vendor ID:</strong> {budgetItem.vendorId}</div>
+                )}
+                <div><strong>Status:</strong> Linked to budget item</div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              This vendor is currently linked to your budget item. Click the X to unlink or search for a different vendor below.
             </p>
-          </div>
+          </label>
         </div>
       )}
 
