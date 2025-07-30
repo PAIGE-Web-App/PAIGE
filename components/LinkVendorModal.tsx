@@ -12,6 +12,7 @@ interface LinkVendorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLinkVendor: (vendor: any) => void;
+  onUnlinkVendor?: () => void;
   budgetItem: any;
   userId: string;
 }
@@ -20,6 +21,7 @@ export default function LinkVendorModal({
   isOpen, 
   onClose, 
   onLinkVendor, 
+  onUnlinkVendor,
   budgetItem, 
   userId 
 }: LinkVendorModalProps) {
@@ -29,6 +31,9 @@ export default function LinkVendorModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { weddingLocation } = useUserProfileData();
+
+  // Check if budget item already has a linked vendor
+  const hasExistingVendor = budgetItem?.vendorName && budgetItem?.vendorId;
 
   // Get relevant categories based on budget item name
   const getRelevantCategoriesForBudgetItem = (itemName: string): string[] => {
@@ -142,11 +147,27 @@ export default function LinkVendorModal({
     setSelectedVendor(null);
   };
 
+  const handleUnlinkVendor = async () => {
+    if (!onUnlinkVendor) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onUnlinkVendor();
+      showSuccessToast(`Unlinked ${budgetItem.vendorName} from ${budgetItem.name}`);
+      onClose();
+    } catch (error) {
+      console.error('Error unlinking vendor:', error);
+      showErrorToast('Failed to unlink vendor. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <ContactModalBase
       isOpen={isOpen}
       onClose={onClose}
-      title="Link Vendor to Budget Item"
+      title={hasExistingVendor ? "Vendor Details" : "Link Vendor to Budget Item"}
       maxWidth="max-w-2xl"
       footer={
         <div className="flex justify-end gap-3">
@@ -157,13 +178,24 @@ export default function LinkVendorModal({
           >
             Cancel
           </button>
-          <button
-            onClick={handleLinkVendor}
-            className="btn-primary px-4 py-2"
-            disabled={!selectedVendor || isSubmitting}
-          >
-            {isSubmitting ? 'Linking...' : 'Link Vendor'}
-          </button>
+          {hasExistingVendor && onUnlinkVendor && (
+            <button
+              onClick={handleUnlinkVendor}
+              className="btn-delete px-4 py-2"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Unlinking...' : 'Unlink Vendor'}
+            </button>
+          )}
+          {!hasExistingVendor && (
+            <button
+              onClick={handleLinkVendor}
+              className="btn-primary px-4 py-2"
+              disabled={!selectedVendor || isSubmitting}
+            >
+              {isSubmitting ? 'Linking...' : 'Link Vendor'}
+            </button>
+          )}
         </div>
       }
     >
@@ -173,6 +205,22 @@ export default function LinkVendorModal({
         <p className="text-[#332B42] font-semibold">{budgetItem.name}</p>
         <p className="text-sm text-[#7A7A7A]">${budgetItem.amount.toLocaleString()}</p>
       </div>
+
+      {/* Existing Vendor Info */}
+      {hasExistingVendor && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-medium text-blue-900 mb-2">Currently Linked Vendor</h4>
+          <div className="space-y-2">
+            <p className="text-blue-900 font-semibold">{budgetItem.vendorName}</p>
+            {budgetItem.vendorId && (
+              <p className="text-sm text-blue-700">Vendor ID: {budgetItem.vendorId}</p>
+            )}
+            <p className="text-sm text-blue-700">
+              This vendor is currently linked to your budget item. You can unlink it or search for a different vendor below.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Category Selection */}
       <div className="mb-6">

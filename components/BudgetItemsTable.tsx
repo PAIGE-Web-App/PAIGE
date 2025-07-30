@@ -207,16 +207,32 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
 
                 {/* Vendor */}
                 <div className="col-span-2 flex items-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLinkVendor(item);
-                    }}
-                    className="flex items-center gap-1 text-sm text-[#A85C36] hover:underline"
-                  >
-                    <Link className="w-3 h-3" />
-                    {item.vendorName || 'Link Vendor'}
-                  </button>
+                  {item.vendorName ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Show vendor details or allow unlinking
+                        onLinkVendor(item);
+                      }}
+                      className="flex items-center gap-1 text-sm text-[#A85C36] hover:underline"
+                      title="Click to view vendor details or change vendor"
+                    >
+                      <Link className="w-3 h-3" />
+                      {item.vendorName}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLinkVendor(item);
+                      }}
+                      className="flex items-center gap-1 text-sm text-[#A85C36] hover:underline"
+                      title="Link a vendor to this budget item"
+                    >
+                      <Link className="w-3 h-3" />
+                      Link Vendor
+                    </button>
+                  )}
                 </div>
 
                 {/* Assignees */}

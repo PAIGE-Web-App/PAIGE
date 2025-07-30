@@ -191,6 +191,28 @@ export default function BudgetPage() {
     }
   };
 
+  // Handle unlinking vendor from budget item
+  const handleUnlinkVendor = async () => {
+    if (!linkingBudgetItem || !user?.uid) return;
+
+    try {
+      // Use the budget hook's handleLinkVendor method with null values to unlink
+      await budget.handleLinkVendor(linkingBudgetItem.id!, {
+        vendorId: '',
+        vendorName: '',
+        vendorPlaceId: ''
+      });
+      
+      // Close the modal
+      setShowLinkVendorModal(false);
+      setLinkingBudgetItem(null);
+      
+    } catch (error) {
+      console.error('Error unlinking vendor:', error);
+      throw error;
+    }
+  };
+
   // Open link vendor modal
   const openLinkVendorModal = (budgetItem: any) => {
     setLinkingBudgetItem(budgetItem);
@@ -420,6 +442,7 @@ export default function BudgetPage() {
             setLinkingBudgetItem(null);
           }}
           onLinkVendor={handleLinkVendor}
+          onUnlinkVendor={handleUnlinkVendor}
           budgetItem={linkingBudgetItem}
           userId={user?.uid || ''}
         />
