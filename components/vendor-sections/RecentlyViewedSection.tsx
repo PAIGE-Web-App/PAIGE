@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Star, Heart, Clock } from 'lucide-react';
+import { CategoryIcon } from '@/utils/categoryIcons';
 import { getRecentlyViewedVendors, mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 import BadgeCount from '@/components/BadgeCount';
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -236,6 +237,14 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
                     <div className="flex items-start gap-1 text-xs text-[#364257]">
                       <MapPin className="w-3 h-3 text-[#A85C36] mt-0.5 flex-shrink-0" />
                       <span className="line-clamp-2">{vendor.address || vendor.location}</span>
+                    </div>
+                  )}
+                  
+                  {/* Category */}
+                  {vendor.category && (
+                    <div className="flex items-center gap-1 text-xs text-[#AB9C95] mt-1">
+                      <CategoryIcon category={vendor.category} className="w-3 h-3" />
+                      <span>{vendor.category}</span>
                     </div>
                   )}
                 </div>

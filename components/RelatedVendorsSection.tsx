@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Star, Heart } from 'lucide-react';
+import { CategoryIcon } from '@/utils/categoryIcons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
 
@@ -240,6 +241,14 @@ export default function RelatedVendorsSection({
                   <div className="flex items-start gap-1 text-xs text-[#364257]">
                     <MapPin className="w-3 h-3 text-[#A85C36] mt-0.5 flex-shrink-0" />
                     <span className="line-clamp-2">{vendor.address}</span>
+                  </div>
+                )}
+                
+                {/* Category */}
+                {vendor.category && (
+                  <div className="flex items-center gap-1 text-xs text-[#AB9C95] mt-1">
+                    <CategoryIcon category={vendor.category} className="w-3 h-3" />
+                    <span>{vendor.category}</span>
                   </div>
                 )}
               </div>

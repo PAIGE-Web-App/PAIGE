@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star, MapPin } from 'lucide-react';
+import { CategoryIcon } from '@/utils/categoryIcons';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
 
@@ -315,7 +316,10 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
             <span>{vendor.address || vendor.location}</span>
           </div>
           {vendor.mainTypeLabel && (
-            <div className="text-xs text-[#AB9C95] mb-1">{vendor.mainTypeLabel}</div>
+            <div className="flex items-center gap-1 text-xs text-[#AB9C95] mb-1">
+              <CategoryIcon category={vendor.mainTypeLabel} className="w-3 h-3" />
+              <span>{vendor.mainTypeLabel}</span>
+            </div>
           )}
           {vendor.source && vendor.source.url && (
             <a href={vendor.source.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#A85C36] underline mb-2 block">{vendor.source.name}</a>
