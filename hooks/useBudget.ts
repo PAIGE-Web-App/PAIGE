@@ -378,11 +378,15 @@ export function useBudget() {
     if (!user) return;
 
     try {
+      console.log('handleEditCategory: Starting update for category', categoryId, 'with updates:', updates);
+      
       const categoryRef = doc(getUserCollectionRef('budgetCategories', user.uid), categoryId);
       await updateDoc(categoryRef, {
         ...updates,
         updatedAt: new Date(),
       });
+
+      console.log('handleEditCategory: Category updated successfully');
 
       // If allocated amount changed, update the user's budget range
       if (updates.allocatedAmount !== undefined) {
@@ -394,17 +398,23 @@ export function useBudget() {
         
         const newTotalBudget = otherCategoriesTotal + updates.allocatedAmount;
         
+        console.log('handleEditCategory: Calculated new total budget:', newTotalBudget);
+        
         // Update user's budget range to reflect the new total
         const newBudgetRange = {
           min: Math.round(newTotalBudget * 0.8), // 20% buffer below
           max: Math.round(newTotalBudget * 1.2), // 20% buffer above
         };
         
+        console.log('handleEditCategory: Updating budget range to:', newBudgetRange);
+        
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
           budgetRange: newBudgetRange,
           updatedAt: new Date(),
         });
+        
+        console.log('handleEditCategory: Budget range updated successfully');
       }
 
       showSuccessToast('Category updated!');
