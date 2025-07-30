@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       userId,
       selectedAsVenue = false,
       selectedAsVendor = false,
-      isFavorite = false
+      isFavorite = false,
+      removeFromSelected = false
     } = await req.json();
 
     console.log('Community vendors POST called with:', { placeId, vendorName, userId, isFavorite });
@@ -101,6 +102,12 @@ export async function POST(req: NextRequest) {
         updatedData.vendorSelections = (existingData.vendorSelections || 0) + 1;
         updatedData.selectedBy = [...selectedBy, userId];
         updatedData.lastSelectedAt = now;
+      } else if ((!selectedAsVendor && selectedBy.includes(userId)) || removeFromSelected) {
+        // Remove user from selections
+        updatedData.totalSelections = Math.max((existingData.totalSelections || 0) - 1, 0);
+        updatedData.vendorSelections = Math.max((existingData.vendorSelections || 0) - 1, 0);
+        updatedData.selectedBy = selectedBy.filter(id => id !== userId);
+        console.log('Removing user from vendor selections, new vendorSelections:', updatedData.vendorSelections);
       }
 
       // Handle venue selections

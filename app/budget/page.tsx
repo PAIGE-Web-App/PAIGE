@@ -22,6 +22,19 @@ const BudgetItemsList = dynamic(() => import('@/components/BudgetItemsList'), {
   loading: () => <div className="flex-1 bg-white animate-pulse" />
 });
 
+// Mobile responsive components
+const MobileBudgetNav = dynamic(() => import('@/components/budget/MobileBudgetNav'), {
+  loading: () => <div className="h-16 bg-white animate-pulse" />
+});
+
+const BudgetItemsMobile = dynamic(() => import('@/components/budget/BudgetItemsMobile'), {
+  loading: () => <div className="flex-1 bg-white animate-pulse" />
+});
+
+const FloatingActionButton = dynamic(() => import('@/components/budget/FloatingActionButton'), {
+  ssr: false
+});
+
 const BudgetItemSideCard = dynamic(() => import('@/components/BudgetItemSideCard'), {
   loading: () => <div className="w-80 bg-white animate-pulse" />
 });
@@ -255,60 +268,88 @@ export default function BudgetPage() {
       />
       
       <div className="app-content-container flex-1 overflow-hidden">
-        <div className="flex h-full gap-4 md:flex-row flex-col">
+        {/* Mobile Navigation */}
+        <MobileBudgetNav
+          budgetCategories={budget.budgetCategories}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          onAddCategory={() => {
+            const newCategory = {
+              id: 'new',
+              userId: user?.uid || '',
+              name: 'New Category',
+              allocatedAmount: 0,
+              spentAmount: 0,
+              orderIndex: budget.budgetCategories.length,
+              createdAt: new Date(),
+              color: '#A85C36',
+            };
+            setEditingCategory(newCategory);
+            setShowCategoryModal(true);
+          }}
+          totalSpent={budget.totalSpent}
+          totalBudget={budget.userTotalBudget || 0}
+          budgetItems={budget.budgetItems}
+        />
+
+        <div className="flex h-full gap-4 lg:flex-row flex-col">
           <main className="unified-container">
-            {/* Budget Sidebar - Categories */}
-            <BudgetSidebar
-              budgetCategories={budget.budgetCategories}
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              onAddCategory={() => {
-                const newCategory = {
-                  id: 'new',
-                  userId: user?.uid || '',
-                  name: 'New Category',
-                  allocatedAmount: 0,
-                  spentAmount: 0,
-                  orderIndex: budget.budgetCategories.length,
-                  createdAt: new Date(),
-                  color: '#A85C36',
-                };
-                setEditingCategory(newCategory);
-                setShowCategoryModal(true);
-              }}
-              totalSpent={budget.totalSpent}
-              totalBudget={budget.userTotalBudget || 0}
-              budgetItems={budget.budgetItems}
-            />
+            {/* Budget Sidebar - Categories (Desktop Only) */}
+            <div className="hidden lg:block">
+              <BudgetSidebar
+                budgetCategories={budget.budgetCategories}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+                onAddCategory={() => {
+                  const newCategory = {
+                    id: 'new',
+                    userId: user?.uid || '',
+                    name: 'New Category',
+                    allocatedAmount: 0,
+                    spentAmount: 0,
+                    orderIndex: budget.budgetCategories.length,
+                    createdAt: new Date(),
+                    color: '#A85C36',
+                  };
+                  setEditingCategory(newCategory);
+                  setShowCategoryModal(true);
+                }}
+                totalSpent={budget.totalSpent}
+                totalBudget={budget.userTotalBudget || 0}
+                budgetItems={budget.budgetItems}
+              />
+            </div>
 
             {/* Main Content Area */}
             <div className="unified-main-content">
               {/* Budget Top Bar - Category Title and Actions */}
-              <BudgetTopBar
-                selectedCategory={selectedCategory}
-                budgetSearchQuery={budgetSearchQuery}
-                setBudgetSearchQuery={setBudgetSearchQuery}
-                onShowAIAssistant={() => budget.setShowAIAssistant(true)}
-                onShowCSVUpload={() => budget.setShowCSVUpload(true)}
-                onAddItem={() => {
-                  if (selectedCategory) {
-                    setTriggerAddItem(true);
-                  }
-                }}
-                onEditCategory={(category) => {
-                  setEditingCategory(category);
-                  setShowCategoryModal(true);
-                }}
-                onDeleteCategory={(category) => {
-                  setDeletingCategory(category);
-                  setShowDeleteCategoryModal(true);
-                }}
-                viewMode={viewMode}
-                onViewModeChange={(mode) => {
-                  setViewMode(mode);
-                  localStorage.setItem('budgetViewMode', mode);
-                }}
-              />
+              <div className="lg:block">
+                <BudgetTopBar
+                  selectedCategory={selectedCategory}
+                  budgetSearchQuery={budgetSearchQuery}
+                  setBudgetSearchQuery={setBudgetSearchQuery}
+                  onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                  onShowCSVUpload={() => budget.setShowCSVUpload(true)}
+                  onAddItem={() => {
+                    if (selectedCategory) {
+                      setTriggerAddItem(true);
+                    }
+                  }}
+                  onEditCategory={(category) => {
+                    setEditingCategory(category);
+                    setShowCategoryModal(true);
+                  }}
+                  onDeleteCategory={(category) => {
+                    setDeletingCategory(category);
+                    setShowDeleteCategoryModal(true);
+                  }}
+                  viewMode={viewMode}
+                  onViewModeChange={(mode) => {
+                    setViewMode(mode);
+                    localStorage.setItem('budgetViewMode', mode);
+                  }}
+                />
+              </div>
 
               {/* Budget Metrics - After Category Title and Actions */}
               <BudgetMetrics
@@ -347,26 +388,52 @@ export default function BudgetPage() {
                     ) : null;
                   })()}
                   
-                  <BudgetItemsList
-                    selectedCategory={selectedCategory}
-                    budgetItems={budget.budgetItems}
-                    searchQuery={budgetSearchQuery}
-                    triggerAddItem={triggerAddItem}
-                    onTriggerAddItemComplete={() => setTriggerAddItem(false)}
-                    onEditItem={(item) => {
-                      // Editing is now handled inline in BudgetItemComponent
-                      console.log('Edit item:', item);
-                    }}
-                    onDeleteItem={budget.handleDeleteBudgetItem}
-                    onLinkVendor={(item) => {
-                      openLinkVendorModal(item);
-                    }}
-                    onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
-                      // Pass the itemId to the budget handler
-                      await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
-                    }}
-                    viewMode={viewMode}
-                  />
+                  {/* Mobile Budget Items */}
+                  <div className="lg:hidden">
+                    <BudgetItemsMobile
+                      selectedCategory={selectedCategory}
+                      budgetItems={budget.budgetItems}
+                      searchQuery={budgetSearchQuery}
+                      triggerAddItem={triggerAddItem}
+                      onTriggerAddItemComplete={() => setTriggerAddItem(false)}
+                      onEditItem={(item) => {
+                        // Editing is now handled inline in BudgetItemComponent
+                        console.log('Edit item:', item);
+                      }}
+                      onDeleteItem={budget.handleDeleteBudgetItem}
+                      onLinkVendor={(item) => {
+                        openLinkVendorModal(item);
+                      }}
+                      onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
+                        // Pass the itemId to the budget handler
+                        await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
+                      }}
+                    />
+                  </div>
+
+                  {/* Desktop Budget Items */}
+                  <div className="hidden lg:block flex-1 min-h-0">
+                    <BudgetItemsList
+                      selectedCategory={selectedCategory}
+                      budgetItems={budget.budgetItems}
+                      searchQuery={budgetSearchQuery}
+                      triggerAddItem={triggerAddItem}
+                      onTriggerAddItemComplete={() => setTriggerAddItem(false)}
+                      onEditItem={(item) => {
+                        // Editing is now handled inline in BudgetItemComponent
+                        console.log('Edit item:', item);
+                      }}
+                      onDeleteItem={budget.handleDeleteBudgetItem}
+                      onLinkVendor={(item) => {
+                        openLinkVendorModal(item);
+                      }}
+                      onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
+                        // Pass the itemId to the budget handler
+                        await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
+                      }}
+                      viewMode={viewMode}
+                    />
+                  </div>
                 </div>
 
                 {/* Budget Item Side Card - Right Panel */}
@@ -395,6 +462,30 @@ export default function BudgetPage() {
           </main>
         </div>
       </div>
+
+      {/* Floating Action Button (Mobile Only) */}
+      <FloatingActionButton
+        onAddItem={() => {
+          if (selectedCategory) {
+            setTriggerAddItem(true);
+          }
+        }}
+        onAddCategory={() => {
+          const newCategory = {
+            id: 'new',
+            userId: user?.uid || '',
+            name: 'New Category',
+            allocatedAmount: 0,
+            spentAmount: 0,
+            orderIndex: budget.budgetCategories.length,
+            createdAt: new Date(),
+            color: '#A85C36',
+          };
+          setEditingCategory(newCategory);
+          setShowCategoryModal(true);
+        }}
+        selectedCategory={selectedCategory}
+      />
 
       {/* MODALS */}
       {budget.showBudgetItemModal && budget.selectedBudgetItem && (

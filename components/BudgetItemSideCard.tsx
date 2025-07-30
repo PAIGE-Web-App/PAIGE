@@ -28,6 +28,13 @@ const BudgetItemSideCard: React.FC<BudgetItemSideCardProps> = ({
     }).format(amount);
   };
 
+  const formatDisplayAmount = (amount: number) => {
+    if (amount === 0) {
+      return '-';
+    }
+    return formatCurrency(amount);
+  };
+
   if (!isOpen || !budgetItem) {
     return null;
   }
@@ -85,7 +92,7 @@ const BudgetItemSideCard: React.FC<BudgetItemSideCardProps> = ({
             <span className="font-medium text-[#332B42]">Amount</span>
           </div>
           <div className="text-2xl font-bold text-[#A85C36]">
-            {formatCurrency(budgetItem.amount)}
+            {formatDisplayAmount(budgetItem.amount)}
           </div>
         </div>
 

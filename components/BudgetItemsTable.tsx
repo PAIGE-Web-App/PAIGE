@@ -50,6 +50,13 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
     }).format(amount);
   };
 
+  const formatDisplayAmount = (amount: number) => {
+    if (amount === 0) {
+      return '-';
+    }
+    return formatCurrency(amount);
+  };
+
   const handleEditStart = (item: BudgetItem, field: string) => {
     if (!item.id) return;
     setEditingCell({ itemId: item.id, field });
@@ -127,9 +134,9 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   // totalAmount is now memoized above
 
   return (
-    <div className="flex flex-col bg-white h-full min-h-0">
+    <div className="flex flex-col bg-white h-full min-h-0 border border-[#E0DBD7] rounded-[5px] overflow-hidden">
       {/* Table Header - Fixed */}
-      <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-t-[5px] p-3 flex-shrink-0">
+      <div className="bg-[#F8F6F4] border-b border-[#E0DBD7] rounded-t-[5px] p-3 flex-shrink-0">
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
           <div className="col-span-3">Item Name</div>
           <div className="col-span-2">Amount</div>
@@ -141,12 +148,15 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
       </div>
 
       {/* Table Body - Scrollable */}
-      <div className="flex-1 overflow-y-auto border border-t-0 border-[#E0DBD7] min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {budgetItems.length === 0 ? (
           <div className="p-8 text-center text-[#AB9C95]">
             <p className="text-sm mb-2">No budget items yet</p>
             <button
-              onClick={onAddItem}
+              onClick={() => {
+                // This is handled by the parent component via triggerAddItem
+                console.log('Add item button clicked - handled by parent');
+              }}
               className="btn-primary flex items-center gap-2 mx-auto"
             >
               <Plus className="w-4 h-4" />
@@ -178,17 +188,28 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
 
                 {/* Amount */}
                 <div className="col-span-2 flex items-center">
-                  <EditableField
-                    value={item.amount.toString()}
-                    isEditing={editingCell?.itemId === item.id && editingCell?.field === 'amount'}
-                    onStartEdit={() => handleEditStart(item, 'amount')}
-                    onSave={(value) => handleEditSave(item, value)}
-                    onCancel={handleEditCancel}
-                    type="number"
-                    placeholder="0"
-                    className="text-sm font-medium text-[#332B42] flex-1"
-                    showEditIcon={true}
-                  />
+                  {editingCell?.itemId === item.id && editingCell?.field === 'amount' ? (
+                    <EditableField
+                      value={item.amount.toString()}
+                      isEditing={true}
+                      onStartEdit={() => handleEditStart(item, 'amount')}
+                      onSave={(value) => handleEditSave(item, value)}
+                      onCancel={handleEditCancel}
+                      type="number"
+                      placeholder="0"
+                      className="text-sm font-medium text-[#332B42] flex-1"
+                      showEditIcon={false}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => handleEditStart(item, 'amount')}
+                      className="flex items-center gap-2 w-full cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5 transition-colors text-sm font-medium text-[#332B42] flex-1"
+                      title="Click to edit"
+                    >
+                      <span className="flex-1 truncate">{formatDisplayAmount(item.amount)}</span>
+                      <Edit2 className="w-3 h-3 text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -312,27 +333,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
               </div>
             ))}
 
+
           </>
         )}
       </div>
 
-      {/* Total Row - Fixed at Bottom */}
-      <div className="bg-[#F8F6F4] border-t-2 border-[#A85C36] p-3 flex-shrink-0">
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-3">
-            <span className="text-sm font-medium text-[#332B42]">Total</span>
-          </div>
-          <div className="col-span-2">
-            <span className="text-sm font-bold text-[#332B42]">
-              {formatCurrency(totalAmount)}
-            </span>
-          </div>
-          <div className="col-span-3"></div>
-          <div className="col-span-2"></div>
-          <div className="col-span-1"></div>
-          <div className="col-span-1"></div>
-        </div>
-      </div>
+
 
       {/* Assignment Modal */}
       {selectedItemForAssignment && (

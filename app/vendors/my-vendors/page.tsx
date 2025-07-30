@@ -325,9 +325,9 @@ export default function MyVendorsPage() {
                 <h1 className="text-2xl font-playfair font-semibold text-[#332B42]">
                   My Vendors
                 </h1>
-                            <span className="text-sm text-[#7A7A7A]">
-              {enhancedVendors.length > 0 ? enhancedVendors.length : vendors.length} vendor{enhancedVendors.length > 0 ? (enhancedVendors.length !== 1 ? 's' : '') : (vendors.length !== 1 ? 's' : '')}
-            </span>
+                <BadgeCount 
+                  count={enhancedVendors.length > 0 ? enhancedVendors.length : vendors.length}
+                />
               </div>
               <button
                 onClick={() => router.push('/vendors/catalog')}

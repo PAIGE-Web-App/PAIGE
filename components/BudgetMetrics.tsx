@@ -75,6 +75,13 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
     }).format(amount);
   };
 
+  const formatDisplayAmount = (amount: number) => {
+    if (amount === 0) {
+      return '-';
+    }
+    return formatCurrency(amount);
+  };
+
   const getBudgetStatus = () => {
     if (!budgetRange || !totalBudget) return { message: '', color: 'text-gray-600' };
     
@@ -104,12 +111,12 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
 
   return (
     <div className="bg-white border-b border-[#AB9C95] p-4">
-            {/* Budget Overview Cards */}
-      <div className="flex gap-2 mb-3">
+      {/* Budget Overview Cards */}
+      <div className="flex flex-col lg:flex-row gap-4 mb-3">
         {/* Category Budget Section - Only show when category is selected */}
         {selectedCategory && (
           <>
-            <div className="w-80">
+            <div className="w-full lg:w-80">
               {/* Category Budget Title */}
               <h3 className="text-sm font-medium text-[#AB9C95] mb-3">Category Budget</h3>
               
@@ -135,20 +142,15 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                   )}
                 </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
-                  {formatCurrency(selectedCategory.spentAmount || 0)} of{' '}
                   <span className={animatingValues.categoryAllocated ? 'animate-value-update' : ''}>
                     {formatCurrency(selectedCategory.allocatedAmount)}
                   </span>
                 </div>
                 <div className="text-sm text-[#AB9C95]">
-                  {((selectedCategory.spentAmount || 0) / selectedCategory.allocatedAmount * 100).toFixed(1)}% used
+                  Budget allocated to this category
                 </div>
-                <div className={`text-xs font-medium mt-1 ${
-                  (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount 
-                    ? 'text-red-600' 
-                    : 'text-green-600'
-                }`}>
-                  {formatCurrency(selectedCategory.allocatedAmount - (selectedCategory.spentAmount || 0))} remaining
+                <div className="text-xs text-[#AB9C95] mt-1">
+                  {formatCurrency(selectedCategory.spentAmount || 0)} spent • {formatCurrency(selectedCategory.allocatedAmount - (selectedCategory.spentAmount || 0))} remaining
                 </div>
               </div>
             </div>
@@ -165,7 +167,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
             {selectedCategory ? 'Total Budget' : 'Budget Overview'}
           </h3>
           
-          <div className={`grid gap-2 ${selectedCategory ? 'grid-cols-4' : 'grid-cols-4'}`}>
+          <div className={`grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`}>
             {/* Budget Range Card */}
             {budgetRange && (
               <div className="border border-[#E0DBD7] rounded-[5px] p-4">

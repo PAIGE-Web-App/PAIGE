@@ -73,8 +73,49 @@ export default function VendorDetailPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [communityData, setCommunityData] = useState<any>(null);
   const [isUpdatingOfficial, setIsUpdatingOfficial] = useState(false);
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
+  
+  // Optimistic state management for instant UI updates
+  const [optimisticStates, setOptimisticStates] = useState({
+    favorite: null as boolean | null,
+    official: null as boolean | null
+  });
+  
+  // Get the current display state (optimistic or actual)
+  const displayFavorite = optimisticStates.favorite !== null ? optimisticStates.favorite : isFavorite;
+  const displayOfficial = optimisticStates.official !== null ? optimisticStates.official : isOfficialVendor;
 
-
+  // Check if vendor is an official vendor (in user's vendors list)
+  const checkIfOfficialVendor = async () => {
+    // Skip check if we're in the middle of an optimistic update
+    if (isUpdatingOfficial) return;
+    
+    // Skip check if vendor or user is not available
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
+      
+      // Use Firestore directly for faster response
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      const vendorsRef = collection(db, `users/${user.uid}/vendors`);
+      const q = query(vendorsRef, where("placeId", "==", vendor.id));
+      const querySnapshot = await getDocs(q);
+      
+      const isOfficial = !querySnapshot.empty;
+      console.log('Vendor existence check result:', isOfficial);
+      
+      // Set state immediately without waiting for API
+      setIsOfficialVendor(isOfficial);
+      setDataLoaded(true);
+      
+    } catch (error) {
+      console.error('Error checking official vendor status:', error);
+      setDataLoaded(true);
+    }
+  };
 
   // Check if vendor is in user's favorites on mount
   useEffect(() => {
@@ -87,34 +128,30 @@ export default function VendorDetailPage() {
     console.log('Setting isFavorite to:', isVendorFavorited);
     setIsFavorite(isVendorFavorited);
     
-    // Check if vendor is an official vendor (in user's vendors list)
-    const checkIfOfficialVendor = async () => {
-      // Skip check if we're in the middle of an optimistic update
-      if (isUpdatingOfficial) return;
-      
-      try {
-        console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
-        // Check if vendor exists in user's My Vendors collection using optimized API service
-        const data = await checkVendorExists(vendor.id, user.uid);
-        console.log('Vendor existence check result:', data);
-        if ((data as any).exists) {
-          console.log('Setting isOfficialVendor to true');
-          setIsOfficialVendor(true);
-        } else {
-          console.log('Setting isOfficialVendor to false');
-          setIsOfficialVendor(false);
-        }
-        
-        // Mark data as loaded after official vendor check
-        setDataLoaded(true);
-      } catch (error) {
-        console.error('Error checking official vendor status:', error);
-        setDataLoaded(true);
-      }
-    };
-    
+    // Check if vendor is an official vendor
     checkIfOfficialVendor();
   }, [vendor, user]);
+
+  // Listen for favorites changes from other components
+  useEffect(() => {
+    const handleFavoritesChange = (event: CustomEvent) => {
+      if (vendor && event.detail.favorites) {
+        const isVendorFavorited = event.detail.favorites.includes(vendor.id);
+        console.log('Favorites changed, updating vendor favorite status:', isVendorFavorited);
+        
+        // Only update if not in the middle of an optimistic update
+        if (!isUpdatingFavorite) {
+          setIsFavorite(isVendorFavorited);
+        }
+      }
+    };
+
+    window.addEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
+    };
+  }, [vendor, isUpdatingFavorite]);
 
   // Handle escape key to close gallery
   useEffect(() => {
@@ -403,63 +440,46 @@ export default function VendorDetailPage() {
   };
 
   const toggleFavorite = async () => {
-    console.log('toggleFavorite function called!');
-    const newFavoriteState = !isFavorite;
-    setIsFavorite(newFavoriteState);
+    if (!vendor || isUpdatingFavorite) return;
     
-    // Prevent any interference from useEffect checks
+    const newFavoriteState = !displayFavorite;
+    
+    // INSTANT OPTIMISTIC UPDATE
+    setOptimisticStates(prev => ({ ...prev, favorite: newFavoriteState }));
+    setIsUpdatingFavorite(true);
+    
+    // Show immediate feedback
+    if (newFavoriteState) {
+      showSuccessToast(`Added ${vendor.name} to favorites!`);
+    } else {
+      showSuccessToast(`Removed ${vendor.name} from favorites`);
+    }
+    
+    // Update localStorage immediately
     const currentFavorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
     const updatedFavorites = newFavoriteState 
-      ? [...currentFavorites, vendor?.id].filter(Boolean)
-      : currentFavorites.filter((id: string) => id !== vendor?.id);
+      ? [...currentFavorites, vendor.id].filter(Boolean)
+      : currentFavorites.filter((id: string) => id !== vendor.id);
     localStorage.setItem('vendorFavorites', JSON.stringify(updatedFavorites));
     
-    // Dispatch custom event to notify other components
+    // Notify other components
     window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
       detail: { favorites: updatedFavorites }
     }));
     
-    // Update localStorage
-    try {
-      const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-      if (newFavoriteState) {
-        // Add to favorites if not already there
-        if (!favorites.includes(vendor?.id)) {
-          favorites.push(vendor?.id);
-        }
-      } else {
-        // Remove from favorites
-        const index = favorites.indexOf(vendor?.id);
-        if (index > -1) {
-          favorites.splice(index, 1);
-        }
-      }
-      localStorage.setItem('vendorFavorites', JSON.stringify(favorites));
-    } catch (error) {
-      console.error('Error updating localStorage favorites:', error);
-    }
-    
-    // Show toast message
-    if (newFavoriteState) {
-      showSuccessToast(`Added ${vendor?.name} to favorites!`);
-    } else {
-      showSuccessToast(`Removed ${vendor?.name} from favorites`);
-    }
-    
-    // Optimistically update community data immediately
-    if (vendor && user?.uid && communityData) {
+    // Update community data optimistically
+    if (user?.uid && communityData) {
       const currentFavorites = communityData.totalFavorites || 0;
       const newFavorites = newFavoriteState ? currentFavorites + 1 : Math.max(0, currentFavorites - 1);
-      
       setCommunityData(prev => ({
         ...prev,
         totalFavorites: newFavorites
       }));
     }
     
-    // Send API request in background (don't wait for it)
-    if (vendor && user?.uid) {
-      fetch('/api/community-vendors', {
+    try {
+      // Background API call
+      const response = await fetch('/api/community-vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -467,49 +487,54 @@ export default function VendorDetailPage() {
           vendorName: vendor.name,
           vendorAddress: vendor.address || '',
           vendorCategory: vendor.category,
-          userId: user.uid,
+          userId: user?.uid,
           selectedAsVenue: false,
           selectedAsVendor: false,
           isFavorite: newFavoriteState
         })
-      }).then(response => {
-        if (!response.ok) {
-          console.error('Community update failed:', response.status, response.statusText);
-          // Revert optimistic update on failure
-          if (communityData) {
-            const currentFavorites = communityData.totalFavorites || 0;
-            const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
-            setCommunityData(prev => ({
-              ...prev,
-              totalFavorites: revertedFavorites
-            }));
-          }
-          toast.error('Failed to update community data');
-        }
-      }).catch(error => {
-        console.error('Error updating community favorites:', error);
-        // Revert optimistic update on error
-        if (communityData) {
-          const currentFavorites = communityData.totalFavorites || 0;
-          const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
-          setCommunityData(prev => ({
-            ...prev,
-            totalFavorites: revertedFavorites
-          }));
-        }
-        toast.error('Failed to update community data');
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update community data');
+      }
+      
+      // Success - commit the optimistic update
+      setIsFavorite(newFavoriteState);
+      setOptimisticStates(prev => ({ ...prev, favorite: null }));
+      
+    } catch (error) {
+      console.error('Error updating favorites:', error);
+      
+      // Revert optimistic update on failure
+      setOptimisticStates(prev => ({ ...prev, favorite: null }));
+      setIsFavorite(!newFavoriteState);
+      
+      // Revert community data
+      if (communityData) {
+        const currentFavorites = communityData.totalFavorites || 0;
+        const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
+        setCommunityData(prev => ({
+          ...prev,
+          totalFavorites: revertedFavorites
+        }));
+      }
+      
+      toast.error('Failed to update favorites');
+    } finally {
+      setIsUpdatingFavorite(false);
     }
   };
 
   const toggleOfficialVendor = async () => {
-    if (!vendor || !user?.uid) return;
+    if (!vendor || !user?.uid || isUpdatingOfficial) return;
 
-    const newOfficialState = !isOfficialVendor;
-    setIsOfficialVendor(newOfficialState);
+    const newOfficialState = !displayOfficial;
+    
+    // INSTANT OPTIMISTIC UPDATE
+    setOptimisticStates(prev => ({ ...prev, official: newOfficialState }));
     setIsUpdatingOfficial(true);
 
-    // Show toast message
+    // Show immediate feedback
     if (newOfficialState) {
       toast.success(`Marked as Official Vendor and Added to My Vendors!`);
     } else {
@@ -531,11 +556,10 @@ export default function VendorDetailPage() {
             rating: vendor.rating,
             user_ratings_total: vendor.reviewCount,
             types: vendor.amenities || []
-            // photos will be fetched by the function using place_id
           },
           category: vendor.category,
           selectedAsVenue: false,
-          selectedAsVendor: false
+          selectedAsVendor: true
         });
 
         if (!result.success) {
@@ -543,7 +567,20 @@ export default function VendorDetailPage() {
         }
       } else {
         // Remove vendor from My Vendors
-        // We'll need to implement this - for now, just update community status
+        const { collection, query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        
+        const vendorsRef = collection(db, `users/${user.uid}/vendors`);
+        const q = query(vendorsRef, where("placeId", "==", vendor.id));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const vendorDoc = querySnapshot.docs[0];
+          await deleteDoc(vendorDoc.ref);
+          console.log('Removed vendor from user collection:', vendor.id);
+        }
+
+        // Update community status
         const response = await fetch('/api/community-vendors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -555,7 +592,7 @@ export default function VendorDetailPage() {
             userId: user.uid,
             selectedAsVenue: false,
             selectedAsVendor: false,
-            isOfficialVendor: false
+            removeFromSelected: true
           })
         });
 
@@ -564,11 +601,15 @@ export default function VendorDetailPage() {
         }
       }
 
-      // Don't refresh community data - keep optimistic state
-      // The official vendor status is already updated in the UI
+      // Success - commit the optimistic update
+      setIsOfficialVendor(newOfficialState);
+      setOptimisticStates(prev => ({ ...prev, official: null }));
+      
     } catch (error) {
       console.error('Error updating official vendor status:', error);
-      // Revert state on error
+      
+      // Revert optimistic update on failure
+      setOptimisticStates(prev => ({ ...prev, official: null }));
       setIsOfficialVendor(!newOfficialState);
       toast.error('Failed to update official vendor status');
     } finally {
@@ -650,7 +691,7 @@ export default function VendorDetailPage() {
                     {/* Official Vendor Toggle */}
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        {isOfficialVendor && dataLoaded && (
+                        {displayOfficial && dataLoaded && (
                           <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
                         )}
                       <span className="text-xs text-[#364257]">Official Vendor</span>
@@ -658,13 +699,14 @@ export default function VendorDetailPage() {
                       {dataLoaded ? (
                         <button
                           onClick={toggleOfficialVendor}
+                          disabled={isUpdatingOfficial}
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
-                            isOfficialVendor ? 'bg-[#A85C36]' : 'bg-gray-200'
-                          }`}
+                            displayOfficial ? 'bg-[#A85C36]' : 'bg-gray-200'
+                          } ${isUpdatingOfficial ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <span
                             className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                              isOfficialVendor ? 'translate-x-5' : 'translate-x-1'
+                              displayOfficial ? 'translate-x-5' : 'translate-x-1'
                             }`}
                           />
                         </button>
@@ -676,12 +718,13 @@ export default function VendorDetailPage() {
                     {dataLoaded ? (
                       <button
                         onClick={toggleFavorite}
+                        disabled={isUpdatingFavorite}
                         className={`btn-primaryinverse ${
-                          isFavorite ? 'bg-[#A85C36] text-white border-[#A85C36]' : ''
-                        }`}
+                          displayFavorite ? 'bg-[#A85C36] text-white border-[#A85C36]' : ''
+                        } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        <Heart className={`w-3 h-3 ${isFavorite ? 'fill-white' : ''}`} />
-                        {isFavorite ? 'Favorited' : 'Favorite'}
+                        <Heart className={`w-3 h-3 ${displayFavorite ? 'fill-white' : ''}`} />
+                        {displayFavorite ? 'Favorited' : 'Favorite'}
                       </button>
                     ) : (
                       <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />

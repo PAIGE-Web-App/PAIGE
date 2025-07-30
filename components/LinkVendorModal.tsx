@@ -159,6 +159,30 @@ export default function LinkVendorModal({
     
     setIsSubmitting(true);
     try {
+      // First, update the community database to remove this user's selection
+      const communityResponse = await fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeId: budgetItem.vendorId,
+          vendorName: budgetItem.vendorName,
+          vendorAddress: '', // We don't have this in budget item, but API will use existing data
+          vendorCategory: '', // We don't have this in budget item, but API will use existing data
+          userId,
+          selectedAsVenue: false,
+          selectedAsVendor: false, // This will remove the user from selectedBy array
+          removeFromSelected: true // Custom flag to indicate we want to remove selection
+        })
+      });
+
+      if (!communityResponse.ok) {
+        console.error('Failed to update community vendor status');
+        // Don't fail the operation if community update fails
+      } else {
+        console.log('Successfully updated community vendor status');
+      }
+
+      // Then unlink from budget item
       await onUnlinkVendor();
       showSuccessToast(`Unlinked ${budgetItem.vendorName} from ${budgetItem.name}`);
       onClose();
@@ -195,11 +219,11 @@ export default function LinkVendorModal({
               {isSubmitting ? 'Unlinking...' : 'Confirm Unlink'}
             </button>
           )}
-          {!hasExistingVendor && (
+          {!hasExistingVendor && selectedVendor && (
             <button
               onClick={handleLinkVendor}
               className="btn-primary px-4 py-2"
-              disabled={!selectedVendor || isSubmitting}
+              disabled={isSubmitting}
             >
               {isSubmitting ? 'Linking...' : 'Link Vendor'}
             </button>
@@ -209,9 +233,10 @@ export default function LinkVendorModal({
     >
       {/* Budget Item Info */}
       <div className="mb-6 p-4 bg-[#F3F2F0] rounded-lg">
-        <h4 className="font-medium text-[#332B42] mb-2">Budget Item</h4>
-        <p className="text-[#332B42] font-semibold">{budgetItem.name}</p>
-        <p className="text-sm text-[#7A7A7A]">${budgetItem.amount.toLocaleString()}</p>
+        <div className="flex items-center justify-between">
+          <h6 className="font-medium text-[#332B42]">{budgetItem.name}</h6>
+          <span className="text-sm text-[#7A7A7A]">${budgetItem.amount.toLocaleString()}</span>
+        </div>
       </div>
 
       {confirmUnlink && (
@@ -221,55 +246,11 @@ export default function LinkVendorModal({
         />
       )}
 
-      {/* Category Selection */}
+      {/* Vendor Association Section */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-[#332B42] mb-2">
-          Vendor Category
-        </label>
-        <CategorySelectField
-          userId={userId}
-          value={selectedCategory}
-          customCategoryValue={customCategory}
-          onChange={handleCategoryChange}
-          onCustomCategoryChange={handleCustomCategoryChange}
-          placeholder="Select a vendor category"
-          label=""
-        />
-        <p className="text-xs text-gray-600 mt-2">
-          {selectedCategory 
-            ? `Searching for ${selectedCategory === "Other" ? customCategory : selectedCategory} vendors in your area.`
-            : "Select a category to narrow your search for better results."
-          }
-        </p>
-      </div>
-
-      {/* Vendor Search */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-[#332B42] mb-2">
-          Search for a vendor
-        </label>
-        <VendorSearchField
-          value={selectedVendor}
-          onChange={handleVendorSelect}
-          onClear={handleClearVendor}
-          placeholder={selectedCategory ? `Search for ${selectedCategory === "Other" ? customCategory : selectedCategory} vendors...` : "Search for any wedding vendor..."}
-          categories={selectedCategory ? getRelevantCategories(selectedCategory === "Other" ? customCategory : selectedCategory) : getRelevantCategoriesForBudgetItem(budgetItem.name)}
-          location={weddingLocation || 'United States'}
-          disabled={!selectedCategory}
-        />
-        <p className="text-xs text-gray-600 mt-2">
-          {selectedCategory 
-            ? `Searching for ${selectedCategory === "Other" ? customCategory : selectedCategory} vendors in your area.`
-            : "Select a category to narrow your search for better results."
-          }
-        </p>
-      </div>
-
-      {/* Existing Vendor Info */}
-      {hasExistingVendor && (
-        <div className="mb-6">
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-[#332B42]">Linked Vendor</span>
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-[#332B42]">Link to Vendor</span>
+          {hasExistingVendor ? (
             <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
               <div className="flex items-center justify-between mb-2">
                 <h6 className="m-0 font-medium text-[#332B42]">{budgetItem.vendorName}</h6>
@@ -292,12 +273,49 @@ export default function LinkVendorModal({
                 <div><strong>Status:</strong> Linked to budget item</div>
               </div>
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              This vendor is currently linked to your budget item. Click the X to unlink or search for a different vendor above.
-            </p>
-          </label>
-        </div>
-      )}
+          ) : (
+            <>
+              {/* Category Selection */}
+              <div>
+                <CategorySelectField
+                  userId={userId}
+                  value={selectedCategory}
+                  customCategoryValue={customCategory}
+                  onChange={handleCategoryChange}
+                  onCustomCategoryChange={handleCustomCategoryChange}
+                  placeholder="Select a vendor category"
+                  label=""
+                />
+              </div>
+
+              {/* Spacer */}
+              <div className="h-2"></div>
+
+              {/* Vendor Search */}
+              <div>
+                <label className="block text-xs font-medium text-[#332B42] mb-2">
+                  Search for a vendor
+                </label>
+                <VendorSearchField
+                  value={selectedVendor}
+                  onChange={handleVendorSelect}
+                  onClear={handleClearVendor}
+                  placeholder={selectedCategory ? `Search for ${selectedCategory === "Other" ? customCategory : selectedCategory} vendors...` : "Search for any wedding vendor..."}
+                  categories={selectedCategory ? getRelevantCategories(selectedCategory === "Other" ? customCategory : selectedCategory) : getRelevantCategoriesForBudgetItem(budgetItem.name)}
+                  location={weddingLocation || 'United States'}
+                  disabled={!selectedCategory}
+                />
+                <p className="text-xs text-gray-600 mt-2">
+                  {selectedCategory 
+                    ? `Searching for ${selectedCategory === "Other" ? customCategory : selectedCategory} vendors in your area.`
+                    : "Linked vendors will be marked as Official Vendors and added to your My Vendors list."
+                  }
+                </p>
+              </div>
+            </>
+          )}
+        </label>
+      </div>
 
       {/* Official Vendor Info Banner */}
       {selectedVendor && (
@@ -305,7 +323,7 @@ export default function LinkVendorModal({
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
-              <h5 className="h5 text-blue-900 mb-1">Vendor Will Be Marked as Official</h5>
+              <h6 className="h6 text-blue-900 mb-1">Vendor Will Be Marked as Official</h6>
               <p className="text-sm text-blue-700">
                 Linking this vendor to your budget item will automatically mark it as an "Official" vendor in your vendor management system. This helps you track which vendors you're actively working with.
               </p>

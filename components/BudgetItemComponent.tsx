@@ -98,6 +98,13 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
     }).format(budgetItem.amount);
   }, [budgetItem.amount]);
 
+  const formatDisplayAmount = (amount: number) => {
+    if (amount === 0) {
+      return '-';
+    }
+    return formattedAmount;
+  };
+
   const isOverBudget = useMemo(() => {
     // This could be enhanced with category data if needed
     return false;
@@ -272,18 +279,28 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
       <div className="mb-3">
         <div className="flex items-center gap-2">
           <DollarSign size={16} className="text-[#A85C36]" />
-          <EditableField
-            value={budgetItem.amount.toString()}
-            isEditing={editing.editingField === 'amount'}
-            onStartEdit={handleAmountClick}
-            onSave={handleAmountSave}
-            onCancel={editing.cancelEdit}
-            type="number"
-            placeholder="0"
-            className="text-sm font-semibold text-[#A85C36] w-24"
-            disabled={budgetItem.isCompleted}
-            showEditIcon={false}
-          />
+          {editing.editingField === 'amount' ? (
+            <EditableField
+              value={budgetItem.amount.toString()}
+              isEditing={true}
+              onStartEdit={handleAmountClick}
+              onSave={handleAmountSave}
+              onCancel={editing.cancelEdit}
+              type="number"
+              placeholder="0"
+              className="text-sm font-semibold text-[#A85C36] w-24"
+              disabled={budgetItem.isCompleted}
+              showEditIcon={false}
+            />
+          ) : (
+            <div
+              onClick={handleAmountClick}
+              className="text-sm font-semibold text-[#A85C36] w-24 cursor-pointer hover:bg-[#F3F2F0] rounded px-1 py-0.5 transition-colors"
+              title="Click to edit"
+            >
+              {formatDisplayAmount(budgetItem.amount)}
+            </div>
+          )}
         </div>
       </div>
 

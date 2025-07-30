@@ -37,14 +37,23 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { newlyAddedItems, addNewItem, isNewlyAdded } = useNewlyAddedItems();
+  const hasHandledTrigger = React.useRef(false);
   
-  // Handle trigger add item from top bar
+  // Handle trigger add item from top bar (Desktop only)
   React.useEffect(() => {
-    if (triggerAddItem && selectedCategory) {
+    if (triggerAddItem && selectedCategory && !hasHandledTrigger.current && typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      hasHandledTrigger.current = true;
       handleAddItem();
       onTriggerAddItemComplete?.();
     }
   }, [triggerAddItem, selectedCategory]);
+
+  // Reset the ref when triggerAddItem becomes false
+  React.useEffect(() => {
+    if (!triggerAddItem) {
+      hasHandledTrigger.current = false;
+    }
+  }, [triggerAddItem]);
 
   // Clear newly added items after animation
   React.useEffect(() => {
@@ -141,16 +150,14 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
           </div>
         </div>
       ) : viewMode === 'table' ? (
-        <div className="flex-1 flex flex-col h-full min-h-0">
-          <BudgetItemsTable
-            budgetItems={categoryItems}
-            onDeleteItem={onDeleteItem}
-            onLinkVendor={onLinkVendor}
-            onAssign={onAssign}
-            onAddItem={handleAddItem}
-            newlyAddedItems={newlyAddedItems}
-          />
-        </div>
+        <BudgetItemsTable
+          budgetItems={categoryItems}
+          onDeleteItem={onDeleteItem}
+          onLinkVendor={onLinkVendor}
+          onAssign={onAssign}
+          onAddItem={handleAddItem}
+          newlyAddedItems={newlyAddedItems}
+        />
       ) : (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {categoryItems.map((item) => (
