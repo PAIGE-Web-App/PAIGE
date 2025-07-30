@@ -3,6 +3,7 @@ import { X, Info, Building } from 'lucide-react';
 import VendorSearchField from './VendorSearchField';
 import CategorySelectField from './CategorySelectField';
 import ContactModalBase from './ContactModalBase';
+import Banner from './Banner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { addVendorToUserAndCommunity } from '@/lib/addVendorToUserAndCommunity';
@@ -29,6 +30,7 @@ export default function LinkVendorModal({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [customCategory, setCustomCategory] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { weddingLocation } = useUserProfileData();
 
@@ -150,6 +152,11 @@ export default function LinkVendorModal({
   const handleUnlinkVendor = async () => {
     if (!onUnlinkVendor) return;
     
+    if (!confirmUnlink) {
+      setConfirmUnlink(true);
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       await onUnlinkVendor();
@@ -160,6 +167,7 @@ export default function LinkVendorModal({
       showErrorToast('Failed to unlink vendor. Please try again.');
     } finally {
       setIsSubmitting(false);
+      setConfirmUnlink(false);
     }
   };
 
@@ -178,6 +186,15 @@ export default function LinkVendorModal({
           >
             Cancel
           </button>
+          {hasExistingVendor && confirmUnlink && (
+            <button
+              onClick={handleUnlinkVendor}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-[5px] font-medium"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Unlinking...' : 'Confirm Unlink'}
+            </button>
+          )}
           {!hasExistingVendor && (
             <button
               onClick={handleLinkVendor}
@@ -197,36 +214,11 @@ export default function LinkVendorModal({
         <p className="text-sm text-[#7A7A7A]">${budgetItem.amount.toLocaleString()}</p>
       </div>
 
-      {/* Existing Vendor Info */}
-      {hasExistingVendor && (
-        <div className="mb-6">
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-[#332B42]">Linked Vendor</span>
-            <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
-              <div className="flex items-center justify-between mb-2">
-                <h6 className="m-0 font-medium text-[#332B42]">{budgetItem.vendorName}</h6>
-                <button
-                  onClick={handleUnlinkVendor}
-                  className="text-gray-500 hover:text-gray-700 p-1"
-                  aria-label="Unlink vendor"
-                  disabled={isSubmitting}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-1 text-xs text-gray-700">
-                <div><strong>Name:</strong> {budgetItem.vendorName}</div>
-                {budgetItem.vendorId && (
-                  <div><strong>Vendor ID:</strong> {budgetItem.vendorId}</div>
-                )}
-                <div><strong>Status:</strong> Linked to budget item</div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 mt-2">
-              This vendor is currently linked to your budget item. Click the X to unlink or search for a different vendor below.
-            </p>
-          </label>
-        </div>
+      {confirmUnlink && (
+        <Banner
+          message="Are you sure? Unlinking this vendor will mark it as not an official vendor."
+          type="error"
+        />
       )}
 
       {/* Category Selection */}
@@ -272,6 +264,40 @@ export default function LinkVendorModal({
           }
         </p>
       </div>
+
+      {/* Existing Vendor Info */}
+      {hasExistingVendor && (
+        <div className="mb-6">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-[#332B42]">Linked Vendor</span>
+            <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
+              <div className="flex items-center justify-between mb-2">
+                <h6 className="m-0 font-medium text-[#332B42]">{budgetItem.vendorName}</h6>
+                <button
+                  onClick={handleUnlinkVendor}
+                  className={`text-gray-500 hover:text-gray-700 p-1 ${
+                    confirmUnlink ? 'text-red-600 hover:text-red-700' : ''
+                  }`}
+                  aria-label="Unlink vendor"
+                  disabled={isSubmitting}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-1 text-xs text-gray-700">
+                <div><strong>Name:</strong> {budgetItem.vendorName}</div>
+                {budgetItem.vendorId && (
+                  <div><strong>Vendor ID:</strong> {budgetItem.vendorId}</div>
+                )}
+                <div><strong>Status:</strong> Linked to budget item</div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              This vendor is currently linked to your budget item. Click the X to unlink or search for a different vendor above.
+            </p>
+          </label>
+        </div>
+      )}
 
       {/* Official Vendor Info Banner */}
       {selectedVendor && (
