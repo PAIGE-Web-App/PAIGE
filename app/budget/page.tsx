@@ -295,30 +295,28 @@ export default function BudgetPage() {
         <div className="flex h-full gap-4 lg:flex-row flex-col">
           <main className="unified-container">
             {/* Budget Sidebar - Categories (Desktop Only) */}
-            <div className="hidden lg:block">
-              <BudgetSidebar
-                budgetCategories={budget.budgetCategories}
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                onAddCategory={() => {
-                  const newCategory = {
-                    id: 'new',
-                    userId: user?.uid || '',
-                    name: 'New Category',
-                    allocatedAmount: 0,
-                    spentAmount: 0,
-                    orderIndex: budget.budgetCategories.length,
-                    createdAt: new Date(),
-                    color: '#A85C36',
-                  };
-                  setEditingCategory(newCategory);
-                  setShowCategoryModal(true);
-                }}
-                totalSpent={budget.totalSpent}
-                totalBudget={budget.userTotalBudget || 0}
-                budgetItems={budget.budgetItems}
-              />
-            </div>
+            <BudgetSidebar
+              budgetCategories={budget.budgetCategories}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              onAddCategory={() => {
+                const newCategory = {
+                  id: 'new',
+                  userId: user?.uid || '',
+                  name: 'New Category',
+                  allocatedAmount: 0,
+                  spentAmount: 0,
+                  orderIndex: budget.budgetCategories.length,
+                  createdAt: new Date(),
+                  color: '#A85C36',
+                };
+                setEditingCategory(newCategory);
+                setShowCategoryModal(true);
+              }}
+              totalSpent={budget.totalSpent}
+              totalBudget={budget.userTotalBudget || 0}
+              budgetItems={budget.budgetItems}
+            />
 
             {/* Main Content Area */}
             <div className="unified-main-content">
@@ -361,7 +359,7 @@ export default function BudgetPage() {
                 } : null}
                 totalBudget={budget.userTotalBudget}
                 totalSpent={budget.totalSpent}
-                budgetRange={budget.userBudgetRange}
+                maxBudget={budget.userMaxBudget}
                 onEditCategory={(category) => {
                   setEditingCategory(category);
                   setJiggleAllocatedAmount(true);
@@ -560,8 +558,8 @@ export default function BudgetPage() {
           }}
           category={editingCategory}
           budgetCategories={budget.budgetCategories}
-          userBudgetRange={budget.userBudgetRange}
-          onUpdateBudgetRange={budget.updateUserBudgetRange}
+                          userMaxBudget={budget.userMaxBudget}
+                onUpdateMaxBudget={budget.updateUserMaxBudget}
           jiggleAllocatedAmount={jiggleAllocatedAmount}
           onSave={(categoryId, updates) => {
             if (categoryId === 'new') {

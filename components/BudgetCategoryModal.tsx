@@ -10,8 +10,8 @@ interface BudgetCategoryModalProps {
   onSave: (categoryId: string, updates: Partial<BudgetCategory>) => void;
   onDelete?: (categoryId: string) => void;
   budgetCategories: BudgetCategory[];
-  userBudgetRange: { min: number; max: number } | null;
-  onUpdateBudgetRange?: (newRange: { min: number; max: number }) => Promise<void>;
+  userMaxBudget: number | null;
+  onUpdateMaxBudget?: (newMaxBudget: number) => Promise<void>;
   jiggleAllocatedAmount?: boolean;
 }
 
@@ -22,8 +22,8 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
   onSave,
   onDelete,
   budgetCategories,
-  userBudgetRange,
-  onUpdateBudgetRange,
+  userMaxBudget,
+  onUpdateMaxBudget,
   jiggleAllocatedAmount = false,
 }) => {
   const [formData, setFormData] = useState({
@@ -35,7 +35,7 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
   const [budgetWarningData, setBudgetWarningData] = useState<{
     exceedAmount: number;
     newTotalAllocated: number;
-    newBudgetRange: { min: number; max: number };
+    newMaxBudget: number;
   } | null>(null);
 
   useEffect(() => {
@@ -61,32 +61,29 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
       return;
     }
 
-    // Check if this would exceed the user's budget range
+    // Check if this would exceed the user's max budget
     const currentTotalAllocated = budgetCategories
       .filter(cat => cat.id !== category.id)
       .reduce((sum, cat) => sum + cat.allocatedAmount, 0);
     
     const newTotalAllocated = currentTotalAllocated + allocatedAmount;
     
-    if (userBudgetRange && newTotalAllocated > userBudgetRange.max && !showBudgetWarning) {
-      const exceedAmount = newTotalAllocated - userBudgetRange.max;
-      const newBudgetRange = {
-        min: userBudgetRange.min,
-        max: Math.round(newTotalAllocated * 1.2) // Add 20% buffer
-      };
+    if (userMaxBudget && newTotalAllocated > userMaxBudget && !showBudgetWarning) {
+      const exceedAmount = newTotalAllocated - userMaxBudget;
+      const newMaxBudget = Math.round(newTotalAllocated * 1.2); // Add 20% buffer
       
       setBudgetWarningData({
         exceedAmount,
         newTotalAllocated,
-        newBudgetRange
+        newMaxBudget
       });
       setShowBudgetWarning(true);
       return;
     }
 
-    // If auto-update is enabled, update budget range first
-    if (autoUpdateBudget && budgetWarningData && onUpdateBudgetRange) {
-      onUpdateBudgetRange(budgetWarningData.newBudgetRange);
+    // If auto-update is enabled, update max budget first
+    if (autoUpdateBudget && budgetWarningData && onUpdateMaxBudget) {
+      onUpdateMaxBudget(budgetWarningData.newMaxBudget);
     }
 
     onSave(category.id!, {
@@ -116,9 +113,9 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
       return;
     }
 
-    // Update budget range first if checkbox is checked
-    if (autoUpdateBudget && budgetWarningData && onUpdateBudgetRange) {
-      await onUpdateBudgetRange(budgetWarningData.newBudgetRange);
+    // Update max budget first if checkbox is checked
+    if (autoUpdateBudget && budgetWarningData && onUpdateMaxBudget) {
+      await onUpdateMaxBudget(budgetWarningData.newMaxBudget);
     }
 
     onSave(category.id!, {
@@ -196,10 +193,10 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-medium text-amber-800 mb-2">
-                    Budget Range Exceeded
+                    Max Budget Exceeded
                   </h4>
                   <p className="text-sm text-amber-700 mb-3">
-                    This allocation would exceed your current budget range by{' '}
+                    This allocation would exceed your current max budget by{' '}
                     <span className="font-semibold">${budgetWarningData.exceedAmount.toLocaleString()}</span>.
                   </p>
                   
@@ -212,9 +209,9 @@ const BudgetCategoryModal: React.FC<BudgetCategoryModalProps> = ({
                       className="mt-1 w-4 h-4 text-amber-600 bg-white border-amber-300 rounded focus:ring-amber-500 focus:ring-2"
                     />
                     <label htmlFor="autoUpdateBudget" className="text-sm text-amber-700">
-                      I confirm that by submitting, my budget range will be updated to{' '}
+                      I confirm that by submitting, my max budget will be updated to{' '}
                       <span className="font-semibold">
-                        ${budgetWarningData.newBudgetRange.min.toLocaleString()} - ${budgetWarningData.newBudgetRange.max.toLocaleString()}
+                        ${budgetWarningData.newMaxBudget.toLocaleString()}
                       </span>{' '}
                       to accommodate this allocation.
                     </label>

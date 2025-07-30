@@ -39,14 +39,7 @@ const BudgetCategoryList: React.FC<BudgetCategoryListProps> = ({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="my-6 flex items-center gap-2">
-        <span className="text-xs text-[#AB9C95] uppercase tracking-wider font-semibold">
-          Categories
-        </span>
-        <div className="flex-1 h-px bg-[#AB9C95]"></div>
-      </div>
-      
+    <div className="space-y-2 pt-4">
       {budgetCategories.map((category) => (
         <BudgetCategoryItem
           key={category.id}

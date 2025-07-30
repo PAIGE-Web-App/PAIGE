@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueSearchInput from '@/components/VenueSearchInput';
 import VenueCard from '@/components/VenueCard';
-import BudgetSlider from '@/components/BudgetSlider';
+import MaxBudgetInput from '@/components/MaxBudgetSlider';
 
 interface WeddingTabProps {
   weddingDate: string;
@@ -25,13 +25,13 @@ interface WeddingTabProps {
   generatedVibes: string[];
   guestCount: number;
   setGuestCount: (count: number) => void;
-  budgetRange: [number, number];
-  setBudgetRange: (range: [number, number]) => void;
+  maxBudget: number;
+  setMaxBudget: (budget: number) => void;
   selectedLocationType: string | null;
   setSelectedLocationType: (type: string | null) => void;
   weddingLocationCoords: { lat: number; lng: number } | null;
   jiggleAnimate: string;
-  jiggleBudgetRange: string;
+  jiggleMaxBudget: string;
   saving: boolean;
   hasUnsavedWeddingChanges: boolean;
   onSave: () => Promise<void>;
@@ -54,13 +54,13 @@ export default function WeddingTab({
   generatedVibes,
   guestCount,
   setGuestCount,
-  budgetRange,
-  setBudgetRange,
+  maxBudget,
+  setMaxBudget,
   selectedLocationType,
   setSelectedLocationType,
   weddingLocationCoords,
   jiggleAnimate,
-  jiggleBudgetRange,
+  jiggleMaxBudget,
   saving,
   hasUnsavedWeddingChanges,
   onSave
@@ -197,11 +197,12 @@ export default function WeddingTab({
           </div>
           
 
-          <div className={jiggleBudgetRange}>
-            <label className="block text-xs font-work-sans text-[#332B42] mb-1">What's your budget?</label>
-            <BudgetSlider
-              value={budgetRange}
-              onChange={(newRange) => setBudgetRange(newRange as [number, number])}
+          <div className={jiggleMaxBudget}>
+            <label className="block text-xs font-work-sans text-[#332B42] mb-1">What's your maximum budget?</label>
+            <MaxBudgetInput
+              value={maxBudget}
+              onChange={setMaxBudget}
+              placeholder="Enter your maximum budget"
             />
           </div>
         </div>

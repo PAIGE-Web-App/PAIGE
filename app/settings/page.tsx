@@ -50,7 +50,7 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [jiggleWeddingDate, setJiggleWeddingDate] = useState(false);
-  const [jiggleBudgetRange, setJiggleBudgetRange] = useState(false);
+  const [jiggleMaxBudget, setJiggleMaxBudget] = useState(false);
   const [showFlagReview, setShowFlagReview] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const pendingTabKeyRef = useRef<string | null>(null);
@@ -60,9 +60,9 @@ export default function ProfilePage() {
       setJiggleWeddingDate(true);
       setTimeout(() => setJiggleWeddingDate(false), 1000);
     }
-    if (searchParams?.get('highlight') === 'budgetRange' && activeTab === 'wedding') {
-      setJiggleBudgetRange(true);
-      setTimeout(() => setJiggleBudgetRange(false), 1000);
+    if (searchParams?.get('highlight') === 'maxBudget' && activeTab === 'wedding') {
+      setJiggleMaxBudget(true);
+      setTimeout(() => setJiggleMaxBudget(false), 1000);
     }
   }, [searchParams, activeTab]);
 
@@ -107,8 +107,8 @@ export default function ProfilePage() {
     generatedVibes,
     guestCount,
     setGuestCount,
-    budgetRange,
-    setBudgetRange,
+    maxBudget,
+    setMaxBudget,
     selectedLocationType,
     setSelectedLocationType,
     weddingLocationCoords,
@@ -240,13 +240,13 @@ export default function ProfilePage() {
               generatedVibes={generatedVibes}
               guestCount={guestCount}
               setGuestCount={setGuestCount}
-              budgetRange={budgetRange}
-              setBudgetRange={setBudgetRange}
+              maxBudget={maxBudget}
+              setMaxBudget={setMaxBudget}
               selectedLocationType={selectedLocationType}
               setSelectedLocationType={setSelectedLocationType}
               weddingLocationCoords={weddingLocationCoords}
               jiggleAnimate={jiggleWeddingDate ? 'animate-jiggle' : ''}
-              jiggleBudgetRange={jiggleBudgetRange ? 'animate-jiggle' : ''}
+              jiggleMaxBudget={jiggleMaxBudget ? 'animate-jiggle' : ''}
               saving={saving}
               hasUnsavedWeddingChanges={hasUnsavedWeddingChanges}
               onSave={handleWeddingSave}

@@ -15,8 +15,7 @@ import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
-import Slider from 'rc-slider';
-import 'rc-slider/assets/index.css';
+
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueSearchInput from '@/components/VenueSearchInput';
@@ -65,22 +64,13 @@ export default function SignUp() {
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
   const [showCustomVibeInput, setShowCustomVibeInput] = useState(false);
   const [customVibe, setCustomVibe] = useState('');
-  const [budgetRange, setBudgetRange] = useState([10000, 30000]);
-  const STEP = 1000;
-  const minAllowed = 0;
-  const maxAllowed = 150000;
-  const [activeThumb, setActiveThumb] = useState<'min' | 'max' | null>(null);
+  const [maxBudget, setMaxBudget] = useState(35000);
   const [saving, setSaving] = useState(false);
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
   const [disableSignup, setDisableSignup] = useState(false);
   const [weddingLocationCoords, setWeddingLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Auto-correct invalid state
-  useEffect(() => {
-    if (budgetRange[1] - budgetRange[0] < STEP) {
-      setBudgetRange([budgetRange[0], budgetRange[0] + STEP]);
-    }
-  }, [budgetRange]);
+  // No auto-correction needed for single max budget
 
   // Clear any existing session when signup page loads
   useEffect(() => {
@@ -1441,38 +1431,27 @@ export default function SignUp() {
 {step === 5 && (
   <>
     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
-      What's your wedding budget?
+      What's your maximum wedding budget?
     </h1>
     <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
-      Use the slider below to set your minimum and maximum budget.
+      Enter your maximum wedding budget below.
     </h4>
     <form className="w-full max-w-md space-y-8">
-      <div className="mb-6">
-        <div className="text-lg font-semibold text-[#332B42] mb-2 text-center">
-          Your budget: <span className="text-[#A85C36]">${budgetRange[0].toLocaleString()}</span> - <span className="text-[#A85C36]">${budgetRange[1].toLocaleString()}</span>
-        </div>
-        <div className="flex flex-col gap-6 items-center">
-          <div className="w-full px-2">
-            <Slider
-              range
-              min={minAllowed}
-              max={maxAllowed}
-              step={STEP}
-              value={budgetRange}
-              onChange={vals => setBudgetRange(Array.isArray(vals) ? vals : [vals, vals])}
-              allowCross={false}
-              trackStyle={[{ backgroundColor: '#A85C36', height: 8 }]}
-              handleStyle={[
-                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 },
-                { backgroundColor: '#A85C36', height: 20, width: 20, marginTop: -6 }
-              ]}
-              railStyle={{ backgroundColor: '#E0D6D0', height: 8 }}
-            />
-            <div className="flex justify-between w-full text-xs text-[#332B42] mt-1">
-              <span>${minAllowed.toLocaleString()}</span>
-              <span>${maxAllowed.toLocaleString()}+</span>
-            </div>
-          </div>
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Maximum Budget<span className="text-[#A85C36]">*</span>
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#332B42] text-sm">$</span>
+          <input
+            type="number"
+            value={maxBudget}
+            onChange={(e) => setMaxBudget(Number(e.target.value) || 0)}
+            className="w-full pl-8 pr-4 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+            placeholder="Enter your maximum budget"
+            min={1000}
+            step={1000}
+          />
         </div>
       </div>
       <div className="w-full mt-8">
@@ -1491,10 +1470,7 @@ export default function SignUp() {
               // Save step 5 data and mark as onboarded
               const saveAndComplete = async () => {
                 const step5Data = {
-                  budgetRange: {
-                    min: budgetRange[0],
-                    max: budgetRange[1],
-                  },
+                  maxBudget: maxBudget,
                   onboarded: true,
                   onboardingCompletedAt: new Date(),
                 };

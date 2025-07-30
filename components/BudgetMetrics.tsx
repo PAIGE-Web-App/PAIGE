@@ -5,7 +5,7 @@ interface BudgetMetricsProps {
   selectedCategory: any;
   totalBudget: number | null;
   totalSpent: number;
-  budgetRange: { min: number; max: number } | null;
+  maxBudget: number | null;
   onEditCategory?: (category: any) => void;
 }
 
@@ -13,7 +13,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
   selectedCategory,
   totalBudget,
   totalSpent,
-  budgetRange,
+  maxBudget,
   onEditCategory,
 }) => {
   const router = useRouter();
@@ -22,25 +22,25 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
   const [animatingValues, setAnimatingValues] = useState<{
     categoryAllocated: boolean;
     totalBudget: boolean;
-    budgetRange: boolean;
+    maxBudget: boolean;
   }>({
     categoryAllocated: false,
     totalBudget: false,
-    budgetRange: false,
+    maxBudget: false,
   });
   
   // Refs to track previous values
   const prevValues = useRef({
     categoryAllocated: selectedCategory?.allocatedAmount || 0,
     totalBudget: totalBudget || 0,
-    budgetRange: budgetRange ? { min: budgetRange.min, max: budgetRange.max } : null,
+    maxBudget: maxBudget || 0,
   });
   
   // Check for value changes and trigger animations
   useEffect(() => {
     const currentCategoryAllocated = selectedCategory?.allocatedAmount || 0;
     const currentTotalBudget = totalBudget || 0;
-    const currentBudgetRange = budgetRange ? { min: budgetRange.min, max: budgetRange.max } : null;
+    const currentMaxBudget = maxBudget || 0;
     
     // Check if category allocated amount changed
     if (currentCategoryAllocated !== prevValues.current.categoryAllocated) {
@@ -56,16 +56,13 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
       prevValues.current.totalBudget = currentTotalBudget;
     }
     
-    // Check if budget range changed
-    if (currentBudgetRange && prevValues.current.budgetRange) {
-      if (currentBudgetRange.min !== prevValues.current.budgetRange.min || 
-          currentBudgetRange.max !== prevValues.current.budgetRange.max) {
-        setAnimatingValues(prev => ({ ...prev, budgetRange: true }));
-        setTimeout(() => setAnimatingValues(prev => ({ ...prev, budgetRange: false })), 600);
-        prevValues.current.budgetRange = currentBudgetRange;
-      }
+    // Check if max budget changed
+    if (currentMaxBudget !== prevValues.current.maxBudget) {
+      setAnimatingValues(prev => ({ ...prev, maxBudget: true }));
+      setTimeout(() => setAnimatingValues(prev => ({ ...prev, maxBudget: false })), 600);
+      prevValues.current.maxBudget = currentMaxBudget;
     }
-  }, [selectedCategory?.allocatedAmount, totalBudget, budgetRange]);
+  }, [selectedCategory?.allocatedAmount, totalBudget, maxBudget]);
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -83,31 +80,30 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
   };
 
   const getBudgetStatus = () => {
-    if (!budgetRange || !totalBudget) return { message: '', color: 'text-gray-600' };
+    if (!maxBudget || !totalBudget) return { message: '', color: 'text-gray-600' };
     
-    const average = (budgetRange.min + budgetRange.max) / 2;
-    const percentage = (totalSpent / average) * 100;
+    const percentage = (totalSpent / maxBudget) * 100;
     
     if (percentage > 100) {
       return { 
-        message: `You're ${formatCurrency(totalSpent - average)} over your average budget.`, 
+        message: `You're ${formatCurrency(totalSpent - maxBudget)} over your max budget.`, 
         color: 'text-red-600' 
       };
     } else if (percentage > 80) {
       return { 
-        message: `You're on track within your budget range.`, 
+        message: `You're approaching your max budget.`, 
         color: 'text-yellow-600' 
       };
     } else {
       return { 
-        message: `You're ${formatCurrency(average - totalSpent)} under your average budget.`, 
+        message: `You're ${formatCurrency(maxBudget - totalSpent)} under your max budget.`, 
         color: 'text-green-600' 
       };
     }
   };
 
   const budgetStatus = getBudgetStatus();
-  const remaining = (totalBudget || 0) - totalSpent;
+  const remaining = (maxBudget || 0) - totalSpent;
 
   return (
     <div className="bg-white border-b border-[#AB9C95] p-4">
@@ -168,13 +164,13 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           </h3>
           
           <div className={`grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`}>
-            {/* Budget Range Card */}
-            {budgetRange && (
+            {/* Max Budget Card */}
+            {maxBudget && (
               <div className="border border-[#E0DBD7] rounded-[5px] p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-[#AB9C95]">Budget Range</h3>
+                  <h3 className="text-sm font-medium text-[#AB9C95]">Max Budget</h3>
                   <button 
-                    onClick={() => router.push('/settings?tab=wedding&highlight=budgetRange')}
+                    onClick={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
                     className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors"
                     title="Update in settings"
                   >
@@ -184,12 +180,12 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                   </button>
                 </div>
                 <div className="text-lg font-bold text-[#332B42] mb-1">
-                  <span className={animatingValues.budgetRange ? 'animate-value-update' : ''}>
-                    {formatCurrency(budgetRange.min)} - {formatCurrency(budgetRange.max)}
+                  <span className={animatingValues.maxBudget ? 'animate-value-update' : ''}>
+                    {formatCurrency(maxBudget)}
                   </span>
                 </div>
                 <div className="text-sm text-[#AB9C95]">
-                  Avg: {formatCurrency((budgetRange.min + budgetRange.max) / 2)}
+                  Maximum spending limit
                 </div>
               </div>
             )}
@@ -202,9 +198,9 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
               <div className="text-lg font-bold text-[#332B42] mb-1">
                 {formatCurrency(totalSpent)}
               </div>
-              {budgetRange && (
+              {maxBudget && (
                 <div className="text-sm text-[#AB9C95]">
-                  {((totalSpent / ((budgetRange.min + budgetRange.max) / 2)) * 100).toFixed(1)}% of average
+                  {((totalSpent / maxBudget) * 100).toFixed(1)}% of max budget
                 </div>
               )}
             </div>

@@ -27,7 +27,7 @@ export function useUserProfileData() {
   const [vibe, setVibe] = useState<string[]>([]);
   const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
-  const [budgetRange, setBudgetRange] = useState<{ min: number; max: number } | null>(null);
+  const [maxBudget, setMaxBudget] = useState<number | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Notification preferences
@@ -74,7 +74,7 @@ export function useUserProfileData() {
           setVibe(data.vibe || []);
           setVibeInputMethod(data.vibeInputMethod || 'pills');
           setGeneratedVibes(data.generatedVibes || []);
-          setBudgetRange(data.budgetRange || null);
+          setMaxBudget(data.maxBudget || null);
           // Note: imagePreview is not stored in Firestore due to size limits
 
           // Notification preferences
@@ -133,7 +133,7 @@ export function useUserProfileData() {
     vibe,
     vibeInputMethod,
     generatedVibes,
-    budgetRange,
+    maxBudget,
     imagePreview,
     phoneNumber,
     notificationPreferences,

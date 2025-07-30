@@ -29,7 +29,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     vibe: firestoreVibe,
     vibeInputMethod: firestoreVibeInputMethod,
     generatedVibes: firestoreGeneratedVibes,
-    budgetRange: firestoreBudgetRange,
+    maxBudget: firestoreMaxBudget,
     profileLoading,
     reload: reloadUserProfile,
   } = useUserProfileData();
@@ -54,7 +54,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
   const [vibe, setVibe] = useState<string[]>([]);
   const [vibeInputMethod, setVibeInputMethod] = useState('pills');
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
-  const [budgetRange, setBudgetRange] = useState<[number, number]>([30000, 50000]);
+  const [maxBudget, setMaxBudget] = useState<number>(40000);
   const [guestCount, setGuestCount] = useState(120);
   const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
   const [weddingLocationCoords, setWeddingLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -89,11 +89,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
       setVibe(firestoreVibe || []);
       setVibeInputMethod(firestoreVibeInputMethod || 'pills');
       setGeneratedVibes(firestoreGeneratedVibes || []);
-      setBudgetRange(
-        firestoreBudgetRange && typeof firestoreBudgetRange === 'object' && 'min' in firestoreBudgetRange && 'max' in firestoreBudgetRange
-          ? [firestoreBudgetRange.min, firestoreBudgetRange.max]
-          : [30000, 50000]
-      );
+      setMaxBudget(firestoreMaxBudget || 40000);
       setGuestCount(firestoreGuestCount || 120);
     }
   }, [
@@ -113,7 +109,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     firestoreVibe,
     firestoreVibeInputMethod,
     firestoreGeneratedVibes,
-    firestoreBudgetRange,
+    firestoreMaxBudget,
     firestoreGuestCount,
   ]);
 
@@ -133,11 +129,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     JSON.stringify(vibe) !== JSON.stringify(firestoreVibe || []) ||
     vibeInputMethod !== (firestoreVibeInputMethod || 'pills') ||
     JSON.stringify(generatedVibes) !== JSON.stringify(firestoreGeneratedVibes || []) ||
-    JSON.stringify(budgetRange) !== JSON.stringify(
-      firestoreBudgetRange && typeof firestoreBudgetRange === 'object' && 'min' in firestoreBudgetRange && 'max' in firestoreBudgetRange
-        ? [firestoreBudgetRange.min, firestoreBudgetRange.max]
-        : [30000, 50000]
-    ) ||
+    maxBudget !== firestoreMaxBudget ||
     guestCount !== (firestoreGuestCount || 120);
 
   const handleWeddingSave = async () => {
@@ -154,7 +146,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
         vibe,
         vibeInputMethod,
         generatedVibes,
-        budgetRange: budgetRange ? { min: budgetRange[0], max: budgetRange[1] } : null,
+        maxBudget: maxBudget,
         guestCount,
       };
 
@@ -486,8 +478,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     setVibeInputMethod,
     generatedVibes,
     setGeneratedVibes,
-    budgetRange,
-    setBudgetRange,
+    maxBudget,
+    setMaxBudget,
     guestCount,
     setGuestCount,
     selectedLocationType,

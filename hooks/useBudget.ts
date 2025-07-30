@@ -50,7 +50,7 @@ export function useBudget() {
 
   // State for selected items
   const [selectedBudgetItem, setSelectedBudgetItem] = useState<BudgetItem | null>(null);
-  const [userBudgetRange, setUserBudgetRange] = useState<{ min: number; max: number } | null>(null);
+  const [userMaxBudget, setUserMaxBudget] = useState<number | null>(null);
 
   // Fetch budget categories
   useEffect(() => {
@@ -91,7 +91,7 @@ export function useBudget() {
     return () => unsubscribeCategories();
   }, [user]);
 
-  // Fetch user's budget range from profile with real-time updates
+  // Fetch user's max budget from profile with real-time updates
   useEffect(() => {
     if (!user) return;
 
@@ -99,20 +99,17 @@ export function useBudget() {
     const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        if (userData.budgetRange && userData.budgetRange.min && userData.budgetRange.max) {
-          setUserBudgetRange({
-            min: userData.budgetRange.min,
-            max: userData.budgetRange.max
-          });
+        if (userData.maxBudget) {
+          setUserMaxBudget(userData.maxBudget);
         } else {
-          setUserBudgetRange(null);
+          setUserMaxBudget(null);
         }
       } else {
-        setUserBudgetRange(null);
+        setUserMaxBudget(null);
       }
     }, (error) => {
       console.error('Error fetching user budget:', error);
-      setUserBudgetRange(null);
+      setUserMaxBudget(null);
     });
 
     return () => unsubscribeUser();
@@ -240,30 +237,30 @@ export function useBudget() {
   };
 
   // Function to update user's budget range
-  const updateUserBudgetRange = async (newBudgetRange: { min: number; max: number }) => {
+  const updateUserMaxBudget = async (newMaxBudget: number) => {
     if (!user) return;
 
     try {
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
-        budgetRange: newBudgetRange,
+        maxBudget: newMaxBudget,
         updatedAt: new Date(),
       });
 
       // The onSnapshot listener will automatically update the local state
-      showSuccessToast('Budget range updated successfully!');
+      showSuccessToast('Max budget updated successfully!');
     } catch (error) {
-      console.error('Error updating budget range:', error);
-      showErrorToast('Failed to update budget range.');
+      console.error('Error updating max budget:', error);
+      showErrorToast('Failed to update max budget.');
     }
   };
 
-  // Function to update budget categories when budget range changes
-  const updateBudgetCategoriesFromRange = async (newBudgetRange: { min: number; max: number }) => {
+  // Function to update budget categories when max budget changes
+  const updateBudgetCategoriesFromMaxBudget = async (newMaxBudget: number) => {
     if (!user) return;
 
     try {
-      const totalBudget = (newBudgetRange.min + newBudgetRange.max) / 2;
+      const totalBudget = newMaxBudget;
       const categoryPercentages = [
         { name: 'Venue & Location', percentage: 0.40 },
         { name: 'Catering & Food', percentage: 0.25 },
@@ -303,8 +300,8 @@ export function useBudget() {
   const budgetStats = useMemo(() => {
     const totalSpent = budgetItems.reduce((sum, item) => sum + item.amount, 0);
     const totalAllocated = budgetCategories.reduce((sum, category) => sum + category.allocatedAmount, 0);
-    const totalRemaining = totalAllocated - totalSpent;
-    const spentPercentage = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0;
+    const totalRemaining = (userMaxBudget || 0) - totalSpent;
+    const spentPercentage = (userMaxBudget || 0) > 0 ? (totalSpent / (userMaxBudget || 1)) * 100 : 0;
 
     const categoryBreakdown = budgetCategories.map(category => {
       const categoryItems = budgetItems.filter(item => item.categoryId === category.id);
@@ -800,7 +797,7 @@ export function useBudget() {
     budgetCategories,
     budgetItems,
     budgetStats,
-    userBudgetRange,
+    userMaxBudget,
     userTotalBudget,
     showBudgetItemModal,
     showVendorIntegrationModal,
@@ -832,7 +829,7 @@ export function useBudget() {
     handleGenerateBudget,
     handleGenerateTodoList,
     handleGenerateIntegratedPlan,
-    updateUserBudgetRange,
-    updateBudgetCategoriesFromRange,
+    updateUserMaxBudget,
+    updateBudgetCategoriesFromMaxBudget,
   };
 } 
