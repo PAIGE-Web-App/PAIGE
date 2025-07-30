@@ -25,6 +25,7 @@ import {
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import Breadcrumb from '@/components/Breadcrumb';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
+import { useVendorSectionImageValidation } from '@/hooks/useVendorImageValidation';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -92,6 +93,9 @@ export default function MyVendorsPage() {
   const [enhancedVendors, setEnhancedVendors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Lightweight image validation system
+  const { queueVendorsForValidation, runValidation, isValidating } = useVendorSectionImageValidation();
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [vendorSearch, setVendorSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -187,27 +191,31 @@ export default function MyVendorsPage() {
     }
   }, [user, isSaving]);
 
-  // Enhance vendors with unified image handling
+  // Lightweight image validation - only validates when needed
   useEffect(() => {
-    const enhanceVendors = async () => {
-      if (vendors.length === 0) {
-        setEnhancedVendors([]);
-        return;
-      }
+    if (vendors.length === 0) {
+      setEnhancedVendors([]);
+      return;
+    }
 
-      try {
-        console.log('🖼️ Enhancing My Vendors with images:', vendors.length, 'vendors');
-        const enhanced = await enhanceVendorsWithImages(vendors);
-        setEnhancedVendors(enhanced);
-        console.log('✅ Enhanced My Vendors with images:', enhanced.length, 'vendors');
-      } catch (error) {
-        console.error('Error enhancing vendors with images:', error);
-        setEnhancedVendors(vendors);
-      }
-    };
+    // Queue vendors for validation (doesn't make API calls yet)
+    queueVendorsForValidation(vendors);
+    
+    // Use existing enhanced vendors or fallback to original vendors
+    setEnhancedVendors(vendors);
+  }, [vendors, queueVendorsForValidation]);
 
-    enhanceVendors();
-  }, [vendors]);
+  // Run validation in background when page is idle
+  useEffect(() => {
+    if (vendors.length > 0) {
+      // Run validation after a short delay to avoid blocking initial render
+      const timer = setTimeout(() => {
+        runValidation();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [vendors.length, runValidation]);
 
   // Helper function to identify Firestore document IDs
   const isFirestoreDocumentId = (category) => {

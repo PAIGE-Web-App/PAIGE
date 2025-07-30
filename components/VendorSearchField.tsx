@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, X } from 'lucide-react';
+import { Search, MapPin, X, Star } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import ReactDOM from 'react-dom';
 
@@ -330,7 +330,7 @@ export default function VendorSearchField({
                       </span>
                       {vendor.rating && (
                         <span className="text-yellow-600">
-                          ★ {vendor.rating}
+                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> {vendor.rating}
                         </span>
                       )}
                     </div>

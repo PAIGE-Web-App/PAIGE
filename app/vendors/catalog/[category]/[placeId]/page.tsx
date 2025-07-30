@@ -6,6 +6,7 @@ import { useUserProfileData } from '@/hooks/useUserProfileData';
 import Breadcrumb from '@/components/Breadcrumb';
 import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
 import { getCategoryFromSlug } from '@/utils/vendorUtils';
+import { Star, MapPin } from 'lucide-react';
 // import MessagingModal from '../../../components/MessagingModal'; // TODO: Use your real messaging modal
 
 export default function VendorCatalogDetailsPage() {
@@ -51,8 +52,8 @@ export default function VendorCatalogDetailsPage() {
             <div className="mb-4">
               <h2 className="text-2xl font-playfair font-medium text-[#332B42] mb-1">{vendor.name}</h2>
               <div className="flex items-center gap-2 text-sm text-[#332B42] mb-1">
-                <span>{vendor.formatted_address}</span>
-                <span className="text-[#A85C36]">★ {vendor.rating} ({vendor.user_ratings_total})</span>
+                <span><MapPin className="w-3 h-3 text-[#A85C36] inline mr-1" />{vendor.formatted_address}</span>
+                <span className="text-[#A85C36]"><Star className="w-3 h-3 text-yellow-500 fill-current" /> {vendor.rating} ({vendor.user_ratings_total})</span>
                 {vendor.price_level && <span>{'$'.repeat(vendor.price_level)}</span>}
                 {/* Add more fields as needed */}
               </div>

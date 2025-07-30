@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Star, MapPin } from 'lucide-react';
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -146,13 +147,16 @@ export default function AdminCurationPage() {
             <div className="text-xs text-[#A85C36] font-semibold mb-1">{details.types[0]}</div>
           )}
           <div className="flex items-center gap-1 text-xs mb-1">
-            {details?.rating && <span className="text-[#A85C36]">★ {details.rating}</span>}
+            {details?.rating && <span className="text-[#A85C36]"><Star className="w-3 h-3 text-yellow-500 fill-current" /> {details.rating}</span>}
             {details?.user_ratings_total && <span className="text-[#332B42]">({details.user_ratings_total})</span>}
           </div>
           {details?.price_level && (
             <div className="text-xs text-[#332B42] mb-1">{'$'.repeat(details.price_level)}</div>
           )}
-          <div className="text-xs text-[#332B42] mb-1">{details?.formatted_address}</div>
+          <div className="flex items-start gap-1 text-xs text-[#332B42] mb-1">
+  <MapPin className="w-3 h-3 text-[#A85C36] mt-0.5 flex-shrink-0" />
+  <span>{details?.formatted_address}</span>
+</div>
           {details?.types && details.types.length > 0 && (
             <div className="text-xs text-[#AB9C95] mb-1">{details.types[0]}</div>
           )}
@@ -197,7 +201,7 @@ export default function AdminCurationPage() {
         )}
         {sug.rating && (
           <div className="flex items-center gap-1 text-xs mb-1">
-            <span className="text-[#A85C36]">★ {sug.rating}</span>
+            <span className="text-[#A85C36]"><Star className="w-3 h-3 text-yellow-500 fill-current" /> {sug.rating}</span>
             {sug.reviewCount && <span className="text-[#332B42]">({sug.reviewCount})</span>}
           </div>
         )}

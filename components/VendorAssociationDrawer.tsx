@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Building, ArrowLeft } from 'lucide-react';
+import { X, Building, ArrowLeft, Star } from 'lucide-react';
 import VendorSearchField from './VendorSearchField';
 import { getRelevantCategories } from '../utils/vendorSearchUtils';
 
@@ -115,7 +115,7 @@ export default function VendorAssociationDrawer({
                         </div>
                         {selectedVendor.rating && (
                           <div className="text-sm text-yellow-600 mt-1">
-                            ★ {selectedVendor.rating}
+                            <Star className="w-3 h-3 text-yellow-500 fill-current" /> {selectedVendor.rating}
                           </div>
                         )}
                       </div>
