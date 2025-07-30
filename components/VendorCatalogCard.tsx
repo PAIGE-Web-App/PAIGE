@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
-import { Heart, Star, MapPin } from 'lucide-react';
-import { CategoryIcon } from '@/utils/categoryIcons';
+import { Heart, Star } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
 
@@ -311,16 +310,14 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           {vendor.price && (
             <div className="text-xs text-[#332B42] mb-1">{vendor.price}</div>
           )}
-          <div className="flex items-start gap-1 text-xs text-[#332B42] mb-1">
-            <MapPin className="w-3 h-3 text-[#A85C36] mt-0.5 flex-shrink-0" />
-            <span>{vendor.address || vendor.location}</span>
-          </div>
-          {vendor.mainTypeLabel && (
-            <div className="flex items-center gap-1 text-xs text-[#AB9C95] mb-1">
-              <CategoryIcon category={vendor.mainTypeLabel} className="w-3 h-3" />
-              <span>{vendor.mainTypeLabel}</span>
-            </div>
-          )}
+                     <div className="flex items-start gap-1 text-xs text-[#332B42] mb-1">
+             <span>{vendor.address || vendor.location}</span>
+           </div>
+           {vendor.mainTypeLabel && (
+             <div className="flex items-center gap-1 text-xs text-[#AB9C95] mb-1">
+               <span>{vendor.mainTypeLabel}</span>
+             </div>
+           )}
           {vendor.source && vendor.source.url && (
             <a href={vendor.source.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#A85C36] underline mb-2 block">{vendor.source.name}</a>
           )}
