@@ -7,12 +7,25 @@ export interface FileCategory {
   updatedAt: Date;
 }
 
+export interface FileFolder {
+  id: string;
+  name: string;
+  description?: string;
+  userId: string;
+  fileCount: number;
+  color?: string;
+  isDefault?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface FileItem {
   id: string;
   name: string;
   description: string;
   category: string;
   categoryId: string;
+  folderId: string; // Add folder reference
   uploadedAt: Date;
   fileType: string;
   fileSize: number;
