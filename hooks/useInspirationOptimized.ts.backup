@@ -1,0 +1,259 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useUserProfileDataOptimized } from './useUserProfileDataOptimized';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import toast from 'react-hot-toast';
+
+// Predefined vibe options for better performance
+const VIBE_OPTIONS = [
+  'Intimate & cozy',
+  'Big & bold',
+  'Chic city affair',
+  'Outdoor & natural',
+  'Traditional & timeless',
+  'Modern & minimal',
+  'Destination dream',
+  'Boho & Whimsical',
+  'Glamorous & Luxe',
+  'Vintage Romance',
+  'Garden Party',
+  'Beachy & Breezy',
+  'Art Deco',
+  'Festival-Inspired',
+  'Cultural Fusion',
+  'Eco-Friendly',
+  'Fairytale',
+  'Still figuring it out',
+] as const;
+
+interface UseInspirationReturn {
+  // State
+  isEditing: boolean;
+  editingVibes: string[];
+  saving: boolean;
+  showVibeInput: boolean;
+  newVibe: string;
+  showImageUpload: boolean;
+  uploadedImage: File | null;
+  imagePreviewUrl: string | null;
+  uploadingImage: boolean;
+  generatingVibes: boolean;
+  
+  // Computed values
+  allVibes: string[];
+  hasVibes: boolean;
+  vibeOptions: readonly string[];
+  availableVibeOptions: string[];
+  customVibes: string[];
+  
+  // Actions
+  setIsEditing: (editing: boolean) => void;
+  setShowVibeInput: (show: boolean) => void;
+  setNewVibe: (vibe: string) => void;
+  setShowImageUpload: (show: boolean) => void;
+  setUploadedImage: (file: File | null) => void;
+  setImagePreviewUrl: (url: string | null) => void;
+  
+  // Handlers
+  handleSave: () => Promise<void>;
+  handleCancel: () => void;
+  addVibe: (vibe: string) => void;
+  removeVibe: (vibe: string) => void;
+  addCustomVibe: () => void;
+  handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  generateVibesFromImage: () => Promise<void>;
+}
+
+export function useInspirationOptimized(): UseInspirationReturn {
+  const { user } = useAuth();
+  const { vibe, generatedVibes, vibeInputMethod } = useUserProfileDataOptimized();
+  const { trackApiCall } = usePerformanceMonitor('Inspiration');
+
+  // State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingVibes, setEditingVibes] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [showVibeInput, setShowVibeInput] = useState(false);
+  const [newVibe, setNewVibe] = useState('');
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [generatingVibes, setGeneratingVibes] = useState(false);
+
+  // Memoized computed values
+  const allVibes = useMemo(() => {
+    return [...(vibe || []), ...(generatedVibes || [])];
+  }, [vibe, generatedVibes]);
+
+  const hasVibes = useMemo(() => {
+    return allVibes.length > 0;
+  }, [allVibes]);
+
+  const availableVibeOptions = useMemo(() => {
+    return VIBE_OPTIONS.filter(option => !editingVibes.includes(option));
+  }, [editingVibes]);
+
+  const customVibes = useMemo(() => {
+    return editingVibes.filter(vibe => !VIBE_OPTIONS.includes(vibe as any));
+  }, [editingVibes]);
+
+  // Initialize editing vibes when data loads
+  useEffect(() => {
+    if (vibe && generatedVibes) {
+      setEditingVibes([...vibe, ...generatedVibes]);
+    }
+  }, [vibe, generatedVibes]);
+
+  // Memoized handlers
+  const handleSave = useCallback(async () => {
+    if (!user) return;
+    
+    const startTime = performance.now();
+    setSaving(true);
+    try {
+      const updateData = {
+        vibe: editingVibes.filter(v => VIBE_OPTIONS.includes(v as any)),
+        generatedVibes: editingVibes.filter(v => !VIBE_OPTIONS.includes(v as any)),
+      };
+
+      await updateDoc(doc(db, "users", user.uid), updateData);
+      
+      toast.success('Wedding vibe updated successfully!');
+      setIsEditing(false);
+      trackApiCall('/api/saveVibes', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error saving vibe:', error);
+      toast.error('Failed to save changes');
+      trackApiCall('/api/saveVibes', performance.now() - startTime, false);
+    } finally {
+      setSaving(false);
+    }
+  }, [user, editingVibes, trackApiCall]);
+
+  const handleCancel = useCallback(() => {
+    setEditingVibes([...(vibe || []), ...(generatedVibes || [])]);
+    setIsEditing(false);
+    setShowVibeInput(false);
+    setNewVibe('');
+  }, [vibe, generatedVibes]);
+
+  const addVibe = useCallback((vibeToAdd: string) => {
+    if (!editingVibes.includes(vibeToAdd)) {
+      setEditingVibes(prev => [...prev, vibeToAdd]);
+    }
+  }, [editingVibes]);
+
+  const removeVibe = useCallback((vibeToRemove: string) => {
+    setEditingVibes(prev => prev.filter(v => v !== vibeToRemove));
+  }, []);
+
+  const addCustomVibe = useCallback(() => {
+    if (newVibe.trim() && !editingVibes.includes(newVibe.trim())) {
+      setEditingVibes(prev => [...prev, newVibe.trim()]);
+      setNewVibe('');
+      setShowVibeInput(false);
+    }
+  }, [newVibe, editingVibes]);
+
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const generateVibesFromImage = useCallback(async () => {
+    if (!uploadedImage || !user) return;
+    
+    const startTime = performance.now();
+    setGeneratingVibes(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadedImage);
+      
+      console.log('Uploading image for vibe generation...');
+      const response = await fetch('/api/generate-vibes-from-image', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (data.vibes && Array.isArray(data.vibes)) {
+        // Add new vibes to the editing list
+        const newVibes = data.vibes.filter((v: string) => !editingVibes.includes(v));
+        setEditingVibes(prev => [...prev, ...newVibes]);
+        
+        // Save the image preview and update vibe input method
+        await updateDoc(doc(db, "users", user.uid), {
+          vibeInputMethod: 'image',
+        });
+        
+        toast.success(`Generated ${newVibes.length} new vibes from your image!`);
+        setShowImageUpload(false);
+        setUploadedImage(null);
+        setImagePreviewUrl(null);
+        trackApiCall('/api/generateVibesFromImage', performance.now() - startTime, true);
+      } else {
+        const errorMessage = data.error || 'Failed to generate vibes from image';
+        console.error('API Error:', errorMessage);
+        toast.error(errorMessage);
+        trackApiCall('/api/generateVibesFromImage', performance.now() - startTime, false);
+      }
+    } catch (error) {
+      console.error('Error generating vibes:', error);
+      toast.error('Network error: Failed to generate vibes from image');
+      trackApiCall('/api/generateVibesFromImage', performance.now() - startTime, false);
+    } finally {
+      setGeneratingVibes(false);
+    }
+  }, [uploadedImage, user, editingVibes, trackApiCall]);
+
+  return {
+    // State
+    isEditing,
+    editingVibes,
+    saving,
+    showVibeInput,
+    newVibe,
+    showImageUpload,
+    uploadedImage,
+    imagePreviewUrl,
+    uploadingImage,
+    generatingVibes,
+    
+    // Computed values
+    allVibes,
+    hasVibes,
+    vibeOptions: VIBE_OPTIONS,
+    availableVibeOptions,
+    customVibes,
+    
+    // Actions
+    setIsEditing,
+    setShowVibeInput,
+    setNewVibe,
+    setShowImageUpload,
+    setUploadedImage,
+    setImagePreviewUrl,
+    
+    // Handlers
+    handleSave,
+    handleCancel,
+    addVibe,
+    removeVibe,
+    addCustomVibe,
+    handleImageUpload,
+    generateVibesFromImage,
+  };
+} 

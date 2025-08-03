@@ -1,0 +1,324 @@
+import { useState, useCallback, useMemo } from 'react';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+
+interface ValidationRule {
+  test: (value: string) => boolean;
+  message: string;
+}
+
+interface ValidationRules {
+  [fieldName: string]: ValidationRule[];
+}
+
+interface FormState {
+  [fieldName: string]: string;
+}
+
+interface FormErrors {
+  [fieldName: string]: string;
+}
+
+interface UseFormValidationReturn {
+  // State
+  formData: FormState;
+  errors: FormErrors;
+  isValid: boolean;
+  isSubmitting: boolean;
+  
+  // Actions
+  setFieldValue: (fieldName: string, value: string) => void;
+  setFieldError: (fieldName: string, error: string) => void;
+  clearFieldError: (fieldName: string) => void;
+  clearAllErrors: () => void;
+  resetForm: () => void;
+  
+  // Validation
+  validateField: (fieldName: string) => boolean;
+  validateForm: () => boolean;
+  validateOnBlur: (fieldName: string) => void;
+  validateOnChange: (fieldName: string, value: string) => void;
+  
+  // Utilities
+  hasErrors: boolean;
+  errorCount: number;
+  getFieldError: (fieldName: string) => string | null;
+}
+
+export function useFormValidationOptimized(
+  initialData: FormState = {},
+  validationRules: ValidationRules = {}
+): UseFormValidationReturn {
+  const { trackApiCall } = usePerformanceMonitor('FormValidation');
+  
+  // State
+  const [formData, setFormData] = useState<FormState>(initialData);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Memoized computed values
+  const hasErrors = useMemo(() => {
+    return Object.keys(errors).length > 0;
+  }, [errors]);
+
+  const errorCount = useMemo(() => {
+    return Object.keys(errors).length;
+  }, [errors]);
+
+  const isValid = useMemo(() => {
+    return !hasErrors && Object.keys(formData).length > 0;
+  }, [hasErrors, formData]);
+
+  // Memoized validation functions
+  const validateFieldValue = useCallback((fieldName: string, value: string): string | null => {
+    const startTime = performance.now();
+    
+    const rules = validationRules[fieldName];
+    if (!rules) return null;
+    
+    for (const rule of rules) {
+      if (!rule.test(value)) {
+        trackApiCall(`/api/validateField/${fieldName}`, performance.now() - startTime, false);
+        return rule.message;
+      }
+    }
+    
+    trackApiCall(`/api/validateField/${fieldName}`, performance.now() - startTime, true);
+    return null;
+  }, [validationRules, trackApiCall]);
+
+  const validateField = useCallback((fieldName: string): boolean => {
+    const value = formData[fieldName] || '';
+    const error = validateFieldValue(fieldName, value);
+    
+    setErrors(prev => ({
+      ...prev,
+      [fieldName]: error || ''
+    }));
+    
+    return !error;
+  }, [formData, validateFieldValue]);
+
+  const validateForm = useCallback((): boolean => {
+    const startTime = performance.now();
+    
+    const newErrors: FormErrors = {};
+    let isValid = true;
+    
+    // Validate all fields
+    for (const fieldName of Object.keys(validationRules)) {
+      const value = formData[fieldName] || '';
+      const error = validateFieldValue(fieldName, value);
+      
+      if (error) {
+        newErrors[fieldName] = error;
+        isValid = false;
+      }
+    }
+    
+    setErrors(newErrors);
+    trackApiCall('/api/validateForm', performance.now() - startTime, isValid);
+    
+    return isValid;
+  }, [formData, validationRules, validateFieldValue, trackApiCall]);
+
+  // Memoized actions
+  const setFieldValue = useCallback((fieldName: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  }, []);
+
+  const setFieldError = useCallback((fieldName: string, error: string) => {
+    setErrors(prev => ({
+      ...prev,
+      [fieldName]: error
+    }));
+  }, []);
+
+  const clearFieldError = useCallback((fieldName: string) => {
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  }, []);
+
+  const clearAllErrors = useCallback(() => {
+    setErrors({});
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setFormData(initialData);
+    setErrors({});
+    setIsSubmitting(false);
+  }, [initialData]);
+
+  const validateOnBlur = useCallback((fieldName: string) => {
+    validateField(fieldName);
+  }, [validateField]);
+
+  const validateOnChange = useCallback((fieldName: string, value: string) => {
+    setFieldValue(fieldName, value);
+    
+    // Clear error if field becomes valid
+    if (errors[fieldName]) {
+      const error = validateFieldValue(fieldName, value);
+      if (!error) {
+        clearFieldError(fieldName);
+      }
+    }
+  }, [setFieldValue, errors, validateFieldValue, clearFieldError]);
+
+  const getFieldError = useCallback((fieldName: string): string | null => {
+    return errors[fieldName] || null;
+  }, [errors]);
+
+  return {
+    // State
+    formData,
+    errors,
+    isValid,
+    isSubmitting,
+    
+    // Actions
+    setFieldValue,
+    setFieldError,
+    clearFieldError,
+    clearAllErrors,
+    resetForm,
+    
+    // Validation
+    validateField,
+    validateForm,
+    validateOnBlur,
+    validateOnChange,
+    
+    // Utilities
+    hasErrors,
+    errorCount,
+    getFieldError,
+  };
+}
+
+// Predefined validation rules for common use cases
+export const commonValidationRules = {
+  email: [
+    {
+      test: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      message: 'Please enter a valid email address'
+    },
+    {
+      test: (value: string) => value.length > 0,
+      message: 'Email is required'
+    }
+  ],
+  
+  password: [
+    {
+      test: (value: string) => value.length >= 8,
+      message: 'Password must be at least 8 characters long'
+    },
+    {
+      test: (value: string) => /[A-Z]/.test(value),
+      message: 'Password must contain at least one uppercase letter'
+    },
+    {
+      test: (value: string) => /[a-z]/.test(value),
+      message: 'Password must contain at least one lowercase letter'
+    },
+    {
+      test: (value: string) => /[0-9]/.test(value),
+      message: 'Password must contain at least one number'
+    }
+  ],
+  
+  confirmPassword: [
+    {
+      test: (value: string) => value.length > 0,
+      message: 'Please confirm your password'
+    }
+  ],
+  
+  displayName: [
+    {
+      test: (value: string) => value.length >= 2,
+      message: 'Display name must be at least 2 characters long'
+    },
+    {
+      test: (value: string) => value.length <= 50,
+      message: 'Display name must be less than 50 characters'
+    }
+  ],
+  
+  userName: [
+    {
+      test: (value: string) => value.length >= 2,
+      message: 'User name must be at least 2 characters long'
+    },
+    {
+      test: (value: string) => value.length <= 30,
+      message: 'User name must be less than 30 characters'
+    }
+  ],
+  
+  partnerName: [
+    {
+      test: (value: string) => value.length >= 2,
+      message: 'Partner name must be at least 2 characters long'
+    },
+    {
+      test: (value: string) => value.length <= 50,
+      message: 'Partner name must be less than 50 characters'
+    }
+  ],
+  
+  weddingDate: [
+    {
+      test: (value: string) => value.length > 0,
+      message: 'Wedding date is required'
+    },
+    {
+      test: (value: string) => {
+        const selectedDate = new Date(value);
+        const today = new Date();
+        return selectedDate > today;
+      },
+      message: 'Wedding date must be in the future'
+    }
+  ],
+  
+  maxBudget: [
+    {
+      test: (value: string) => !isNaN(Number(value)) && Number(value) > 0,
+      message: 'Please enter a valid budget amount'
+    },
+    {
+      test: (value: string) => Number(value) <= 1000000,
+      message: 'Budget cannot exceed $1,000,000'
+    }
+  ],
+  
+  guestCount: [
+    {
+      test: (value: string) => !isNaN(Number(value)) && Number(value) > 0,
+      message: 'Please enter a valid guest count'
+    },
+    {
+      test: (value: string) => Number(value) <= 1000,
+      message: 'Guest count cannot exceed 1,000'
+    }
+  ]
+};
+
+// Helper function to create password confirmation validation
+export const createPasswordConfirmationRule = (passwordField: string) => ({
+  test: (value: string, formData: FormState) => value === formData[passwordField],
+  message: 'Passwords do not match'
+});
+
+// Helper function to create custom validation rules
+export const createCustomRule = (test: (value: string) => boolean, message: string): ValidationRule => ({
+  test,
+  message
+}); 

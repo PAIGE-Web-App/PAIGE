@@ -317,8 +317,6 @@ const BudgetContent: React.FC = () => {
                 setEditingCategory(newCategory);
                 setShowCategoryModal(true);
               }}
-              totalSpent={totalSpent}
-              totalBudget={totalBudget || 0}
               budgetItems={[]} // This will be handled by context
             />
 
@@ -473,8 +471,10 @@ const BudgetContent: React.FC = () => {
             }}
             category={editingCategory}
             budgetCategories={budgetCategories}
-            userBudgetRange={budgetRange}
-                         onUpdateBudgetRange={async () => {}} // TODO: Implement
+            userMaxBudget={budgetRange?.max || null}
+            onUpdateMaxBudget={async (newMaxBudget: number) => {
+              // TODO: Implement budget range update
+            }}
             jiggleAllocatedAmount={jiggleAllocatedAmount}
             onSave={(categoryId, updates) => {
               if (categoryId === 'new') {

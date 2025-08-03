@@ -313,8 +313,6 @@ export default function BudgetPage() {
                 setEditingCategory(newCategory);
                 setShowCategoryModal(true);
               }}
-              totalSpent={budget.totalSpent}
-              totalBudget={budget.userTotalBudget || 0}
               budgetItems={budget.budgetItems}
             />
 

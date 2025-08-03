@@ -82,7 +82,7 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({
     selectedCategory,
     totalSpent: budget.totalSpent,
     totalBudget: budget.userTotalBudget,
-    budgetRange: budget.userBudgetRange,
+    budgetRange: budget.userMaxBudget ? { min: budget.userMaxBudget * 0.8, max: budget.userMaxBudget } : null,
     budgetStats: budget.budgetStats,
     
     // Actions
@@ -114,7 +114,7 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({
     selectedCategory,
     budget.totalSpent,
     budget.userTotalBudget,
-    budget.userBudgetRange,
+    budget.userMaxBudget,
     budget.budgetStats,
     budget.handleAddCategory,
     budget.handleEditCategory,

@@ -285,14 +285,26 @@ export default function VendorsPage() {
         .map((id: string) => recentlyViewedVendors.find((v) => v.id === id || v.placeId === id))
         .filter(Boolean);
       
-      // Combine both lists, removing duplicates
-      const allFavs = [...favsFromUserVendors];
-      favsFromRecentlyViewed.forEach(recentlyViewedVendor => {
-        if (!allFavs.some(v => v.id === recentlyViewedVendor.id || v.placeId === recentlyViewedVendor.placeId)) {
-          allFavs.push(recentlyViewedVendor);
+      // Create a map to track unique vendors by placeId (preferred) or id
+      const uniqueVendorsMap = new Map();
+      
+      // Add vendors from user's list first (these are more complete)
+      favsFromUserVendors.forEach(vendor => {
+        const key = vendor.placeId || vendor.id;
+        if (key && !uniqueVendorsMap.has(key)) {
+          uniqueVendorsMap.set(key, vendor);
         }
       });
       
+      // Add vendors from recently viewed only if not already present
+      favsFromRecentlyViewed.forEach(vendor => {
+        const key = vendor.placeId || vendor.id;
+        if (key && !uniqueVendorsMap.has(key)) {
+          uniqueVendorsMap.set(key, vendor);
+        }
+      });
+      
+      const allFavs = Array.from(uniqueVendorsMap.values());
       setFavoriteVendors(allFavs);
     };
     updateFavorites();

@@ -14,11 +14,13 @@ import {
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
+import { useFavorites } from '@/hooks/useFavorites';
 
 export default function MyFavoritesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { weddingLocation } = useUserProfileData();
+  const { favorites, isLoading: favoritesLoading, syncFavorites } = useFavorites();
   
   const [vendors, setVendors] = useState<any[]>([]);
   const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
@@ -33,7 +35,7 @@ export default function MyFavoritesPage() {
 
   const defaultLocation = weddingLocation || 'United States';
 
-  // Helper to get favorite vendor IDs from localStorage
+  // Helper to get favorite vendor IDs from localStorage (for backward compatibility)
   function getFavoriteVendorIds() {
     if (typeof window === 'undefined') return [];
     try {
@@ -46,7 +48,7 @@ export default function MyFavoritesPage() {
   // Update favorite vendors when vendors or favorites change
   useEffect(() => {
     const updateFavorites = () => {
-      const favIds = getFavoriteVendorIds();
+      console.log('🔄 Updating favorites with IDs from hook:', favorites);
       
       // Get recently viewed vendors from localStorage
       const getRecentlyViewedVendors = () => {
@@ -59,24 +61,54 @@ export default function MyFavoritesPage() {
       };
       
       const recentlyViewedVendors = getRecentlyViewedVendors();
+      console.log('📋 Recently viewed vendors:', recentlyViewedVendors.length);
       
       // Find vendor data in user's vendors list
-      const favsFromUserVendors = favIds
+      const favsFromUserVendors = favorites
         .map((id: string) => vendors.find((v) => v.id === id || v.placeId === id))
         .filter(Boolean);
       
+      console.log('🏪 Favorites from user vendors:', favsFromUserVendors.length);
+      
       // Find vendor data in recently viewed vendors list
-      const favsFromRecentlyViewed = favIds
+      const favsFromRecentlyViewed = favorites
         .map((id: string) => recentlyViewedVendors.find((v) => v.id === id || v.placeId === id))
         .filter(Boolean);
       
-      // Combine both lists, removing duplicates
-      const allFavs = [...favsFromUserVendors];
-      favsFromRecentlyViewed.forEach(recentlyViewedVendor => {
-        if (!allFavs.some(v => v.id === recentlyViewedVendor.id || v.placeId === recentlyViewedVendor.placeId)) {
-          allFavs.push(recentlyViewedVendor);
+      console.log('👀 Favorites from recently viewed:', favsFromRecentlyViewed.length);
+      
+      // Create a map to track unique vendors by placeId (preferred) or id
+      const uniqueVendorsMap = new Map();
+      
+      // Add vendors from user's list first (these are more complete)
+      favsFromUserVendors.forEach(vendor => {
+        const key = vendor.placeId || vendor.id;
+        if (key && !uniqueVendorsMap.has(key)) {
+          uniqueVendorsMap.set(key, vendor);
         }
       });
+      
+      // Add vendors from recently viewed only if not already present
+      favsFromRecentlyViewed.forEach(vendor => {
+        const key = vendor.placeId || vendor.id;
+        if (key && !uniqueVendorsMap.has(key)) {
+          uniqueVendorsMap.set(key, vendor);
+        }
+      });
+      
+      const allFavs = Array.from(uniqueVendorsMap.values());
+      console.log('✅ Final unique favorites:', allFavs.length);
+      
+      // Log any potential duplicates for debugging
+      const placeIds = allFavs.map(v => v.placeId).filter(Boolean);
+      const ids = allFavs.map(v => v.id).filter(Boolean);
+      
+      if (placeIds.length !== new Set(placeIds).size) {
+        console.warn('⚠️ Duplicate placeIds found:', placeIds);
+      }
+      if (ids.length !== new Set(ids).size) {
+        console.warn('⚠️ Duplicate IDs found:', ids);
+      }
       
       setFavoriteVendors(allFavs);
     };
@@ -90,7 +122,7 @@ export default function MyFavoritesPage() {
       window.removeEventListener('storage', updateFavorites);
       window.removeEventListener('vendorFavoritesChanged', updateFavorites);
     };
-  }, [vendors]);
+  }, [vendors, favorites]);
 
   // Enhance favorite vendors with unified image handling
   useEffect(() => {
@@ -102,9 +134,30 @@ export default function MyFavoritesPage() {
 
       try {
         console.log('🖼️ Enhancing My Favorites with images:', favoriteVendors.length, 'vendors');
+        
+        // Log vendor details before enhancement for debugging
+        favoriteVendors.forEach((vendor, index) => {
+          console.log(`Vendor ${index + 1}:`, {
+            id: vendor.id,
+            placeId: vendor.placeId,
+            name: vendor.name,
+            image: vendor.image
+          });
+        });
+        
         const enhanced = await enhanceVendorsWithImages(favoriteVendors);
         setEnhancedFavoriteVendors(enhanced);
         console.log('✅ Enhanced My Favorites with images:', enhanced.length, 'vendors');
+        
+        // Log vendor details after enhancement for debugging
+        enhanced.forEach((vendor, index) => {
+          console.log(`Enhanced Vendor ${index + 1}:`, {
+            id: vendor.id,
+            placeId: vendor.placeId,
+            name: vendor.name,
+            image: vendor.image
+          });
+        });
       } catch (error) {
         console.error('Error enhancing favorite vendors with images:', error);
         setEnhancedFavoriteVendors(favoriteVendors);
@@ -113,6 +166,10 @@ export default function MyFavoritesPage() {
 
     enhanceFavorites();
   }, [favoriteVendors]);
+
+  // Check if sync is needed
+  const localFavorites = getFavoriteVendorIds();
+  const needsSync = localFavorites.length > 0 && favorites.length === 0 && !favoritesLoading;
 
   // Filtered, searched, and sorted favorites
   const filteredFavorites = useMemo(() => {
@@ -184,7 +241,7 @@ export default function MyFavoritesPage() {
         // Count categories for favorites
         const counts: Record<string, number> = {};
         sortedVendors.forEach((vendor) => {
-          if (vendor.category && getFavoriteVendorIds().includes(vendor.id)) {
+          if (vendor.category && favorites.includes(vendor.id)) {
             counts[vendor.category] = (counts[vendor.category] || 0) + 1;
           }
         });
@@ -255,7 +312,7 @@ export default function MyFavoritesPage() {
               My Favorites
             </h1>
             <span className="text-sm text-[#7A7A7A]">
-              {enhancedFavoriteVendors.length > 0 ? enhancedFavoriteVendors.length : favoriteVendors.length} favorite{enhancedFavoriteVendors.length > 0 ? (enhancedFavoriteVendors.length !== 1 ? 's' : '') : (favoriteVendors.length !== 1 ? 's' : '')}
+              {favorites.length} favorite{favorites.length !== 1 ? 's' : ''}
             </span>
           </div>
           <button
@@ -266,6 +323,45 @@ export default function MyFavoritesPage() {
           </button>
         </div>
       </div>
+
+      {/* Sync Banner */}
+      {needsSync && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-300 border-l-4 border-l-yellow-400 p-4 rounded-md">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Sync Your Favorites
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  We found {localFavorites.length} favorite(s) in your browser that haven't been synced to your account. 
+                  Click the button below to sync them and access them across all your devices.
+                </p>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={syncFavorites}
+                  className="bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  Sync Favorites
+                </button>
+                <a
+                  href="/fix-favorites"
+                  target="_blank"
+                  className="text-yellow-700 bg-yellow-100 px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  Need Help?
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter Bar */}
       <div className="mb-6 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">

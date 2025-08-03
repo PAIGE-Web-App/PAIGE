@@ -1,0 +1,488 @@
+"use client";
+import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAllVendors } from '@/lib/getContacts';
+import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
+import type { Contact } from '@/types/contact';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
+import CategoryPill from '@/components/CategoryPill';
+import { useRouter } from 'next/navigation';
+import EditContactModal from '@/components/EditContactModal';
+import { toast } from 'react-hot-toast';
+import WeddingBanner from '@/components/WeddingBanner';
+import { useWeddingBanner } from '@/hooks/useWeddingBanner';
+import SectionHeaderBar from '@/components/SectionHeaderBar';
+import BadgeCount from '@/components/BadgeCount';
+import Banner from '@/components/Banner';
+import VendorSkeleton from '@/components/VendorSkeleton';
+import { Mail, Phone } from 'lucide-react';
+import SearchBar from '@/components/SearchBar';
+import FilterButtonPopover from '@/components/FilterButtonPopover';
+import { highlightText } from '@/utils/searchHighlight';
+import AddContactModal from '@/components/AddContactModal';
+import DropdownMenu from '@/components/DropdownMenu';
+import { MoreHorizontal } from 'lucide-react';
+import VendorCatalogCard from '@/components/VendorCatalogCard';
+import { 
+  convertVendorToCatalogFormat,
+  mapGoogleTypesToCategory
+} from '@/utils/vendorUtils';
+import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection';
+import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
+import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
+import VendorTabs from '@/components/VendorTabs';
+import { useVendorDataOptimized } from '@/hooks/useVendorDataOptimized';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import dynamic from 'next/dynamic';
+
+// Dynamic imports for client-side only components
+const FixedSizeList = dynamic(() => import('react-window').then(mod => mod.FixedSizeList), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+});
+
+// Memoized Components
+const ConfirmOfficialModal = React.memo<{ 
+  open: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void; 
+  vendorName: string; 
+  category: string; 
+  action: 'star' | 'unstar'; 
+}>(({ open, onClose, onConfirm, vendorName, category, action }) => {
+  if (!open) return null;
+  
+  const isStarring = action === 'star';
+  const title = isStarring ? 'Set as Official Vendor?' : 'Unmark as Official Vendor?';
+  const message = isStarring 
+    ? `Are you sure you want to set ${vendorName} as your official ${category}? This will unmark any other vendor in this category.`
+    : `Are you sure you want to unmark ${vendorName} as your official ${category}?`;
+  const confirmText = isStarring ? 'Confirm' : 'Unmark';
+  
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -50, opacity: 0 }}
+          className="bg-white rounded-[5px] shadow-xl max-w-xl w-full max-w-sm p-6 relative flex flex-col items-center"
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+            title="Close"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="font-playfair text-xl font-semibold text-[#332B42] mb-4 text-center">{title}</h3>
+          <p className="text-sm text-gray-600 mb-6 text-center">
+            {message}
+          </p>
+          <div className="flex justify-center w-full gap-2">
+            <button
+              onClick={onClose}
+              className="btn-primaryinverse px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              {confirmText}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+});
+
+ConfirmOfficialModal.displayName = 'ConfirmOfficialModal';
+
+const LoadingState = React.memo(() => (
+  <div className="flex-1 flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-8 h-8 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-sm text-[#AB9C95]">Loading vendors...</p>
+    </div>
+  </div>
+));
+
+LoadingState.displayName = 'LoadingState';
+
+const EmptyState = React.memo<{ onAddVendor: () => void }>(({ onAddVendor }) => (
+  <div className="flex-1 flex items-center justify-center">
+    <div className="text-center max-w-md">
+      <div className="w-32 h-32 mx-auto mb-6 bg-[#F8F6F4] rounded-full flex items-center justify-center">
+        <span className="text-4xl">🏢</span>
+      </div>
+      
+      <button
+        onClick={onAddVendor}
+        className="bg-[#332B42] text-white px-6 py-3 rounded-[5px] font-semibold mb-4 hover:bg-[#2A2335] transition-colors flex items-center gap-2 mx-auto"
+      >
+        <span>+</span>
+        Add Vendor
+      </button>
+      
+      <p className="text-sm text-[#AB9C95] mb-2">
+        Start building your vendor network by adding your first vendor.
+      </p>
+    </div>
+  </div>
+));
+
+EmptyState.displayName = 'EmptyState';
+
+// Virtualized Vendor List Component
+const VirtualizedVendorList = React.memo<{
+  vendors: any[];
+  searchQuery: string;
+  selectedCategory: string | null;
+  onVendorClick: (vendor: any) => void;
+  onSetOfficial: (vendor: any) => void;
+  onUnsetOfficial: (vendor: any) => void;
+  onEditVendor: (vendor: any) => void;
+  onDeleteVendor: (vendor: any) => void;
+}>(({ vendors, searchQuery, selectedCategory, onVendorClick, onSetOfficial, onUnsetOfficial, onEditVendor, onDeleteVendor }) => {
+  const ITEM_HEIGHT = 200; // Approximate height of each vendor card
+  const CONTAINER_HEIGHT = 600; // Fixed container height
+
+  // Memoized filtered vendors
+  const filteredVendors = useMemo(() => {
+    let filtered = vendors;
+    
+    // Filter by category
+    if (selectedCategory && selectedCategory !== 'All') {
+      filtered = filtered.filter(vendor => vendor.category === selectedCategory);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(vendor => 
+        vendor.name?.toLowerCase().includes(query) ||
+        vendor.category?.toLowerCase().includes(query) ||
+        vendor.address?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [vendors, selectedCategory, searchQuery]);
+
+  const VirtualizedItem = React.memo<{ index: number; style: React.CSSProperties; data: any }>(({ index, style, data }) => {
+    const vendor = data.vendors[index];
+    if (!vendor) return null;
+
+    return (
+      <div style={style} className="p-2">
+        <VendorCatalogCard
+          vendor={vendor}
+          onShowContactModal={() => data.onShowContactModal(vendor)}
+          onShowFlagModal={() => data.onShowFlagModal(vendor)}
+          location={data.location}
+          category={data.selectedCategory}
+        />
+      </div>
+    );
+  });
+
+  VirtualizedItem.displayName = 'VirtualizedItem';
+
+  const listData = useMemo(() => ({
+    vendors: filteredVendors,
+    onVendorClick,
+    onSetOfficial,
+    onUnsetOfficial,
+    onEditVendor,
+    onDeleteVendor,
+  }), [filteredVendors, onVendorClick, onSetOfficial, onUnsetOfficial, onEditVendor, onDeleteVendor]);
+
+  if (filteredVendors.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-sm text-[#AB9C95]">No vendors found matching your criteria.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1">
+      <FixedSizeList
+        height={CONTAINER_HEIGHT}
+        width="100%"
+        itemCount={filteredVendors.length}
+        itemSize={ITEM_HEIGHT}
+        itemData={listData}
+        overscanCount={3}
+      >
+        {VirtualizedItem}
+      </FixedSizeList>
+    </div>
+  );
+});
+
+VirtualizedVendorList.displayName = 'VirtualizedVendorList';
+
+// Main Vendors Page Component
+const VendorsPageContent: React.FC = () => {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { trackApiCall } = usePerformanceMonitor('VendorsPage');
+  const { vendors, recentlyViewedVendors, favoriteVendors, isLoading, error, refreshVendors, refreshRecentlyViewed, refreshFavorites, vendorsByCategory, vendorCategories, totalVendors, } = useVendorDataOptimized();
+  
+  // State
+  const [activeTab, setActiveTab] = useState<'all' | 'favorites' | 'recent'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortOption, setSortOption] = useState('recent');
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<any>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: string; vendor: any } | null>(null);
+  
+  // Search and filter state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Memoized computed values
+  const filteredVendors = useMemo(() => {
+    let filtered = vendors;
+    
+    if (activeTab === 'favorites') {
+      filtered = favoriteVendors;
+    } else if (activeTab === 'recent') {
+      filtered = recentlyViewedVendors;
+    }
+    
+    if (searchQuery) {
+      filtered = filtered.filter(vendor => 
+        vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vendor.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vendor.mainTypeLabel?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(vendor => vendor.mainTypeLabel === selectedCategory);
+    }
+    
+    return filtered;
+  }, [vendors, favoriteVendors, recentlyViewedVendors, activeTab, searchQuery, selectedCategory]);
+
+  // Memoized handlers
+  const handleVendorClick = useCallback((vendor: any) => {
+    trackApiCall('/api/vendorClick', 0, true);
+    router.push(`/vendors/${vendor.id}`);
+  }, [router, trackApiCall]);
+
+  const handleSetOfficial = useCallback((vendor: any) => {
+    setConfirmAction({ type: 'setOfficial', vendor });
+    setShowConfirmModal(true);
+  }, []);
+
+  const handleUnsetOfficial = useCallback((vendor: any) => {
+    setConfirmAction({ type: 'unsetOfficial', vendor });
+    setShowConfirmModal(true);
+  }, []);
+
+  const handleEditVendor = useCallback((vendor: any) => {
+    setEditingVendor(vendor);
+    setShowEditModal(true);
+  }, []);
+
+  const handleDeleteVendor = useCallback((vendor: any) => {
+    setConfirmAction({ type: 'delete', vendor });
+    setShowConfirmModal(true);
+  }, []);
+
+  const handleConfirmAction = useCallback(async () => {
+    if (!confirmAction || !user) return;
+    
+    const startTime = performance.now();
+    try {
+      switch (confirmAction.type) {
+        case 'setOfficial':
+          // Handle set official logic
+          break;
+        case 'unsetOfficial':
+          // Handle unset official logic
+          break;
+        case 'delete':
+          // Handle delete logic
+          break;
+      }
+      trackApiCall(`/api/${confirmAction.type}`, performance.now() - startTime, true);
+    } catch (error) {
+      trackApiCall(`/api/${confirmAction.type}`, performance.now() - startTime, false);
+    } finally {
+      setShowConfirmModal(false);
+      setConfirmAction(null);
+    }
+  }, [confirmAction, user, trackApiCall]);
+
+  const handleSortOptionSelect = useCallback((option: string) => {
+    setSortOption(option);
+  }, []);
+
+  const handleShowContactModal = useCallback((vendor: any) => {
+    // Handle contact modal logic
+  }, []);
+
+  const handleShowFlagModal = useCallback((vendor: any) => {
+    // Handle flag modal logic
+  }, []);
+
+  const handleTabChange = useCallback((tabKey: string) => {
+    setActiveTab(tabKey as 'all' | 'favorites' | 'recent');
+  }, []);
+
+  const handleCategorySelect = useCallback((categories: string[]) => {
+    setSelectedCategory(categories[0] || null);
+  }, []);
+
+  // Loading states
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F3F2F0]">
+      <div className="app-content-container">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-playfair font-semibold text-[#332B42]">Vendors</h1>
+          <button
+            onClick={() => setShowAddVendorModal(true)}
+            className="btn-primary px-4 py-2 rounded-[5px] font-semibold text-sm"
+          >
+            Add Vendor
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <VendorTabs
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          myVendorsCount={totalVendors}
+          favoritesCount={favoriteVendors.length}
+        />
+
+        {/* Search and Filters */}
+        <div className="flex gap-4 mb-6">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search vendors..."
+            isOpen={isSearchOpen}
+            setIsOpen={setIsSearchOpen}
+          />
+          <FilterButtonPopover
+            selectedCategories={selectedCategory ? [selectedCategory] : []}
+            onSelectCategories={handleCategorySelect}
+            categories={vendorCategories}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+          />
+          <DropdownMenu
+            trigger={
+              <button className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1">
+                Sort: {sortOption}
+              </button>
+            }
+            items={[
+              { 
+                label: 'Most Recent', 
+                onClick: () => handleSortOptionSelect('recent') 
+              },
+              { 
+                label: 'Name A-Z', 
+                onClick: () => handleSortOptionSelect('name') 
+              },
+              { 
+                label: 'Category', 
+                onClick: () => handleSortOptionSelect('category') 
+              },
+            ]}
+          />
+        </div>
+
+        {/* Vendor List */}
+        {isLoading ? (
+          <LoadingState />
+        ) : filteredVendors.length === 0 ? (
+          <EmptyState onAddVendor={() => setShowAddVendorModal(true)} />
+        ) : (
+          <VirtualizedVendorList
+            vendors={filteredVendors}
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+            onVendorClick={handleVendorClick}
+            onSetOfficial={handleSetOfficial}
+            onUnsetOfficial={handleUnsetOfficial}
+            onEditVendor={handleEditVendor}
+            onDeleteVendor={handleDeleteVendor}
+          />
+        )}
+
+        {/* Modals */}
+        {showEditModal && editingVendor && (
+          <EditContactModal
+            contact={editingVendor}
+            userId={user.uid}
+            onSave={async (contactData) => {
+              // Handle save logic
+              setShowEditModal(false);
+              setEditingVendor(null);
+            }}
+            onDelete={async (deletedId) => {
+              // Handle delete logic
+              setShowEditModal(false);
+              setEditingVendor(null);
+            }}
+            onClose={() => {
+              setShowEditModal(false);
+              setEditingVendor(null);
+            }}
+          />
+        )}
+
+        {showConfirmModal && confirmAction && (
+          <ConfirmOfficialModal
+            open={showConfirmModal}
+            onClose={() => setShowConfirmModal(false)}
+            onConfirm={handleConfirmAction}
+            vendorName={confirmAction.vendor.name}
+            category={confirmAction.vendor.mainTypeLabel}
+            action={confirmAction.type as 'star' | 'unstar'}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Main Vendors Page with Suspense
+export default function VendorsPageOptimized() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <VendorsPageContent />
+    </Suspense>
+  );
+} 

@@ -1,0 +1,437 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useCustomToast } from './useCustomToast';
+import { useAuth } from './useAuth';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  getDocs,
+  Timestamp,
+  limit,
+} from 'firebase/firestore';
+import { getUserCollectionRef, db } from '@/lib/firebase';
+import { saveCategoryIfNew } from '@/lib/firebaseCategories';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import type { TodoList } from '@/types/todo';
+
+const STARTER_TIER_MAX_LISTS = 3;
+
+// Memoized date processing function
+const processDate = (dateField: any): Date | undefined => {
+  if (!dateField) return undefined;
+  if (typeof dateField.toDate === 'function') return dateField.toDate();
+  if (dateField instanceof Date) return dateField;
+  return undefined;
+};
+
+// Memoized todo list data transformation
+const transformTodoListData = (doc: any): TodoList => {
+  const data = doc.data() as {
+    name: string;
+    order: number;
+    userId: string;
+    createdAt: any;
+    orderIndex: number;
+  };
+  return {
+    id: doc.id,
+    name: data.name,
+    order: data.order || 0,
+    userId: data.userId,
+    createdAt: processDate(data.createdAt) || new Date(),
+    orderIndex: data.orderIndex || 0,
+  };
+};
+
+export function useTodoListsOptimized() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { trackApiCall } = usePerformanceMonitor('TodoLists');
+
+  // State for todo lists
+  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
+  const [selectedList, setSelectedList] = useState<TodoList | null>(null);
+  const [newListName, setNewListName] = useState('');
+  const [showNewListInput, setShowNewListInput] = useState(false);
+
+  // State for renaming lists
+  const [editingListNameId, setEditingListNameId] = useState<string | null>(null);
+  const [editingListNameValue, setEditingListNameValue] = useState<string | null>(null);
+
+  // State for list menu dropdown
+  const [openListMenuId, setOpenListMenuId] = useState<string | null>(null);
+  const [selectedTodoListForMenu, setSelectedTodoListForMenu] = useState<TodoList | null>(null);
+  const listMenuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // State for deletion
+  const [showDeleteListModal, setShowDeleteListModal] = useState(false);
+  const [listToConfirmDelete, setListToConfirmDelete] = useState<TodoList | null>(null);
+  const [deletingListId, setDeletingListId] = useState<string | null>(null);
+  const [pendingDeleteListId, setPendingDeleteListId] = useState<string | null>(null);
+
+  // State for upgrade modal
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showListLimitBanner, setShowListLimitBanner] = useState<boolean>(true);
+
+  // State for explicit all selection
+  const [explicitAllSelected, setExplicitAllSelected] = useState(false);
+
+  // Memoized computed values
+  const sortedTodoLists = useMemo(() => {
+    return [...todoLists].sort((a, b) => {
+      // First sort by orderIndex
+      if (a.orderIndex !== b.orderIndex) {
+        return a.orderIndex - b.orderIndex;
+      }
+      // Then by creation date
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+  }, [todoLists]);
+
+  const canCreateNewList = useMemo(() => {
+    return todoLists.length < STARTER_TIER_MAX_LISTS;
+  }, [todoLists.length]);
+
+  const listCount = useMemo(() => {
+    return todoLists.length;
+  }, [todoLists.length]);
+
+  // Effect to handle URL params for "all" selection
+  useEffect(() => {
+    if (searchParams && searchParams.get('all') === '1') {
+      setSelectedList(null);
+      setExplicitAllSelected(true);
+    }
+  }, [searchParams]);
+
+  // Effect to handle pending delete
+  useEffect(() => {
+    if (pendingDeleteListId) {
+      console.log('[useEffect] pendingDeleteListId changed:', pendingDeleteListId);
+      handleDeleteList(pendingDeleteListId);
+      setPendingDeleteListId(null);
+    }
+  }, [pendingDeleteListId]);
+
+  // Optimized fetch todo lists with pagination
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('User authenticated:', user.uid);
+    const q = query(
+      getUserCollectionRef('todoLists', user.uid),
+      where('userId', '==', user.uid),
+      orderBy('orderIndex', 'asc'),
+      orderBy('createdAt', 'asc'),
+      limit(50) // Limit for better performance
+    );
+
+    const unsubscribeLists = onSnapshot(q, (snapshot) => {
+      const lists: TodoList[] = snapshot.docs.map(transformTodoListData);
+      setTodoLists(lists);
+
+      // Auto-select first list if none selected and not explicitly showing all
+      if (!selectedList && lists.length > 0 && !explicitAllSelected) {
+        setSelectedList(lists[0]);
+      }
+    }, (error) => {
+      console.error('Error fetching todo lists:', error);
+      showErrorToast('Failed to load todo lists');
+    });
+
+    return () => unsubscribeLists();
+  }, [user, selectedList, explicitAllSelected, showErrorToast]);
+
+  // Memoized handlers
+  const handleAddList = useCallback(async (nameOrEvent: string | React.MouseEvent, tasks?: any[]) => {
+    if (!user) return;
+
+    const startTime = performance.now();
+    try {
+      let listName: string;
+      
+      if (typeof nameOrEvent === 'string') {
+        listName = nameOrEvent;
+      } else {
+        // Handle event case
+        listName = newListName.trim();
+        if (!listName) {
+          showErrorToast('Please enter a list name');
+          return;
+        }
+      }
+
+      // Check if user can create more lists
+      if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
+        setShowUpgradeModal(true);
+        return;
+      }
+
+      // Create the list
+      const newListData = {
+        name: listName,
+        userId: user.uid,
+        order: todoLists.length,
+        orderIndex: todoLists.length,
+        createdAt: new Date(),
+      };
+
+      const docRef = await addDoc(getUserCollectionRef('todoLists', user.uid), newListData);
+      
+      // If tasks were provided, add them to the new list
+      if (tasks && tasks.length > 0) {
+        const batch = writeBatch(db);
+        
+        tasks.forEach((task, index) => {
+          const taskRef = doc(getUserCollectionRef('todoItems', user.uid));
+          batch.set(taskRef, {
+            listId: docRef.id,
+            userId: user.uid,
+            name: task.name,
+            isCompleted: false,
+            orderIndex: index,
+            createdAt: new Date(),
+            category: task.category || '',
+            note: task.note || '',
+            deadline: task.deadline ? new Date(task.deadline) : null,
+          });
+        });
+        
+        await batch.commit();
+      }
+
+      setNewListName('');
+      setShowNewListInput(false);
+      setSelectedList({ id: docRef.id, name: newListData.name, order: newListData.order, userId: newListData.userId, createdAt: newListData.createdAt, orderIndex: newListData.orderIndex });
+      showSuccessToast(`List "${listName}" created successfully!`);
+      
+      trackApiCall('/api/addTodoList', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error adding todo list:', error);
+      showErrorToast('Failed to create list');
+      trackApiCall('/api/addTodoList', performance.now() - startTime, false);
+    }
+  }, [user, todoLists.length, newListName, selectedList, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const handleUpdateListName = useCallback(async (listId: string, newName: string) => {
+    if (!user) return;
+
+    const startTime = performance.now();
+    try {
+      const listRef = doc(getUserCollectionRef('todoLists', user.uid), listId);
+      await updateDoc(listRef, {
+        name: newName.trim(),
+      });
+
+      setEditingListNameId(null);
+      setEditingListNameValue(null);
+      showSuccessToast('List name updated successfully!');
+      
+      trackApiCall('/api/updateTodoListName', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error updating list name:', error);
+      showErrorToast('Failed to update list name');
+      trackApiCall('/api/updateTodoListName', performance.now() - startTime, false);
+    }
+  }, [user, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const executeDeleteList = useCallback(async (listId: string) => {
+    if (!user) return;
+
+    const startTime = performance.now();
+    try {
+      setDeletingListId(listId);
+      
+      // Delete the list
+      await deleteDoc(doc(getUserCollectionRef('todoLists', user.uid), listId));
+      
+      // Delete all todo items in this list
+      const itemsQuery = query(
+        getUserCollectionRef('todoItems', user.uid),
+        where('listId', '==', listId)
+      );
+      const itemsSnapshot = await getDocs(itemsQuery);
+      
+      if (!itemsSnapshot.empty) {
+        const batch = writeBatch(db);
+        itemsSnapshot.docs.forEach((itemDoc) => {
+          batch.delete(itemDoc.ref);
+        });
+        await batch.commit();
+      }
+
+      // Update selected list if it was the deleted one
+      if (selectedList?.id === listId) {
+        const remainingLists = todoLists.filter(list => list.id !== listId);
+        setSelectedList(remainingLists.length > 0 ? remainingLists[0] : null);
+      }
+
+      setDeletingListId(null);
+      setShowDeleteListModal(false);
+      setListToConfirmDelete(null);
+      showSuccessToast('List deleted successfully!');
+      
+      trackApiCall('/api/deleteTodoList', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error deleting list:', error);
+      setDeletingListId(null);
+      showErrorToast('Failed to delete list');
+      trackApiCall('/api/deleteTodoList', performance.now() - startTime, false);
+    }
+  }, [user, selectedList, todoLists, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const handleDeleteList = useCallback(async (listId: string) => {
+    const listToDelete = todoLists.find(list => list.id === listId);
+    if (listToDelete) {
+      setListToConfirmDelete(listToDelete);
+      setShowDeleteListModal(true);
+    }
+  }, [todoLists]);
+
+  const handleRenameList = useCallback(async (listId: string) => {
+    const list = todoLists.find(l => l.id === listId);
+    if (list && editingListNameValue && editingListNameValue.trim() !== list.name) {
+      await handleUpdateListName(listId, editingListNameValue);
+    } else {
+      setEditingListNameId(null);
+      setEditingListNameValue(null);
+    }
+  }, [todoLists, editingListNameValue, handleUpdateListName]);
+
+  const handleCloneList = useCallback(async (listId: string) => {
+    if (!user) return;
+
+    const startTime = performance.now();
+    try {
+      const listToClone = todoLists.find(list => list.id === listId);
+      if (!listToClone) {
+        showErrorToast('List not found');
+        return;
+      }
+
+      // Check if user can create more lists
+      if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
+        setShowUpgradeModal(true);
+        return;
+      }
+
+      // Create new list
+      const newListData = {
+        name: `${listToClone.name} (Copy)`,
+        userId: user.uid,
+        order: todoLists.length,
+        orderIndex: todoLists.length,
+        createdAt: new Date(),
+      };
+
+      const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), newListData);
+
+      // Clone all items from the original list
+      const itemsQuery = query(
+        getUserCollectionRef('todoItems', user.uid),
+        where('listId', '==', listId),
+        orderBy('orderIndex', 'asc')
+      );
+      const itemsSnapshot = await getDocs(itemsQuery);
+
+      if (!itemsSnapshot.empty) {
+        const batch = writeBatch(db);
+        itemsSnapshot.docs.forEach((itemDoc, index) => {
+          const itemData = itemDoc.data() as any;
+          const newItemRef = doc(getUserCollectionRef('todoItems', user.uid));
+          batch.set(newItemRef, {
+            listId: newListRef.id,
+            orderIndex: index,
+            createdAt: new Date(),
+            isCompleted: false, // Reset completion status
+            name: itemData.name,
+            userId: itemData.userId,
+            category: itemData.category,
+            note: itemData.note,
+            deadline: itemData.deadline,
+          });
+        });
+        await batch.commit();
+      }
+
+      setSelectedList({ id: newListRef.id, name: newListData.name, order: newListData.order, userId: newListData.userId, createdAt: newListData.createdAt, orderIndex: newListData.orderIndex });
+      showSuccessToast(`List "${listToClone.name}" cloned successfully!`);
+      
+      trackApiCall('/api/cloneTodoList', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error cloning list:', error);
+      showErrorToast('Failed to clone list');
+      trackApiCall('/api/cloneTodoList', performance.now() - startTime, false);
+    }
+  }, [user, todoLists, selectedList, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const selectAllItems = useCallback(() => {
+    setSelectedList(null);
+    setExplicitAllSelected(true);
+    router.push('/todo?all=1');
+  }, [router]);
+
+  const selectList = useCallback((list: TodoList) => {
+    setSelectedList(list);
+    setExplicitAllSelected(false);
+    router.push('/todo');
+  }, [router]);
+
+  return {
+    // State
+    todoLists: sortedTodoLists,
+    selectedList,
+    newListName,
+    showNewListInput,
+    editingListNameId,
+    editingListNameValue,
+    openListMenuId,
+    selectedTodoListForMenu,
+    showDeleteListModal,
+    listToConfirmDelete,
+    deletingListId,
+    showUpgradeModal,
+    showListLimitBanner,
+    explicitAllSelected,
+
+    // Computed values
+    canCreateNewList,
+    listCount,
+
+    // Setters
+    setNewListName,
+    setShowNewListInput,
+    setEditingListNameId,
+    setEditingListNameValue,
+    setOpenListMenuId,
+    setSelectedTodoListForMenu,
+    setShowDeleteListModal,
+    setListToConfirmDelete,
+    setShowUpgradeModal,
+    setShowListLimitBanner,
+
+    // Handlers
+    handleAddList,
+    handleUpdateListName,
+    handleDeleteList,
+    handleRenameList,
+    handleCloneList,
+    executeDeleteList,
+    selectAllItems,
+    selectList,
+
+    // Refs
+    listMenuButtonRefs,
+  };
+} 

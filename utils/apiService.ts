@@ -1,4 +1,4 @@
-import { withPerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
+import { debounce } from 'lodash';
 
 // API Service for centralized request management
 interface ApiRequest {
@@ -16,8 +16,8 @@ class ApiService {
   private readonly CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
   private readonly BATCH_DELAY = 50; // 50ms
 
-  // Single request with caching and performance monitoring
-  request = withPerformanceMonitoring(async <T>(url: string, options?: RequestInit): Promise<T> => {
+  // Single request with caching
+  request = async <T>(url: string, options?: RequestInit): Promise<T> => {
     const cacheKey = `${url}-${JSON.stringify(options)}`;
     
     // Check cache first
@@ -52,7 +52,7 @@ class ApiService {
       console.error(`API request failed for ${url}:`, error);
       throw error;
     }
-  }, 'api-request');
+  };
 
   // Batch multiple requests
   async batchRequest<T>(requests: Array<{ id: string; url: string; options?: RequestInit }>): Promise<Map<string, T>> {

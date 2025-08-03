@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ChevronDown } from 'lucide-react';
+import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -30,8 +31,13 @@ export default function Login() {
     email: string;
     name: string;
     picture: string;
+    userId?: string;
   } | null>(null);
   const [detectingGoogleAccount, setDetectingGoogleAccount] = useState(true);
+  
+  // Gmail re-authentication state
+  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
+  const [checkingGmailAuth, setCheckingGmailAuth] = useState(false);
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -63,7 +69,7 @@ export default function Login() {
 
   // Detect if user is already signed into Google
   useEffect(() => {
-    const detectGoogleAccount = () => {
+    const detectGoogleAccount = async () => {
       try {
         setDetectingGoogleAccount(true);
         
@@ -72,13 +78,22 @@ export default function Login() {
         const lastGoogleEmail = localStorage.getItem('lastGoogleEmail');
         const lastGoogleName = localStorage.getItem('lastGoogleName');
         const lastGooglePicture = localStorage.getItem('lastGooglePicture');
+        const lastGoogleUserId = localStorage.getItem('lastGoogleUserId');
         
         if (lastSignInMethod === 'google' && lastGoogleEmail) {
-          setGoogleAccount({
+          const accountInfo = {
             email: lastGoogleEmail,
             name: lastGoogleName || lastGoogleEmail.split('@')[0],
-            picture: lastGooglePicture || ''
-          });
+            picture: lastGooglePicture || '',
+            userId: lastGoogleUserId || undefined
+          };
+          
+          setGoogleAccount(accountInfo);
+          
+          // Check Gmail authentication status if we have a user ID
+          if (lastGoogleUserId) {
+            await checkGmailAuthStatus(lastGoogleUserId);
+          }
         }
       } catch (error) {
         console.log('Error detecting Google account:', error);
@@ -91,6 +106,28 @@ export default function Login() {
   }, []);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Check Gmail authentication status
+  const checkGmailAuthStatus = async (userId: string) => {
+    try {
+      setCheckingGmailAuth(true);
+      const response = await fetch('/api/check-gmail-auth-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.needsReauth) {
+        setShowGmailReauthBanner(true);
+      }
+    } catch (error) {
+      console.error('Error checking Gmail auth status:', error);
+    } finally {
+      setCheckingGmailAuth(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +200,7 @@ export default function Login() {
         localStorage.setItem('lastGoogleEmail', result.user.email || '');
         localStorage.setItem('lastGoogleName', result.user.displayName || '');
         localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
+        localStorage.setItem('lastGoogleUserId', result.user.uid);
       }
       
       const idToken = await result.user.getIdToken();
@@ -227,14 +265,35 @@ export default function Login() {
   // Function to clear Google account and switch to email sign-in
   const handleSwitchToEmail = () => {
     setGoogleAccount(null);
+    setShowGmailReauthBanner(false);
     // Clear stored Google account data
     if (typeof window !== 'undefined') {
       localStorage.removeItem('lastSignInMethod');
       localStorage.removeItem('lastGoogleEmail');
       localStorage.removeItem('lastGoogleName');
       localStorage.removeItem('lastGooglePicture');
+      localStorage.removeItem('lastGoogleUserId');
     }
   };
+
+  // Handle Gmail re-authentication success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gmailAuth = params.get('gmailAuth');
+    const userId = params.get('userId');
+
+    if (gmailAuth === 'success' && userId) {
+      // Clear URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Hide the reauth banner
+      setShowGmailReauthBanner(false);
+      
+      // Show success toast
+      toast.success('Gmail re-authentication successful! You can now log in.');
+    }
+  }, []);
 
   // State to control whether to show email form
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -262,6 +321,20 @@ export default function Login() {
           <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-center w-full">
             Log in to your Paige account
           </h4>
+
+                    {/* Gmail Re-authentication Banner */}
+                    {showGmailReauthBanner && (
+                      <div className="w-full mb-4">
+                        <GmailLoginReauthBanner
+                          onReauth={() => {
+                            // The banner will handle opening the re-auth window
+                          }}
+                          onDismiss={() => {
+                            setShowGmailReauthBanner(false);
+                          }}
+                        />
+                      </div>
+                    )}
 
                     <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
               {/* Only show email/password form if no Google account detected OR user clicked "Sign in with email" */}
@@ -305,7 +378,7 @@ export default function Login() {
                 </>
               )}
               {/* LinkedIn-style Google Account Button */}
-              {detectingGoogleAccount ? (
+              {detectingGoogleAccount || checkingGmailAuth ? (
                 <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
                   <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
                 </div>

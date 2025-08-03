@@ -1,175 +1,253 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
-interface PerformanceMetric {
-  name: string;
-  startTime: number;
-  endTime?: number;
-  duration?: number;
-  success: boolean;
-  error?: string;
+interface PerformanceMetrics {
+  firstContentfulPaint: number;
+  largestContentfulPaint: number;
+  firstInputDelay: number;
+  cumulativeLayoutShift: number;
+  timeToInteractive: number;
+  domContentLoaded: number;
+  loadComplete: number;
 }
 
-interface PerformanceStats {
-  totalCalls: number;
-  averageDuration: number;
-  successRate: number;
-  slowestCall: number;
-  fastestCall: number;
+interface ComponentMetrics {
+  renderTime: number;
+  reRenderCount: number;
+  memoryUsage?: number;
 }
 
 class PerformanceMonitor {
-  private metrics: PerformanceMetric[] = [];
-  private readonly MAX_METRICS = 1000; // Keep last 1000 metrics
+  private metrics: PerformanceMetrics = {
+    firstContentfulPaint: 0,
+    largestContentfulPaint: 0,
+    firstInputDelay: 0,
+    cumulativeLayoutShift: 0,
+    timeToInteractive: 0,
+    domContentLoaded: 0,
+    loadComplete: 0,
+  };
 
-  startTimer(name: string): string {
-    const id = `${name}-${Date.now()}-${Math.random()}`;
-    this.metrics.push({
-      name,
-      startTime: performance.now(),
-      success: false
+  private componentMetrics = new Map<string, ComponentMetrics>();
+  private observers: PerformanceObserver[] = [];
+
+  constructor() {
+    this.initializeObservers();
+  }
+
+  private initializeObservers() {
+    // First Contentful Paint
+    if ('PerformanceObserver' in window) {
+      try {
+        const fcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const fcpEntry = entries.find(entry => entry.name === 'first-contentful-paint');
+          if (fcpEntry) {
+            this.metrics.firstContentfulPaint = fcpEntry.startTime;
+            console.log('🚀 First Contentful Paint:', fcpEntry.startTime, 'ms');
+          }
+        });
+        fcpObserver.observe({ entryTypes: ['paint'] });
+        this.observers.push(fcpObserver);
+      } catch (error) {
+        console.warn('FCP observer not supported:', error);
+      }
+
+      // Largest Contentful Paint
+      try {
+        const lcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const lcpEntry = entries[entries.length - 1];
+          if (lcpEntry) {
+            this.metrics.largestContentfulPaint = lcpEntry.startTime;
+            console.log('🎯 Largest Contentful Paint:', lcpEntry.startTime, 'ms');
+          }
+        });
+        lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+        this.observers.push(lcpObserver);
+      } catch (error) {
+        console.warn('LCP observer not supported:', error);
+      }
+
+      // First Input Delay
+      try {
+        const fidObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          entries.forEach((entry: any) => {
+            this.metrics.firstInputDelay = entry.processingStart - entry.startTime;
+            console.log('⚡ First Input Delay:', this.metrics.firstInputDelay, 'ms');
+          });
+        });
+        fidObserver.observe({ entryTypes: ['first-input'] });
+        this.observers.push(fidObserver);
+      } catch (error) {
+        console.warn('FID observer not supported:', error);
+      }
+
+      // Cumulative Layout Shift
+      try {
+        const clsObserver = new PerformanceObserver((list) => {
+          let clsValue = 0;
+          list.getEntries().forEach((entry: any) => {
+            if (!entry.hadRecentInput) {
+              clsValue += entry.value;
+            }
+          });
+          this.metrics.cumulativeLayoutShift = clsValue;
+          console.log('📐 Cumulative Layout Shift:', clsValue);
+        });
+        clsObserver.observe({ entryTypes: ['layout-shift'] });
+        this.observers.push(clsObserver);
+      } catch (error) {
+        console.warn('CLS observer not supported:', error);
+      }
+    }
+
+    // Traditional metrics
+    window.addEventListener('DOMContentLoaded', () => {
+      this.metrics.domContentLoaded = performance.now();
+      console.log('📄 DOM Content Loaded:', this.metrics.domContentLoaded, 'ms');
     });
-    
-    // Keep only the last MAX_METRICS
-    if (this.metrics.length > this.MAX_METRICS) {
-      this.metrics = this.metrics.slice(-this.MAX_METRICS);
-    }
-    
-    return id;
+
+    window.addEventListener('load', () => {
+      this.metrics.loadComplete = performance.now();
+      console.log('✅ Page Load Complete:', this.metrics.loadComplete, 'ms');
+    });
   }
 
-  endTimer(id: string, success: boolean = true, error?: string): void {
-    const metric = this.metrics.find(m => m.name === id.split('-')[0] && !m.endTime);
-    if (metric) {
-      metric.endTime = performance.now();
-      metric.duration = metric.endTime - metric.startTime;
-      metric.success = success;
-      metric.error = error;
-    }
-  }
-
-  getStats(name?: string): PerformanceStats {
-    const relevantMetrics = name 
-      ? this.metrics.filter(m => m.name === name && m.duration !== undefined)
-      : this.metrics.filter(m => m.duration !== undefined);
-
-    if (relevantMetrics.length === 0) {
-      return {
-        totalCalls: 0,
-        averageDuration: 0,
-        successRate: 0,
-        slowestCall: 0,
-        fastestCall: 0
-      };
-    }
-
-    const durations = relevantMetrics.map(m => m.duration!);
-    const successfulCalls = relevantMetrics.filter(m => m.success).length;
-
-    return {
-      totalCalls: relevantMetrics.length,
-      averageDuration: durations.reduce((a, b) => a + b, 0) / durations.length,
-      successRate: (successfulCalls / relevantMetrics.length) * 100,
-      slowestCall: Math.max(...durations),
-      fastestCall: Math.min(...durations)
+  public trackComponentRender(componentName: string, renderTime: number) {
+    const existing = this.componentMetrics.get(componentName) || {
+      renderTime: 0,
+      reRenderCount: 0,
     };
+
+    this.componentMetrics.set(componentName, {
+      renderTime: Math.max(existing.renderTime, renderTime),
+      reRenderCount: existing.reRenderCount + 1,
+      memoryUsage: this.getMemoryUsage(),
+    });
+
+    console.log(`🎨 ${componentName} rendered in ${renderTime}ms (${existing.reRenderCount + 1} renders)`);
   }
 
-  getRecentMetrics(count: number = 10): PerformanceMetric[] {
-    return this.metrics
-      .filter(m => m.duration !== undefined)
-      .slice(-count)
-      .reverse();
+  public trackApiCall(endpoint: string, duration: number, success: boolean) {
+    console.log(`🌐 API ${endpoint}: ${duration}ms ${success ? '✅' : '❌'}`);
   }
 
-  clearMetrics(): void {
-    this.metrics = [];
+  public trackFirestoreQuery(collection: string, duration: number, documentCount: number) {
+    console.log(`🔥 Firestore ${collection}: ${duration}ms (${documentCount} docs)`);
   }
 
-  exportMetrics(): PerformanceMetric[] {
-    return [...this.metrics];
+  public getMetrics(): PerformanceMetrics {
+    return { ...this.metrics };
+  }
+
+  public getComponentMetrics(): Map<string, ComponentMetrics> {
+    return new Map(this.componentMetrics);
+  }
+
+  public getMemoryUsage(): number | undefined {
+    if ('memory' in performance) {
+      const memory = (performance as any).memory;
+      return memory.usedJSHeapSize / 1024 / 1024; // MB
+    }
+    return undefined;
+  }
+
+  public generateReport(): string {
+    const metrics = this.getMetrics();
+    const componentMetrics = this.getComponentMetrics();
+    const memoryUsage = this.getMemoryUsage();
+
+    let report = '📊 Performance Report\n\n';
+    report += `🚀 First Contentful Paint: ${metrics.firstContentfulPaint.toFixed(2)}ms\n`;
+    report += `🎯 Largest Contentful Paint: ${metrics.largestContentfulPaint.toFixed(2)}ms\n`;
+    report += `⚡ First Input Delay: ${metrics.firstInputDelay.toFixed(2)}ms\n`;
+    report += `📐 Cumulative Layout Shift: ${metrics.cumulativeLayoutShift.toFixed(3)}\n`;
+    report += `📄 DOM Content Loaded: ${metrics.domContentLoaded.toFixed(2)}ms\n`;
+    report += `✅ Page Load Complete: ${metrics.loadComplete.toFixed(2)}ms\n`;
+    
+    if (memoryUsage) {
+      report += `💾 Memory Usage: ${memoryUsage.toFixed(2)}MB\n`;
+    }
+
+    report += '\n🎨 Component Performance:\n';
+    componentMetrics.forEach((metrics, component) => {
+      report += `  ${component}: ${metrics.renderTime.toFixed(2)}ms (${metrics.reRenderCount} renders)\n`;
+    });
+
+    return report;
+  }
+
+  public cleanup() {
+    this.observers.forEach(observer => observer.disconnect());
+    this.observers = [];
   }
 }
 
 // Global performance monitor instance
 const performanceMonitor = new PerformanceMonitor();
 
-// Hook for monitoring API calls
-export const usePerformanceMonitor = () => {
-  const activeTimers = useRef<Map<string, string>>(new Map());
+export function usePerformanceMonitor(componentName: string) {
+  const renderStartTime = useRef<number>(0);
+  const renderCount = useRef<number>(0);
 
-  const startTimer = useCallback((name: string): string => {
-    const id = performanceMonitor.startTimer(name);
-    activeTimers.current.set(name, id);
-    return id;
-  }, []);
-
-  const endTimer = useCallback((name: string, success: boolean = true, error?: string): void => {
-    const id = activeTimers.current.get(name);
-    if (id) {
-      performanceMonitor.endTimer(id, success, error);
-      activeTimers.current.delete(name);
-    }
-  }, []);
-
-  const getStats = useCallback((name?: string): PerformanceStats => {
-    return performanceMonitor.getStats(name);
-  }, []);
-
-  const getRecentMetrics = useCallback((count: number = 10): PerformanceMetric[] => {
-    return performanceMonitor.getRecentMetrics(count);
-  }, []);
-
-  const clearMetrics = useCallback((): void => {
-    performanceMonitor.clearMetrics();
-  }, []);
-
-  const exportMetrics = useCallback((): PerformanceMetric[] => {
-    return performanceMonitor.exportMetrics();
-  }, []);
-
-  // Clean up active timers on unmount
   useEffect(() => {
+    renderStartTime.current = performance.now();
+    renderCount.current++;
+
     return () => {
-      // End any active timers
-      activeTimers.current.forEach((id, name) => {
-        performanceMonitor.endTimer(id, false, 'Component unmounted');
-      });
-      activeTimers.current.clear();
+      const renderTime = performance.now() - renderStartTime.current;
+      performanceMonitor.trackComponentRender(componentName, renderTime);
     };
+  });
+
+  const trackApiCall = useCallback((endpoint: string, duration: number, success: boolean) => {
+    performanceMonitor.trackApiCall(endpoint, duration, success);
+  }, []);
+
+  const trackFirestoreQuery = useCallback((collection: string, duration: number, documentCount: number) => {
+    performanceMonitor.trackFirestoreQuery(collection, duration, documentCount);
+  }, []);
+
+  const getMetrics = useCallback(() => {
+    return performanceMonitor.getMetrics();
+  }, []);
+
+  const generateReport = useCallback(() => {
+    return performanceMonitor.generateReport();
   }, []);
 
   return {
-    startTimer,
-    endTimer,
-    getStats,
-    getRecentMetrics,
-    clearMetrics,
-    exportMetrics
+    trackApiCall,
+    trackFirestoreQuery,
+    getMetrics,
+    generateReport,
   };
-};
+}
 
-// Higher-order function to wrap API calls with performance monitoring
-export const withPerformanceMonitoring = <T extends any[], R>(
-  fn: (...args: T) => Promise<R>,
-  name: string
-) => {
-  return async (...args: T): Promise<R> => {
-    const timerId = performanceMonitor.startTimer(name);
-    try {
-      const result = await fn(...args);
-      performanceMonitor.endTimer(timerId, true);
-      return result;
-    } catch (error) {
-      performanceMonitor.endTimer(timerId, false, error instanceof Error ? error.message : 'Unknown error');
-      throw error;
-    }
-  };
-};
+// Utility function to measure async operations
+export function measureAsync<T>(operation: () => Promise<T>, name: string): Promise<T> {
+  const startTime = performance.now();
+  return operation().finally(() => {
+    const duration = performance.now() - startTime;
+    console.log(`⏱️ ${name}: ${duration.toFixed(2)}ms`);
+  });
+}
 
-// Utility to log performance stats in development
-export const logPerformanceStats = (name?: string): void => {
-  if (process.env.NODE_ENV === 'development') {
-    const stats = performanceMonitor.getStats(name);
-    console.log(`Performance Stats${name ? ` for ${name}` : ''}:`, stats);
-  }
-}; 
+// Utility function to measure synchronous operations
+export function measureSync<T>(operation: () => T, name: string): T {
+  const startTime = performance.now();
+  const result = operation();
+  const duration = performance.now() - startTime;
+  console.log(`⏱️ ${name}: ${duration.toFixed(2)}ms`);
+  return result;
+}
+
+// Cleanup on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    performanceMonitor.cleanup();
+  });
+}
+
+export { performanceMonitor }; 

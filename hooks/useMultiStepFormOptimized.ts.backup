@@ -1,0 +1,258 @@
+import { useState, useCallback, useMemo } from 'react';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+
+interface Step {
+  id: number;
+  name: string;
+  isRequired: boolean;
+  isComplete: boolean;
+  isActive: boolean;
+}
+
+interface UseMultiStepFormReturn {
+  // State
+  currentStep: number;
+  steps: Step[];
+  isSubmitting: boolean;
+  
+  // Computed values
+  totalSteps: number;
+  completedSteps: number;
+  progressPercentage: number;
+  canGoNext: boolean;
+  canGoPrevious: boolean;
+  isFirstStep: boolean;
+  isLastStep: boolean;
+  
+  // Actions
+  goToStep: (stepNumber: number) => void;
+  nextStep: () => void;
+  previousStep: () => void;
+  goToFirstStep: () => void;
+  goToLastStep: () => void;
+  
+  // Step management
+  markStepComplete: (stepNumber: number) => void;
+  markStepIncomplete: (stepNumber: number) => void;
+  isStepComplete: (stepNumber: number) => boolean;
+  isStepRequired: (stepNumber: number) => boolean;
+  
+  // Form state
+  setSubmitting: (submitting: boolean) => void;
+  resetForm: () => void;
+}
+
+export function useMultiStepFormOptimized(
+  stepDefinitions: Array<{ id: number; name: string; isRequired?: boolean }>,
+  initialStep: number = 1
+): UseMultiStepFormReturn {
+  const { trackApiCall } = usePerformanceMonitor('MultiStepForm');
+  
+  // State
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Memoized computed values
+  const totalSteps = useMemo(() => stepDefinitions.length, [stepDefinitions]);
+
+  const steps = useMemo(() => {
+    return stepDefinitions.map(step => ({
+      id: step.id,
+      name: step.name,
+      isRequired: step.isRequired ?? true,
+      isComplete: completedSteps.has(step.id),
+      isActive: step.id === currentStep,
+    }));
+  }, [stepDefinitions, completedSteps, currentStep]);
+
+  const progressPercentage = useMemo(() => {
+    return Math.round((completedSteps.size / totalSteps) * 100);
+  }, [completedSteps.size, totalSteps]);
+
+  const isFirstStep = useMemo(() => currentStep === 1, [currentStep]);
+  const isLastStep = useMemo(() => currentStep === totalSteps, [currentStep, totalSteps]);
+
+  const canGoNext = useMemo((): boolean => {
+    const currentStepData = steps.find(step => step.id === currentStep);
+    return Boolean(currentStepData?.isComplete && !isLastStep);
+  }, [steps, currentStep, isLastStep]);
+
+  const canGoPrevious = useMemo(() => !isFirstStep, [isFirstStep]);
+
+  // Memoized actions
+  const goToStep = useCallback((stepNumber: number) => {
+    const startTime = performance.now();
+    
+    if (stepNumber >= 1 && stepNumber <= totalSteps) {
+      setCurrentStep(stepNumber);
+      trackApiCall('/api/goToStep', performance.now() - startTime, true);
+    } else {
+      trackApiCall('/api/goToStep', performance.now() - startTime, false);
+    }
+  }, [totalSteps, trackApiCall]);
+
+  const nextStep = useCallback(() => {
+    const startTime = performance.now();
+    
+    if (canGoNext) {
+      setCurrentStep(prev => prev + 1);
+      trackApiCall('/api/nextStep', performance.now() - startTime, true);
+    } else {
+      trackApiCall('/api/nextStep', performance.now() - startTime, false);
+    }
+  }, [canGoNext, trackApiCall]);
+
+  const previousStep = useCallback(() => {
+    const startTime = performance.now();
+    
+    if (canGoPrevious) {
+      setCurrentStep(prev => prev - 1);
+      trackApiCall('/api/previousStep', performance.now() - startTime, true);
+    } else {
+      trackApiCall('/api/previousStep', performance.now() - startTime, false);
+    }
+  }, [canGoPrevious, trackApiCall]);
+
+  const goToFirstStep = useCallback(() => {
+    const startTime = performance.now();
+    setCurrentStep(1);
+    trackApiCall('/api/goToFirstStep', performance.now() - startTime, true);
+  }, [trackApiCall]);
+
+  const goToLastStep = useCallback(() => {
+    const startTime = performance.now();
+    setCurrentStep(totalSteps);
+    trackApiCall('/api/goToLastStep', performance.now() - startTime, true);
+  }, [totalSteps, trackApiCall]);
+
+  const markStepComplete = useCallback((stepNumber: number) => {
+    const startTime = performance.now();
+    
+    if (stepNumber >= 1 && stepNumber <= totalSteps) {
+      setCompletedSteps(prev => new Set([...prev, stepNumber]));
+      trackApiCall('/api/markStepComplete', performance.now() - startTime, true);
+    } else {
+      trackApiCall('/api/markStepComplete', performance.now() - startTime, false);
+    }
+  }, [totalSteps, trackApiCall]);
+
+  const markStepIncomplete = useCallback((stepNumber: number) => {
+    const startTime = performance.now();
+    
+    setCompletedSteps(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(stepNumber);
+      return newSet;
+    });
+    
+    trackApiCall('/api/markStepIncomplete', performance.now() - startTime, true);
+  }, [trackApiCall]);
+
+  const isStepComplete = useCallback((stepNumber: number): boolean => {
+    return completedSteps.has(stepNumber);
+  }, [completedSteps]);
+
+  const isStepRequired = useCallback((stepNumber: number): boolean => {
+    const step = stepDefinitions.find(s => s.id === stepNumber);
+    return step?.isRequired === undefined ? true : Boolean(step.isRequired);
+  }, [stepDefinitions]);
+
+  const setSubmitting = useCallback((submitting: boolean) => {
+    setIsSubmitting(submitting);
+  }, []);
+
+  const resetForm = useCallback(() => {
+    const startTime = performance.now();
+    
+    setCurrentStep(initialStep);
+    setCompletedSteps(new Set());
+    setIsSubmitting(false);
+    
+    trackApiCall('/api/resetForm', performance.now() - startTime, true);
+  }, [initialStep, trackApiCall]);
+
+  return {
+    // State
+    currentStep,
+    steps,
+    isSubmitting,
+    
+    // Computed values
+    totalSteps,
+    completedSteps: completedSteps.size,
+    progressPercentage,
+    canGoNext,
+    canGoPrevious,
+    isFirstStep,
+    isLastStep,
+    
+    // Actions
+    goToStep,
+    nextStep,
+    previousStep,
+    goToFirstStep,
+    goToLastStep,
+    
+    // Step management
+    markStepComplete,
+    markStepIncomplete,
+    isStepComplete,
+    isStepRequired,
+    
+    // Form state
+    setSubmitting,
+    resetForm,
+  };
+}
+
+// Predefined step configurations for common use cases
+export const commonStepConfigurations = {
+  // Wedding planning onboarding
+  weddingOnboarding: [
+    { id: 1, name: 'Basic Info', isRequired: true },
+    { id: 2, name: 'Wedding Details', isRequired: true },
+    { id: 3, name: 'Vibe & Style', isRequired: true },
+    { id: 4, name: 'Budget & Guests', isRequired: true },
+    { id: 5, name: 'Contacts', isRequired: false },
+  ],
+  
+  // Contact setup
+  contactSetup: [
+    { id: 1, name: 'Add Contacts', isRequired: true },
+    { id: 2, name: 'Communication Channels', isRequired: true },
+    { id: 3, name: 'Review & Complete', isRequired: true },
+  ],
+  
+  // Vendor setup
+  vendorSetup: [
+    { id: 1, name: 'Select Categories', isRequired: true },
+    { id: 2, name: 'Add Vendors', isRequired: true },
+    { id: 3, name: 'Preferences', isRequired: false },
+    { id: 4, name: 'Complete', isRequired: true },
+  ],
+  
+  // Budget setup
+  budgetSetup: [
+    { id: 1, name: 'Set Budget', isRequired: true },
+    { id: 2, name: 'Categories', isRequired: true },
+    { id: 3, name: 'Allocations', isRequired: false },
+    { id: 4, name: 'Review', isRequired: true },
+  ],
+};
+
+// Helper function to create custom step configurations
+export const createStepConfiguration = (
+  steps: Array<{ id: number; name: string; isRequired?: boolean }>
+) => steps;
+
+// Helper function to validate step progression
+export const validateStepProgression = (
+  currentStep: number,
+  completedSteps: Set<number>,
+  requiredSteps: number[]
+): boolean => {
+  // Check if all required steps before current step are completed
+  const requiredStepsBeforeCurrent = requiredSteps.filter(step => step < currentStep);
+  return requiredStepsBeforeCurrent.every(step => completedSteps.has(step));
+}; 

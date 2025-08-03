@@ -1,0 +1,226 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from './useAuth';
+import { useCustomToast } from './useCustomToast';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  limit,
+} from 'firebase/firestore';
+import { db, getUserCollectionRef } from '@/lib/firebase';
+import type { SimpleMessage } from '@/types/message';
+import type { Contact } from '@/types/contact';
+
+// Memoized date processing function
+const processDate = (dateField: any): Date | undefined => {
+  if (!dateField) return undefined;
+  if (typeof dateField.toDate === 'function') return dateField.toDate();
+  if (dateField instanceof Date) return dateField;
+  return undefined;
+};
+
+// Memoized message data transformation
+const transformMessageData = (doc: any): SimpleMessage => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    via: data.via || 'manual',
+    timestamp: data.timestamp || new Date().toISOString(),
+    body: data.body || '',
+    contactId: data.contactId || '',
+    createdAt: processDate(data.createdAt) || new Date(),
+    userId: data.userId || '',
+    attachments: data.attachments || [],
+  };
+};
+
+interface UseMessagesReturn {
+  messages: SimpleMessage[];
+  isLoading: boolean;
+  error: string | null;
+  selectedContact: Contact | null;
+  
+  // Actions
+  setSelectedContact: (contact: Contact | null) => void;
+  sendMessage: (content: string, type?: string, attachments?: any[]) => Promise<void>;
+  updateMessage: (messageId: string, updates: Partial<SimpleMessage>) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  refreshMessages: () => void;
+  
+  // Computed values
+  sortedMessages: SimpleMessage[];
+  unreadCount: number;
+  lastMessage: SimpleMessage | null;
+}
+
+export function useMessagesOptimized(): UseMessagesReturn {
+  const { user } = useAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { trackApiCall } = usePerformanceMonitor('Messages');
+
+  // State
+  const [messages, setMessages] = useState<SimpleMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  // Memoized computed values
+  const sortedMessages = useMemo(() => {
+    return [...messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [messages]);
+
+  const unreadCount = useMemo(() => {
+    // SimpleMessage doesn't have isRead property, so we'll return 0 for now
+    return 0;
+  }, [messages]);
+
+  const lastMessage = useMemo(() => {
+    if (sortedMessages.length === 0) return null;
+    return sortedMessages[sortedMessages.length - 1];
+  }, [sortedMessages]);
+
+  // Optimized load messages
+  const loadMessages = useCallback(async (contactId: string) => {
+    if (!user?.uid || !contactId) return;
+
+    const startTime = performance.now();
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const messagesRef = collection(db, `users/${user.uid}/contacts/${contactId}/messages`);
+      const q = query(
+        messagesRef,
+        orderBy('timestamp', 'desc'),
+        limit(100) // Limit for better performance
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const messageData: SimpleMessage[] = snapshot.docs.map(transformMessageData);
+        setMessages(messageData);
+        trackApiCall('/api/getMessages', performance.now() - startTime, true);
+      }, (error) => {
+        console.error('Error loading messages:', error);
+        setError('Failed to load messages');
+        trackApiCall('/api/getMessages', performance.now() - startTime, false);
+      });
+
+      return unsubscribe;
+    } catch (err) {
+      console.error('Error setting up messages listener:', err);
+      setError('Failed to load messages');
+      trackApiCall('/api/getMessages', performance.now() - startTime, false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid, trackApiCall]);
+
+  // Memoized handlers
+  const sendMessage = useCallback(async (content: string, type: string = 'text', attachments: any[] = []) => {
+    if (!user?.uid || !selectedContact) return;
+
+    const startTime = performance.now();
+    try {
+      const newMessage = {
+        content,
+        timestamp: new Date(),
+        sender: 'user',
+        type,
+        status: 'sent',
+        attachments,
+        metadata: {},
+      };
+
+      const messagesRef = collection(db, `users/${user.uid}/contacts/${selectedContact.id}/messages`);
+      await addDoc(messagesRef, newMessage);
+      
+      showSuccessToast('Message sent successfully!');
+      trackApiCall('/api/sendMessage', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      showErrorToast('Failed to send message');
+      trackApiCall('/api/sendMessage', performance.now() - startTime, false);
+    }
+  }, [user?.uid, selectedContact, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const updateMessage = useCallback(async (messageId: string, updates: Partial<SimpleMessage>) => {
+    if (!user?.uid || !selectedContact) return;
+
+    const startTime = performance.now();
+    try {
+      const messageRef = doc(db, `users/${user.uid}/contacts/${selectedContact.id}/messages`, messageId);
+      await updateDoc(messageRef, updates);
+      
+      showSuccessToast('Message updated successfully!');
+      trackApiCall('/api/updateMessage', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error updating message:', error);
+      showErrorToast('Failed to update message');
+      trackApiCall('/api/updateMessage', performance.now() - startTime, false);
+    }
+  }, [user?.uid, selectedContact, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!user?.uid || !selectedContact) return;
+
+    const startTime = performance.now();
+    try {
+      const messageRef = doc(db, `users/${user.uid}/contacts/${selectedContact.id}/messages`, messageId);
+      await deleteDoc(messageRef);
+      
+      showSuccessToast('Message deleted successfully!');
+      trackApiCall('/api/deleteMessage', performance.now() - startTime, true);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showErrorToast('Failed to delete message');
+      trackApiCall('/api/deleteMessage', performance.now() - startTime, false);
+    }
+  }, [user?.uid, selectedContact, showSuccessToast, showErrorToast, trackApiCall]);
+
+  const refreshMessages = useCallback(() => {
+    if (selectedContact) {
+      loadMessages(selectedContact.id);
+    }
+  }, [selectedContact, loadMessages]);
+
+  // Effect to load messages when contact changes
+  useEffect(() => {
+    if (selectedContact) {
+      const unsubscribe = loadMessages(selectedContact.id);
+      return () => {
+        if (unsubscribe) {
+          unsubscribe.then(unsub => unsub && unsub());
+        }
+      };
+    } else {
+      setMessages([]);
+    }
+  }, [selectedContact, loadMessages]);
+
+  return {
+    // State
+    messages,
+    isLoading,
+    error,
+    selectedContact,
+    
+    // Actions
+    setSelectedContact,
+    sendMessage,
+    updateMessage,
+    deleteMessage,
+    refreshMessages,
+    
+    // Computed values
+    sortedMessages,
+    unreadCount,
+    lastMessage,
+  };
+} 
