@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileFolder, FileItem } from '@/types/files';
 import { ChevronDown, ChevronRight, Folder, FolderOpen, FileText, Plus, Upload } from 'lucide-react';
 import FileItemComponent from './FileItemComponent';
+import FileItemSkeleton from './FileItemSkeleton';
 import { useDragDrop } from './DragDropContext';
 import BadgeCount from './BadgeCount';
 
@@ -17,6 +18,7 @@ interface FolderContentViewProps {
   onCreateSubfolder: () => void;
   onUploadFile: () => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
+  isLoading?: boolean;
 }
 
 const FolderContentView: React.FC<FolderContentViewProps> = ({
@@ -31,6 +33,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   onCreateSubfolder,
   onUploadFile,
   onSelectSubfolder,
+  isLoading = false,
 }) => {
   const [subfoldersExpanded, setSubfoldersExpanded] = useState(true);
   const [filesExpanded, setFilesExpanded] = useState(true);
@@ -118,9 +121,9 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
                   >
                     <FolderOpen className="w-5 h-5 text-[#A85C36] flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-[#332B42] truncate">
+                      <h6 className="truncate" title={subfolder.name}>
                         {subfolder.name}
-                      </h4>
+                      </h6>
                       <p className="text-xs text-[#AB9C95]">
                         {subfolder.fileCount} files, {subfolder.subfolderCount} subfolders
                       </p>
@@ -179,7 +182,13 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
         
         {filesExpanded && (
           <div className="p-4">
-            {files.length === 0 ? (
+            {isLoading ? (
+              <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
+                {[...Array(4)].map((_, i) => (
+                  <FileItemSkeleton key={i} />
+                ))}
+              </div>
+            ) : files.length === 0 ? (
               <div className="text-center py-8">
                 <FileText className="w-12 h-12 text-[#AB9C95] mx-auto mb-3" />
                 <p className="text-[#AB9C95] text-sm">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import BadgeCount from './BadgeCount';
 import { FileFolder } from '@/types/files';
-import { Folder, Plus, FolderOpen, X } from 'lucide-react';
+import { Folder, Plus, FolderOpen, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 
 interface FilesSidebarProps {
@@ -41,6 +41,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   const [folderName, setFolderName] = useState('');
   const [folderDescription, setFolderDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState('#A85C36');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const STARTER_TIER_MAX_FOLDERS = 5;
   const folderLimitReached = folders.length >= STARTER_TIER_MAX_FOLDERS;
   
@@ -79,6 +80,25 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
         color: selectedColor
       });
     }
+  };
+
+  // Helper functions for expand/collapse
+  const toggleFolderExpansion = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
+
+  const isFolderExpanded = (folderId: string) => expandedFolders.has(folderId);
+
+  const hasSubfolders = (folderId: string) => {
+    return folders.some(f => f.parentId === folderId);
   };
 
   return (
@@ -120,37 +140,61 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               </span>
             </div>
 
-            {folders.filter(f => f.id !== 'all').length > 0 ? (
-              // Show folders with hierarchy
-              (() => {
-                const topLevelFolders = folders.filter(f => f.id !== 'all' && !f.parentId);
-                const subfolders = folders.filter(f => f.id !== 'all' && f.parentId);
-                
-                return (
-                  <>
-                    {/* Top-level folders */}
-                    {topLevelFolders.map((folder) => (
+            {/* Show folders with hierarchy - always show this section since "All Files" is always present */}
+            {(() => {
+              const topLevelFolders = folders.filter(f => f.id !== 'all' && !f.parentId);
+              const subfolders = folders.filter(f => f.id !== 'all' && f.parentId);
+              
+              return (
+                <>
+                  {/* Top-level folders */}
+                  {topLevelFolders.map((folder) => {
+                    const hasChildren = hasSubfolders(folder.id);
+                    const isExpanded = isFolderExpanded(folder.id);
+                    
+                    return (
                       <div key={folder.id}>
-                        <div
-                          onClick={() => {
-                            setSelectedFolder(folder);
-                            setFileSearchQuery('');
-                          }}
-                          className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
-                        >
-                          <span className="mr-2" title={folder.name}>
-                            <Folder className="w-4 h-4" style={{ color: folder.color || '#AB9C95' }} />
-                          </span>
-                          <span className="truncate flex-1 min-w-0" title={folder.name}>
-                            {folder.name}
-                          </span>
-                          <span className="ml-auto">
-                            <BadgeCount count={folderFileCounts.get(folder.id) ?? 0} />
-                          </span>
-                        </div>
+                                                  <div className="flex items-center">
+                            {/* Expand/Collapse button - only show if folder has children */}
+                            {hasChildren && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFolderExpansion(folder.id);
+                                }}
+                                className="p-1 hover:bg-[#F8F6F4] rounded-[3px] mr-0.5"
+                                title={isExpanded ? "Collapse" : "Expand"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-[#AB9C95]" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
+                                )}
+                              </button>
+                            )}
+                            
+                            {/* Folder item */}
+                            <div
+                              onClick={() => {
+                                setSelectedFolder(folder);
+                                setFileSearchQuery('');
+                              }}
+                              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+                            >
+                              <span className="mr-2" title={folder.name}>
+                                <Folder className="w-4 h-4" style={{ color: folder.color || '#AB9C95' }} />
+                              </span>
+                              <span className="truncate flex-1 min-w-0" title={folder.name}>
+                                {folder.name}
+                              </span>
+                              <span className="ml-auto">
+                                <BadgeCount count={folderFileCounts.get(folder.id) ?? 0} />
+                              </span>
+                            </div>
+                          </div>
                         
-                        {/* Subfolders of this folder */}
-                        {subfolders
+                        {/* Subfolders of this folder - only show if expanded */}
+                        {isExpanded && subfolders
                           .filter(subfolder => subfolder.parentId === folder.id)
                           .map((subfolder) => (
                             <div
@@ -159,7 +203,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                                 setSelectedFolder(subfolder);
                                 setFileSearchQuery('');
                               }}
-                              className={`flex items-center px-3 py-2 ml-4 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+                              className={`flex items-center px-3 py-2 ml-6 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
                             >
                               <span className="mr-2" title={subfolder.name}>
                                 <Folder className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95' }} />
@@ -173,23 +217,11 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                             </div>
                           ))}
                       </div>
-                    ))}
-                  </>
-                );
-              })()
-            ) : (
-              // Show empty state when no user folders exist (only "All Files" exists)
-              <div className="text-center py-8">
-                <Folder className="w-8 h-8 text-[#AB9C95] mx-auto mb-3" />
-                <p className="text-sm text-[#AB9C95] mb-4">No folders yet</p>
-                <button
-                  onClick={handleNewFolderClick}
-                  className="btn-primary text-sm"
-                >
-                  Create Your First Folder
-                </button>
-              </div>
-            )}
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         </div>
         
