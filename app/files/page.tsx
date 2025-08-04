@@ -384,6 +384,7 @@ export default function FilesPage() {
                 onEditingFolderNameChange={setEditingFolderNameValue}
                 onCancelEdit={handleCancelEdit}
                 onNavigateToParent={handleNavigateToParent}
+                onNavigateToFolder={(folder) => setSelectedFolder(folder)}
                 onSelectFile={setSelectedFile}
                 onDeleteFile={handleDeleteFile}
                 onEditFile={(file) => console.log('Edit file:', file)}
@@ -392,6 +393,7 @@ export default function FilesPage() {
                 onUploadFile={() => setShowUploadModal(true)}
                 onShowUpgradeModal={handleShowUpgradeModal}
                 onDismissSubfolderLimitBanner={handleDismissSubfolderLimitBanner}
+                folders={folders}
               />
           </main>
 

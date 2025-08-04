@@ -101,16 +101,85 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
     return folders.some(f => f.parentId === folderId);
   };
 
-  // Auto-expand parent folder when a subfolder is selected
+  // Recursive function to render nested subfolders
+  const renderSubfolders = (parentId: string, level: number = 1) => {
+    const childSubfolders = folders.filter(f => f.parentId === parentId);
+    
+    return childSubfolders.map((subfolder) => {
+      const hasChildren = hasSubfolders(subfolder.id);
+      const isExpanded = isFolderExpanded(subfolder.id);
+      const marginLeft = level * 24; // 24px per level (6 * 4)
+      
+      return (
+        <div key={subfolder.id}>
+          <div className="flex items-center">
+            {/* Expand/Collapse button - always reserve space for consistency */}
+            <div className="w-6 h-6 flex items-center justify-center mr-1" style={{ marginLeft: `${marginLeft}px` }}>
+              {hasChildren && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleFolderExpansion(subfolder.id); }}
+                  className="p-1 hover:bg-[#F8F6F4] rounded-[3px]"
+                  title={isExpanded ? "Collapse" : "Expand"}
+                >
+                  {isExpanded ? (<ChevronDown className="w-4 h-4 text-[#AB9C95]" />) : (<ChevronRight className="w-4 h-4 text-[#AB9C95]" />)}
+                </button>
+              )}
+            </div>
+            <div
+              onClick={() => { setSelectedFolder(subfolder); setFileSearchQuery(''); }}
+              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+            >
+              <span className="mr-2" title={subfolder.name}>
+                {selectedFolder?.id === subfolder.id ? (
+                  <FolderOpen className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1 }} />
+                ) : (
+                  <Folder className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
+                )}
+              </span>
+              <span className="truncate flex-1 min-w-0" title={subfolder.name}>
+                {subfolder.name}
+              </span>
+              <span className="ml-auto">
+                <BadgeCount count={folderFileCounts.get(subfolder.id) ?? 0} />
+              </span>
+            </div>
+          </div>
+          
+          {/* Recursively render children if expanded */}
+          {isExpanded && hasChildren && (
+            <div>
+              {renderSubfolders(subfolder.id, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  // Auto-expand all parent folders when a subfolder is selected
   useEffect(() => {
     if (selectedFolder && selectedFolder.parentId) {
+      const expandAllParents = (folderId: string) => {
+        const parent = folders.find(f => f.id === folderId);
+        if (parent && parent.parentId) {
+          setExpandedFolders(prev => {
+            const newSet = new Set(prev);
+            newSet.add(parent.id);
+            return newSet;
+          });
+          expandAllParents(parent.parentId);
+        }
+      };
+      
       setExpandedFolders(prev => {
         const newSet = new Set(prev);
         newSet.add(selectedFolder.parentId!);
         return newSet;
       });
+      
+      expandAllParents(selectedFolder.parentId!);
     }
-  }, [selectedFolder]);
+  }, [selectedFolder, folders]);
 
   return (
     <aside className="unified-sidebar flex flex-col">
@@ -142,9 +211,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
             >
                               <span className="mr-2" title="All Files">
                   {selectedFolder?.id === 'all' ? (
-                    <FolderOpen className="w-4 h-4" style={{ color: '#A85C36', strokeWidth: 1 }} />
+                    <FolderOpen className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1 }} />
                   ) : (
-                    <Folder className="w-4 h-4" style={{ color: '#A85C36', strokeWidth: 1, fill: '#A85C36' }} />
+                    <Folder className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1, fill: '#8B4513' }} />
                   )}
                 </span>
               <span className="truncate flex-1 min-w-0" title="All Files">
@@ -170,23 +239,25 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                     return (
                       <div key={folder.id}>
                                                   <div className="flex items-center">
-                            {/* Expand/Collapse button - only show if folder has children */}
-                            {hasChildren && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFolderExpansion(folder.id);
-                                }}
-                                className="p-1 hover:bg-[#F8F6F4] rounded-[3px] mr-0.5"
-                                title={isExpanded ? "Collapse" : "Expand"}
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4 text-[#AB9C95]" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
-                                )}
-                              </button>
-                            )}
+                            {/* Expand/Collapse button - always reserve space for consistency */}
+                            <div className="w-6 h-6 flex items-center justify-center mr-1">
+                              {hasChildren && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleFolderExpansion(folder.id);
+                                  }}
+                                  className="p-1 hover:bg-[#F8F6F4] rounded-[3px]"
+                                  title={isExpanded ? "Collapse" : "Expand"}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-[#AB9C95]" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
                             
                             {/* Folder item */}
                             <div
@@ -198,9 +269,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                             >
                               <span className="mr-2" title={folder.name}>
                                 {selectedFolder?.id === folder.id ? (
-                                  <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#AB9C95', strokeWidth: 1 }} />
+                                  <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1 }} />
                                 ) : (
-                                  <Folder className="w-4 h-4" style={{ color: folder.color || '#AB9C95', strokeWidth: 1, fill: folder.color || '#AB9C95' }} />
+                                  <Folder className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1, fill: folder.color || '#8B7355' }} />
                                 )}
                               </span>
                               <span className="truncate flex-1 min-w-0" title={folder.name}>
@@ -213,32 +284,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                           </div>
                         
                         {/* Subfolders of this folder - only show if expanded */}
-                        {isExpanded && subfolders
-                          .filter(subfolder => subfolder.parentId === folder.id)
-                          .map((subfolder) => (
-                            <div
-                              key={subfolder.id}
-                              onClick={() => {
-                                setSelectedFolder(subfolder);
-                                setFileSearchQuery('');
-                              }}
-                              className={`flex items-center px-3 py-2 ml-6 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
-                            >
-                              <span className="mr-2" title={subfolder.name}>
-                                {selectedFolder?.id === subfolder.id ? (
-                                  <FolderOpen className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95', strokeWidth: 1 }} />
-                                ) : (
-                                  <Folder className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95', strokeWidth: 1, fill: subfolder.color || '#AB9C95' }} />
-                                )}
-                              </span>
-                              <span className="truncate flex-1 min-w-0" title={subfolder.name}>
-                                {subfolder.name}
-                              </span>
-                              <span className="ml-auto">
-                                <BadgeCount count={folderFileCounts.get(subfolder.id) ?? 0} />
-                              </span>
-                            </div>
-                          ))}
+                        {isExpanded && renderSubfolders(folder.id)}
                       </div>
                     );
                   })}
