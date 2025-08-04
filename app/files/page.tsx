@@ -260,7 +260,7 @@ export default function FilesPage() {
               <div className="flex-1 flex items-center justify-center p-6 bg-[#F3F2F0]">
                 <div className="text-center max-w-md">
                   <div className="w-24 h-24 bg-[#F8F6F4] border-2 border-[#E0DBD7] rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Folder className="w-12 h-12 text-[#AB9C95]" />
+                    <Folder className="w-12 h-12" style={{ strokeWidth: 1, fill: '#AB9C95', color: '#AB9C95' }} />
       </div>
                   
                   <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-3">
@@ -276,7 +276,7 @@ export default function FilesPage() {
                       onClick={() => setShowNewFolderInput(true)}
                       className="btn-primary flex items-center justify-center gap-2 px-6 py-3"
                     >
-                      <Folder className="w-5 h-5" />
+                      <Folder className="w-5 h-5" style={{ strokeWidth: 1, fill: '#A85C36' }} />
                       Create Folder
                     </button>
                     
@@ -387,9 +387,9 @@ export default function FilesPage() {
                 onSelectFile={setSelectedFile}
                 onDeleteFile={handleDeleteFile}
                 onEditFile={(file) => console.log('Edit file:', file)}
+                onSelectSubfolder={handleSelectSubfolder}
                 onCreateSubfolder={handleCreateSubfolder}
                 onUploadFile={() => setShowUploadModal(true)}
-                onSelectSubfolder={handleSelectSubfolder}
                 onShowUpgradeModal={handleShowUpgradeModal}
                 onDismissSubfolderLimitBanner={handleDismissSubfolderLimitBanner}
               />

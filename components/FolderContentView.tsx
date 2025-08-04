@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileFolder, FileItem } from '@/types/files';
-import { ChevronDown, ChevronRight, Folder, FolderOpen, FileText, Plus, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FileText, Plus, Upload } from 'lucide-react';
 import FileItemComponent from './FileItemComponent';
 import FileItemSkeleton from './FileItemSkeleton';
 import { useDragDrop } from './DragDropContext';
@@ -15,8 +15,6 @@ interface FolderContentViewProps {
   selectedFile: FileItem | null;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
-  onCreateSubfolder: () => void;
-  onUploadFile: () => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
   isLoading?: boolean;
 }
@@ -30,8 +28,6 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   selectedFile,
   onDeleteFile,
   onEditFile,
-  onCreateSubfolder,
-  onUploadFile,
   onSelectSubfolder,
   isLoading = false,
 }) => {
@@ -58,8 +54,8 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
 
   return (
     <div className="flex-1 p-6 overflow-y-auto min-h-0 space-y-6">
-      {/* Subfolders Section - Only show for non-All Files folders */}
-      {selectedFolder.id !== 'all' && (
+      {/* Subfolders Section - Only show for non-All Files folders and when subfolders exist */}
+      {selectedFolder.id !== 'all' && subfolders.length > 0 && (
         <div 
           className={`bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden transition-all ${
             dropTarget === 'subfolders' && isDragging ? 'border-[#A85C36] bg-[#F8F6F4]' : ''
@@ -88,17 +84,9 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
             ) : (
               <ChevronRight className="w-4 h-4" />
             )}
-            <Folder className="w-4 h-4" />
+            <Folder className="w-4 h-4" style={{ strokeWidth: 1, fill: '#AB9C95' }} />
             <span>Subfolders</span>
             <BadgeCount count={subfolders.length} />
-          </button>
-          <button
-            onClick={onCreateSubfolder}
-            className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7"
-            title="Create a new subfolder"
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            New Subfolder
           </button>
         </div>
         
@@ -106,7 +94,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
           <div className="p-4">
             {subfolders.length === 0 ? (
               <div className="text-center py-8">
-                <Folder className="w-12 h-12 text-[#AB9C95] mx-auto mb-3" />
+                <Folder className="w-12 h-12 mx-auto mb-3" style={{ strokeWidth: 1, fill: '#AB9C95', color: '#AB9C95' }} />
                 <p className="text-[#AB9C95] text-sm">
                   No subfolders yet
                 </p>
@@ -119,7 +107,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
                     onClick={() => onSelectSubfolder(subfolder)}
                     className="flex items-center gap-3 p-3 border border-[#E0DBD7] rounded-[5px] hover:bg-[#F8F6F4] hover:border-[#AB9C95] cursor-pointer transition-colors"
                   >
-                    <FolderOpen className="w-5 h-5 text-[#A85C36] flex-shrink-0" />
+                    <Folder className="w-5 h-5 flex-shrink-0" style={{ color: subfolder.color || '#AB9C95', strokeWidth: 1, fill: subfolder.color || '#AB9C95' }} />
                     <div className="flex-1 min-w-0">
                       <h6 className="truncate" title={subfolder.name}>
                         {subfolder.name}
@@ -169,14 +157,6 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
             <FileText className="w-4 h-4" />
             <span>Files</span>
             <BadgeCount count={files.length} />
-          </button>
-          <button
-            onClick={onUploadFile}
-            className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7"
-            title="Upload a new file"
-          >
-            <Upload className="w-3 h-3 mr-1" />
-            Upload File
           </button>
         </div>
         

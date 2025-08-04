@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import BadgeCount from './BadgeCount';
 import { FileFolder } from '@/types/files';
-import { Folder, Plus, FolderOpen, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Folder, FolderOpen, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 
 interface FilesSidebarProps {
@@ -101,6 +101,17 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
     return folders.some(f => f.parentId === folderId);
   };
 
+  // Auto-expand parent folder when a subfolder is selected
+  useEffect(() => {
+    if (selectedFolder && selectedFolder.parentId) {
+      setExpandedFolders(prev => {
+        const newSet = new Set(prev);
+        newSet.add(selectedFolder.parentId!);
+        return newSet;
+      });
+    }
+  }, [selectedFolder]);
+
   return (
     <aside className="unified-sidebar flex flex-col">
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -129,9 +140,13 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               }}
               className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === 'all' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
             >
-              <span className="mr-2" title="All Files">
-                <Folder className="w-4 h-4" style={{ color: '#A85C36' }} />
-              </span>
+                              <span className="mr-2" title="All Files">
+                  {selectedFolder?.id === 'all' ? (
+                    <FolderOpen className="w-4 h-4" style={{ color: '#A85C36', strokeWidth: 1 }} />
+                  ) : (
+                    <Folder className="w-4 h-4" style={{ color: '#A85C36', strokeWidth: 1, fill: '#A85C36' }} />
+                  )}
+                </span>
               <span className="truncate flex-1 min-w-0" title="All Files">
                 All Files
               </span>
@@ -182,7 +197,11 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                               className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
                             >
                               <span className="mr-2" title={folder.name}>
-                                <Folder className="w-4 h-4" style={{ color: folder.color || '#AB9C95' }} />
+                                {selectedFolder?.id === folder.id ? (
+                                  <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#AB9C95', strokeWidth: 1 }} />
+                                ) : (
+                                  <Folder className="w-4 h-4" style={{ color: folder.color || '#AB9C95', strokeWidth: 1, fill: folder.color || '#AB9C95' }} />
+                                )}
                               </span>
                               <span className="truncate flex-1 min-w-0" title={folder.name}>
                                 {folder.name}
@@ -206,7 +225,11 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                               className={`flex items-center px-3 py-2 ml-6 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
                             >
                               <span className="mr-2" title={subfolder.name}>
-                                <Folder className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95' }} />
+                                {selectedFolder?.id === subfolder.id ? (
+                                  <FolderOpen className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95', strokeWidth: 1 }} />
+                                ) : (
+                                  <Folder className="w-4 h-4" style={{ color: subfolder.color || '#AB9C95', strokeWidth: 1, fill: subfolder.color || '#AB9C95' }} />
+                                )}
                               </span>
                               <span className="truncate flex-1 min-w-0" title={subfolder.name}>
                                 {subfolder.name}

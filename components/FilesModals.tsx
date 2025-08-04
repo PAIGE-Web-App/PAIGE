@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FileFolder } from '@/types/files';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Upload, X, Folder, Plus } from 'lucide-react';
 import UpgradePlanModal from './UpgradePlanModal';
+import { useStorageUsage } from '@/hooks/useStorageUsage';
+import { useFiles } from '@/hooks/useFiles';
 
 interface FilesModalsProps {
   showUploadModal: boolean;
@@ -130,26 +132,495 @@ const FilesModals: React.FC<FilesModalsProps> = ({
   );
 };
 
-// Import the modal components that are defined inline in the original files page
-// These would need to be extracted to separate files for a complete refactor
-const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: any) => {
-  // Placeholder - this would be the extracted UploadModal component
-  return null;
+// Upload Modal Component
+const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: { 
+  onClose: () => void; 
+  showSuccessToast: (message: string) => void;
+  showErrorToast: (message: string) => void;
+}) => {
+  // Get storage stats for validation
+  const storageStats = useStorageUsage();
+  const { uploadFile } = useFiles();
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [fileDescriptions, setFileDescriptions] = useState<Record<string, string>>({});
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const files = Array.from(e.dataTransfer.files);
+      setSelectedFiles(files);
+      // Initialize descriptions for new files
+      const newDescriptions = { ...fileDescriptions };
+      files.forEach(file => {
+        if (!newDescriptions[file.name]) {
+          newDescriptions[file.name] = '';
+        }
+      });
+      setFileDescriptions(newDescriptions);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(files);
+      // Initialize descriptions for new files
+      const newDescriptions = { ...fileDescriptions };
+      files.forEach(file => {
+        if (!newDescriptions[file.name]) {
+          newDescriptions[file.name] = '';
+        }
+      });
+      setFileDescriptions(newDescriptions);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) return;
+    
+    // Validate storage limits before uploading
+    const totalNewFileSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+    const fileSizeMB = totalNewFileSize / (1024 * 1024);
+    
+    // Check file size limit
+    if (fileSizeMB > storageStats.limits.maxFileSizeMB) {
+      showErrorToast(`File too large. Max size: ${storageStats.limits.maxFileSizeMB}MB`);
+      return;
+    }
+    
+    // Check storage limit
+    if (storageStats.usedStorage + totalNewFileSize > storageStats.totalStorage) {
+      showErrorToast('Storage limit reached. Please upgrade your plan.');
+      return;
+    }
+    
+    // Check file count limit
+    if (storageStats.usedFiles + selectedFiles.length > storageStats.maxFiles) {
+      showErrorToast('File limit reached. Please upgrade your plan.');
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      // Upload each file
+      for (const file of selectedFiles) {
+        const description = fileDescriptions[file.name] || '';
+        
+        await uploadFile({
+          file,
+          fileName: file.name,
+          description,
+          category: 'all', // Default to "all" category when no folders exist
+        });
+      }
+      
+      showSuccessToast(`${selectedFiles.length} file(s) uploaded successfully!`);
+      onClose();
+    } catch (error) {
+      console.error('Upload error:', error);
+      showErrorToast('Failed to upload file(s)');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7]">
+          <h5 className="h5">Upload Files</h5>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#F8F6F4] rounded-[3px] transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          {/* Drag & Drop Area */}
+          <div
+            className={`border-2 border-dashed rounded-[5px] p-8 text-center transition-colors ${
+              dragActive ? 'border-[#A85C36] bg-[#F8F6F4]' : 'border-[#E0DBD7]'
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <Upload className="w-12 h-12 text-[#AB9C95] mx-auto mb-4" />
+            <p className="text-lg font-medium text-[#332B42] mb-2">
+              Drop files here or click to browse
+            </p>
+            <p className="text-sm text-[#AB9C95] mb-4">
+              Support for PDF, DOC, DOCX, JPG, PNG, and more
+            </p>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+              id="file-upload"
+            />
+            <label
+              htmlFor="file-upload"
+              className="btn-primary cursor-pointer inline-block"
+            >
+              Choose Files
+            </label>
+          </div>
+
+          {/* Selected Files */}
+          {selectedFiles.length > 0 && (
+            <div className="mt-6">
+              <h6 className="h6 mb-3">Selected Files ({selectedFiles.length})</h6>
+              <div className="space-y-3">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 border border-[#E0DBD7] rounded-[5px]">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-[#332B42]">{file.name}</p>
+                      <p className="text-xs text-[#AB9C95]">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Description (optional)"
+                      value={fileDescriptions[file.name] || ''}
+                      onChange={(e) => setFileDescriptions(prev => ({
+                        ...prev,
+                        [file.name]: e.target.value
+                      }))}
+                      className="flex-1 text-sm border border-[#E0DBD7] rounded-[3px] px-2 py-1"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Storage Info */}
+          <div className="mt-6 p-4 bg-[#F8F6F4] rounded-[5px]">
+            <p className="text-sm text-[#AB9C95]">
+              Storage: {Math.round(storageStats.progressPercentage)}% used 
+              ({(storageStats.usedStorage / 1024 / 1024).toFixed(1)}MB / {(storageStats.totalStorage / 1024 / 1024 / 1024).toFixed(1)}GB)
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-2 p-6 border-t border-[#E0DBD7]">
+          <button
+            onClick={onClose}
+            className="btn-primaryinverse px-4 py-2 text-sm"
+            disabled={uploading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpload}
+            className="btn-primary px-4 py-2 text-sm"
+            disabled={selectedFiles.length === 0 || uploading}
+          >
+            {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File(s)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const NewSubfolderModal = ({ onClose, onAddSubfolder, parentFolder }: any) => {
-  // Placeholder - this would be the extracted NewSubfolderModal component
-  return null;
+// New Subfolder Modal Component
+const NewSubfolderModal = ({ 
+  onClose, 
+  onAddSubfolder, 
+  parentFolder 
+}: { 
+  onClose: () => void; 
+  onAddSubfolder: (name: string, description?: string, color?: string) => Promise<void>;
+  parentFolder: FileFolder | null;
+}) => {
+  const [folderName, setFolderName] = useState('');
+  const [folderDescription, setFolderDescription] = useState('');
+  const [selectedColor, setSelectedColor] = useState('#A85C36');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!folderName.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await onAddSubfolder(folderName.trim(), folderDescription.trim(), selectedColor);
+      onClose();
+    } catch (error) {
+      console.error('Error creating subfolder:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const colors = [
+    '#A85C36', '#364257', '#AB9C95', '#E0DBD7', '#F8F6F4',
+    '#D63030', '#2E7D32', '#1976D2', '#ED6C02', '#9C27B0'
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-[5px] shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7]">
+          <h5 className="h5">Create New Subfolder</h5>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#F8F6F4] rounded-[3px] transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Subfolder Name *
+              </label>
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E0DBD7] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
+                placeholder="Enter subfolder name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Description (optional)
+              </label>
+              <textarea
+                value={folderDescription}
+                onChange={(e) => setFolderDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E0DBD7] rounded-[5px] focus:outline-none focus:border-[#A85C36] resize-none"
+                rows={3}
+                placeholder="Describe what this subfolder is for"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Color
+              </label>
+              <div className="flex gap-2">
+                {colors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setSelectedColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                      selectedColor === color ? 'border-[#332B42]' : 'border-[#E0DBD7]'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-primaryinverse px-4 py-2 text-sm"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary px-4 py-2 text-sm"
+              disabled={!folderName.trim() || isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Subfolder'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-const NewFolderModal = ({ onClose, onAddFolder }: any) => {
-  // Placeholder - this would be the extracted NewFolderModal component
-  return null;
+// New Folder Modal Component
+const NewFolderModal = ({ onClose, onAddFolder }: { 
+  onClose: () => void; 
+  onAddFolder: (name: string, description?: string, color?: string) => Promise<void> 
+}) => {
+  const [folderName, setFolderName] = useState('');
+  const [folderDescription, setFolderDescription] = useState('');
+  const [selectedColor, setSelectedColor] = useState('#A85C36');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!folderName.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await onAddFolder(folderName.trim(), folderDescription.trim(), selectedColor);
+      onClose();
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const colors = [
+    '#A85C36', '#364257', '#AB9C95', '#E0DBD7', '#F8F6F4',
+    '#D63030', '#2E7D32', '#1976D2', '#ED6C02', '#9C27B0'
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-[5px] shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7]">
+          <h5 className="h5">Create New Folder</h5>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-[#F8F6F4] rounded-[3px] transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Folder Name *
+              </label>
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E0DBD7] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
+                placeholder="Enter folder name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Description (optional)
+              </label>
+              <textarea
+                value={folderDescription}
+                onChange={(e) => setFolderDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E0DBD7] rounded-[5px] focus:outline-none focus:border-[#A85C36] resize-none"
+                rows={3}
+                placeholder="Describe what this folder is for"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-[#332B42] mb-2">
+                Color
+              </label>
+              <div className="flex gap-2">
+                {colors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setSelectedColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                      selectedColor === color ? 'border-[#332B42]' : 'border-[#E0DBD7]'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-primaryinverse px-4 py-2 text-sm"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary px-4 py-2 text-sm"
+              disabled={!folderName.trim() || isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Folder'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-const DeleteFolderConfirmationModal = ({ folder, onConfirm, onClose }: any) => {
-  // Placeholder - this would be the extracted DeleteFolderConfirmationModal component
-  return null;
+// Delete Folder Confirmation Modal Component
+const DeleteFolderConfirmationModal = ({ 
+  folder, 
+  onConfirm, 
+  onClose 
+}: { 
+  folder: FileFolder; 
+  onConfirm: () => void; 
+  onClose: () => void; 
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6">
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <Trash2 className="w-8 h-8 text-red-500" />
+          </div>
+          <h5 className="h5 mb-2">Delete Folder</h5>
+          <p className="text-sm text-gray-600 mb-2">
+            Are you sure you want to delete "{folder.name}"?
+          </p>
+          <p className="text-xs text-gray-500">
+            This will also delete all files and subfolders within it. This action cannot be undone.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="btn-primaryinverse px-4 py-2 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="btn-primary px-4 py-2 text-sm bg-red-600 hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default FilesModals; 
