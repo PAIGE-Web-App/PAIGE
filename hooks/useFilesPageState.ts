@@ -89,7 +89,7 @@ export function useFilesPageState({
   const folderFileCounts = useMemo(() => {
     const counts = new Map<string, number>();
     folders.forEach(folder => {
-      const count = files.filter(file => file.categoryId === folder.id).length;
+      const count = files.filter(file => file.folderId === folder.id).length;
       counts.set(folder.id, count);
     });
     return counts;

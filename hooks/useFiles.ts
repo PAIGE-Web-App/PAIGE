@@ -68,6 +68,13 @@ export function useFiles() {
         };
       });
 
+      // Debug logging for file updates
+      console.log('Files updated:', {
+        count: fileList.length,
+        totalSize: fileList.reduce((sum, f) => sum + f.fileSize, 0),
+        files: fileList.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
+      });
+
       setFiles(fileList);
       setLoading(false);
     }, (error) => {
@@ -153,7 +160,7 @@ export function useFiles() {
       // Start AI processing
       await processFileWithAI(docRef.id);
       
-      showSuccessToast('File uploaded successfully!');
+      // Don't show toast here - let the modal handle it
       return docRef.id;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -237,7 +244,8 @@ export function useFiles() {
         updatedAt: new Date(),
       });
 
-      showSuccessToast('File analysis completed!');
+      // Don't show toast for AI completion - let the upload modal handle success
+      // showSuccessToast('File analysis completed!');
     } catch (error) {
       console.error('Error processing file with AI:', error);
       

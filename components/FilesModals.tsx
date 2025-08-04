@@ -4,6 +4,7 @@ import { Trash2, Upload, X, Folder, Plus } from 'lucide-react';
 import UpgradePlanModal from './UpgradePlanModal';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 import { useFiles } from '@/hooks/useFiles';
+import LoadingBar from './LoadingBar';
 
 interface FilesModalsProps {
   showUploadModal: boolean;
@@ -27,6 +28,7 @@ interface FilesModalsProps {
   onConfirmDeleteFolder: (folderId: string) => Promise<void>;
   showSuccessToast: (message: string) => void;
   showErrorToast: (message: string) => void;
+  onUploadComplete: (fileId: string) => void;
 }
 
 const FilesModals: React.FC<FilesModalsProps> = ({
@@ -51,6 +53,7 @@ const FilesModals: React.FC<FilesModalsProps> = ({
   onConfirmDeleteFolder,
   showSuccessToast,
   showErrorToast,
+  onUploadComplete,
 }) => {
   return (
     <>
@@ -60,6 +63,8 @@ const FilesModals: React.FC<FilesModalsProps> = ({
           onClose={onCloseUploadModal} 
           showSuccessToast={showSuccessToast}
           showErrorToast={showErrorToast}
+          currentFolder={selectedFolder}
+          onUploadComplete={onUploadComplete}
         />
       )}
 
@@ -133,10 +138,18 @@ const FilesModals: React.FC<FilesModalsProps> = ({
 };
 
 // Upload Modal Component
-const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: { 
+const UploadModal = ({ 
+  onClose, 
+  showSuccessToast, 
+  showErrorToast, 
+  currentFolder,
+  onUploadComplete 
+}: { 
   onClose: () => void; 
   showSuccessToast: (message: string) => void;
   showErrorToast: (message: string) => void;
+  currentFolder: FileFolder | null;
+  onUploadComplete: (fileId: string) => void;
 }) => {
   // Get storage stats for validation
   const storageStats = useStorageUsage();
@@ -145,6 +158,8 @@ const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [fileDescriptions, setFileDescriptions] = useState<Record<string, string>>({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -216,32 +231,56 @@ const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: {
     }
     
     setUploading(true);
+    setUploadProgress(0);
+    setCurrentFileIndex(0);
+    
     try {
-      // Upload each file
-      for (const file of selectedFiles) {
+      // Upload each file with progress
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
         const description = fileDescriptions[file.name] || '';
         
-        await uploadFile({
+        setCurrentFileIndex(i + 1);
+        setUploadProgress((i / selectedFiles.length) * 100);
+        
+        const fileId = await uploadFile({
           file,
           fileName: file.name,
           description,
-          category: 'all', // Default to "all" category when no folders exist
+          category: currentFolder?.id || 'all', // Use current folder ID or default to "all"
         });
+        
+        // Call completion callback with the uploaded file ID
+        if (fileId) {
+          onUploadComplete(fileId);
+        }
       }
       
+      setUploadProgress(100);
       showSuccessToast(`${selectedFiles.length} file(s) uploaded successfully!`);
-      onClose();
+      
+      // Close modal after a short delay to show completion
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (error) {
       console.error('Upload error:', error);
       showErrorToast('Failed to upload file(s)');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
+      setCurrentFileIndex(0);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <>
+      <LoadingBar 
+        isVisible={uploading} 
+        description={`Uploading file ${currentFileIndex} of ${selectedFiles.length}...`}
+      />
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7]">
           <h5 className="h5">Upload Files</h5>
           <button
@@ -341,6 +380,7 @@ const UploadModal = ({ onClose, showSuccessToast, showErrorToast }: {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

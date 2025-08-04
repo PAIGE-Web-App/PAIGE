@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileItem } from '@/types/files';
+import { FileItem, FileFolder } from '@/types/files';
 import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit } from 'lucide-react';
 import { useDragDrop } from './DragDropContext';
 
@@ -10,10 +10,19 @@ interface FileItemComponentProps {
   onSelect: (file: FileItem) => void;
   isSelected?: boolean;
   viewMode?: 'list' | 'grid';
+  folders?: FileFolder[];
 }
 
-const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid' }) => {
+const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid', folders = [] }) => {
   const { setDraggedItem, setIsDragging } = useDragDrop();
+  
+  // Get folder name for display
+  const getFolderName = (folderId: string) => {
+    if (folderId === 'all') return 'All Files';
+    const folder = folders.find(f => f.id === folderId);
+    return folder ? folder.name : 'Unknown Folder';
+  };
+  
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -54,6 +63,36 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           setDraggedItem({ type: 'file', item: file });
           setIsDragging(true);
           e.dataTransfer.effectAllowed = 'move';
+          
+          // Create a better sized drag preview
+          const dragPreview = document.createElement('div');
+          dragPreview.style.cssText = `
+            width: 140px;
+            height: 40px;
+            background: white;
+            border: 1px solid #A85C36;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            overflow: hidden;
+          `;
+          dragPreview.innerHTML = `
+            <div style="width: 20px; height: 20px; background-color: #F8F6F4; border-radius: 3px; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
+              <svg style="width: 16px; height: 16px; color: #6B7280;"><!-- File icon --></svg>
+            </div>
+            <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${file.name.split('.')[0]}</span>
+          `;
+          document.body.appendChild(dragPreview);
+          e.dataTransfer.setDragImage(dragPreview, 70, 20);
+          
+          // Remove the preview after drag starts
+          setTimeout(() => {
+            if (document.body.contains(dragPreview)) {
+              document.body.removeChild(dragPreview);
+            }
+          }, 0);
         }}
         onDragEnd={() => {
           setDraggedItem(null);
@@ -79,8 +118,8 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             
             {/* File Metadata */}
             <div className="flex items-center gap-4 text-xs text-[#AB9C95]">
-              <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]">
-                {file.category}
+              <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
+                {getFolderName(file.folderId)}
               </span>
               <span>{formatFileSize(file.fileSize)}</span>
               <span>{file.uploadedAt.toLocaleDateString()}</span>
@@ -139,6 +178,36 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         setDraggedItem({ type: 'file', item: file });
         setIsDragging(true);
         e.dataTransfer.effectAllowed = 'move';
+        
+        // Create a better sized drag preview
+        const dragPreview = document.createElement('div');
+        dragPreview.style.cssText = `
+          width: 140px;
+          height: 40px;
+          background: white;
+          border: 1px solid #A85C36;
+          border-radius: 5px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          display: flex;
+          align-items: center;
+          padding: 8px;
+          overflow: hidden;
+        `;
+        dragPreview.innerHTML = `
+          <div style="width: 20px; height: 20px; background-color: #F8F6F4; border-radius: 3px; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
+            <svg style="width: 16px; height: 16px; color: #6B7280;"><!-- File icon --></svg>
+          </div>
+          <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${file.name.split('.')[0]}</span>
+        `;
+        document.body.appendChild(dragPreview);
+        e.dataTransfer.setDragImage(dragPreview, 70, 20);
+        
+        // Remove the preview after drag starts
+        setTimeout(() => {
+          if (document.body.contains(dragPreview)) {
+            document.body.removeChild(dragPreview);
+          }
+        }, 0);
       }}
       onDragEnd={() => {
         setDraggedItem(null);
@@ -163,8 +232,8 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             
             {/* File Metadata */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="inline-block px-2 py-1 bg-[#F8F6F4] text-xs text-[#332B42] rounded-[3px]">
-                {file.category}
+              <span className="inline-block px-2 py-1 bg-[#F8F6F4] text-xs text-[#332B42] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
+                {getFolderName(file.folderId)}
               </span>
               <span className="text-xs text-[#AB9C95]">
                 {formatFileSize(file.fileSize)}

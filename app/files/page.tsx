@@ -7,6 +7,7 @@ import { useFileFolders } from '@/hooks/useFileFolders';
 import { useFiles } from '@/hooks/useFiles';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 import { useFilesPageState } from '@/hooks/useFilesPageState';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import { Folder, Upload } from 'lucide-react';
 
 // Components
@@ -33,6 +34,7 @@ const STARTER_TIER_MAX_SUBFOLDER_LEVELS = 3;
 export default function FilesPage() {
   const { user, loading } = useAuth();
   const { daysLeft, userName, profileLoading } = useUserProfileData();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const {
     folders,
     selectedFolder,
@@ -73,6 +75,22 @@ export default function FilesPage() {
     
     return level;
   }, [folders]);
+
+  // Move file to different folder
+  const handleMoveFile = useCallback(async (fileId: string, newFolderId: string) => {
+    try {
+      await updateFile(fileId, { folderId: newFolderId });
+      
+      // Get the target folder name for better feedback
+      const targetFolder = folders.find(f => f.id === newFolderId);
+      const folderName = targetFolder ? targetFolder.name : (newFolderId === 'all' ? 'All Files' : 'Unknown Folder');
+      
+      showSuccessToast(`File moved to "${folderName}" successfully`);
+    } catch (error) {
+      console.error('Error moving file:', error);
+      showErrorToast('Failed to move file');
+    }
+  }, [updateFile, folders]);
 
   // Custom state management hook
   const {
@@ -316,6 +334,12 @@ export default function FilesPage() {
             onConfirmDeleteFolder={() => Promise.resolve()}
             showSuccessToast={() => {}}
             showErrorToast={() => {}}
+            onUploadComplete={(fileId) => {
+              const uploadedFile = files.find(f => f.id === fileId);
+              if (uploadedFile) {
+                setSelectedFile(uploadedFile);
+              }
+            }}
           />
       </div>
       </DragDropProvider>
@@ -355,6 +379,7 @@ export default function FilesPage() {
                     setFileSearchQuery={setSearchQuery}
                     selectAllFiles={selectAllFiles}
                     allFileCount={files.length}
+                    onMoveFile={handleMoveFile}
                   />
                 )}
               </div>
@@ -391,6 +416,13 @@ export default function FilesPage() {
                 onSelectSubfolder={handleSelectSubfolder}
                 onCreateSubfolder={handleCreateSubfolder}
                 onUploadFile={() => setShowUploadModal(true)}
+                onUploadComplete={(fileId) => {
+                  // Find the uploaded file and select it
+                  const uploadedFile = files.find(f => f.id === fileId);
+                  if (uploadedFile) {
+                    setSelectedFile(uploadedFile);
+                  }
+                }}
                 onShowUpgradeModal={handleShowUpgradeModal}
                 onDismissSubfolderLimitBanner={handleDismissSubfolderLimitBanner}
                 folders={folders}
@@ -439,6 +471,12 @@ export default function FilesPage() {
           onConfirmDeleteFolder={executeDeleteFolder}
           showSuccessToast={() => {}}
           showErrorToast={() => {}}
+          onUploadComplete={(fileId) => {
+            const uploadedFile = files.find(f => f.id === fileId);
+            if (uploadedFile) {
+              setSelectedFile(uploadedFile);
+            }
+          }}
         />
     </div>
     </DragDropProvider>

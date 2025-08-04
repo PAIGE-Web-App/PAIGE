@@ -17,6 +17,8 @@ interface FolderContentViewProps {
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
+  onUploadComplete: (fileId: string) => void;
+  folders: FileFolder[];
   isLoading?: boolean;
 }
 
@@ -30,6 +32,8 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   onDeleteFile,
   onEditFile,
   onSelectSubfolder,
+  onUploadComplete,
+  folders,
   isLoading = false,
 }) => {
   const [activeTab, setActiveTab] = useState('files');
@@ -43,6 +47,21 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
       setActiveTab('subfolders');
     }
   }, [subfolders.length]);
+
+  // Handle upload completion - switch to Files tab and focus on uploaded file
+  useEffect(() => {
+    if (onUploadComplete) {
+      const handleUploadComplete = (fileId: string) => {
+        // Switch to Files tab
+        setActiveTab('files');
+        // Focus on the uploaded file (this will be handled by the parent component)
+        onUploadComplete(fileId);
+      };
+      
+      // Store the handler for use in the upload completion callback
+      (window as any).handleUploadComplete = handleUploadComplete;
+    }
+  }, [onUploadComplete]);
 
   // If no folder is selected, show empty state
   if (!selectedFolder) {
@@ -160,6 +179,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
                   onSelect={() => onSelectFile(file)}
                   onDelete={() => onDeleteFile(file.id)}
                   onEdit={() => onEditFile(file)}
+                  folders={folders}
                 />
               ))}
             </div>

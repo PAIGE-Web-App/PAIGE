@@ -39,6 +39,7 @@ interface FilesContentAreaProps {
   onSelectSubfolder: (subfolder: FileFolder) => void;
   onCreateSubfolder: () => void;
   onUploadFile: () => void;
+  onUploadComplete: (fileId: string) => void;
   onShowUpgradeModal: () => void;
   onDismissSubfolderLimitBanner: () => void;
   folders: FileFolder[];
@@ -75,6 +76,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   onSelectSubfolder,
   onCreateSubfolder,
   onUploadFile,
+  onUploadComplete,
   onShowUpgradeModal,
   onDismissSubfolderLimitBanner,
   folders,
@@ -149,6 +151,8 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         onDeleteFile={onDeleteFile}
         onEditFile={onEditFile}
         onSelectSubfolder={onSelectSubfolder}
+        onUploadComplete={onUploadComplete}
+        folders={folders}
         isLoading={isLoading}
       />
     </div>

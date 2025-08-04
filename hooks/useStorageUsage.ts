@@ -5,21 +5,21 @@ import { useAuth } from './useAuth';
 // Storage limits by plan
 export const STORAGE_LIMITS = {
   FREE: {
-    storageGB: 1, // 1GB
+    storageMB: 50, // 50MB
     maxFiles: 50,
     maxFolders: 5,
     maxFileSizeMB: 25,
     planName: 'Starter'
   },
   PREMIUM: {
-    storageGB: 10, // 10GB  
+    storageMB: 1000, // 1GB  
     maxFiles: 500,
     maxFolders: 25,
     maxFileSizeMB: 100,
     planName: 'Premium'
   },
   ENTERPRISE: {
-    storageGB: 100, // 100GB
+    storageMB: 100000, // 100GB
     maxFiles: 5000,
     maxFolders: 100,
     maxFileSizeMB: 500,
@@ -42,11 +42,19 @@ export function useStorageUsage() {
     const totalBytes = files.reduce((sum, file) => sum + file.fileSize, 0);
     const totalFiles = files.length;
     
+    // Debug logging
+    console.log('Storage calculation:', {
+      totalFiles,
+      totalBytes,
+      totalBytesMB: (totalBytes / 1024 / 1024).toFixed(2) + ' MB',
+      files: files.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
+    });
+    
     // Get user's plan (you'll need to implement this)
     const userPlan = getUserPlan(user);
     const planLimits = STORAGE_LIMITS[userPlan];
     
-    const totalStorageBytes = planLimits.storageGB * 1024 * 1024 * 1024; // Convert GB to bytes
+    const totalStorageBytes = planLimits.storageMB * 1024 * 1024; // Convert MB to bytes
     const progressPercentage = Math.min((totalBytes / totalStorageBytes) * 100, 100);
     
     return {
@@ -56,7 +64,7 @@ export function useStorageUsage() {
       maxFiles: planLimits.maxFiles,
       plan: userPlan,
       planName: planLimits.planName,
-      storageAmount: `${planLimits.storageGB}GB`,
+      storageAmount: `${planLimits.storageMB}MB`,
       limits: planLimits,
       progressPercentage,
       isNearLimit: progressPercentage > 80,

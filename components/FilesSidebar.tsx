@@ -3,6 +3,7 @@ import BadgeCount from './BadgeCount';
 import { FileFolder } from '@/types/files';
 import { Folder, FolderOpen, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
+import { useDragDrop } from './DragDropContext';
 
 interface FilesSidebarProps {
   folders: FileFolder[];
@@ -19,6 +20,7 @@ interface FilesSidebarProps {
   selectAllFiles: () => void;
   allFileCount: number;
   showUpgradeModal?: () => void;
+  onMoveFile?: (fileId: string, newFolderId: string) => Promise<void>;
 }
 
 const FilesSidebar: React.FC<FilesSidebarProps> = ({
@@ -36,6 +38,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   selectAllFiles,
   allFileCount,
   showUpgradeModal,
+  onMoveFile,
 }) => {
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -47,6 +50,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   
   // Get storage usage for display
   const storageStats = useStorageUsage();
+  
+  // Drag and drop functionality
+  const { draggedItem, isDragging, dropTarget, setDropTarget } = useDragDrop();
 
   const handleAddFolderWithDescription = async ({ name, description, color }: { name: string; description?: string; color: string }) => {
     if (folderLimitReached) return;
@@ -127,7 +133,32 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
             </div>
             <div
               onClick={() => { setSelectedFolder(subfolder); setFileSearchQuery(''); }}
-              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isDragging && draggedItem?.type === 'file') {
+                  setDropTarget(subfolder.id);
+                }
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Only clear if we're not dragging over a child element
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTarget(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDropTarget(null);
+                if (draggedItem?.type === 'file' && onMoveFile) {
+                  onMoveFile(draggedItem.item.id, subfolder.id);
+                }
+              }}
+              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 transition-all duration-200 ${selectedFolder?.id === subfolder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${
+                dropTarget === subfolder.id && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
+              }`}
             >
               <span className="mr-2" title={subfolder.name}>
                 {selectedFolder?.id === subfolder.id ? (
@@ -207,7 +238,32 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                   setFileSearchQuery('');
                 }
               }}
-              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedFolder?.id === 'all' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isDragging && draggedItem?.type === 'file') {
+                  setDropTarget('all');
+                }
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Only clear if we're not dragging over a child element
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTarget(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDropTarget(null);
+                if (draggedItem?.type === 'file' && onMoveFile) {
+                  onMoveFile(draggedItem.item.id, 'all');
+                }
+              }}
+              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer transition-all duration-200 ${selectedFolder?.id === 'all' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2 ${
+                dropTarget === 'all' && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
+              }`}
             >
                               <span className="mr-2" title="All Files">
                   {selectedFolder?.id === 'all' ? (
@@ -265,7 +321,32 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                                 setSelectedFolder(folder);
                                 setFileSearchQuery('');
                               }}
-                              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (isDragging && draggedItem?.type === 'file') {
+                                  setDropTarget(folder.id);
+                                }
+                              }}
+                              onDragLeave={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // Only clear if we're not dragging over a child element
+                                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                  setDropTarget(null);
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDropTarget(null);
+                                if (draggedItem?.type === 'file' && onMoveFile) {
+                                  onMoveFile(draggedItem.item.id, folder.id);
+                                }
+                              }}
+                              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 transition-all duration-200 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${
+                                dropTarget === folder.id && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
+                              }`}
                             >
                               <span className="mr-2" title={folder.name}>
                                 {selectedFolder?.id === folder.id ? (
