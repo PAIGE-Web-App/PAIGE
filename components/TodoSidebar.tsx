@@ -161,7 +161,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                 className={`px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
               >
                 <div className="flex items-center justify-between">
-                  <span>{list.name}</span>
+                  <span className="truncate flex-1 min-w-0" title={list.name}>{list.name}</span>
                   <BadgeCount count={listTaskCounts.get(list.id) ?? 0} />
                 </div>
               </div>

@@ -105,9 +105,12 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
             }}
           >
             <h6
-              className={`transition-opacity duration-300 ${
+              className={`transition-opacity duration-300 truncate max-w-[300px] ${
                 editingListNameId ? 'opacity-0' : 'opacity-100'
               }`}
+              title={showCompletedItems && !selectedList
+                ? 'Completed To-Do Items'
+                : selectedList?.name || 'All To-Do Items'}
             >
               {showCompletedItems && !selectedList
                 ? 'Completed To-Do Items'

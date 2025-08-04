@@ -12,7 +12,9 @@ export interface FileFolder {
   name: string;
   description?: string;
   userId: string;
+  parentId?: string; // For subfolders - null/undefined for top-level folders
   fileCount: number;
+  subfolderCount: number; // Number of subfolders
   color?: string;
   isDefault?: boolean;
   createdAt: Date;

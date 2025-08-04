@@ -46,6 +46,7 @@ export function useFiles() {
           description: data.description,
           category: data.category,
           categoryId: data.categoryId,
+          folderId: data.folderId || data.categoryId || 'all', // Use folderId if available, fallback to categoryId, then 'all'
           uploadedAt: data.uploadedAt?.toDate() || new Date(),
           fileType: data.fileType,
           fileSize: data.fileSize,
@@ -132,13 +133,15 @@ export function useFiles() {
         description: uploadData.description,
         category: uploadData.category,
         categoryId: uploadData.category,
+        folderId: uploadData.category, // Use category as folderId for now
         uploadedAt: new Date(),
         fileType: uploadData.file.type,
         fileSize: uploadData.file.size,
         fileUrl: 'https://example.com/uploaded-file.pdf', // Placeholder
         userId: user.uid,
-        vendorId: uploadData.vendorId,
-        messageId: uploadData.messageId,
+        // Only include optional fields if they have values
+        ...(uploadData.vendorId && { vendorId: uploadData.vendorId }),
+        ...(uploadData.messageId && { messageId: uploadData.messageId }),
         isProcessed: false,
         processingStatus: 'pending',
         createdAt: new Date(),

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileItem } from '@/types/files';
 import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit } from 'lucide-react';
+import { useDragDrop } from './DragDropContext';
 
 interface FileItemComponentProps {
   file: FileItem;
@@ -12,6 +13,7 @@ interface FileItemComponentProps {
 }
 
 const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid' }) => {
+  const { setDraggedItem, setIsDragging } = useDragDrop();
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -47,6 +49,16 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             : 'border-[#E0DBD7] hover:border-[#AB9C95]'
         }`}
         onClick={() => onSelect(file)}
+        draggable
+        onDragStart={(e) => {
+          setDraggedItem({ type: 'file', item: file });
+          setIsDragging(true);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+        onDragEnd={() => {
+          setDraggedItem(null);
+          setIsDragging(false);
+        }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 flex-1">
@@ -122,6 +134,16 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           : 'border-[#E0DBD7] hover:border-[#AB9C95]'
       }`}
       onClick={() => onSelect(file)}
+      draggable
+      onDragStart={(e) => {
+        setDraggedItem({ type: 'file', item: file });
+        setIsDragging(true);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => {
+        setDraggedItem(null);
+        setIsDragging(false);
+      }}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4 flex-1">

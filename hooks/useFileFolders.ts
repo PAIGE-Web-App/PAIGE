@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { FileCategory } from '@/types/files';
+import { FileFolder } from '@/types/files';
 import { query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 
 export const useFileFolders = () => {
   const { user } = useAuth();
-  const [folders, setFolders] = useState<FileCategory[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<FileCategory | null>(null);
+  const [folders, setFolders] = useState<FileFolder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<FileFolder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,13 +25,17 @@ export const useFileFolders = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const foldersData: FileCategory[] = [];
+      const foldersData: FileFolder[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as any;
         foldersData.push({
           id: doc.id,
           name: data.name,
-          count: data.count || 0,
+          description: data.description,
+          userId: user.uid,
+          parentId: data.parentId,
+          fileCount: data.fileCount || 0,
+          subfolderCount: data.subfolderCount || 0,
           color: data.color,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
@@ -39,10 +43,12 @@ export const useFileFolders = () => {
       });
       
       // Add "All Files" folder
-      const allFilesFolder: FileCategory = {
+      const allFilesFolder: FileFolder = {
         id: 'all',
         name: 'All Files',
-        count: 0, // Will be updated by parent component
+        userId: user.uid,
+        fileCount: 0, // Will be updated by parent component
+        subfolderCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -59,14 +65,18 @@ export const useFileFolders = () => {
   }, [user]);
 
   // Create a new folder
-  const addFolder = async (name: string, description?: string): Promise<void> => {
+  const addFolder = async (name: string, description?: string, color?: string, parentId?: string): Promise<void> => {
     if (!user) return;
 
     try {
       const folderData = {
         name: name.trim(),
-        count: 0,
-        color: '#A85C36', // Default color
+        description: description?.trim(),
+        userId: user.uid,
+        parentId: parentId || null, // Use provided parentId or null for top-level folder
+        fileCount: 0,
+        subfolderCount: 0,
+        color: color || '#A85C36', // Use provided color or default
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -80,7 +90,7 @@ export const useFileFolders = () => {
   };
 
   // Update folder
-  const updateFolder = async (folderId: string, updates: Partial<FileCategory>): Promise<void> => {
+  const updateFolder = async (folderId: string, updates: Partial<FileFolder>): Promise<void> => {
     if (!user) return;
 
     try {
