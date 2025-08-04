@@ -4,10 +4,12 @@ export function addCacheBuster(url: string | null): string | null {
 }
 
 export async function generateLQIP(blob: Blob): Promise<string> {
+  if (typeof window === 'undefined') return '';
+  
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      const img = new window.Image();
+      const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const size = 16;

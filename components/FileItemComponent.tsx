@@ -6,9 +6,12 @@ interface FileItemComponentProps {
   file: FileItem;
   onDelete: (fileId: string) => void;
   onEdit: (file: FileItem) => void;
+  onSelect: (file: FileItem) => void;
+  isSelected?: boolean;
+  viewMode?: 'list' | 'grid';
 }
 
-const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit }) => {
+const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid' }) => {
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -34,8 +37,92 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
     }
   };
 
+  // List view layout
+  if (viewMode === 'list') {
+    return (
+      <div 
+        className={`bg-white border rounded-[5px] p-4 hover:shadow-sm transition-all cursor-pointer ${
+          isSelected 
+            ? 'border-[#A85C36] bg-[#F8F6F4] shadow-md' 
+            : 'border-[#E0DBD7] hover:border-[#AB9C95]'
+        }`}
+        onClick={() => onSelect(file)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 flex-1">
+            {/* File Icon */}
+            <div className="w-10 h-10 bg-[#F8F6F4] rounded-[5px] flex items-center justify-center flex-shrink-0">
+              {getFileIcon(file.fileType)}
+            </div>
+            
+            {/* File Details */}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-[#332B42] text-sm truncate">
+                {file.name}
+              </h3>
+              <p className="text-xs text-[#AB9C95] mt-1 truncate">
+                {file.description}
+              </p>
+            </div>
+            
+            {/* File Metadata */}
+            <div className="flex items-center gap-4 text-xs text-[#AB9C95]">
+              <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]">
+                {file.category}
+              </span>
+              <span>{formatFileSize(file.fileSize)}</span>
+              <span>{file.uploadedAt.toLocaleDateString()}</span>
+            </div>
+          </div>
+          
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(file);
+              }}
+              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+              title="Edit file"
+            >
+              <Edit className="w-4 h-4 text-[#AB9C95]" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(file.fileUrl, '_blank');
+              }}
+              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+              title="View file"
+            >
+              <Eye className="w-4 h-4 text-[#AB9C95]" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(file.id);
+              }}
+              className="p-2 hover:bg-red-50 rounded-[5px] transition-colors"
+              title="Delete file"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid view layout (default)
   return (
-    <div className="bg-white border border-[#E0DBD7] rounded-[5px] p-4 hover:shadow-sm transition-shadow">
+    <div 
+      className={`bg-white border rounded-[5px] p-4 hover:shadow-sm transition-all cursor-pointer ${
+        isSelected 
+          ? 'border-[#A85C36] bg-[#F8F6F4] shadow-md' 
+          : 'border-[#E0DBD7] hover:border-[#AB9C95]'
+      }`}
+      onClick={() => onSelect(file)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4 flex-1">
           {/* File Icon */}
@@ -104,28 +191,40 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         {/* Actions */}
         <div className="flex items-center gap-1">
           <button 
-            onClick={() => onEdit(file)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(file);
+            }}
             className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
             title="Edit file"
           >
             <Edit className="w-4 h-4 text-[#AB9C95]" />
           </button>
           <button 
-            onClick={() => window.open(file.fileUrl, '_blank')}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(file.fileUrl, '_blank');
+            }}
             className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
             title="View file"
           >
             <Eye className="w-4 h-4 text-[#AB9C95]" />
           </button>
           <button 
-            onClick={() => window.open(file.fileUrl, '_blank')}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(file.fileUrl, '_blank');
+            }}
             className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
             title="Download file"
           >
             <Download className="w-4 h-4 text-[#AB9C95]" />
           </button>
           <button 
-            onClick={() => onDelete(file.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(file.id);
+            }}
             className="p-2 hover:bg-red-50 rounded-[5px] transition-colors"
             title="Delete file"
           >

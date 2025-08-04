@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useFileFolders } from '@/hooks/useFileFolders';
-import { Search, Plus, Upload, FileText, X, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Search, Plus, Upload, FileText, X, ChevronDown, Edit, Trash2, List, Grid3X3, Folder, FolderOpen } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 
@@ -12,8 +12,9 @@ import dynamic from 'next/dynamic';
 import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
-import RightDashboardPanel from '@/components/RightDashboardPanel';
 import FilesSidebar from '@/components/FilesSidebar';
+import AIFileAnalyzer from '@/components/AIFileAnalyzer';
+import SearchBar from '@/components/SearchBar';
 
 // Lazy load heavy components
 const FileItemComponent = dynamic(() => import('@/components/FileItemComponent'), {
@@ -41,20 +42,11 @@ export default function FilesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
-  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>('todo');
-  const [activeTab, setActiveTab] = useState<'contacts' | 'messages' | 'todo' | 'budget'>('todo');
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-
-  // Mock data - replace with real data from your backend
-  const categories = useMemo(() => [
-    { id: 'all', name: 'All Files', count: foldersLoading ? 0 : 12 },
-    { id: 'contracts', name: 'Contracts', count: foldersLoading ? 0 : 5 },
-    { id: 'invoices', name: 'Invoices', count: foldersLoading ? 0 : 3 },
-    { id: 'proposals', name: 'Proposals', count: foldersLoading ? 0 : 2 },
-    { id: 'photos', name: 'Photos', count: foldersLoading ? 0 : 2 },
-  ], [foldersLoading]);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const files: FileItem[] = useMemo(() => [
     {
@@ -97,6 +89,31 @@ export default function FilesPage() {
     });
     return counts;
   }, [files, folders]);
+
+  // Dynamic categories based on actual folders
+  const categories = useMemo(() => {
+    if (foldersLoading) {
+      return [
+        { id: 'all', name: 'All Files', count: 0 },
+        { id: 'loading1', name: 'Loading...', count: 0 },
+        { id: 'loading2', name: 'Loading...', count: 0 },
+      ];
+    }
+    
+    const allFilesCount = files.length;
+    const folderCategories = folders
+      .filter(folder => folder.id !== 'all') // Prevent conflict with "All Files"
+      .map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        count: folderFileCounts.get(folder.id) || 0
+      }));
+    
+    return [
+      { id: 'all', name: 'All Files', count: allFilesCount },
+      ...folderCategories
+    ];
+  }, [folders, foldersLoading, files.length, folderFileCounts]);
 
   // Handle folder operations
   const handleAddFolder = async (name: string, description?: string) => {
@@ -165,38 +182,88 @@ export default function FilesPage() {
             <div className="flex-1 flex flex-col min-h-0">
               {/* Top Bar */}
               <div className="bg-white border-b border-[#E0DBD7] p-6 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
+                  {/* Left Side - Folder Name and Controls */}
+                  <div className="flex items-center gap-4 flex-shrink-0">
                     <h1 className="text-2xl font-playfair font-semibold text-[#332B42]">
                       {selectedFolder ? selectedFolder.name : 'All Files'}
                     </h1>
-                    {selectedFolder && (
-                      <span className="text-sm text-[#AB9C95]">
-                        {folderFileCounts.get(selectedFolder.id) || 0} files
-                      </span>
+                    
+                    {/* Folder Controls - Only show for non-All Files folders */}
+                    {selectedFolder && selectedFolder.id !== 'all' && (
+                      <div className="flex items-center gap-2">
+                        {/* Edit Folder Button */}
+                        <button
+                          onClick={() => {
+                            // TODO: Implement folder editing
+                            console.log('Edit folder:', selectedFolder.id);
+                          }}
+                          className="p-2 text-[#AB9C95] hover:text-[#332B42] hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+                          title="Edit folder"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        
+                        {/* Delete Folder Button */}
+                        <button
+                          onClick={() => {
+                            // TODO: Implement folder deletion
+                            console.log('Delete folder:', selectedFolder.id);
+                          }}
+                          className="p-2 text-[#AB9C95] hover:text-[#E53E3E] hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+                          title="Delete folder"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        
+                        {/* Divider */}
+                        <div className="w-px h-4 bg-[#E0DBD7]"></div>
+                      </div>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    {/* Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#AB9C95] w-4 h-4" />
-                      <input
-                        type="text"
-                        placeholder="Search files..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-[#E0DBD7] rounded-[5px] text-[#332B42] focus:outline-none focus:border-[#A85C36] w-64"
-                      />
+                  {/* Middle - Search Bar (Flex Grow) */}
+                  <div className="flex items-center transition-all duration-300 gap-3 flex-grow min-w-0" style={{ height: '32px' }}>
+                    <SearchBar
+                      value={searchQuery}
+                      onChange={setSearchQuery}
+                      placeholder="Search files..."
+                      isOpen={searchOpen}
+                      setIsOpen={setSearchOpen}
+                    />
+                  </div>
+                  
+                  {/* Right Side - View Toggle and Add Button */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {/* View Toggle */}
+                    <div className="flex rounded-full border border-gray-400 overflow-hidden" style={{ height: 32 }}>
+                      <button
+                        className={`flex items-center justify-center px-2 transition-colors duration-150 ${viewMode === 'list' ? 'bg-[#EBE3DD]' : 'bg-white'} border-r border-gray-300`}
+                        style={{ outline: 'none' }}
+                        onClick={() => setViewMode('list')}
+                        type="button"
+                        title="List view"
+                      >
+                        <List className="w-4 h-4" stroke={viewMode === 'list' ? '#A85C36' : '#364257'} />
+                      </button>
+                      <button
+                        className={`flex items-center justify-center px-2 transition-colors duration-150 ${viewMode === 'grid' ? 'bg-[#EBE3DD]' : 'bg-white'}`}
+                        style={{ outline: 'none' }}
+                        onClick={() => setViewMode('grid')}
+                        type="button"
+                        title="Grid view"
+                      >
+                        <Grid3X3 className="w-4 h-4" stroke={viewMode === 'grid' ? '#A85C36' : '#364257'} />
+                      </button>
                     </div>
                     
-                    {/* Upload Button */}
+                    {/* Add File Button */}
                     <button
                       onClick={() => setShowUploadModal(true)}
-                      className="btn-primary flex items-center gap-2"
+                      className="btn-primary ml-2 flex items-center gap-2"
                     >
-                      <Upload className="w-4 h-4" />
-                      Upload File
+                      <Plus className="w-4 h-4" />
+                      Add File
                     </button>
                   </div>
                 </div>
@@ -204,31 +271,47 @@ export default function FilesPage() {
 
               {/* Category Filter */}
               <div className="bg-white border-b border-[#E0DBD7] px-6 py-4 flex-shrink-0">
-                <div className="flex items-center gap-4 overflow-x-auto">
-                  {foldersLoading ? (
-                    // Loading skeleton for categories
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="px-4 py-2 rounded-[5px] bg-[#F8F6F4] animate-pulse"
-                        style={{ width: `${80 + Math.random() * 40}px` }}
-                      />
-                    ))
-                  ) : (
-                    categories.map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`px-4 py-2 rounded-[5px] text-sm font-medium whitespace-nowrap ${
-                          selectedCategory === category.id
-                            ? 'bg-[#A85C36] text-white'
-                            : 'bg-[#F8F6F4] text-[#332B42] hover:bg-[#EBE3DD]'
-                        }`}
-                      >
-                        {category.name} ({category.count})
-                      </button>
-                    ))
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 overflow-x-auto">
+                    {foldersLoading ? (
+                      // Loading skeleton for categories
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="px-4 py-2 rounded-[5px] bg-[#F8F6F4] animate-pulse"
+                          style={{ width: `${80 + Math.random() * 40}px` }}
+                        />
+                      ))
+                    ) : (
+                      categories.map((category, index) => (
+                        <button
+                          key={`${category.id}-${index}`}
+                          onClick={() => setSelectedCategory(category.id)}
+                          className={`px-4 py-2 rounded-[5px] text-sm font-medium whitespace-nowrap flex items-center gap-2 ${
+                            selectedCategory === category.id
+                              ? 'bg-[#A85C36] text-white'
+                              : 'bg-[#F8F6F4] text-[#332B42] hover:bg-[#EBE3DD]'
+                          }`}
+                        >
+                          {category.id === 'all' ? (
+                            <Folder className="w-4 h-4" />
+                          ) : (
+                            <FolderOpen className="w-4 h-4" />
+                          )}
+                          {category.name} ({category.count})
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  
+                  {/* Create Folder Button */}
+                  <button
+                    onClick={() => setShowNewFolderInput(true)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#332B42] border border-[#E0DBD7] rounded-[5px] hover:bg-[#F8F6F4] hover:border-[#AB9C95] transition-colors flex-shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Folder
+                  </button>
                 </div>
               </div>
 
@@ -275,13 +358,16 @@ export default function FilesPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
                     {filteredFiles.map((file) => (
                       <FileItemComponent
                         key={file.id}
                         file={file}
                         onDelete={(fileId) => console.log('Delete file:', fileId)}
                         onEdit={(file) => console.log('Edit file:', file)}
+                        onSelect={(file) => setSelectedFile(file)}
+                        isSelected={selectedFile?.id === file.id}
+                        viewMode={viewMode}
                       />
                     ))}
                   </div>
@@ -290,23 +376,19 @@ export default function FilesPage() {
             </div>
           </main>
 
-          {/* Right Panel */}
+          {/* AI File Analyzer Panel */}
           <div className="md:w-[420px] w-full">
-            <RightDashboardPanel
-              currentUser={user}
-              contacts={[]}
-              isMobile={false}
-              rightPanelSelection={rightPanelSelection}
-              setRightPanelSelection={setRightPanelSelection}
-              activeMobileTab={activeMobileTab}
-              onUpdateTodoDeadline={async (todoId: string, deadline: string | null) => {
-                console.log('Update todo deadline:', todoId, deadline);
+            <AIFileAnalyzer
+              selectedFile={selectedFile}
+              onClose={() => setSelectedFile(null)}
+              onAnalyzeFile={async (fileId: string, analysisType: string) => {
+                // TODO: Implement file analysis
+                console.log('Analyze file:', fileId, analysisType);
               }}
-              onUpdateTodoNotes={async (todoId: string, notes: string) => {
-                console.log('Update todo notes:', todoId, notes);
-              }}
-              onUpdateTodoCategory={async (todoId: string, category: string) => {
-                console.log('Update todo category:', todoId, category);
+              onAskQuestion={async (fileId: string, question: string) => {
+                // TODO: Implement AI question answering
+                console.log('Ask question:', fileId, question);
+                return `This is a mock response to: "${question}". In the future, this will be powered by AI analysis of your file.`;
               }}
             />
           </div>
