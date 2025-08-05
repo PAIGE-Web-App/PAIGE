@@ -396,7 +396,7 @@ const NewSubfolderModal = ({
 }) => {
   const [folderName, setFolderName] = useState('');
   const [folderDescription, setFolderDescription] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#A85C36');
+  const [selectedColor, setSelectedColor] = useState('#a34d54');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -415,8 +415,9 @@ const NewSubfolderModal = ({
   };
 
   const colors = [
-    '#A85C36', '#364257', '#AB9C95', '#E0DBD7', '#F8F6F4',
-    '#D63030', '#2E7D32', '#1976D2', '#ED6C02', '#9C27B0'
+    '#a34d54', '#894a6b', '#654d74', '#424d6b', '#2f4858',
+    '#966b1f', '#7a7917', '#52862b', '#008f4f', '#00957d',
+    '#4c8076', '#55433b', '#c4515c', '#a84baa'
   ];
 
   return (
@@ -463,7 +464,7 @@ const NewSubfolderModal = ({
             
             <div>
               <label className="block text-sm font-medium text-[#332B42] mb-2">
-                Color
+                Folder Color
               </label>
               <div className="flex gap-2">
                 {colors.map((color) => (
@@ -471,10 +472,10 @@ const NewSubfolderModal = ({
                     key={color}
                     type="button"
                     onClick={() => setSelectedColor(color)}
-                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                      selectedColor === color ? 'border-[#332B42]' : 'border-[#E0DBD7]'
+                    className={`w-5 h-5 aspect-square transition-colors ${
+                      selectedColor === color ? 'border border-[#332B42]' : 'border border-[#E0DBD7]'
                     }`}
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: color, borderRadius: '50%' }}
                   />
                 ))}
               </div>
@@ -511,7 +512,7 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
 }) => {
   const [folderName, setFolderName] = useState('');
   const [folderDescription, setFolderDescription] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#A85C36');
+  const [selectedColor, setSelectedColor] = useState('#a34d54');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -530,8 +531,9 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
   };
 
   const colors = [
-    '#A85C36', '#364257', '#AB9C95', '#E0DBD7', '#F8F6F4',
-    '#D63030', '#2E7D32', '#1976D2', '#ED6C02', '#9C27B0'
+    '#a34d54', '#894a6b', '#654d74', '#424d6b', '#2f4858',
+    '#966b1f', '#7a7917', '#52862b', '#008f4f', '#00957d',
+    '#4c8076', '#55433b', '#c4515c', '#a84baa'
   ];
 
   return (
@@ -578,7 +580,7 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
             
             <div>
               <label className="block text-sm font-medium text-[#332B42] mb-2">
-                Color
+                Folder Color
               </label>
               <div className="flex gap-2">
                 {colors.map((color) => (
@@ -586,10 +588,10 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
                     key={color}
                     type="button"
                     onClick={() => setSelectedColor(color)}
-                    className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                      selectedColor === color ? 'border-[#332B42]' : 'border-[#E0DBD7]'
+                    className={`w-5 h-5 aspect-square transition-colors ${
+                      selectedColor === color ? 'border border-[#332B42]' : 'border border-[#E0DBD7]'
                     }`}
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: color, borderRadius: '50%' }}
                   />
                 ))}
               </div>

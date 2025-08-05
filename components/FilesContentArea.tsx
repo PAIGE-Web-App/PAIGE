@@ -40,9 +40,13 @@ interface FilesContentAreaProps {
   onCreateSubfolder: () => void;
   onUploadFile: () => void;
   onUploadComplete: (fileId: string) => void;
+  onMoveFile?: (fileId: string, newFolderId: string) => Promise<void>;
+  onEditSubfolder?: (subfolder: FileFolder) => void;
+  onDeleteSubfolder?: (subfolder: FileFolder) => void;
   onShowUpgradeModal: () => void;
   onDismissSubfolderLimitBanner: () => void;
   folders: FileFolder[];
+  folderFileCounts: Map<string, number>;
 }
 
 const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
@@ -77,9 +81,13 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   onCreateSubfolder,
   onUploadFile,
   onUploadComplete,
+  onMoveFile,
+  onEditSubfolder,
+  onDeleteSubfolder,
   onShowUpgradeModal,
   onDismissSubfolderLimitBanner,
   folders,
+  folderFileCounts,
 }) => {
   // Show skeleton if loading
   if (isLoading) {
@@ -152,7 +160,11 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         onEditFile={onEditFile}
         onSelectSubfolder={onSelectSubfolder}
         onUploadComplete={onUploadComplete}
+        onMoveFile={onMoveFile}
+        onEditSubfolder={onEditSubfolder}
+        onDeleteSubfolder={onDeleteSubfolder}
         folders={folders}
+        folderFileCounts={folderFileCounts}
         isLoading={isLoading}
       />
     </div>

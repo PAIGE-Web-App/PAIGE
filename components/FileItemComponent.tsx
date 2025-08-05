@@ -1,7 +1,9 @@
 import React from 'react';
 import { FileItem, FileFolder } from '@/types/files';
 import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit } from 'lucide-react';
+import MicroMenu from './MicroMenu';
 import { useDragDrop } from './DragDropContext';
+import FilePreview from './FilePreview';
 
 interface FileItemComponentProps {
   file: FileItem;
@@ -66,6 +68,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           setDraggedItem({ type: 'file', item: file });
           setIsDragging(true);
           e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', file.id);
           
           // Create a better sized drag preview
           const dragPreview = document.createElement('div');
@@ -136,16 +139,6 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(file);
-              }}
-              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-              title="Edit file"
-            >
-              <Edit className="w-4 h-4 text-[#AB9C95]" />
-            </button>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
                 window.open(file.fileUrl, '_blank');
               }}
               className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
@@ -153,16 +146,22 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             >
               <Eye className="w-4 h-4 text-[#AB9C95]" />
             </button>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(file.id);
-              }}
-              className="p-2 hover:bg-red-50 rounded-[5px] transition-colors"
-              title="Delete file"
-            >
-              <Trash2 className="w-4 h-4 text-red-500" />
-            </button>
+            
+            <MicroMenu
+              items={[
+                {
+                  label: 'Edit',
+                  onClick: () => onEdit(file)
+                },
+                {
+                  label: 'Delete',
+                  onClick: () => onDelete(file.id),
+                  className: 'text-red-600 hover:bg-red-50'
+                }
+              ]}
+              buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
+              menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            />
           </div>
         </div>
       </div>
@@ -221,14 +220,16 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         setIsDragging(false);
       }}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4 flex-1">
-          {/* File Icon */}
-          <div className="w-12 h-12 bg-[#F8F6F4] rounded-[5px] flex items-center justify-center flex-shrink-0">
-            {getFileIcon(file.fileType)}
-          </div>
-          
-          {/* File Details */}
+      <div className="space-y-3">
+        {/* File Preview */}
+        <FilePreview 
+          fileType={file.fileType}
+          fileUrl={file.fileUrl}
+          fileName={file.name}
+          className="mb-3"
+        />
+        
+        <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-[#332B42] mb-1 truncate">
               {file.name}
@@ -284,50 +285,36 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Actions */}
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(file);
-            }}
-            className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-            title="Edit file"
-          >
-            <Edit className="w-4 h-4 text-[#AB9C95]" />
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(file.fileUrl, '_blank');
-            }}
-            className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-            title="View file"
-          >
-            <Eye className="w-4 h-4 text-[#AB9C95]" />
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(file.fileUrl, '_blank');
-            }}
-            className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-            title="Download file"
-          >
-            <Download className="w-4 h-4 text-[#AB9C95]" />
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(file.id);
-            }}
-            className="p-2 hover:bg-red-50 rounded-[5px] transition-colors"
-            title="Delete file"
-          >
-            <Trash2 className="w-4 h-4 text-red-500" />
-          </button>
+          
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(file.fileUrl, '_blank');
+              }}
+              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+              title="View file"
+            >
+              <Eye className="w-4 h-4 text-[#AB9C95]" />
+            </button>
+            
+            <MicroMenu
+              items={[
+                {
+                  label: 'Edit',
+                  onClick: () => onEdit(file)
+                },
+                {
+                  label: 'Delete',
+                  onClick: () => onDelete(file.id),
+                  className: 'text-red-600 hover:bg-red-50'
+                }
+              ]}
+              buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
+              menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            />
+          </div>
         </div>
       </div>
     </div>

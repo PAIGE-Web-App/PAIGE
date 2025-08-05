@@ -46,6 +46,8 @@ export function useFilesPageState({
   const [editingFolderNameValue, setEditingFolderNameValue] = useState<string | null>(null);
   const [showDeleteFolderModal, setShowDeleteFolderModal] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FileFolder | null>(null);
+  const [showEditFolderModal, setShowEditFolderModal] = useState(false);
+  const [folderToEdit, setFolderToEdit] = useState<FileFolder | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSubfolderLimitBanner, setShowSubfolderLimitBanner] = useState(true);
 
@@ -250,6 +252,31 @@ export function useFilesPageState({
     setEditingFolderNameValue(name);
   }, []);
 
+  const handleEditSubfolder = useCallback((subfolder: FileFolder) => {
+    setFolderToEdit(subfolder);
+    setShowEditFolderModal(true);
+  }, []);
+
+  const handleUpdateFolder = useCallback(async (folderId: string, name: string, description?: string, color?: string) => {
+    try {
+      // Build updates object, only including description if it has a value
+      const updates: Partial<FileFolder> = { name, color };
+      if (description !== null && description !== undefined) {
+        updates.description = description;
+      }
+      // If description is null or undefined, we don't include it in the update
+      // This follows the same pattern as the addFolder function
+      
+      await updateFolder(folderId, updates);
+      setShowEditFolderModal(false);
+      setFolderToEdit(null);
+      showSuccessToast(`"${name}" updated successfully!`);
+    } catch (error) {
+      console.error('Error updating folder:', error);
+      showErrorToast('Failed to update folder');
+    }
+  }, [updateFolder, showSuccessToast, showErrorToast]);
+
   const handleCancelEdit = useCallback(() => {
     setEditingFolderNameId(null);
     setEditingFolderNameValue(null);
@@ -279,6 +306,8 @@ export function useFilesPageState({
     editingFolderNameValue,
     showDeleteFolderModal,
     folderToDelete,
+    showEditFolderModal,
+    folderToEdit,
     showUpgradeModal,
     showSubfolderLimitBanner,
     
@@ -306,6 +335,8 @@ export function useFilesPageState({
     setEditingFolderNameValue,
     setShowDeleteFolderModal,
     setFolderToDelete,
+    setShowEditFolderModal,
+    setFolderToEdit,
     setShowUpgradeModal,
     setShowSubfolderLimitBanner,
     
@@ -323,6 +354,8 @@ export function useFilesPageState({
     handleSearchToggle,
     handleAddFile,
     handleEditFolder,
+    handleEditSubfolder,
+    handleUpdateFolder,
     handleCancelEdit,
     handleCreateSubfolder,
   };

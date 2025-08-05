@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useFileFolders } from '@/hooks/useFileFolders';
@@ -8,7 +8,12 @@ import { useFiles } from '@/hooks/useFiles';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 import { useFilesPageState } from '@/hooks/useFilesPageState';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { Folder, Upload } from 'lucide-react';
+import { useExternalFileUpload } from '@/hooks/useExternalFileUpload';
+import { useModalHandlers } from '@/hooks/useModalHandlers';
+import { useFileNavigation } from '@/hooks/useFileNavigation';
+import { useFileUploadCompletion } from '@/hooks/useFileUploadCompletion';
+import { useContentDetection } from '@/hooks/useContentDetection';
+import { useFolderPersistence } from '@/hooks/useFolderPersistence';
 
 // Components
 import WeddingBanner from '@/components/WeddingBanner';
@@ -16,7 +21,9 @@ import FilesSidebar from '@/components/FilesSidebar';
 import FilesSidebarSkeleton from '@/components/FilesSidebarSkeleton';
 import AIFileAnalyzer from '@/components/AIFileAnalyzer';
 import FilesContentArea from '@/components/FilesContentArea';
+import FilesEmptyState from '@/components/FilesEmptyState';
 import FilesModals from '@/components/FilesModals';
+import EditFolderModal from '@/components/EditFolderModal';
 import { DragDropProvider } from '@/components/DragDropContext';
 
 // Lazy load heavy components
@@ -109,6 +116,8 @@ export default function FilesPage() {
     editingFolderNameValue,
     showDeleteFolderModal,
     folderToDelete,
+    showEditFolderModal,
+    folderToEdit,
     showUpgradeModal,
     showSubfolderLimitBanner,
     
@@ -136,6 +145,8 @@ export default function FilesPage() {
     setEditingFolderNameValue,
     setShowDeleteFolderModal,
     setFolderToDelete,
+    setShowEditFolderModal,
+    setFolderToEdit,
     setShowUpgradeModal,
     setShowSubfolderLimitBanner,
     
@@ -153,6 +164,8 @@ export default function FilesPage() {
     handleSearchToggle,
     handleAddFile,
     handleEditFolder,
+    handleEditSubfolder,
+    handleUpdateFolder,
     handleCancelEdit,
     handleCreateSubfolder,
   } = useFilesPageState({
@@ -169,158 +182,66 @@ export default function FilesPage() {
     STARTER_TIER_MAX_SUBFOLDER_LEVELS,
   });
 
-  // Set selected folder on page load (remember last selection or default to "All Files")
-  useEffect(() => {
-    if (!foldersLoading && !filesLoading && selectedFolder === null && folders.length > 0) {
-      // Try to restore the last selected folder from localStorage
-      const savedFolderId = localStorage.getItem('selectedFileFolderId');
-      
-      if (savedFolderId) {
-        // Check if the saved folder still exists
-        const savedFolder = folders.find(folder => folder.id === savedFolderId);
-        if (savedFolder) {
-          setSelectedFolder(savedFolder);
-          return;
-        }
-      }
-      
-      // Fallback to "All Files" if no saved folder or saved folder doesn't exist
-      const allFilesFolder = folders.find(folder => folder.id === 'all');
-      if (allFilesFolder) {
-        setSelectedFolder(allFilesFolder);
-      }
-    }
-  }, [foldersLoading, filesLoading, selectedFolder, folders, setSelectedFolder]);
+  // Custom hooks for optimization
+  const { handleUploadComplete } = useFileUploadCompletion({
+    files,
+    setSelectedFile
+  });
 
-  // Save selected folder to localStorage whenever it changes
-  useEffect(() => {
-    if (selectedFolder) {
-      localStorage.setItem('selectedFileFolderId', selectedFolder.id);
-    }
-  }, [selectedFolder]);
+  const { hasContent } = useContentDetection({
+    folders,
+    files,
+    foldersLoading,
+    filesLoading
+  });
 
-  // Handle external file drops
-  useEffect(() => {
-    const handleExternalFileDrop = async (event: CustomEvent) => {
-      const { files, folderId } = event.detail;
-      
-      try {
-        for (const file of files) {
-          await uploadFile({
-            file,
-            fileName: file.name,
-            description: '',
-            category: folderId,
-          });
-        }
-        
-        showSuccessToast(`${files.length} file(s) uploaded successfully!`);
-      } catch (error) {
-        console.error('Error uploading dropped files:', error);
-        showErrorToast('Failed to upload file(s)');
-      }
-    };
+  // External file upload handling
+  useExternalFileUpload({
+    uploadFile,
+    showSuccessToast,
+    showErrorToast
+  });
 
-    const handleExternalFileDropWithProgress = async (event: CustomEvent) => {
-      const { files, folderId, fileIndex, totalFiles } = event.detail;
-      
-      try {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          
-          // Update progress
-          const progress = ((fileIndex + i) / totalFiles) * 100;
-          window.dispatchEvent(new CustomEvent('uploadProgress', {
-            detail: { fileIndex: fileIndex + i, totalFiles, progress }
-          }));
-          
-          await uploadFile({
-            file,
-            fileName: file.name,
-            description: '',
-            category: folderId,
-          });
-        }
-        
-        // Signal completion
-        window.dispatchEvent(new CustomEvent('uploadComplete'));
-        showSuccessToast(`${files.length} file(s) uploaded successfully!`);
-      } catch (error) {
-        console.error('Error uploading dropped files:', error);
-        showErrorToast('Failed to upload file(s)');
-        window.dispatchEvent(new CustomEvent('uploadComplete'));
-      }
-    };
+  // Folder persistence
+  useFolderPersistence({
+    folders,
+    selectedFolder,
+    setSelectedFolder,
+    foldersLoading,
+    filesLoading
+  });
 
-    window.addEventListener('uploadFiles', handleExternalFileDrop as EventListener);
-    window.addEventListener('uploadFilesWithProgress', handleExternalFileDropWithProgress as EventListener);
-    
-    return () => {
-      window.removeEventListener('uploadFiles', handleExternalFileDrop as EventListener);
-      window.removeEventListener('uploadFilesWithProgress', handleExternalFileDropWithProgress as EventListener);
-    };
-  }, [uploadFile, showSuccessToast, showErrorToast]);
+  // Additional handlers needed for the component
+  const {
+    handleCloseUploadModal,
+    handleCloseSubfolderModal,
+    handleCloseNewFolderModal,
+    handleCloseDeleteConfirmation,
+    handleCloseDeleteFolderModal,
+    handleCloseUpgradeModal,
+    handleShowUpgradeModal,
+    handleDismissSubfolderLimitBanner
+  } = useModalHandlers({
+    setShowUploadModal,
+    setShowSubfolderModal,
+    setShowNewFolderInput,
+    setShowDeleteConfirmation,
+    setShowDeleteFolderModal,
+    setShowUpgradeModal,
+    setShowSubfolderLimitBanner
+  });
 
-  // Check if user has any content (files or folders) - only when not loading
-  const hasContent = React.useMemo(() => {
-    if (foldersLoading || filesLoading) return true; // Return true when loading to prevent empty state flash
-    // Exclude the "All Files" folder from the count
-    const userFolders = folders.filter(folder => folder.id !== 'all');
-    const hasFiles = files.length > 0;
-    const hasFolders = userFolders.length > 0;
-    const result = hasFiles || hasFolders;
-    
-    return result;
-  }, [folders, foldersLoading, filesLoading, files.length]);
+  const {
+    handleNavigateToParent,
+    handleSelectSubfolder,
+    handleNavigateToFolder
+  } = useFileNavigation({
+    folders,
+    parentFolder,
+    setSelectedFolder
+  });
 
-  // Navigation handlers
-  const handleNavigateToParent = useCallback(() => {
-    if (parentFolder) {
-      setSelectedFolder(parentFolder);
-    } else {
-      const allFilesFolder = folders.find(f => f.id === 'all');
-      if (allFilesFolder) {
-        setSelectedFolder(allFilesFolder);
-      }
-    }
-  }, [parentFolder, folders, setSelectedFolder]);
 
-  const handleSelectSubfolder = useCallback((subfolder: FileFolder) => {
-    setSelectedFolder(subfolder);
-  }, [setSelectedFolder]);
-
-  // Modal close handlers
-  const handleCloseUploadModal = useCallback(() => {
-    setShowUploadModal(false);
-  }, [setShowUploadModal]);
-
-  const handleCloseSubfolderModal = useCallback(() => {
-    setShowSubfolderModal(false);
-  }, [setShowSubfolderModal]);
-
-  const handleCloseNewFolderModal = useCallback(() => {
-    setShowNewFolderInput(false);
-  }, [setShowNewFolderInput]);
-
-  const handleCloseDeleteConfirmation = useCallback(() => {
-    setShowDeleteConfirmation(false);
-  }, [setShowDeleteConfirmation]);
-
-  const handleCloseDeleteFolderModal = useCallback(() => {
-    setShowDeleteFolderModal(false);
-  }, [setShowDeleteFolderModal]);
-
-  const handleCloseUpgradeModal = useCallback(() => {
-    setShowUpgradeModal(false);
-  }, [setShowUpgradeModal]);
-
-  const handleShowUpgradeModal = useCallback(() => {
-    setShowUpgradeModal(true);
-  }, [setShowUpgradeModal]);
-
-  const handleDismissSubfolderLimitBanner = useCallback(() => {
-    setShowSubfolderLimitBanner(false);
-  }, [setShowSubfolderLimitBanner]);
 
   // If no content and not loading, show empty state
   if (!hasContent && !foldersLoading && !filesLoading) {
@@ -337,64 +258,10 @@ export default function FilesPage() {
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
               {/* Empty State */}
-              <div 
-                className="flex-1 flex items-center justify-center p-6 bg-[#F3F2F0]"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  // Handle external file drops to main empty state
-                  const files = Array.from(e.dataTransfer.files);
-                  if (files.length > 0) {
-                    // Trigger file upload for each dropped file to "All Files"
-                    files.forEach(file => {
-                      const uploadEvent = new CustomEvent('uploadFiles', {
-                        detail: {
-                          files: [file],
-                          folderId: 'all'
-                        }
-                      });
-                      window.dispatchEvent(uploadEvent);
-                    });
-                  }
-                }}
-              >
-                <div className="text-center max-w-md">
-                  <div className="w-24 h-24 bg-[#F8F6F4] border-2 border-[#E0DBD7] rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Folder className="w-12 h-12" style={{ strokeWidth: 1, fill: '#AB9C95', color: '#AB9C95' }} />
-      </div>
-                  
-                  <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-3">
-                    Create a folder or upload files
-                  </h2>
-                  
-                  <p className="text-[#AB9C95] mb-8 leading-relaxed">
-                    Organize your wedding documents, contracts, and photos by creating folders or uploading files directly.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                      onClick={() => setShowNewFolderInput(true)}
-                      className="btn-primary flex items-center justify-center gap-2 px-6 py-3"
-                    >
-                      <Folder className="w-5 h-5" style={{ strokeWidth: 1, fill: '#A85C36' }} />
-                      Create Folder
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowUploadModal(true)}
-                      className="btn-primaryinverse flex items-center justify-center gap-2 px-6 py-3 border-2 border-[#A85C36] text-[#A85C36] hover:bg-[#A85C36] hover:text-white transition-colors"
-                    >
-                      <Upload className="w-5 h-5" />
-                      Upload Files
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <FilesEmptyState
+                onCreateFolder={() => setShowNewFolderInput(true)}
+                onUploadFiles={() => setShowUploadModal(true)}
+              />
             </div>
           </div>
 
@@ -447,25 +314,25 @@ export default function FilesPage() {
         <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
           {/* Main Content Area */}
           <main className="unified-container">
-                          {/* Files Sidebar */}
-              <div className="w-80 bg-white border-r border-[#E0DBD7] flex flex-col">
+            {/* Files Sidebar */}
+            <div className="w-80 bg-white border-r border-[#E0DBD7] flex flex-col">
                 {foldersLoading ? (
                   <FilesSidebarSkeleton />
                 ) : (
-                  <FilesSidebar
-                    folders={folders}
-                    selectedFolder={selectedFolder}
-                    setSelectedFolder={setSelectedFolder}
+              <FilesSidebar
+                folders={folders}
+                selectedFolder={selectedFolder}
+                setSelectedFolder={setSelectedFolder}
                     userId={user?.uid || ''}
-                    showNewFolderInput={showNewFolderInput}
-                    setShowNewFolderInput={setShowNewFolderInput}
-                    newFolderName={newFolderName}
-                    setNewFolderName={setNewFolderName}
-                    handleAddFolder={handleAddFolder}
-                    folderFileCounts={folderFileCounts}
-                    setFileSearchQuery={setSearchQuery}
-                    selectAllFiles={selectAllFiles}
-                    allFileCount={files.length}
+                showNewFolderInput={showNewFolderInput}
+                setShowNewFolderInput={setShowNewFolderInput}
+                newFolderName={newFolderName}
+                setNewFolderName={setNewFolderName}
+                handleAddFolder={handleAddFolder}
+                folderFileCounts={folderFileCounts}
+                setFileSearchQuery={setSearchQuery}
+                selectAllFiles={selectAllFiles}
+                allFileCount={files.length}
                     onMoveFile={handleMoveFile}
                   />
                 )}
@@ -512,7 +379,11 @@ export default function FilesPage() {
                 }}
                 onShowUpgradeModal={handleShowUpgradeModal}
                 onDismissSubfolderLimitBanner={handleDismissSubfolderLimitBanner}
+                onMoveFile={handleMoveFile}
+                onEditSubfolder={handleEditSubfolder}
+                onDeleteSubfolder={(subfolder) => handleDeleteFolder(subfolder.id)}
                 folders={folders}
+                folderFileCounts={folderFileCounts}
               />
           </main>
 
@@ -564,6 +435,15 @@ export default function FilesPage() {
               setSelectedFile(uploadedFile);
             }
           }}
+        />
+
+        {/* Edit Folder Modal */}
+        <EditFolderModal
+          isOpen={showEditFolderModal}
+          folder={folderToEdit}
+          onClose={() => setShowEditFolderModal(false)}
+          onSave={handleUpdateFolder}
+          isLoading={foldersLoading}
         />
     </div>
     </DragDropProvider>
