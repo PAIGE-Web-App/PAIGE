@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileText, Image, File, FileImage, FileVideo, FileAudio, FileArchive } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { FileText, Image, Video, Music, Archive, File } from 'lucide-react';
 
 interface FilePreviewProps {
   fileType: string;
@@ -9,35 +9,33 @@ interface FilePreviewProps {
 }
 
 const FilePreview: React.FC<FilePreviewProps> = ({ fileType, fileUrl, fileName, className = '' }) => {
-  const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(fileType.toLowerCase());
-  const isPdf = fileType.toLowerCase() === 'pdf';
-  const isVideo = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'].includes(fileType.toLowerCase());
-  const isAudio = ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(fileType.toLowerCase());
-  const isArchive = ['zip', 'rar', '7z', 'tar', 'gz'].includes(fileType.toLowerCase());
+  // Enhanced file type detection
+  const fileTypeInfo = useMemo(() => {
+    const type = fileType.toLowerCase();
+    
+    // Image types
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'].includes(type);
+    
+    // Video types
+    const isVideo = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'video/mp4', 'video/avi', 'video/quicktime', 'video/x-ms-wmv', 'video/x-flv', 'video/webm'].includes(type);
+    
+    // Audio types
+    const isAudio = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg'].includes(type);
+    
+    // Archive types
+    const isArchive = ['zip', 'rar', '7z', 'tar', 'gz', 'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/gzip'].includes(type);
+    
+    // PDF
+    const isPdf = type === 'pdf' || type === 'application/pdf';
 
-  const getFileIcon = () => {
-    if (isPdf) return <FileText className="w-8 h-8 text-red-600" />;
-    if (isVideo) return <FileVideo className="w-8 h-8 text-purple-600" />;
-    if (isAudio) return <FileAudio className="w-8 h-8 text-green-600" />;
-    if (isArchive) return <FileArchive className="w-8 h-8 text-orange-600" />;
-    if (isImage) return <FileImage className="w-8 h-8 text-blue-600" />;
-    return <FileText className="w-8 h-8 text-gray-600" />;
-  };
-
-  const getFileTypeColor = () => {
-    if (isPdf) return 'bg-red-50 border-red-200';
-    if (isVideo) return 'bg-purple-50 border-purple-200';
-    if (isAudio) return 'bg-green-50 border-green-200';
-    if (isArchive) return 'bg-orange-50 border-orange-200';
-    if (isImage) return 'bg-blue-50 border-blue-200';
-    return 'bg-gray-50 border-gray-200';
-  };
+    return { isImage, isVideo, isAudio, isArchive, isPdf };
+  }, [fileType]);
 
   // For images, show actual preview
-  if (isImage && !imageError) {
+  if (fileTypeInfo.isImage && !imageError) {
     return (
       <div className={`relative w-full h-32 bg-gray-100 rounded-[5px] overflow-hidden ${className}`}>
         {imageLoading && (
@@ -56,71 +54,60 @@ const FilePreview: React.FC<FilePreviewProps> = ({ fileType, fileUrl, fileName, 
             setImageError(true);
             setImageLoading(false);
           }}
+          loading="lazy"
         />
       </div>
     );
   }
 
-  // For PDFs, show PDF icon with preview overlay
-  if (isPdf) {
+  // For videos, show video preview
+  if (fileTypeInfo.isVideo) {
     return (
-      <div className={`relative w-full h-32 bg-red-50 border border-red-200 rounded-[5px] flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <FileText className="w-12 h-12 text-red-600 mx-auto mb-2" />
-          <div className="text-xs text-red-700 font-medium">PDF</div>
+      <div className={`relative w-full h-32 bg-gray-100 rounded-[5px] overflow-hidden flex items-center justify-center ${className}`}>
+        <video
+          src={fileUrl}
+          className="w-full h-full object-cover"
+          preload="metadata"
+          muted
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20">
+          <Video className="w-8 h-8 text-white" />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-red-100 opacity-30"></div>
-      </div>
-    );
-  }
-
-  // For videos, show video icon with play button
-  if (isVideo) {
-    return (
-      <div className={`relative w-full h-32 bg-purple-50 border border-purple-200 rounded-[5px] flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <FileVideo className="w-12 h-12 text-purple-600 mx-auto mb-2" />
-          <div className="text-xs text-purple-700 font-medium">Video</div>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-purple-100 opacity-30"></div>
       </div>
     );
   }
 
   // For audio files
-  if (isAudio) {
+  if (fileTypeInfo.isAudio) {
     return (
-      <div className={`relative w-full h-32 bg-green-50 border border-green-200 rounded-[5px] flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <FileAudio className="w-12 h-12 text-green-600 mx-auto mb-2" />
-          <div className="text-xs text-green-700 font-medium">Audio</div>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-green-100 opacity-30"></div>
+      <div className={`w-full h-32 bg-gradient-to-br from-purple-100 to-pink-100 rounded-[5px] flex items-center justify-center ${className}`}>
+        <Music className="w-8 h-8 text-purple-600" />
       </div>
     );
   }
 
   // For archives
-  if (isArchive) {
+  if (fileTypeInfo.isArchive) {
     return (
-      <div className={`relative w-full h-32 bg-orange-50 border border-orange-200 rounded-[5px] flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <FileArchive className="w-12 h-12 text-orange-600 mx-auto mb-2" />
-          <div className="text-xs text-orange-700 font-medium">Archive</div>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-orange-100 opacity-30"></div>
+      <div className={`w-full h-32 bg-gradient-to-br from-orange-100 to-yellow-100 rounded-[5px] flex items-center justify-center ${className}`}>
+        <Archive className="w-8 h-8 text-orange-600" />
       </div>
     );
   }
 
-  // Default for other file types
-  return (
-    <div className={`relative w-full h-32 bg-gray-50 border border-gray-200 rounded-[5px] flex items-center justify-center ${className}`}>
-      <div className="text-center">
-        <FileText className="w-12 h-12 text-gray-600 mx-auto mb-2" />
-        <div className="text-xs text-gray-700 font-medium uppercase">{fileType}</div>
+  // For PDFs
+  if (fileTypeInfo.isPdf) {
+    return (
+      <div className={`w-full h-32 bg-gradient-to-br from-red-100 to-pink-100 rounded-[5px] flex items-center justify-center ${className}`}>
+        <FileText className="w-8 h-8 text-red-600" />
       </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-100 opacity-30"></div>
+    );
+  }
+
+  // Default file icon
+  return (
+    <div className={`w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-[5px] flex items-center justify-center ${className}`}>
+      <File className="w-8 h-8 text-gray-600" />
     </div>
   );
 };

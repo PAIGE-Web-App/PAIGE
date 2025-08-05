@@ -138,9 +138,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
       return (
         <div key={subfolder.id}>
           <div className="flex items-center">
-            {/* Expand/Collapse button - always reserve space for consistency */}
-            <div className="w-6 h-6 flex items-center justify-center mr-1" style={{ marginLeft: `${marginLeft}px` }}>
-              {hasChildren && (
+            {/* Expand/Collapse button - only show if subfolder has children */}
+            {hasChildren && (
+              <div className="w-6 h-6 flex items-center justify-center mr-1" style={{ marginLeft: `${marginLeft}px` }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleFolderExpansion(subfolder.id); }}
                   className="p-1 hover:bg-[#F8F6F4] rounded-[3px]"
@@ -148,8 +148,8 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                 >
                   {isExpanded ? (<ChevronDown className="w-4 h-4 text-[#AB9C95]" />) : (<ChevronRight className="w-4 h-4 text-[#AB9C95]" />)}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             <div
               onClick={() => { setSelectedFolder(subfolder); setFileSearchQuery(''); }}
               onDragOver={(e) => {
@@ -180,11 +180,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               }`}
             >
               <span className="mr-2" title={subfolder.name}>
-                {selectedFolder?.id === subfolder.id ? (
-                  <FolderOpen className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1 }} />
-                ) : (
-                  <Folder className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
-                )}
+                <Folder className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
               </span>
               <span className="truncate flex-1 min-w-0" title={subfolder.name}>
                 {subfolder.name}
@@ -285,11 +281,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               }`}
             >
                               <span className="mr-2" title="All Files">
-                  {selectedFolder?.id === 'all' ? (
-                    <FolderOpen className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1 }} />
-                  ) : (
-                    <Folder className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1, fill: '#8B4513' }} />
-                  )}
+                  <Folder className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1, fill: '#8B4513' }} />
                 </span>
               <span className="truncate flex-1 min-w-0" title="All Files">
                 All Files
@@ -329,9 +321,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                     return (
                       <div key={folder.id}>
                                                   <div className="flex items-center">
-                            {/* Expand/Collapse button - always reserve space for consistency */}
-                            <div className="w-6 h-6 flex items-center justify-center mr-1">
-                              {hasChildren && (
+                            {/* Expand/Collapse button - only show if folder has children */}
+                            {hasChildren && (
+                              <div className="w-6 h-6 flex items-center justify-center mr-1">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -346,8 +338,8 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                                     <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
                                   )}
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                             
                             {/* Folder item */}
                             <div
@@ -383,11 +375,7 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                               }`}
                             >
                               <span className="mr-2" title={folder.name}>
-                                {selectedFolder?.id === folder.id ? (
-                                  <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1 }} />
-                                ) : (
-                                  <Folder className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1, fill: folder.color || '#8B7355' }} />
-                                )}
+                                <Folder className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1, fill: folder.color || '#8B7355' }} />
                               </span>
                               <span className="truncate flex-1 min-w-0" title={folder.name}>
                                 {folder.name}

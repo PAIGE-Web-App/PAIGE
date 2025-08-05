@@ -19,17 +19,28 @@ import { useFolderPersistence } from '@/hooks/useFolderPersistence';
 import WeddingBanner from '@/components/WeddingBanner';
 import FilesSidebar from '@/components/FilesSidebar';
 import FilesSidebarSkeleton from '@/components/FilesSidebarSkeleton';
-import AIFileAnalyzer from '@/components/AIFileAnalyzer';
 import FilesContentArea from '@/components/FilesContentArea';
 import FilesEmptyState from '@/components/FilesEmptyState';
-import FilesModals from '@/components/FilesModals';
-import EditFolderModal from '@/components/EditFolderModal';
 import { DragDropProvider } from '@/components/DragDropContext';
 
 // Lazy load heavy components
 import dynamic from 'next/dynamic';
+
 const FileItemComponent = dynamic(() => import('@/components/FileItemComponent'), {
   loading: () => <div className="bg-white border border-[#E0DBD7] rounded-[5px] p-4 animate-pulse h-32" />
+});
+
+// Lazy load modals and heavy components
+const FilesModals = dynamic(() => import('@/components/FilesModals'), {
+  loading: () => <div className="hidden" />
+});
+
+const EditFolderModal = dynamic(() => import('@/components/EditFolderModal'), {
+  loading: () => <div className="hidden" />
+});
+
+const AIFileAnalyzer = dynamic(() => import('@/components/AIFileAnalyzer'), {
+  loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
 });
 
 // Types
@@ -82,6 +93,8 @@ export default function FilesPage() {
     
     return level;
   }, [folders]);
+
+
 
   // Move file to different folder
   const handleMoveFile = useCallback(async (fileId: string, newFolderId: string) => {

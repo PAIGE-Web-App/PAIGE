@@ -4,6 +4,8 @@ import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit } from 'lucide-re
 import MicroMenu from './MicroMenu';
 import { useDragDrop } from './DragDropContext';
 import FilePreview from './FilePreview';
+import UserAvatar from './UserAvatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FileItemComponentProps {
   file: FileItem;
@@ -15,8 +17,9 @@ interface FileItemComponentProps {
   folders?: FileFolder[];
 }
 
-const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid', folders = [] }) => {
+const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode, folders = [] }) => {
   const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
+  const { profileImageUrl } = useAuth();
   
   // Check if this file is currently being dragged
   const isThisFileDragging = isDragging && draggedItem?.type === 'file' && draggedItem.item.id === file.id;
@@ -53,15 +56,16 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
     }
   };
 
-  // List view layout
+  // List view layout - Proper table row structure
   if (viewMode === 'list') {
     return (
       <div 
-        className={`bg-white border rounded-[5px] p-4 hover:shadow-sm transition-all cursor-pointer ${
+        className={`grid grid-cols-12 gap-0.5 p-2 border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-colors group cursor-pointer ${
           isSelected 
-            ? 'border-[#A85C36] bg-[#F8F6F4] shadow-md' 
-            : 'border-[#E0DBD7] hover:border-[#AB9C95]'
+            ? 'bg-[#F8F6F4] border-[#A85C36]' 
+            : 'bg-white'
         } ${isThisFileDragging ? 'opacity-40' : ''}`}
+
         onClick={() => onSelect(file)}
         draggable
         onDragStart={(e) => {
@@ -107,62 +111,77 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           setIsDragging(false);
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1">
-            {/* File Icon */}
-            <div className="w-10 h-10 bg-[#F8F6F4] rounded-[5px] flex items-center justify-center flex-shrink-0">
-              {getFileIcon(file.fileType)}
+        {/* File Name */}
+        <div className="col-span-3 flex items-center">
+          <div className="text-sm font-medium text-[#332B42] truncate max-w-full">{file.name}</div>
+        </div>
+
+        {/* Preview/File Type */}
+        <div className="col-span-1 flex items-center">
+          {file.fileType.toLowerCase().includes('image') ? (
+            <div className="w-10 h-10 bg-[#F8F6F4] rounded-[3px] flex items-center justify-center flex-shrink-0">
+              <img 
+                src={file.fileUrl} 
+                alt={file.name}
+                className="w-10 h-10 object-cover rounded-[3px]"
+                onError={(e) => {
+                  // Fallback to file icon if image fails to load
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <div className="w-10 h-10 bg-[#F8F6F4] rounded-[3px] flex items-center justify-center flex-shrink-0 hidden">
+                {getFileIcon(file.fileType)}
+              </div>
             </div>
-            
-            {/* File Details */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-[#332B42] text-sm truncate">
-                {file.name}
-              </h3>
-              <p className="text-xs text-[#AB9C95] mt-1 truncate">
-                {file.description}
-              </p>
-            </div>
-            
-            {/* File Metadata */}
-            <div className="flex items-center gap-4 text-xs text-[#AB9C95]">
-              <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
-                {getFolderName(file.folderId)}
-              </span>
-              <span>{formatFileSize(file.fileSize)}</span>
-              <span>{file.uploadedAt.toLocaleDateString()}</span>
-            </div>
-          </div>
-          
-          {/* Actions */}
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(file.fileUrl, '_blank');
-              }}
-              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-              title="View file"
-            >
-              <Eye className="w-4 h-4 text-[#AB9C95]" />
-            </button>
-            
-            <MicroMenu
-              items={[
-                {
-                  label: 'Edit',
-                  onClick: () => onEdit(file)
-                },
-                {
-                  label: 'Delete',
-                  onClick: () => onDelete(file.id),
-                  className: 'text-red-600 hover:bg-red-50'
-                }
-              ]}
-              buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
-              menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
-            />
-          </div>
+          ) : (
+            <span className="text-sm text-[#AB9C95] uppercase">{file.fileType.split('/')[1] || file.fileType}</span>
+          )}
+        </div>
+
+        {/* File Size */}
+        <div className="col-span-2 flex items-center">
+          <span className="text-sm text-[#A85C36] font-medium">{formatFileSize(file.fileSize)}</span>
+        </div>
+
+        {/* Folder */}
+        <div className="col-span-2 flex items-center">
+          <span className="text-sm text-[#AB9C95] truncate">{getFolderName(file.folderId)}</span>
+        </div>
+
+        {/* Upload Date */}
+        <div className="col-span-2 flex items-center">
+          <span className="text-sm text-[#AB9C95]">{file.uploadedAt.toLocaleDateString()}</span>
+        </div>
+
+        {/* Uploaded By - User Avatar */}
+        <div className="col-span-1 flex items-center justify-center">
+          <UserAvatar
+            userId={file.userId}
+            userName={file.userId ? 'You' : 'Unknown User'}
+            profileImageUrl={profileImageUrl}
+            size="sm"
+            showTooltip={true}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="col-span-1 flex items-center justify-center">
+          <MicroMenu
+            items={[
+              {
+                label: 'Edit',
+                onClick: () => onEdit(file)
+              },
+              {
+                label: 'Delete',
+                onClick: () => onDelete(file.id),
+                className: 'text-red-600 hover:bg-red-50'
+              }
+            ]}
+            buttonClassName="p-1.5 hover:bg-[#F8F6F4] rounded-full transition-colors"
+            menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+          />
         </div>
       </div>
     );
@@ -182,8 +201,9 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         setDraggedItem({ type: 'file', item: file });
         setIsDragging(true);
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', file.id);
         
-                // Create a better sized drag preview
+        // Create a better sized drag preview
         const dragPreview = document.createElement('div');
         dragPreview.style.cssText = `
           width: 160px;
@@ -226,95 +246,51 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           fileType={file.fileType}
           fileUrl={file.fileUrl}
           fileName={file.name}
-          className="mb-3"
+          className="w-full h-32"
         />
-        
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-[#332B42] mb-1 truncate">
-              {file.name}
-            </h3>
-            <p className="text-sm text-[#AB9C95] mb-2 line-clamp-2">
-              {file.description}
-            </p>
-            
-            {/* File Metadata */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="inline-block px-2 py-1 bg-[#F8F6F4] text-xs text-[#332B42] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
-                {getFolderName(file.folderId)}
-              </span>
-              <span className="text-xs text-[#AB9C95]">
-                {formatFileSize(file.fileSize)}
-              </span>
-              <span className="text-xs text-[#AB9C95]">
-                {file.uploadedAt.toLocaleDateString()}
-              </span>
-            </div>
 
-            {/* AI Analysis Status */}
-            {file.isProcessed && (
-              <div className="space-y-2">
-                {file.aiSummary && (
-                  <div className="bg-green-50 border border-green-200 rounded-[5px] p-3">
-                    <h4 className="text-sm font-medium text-green-800 mb-1">AI Summary</h4>
-                    <p className="text-xs text-green-700 line-clamp-2">
-                      {file.aiSummary}
-                    </p>
-                  </div>
-                )}
-                
-                {file.keyPoints && file.keyPoints.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-[5px] p-3">
-                    <h4 className="text-sm font-medium text-blue-800 mb-1">Key Points</h4>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      {file.keyPoints.slice(0, 2).map((point, index) => (
-                        <li key={index} className="line-clamp-1">• {point}</li>
-                      ))}
-                      {file.keyPoints.length > 2 && (
-                        <li className="text-blue-600">+{file.keyPoints.length - 2} more</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!file.isProcessed && file.processingStatus === 'pending' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-[5px] p-3">
-                <p className="text-xs text-yellow-700">AI analysis in progress...</p>
-              </div>
-            )}
-          </div>
+        {/* File Details */}
+        <div className="space-y-2">
+          <h5 className="font-medium text-[#332B42] truncate">{file.name}</h5>
           
-          {/* Actions */}
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(file.fileUrl, '_blank');
-              }}
-              className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-              title="View file"
-            >
-              <Eye className="w-4 h-4 text-[#AB9C95]" />
-            </button>
-            
-            <MicroMenu
-              items={[
-                {
-                  label: 'Edit',
-                  onClick: () => onEdit(file)
-                },
-                {
-                  label: 'Delete',
-                  onClick: () => onDelete(file.id),
-                  className: 'text-red-600 hover:bg-red-50'
-                }
-              ]}
-              buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
-              menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
-            />
+          {/* File Metadata */}
+          <div className="flex items-center gap-4 text-xs text-[#AB9C95]">
+            <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
+              {getFolderName(file.folderId)}
+            </span>
+            <span>{formatFileSize(file.fileSize)}</span>
+            <span>{file.uploadedAt.toLocaleDateString()}</span>
           </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(file.fileUrl, '_blank');
+            }}
+            className="p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
+            title="View file"
+          >
+            <Eye className="w-4 h-4 text-[#AB9C95]" />
+          </button>
+          
+          <MicroMenu
+            items={[
+              {
+                label: 'Edit',
+                onClick: () => onEdit(file)
+              },
+              {
+                label: 'Delete',
+                onClick: () => onDelete(file.id),
+                className: 'text-red-600 hover:bg-red-50'
+              }
+            ]}
+            buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
+            menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+          />
         </div>
       </div>
     </div>

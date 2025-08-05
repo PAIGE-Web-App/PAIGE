@@ -84,7 +84,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-0">
+    <div className="flex-1 overflow-y-auto min-h-0 h-full">
       {/* Upload Progress Bar */}
       <LoadingBar 
         isVisible={isUploading} 
@@ -99,28 +99,30 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
         <DraggableArea
           targetId="content"
           selectedFolder={selectedFolder}
-          className="flex-1 p-6"
+          className="flex-1 h-full min-h-0"
           onInternalDrop={(draggedItem) => {
             // TODO: Move file to this folder
             console.log('Move file to content area:', draggedItem.item);
           }}
         >
-          <CombinedContentView
-            files={files}
-            subfolders={subfolders}
-            viewMode={viewMode}
-            selectedFile={selectedFile}
-            folders={folders}
-            folderFileCounts={folderFileCounts}
-            isLoading={isLoading}
-            onSelectFile={onSelectFile}
-            onDeleteFile={onDeleteFile}
-            onEditFile={onEditFile}
-            onSelectSubfolder={onSelectSubfolder}
-            onMoveFile={onMoveFile}
-            onEditSubfolder={onEditSubfolder}
-            onDeleteSubfolder={onDeleteSubfolder}
-          />
+          <div className="p-6 h-full">
+            <CombinedContentView
+              files={files}
+              subfolders={subfolders}
+              viewMode={viewMode}
+              selectedFile={selectedFile}
+              folders={folders}
+              folderFileCounts={folderFileCounts}
+              isLoading={isLoading}
+              onSelectFile={onSelectFile}
+              onDeleteFile={onDeleteFile}
+              onEditFile={onEditFile}
+              onSelectSubfolder={onSelectSubfolder}
+              onMoveFile={onMoveFile}
+              onEditSubfolder={onEditSubfolder}
+              onDeleteSubfolder={onDeleteSubfolder}
+            />
+          </div>
         </DraggableArea>
       )}
     </div>

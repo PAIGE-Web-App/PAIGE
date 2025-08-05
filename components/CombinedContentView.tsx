@@ -41,6 +41,8 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
   const hasFiles = files.length > 0;
   const hasSubfolders = subfolders.length > 0;
 
+
+
   return (
     <div className="space-y-6">
       {/* Folders Section - Always on top */}
@@ -69,16 +71,34 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
             Files
             <BadgeCount count={files.length} />
           </h3>
-          <FileGrid
-            files={files}
-            viewMode={viewMode}
-            selectedFile={selectedFile}
-            folders={folders}
-            isLoading={isLoading}
-            onSelectFile={onSelectFile}
-            onDeleteFile={onDeleteFile}
-            onEditFile={onEditFile}
-          />
+          
+          {/* Table Header for List View */}
+          {viewMode === 'list' && (
+            <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-t-[5px] p-2 mb-0">
+              <div className="grid grid-cols-12 gap-0.5 text-sm font-medium text-[#AB9C95]">
+                <div className="col-span-3 truncate">File Name</div>
+                <div className="col-span-1 truncate">Preview</div>
+                <div className="col-span-2 truncate">Size</div>
+                <div className="col-span-2 truncate">Folder</div>
+                <div className="col-span-2 truncate">Date</div>
+                <div className="col-span-1 text-center truncate">By</div>
+                <div className="col-span-1 text-center truncate">Actions</div>
+              </div>
+            </div>
+          )}
+          
+          <div className={viewMode === 'list' ? 'border border-[#E0DBD7] border-t-0 rounded-b-[5px]' : ''}>
+            <FileGrid
+              files={files}
+              viewMode={viewMode}
+              selectedFile={selectedFile}
+              folders={folders}
+              isLoading={isLoading}
+              onSelectFile={onSelectFile}
+              onDeleteFile={onDeleteFile}
+              onEditFile={onEditFile}
+            />
+          </div>
         </div>
       )}
     </div>

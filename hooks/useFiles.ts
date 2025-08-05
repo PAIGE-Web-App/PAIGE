@@ -13,8 +13,9 @@ import {
   deleteDoc,
   Timestamp,
 } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getUserCollectionRef } from '@/lib/firebase';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import type { FileCategory, FileItem, AIAnalysisResult, FileUploadData, FileSearchFilters } from '@/types/files';
 
 export function useFiles() {
@@ -132,9 +133,16 @@ export function useFiles() {
 
     setUploading(true);
     try {
-      // TODO: Implement actual file upload to storage (Firebase Storage, AWS S3, etc.)
-      // For now, we'll simulate the upload
+      // Upload file to Firebase Storage
+      const fileName = `${Date.now()}_${uploadData.fileName}`;
+      const fileRef = storageRef(storage, `users/${user.uid}/files/${fileName}`);
       
+      console.log('Uploading file to Firebase Storage:', fileName);
+      const snapshot = await uploadBytes(fileRef, uploadData.file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      console.log('File uploaded successfully, URL:', downloadURL);
+
       const fileDoc = {
         name: uploadData.fileName,
         description: uploadData.description,
@@ -144,7 +152,7 @@ export function useFiles() {
         uploadedAt: new Date(),
         fileType: uploadData.file.type,
         fileSize: uploadData.file.size,
-        fileUrl: 'https://example.com/uploaded-file.pdf', // Placeholder
+        fileUrl: downloadURL, // Use actual Firebase Storage URL
         userId: user.uid,
         // Only include optional fields if they have values
         ...(uploadData.vendorId && { vendorId: uploadData.vendorId }),

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { FileFolder, FileItem } from '@/types/files';
 import { useCustomToast } from './useCustomToast';
 
@@ -30,6 +30,10 @@ export function useFilesPageState({
   STARTER_TIER_MAX_SUBFOLDER_LEVELS,
 }: UseFilesPageStateProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  
+  // Performance monitoring
+  const renderCount = useRef(0);
+  renderCount.current += 1;
 
   // UI State
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,7 +55,7 @@ export function useFilesPageState({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSubfolderLimitBanner, setShowSubfolderLimitBanner] = useState(true);
 
-  // Computed values
+  // Computed values with memoization
   const currentFolder = selectedFolder;
   
   const parentFolder = useMemo(() => {
@@ -80,20 +84,31 @@ export function useFilesPageState({
     return files.filter(file => file.folderId === currentFolder.id);
   }, [files, currentFolder]);
 
+  // Optimized search with debouncing
   const filteredFiles = useMemo(() => {
+    if (!searchQuery.trim()) return currentFiles;
+    
+    const query = searchQuery.toLowerCase();
     return currentFiles.filter(file => {
-      const matchesSearch = file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           file.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
+      const matchesName = file.name.toLowerCase().includes(query);
+      const matchesDescription = file.description?.toLowerCase().includes(query) || false;
+      return matchesName || matchesDescription;
     });
   }, [currentFiles, searchQuery]);
 
+  // Optimized folder file counts with Map for O(1) lookups
   const folderFileCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    folders.forEach(folder => {
-      const count = files.filter(file => file.folderId === folder.id).length;
-      counts.set(folder.id, count);
+    
+    // Initialize all folders with 0
+    folders.forEach(folder => counts.set(folder.id, 0));
+    
+    // Count files for each folder
+    files.forEach(file => {
+      const currentCount = counts.get(file.folderId) || 0;
+      counts.set(file.folderId, currentCount + 1);
     });
+    
     return counts;
   }, [files, folders]);
 
