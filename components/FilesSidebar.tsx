@@ -45,8 +45,19 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   const [folderDescription, setFolderDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState('#A85C36');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const STARTER_TIER_MAX_FOLDERS = 5;
-  const folderLimitReached = folders.length >= STARTER_TIER_MAX_FOLDERS;
+  const STARTER_TIER_MAX_FOLDERS = 10; // Increased from 5 to 10
+  const userFolders = folders.filter(f => f.id !== 'all');
+  const folderLimitReached = userFolders.length >= STARTER_TIER_MAX_FOLDERS;
+  
+  // Debug folder counting (commented out for production)
+  // console.log('=== FOLDER LIMIT DEBUG ===');
+  // console.log('Total folders:', folders.length);
+  // console.log('User folders:', userFolders.length);
+  // console.log('All Files folder exists:', !!folders.find(f => f.id === 'all'));
+  // console.log('Folder limit reached:', folderLimitReached);
+  // console.log('Max folders allowed:', STARTER_TIER_MAX_FOLDERS);
+  // console.log('All folder IDs:', folders.map(f => f.id));
+  // console.log('========================');
   
   // Get storage usage for display
   const storageStats = useStorageUsage();
@@ -55,12 +66,19 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   const { draggedItem, isDragging, dropTarget, setDropTarget } = useDragDrop();
 
   const handleAddFolderWithDescription = async ({ name, description, color }: { name: string; description?: string; color: string }) => {
-    if (folderLimitReached) return;
-    await handleAddFolder(name, description, color);
-    setShowAddFolderModal(false);
-    setFolderName('');
-    setFolderDescription('');
-    setSelectedColor('#A85C36');
+    if (folderLimitReached) {
+      return;
+    }
+    
+    try {
+      await handleAddFolder(name, description, color);
+      setShowAddFolderModal(false);
+      setFolderName('');
+      setFolderDescription('');
+      setSelectedColor('#A85C36');
+    } catch (error) {
+      console.error('Error in handleAddFolderWithDescription:', error);
+    }
   };
 
   const handleNewFolderClick = () => {
@@ -77,11 +95,12 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
     setFolderDescription('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (folderName.trim()) {
-      handleAddFolderWithDescription({ 
-        name: folderName.trim(), 
+      handleAddFolderWithDescription({
+        name: folderName.trim(),
         description: folderDescription.trim(),
         color: selectedColor
       });
@@ -285,6 +304,21 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               const topLevelFolders = folders.filter(f => f.id !== 'all' && !f.parentId);
               const subfolders = folders.filter(f => f.id !== 'all' && f.parentId);
               
+              // Debug rendering (commented out for production)
+              // console.log('=== SIDEBAR RENDERING DEBUG ===');
+              // console.log('Total folders:', folders.length);
+              // console.log('Top level folders:', topLevelFolders.length);
+              // console.log('Subfolders:', subfolders.length);
+              // console.log('Top level folder IDs:', topLevelFolders.map(f => f.id));
+              // console.log('Subfolder IDs:', subfolders.map(f => f.id));
+              // console.log('=== FOLDER DETAILS ===');
+              // const allFolderIds = new Set(folders.map(f => f.id));
+              // folders.filter(f => f.id !== 'all').forEach(folder => {
+              //   const isOrphaned = folder.parentId && !allFolderIds.has(folder.parentId);
+              //   console.log(`Folder: ${folder.name} (${folder.id}) - parentId: ${folder.parentId || 'null'} ${isOrphaned ? '[ORPHANED]' : ''}`);
+              // });
+              // console.log('==============================');
+              
               return (
                 <>
                   {/* Top-level folders */}
@@ -477,13 +511,13 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-4 py-2 text-sm"
-                  disabled={!folderName.trim()}
-                >
-                  Create Folder
-                </button>
+                        <button
+          type="submit"
+          className="btn-primary px-4 py-2 text-sm"
+          disabled={!folderName.trim()}
+        >
+          Create Folder
+        </button>
               </div>
             </form>
           </div>

@@ -22,6 +22,19 @@ export const useContentDetection = ({
     const hasFolders = userFolders.length > 0;
     const result = hasFiles || hasFolders;
     
+    // Debug logging (commented out for production)
+    // console.log('Content Detection Debug:', {
+    //   foldersLoading,
+    //   filesLoading,
+    //   totalFolders: folders.length,
+    //   userFolders: userFolders.length,
+    //   totalFiles: files.length,
+    //   hasFiles,
+    //   hasFolders,
+    //   result,
+    //   folderIds: folders.map(f => f.id)
+    // });
+    
     return result;
   }, [folders, foldersLoading, filesLoading, files.length]);
 

@@ -106,30 +106,64 @@ export const useFileFolders = () => {
     }
   };
 
-  // Delete folder
+  // Delete folder with cascading deletion
   const deleteFolder = async (folderId: string): Promise<void> => {
     if (!user) return;
 
     try {
-      // Check if folder has files
+      console.log(`Starting cascading deletion for folder ${folderId}`);
+      
+      // Get all folders to find subfolders
+      const foldersQuery = query(getUserCollectionRef('fileCategories', user.uid));
+      const foldersSnapshot = await getDocs(foldersQuery);
+      const allFolders = foldersSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...(doc.data() as Omit<FileFolder, 'id'>) 
+      })) as FileFolder[];
+      
+      // Find all subfolders recursively (including nested subfolders)
+      const foldersToDelete = new Set<string>();
+      const findSubfolders = (parentId: string) => {
+        foldersToDelete.add(parentId);
+        const children = allFolders.filter(f => f.parentId === parentId);
+        children.forEach(child => findSubfolders(child.id));
+      };
+      
+      findSubfolders(folderId);
+      const foldersToDeleteArray = Array.from(foldersToDelete);
+      console.log(`Found ${foldersToDeleteArray.length} folders to delete:`, foldersToDeleteArray);
+      
+      // Get all files in any of the folders to be deleted
       const filesQuery = query(getUserCollectionRef('files', user.uid));
       const filesSnapshot = await getDocs(filesQuery);
       
-      const filesInFolder = filesSnapshot.docs.filter(doc => {
+      const filesToDelete = filesSnapshot.docs.filter(doc => {
         const data = doc.data() as any;
-        return data.categoryId === folderId;
+        return foldersToDelete.has(data.folderId);
       });
       
-      if (filesInFolder.length > 0) {
-        throw new Error('Cannot delete folder that contains files. Please move or delete all files first.');
+      console.log(`Found ${filesToDelete.length} files to delete`);
+      
+      // Delete all files first
+      if (filesToDelete.length > 0) {
+        const fileDeletePromises = filesToDelete.map(doc => deleteDoc(doc.ref));
+        await Promise.all(fileDeletePromises);
+        console.log(`Deleted ${filesToDelete.length} files`);
       }
-
-      await deleteDoc(doc(getUserCollectionRef('fileCategories', user.uid), folderId));
+      
+      // Delete all folders (subfolders first, then parent)
+      const folderDeletePromises = foldersToDeleteArray.map(folderId => 
+        deleteDoc(doc(getUserCollectionRef('fileCategories', user.uid), folderId))
+      );
+      await Promise.all(folderDeletePromises);
+      console.log(`Deleted ${foldersToDeleteArray.length} folders`);
       
       // If the deleted folder was selected, clear selection
-      if (selectedFolder?.id === folderId) {
+      if (selectedFolder && foldersToDelete.has(selectedFolder.id)) {
         setSelectedFolder(null);
       }
+      
+      console.log(`Cascading deletion completed for folder ${folderId}`);
     } catch (err) {
       console.error('Error deleting folder:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete folder');

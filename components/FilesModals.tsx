@@ -515,13 +515,22 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
   const [selectedColor, setSelectedColor] = useState('#a34d54');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  console.log('NewFolderModal rendered with:', { folderName, folderDescription, selectedColor, isSubmitting });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!folderName.trim()) return;
+    console.log('Form submitted:', { folderName, folderDescription, selectedColor });
+    
+    if (!folderName.trim()) {
+      console.log('Folder name is empty, returning');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      console.log('Calling onAddFolder with:', folderName.trim(), folderDescription.trim(), selectedColor);
       await onAddFolder(folderName.trim(), folderDescription.trim(), selectedColor);
+      console.log('Folder created successfully');
       onClose();
     } catch (error) {
       console.error('Error creating folder:', error);
@@ -558,7 +567,10 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
               <input
                 type="text"
                 value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
+                onChange={(e) => {
+                  console.log('Folder name input changed:', e.target.value);
+                  setFolderName(e.target.value);
+                }}
                 className="w-full px-3 py-2 border border-[#E0DBD7] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
                 placeholder="Enter folder name"
                 required
@@ -611,6 +623,12 @@ const NewFolderModal = ({ onClose, onAddFolder }: {
               type="submit"
               className="btn-primary px-4 py-2 text-sm"
               disabled={!folderName.trim() || isSubmitting}
+              onClick={(e) => {
+                console.log('Create Folder button clicked');
+                console.log('Button disabled:', !folderName.trim() || isSubmitting);
+                console.log('Folder name:', folderName);
+                console.log('Is submitting:', isSubmitting);
+              }}
             >
               {isSubmitting ? 'Creating...' : 'Create Folder'}
             </button>
