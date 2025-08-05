@@ -14,7 +14,10 @@ interface FileItemComponentProps {
 }
 
 const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode = 'grid', folders = [] }) => {
-  const { setDraggedItem, setIsDragging } = useDragDrop();
+  const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
+  
+  // Check if this file is currently being dragged
+  const isThisFileDragging = isDragging && draggedItem?.type === 'file' && draggedItem.item.id === file.id;
   
   // Get folder name for display
   const getFolderName = (folderId: string) => {
@@ -56,7 +59,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           isSelected 
             ? 'border-[#A85C36] bg-[#F8F6F4] shadow-md' 
             : 'border-[#E0DBD7] hover:border-[#AB9C95]'
-        }`}
+        } ${isThisFileDragging ? 'opacity-40' : ''}`}
         onClick={() => onSelect(file)}
         draggable
         onDragStart={(e) => {
@@ -67,25 +70,27 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           // Create a better sized drag preview
           const dragPreview = document.createElement('div');
           dragPreview.style.cssText = `
-            width: 140px;
-            height: 40px;
+            width: 160px;
+            height: 56px;
             background: white;
             border: 1px solid #A85C36;
             border-radius: 5px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             display: flex;
             align-items: center;
-            padding: 8px;
+            padding: 12px;
             overflow: hidden;
+            min-height: 56px;
+            max-height: 56px;
           `;
           dragPreview.innerHTML = `
             <div style="width: 20px; height: 20px; background-color: #F8F6F4; border-radius: 3px; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
               <svg style="width: 16px; height: 16px; color: #6B7280;"><!-- File icon --></svg>
             </div>
-            <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${file.name.split('.')[0]}</span>
+            <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; line-height: 1;">${file.name.split('.')[0]}</span>
           `;
           document.body.appendChild(dragPreview);
-          e.dataTransfer.setDragImage(dragPreview, 70, 20);
+          e.dataTransfer.setDragImage(dragPreview, 80, 28);
           
           // Remove the preview after drag starts
           setTimeout(() => {
@@ -171,7 +176,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         isSelected 
           ? 'border-[#A85C36] bg-[#F8F6F4] shadow-md' 
           : 'border-[#E0DBD7] hover:border-[#AB9C95]'
-      }`}
+      } ${isThisFileDragging ? 'opacity-40' : ''}`}
       onClick={() => onSelect(file)}
       draggable
       onDragStart={(e) => {
@@ -179,28 +184,30 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         setIsDragging(true);
         e.dataTransfer.effectAllowed = 'move';
         
-        // Create a better sized drag preview
+                // Create a better sized drag preview
         const dragPreview = document.createElement('div');
         dragPreview.style.cssText = `
-          width: 140px;
-          height: 40px;
+          width: 160px;
+          height: 56px;
           background: white;
           border: 1px solid #A85C36;
           border-radius: 5px;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           display: flex;
           align-items: center;
-          padding: 8px;
+          padding: 12px;
           overflow: hidden;
+          min-height: 56px;
+          max-height: 56px;
         `;
         dragPreview.innerHTML = `
           <div style="width: 20px; height: 20px; background-color: #F8F6F4; border-radius: 3px; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
             <svg style="width: 16px; height: 16px; color: #6B7280;"><!-- File icon --></svg>
           </div>
-          <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${file.name.split('.')[0]}</span>
+          <span style="font-size: 14px; color: #332B42; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; line-height: 1;">${file.name.split('.')[0]}</span>
         `;
         document.body.appendChild(dragPreview);
-        e.dataTransfer.setDragImage(dragPreview, 70, 20);
+        e.dataTransfer.setDragImage(dragPreview, 80, 28);
         
         // Remove the preview after drag starts
         setTimeout(() => {

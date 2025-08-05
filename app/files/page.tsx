@@ -199,6 +199,68 @@ export default function FilesPage() {
     }
   }, [selectedFolder]);
 
+  // Handle external file drops
+  useEffect(() => {
+    const handleExternalFileDrop = async (event: CustomEvent) => {
+      const { files, folderId } = event.detail;
+      
+      try {
+        for (const file of files) {
+          await uploadFile({
+            file,
+            fileName: file.name,
+            description: '',
+            category: folderId,
+          });
+        }
+        
+        showSuccessToast(`${files.length} file(s) uploaded successfully!`);
+      } catch (error) {
+        console.error('Error uploading dropped files:', error);
+        showErrorToast('Failed to upload file(s)');
+      }
+    };
+
+    const handleExternalFileDropWithProgress = async (event: CustomEvent) => {
+      const { files, folderId, fileIndex, totalFiles } = event.detail;
+      
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          
+          // Update progress
+          const progress = ((fileIndex + i) / totalFiles) * 100;
+          window.dispatchEvent(new CustomEvent('uploadProgress', {
+            detail: { fileIndex: fileIndex + i, totalFiles, progress }
+          }));
+          
+          await uploadFile({
+            file,
+            fileName: file.name,
+            description: '',
+            category: folderId,
+          });
+        }
+        
+        // Signal completion
+        window.dispatchEvent(new CustomEvent('uploadComplete'));
+        showSuccessToast(`${files.length} file(s) uploaded successfully!`);
+      } catch (error) {
+        console.error('Error uploading dropped files:', error);
+        showErrorToast('Failed to upload file(s)');
+        window.dispatchEvent(new CustomEvent('uploadComplete'));
+      }
+    };
+
+    window.addEventListener('uploadFiles', handleExternalFileDrop as EventListener);
+    window.addEventListener('uploadFilesWithProgress', handleExternalFileDropWithProgress as EventListener);
+    
+    return () => {
+      window.removeEventListener('uploadFiles', handleExternalFileDrop as EventListener);
+      window.removeEventListener('uploadFilesWithProgress', handleExternalFileDropWithProgress as EventListener);
+    };
+  }, [uploadFile, showSuccessToast, showErrorToast]);
+
   // Check if user has any content (files or folders) - only when not loading
   const hasContent = React.useMemo(() => {
     if (foldersLoading || filesLoading) return true; // Return true when loading to prevent empty state flash
@@ -275,7 +337,32 @@ export default function FilesPage() {
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
               {/* Empty State */}
-              <div className="flex-1 flex items-center justify-center p-6 bg-[#F3F2F0]">
+              <div 
+                className="flex-1 flex items-center justify-center p-6 bg-[#F3F2F0]"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // Handle external file drops to main empty state
+                  const files = Array.from(e.dataTransfer.files);
+                  if (files.length > 0) {
+                    // Trigger file upload for each dropped file to "All Files"
+                    files.forEach(file => {
+                      const uploadEvent = new CustomEvent('uploadFiles', {
+                        detail: {
+                          files: [file],
+                          folderId: 'all'
+                        }
+                      });
+                      window.dispatchEvent(uploadEvent);
+                    });
+                  }
+                }}
+              >
                 <div className="text-center max-w-md">
                   <div className="w-24 h-24 bg-[#F8F6F4] border-2 border-[#E0DBD7] rounded-full flex items-center justify-center mx-auto mb-6">
                     <Folder className="w-12 h-12" style={{ strokeWidth: 1, fill: '#AB9C95', color: '#AB9C95' }} />

@@ -6,6 +6,7 @@ import FileItemSkeleton from './FileItemSkeleton';
 import { useDragDrop } from './DragDropContext';
 import BadgeCount from './BadgeCount';
 import FilesTabs from './FilesTabs';
+import LoadingBar from './LoadingBar';
 
 interface FolderContentViewProps {
   selectedFolder: FileFolder | null;
@@ -38,6 +39,15 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('files');
   const { draggedItem, isDragging, dropTarget, setDropTarget } = useDragDrop();
+  
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // Local drag state for external file drags
+  const [isExternalDragging, setIsExternalDragging] = useState(false);
 
   // Auto-select appropriate tab based on content
   useEffect(() => {
@@ -63,6 +73,32 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
     }
   }, [onUploadComplete]);
 
+  // Handle upload progress tracking
+  useEffect(() => {
+    const handleUploadProgress = (event: CustomEvent) => {
+      const { fileIndex, totalFiles: total, progress } = event.detail;
+      setCurrentFileIndex(fileIndex + 1);
+      setTotalFiles(total);
+      setUploadProgress(progress);
+      setIsUploading(true);
+    };
+
+    const handleUploadComplete = () => {
+      setIsUploading(false);
+      setUploadProgress(0);
+      setCurrentFileIndex(0);
+      setTotalFiles(0);
+    };
+
+    window.addEventListener('uploadProgress', handleUploadProgress as EventListener);
+    window.addEventListener('uploadComplete', handleUploadComplete as EventListener);
+
+    return () => {
+      window.removeEventListener('uploadProgress', handleUploadProgress as EventListener);
+      window.removeEventListener('uploadComplete', handleUploadComplete as EventListener);
+    };
+  }, []);
+
   // If no folder is selected, show empty state
   if (!selectedFolder) {
     return (
@@ -81,34 +117,147 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   }
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto min-h-0">
-      {/* Only show tabs if there are subfolders */}
-      {subfolders.length > 0 && (
-        <div className="mb-6">
-          <FilesTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            subfoldersCount={subfolders.length}
-            filesCount={files.length}
-          />
+    <div className="flex-1 overflow-y-auto min-h-0">
+      {/* Upload Progress Bar */}
+      <LoadingBar 
+        isVisible={isUploading} 
+        description={`Uploading file ${currentFileIndex} of ${totalFiles}...`}
+      />
+      
+      {/* If no files and no subfolders, show full-height draggable area */}
+      {files.length === 0 && subfolders.length === 0 ? (
+        <div className="h-full w-full p-6">
+          <div 
+            className={`h-full w-full flex items-center justify-center transition-all duration-300 ${
+              dropTarget === 'empty-files' && (isDragging || isExternalDragging)
+                ? 'bg-[#F0EDE8] border-2 border-dashed border-[#A85C36] rounded-[5px] scale-[1.02] shadow-lg' 
+                : 'bg-transparent border-2 border-dashed border-transparent'
+            }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Check if this is a file drag from outside the app
+            if (e.dataTransfer.types.includes('Files')) {
+              setIsExternalDragging(true);
+              setDropTarget('empty-files');
+            }
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTarget(null);
+              setIsExternalDragging(false);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDropTarget(null);
+            setIsExternalDragging(false);
+            
+            // Handle external file drops
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+              // Trigger file upload for each dropped file with progress tracking
+              files.forEach((file, index) => {
+                const uploadEvent = new CustomEvent('uploadFilesWithProgress', {
+                  detail: {
+                    files: [file],
+                    folderId: selectedFolder?.id || 'all',
+                    fileIndex: index,
+                    totalFiles: files.length
+                  }
+                });
+                window.dispatchEvent(uploadEvent);
+              });
+            }
+          }}
+        >
+          <div className="text-center">
+            <FileText className={`w-12 h-12 mx-auto mb-3 transition-colors duration-200 ${
+              dropTarget === 'empty-files' && isDragging ? 'text-[#A85C36]' : 'text-[#AB9C95]'
+            }`} />
+            <p className={`text-sm mb-2 transition-colors duration-200 ${
+              dropTarget === 'empty-files' && isDragging ? 'text-[#A85C36] font-medium' : 'text-[#AB9C95]'
+            }`}>
+              No files in this folder yet
+            </p>
+            <p className={`text-xs transition-colors duration-200 ${
+              dropTarget === 'empty-files' && isDragging ? 'text-[#A85C36] font-medium' : 'text-[#AB9C95]'
+            }`}>
+              {dropTarget === 'empty-files' && isDragging ? 'Drop files here to upload' : 'Drag and drop files here to upload'}
+            </p>
+          </div>
         </div>
-      )}
+        </div>
+      ) : (
+        /* Content when there are files or subfolders */
+        <div className="h-full w-full flex flex-col">
+          {/* Only show tabs if there are subfolders */}
+          {subfolders.length > 0 && (
+            <div className="p-6 pb-0">
+              <FilesTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                subfoldersCount={subfolders.length}
+                filesCount={files.length}
+              />
+            </div>
+          )}
 
-      {/* Tab Content */}
-      {activeTab === 'subfolders' && (
+          {/* Tab Content - Full Height */}
+          {activeTab === 'subfolders' && (
         <div 
-          className={`transition-all ${
-            dropTarget === 'subfolders' && isDragging ? 'bg-[#F8F6F4]' : ''
+          className={`flex-1 p-6 transition-all duration-300 ${
+            dropTarget === 'subfolders' && (isDragging || isExternalDragging) 
+              ? 'bg-[#F0EDE8] border-2 border-dashed border-[#A85C36] rounded-[5px] scale-[1.02] shadow-lg' 
+              : 'bg-transparent border-2 border-dashed border-transparent'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
-            setDropTarget('subfolders');
+            e.stopPropagation();
+            
+            // Check if this is a file drag from outside the app
+            if (e.dataTransfer.types.includes('Files')) {
+              setIsExternalDragging(true);
+              setDropTarget('subfolders');
+            } else {
+              setDropTarget('subfolders');
+            }
           }}
-          onDragLeave={() => setDropTarget(null)}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTarget(null);
+              setIsExternalDragging(false);
+            }
+          }}
           onDrop={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             setDropTarget(null);
-            if (draggedItem && draggedItem.type === 'file') {
+            setIsExternalDragging(false);
+            
+            // Handle external file drops
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+              // Trigger file upload for each dropped file with progress tracking
+              files.forEach((file, index) => {
+                const uploadEvent = new CustomEvent('uploadFilesWithProgress', {
+                  detail: {
+                    files: [file],
+                    folderId: selectedFolder?.id || 'all',
+                    fileIndex: index,
+                    totalFiles: files.length
+                  }
+                });
+                window.dispatchEvent(uploadEvent);
+              });
+            } else if (draggedItem && draggedItem.type === 'file') {
+              // Handle internal file moves
               // TODO: Move file to this folder
               console.log('Move file to subfolders section:', draggedItem.item);
             }
@@ -136,20 +285,56 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
         </div>
       )}
 
-      {activeTab === 'files' && (
+          {activeTab === 'files' && (
         <div 
-          className={`transition-all ${
-            dropTarget === 'files' && isDragging ? 'bg-[#F8F6F4]' : ''
+          className={`flex-1 p-6 transition-all duration-300 ${
+            dropTarget === 'files' && (isDragging || isExternalDragging) 
+              ? 'bg-[#F0EDE8] border-2 border-dashed border-[#A85C36] rounded-[5px] scale-[1.02] shadow-lg' 
+              : 'bg-transparent border-2 border-dashed border-transparent'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
-            setDropTarget('files');
+            e.stopPropagation();
+            
+            // Check if this is a file drag from outside the app
+            if (e.dataTransfer.types.includes('Files')) {
+              setIsExternalDragging(true);
+              setDropTarget('files');
+            } else {
+              setDropTarget('files');
+            }
           }}
-          onDragLeave={() => setDropTarget(null)}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTarget(null);
+              setIsExternalDragging(false);
+            }
+          }}
           onDrop={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             setDropTarget(null);
-            if (draggedItem && draggedItem.type === 'file') {
+            setIsExternalDragging(false);
+            
+            // Handle external file drops
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+              // Trigger file upload for each dropped file with progress tracking
+              files.forEach((file, index) => {
+                const uploadEvent = new CustomEvent('uploadFilesWithProgress', {
+                  detail: {
+                    files: [file],
+                    folderId: selectedFolder?.id || 'all',
+                    fileIndex: index,
+                    totalFiles: files.length
+                  }
+                });
+                window.dispatchEvent(uploadEvent);
+              });
+            } else if (draggedItem && draggedItem.type === 'file') {
+              // Handle internal file moves
               // TODO: Move file to this folder
               console.log('Move file to files section:', draggedItem.item);
             }
@@ -161,14 +346,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
                 <FileItemSkeleton key={i} />
               ))}
             </div>
-          ) : files.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-[#AB9C95] mx-auto mb-3" />
-              <p className="text-[#AB9C95] text-sm">
-                No files in this folder yet
-              </p>
-            </div>
-          ) : (
+          ) : files.length > 0 ? (
             <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
               {files.map((file) => (
                 <FileItemComponent
@@ -183,7 +361,9 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
                 />
               ))}
             </div>
-          )}
+          ) : null}
+        </div>
+      )}
         </div>
       )}
     </div>

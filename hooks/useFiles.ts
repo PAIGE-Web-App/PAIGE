@@ -289,7 +289,7 @@ export function useFiles() {
 
     try {
       await deleteDoc(doc(getUserCollectionRef('files', user.uid), fileId));
-      showSuccessToast('File deleted successfully');
+      // Don't show toast here - let the calling component handle user feedback
     } catch (error) {
       console.error('Error deleting file:', error);
       showErrorToast('Failed to delete file');
