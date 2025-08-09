@@ -40,7 +40,7 @@ import WeddingBanner from "../components/WeddingBanner";
 import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import GmailReauthBanner from "../components/GmailReauthBanner";
 import type { TodoItem } from '../types/todo';
-import { toast } from "react-hot-toast";
+
 import { Contact } from "../types/contact";
 import { SimpleMessage } from "../types/message";
 import ContactsList from '../components/ContactsList';
@@ -726,7 +726,7 @@ export default function Home() {
       setShowGmailReauthBanner(false);
       
       // Show success toast
-      toast.success('Gmail re-authentication successful!');
+      showSuccessToast('Gmail re-authentication successful!');
     } else {
       console.log('No Gmail auth success or user ID mismatch', {
         gmailAuth,
@@ -751,7 +751,7 @@ export default function Home() {
       console.log('Fetched contacts:', fetchedContacts);
     } catch (error) {
       console.error('Error fetching contacts:', error);
-      toast.error('Failed to fetch contacts. Please try again.');
+      showErrorToast('Failed to fetch contacts. Please try again.');
     }
   };
 
@@ -792,22 +792,22 @@ export default function Home() {
       setShowOnboardingModal(false);
       
       // Show success message
-      toast.success('Onboarding completed successfully!');
+      showSuccessToast('Onboarding completed successfully!');
 
       // If Gmail was selected, trigger the import
       if (selectedChannelsFromModal.includes('Gmail') && user) {
         console.log('Gmail selected, triggering import');
         try {
           await triggerGmailImport(user.uid, onboardedContacts);
-          toast.success('Gmail import started successfully');
+          showSuccessToast('Gmail import started successfully');
         } catch (error) {
           console.error('Error during Gmail import:', error);
-          toast.error('Failed to start Gmail import. Please try again later.');
+          showErrorToast('Failed to start Gmail import. Please try again later.');
         }
       }
     } catch (error) {
       console.error('Error completing onboarding:', error);
-      toast.error('Failed to complete onboarding. Please try again.');
+      showErrorToast('Failed to complete onboarding. Please try again.');
     }
   };
 
@@ -870,14 +870,14 @@ export default function Home() {
     if (!user) return;
     try {
       await updateDoc(doc(db, "users", user.uid), { gmailImportCompleted: false });
-      toast.success("Gmail import will be retried.");
+      showSuccessToast("Gmail import will be retried.");
       // Optionally, immediately trigger import if tokens are present
       if (user && contacts.length > 0) {
         await triggerGmailImport(user.uid, contacts);
-        toast.success("Gmail import started.");
+        showSuccessToast("Gmail import started.");
       }
     } catch (error) {
-      toast.error("Failed to re-import Gmail. Please try again.");
+      showErrorToast("Failed to re-import Gmail. Please try again.");
       console.error("Error re-importing Gmail:", error);
     }
   };

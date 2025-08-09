@@ -47,10 +47,10 @@ export default function GmailLoginReauthBanner({ onReauth, onDismiss }: GmailLog
               </svg>
             </button>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-col gap-2">
             <button
               onClick={handleReauth}
-              className="bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center gap-2"
+              className="bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-3 h-3" />
               Re-authenticate Gmail

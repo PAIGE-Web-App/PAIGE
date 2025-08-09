@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '../../hooks/useCustomToast';
 import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
 
 import VenueCard from '@/components/VenueCard';
@@ -25,6 +25,7 @@ import VenueSearchInput from '@/components/VenueSearchInput';
 declare const google: any;
 
 export default function SignUp() {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -123,9 +124,9 @@ export default function SignUp() {
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
     if (toastValue) {
       if (toastValue === 'Please login to access this page' && fromRedirect) {
-      toast.error('Please login to access this page');
+      showErrorToast('Please login to access this page');
       } else if (toastValue === 'Log out successful!') {
-        toast.success('Log out successful!');
+        showSuccessToast('Log out successful!');
       }
       document.cookie = 'show-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     }
@@ -139,7 +140,7 @@ export default function SignUp() {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().onboarded === true) {
-          toast.success('You are already signed up and logged in!');
+          showSuccessToast('You are already signed up and logged in!');
           // Optionally, you can disable the form or show a message instead of redirecting
         }
       };
@@ -270,7 +271,7 @@ export default function SignUp() {
           setStep(2);
         } else {
           console.error('Session login failed');
-          toast.error("Session login failed");
+          showErrorToast("Session login failed");
         }
       }
     } catch (err: any) {
@@ -320,7 +321,7 @@ export default function SignUp() {
           router.push("/");
         }
       } else {
-        toast.error("Session login failed");
+        showErrorToast("Session login failed");
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
@@ -376,7 +377,7 @@ export default function SignUp() {
       const user = auth.currentUser;
       if (!user) {
         console.error("No authenticated user.");
-        toast.error("Authentication error. Please try again.");
+        showErrorToast("Authentication error. Please try again.");
         return false;
       }
 
@@ -482,7 +483,7 @@ export default function SignUp() {
       return true;
     } catch (error) {
       console.error("Error saving onboarding data:", error);
-      toast.error("Failed to save your progress. Please try again.");
+              showErrorToast("Failed to save your progress. Please try again.");
       return false;
     } finally {
       setSaving(false);
@@ -992,15 +993,15 @@ export default function SignUp() {
                  return;
               }
               if (!weddingLocation.trim()) {
-                toast.error("Please enter your wedding location");
+                showErrorToast("Please enter your wedding location");
                 return;
               }
               if (hasVenue === null) {
-                toast.error("Please let us know if you have a venue");
+                showErrorToast("Please let us know if you have a venue");
                 return;
               }
               if (hasVenue && !selectedVenueMetadata) {
-                toast.error("Please select your venue");
+                showErrorToast("Please select your venue");
                 return;
               }
               
@@ -1258,13 +1259,13 @@ export default function SignUp() {
                   const file = e.dataTransfer.files && e.dataTransfer.files[0];
                   if (file) {
                     if (!file.type.startsWith('image/')) {
-                      toast.error('Please upload a valid image file.');
+                      showErrorToast('Please upload a valid image file.');
                       setInspirationImage(null);
                       setImagePreview(null);
                       return;
                     }
                     if (file.size > 5 * 1024 * 1024) {
-                      toast.error('Image must be less than 5MB.');
+                      showErrorToast('Image must be less than 5MB.');
                       setInspirationImage(null);
                       setImagePreview(null);
                       return;
@@ -1291,13 +1292,13 @@ export default function SignUp() {
                         const file = e.target.files && e.target.files[0];
                         if (file) {
                           if (!file.type.startsWith('image/')) {
-                            toast.error('Please upload a valid image file.');
+                            showErrorToast('Please upload a valid image file.');
                             setInspirationImage(null);
                             setImagePreview(null);
                             return;
                           }
                           if (file.size > 5 * 1024 * 1024) {
-                            toast.error('Image must be less than 5MB.');
+                            showErrorToast('Image must be less than 5MB.');
                             setInspirationImage(null);
                             setImagePreview(null);
                             return;
@@ -1337,10 +1338,10 @@ export default function SignUp() {
                           setGeneratedVibes(data.vibes);
                           setVibeGenerated(true);
                         } else {
-                          toast.error('Could not extract vibes from image.');
+                          showErrorToast('Could not extract vibes from image.');
                         }
                       } catch (err) {
-                        toast.error('Failed to generate vibes.');
+                        showErrorToast('Failed to generate vibes.');
                       } finally {
                         setVibeLoading(false);
                       }
@@ -1379,7 +1380,7 @@ export default function SignUp() {
             className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
             onClick={() => {
               if (vibe.length === 0 && !inspirationImage && !pinterestLink) {
-                toast.error("Please select at least one vibe, upload an image, or provide a Pinterest link");
+                showErrorToast("Please select at least one vibe, upload an image, or provide a Pinterest link");
                 return;
               }
               
@@ -1479,7 +1480,7 @@ export default function SignUp() {
                 const success = await saveOnboardingData(step5Data);
                 if (success) {
                   console.log('Onboarding completed successfully, showing toast and redirecting...');
-                  toast.success("Welcome to Paige! Your wedding planning journey begins now.");
+                  showSuccessToast("Welcome to Paige! Your wedding planning journey begins now.");
                   // Add a small delay to ensure Firestore has updated before redirect
                   setTimeout(() => {
                     console.log('Redirecting to dashboard...');

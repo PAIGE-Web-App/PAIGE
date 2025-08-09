@@ -6,7 +6,7 @@ import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { storage, db } from "../../../lib/firebase";
-import { toast } from "react-hot-toast";
+import { useCustomToast } from "../../../hooks/useCustomToast";
 import { validateEmail, validateName, addCacheBuster } from '../utils/profileValidation';
 import AvatarUploadModal from './AvatarUploadModal';
 import DeleteAccountModal from '../../../components/DeleteAccountModal';
@@ -66,6 +66,7 @@ export default function AccountTab({
   setPlannerSearch,
   hasUnsavedChanges,
 }: AccountTabProps) {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -117,10 +118,10 @@ export default function AccountTab({
       await updateDoc(doc(db, "users", user.uid), { profileImageUrl: downloadURL });
       setProfileImageUrl(downloadURL);
       await updateUser({ profileImageUrl: downloadURL });
-      toast.success("Profile image updated successfully!");
+      showSuccessToast("Profile image updated successfully!");
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      toast.error("Failed to upload profile image.");
+      showErrorToast("Failed to upload profile image.");
     }
   };
 
@@ -137,7 +138,7 @@ export default function AccountTab({
       });
 
       if (response.ok) {
-        toast.success('Account deleted successfully');
+        showSuccessToast('Account deleted successfully');
         // Sign out the user
         const auth = getAuth();
         await auth.signOut();
@@ -145,11 +146,11 @@ export default function AccountTab({
         window.location.href = '/login';
       } else {
         const data = await response.json();
-        toast.error(data.error || 'Failed to delete account');
+        showErrorToast(data.error || 'Failed to delete account');
       }
     } catch (error) {
       console.error('Error deleting account:', error);
-      toast.error('Failed to delete account');
+      showErrorToast('Failed to delete account');
     } finally {
       setIsDeleting(false);
       setShowDeleteModal(false);
@@ -225,15 +226,15 @@ export default function AccountTab({
                 type="button"
                 onClick={async () => {
                   if (!email) {
-                    toast.error("No email found for this account.");
+                    showErrorToast("No email found for this account.");
                     return;
                   }
                   try {
                     const auth = getAuth();
                     await sendPasswordResetEmail(auth, email);
-                    toast.success(`Password reset email sent to ${email}`);
+                    showSuccessToast(`Password reset email sent to ${email}`);
                   } catch (err) {
-                    toast.error("Failed to send password reset email.");
+                    showErrorToast("Failed to send password reset email.");
                   }
                 }}
               >

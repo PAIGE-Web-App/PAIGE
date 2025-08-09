@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from 'lucide-react';
 import Cropper from 'react-easy-crop';
-import { toast } from "react-hot-toast";
+import { useCustomToast } from "../../../hooks/useCustomToast";
 import imageCompression from 'browser-image-compression';
 import { getCroppedImg } from '../utils/profileValidation';
 
@@ -15,6 +15,7 @@ interface AvatarUploadModalProps {
 }
 
 export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarUploadModalProps) {
+  const { showErrorToast } = useCustomToast();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -32,14 +33,14 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Please upload a valid image file.');
+      showErrorToast('Please upload a valid image file.');
       setAvatarFile(null);
       setAvatarPreview(null);
       return;
     }
 
     if (file.size > 1 * 1024 * 1024) {
-      toast.error('Image must be less than 1MB.');
+      showErrorToast('Image must be less than 1MB.');
       setAvatarFile(null);
       setAvatarPreview(null);
       return;
@@ -54,7 +55,7 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
       setAvatarFile(compressedFile);
       setAvatarPreview(URL.createObjectURL(compressedFile));
     } catch (err) {
-      toast.error("Failed to compress image.");
+      showErrorToast("Failed to compress image.");
     }
   };
 
@@ -77,7 +78,7 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
         }
       }, avatarFile.type);
     } catch (error) {
-      toast.error("Failed to process image.");
+      showErrorToast("Failed to process image.");
     } finally {
       setAvatarUploading(false);
     }
@@ -129,13 +130,13 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
                 const file = e.dataTransfer.files && e.dataTransfer.files[0];
                 if (file) {
                   if (!file.type.startsWith('image/')) {
-                    toast.error('Please upload a valid image file.');
+                    showErrorToast('Please upload a valid image file.');
                     setAvatarFile(null);
                     setAvatarPreview(null);
                     return;
                   }
                   if (file.size > 1 * 1024 * 1024) {
-                    toast.error('Image must be less than 1MB.');
+                    showErrorToast('Image must be less than 1MB.');
                     setAvatarFile(null);
                     setAvatarPreview(null);
                     return;
@@ -149,7 +150,7 @@ export default function AvatarUploadModal({ isOpen, onClose, onUpload }: AvatarU
                     setAvatarFile(compressedFile);
                     setAvatarPreview(URL.createObjectURL(compressedFile));
                   } catch (err) {
-                    toast.error("Failed to compress image.");
+                    showErrorToast("Failed to compress image.");
                   }
                 }
               }}

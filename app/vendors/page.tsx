@@ -9,7 +9,7 @@ import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
@@ -97,6 +97,7 @@ export default function VendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   
   // Get user's wedding location from profile data
   const { weddingLocation, profileLoading } = useUserProfileData();
@@ -351,10 +352,10 @@ export default function VendorsPage() {
       setVendors((prev) => 
         prev.map((v) => ({ ...v, isOfficial: v.category === vendor.category ? v.id === vendor.id : false }))
       );
-      toast.success(`${vendor.name} marked as official ${vendor.category}`);
+      showSuccessToast(`${vendor.name} marked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error setting official vendor:', error);
-      toast.error('Failed to mark vendor as official');
+              showErrorToast('Failed to mark vendor as official');
     }
     setIsSaving(false);
     setConfirmModal({ open: false, vendor: null, action: 'star' });
@@ -369,10 +370,10 @@ export default function VendorsPage() {
       setVendors((prev) => 
         prev.map((v) => v.id === vendor.id ? { ...v, isOfficial: false } : v)
       );
-      toast.success(`${vendor.name} unmarked as official ${vendor.category}`);
+      showSuccessToast(`${vendor.name} unmarked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error unsetting official vendor:', error);
-      toast.error('Failed to unmark vendor as official');
+              showErrorToast('Failed to unmark vendor as official');
     }
     setIsSaving(false);
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });
@@ -621,7 +622,7 @@ export default function VendorsPage() {
             onSave={(newContact) => {
               // This should add a contact person, not a vendor
               setAddContactModal(false);
-              toast.success(`Contact "${newContact.name}" added successfully!`);
+              showSuccessToast(`Contact "${newContact.name}" added successfully!`);
             }}
           />
         </div>

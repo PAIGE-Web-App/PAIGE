@@ -4,7 +4,7 @@ import { X, Trash2, CheckCircle } from 'lucide-react';
 import FormField from './FormField';
 import CategorySelectField from './CategorySelectField';
 import ToDoBuilderForm from './ToDoBuilderForm';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 
 interface TaskFieldsProps {
   name: string;
@@ -86,6 +86,7 @@ const TaskSideCard: React.FC<AddSideCardProps & { userId: string, todoLists: any
   handleToggleTodoComplete,
   handleDeleteTodo,
 }) => {
+  const { showErrorToast } = useCustomToast();
   const [tasks, setTasks] = useState<{ name: string; deadline?: string; endDate?: string; note?: string; category?: string; }[]>([]);
   const [newTaskName, setNewTaskName] = useState('');
   const [customCategoryValue, setCustomCategoryValue] = useState('');
@@ -123,12 +124,12 @@ const TaskSideCard: React.FC<AddSideCardProps & { userId: string, todoLists: any
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedListId) {
-      toast.error('Please select a to-do list.');
+      showErrorToast('Please select a to-do list.');
       return;
     }
     const validTasks = tasks.filter(task => task.name && task.name.trim());
     if (validTasks.length === 0) {
-      toast.error('Please enter at least one task name.');
+      showErrorToast('Please enter at least one task name.');
       return;
     }
     const [first, ...rest] = validTasks;

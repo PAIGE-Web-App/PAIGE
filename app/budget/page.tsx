@@ -82,7 +82,7 @@ const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
 import { useUserProfileData } from "@/hooks/useUserProfileData";
 import { useWeddingBanner } from "@/hooks/useWeddingBanner";
 import { useBudget } from "@/hooks/useBudget";
-import toast from "react-hot-toast";
+
 import type { BudgetItem } from "@/types/budget";
 
 export default function BudgetPage() {

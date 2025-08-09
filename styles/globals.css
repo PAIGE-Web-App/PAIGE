@@ -368,25 +368,8 @@ h6 {
 }
 
 /* Custom toast container class */
-.toast-container-bottom-center {
-  position: fixed !important;
-  top: calc(100vh - 150px) !important;
-  right: auto !important;
-  left: 50% !important;
-  bottom: auto !important;
-  transform: translateX(-50%) !important;
-  z-index: 9999 !important;
-  min-width: 300px !important;
-  max-width: 400px !important;
-}
 
-.react-hot-toast > div > div {
-  margin-bottom: 2px !important; /* Very tight gap between toasts */
-}
 
-.react-hot-toast > div > div:last-child {
-  margin-bottom: 0 !important;
-}
 
 /* Custom jiggle animation */
 @keyframes jiggle {

@@ -5,7 +5,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '../hooks/useCustomToast';
 import { User } from 'firebase/auth';
 import type { TodoItem } from '../types/todo';
 import { Contact } from "../types/contact";
@@ -108,6 +108,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   searchQuery,
   isNewlyAdded = false,
 }) => {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
@@ -199,7 +200,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   const handleNameBlur = useCallback(async () => {
     if (editingNameValue.trim() !== todo.name) {
       if (!editingNameValue.trim()) {
-        toast.error('Task name cannot be empty.');
+        showErrorToast('Task name cannot be empty.');
         setEditingNameValue(todo.name); // Revert to original name
       } else {
         console.log('Updating name:', todo.id, editingNameValue);
@@ -494,14 +495,14 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         }
         
         const namesText = assigneeNames.join(', ');
-        toast.success(`Assigned to ${namesText}`);
+        showSuccessToast(`Assigned to ${namesText}`);
       } else {
-        toast.success('Assignment removed');
+                  showSuccessToast('Assignment removed');
       }
       setShowAssignmentModal(false);
     } catch (error) {
       console.error('Error assigning todo:', error);
-      toast.error('Failed to assign todo');
+              showErrorToast('Failed to assign todo');
     }
   };
 

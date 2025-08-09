@@ -9,9 +9,9 @@ import { auth } from "../../lib/firebase";
 import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from '../../hooks/useAuth';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '../../hooks/useCustomToast';
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
 
 export default function Login() {
@@ -25,6 +25,7 @@ export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
 
   // Google account detection state
   const [googleAccount, setGoogleAccount] = useState<{
@@ -38,6 +39,7 @@ export default function Login() {
   // Gmail re-authentication state
   const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
   const [checkingGmailAuth, setCheckingGmailAuth] = useState(false);
+  const [needsGmailReauth, setNeedsGmailReauth] = useState(false);
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -46,9 +48,9 @@ export default function Login() {
     const fromRedirect = document.referrer && !document.referrer.endsWith('/login') && !document.referrer.endsWith('/signup');
     if (toastValue) {
       if (toastValue === 'Please login to access this page' && fromRedirect) {
-        toast.error('Please login to access this page');
+        showErrorToast('Please login to access this page');
       } else if (toastValue === 'Log out successful!') {
-        toast.success('Log out successful!');
+        showSuccessToast('Log out successful!');
       }
       document.cookie = 'show-toast=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     }
@@ -63,9 +65,9 @@ export default function Login() {
 
   useEffect(() => {
     if (searchParams?.get && searchParams.get("existing")) {
-      toast.error("Looks like you're already a user. Please log in.");
+      showErrorToast("Looks like you're already a user. Please log in.");
     }
-  }, [searchParams]);
+  }, [searchParams, showErrorToast]);
 
   // Detect if user is already signed into Google
   useEffect(() => {
@@ -121,6 +123,7 @@ export default function Login() {
       
       if (data.needsReauth) {
         setShowGmailReauthBanner(true);
+        setNeedsGmailReauth(true);
       }
     } catch (error) {
       console.error('Error checking Gmail auth status:', error);
@@ -154,7 +157,7 @@ export default function Login() {
       });
       if (!sessionRes.ok) {
         setError('Failed to establish session. Please try again.');
-        toast.error('Failed to establish session. Please try again.');
+        showErrorToast('Failed to establish session. Please try again.');
         setLoading(false);
         return;
       }
@@ -171,17 +174,25 @@ export default function Login() {
         error.code === 'auth/wrong-password'
       ) {
         setError('Email or password is incorrect.');
-        toast.error('Email or password is incorrect.');
+        showErrorToast('Email or password is incorrect.');
       } else {
         setError(error.message || 'Failed to login');
-        toast.error(error.message || 'Failed to login');
+        showErrorToast(error.message || 'Failed to login');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleSmartGoogleLogin = async () => {
+    // If Gmail re-authentication is needed, handle that first
+    if (needsGmailReauth && googleAccount?.userId) {
+      const reauthUrl = `/api/auth/google/initiate?userId=${googleAccount.userId}&redirectUri=${encodeURIComponent(window.location.href)}`;
+      window.open(reauthUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Otherwise, proceed with normal Google login
     const provider = new GoogleAuthProvider();
     try {
       setLoading(true);
@@ -227,7 +238,7 @@ export default function Login() {
       } else {
         const errorText = await res.text();
         console.error('❌ [Google Login] Session login failed:', errorText);
-        toast.error("Session login failed");
+        showErrorToast("Session login failed");
       }
     } catch (err: any) {
       console.error('❌ [Google Login] Error details:', {
@@ -255,12 +266,15 @@ export default function Login() {
         message = "An account already exists with the same email address but different sign-in credentials.";
       }
       
-      toast.error(message);
+              showErrorToast(message);
       setError(message);
     } finally {
       setLoading(false);
     }
   };
+
+  // Keep the old function for backward compatibility
+  const handleGoogleLogin = handleSmartGoogleLogin;
 
   // Function to clear Google account and switch to email sign-in
   const handleSwitchToEmail = () => {
@@ -287,13 +301,22 @@ export default function Login() {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
       
-      // Hide the reauth banner
+      // Hide the reauth banner and reset state
       setShowGmailReauthBanner(false);
+      setNeedsGmailReauth(false);
       
       // Show success toast
-      toast.success('Gmail re-authentication successful! You can now log in.');
+      showSuccessToast('Gmail re-authentication successful! Logging you in...');
+      
+      // Automatically trigger login with the existing Google account
+      if (googleAccount) {
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          handleSmartGoogleLogin();
+        }, 1000);
+      }
     }
-  }, []);
+  }, [googleAccount]);
 
   // State to control whether to show email form
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -322,19 +345,7 @@ export default function Login() {
             Log in to your Paige account
           </h4>
 
-                    {/* Gmail Re-authentication Banner */}
-                    {showGmailReauthBanner && (
-                      <div className="w-full mb-4">
-                        <GmailLoginReauthBanner
-                          onReauth={() => {
-                            // The banner will handle opening the re-auth window
-                          }}
-                          onDismiss={() => {
-                            setShowGmailReauthBanner(false);
-                          }}
-                        />
-                      </div>
-                    )}
+
 
                     <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
               {/* Only show email/password form if no Google account detected OR user clicked "Sign in with email" */}
@@ -385,7 +396,7 @@ export default function Login() {
               ) : googleAccount && !showEmailForm ? (
                 <button
                   type="button"
-                  onClick={handleGoogleLogin}
+                  onClick={handleSmartGoogleLogin}
                   className="w-full py-3 px-4 bg-[#163c57] text-white rounded-[5px] flex items-center justify-between hover:bg-[#0f2a3f] transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -402,12 +413,14 @@ export default function Login() {
                         </span>
                       </div>
                     )}
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium text-sm">Continue as {googleAccount.name}</span>
-                      <span className="text-xs opacity-90">{googleAccount.email}</span>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="font-medium text-sm truncate">
+                        {needsGmailReauth ? 'Continue with Gmail' : `Continue as ${googleAccount.name}`}
+                      </span>
+                      <span className="text-xs opacity-90 truncate">{googleAccount.email}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <ChevronDown className="w-4 h-4" />
                     <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" />
                   </div>
@@ -416,7 +429,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2"
+                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   <span className="w-4 h-4 flex items-center justify-center">
                     <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
@@ -425,12 +438,19 @@ export default function Login() {
                 </button>
               )}
               
+              {/* Gmail re-auth note */}
+              {needsGmailReauth && (
+                <p className="text-xs text-center text-[#AB9C95] mt-2">
+                  Gmail access has expired. Click above to re-authenticate.
+                </p>
+              )}
+              
               {/* Login with email option when Google account is detected */}
               {googleAccount && !showEmailForm && (
                 <button
                   type="button"
                   onClick={() => setShowEmailForm(true)}
-                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px]"
+                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] whitespace-nowrap"
                 >
                   Login with Email
                 </button>

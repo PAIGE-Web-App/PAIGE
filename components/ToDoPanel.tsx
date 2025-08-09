@@ -12,7 +12,7 @@ import TodoTopBar from './TodoTopBar';
 import NewListOnboardingModal from './NewListOnboardingModal';
 import { addDoc, getDocs, writeBatch, doc, query, where } from 'firebase/firestore';
 import { db, getUserCollectionRef } from '../lib/firebase';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 
 interface ToDoPanelProps {
   todoLists: any[];
@@ -145,6 +145,7 @@ const ToDoPanel = ({
   handleDrop,
   newlyAddedTodoItems = new Set()
 }: ToDoPanelProps) => {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   // Dropdown state
   const [showListDropdown, setShowListDropdown] = useState(false);
   const [pinnedListIds, setPinnedListIdsState] = useState<string[]>([]);
@@ -249,7 +250,7 @@ const ToDoPanel = ({
   // Handler for creating a new list (and its tasks) from the onboarding modal
   const handleAddListFromModal = async (data: { name: string; tasks?: any[] }) => {
     if (!currentUser) {
-      toast.error('You must be logged in to create a new list.');
+      showErrorToast('You must be logged in to create a new list.');
       return;
     }
     if (todoLists.length + 1 > STARTER_TIER_MAX_LISTS) {
@@ -258,12 +259,12 @@ const ToDoPanel = ({
     }
     const trimmedListName = data.name.trim();
     if (!trimmedListName) {
-      toast.error('List name cannot be empty.');
+      showErrorToast('List name cannot be empty.');
       return;
     }
     const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedListName.toLowerCase());
     if (existingList) {
-      toast.error('A list with this name already exists.');
+      showErrorToast('A list with this name already exists.');
       return;
     }
     const maxListOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
@@ -275,7 +276,7 @@ const ToDoPanel = ({
     };
     try {
       const docRef = await addDoc(getUserCollectionRef('todoLists', currentUser.uid), newList);
-      toast.success(`List "${trimmedListName}" created!`);
+      showSuccessToast(`List "${trimmedListName}" created!`);
       setSelectedListId(docRef.id);
       await pinList(docRef.id); // Automatically pin the new list
       // Add initial tasks if provided
@@ -301,7 +302,7 @@ const ToDoPanel = ({
       setShowNewListModal(false);
     } catch (error: any) {
       console.error('Error creating new list:', error);
-      toast.error(`Failed to create new list: ${error.message}`);
+      showErrorToast(`Failed to create new list: ${error.message}`);
     }
   };
 

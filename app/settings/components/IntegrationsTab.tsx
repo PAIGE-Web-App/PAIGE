@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { toast } from "react-hot-toast";
+import { useCustomToast } from "../../../hooks/useCustomToast";
 import { doc, getDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { Calendar, Mail, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
@@ -13,6 +13,7 @@ interface IntegrationsTabProps {
 }
 
 export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTabProps) {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleEmail, setGoogleEmail] = useState("");
   const [calendarStatus, setCalendarStatus] = useState<any>({ isLinked: false });
@@ -59,7 +60,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
 
   const handleConnectGoogle = () => {
     if (!user?.uid) {
-      toast.error("Could not find user. Please try logging in again.");
+      showErrorToast("Could not find user. Please try logging in again.");
       return;
     }
     const redirectUri = encodeURIComponent(`${window.location.origin}/settings?tab=integrations`);
@@ -80,12 +81,12 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         setGoogleConnected(false);
         setGoogleEmail("");
           setCalendarStatus({ isLinked: false });
-          toast.success(data.message || "All Google integrations disconnected successfully");
+          showSuccessToast(data.message || "All Google integrations disconnected successfully");
         } else {
-          toast.error(data.message || "Failed to disconnect Google account");
+          showErrorToast(data.message || "Failed to disconnect Google account");
         }
       } catch (error) {
-        toast.error("Failed to disconnect Google account");
+        showErrorToast("Failed to disconnect Google account");
       }
     });
   };
@@ -101,9 +102,9 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         });
         setGoogleConnected(false);
         setGoogleEmail("");
-        toast.success("Gmail integration disconnected successfully");
+        showSuccessToast("Gmail integration disconnected successfully");
       } catch (error) {
-        toast.error("Failed to disconnect Gmail integration");
+        showErrorToast("Failed to disconnect Gmail integration");
       }
     });
   };
@@ -118,18 +119,18 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       const data = await response.json();
       if (data.success) {
         setCalendarStatus({ isLinked: false });
-        toast.success('Google Calendar disconnected successfully');
+        showSuccessToast('Google Calendar disconnected successfully');
       } else {
-        toast.error(data.message || 'Failed to disconnect Google Calendar');
+        showErrorToast(data.message || 'Failed to disconnect Google Calendar');
       }
     } catch (error) {
-      toast.error('Failed to disconnect Google Calendar');
+      showErrorToast('Failed to disconnect Google Calendar');
     }
   };
 
   const handleReauthorizeGoogle = () => {
     if (!user?.uid) {
-      toast.error("Could not find user. Please try logging in again.");
+      showErrorToast("Could not find user. Please try logging in again.");
       return;
     }
     const redirectUri = encodeURIComponent(`${window.location.origin}/settings?tab=integrations`);
@@ -147,7 +148,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Google Calendar created and linked successfully!');
+        showSuccessToast('Google Calendar created and linked successfully!');
         setCalendarStatus({
           isLinked: true,
           calendarId: data.calendarId,
@@ -155,10 +156,10 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
           lastSyncAt: new Date().toISOString(),
         });
       } else {
-        toast.error(data.message || 'Failed to create Google Calendar');
+        showErrorToast(data.message || 'Failed to create Google Calendar');
       }
     } catch (error) {
-      toast.error('Failed to create Google Calendar');
+      showErrorToast('Failed to create Google Calendar');
     } finally {
       setIsCreatingCalendar(false);
     }

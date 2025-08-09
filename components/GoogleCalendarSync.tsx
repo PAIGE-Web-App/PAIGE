@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, RefreshCw, ExternalLink, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   onSyncComplete,
   compact
 }) => {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus>({ isLinked: false });
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -85,7 +86,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(data.message || 'Google Calendar linked successfully!');
+        showSuccessToast(data.message || 'Google Calendar linked successfully!');
         setCalendarStatus({
           isLinked: true,
           calendarId: data.calendarId,
@@ -97,11 +98,11 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         setFoundExistingCalendar(false);
         setExistingCalendarName('');
       } else {
-        toast.error(data.message || 'Failed to create Google Calendar');
+        showErrorToast(data.message || 'Failed to create Google Calendar');
       }
     } catch (error) {
       console.error('Error creating calendar:', error);
-      toast.error('Failed to create Google Calendar');
+      showErrorToast('Failed to create Google Calendar');
     } finally {
       setIsCreating(false);
     }
@@ -111,7 +112,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
     console.log('Syncing to Google...');
     if (todoItems.length === 0) {
       console.log('No to-do items to sync, aborting syncToCalendar');
-      toast.error('No to-do items to sync');
+      showErrorToast('No to-do items to sync');
       return;
     }
 
@@ -129,15 +130,15 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message);
+        showSuccessToast(data.message);
         await fetchCalendarStatus();
         onSyncComplete?.();
       } else {
-        toast.error(data.message || 'Failed to sync to Google Calendar');
+        showErrorToast(data.message || 'Failed to sync to Google Calendar');
       }
     } catch (error) {
       console.error('Error syncing to calendar:', error);
-      toast.error('Failed to sync to Google Calendar');
+      showErrorToast('Failed to sync to Google Calendar');
     } finally {
       setIsSyncingTo(false);
       console.log('syncToCalendar finished');
@@ -159,15 +160,15 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message);
+        showSuccessToast(data.message);
         await fetchCalendarStatus();
         onSyncComplete?.();
       } else {
-        toast.error(data.message || 'Failed to sync from Google Calendar');
+        showErrorToast(data.message || 'Failed to sync from Google Calendar');
       }
     } catch (error) {
       console.error('Error syncing from calendar:', error);
-      toast.error('Failed to sync from Google Calendar');
+      showErrorToast('Failed to sync from Google Calendar');
     } finally {
       setIsSyncingFrom(false);
       console.log('syncFromCalendar finished');
@@ -203,10 +204,10 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       console.log('Unified sync started');
       await syncFromCalendar();
       await syncToCalendar();
-      toast.success('Synced with Google successfully!');
+      showSuccessToast('Synced with Google successfully!');
     } catch (err) {
       console.error('Unified sync error:', err);
-      toast.error('Failed to sync with Google.');
+      showErrorToast('Failed to sync with Google.');
     } finally {
       setIsSyncing(false);
       console.log('Unified sync finished');
@@ -225,7 +226,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
             <button
               onClick={async () => {
                 if (todoItems.length === 0) {
-                  toast.error('Add to-do items to sync with Google Calendar.');
+                  showErrorToast('Add to-do items to sync with Google Calendar.');
                   return;
                 }
                 await handleUnifiedSync();

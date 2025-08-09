@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from './useCustomToast';
 
 interface UseFavoritesReturn {
   favorites: string[];
@@ -12,6 +12,7 @@ interface UseFavoritesReturn {
 
 export const useFavorites = (): UseFavoritesReturn => {
   const { user } = useAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,7 +46,7 @@ export const useFavorites = (): UseFavoritesReturn => {
   // Toggle favorite status
   const toggleFavorite = useCallback(async (placeId: string, vendorData?: any) => {
     if (!user?.uid) {
-      toast.error('Please log in to manage favorites');
+      showErrorToast('Please log in to manage favorites');
       return;
     }
 
@@ -84,9 +85,9 @@ export const useFavorites = (): UseFavoritesReturn => {
 
       // Show success message
       if (newFavoriteState) {
-        toast.success('Added to favorites!');
+        showSuccessToast('Added to favorites!');
       } else {
-        toast.success('Removed from favorites');
+        showSuccessToast('Removed from favorites');
       }
 
       // Also update community data for "Favorited by X user" count
@@ -121,7 +122,7 @@ export const useFavorites = (): UseFavoritesReturn => {
         detail: { favorites }
       }));
       
-      toast.error('Failed to update favorites');
+      showErrorToast('Failed to update favorites');
     }
   }, [favorites, user?.uid]);
 

@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db, getUserCollectionRef } from '@/lib/firebase';
 import { User } from 'firebase/auth';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import {
@@ -115,6 +115,7 @@ const calendarStyles = `
 `;
 
 const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, isMobile, activeMobileTab, onUpdateTodoDeadline, onUpdateTodoNotes, onUpdateTodoCategory }) => {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   // State declarations
   const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
@@ -221,7 +222,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         // This allows 'All To-Do' to be the default view
       }, (error) => {
         console.error('Error fetching To-do lists:', error);
-        toast.error('Failed to load To-do lists.');
+        showErrorToast('Failed to load To-do lists.');
       });
     }
 
@@ -391,7 +392,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         setTodoItems(items);
       }, (error) => {
         console.error('Error fetching To-Do items:', error);
-        toast.error('Failed to load To-Do items.');
+        showErrorToast('Failed to load To-Do items.');
       });
     } else {
       setTodoItems([]);
@@ -450,11 +451,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Function to handle adding a new To-Do item
   const handleAddNewTodo = async () => {
     if (!currentUser) {
-      toast.error('You must be logged in to add a To-Do item.');
+      showErrorToast('You must be logged in to add a To-Do item.');
       return;
     }
     if (!selectedListId) {
-      toast.error('Please select a list before adding a task.');
+      showErrorToast('Please select a list before adding a task.');
       return;
     }
 
@@ -480,10 +481,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       // Track newly added item for green flash animation
       setNewlyAddedTodoItems(prev => new Set(prev).add(docRef.id));
       
-      toast.success('New To-do item added!');
+      showSuccessToast('New To-do item added!');
     } catch (error: any) {
       console.error('Error adding To-do item:', error);
-      toast.error(`Failed to add To-do item: ${error.message}`);
+      showErrorToast(`Failed to add To-do item: ${error.message}`);
     } finally {
       setShowAddTaskDropdown(false);
     }
@@ -493,7 +494,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const handleCreateNewList = async () => {
     console.log('handleCreateNewList called'); // Debug log
     if (!currentUser) {
-      toast.error('You must be logged in to create a new list.');
+      showErrorToast('You must be logged in to create a new list.');
       // Do NOT clear input or hide input field here.
       return;
     }
@@ -507,7 +508,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
     const trimmedListName = newListName.trim();
     if (!trimmedListName) {
-      toast.error('List name cannot be empty.');
+      showErrorToast('List name cannot be empty.');
       // Do NOT clear input or hide input field here.
       return;
     }
@@ -515,7 +516,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     // Check if a list with this name already exists for the user
     const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedListName.toLowerCase());
     if (existingList) {
-      toast.error('A list with this name already exists.');
+      showErrorToast('A list with this name already exists.');
       // Do NOT clear input or hide input field here.
       return;
     }
@@ -533,13 +534,13 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       // Capture the docRef here
       const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList);
-      toast.success(`List "${trimmedListName}" created!`);
+      showSuccessToast(`List "${trimmedListName}" created!`);
       setSelectedListId(docRef.id); // Automatically select the new list
       setNewListName(''); // Clear input ONLY on success
       setShowNewListInput(false); // Hide input ONLY on success
     } catch (error: any) {
       console.error('Error creating new list:', error);
-      toast.error(`Failed to create new list: ${error.message}`);
+      showErrorToast(`Failed to create new list: ${error.message}`);
       // If an error occurs during addDoc, the input and field should remain.
     }
   };
@@ -547,12 +548,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Function to handle renaming a list
   const handleRenameList = useCallback(async (listId: string) => {
     if (!currentUser) {
-      toast.error('You must be logged in to rename a list.');
+      showErrorToast('You must be logged in to rename a list.');
       return;
     }
     const trimmedName = editingListNameValue?.trim();
     if (!trimmedName) {
-      toast.error('List name cannot be empty.');
+      showErrorToast('List name cannot be empty.');
       // Revert to original name if empty
       const originalList = todoLists.find(list => list.id === listId);
       if (originalList) {
@@ -565,7 +566,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     // Check for duplicate name
     const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedName.toLowerCase() && list.id !== listId);
     if (existingList) {
-      toast.error('A list with this name already exists.');
+      showErrorToast('A list with this name already exists.');
       const originalList = todoLists.find(list => list.id === listId);
       if (originalList) {
         setEditingListNameValue(originalList.name);
@@ -577,10 +578,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     try {
       const listRef = doc(getUserCollectionRef("todoLists", currentUser.uid), listId);
       await updateDoc(listRef, { name: trimmedName });
-      toast.success('List renamed successfully!');
+      showSuccessToast('List renamed successfully!');
     } catch (error: any) {
       console.error('Error renaming list:', error);
-      toast.error(`Failed to rename list: ${error.message}`);
+      showErrorToast(`Failed to rename list: ${error.message}`);
     } finally {
       setEditingListNameId(null);
       setEditingListNameValue(null);
@@ -590,7 +591,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Helper function to execute the actual deletion of a list and its tasks
   const executeDeleteList = useCallback(async (listId: string) => {
     if (!currentUser) {
-      toast.error('You must be logged in to delete a list.');
+      showErrorToast('You must be logged in to delete a list.');
       return;
     }
 
@@ -612,7 +613,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       batch.delete(listRef);
 
       await batch.commit();
-      toast.success('List and its tasks deleted successfully!');
+      showSuccessToast('List and its tasks deleted successfully!');
 
       // If the deleted list was the currently selected one, select another list
       if (selectedListId === listId) {
@@ -625,7 +626,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       }
     } catch (error: any) {
       console.error('Error deleting list:', error);
-      toast.error(`Failed to delete list: ${error.message}`);
+      showErrorToast(`Failed to delete list: ${error.message}`);
     } finally {
       setOpenListMenuId(null);
     }
@@ -635,7 +636,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Function to handle deleting a list (initial click handler)
   const handleDeleteList = useCallback(async (listId: string) => {
     if (!currentUser) {
-      toast.error('You must be logged in to delete a list.');
+      showErrorToast('You must be logged in to delete a list.');
       return;
     }
 
@@ -686,17 +687,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         triggerJustUpdated(todo.id);
       }
       
-      toast.success(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
+      showSuccessToast(`To-do item marked as ${updatedIsCompleted ? 'complete' : 'incomplete'}!`);
     } catch (error: any) {
       console.error('Error toggling To-Do item completion:', error);
-      toast.error(`Failed to update To-do item: ${error.message}`);
+      showErrorToast(`Failed to update To-do item: ${error.message}`);
     }
   }, [setTodoItems]);
 
   // Function to handle updating the deadline (now called from TodoItemComponent)
   const handleUpdateDeadline = useCallback(async (todoId: string, deadline?: string | null, endDate?: string | null) => {
     if (!currentUser) {
-      toast.error('User not authenticated.');
+      showErrorToast('User not authenticated.');
       return;
     }
     try {
@@ -723,17 +724,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         )
       );
       triggerJustUpdated(todoId);
-      toast.success('Deadline updated!');
+      showSuccessToast('Deadline updated!');
     } catch (error: any) {
       console.error('Error updating deadline:', error);
-      toast.error(`Failed to update deadline: ${error.message}`);
+      showErrorToast(`Failed to update deadline: ${error.message}`);
     }
   }, [currentUser]);
 
   // Functions for note editing (now called from TodoItemComponent)
   const handleUpdateNote = useCallback(async (todoId: string, newNote: string | null) => {
     if (!currentUser) {
-      toast.error('User not authenticated.');
+      showErrorToast('User not authenticated.');
       return;
     }
     try {
@@ -745,17 +746,17 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         )
       );
       triggerJustUpdated(todoId);
-      toast.success(`Note ${newNote ? 'updated' : 'removed'}!`);
+      showSuccessToast(`Note ${newNote ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating note:', error);
-      toast.error(`Failed to update note: ${error.message}`);
+      showErrorToast(`Failed to update note: ${error.message}`);
     }
   }, [currentUser]);
 
   // Functions for category editing (now called from TodoItemComponent)
   const handleUpdateCategory = useCallback(async (todoId: string, newCategory: string | null) => {
     if (!currentUser) {
-      toast.error('User not authenticated.');
+      showErrorToast('User not authenticated.');
     }
 
     // Save new custom category if it's not null and not already in allCategories
@@ -772,42 +773,42 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         )
       );
       triggerJustUpdated(todoId);
-      toast.success(`Category ${newCategory ? 'updated' : 'removed'}!`);
+      showSuccessToast(`Category ${newCategory ? 'updated' : 'removed'}!`);
     } catch (error: any) {
       console.error('Error updating category:', error);
-      toast.error(`Failed to update category: ${error.message}`);
+      showErrorToast(`Failed to update category: ${error.message}`);
     }
   }, [currentUser, allCategories]);
 
   // Function to handle updating the task name (now called from TodoItemComponent)
   const handleUpdateTaskName = useCallback(async (todoId: string, newName: string) => {
     if (!currentUser) {
-      toast.error('User not authenticated.');
+      showErrorToast('User not authenticated.');
       return;
     }
     const trimmedName = newName.trim();
     if (!trimmedName) {
-      toast.error('Task name cannot be empty.');
+      showErrorToast('Task name cannot be empty.');
       return;
     }
     try {
       const todoRef = doc(getUserCollectionRef("todoItems", currentUser.uid), todoId);
       await setDoc(todoRef, { name: trimmedName }, { merge: true });
-      toast.success('Task name updated!');
+      showSuccessToast('Task name updated!');
     } catch (error: any) {
       console.error('Error updating task name:', error);
-      toast.error(`Failed to update task name: ${error.message}`);
+      showErrorToast(`Failed to update task name: ${error.message}`);
     }
   }, [currentUser]);
 
   // Function to clone a To-Do item
   const handleCloneTodo = useCallback(async (todo: TodoItem) => {
     if (!currentUser) {
-      toast.error('You must be logged in to clone a To-Do item.');
+      showErrorToast('You must be logged in to clone a To-Do item.');
       return;
     }
     if (!selectedListId) {
-      toast.error('Cannot clone task: no list selected.');
+      showErrorToast('Cannot clone task: no list selected.');
       return;
     }
 
@@ -833,25 +834,25 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         ...clonedTodo,
         createdAt: clonedTodo.createdAt, // Ensure Firestore Timestamp conversion
       });
-      toast.success('To-do item cloned successfully!');
+      showSuccessToast('To-do item cloned successfully!');
     } catch (error: any) {
       console.error('Error cloning To-do item:', error);
-      toast.error(`Failed to clone To-do item: ${error.message}`);
+      showErrorToast(`Failed to clone To-do item: ${error.message}`);
     }
   }, [currentUser, selectedListId, todoItems]);
 
   // Function to delete a To-Do item
   const handleDeleteTodo = useCallback(async (todoId: string) => {
     if (!currentUser) {
-      toast.error('You must be logged in to delete a To-Do item.');
+      showErrorToast('You must be logged in to delete a To-Do item.');
       return;
     }
     try {
       await deleteDoc(doc(getUserCollectionRef("todoItems", currentUser.uid), todoId));
-      toast.success('To-do item deleted successfully!');
+      showSuccessToast('To-do item deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting To-Do item:', error);
-      toast.error(`Failed to delete To-Do item: ${error.message}`);
+      showErrorToast(`Failed to delete To-Do item: ${error.message}`);
     }
   }, [currentUser]);
 
@@ -877,14 +878,14 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         listId: targetListId,
         orderIndex: maxOrderIndexInTarget + 1, // Place at the end of the new list
       });
-      toast.success('To-do item moved successfully!');
+      showSuccessToast('To-do item moved successfully!');
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error moving todo item:", error.message);
-        toast.error("Failed to move to-do item: " + error.message);
+        showErrorToast("Failed to move to-do item: " + error.message);
       } else {
         console.error("Error moving todo item:", error as unknown);
-        toast.error("Failed to move to-do item.");
+        showErrorToast("Failed to move to-do item.");
       }
     } finally {
       setShowMoveTaskModal(false);
@@ -1085,12 +1086,12 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
     try {
       await batch.commit();
-      toast.success('To-do item reordered!');
+      showSuccessToast('To-do item reordered!');
       // Trigger green flash animation for the reordered task
       triggerJustUpdated(draggedTodoId);
     } catch (error: any) {
       console.error('Error reordering To-do item:', error);
-      toast.error(`Failed to reorder To-do item: ${error.message}`);
+      showErrorToast(`Failed to reorder To-do item: ${error.message}`);
     }
   }, [draggedTodoId, dropIndicatorPosition, sortOption, todoItems, filteredTodoItems.incompleteTasks, filteredTodoItems.completedTasks, currentUser]);
 
@@ -1133,7 +1134,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   // Function to handle cloning a list and its tasks
   const handleCloneList = useCallback(async (listId: string) => {
     if (!currentUser) {
-      toast.error('You must be logged in to clone a list.');
+      showErrorToast('You must be logged in to clone a list.');
       return;
     }
     // Check if cloning would exceed the list limit
@@ -1143,7 +1144,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
     const listToClone = todoLists.find(list => list.id === listId);
     if (!listToClone) {
-      toast.error('List not found.');
+      showErrorToast('List not found.');
       return;
     }
     // Generate a unique name for the cloned list
@@ -1191,11 +1192,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         });
       });
       await batch.commit();
-      toast.success(`List "${newName}" and its tasks cloned!`);
+      showSuccessToast(`List "${newName}" and its tasks cloned!`);
       setSelectedListId(docRef.id); // Navigate to the new list
     } catch (error: any) {
       console.error('Error cloning list:', error);
-      toast.error(`Failed to clone list: ${error.message}`);
+      showErrorToast(`Failed to clone list: ${error.message}`);
     }
   }, [currentUser, todoLists]);
 

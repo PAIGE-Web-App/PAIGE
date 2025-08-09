@@ -66,13 +66,14 @@ import { useTodoLists } from "../../hooks/useTodoLists";
 import { useTodoItems } from "../../hooks/useTodoItems";
 import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
 import { saveCategoryIfNew, deleteCategoryByName, defaultCategories } from "@/lib/firebaseCategories";
-import toast from "react-hot-toast";
+import { useCustomToast } from "../../hooks/useCustomToast";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
 export default function TodoPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { showSuccessToast, showInfoToast } = useCustomToast();
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
@@ -114,18 +115,18 @@ export default function TodoPage() {
     }
 
     if (toAdd.length === 0 && toRemove.length === 0) {
-      toast.success('Your categories are already up to date!');
+      showSuccessToast('Your categories are already up to date!');
     } else if (toRemove.length > 0) {
       if (window.confirm(`Delete unused categories?\n${toRemove.join(", ")}`)) {
         for (const cat of toRemove) {
           await deleteCategoryByName(cat, user.uid);
         }
-        toast.success(`Added ${toAdd.length}, deleted ${toRemove.length} categories.`);
+        showSuccessToast(`Added ${toAdd.length}, deleted ${toRemove.length} categories.`);
     } else {
-        toast(`Added ${toAdd.length} categories. No deletions.`);
+        showInfoToast(`Added ${toAdd.length} categories. No deletions.`);
       }
     } else {
-      toast.success(`Added ${toAdd.length} categories. No deletions.`);
+      showSuccessToast(`Added ${toAdd.length} categories. No deletions.`);
     }
   };
 

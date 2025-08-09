@@ -5,7 +5,7 @@ import { getAllVendors } from '@/lib/getContacts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+
 import VendorSkeleton from '@/components/VendorSkeleton';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import { 

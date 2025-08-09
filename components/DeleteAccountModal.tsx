@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   onDeleteAccount, 
   isDeleting 
 }) => {
+  const { showErrorToast } = useCustomToast();
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [confirmText, setConfirmText] = useState<string>('');
 
@@ -31,12 +32,12 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 
   const handleDelete = async () => {
     if (confirmText.toLowerCase() !== 'delete my account') {
-      toast.error('Please type "delete my account" to confirm');
+      showErrorToast('Please type "delete my account" to confirm');
       return;
     }
     
     if (!selectedReason) {
-      toast.error('Please select a reason for leaving');
+      showErrorToast('Please select a reason for leaving');
       return;
     }
 

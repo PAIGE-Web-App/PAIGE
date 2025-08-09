@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
-import toast from 'react-hot-toast';
+
 import EditableField from './common/EditableField';
 import TodoAssignmentModal from './TodoAssignmentModal';
 import UserAvatar from './UserAvatar';

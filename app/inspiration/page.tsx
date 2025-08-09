@@ -10,13 +10,14 @@ import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import toast from "react-hot-toast";
+import { useCustomToast } from "../../hooks/useCustomToast";
 
 export default function InspirationPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod } = useUserProfileData();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   
   const [isEditing, setIsEditing] = useState(false);
   const [editingVibes, setEditingVibes] = useState<string[]>([]);
@@ -67,11 +68,11 @@ export default function InspirationPage() {
         generatedVibes: editingVibes.filter(v => !vibeOptions.includes(v)),
       });
       
-      toast.success('Wedding vibe updated successfully!');
+      showSuccessToast('Wedding vibe updated successfully!');
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving vibe:', error);
-      toast.error('Failed to save changes');
+      showErrorToast('Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -144,18 +145,18 @@ export default function InspirationPage() {
           vibeInputMethod: 'image',
         });
         
-        toast.success(`Generated ${newVibes.length} new vibes from your image!`);
+        showSuccessToast(`Generated ${newVibes.length} new vibes from your image!`);
         setShowImageUpload(false);
         setUploadedImage(null);
         setImagePreviewUrl(null);
       } else {
         const errorMessage = data.error || 'Failed to generate vibes from image';
         console.error('API Error:', errorMessage);
-        toast.error(errorMessage);
+        showErrorToast(errorMessage);
       }
     } catch (error) {
       console.error('Error generating vibes:', error);
-      toast.error('Network error: Failed to generate vibes from image');
+              showErrorToast('Network error: Failed to generate vibes from image');
     } finally {
       setGeneratingVibes(false);
     }

@@ -5,7 +5,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
 import CategorySelectField from './CategorySelectField';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import { User } from 'firebase/auth';
 import type { TodoItem } from '../types/todo';
 import { Contact } from "../types/contact";
@@ -110,6 +110,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   className,
   listName,
 }) => {
+  const { showErrorToast } = useCustomToast();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(todo.name);
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
@@ -175,7 +176,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   const handleNameBlur = useCallback(async () => {
     if (editingNameValue.trim() !== todo.name) {
       if (!editingNameValue.trim()) {
-        toast.error('Task name cannot be empty.');
+        showErrorToast('Task name cannot be empty.');
         setEditingNameValue(todo.name); // Revert to original name
       } else {
         await handleUpdateTaskName(todo.id, editingNameValue.trim());

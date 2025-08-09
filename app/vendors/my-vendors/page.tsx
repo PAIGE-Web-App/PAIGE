@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+import { useCustomToast } from '@/hooks/useCustomToast';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import BadgeCount from '@/components/BadgeCount';
 import Banner from '@/components/Banner';
@@ -88,6 +88,7 @@ export default function MyVendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { weddingLocation } = useUserProfileData();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   
   const [vendors, setVendors] = useState<any[]>([]);
   const [enhancedVendors, setEnhancedVendors] = useState<any[]>([]);
@@ -248,10 +249,10 @@ export default function MyVendorsPage() {
       setVendors((prev) => 
         prev.map((v) => ({ ...v, isOfficial: v.category === vendor.category ? v.id === vendor.id : false }))
       );
-      toast.success(`${vendor.name} marked as official ${vendor.category}`);
+      showSuccessToast(`${vendor.name} marked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error setting official vendor:', error);
-      toast.error('Failed to mark vendor as official');
+              showErrorToast('Failed to mark vendor as official');
     }
     setIsSaving(false);
     setConfirmModal({ open: false, vendor: null, action: 'star' });
@@ -266,10 +267,10 @@ export default function MyVendorsPage() {
       setVendors((prev) => 
         prev.map((v) => v.id === vendor.id ? { ...v, isOfficial: false } : v)
       );
-      toast.success(`${vendor.name} unmarked as official ${vendor.category}`);
+      showSuccessToast(`${vendor.name} unmarked as official ${vendor.category}`);
     } catch (error) {
       console.error('Error unsetting official vendor:', error);
-      toast.error('Failed to unmark vendor as official');
+              showErrorToast('Failed to unmark vendor as official');
     }
     setIsSaving(false);
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, RefreshCw, ExternalLink, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useCustomToast } from '../../../hooks/useCustomToast';
 
 interface GoogleCalendarIntegrationCardProps {
   user: any;
@@ -21,6 +21,7 @@ interface CalendarStatus {
 }
 
 const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps> = ({ user }) => {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus>({ isLinked: false });
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -59,7 +60,7 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(data.message || 'Google Calendar linked successfully!');
+        showSuccessToast(data.message || 'Google Calendar linked successfully!');
         setCalendarStatus({
           isLinked: true,
           calendarId: data.calendarId,
@@ -67,11 +68,11 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
           lastSyncAt: new Date().toISOString(),
         });
       } else {
-        toast.error(data.message || 'Failed to create Google Calendar');
+        showErrorToast(data.message || 'Failed to create Google Calendar');
       }
     } catch (error) {
       console.error('Error creating calendar:', error);
-      toast.error('Failed to create Google Calendar');
+      showErrorToast('Failed to create Google Calendar');
     } finally {
       setIsCreating(false);
     }
@@ -87,13 +88,13 @@ const GoogleCalendarIntegrationCard: React.FC<GoogleCalendarIntegrationCardProps
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(data.message || 'Google Calendar disconnected.');
+        showSuccessToast(data.message || 'Google Calendar disconnected.');
         setCalendarStatus({ isLinked: false });
       } else {
-        toast.error(data.message || 'Failed to disconnect Google Calendar');
+        showErrorToast(data.message || 'Failed to disconnect Google Calendar');
       }
     } catch (error) {
-      toast.error('Failed to disconnect Google Calendar');
+      showErrorToast('Failed to disconnect Google Calendar');
     } finally {
       setIsDisconnecting(false);
     }

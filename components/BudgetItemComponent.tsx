@@ -15,7 +15,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, setDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
-import toast from 'react-hot-toast';
 import { useBudgetItemEditing } from '@/hooks/useBudgetItemEditing';
 import { useAnimationState } from '@/hooks/useAnimationState';
 import EditableField from './common/EditableField';

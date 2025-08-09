@@ -38,10 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
           <SWRProvider>
-            {/* Keep old TopNav hidden but available for fallback */}
-            <div className="hidden">
-              {!hideNav && <AuthenticatedNavWrapper />}
-            </div>
+
             
             {/* New Vertical Navigation */}
             {!hideNav && <VerticalNavWrapper>{children}</VerticalNavWrapper>}
@@ -51,8 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Toaster
               position="bottom-center"
               reverseOrder={false}
-              gutter={4}
-              containerClassName="toast-container-bottom-center"
+              gutter={8}
               toastOptions={{
                 duration: 4000,
                 style: {
@@ -60,10 +56,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   color: '#F3F2F0',
                   borderRadius: '5px',
                   border: '1px solid #A85C36',
-                  padding: '10px 15px',
+                  padding: '12px 16px',
                   fontSize: '14px',
-                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                  margin: '4px 0',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  margin: '0',
+                  maxWidth: '400px',
+                  wordBreak: 'break-word',
                 },
                 success: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },
                 error: { iconTheme: { primary: '#A85C36', secondary: '#F3F2F0' } },

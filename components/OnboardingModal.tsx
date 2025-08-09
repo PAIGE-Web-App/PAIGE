@@ -7,7 +7,7 @@ import SelectField from "./SelectField";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
-import toast from "react-hot-toast";
+import { useCustomToast } from '@/hooks/useCustomToast';
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { getUserCollectionRef } from "../lib/firebase";
@@ -63,6 +63,7 @@ const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
 
 export default function OnboardingModal({ userId, onClose, onComplete }: OnboardingModalProps) {
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingContacts, setOnboardingContacts] = useState<OnboardingContact[]>([
     {
@@ -168,13 +169,13 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
     if (gmailAuth === 'success' && urlUserId === userId) {
       setGmailAuthStatus('success');
-      toast.success("Gmail connected successfully!");
+      showSuccessToast("Gmail connected successfully!");
       setCurrentStep(4);
       console.log("OnboardingModal: Gmail auth success. Setting currentStep to 4.");
       // Removed automatic Gmail import trigger - will be handled by main page when onboarding completes
     } else if (gmailAuth === 'error') {
       setGmailAuthStatus('failed');
-      toast.error("Failed to connect Gmail. Please try again.");
+      showErrorToast("Failed to connect Gmail. Please try again.");
       setCurrentStep(3);
       console.log("OnboardingModal: Gmail auth error. Setting currentStep to 3.");
     }
@@ -286,7 +287,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   const handleNext = useCallback(async () => {
     if (currentStep === 1) {
       if (!validateStep1()) {
-        toast.error("Please correct the errors in the contact forms.");
+        showErrorToast("Please correct the errors in the contact forms.");
         return;
       }
       setIsSaving(true);
@@ -316,26 +317,26 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
         for (const contact of contactsToSave) {
           await saveContactToFirestore(contact);
         }
-        toast.success("Contacts saved successfully!");
+        showSuccessToast("Contacts saved successfully!");
         setErrors({});
         setCurrentStep(currentStep + 1);
       } catch (error) {
         console.error("Error saving contacts:", error);
-        toast.error("Failed to save contacts. Please try again.");
+        showErrorToast("Failed to save contacts. Please try again.");
       } finally {
         setIsSaving(false);
       }
     } else if (currentStep === 2) {
       if (selectedCommunicationChannels.length === 0) {
         setChannelErrors("Please select at least one communication channel.");
-        toast.error("Please select at least one communication channel.");
+        showErrorToast("Please select at least one communication channel.");
         return;
       }
       setChannelErrors("");
       setCurrentStep(currentStep + 1);
     } else if (currentStep === 3) {
       if (selectedCommunicationChannels.includes('Gmail') && gmailAuthStatus !== 'success') {
-        toast.error("Please connect Gmail to proceed.");
+        showErrorToast("Please connect Gmail to proceed.");
         return;
       }
       setCurrentStep(currentStep + 1);

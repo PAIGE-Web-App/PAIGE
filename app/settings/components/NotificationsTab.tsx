@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { toast } from "react-hot-toast";
+import { useCustomToast } from "../../../hooks/useCustomToast";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -12,6 +12,7 @@ import NotificationsTabSkeleton from './NotificationsTabSkeleton';
 export default function NotificationsTab() {
   const { user } = useAuth();
   const { phoneNumber, notificationPreferences, profileLoading } = useUserProfileData();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
 
   // Per-type local state
   const [localPhoneNumber, setLocalPhoneNumber] = useState("");
@@ -46,7 +47,7 @@ export default function NotificationsTab() {
 
   const handleSave = async (type) => {
     if (!user?.uid) {
-      toast.error("Please log in to save notification settings");
+      showErrorToast("Please log in to save notification settings");
       return;
     }
     setSaving((prev) => ({ ...prev, [type]: true }));
@@ -58,9 +59,9 @@ export default function NotificationsTab() {
       });
       setSavedPreferences((prev) => ({ ...prev, [type]: localPreferences[type] }));
       setHasChanged((prev) => ({ ...prev, [type]: false }));
-      toast.success(`${type === "sms" ? "SMS" : "Email"} notification preference saved!`);
+      showSuccessToast(`${type === "sms" ? "SMS" : "Email"} notification preference saved!`);
     } catch (error) {
-      toast.error("Failed to save notification settings");
+      showErrorToast("Failed to save notification settings");
     } finally {
       setSaving((prev) => ({ ...prev, [type]: false }));
     }
@@ -68,7 +69,7 @@ export default function NotificationsTab() {
 
   const handleTest = async (type) => {
     if (!user?.uid) {
-      toast.error("Please log in to test notifications");
+      showErrorToast("Please log in to test notifications");
       return;
     }
     setStatus((prev) => ({ ...prev, [type]: "testing" }));
@@ -81,14 +82,14 @@ export default function NotificationsTab() {
       const data = await response.json();
       if (data.success && data.results[type].sent) {
         setStatus((prev) => ({ ...prev, [type]: "success" }));
-        toast.success(`${type === "sms" ? "SMS" : "Email"} test sent!`);
+        showSuccessToast(`${type === "sms" ? "SMS" : "Email"} test sent!`);
       } else {
         setStatus((prev) => ({ ...prev, [type]: "fail" }));
-        toast.error(data.results[type].error || `Failed to send ${type} test`);
+        showErrorToast(data.results[type].error || `Failed to send ${type} test`);
       }
     } catch (error) {
       setStatus((prev) => ({ ...prev, [type]: "fail" }));
-      toast.error(`Failed to send ${type} test`);
+      showErrorToast(`Failed to send ${type} test`);
     }
   };
 

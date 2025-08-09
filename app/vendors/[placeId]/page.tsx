@@ -13,7 +13,7 @@ import RelatedVendorsSection from '@/components/RelatedVendorsSection';
 import VendorComments from '@/components/VendorComments';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'react-hot-toast';
+
 import { 
   isLikelyWeddingVenue, 
   mapGoogleTypesToCategory, 
@@ -51,7 +51,7 @@ export default function VendorDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { showSuccessToast } = useCustomToast();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   
   // Get user's wedding location from profile data
@@ -519,7 +519,7 @@ export default function VendorDetailPage() {
         }));
       }
       
-      toast.error('Failed to update favorites');
+              showErrorToast('Failed to update favorites');
     } finally {
       setIsUpdatingFavorite(false);
     }
@@ -536,9 +536,9 @@ export default function VendorDetailPage() {
 
     // Show immediate feedback
     if (newOfficialState) {
-      toast.success(`Marked as Official Vendor and Added to My Vendors!`);
-    } else {
-      toast.success(`Removed as Official Vendor and Removed from My Vendors!`);
+              showSuccessToast(`Marked as Official Vendor and Added to My Vendors!`);
+      } else {
+        showSuccessToast(`Removed as Official Vendor and Removed from My Vendors!`);
     }
 
     try {
@@ -611,7 +611,7 @@ export default function VendorDetailPage() {
       // Revert optimistic update on failure
       setOptimisticStates(prev => ({ ...prev, official: null }));
       setIsOfficialVendor(!newOfficialState);
-      toast.error('Failed to update official vendor status');
+              showErrorToast('Failed to update official vendor status');
     } finally {
       setIsUpdatingOfficial(false);
     }
