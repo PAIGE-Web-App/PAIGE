@@ -368,8 +368,28 @@ h6 {
 }
 
 /* Custom toast container class */
+/* Simple override for react-hot-toast to ensure bottom-center positioning */
+.__react-hot-toast__container {
+  bottom: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 9999 !important;
+}
 
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .__react-hot-toast__container {
+    bottom: 10px !important;
+  }
+}
 
+@media (max-width: 480px) {
+  .__react-hot-toast__container {
+    bottom: 5px !important;
+  }
+}
 
 /* Custom jiggle animation */
 @keyframes jiggle {

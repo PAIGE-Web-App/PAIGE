@@ -22,7 +22,8 @@ import {
   Palette, 
   FileText, 
   Gift, 
-  Mic 
+  Mic,
+  Map 
 } from 'lucide-react';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
@@ -95,8 +96,35 @@ export default function VendorCatalogPage() {
               { label: 'Vendor Search', isCurrent: true }
             ]}
           />
+          
+          {/* New Rover-Style Search Banner */}
+          <div className="bg-gradient-to-r from-[#A85C36] to-[#784528] rounded-[5px] p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="text-white">
+                <h3 className="font-semibold text-lg mb-1">🎉 New Rover-Style Search Experience!</h3>
+                <p className="text-sm opacity-90">Try our new three-panel layout with filters, results, and map view</p>
+              </div>
+              <a
+                href="/vendors/catalog/rover-style"
+                className="bg-white text-[#A85C36] px-6 py-2 rounded-[5px] font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <Map className="w-4 h-4" />
+                Try New Search
+              </a>
+            </div>
+          </div>
+          
           <div className="mt-12 mb-12">
-            <h2 className="text-2xl font-playfair font-medium text-[#332B42] mb-8">Find top-rated vendors for every vibe</h2>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-playfair font-medium text-[#332B42]">Find top-rated vendors for every vibe</h2>
+              <a
+                href="/vendors/catalog/rover-style"
+                className="btn-primary flex items-center gap-2"
+              >
+                <Map className="w-4 h-4" />
+                Try Rover-Style Search
+              </a>
+            </div>
             <div className="flex gap-4 items-start mb-4">
               <div className="min-w-[220px]">
                 <SelectField

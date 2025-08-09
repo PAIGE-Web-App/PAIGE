@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
         />
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
