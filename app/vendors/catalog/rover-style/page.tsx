@@ -645,7 +645,7 @@ export default function RoverStyleVendorSearch() {
       />
       
       <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-7xl mx-auto p-4">
+        <div className="h-full max-w-[1800px] mx-auto p-4">
           <Breadcrumb
             items={[
               { label: 'Vendor Hub', href: '/vendors' },
@@ -658,9 +658,9 @@ export default function RoverStyleVendorSearch() {
 
 
           {/* Main content area with three columns */}
-          <div className="grid grid-cols-12 gap-4" style={{ height: 'calc(100vh - 180px)' }}>
+          <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
             {/* Left Sidebar - Filters */}
-            <div className="col-span-3">
+            <div className="w-[320px] flex-shrink-0">
               <VendorFilters
                 category={category}
                 setCategory={setCategory}
@@ -679,7 +679,7 @@ export default function RoverStyleVendorSearch() {
             </div>
 
             {/* Center - Results */}
-            <div className="col-span-6">
+            <div className="flex-1">
               <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
                 {/* Results Header */}
                 <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
@@ -800,7 +800,7 @@ export default function RoverStyleVendorSearch() {
             </div>
 
             {/* Right Sidebar - Map */}
-            <div className="col-span-3">
+            <div className="w-[420px] flex-shrink-0">
               <VendorMap
                 vendors={vendors}
                 selectedVendor={selectedVendor}
