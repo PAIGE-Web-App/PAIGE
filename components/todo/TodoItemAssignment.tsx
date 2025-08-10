@@ -5,6 +5,7 @@ import { Contact } from '@/types/contact';
 import { User } from 'firebase/auth';
 import UserAvatar from '../UserAvatar';
 import TodoAssignmentModal from '../TodoAssignmentModal';
+import { getAssigneeAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface TodoItemAssignmentProps {
   todo: TodoItem;
@@ -98,9 +99,15 @@ const TodoItemAssignment: React.FC<TodoItemAssignmentProps> = ({
                     size="sm"
                   />
                 ) : (
-                  <div className="w-4 h-4 bg-[#AB9C95] rounded-full flex items-center justify-center">
-                    <UserIcon size={10} className="text-white" />
-                  </div>
+                  <UserAvatar
+                    userId={assignee.id}
+                    userName={assignee.name}
+                    size="sm"
+                    avatarColor={assignee.id === currentUser?.uid
+                      ? getAssigneeAvatarColor('user')
+                      : getAssigneeAvatarColor(assignee.id)
+                    }
+                  />
                 )}
                 <span className="text-xs text-[#AB9C95]">
                   {assignee.name}

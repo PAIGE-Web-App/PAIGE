@@ -16,6 +16,7 @@ import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface UnifiedTodoItemProps {
   todo: TodoItem;
@@ -968,6 +969,14 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                           userId={assigneeId}
                           userName={assigneeName}
                           profileImageUrl={assigneeProfileImageUrl}
+                          avatarColor={assigneeId === currentUser?.uid 
+                            ? getRoleBasedAvatarColor('user')
+                            : assigneeId === 'partner' 
+                            ? getRoleBasedAvatarColor('partner')
+                            : assigneeId === 'planner'
+                            ? getRoleBasedAvatarColor('planner')
+                            : getAssigneeAvatarColor(assigneeId)
+                          }
                           size="sm"
                           showTooltip={true}
                         />

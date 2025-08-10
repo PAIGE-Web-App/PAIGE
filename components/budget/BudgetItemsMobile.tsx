@@ -1,7 +1,7 @@
 import React from 'react';
 import { DollarSign, Edit2, Trash2, Link, UserPlus, CheckCircle, Circle } from 'lucide-react';
 import { BudgetItem, BudgetCategory } from '@/types/budget';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { addDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import { useCustomToast } from '@/hooks/useCustomToast';

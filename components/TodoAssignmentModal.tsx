@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import UserAvatar from './UserAvatar';
 import { Contact } from '@/types/contact';
+import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface TodoAssignmentModalProps {
   isOpen: boolean;
@@ -54,6 +55,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
       role: 'You',
       roleType: 'user',
       email: user?.email || undefined,
+      avatarColor: getRoleBasedAvatarColor('user'),
     },
     // Partner (if exists)
     ...(partnerName ? [{
@@ -63,6 +65,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
       email: partnerEmail || undefined,
       role: 'Partner',
       roleType: 'partner' as const,
+      avatarColor: getRoleBasedAvatarColor('partner'),
     }] : []),
     // Wedding planner (if exists)
     ...(plannerName ? [{
@@ -72,6 +75,7 @@ const TodoAssignmentModal: React.FC<TodoAssignmentModalProps> = ({
       email: plannerEmail || undefined,
       role: 'Wedding Planner',
       roleType: 'planner' as const,
+      avatarColor: getRoleBasedAvatarColor('planner'),
     }] : []),
   ];
 

@@ -775,9 +775,102 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     }
   };
 
+  // Wedding planning suggestions
+  const suggestions = [
+    {
+      title: "Full Wedding Planning Checklist",
+      description: "From engagement to the honeymoon, covering all major milestones."
+    },
+    {
+      title: "Day-Of Wedding Timeline",
+      description: "Hour-by-hour tasks for your wedding day to keep everything running smoothly."
+    },
+    {
+      title: "Vendor Booking Checklist",
+      description: "Step-by-step tasks for finding, vetting, and securing vendors."
+    },
+    {
+      title: "Budget & Payment Tracker",
+      description: "To-dos for setting your budget, tracking payments, and staying on top of deadlines."
+    },
+    {
+      title: "Guest List & RSVP Tracker",
+      description: "Tasks for creating your guest list, sending invites, and managing responses."
+    },
+    {
+      title: "Decor & Design Checklist",
+      description: "Everything related to color schemes, table setups, flowers, and rentals."
+    },
+    {
+      title: "Bridal Party Duties List",
+      description: "A tailored set of tasks for bridesmaids, groomsmen, and other attendants."
+    },
+    {
+      title: "Honeymoon Planning Checklist",
+      description: "From booking flights to packing essentials."
+    },
+    {
+      title: "Pre-Wedding Beauty & Wellness Plan",
+      description: "Self-care, skincare, and fitness timelines."
+    },
+    {
+      title: "Emergency Kit Prep List",
+      description: "All the small items you'll want to have on hand for unexpected moments."
+    }
+  ];
+
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+
+  const handleSuggestionSelect = (suggestion: typeof suggestions[0]) => {
+    setDescription(`${suggestion.title}: ${suggestion.description}`);
+    setShowSuggestions(false);
+  };
+
+  // Close suggestions when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showSuggestions && !(event.target as Element).closest('.suggestions-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSuggestions]);
+
   return (
     <div className="w-full max-w-3xl mx-auto bg-[#F8F6F4] border border-[#E0DBD7] rounded-lg p-6 flex flex-col items-center">
-      <label className="block text-xs font-medium text-[#332B42] mb-2 w-full text-left">Describe the type of list you would like to create</label>
+      <div className="w-full flex justify-between items-center mb-2">
+        <label className="block text-xs font-medium text-[#332B42]">Describe the type of list you would like to create</label>
+        <div className="relative suggestions-container">
+          <button
+            type="button"
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className="text-xs text-[#A85C36] hover:text-[#8B4513] font-medium flex items-center gap-1"
+          >
+            Suggestions
+            <svg className={`w-3 h-3 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showSuggestions && (
+            <div className="absolute right-0 top-6 w-80 bg-white border border-[#E0DBD7] rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleSuggestionSelect(suggestion)}
+                  className="w-full text-left px-4 py-3 hover:bg-[#F8F6F4] border-b border-[#E0DBD7] last:border-b-0 transition-colors"
+                >
+                  <div className="font-medium text-[#332B42] text-sm">{suggestion.title}</div>
+                  <div className="text-xs text-[#6B7280] mt-1">{suggestion.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       <textarea
         className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm mb-4 min-h-[80px]"
         value={description}

@@ -3,7 +3,7 @@ import { DollarSign } from 'lucide-react';
 import { BudgetItem, BudgetCategory } from '@/types/budget';
 import BudgetItemComponent from './BudgetItemComponent';
 import BudgetItemsTable from './BudgetItemsTable';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { addDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import { useCustomToast } from '@/hooks/useCustomToast';

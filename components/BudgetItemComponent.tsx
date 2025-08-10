@@ -11,7 +11,7 @@ import {
   Circle
 } from 'lucide-react';
 import { BudgetItem } from '@/types/budget';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, setDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
@@ -21,6 +21,7 @@ import EditableField from './common/EditableField';
 import TodoAssignmentModal from './TodoAssignmentModal';
 import UserAvatar from './UserAvatar';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface BudgetItemComponentProps {
   budgetItem: BudgetItem;
@@ -39,7 +40,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
   className = '',
   isNewlyAdded = false,
 }) => {
-  const { user } = useAuth();
+  const { user, profileImageUrl } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { userName, partnerName, plannerName } = useUserProfileData();
   
@@ -351,6 +352,7 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
                   
                   if (assigneeId === user?.uid) {
                     assigneeName = userName || 'You';
+                    assigneeProfileImageUrl = profileImageUrl || undefined;
                   } else if (assigneeId === 'partner' && partnerName) {
                     assigneeName = partnerName;
                   } else if (assigneeId === 'planner' && plannerName) {
@@ -364,6 +366,14 @@ const BudgetItemComponent: React.FC<BudgetItemComponentProps> = ({
                           userId={assigneeId}
                           userName={assigneeName}
                           profileImageUrl={assigneeProfileImageUrl}
+                          avatarColor={assigneeId === user?.uid 
+                            ? getRoleBasedAvatarColor('user')
+                            : assigneeId === 'partner' 
+                            ? getRoleBasedAvatarColor('partner')
+                            : assigneeId === 'planner'
+                            ? getRoleBasedAvatarColor('planner')
+                            : getAssigneeAvatarColor(assigneeId)
+                          }
                           size="sm"
                           showTooltip={true}
                         />

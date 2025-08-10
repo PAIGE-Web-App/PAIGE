@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Edit2, Trash2, Link, UserPlus, DollarSign, NotepadText, MoreHorizontal, CheckCircle, Circle, Plus } from 'lucide-react';
 import { BudgetItem } from '@/types/budget';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
@@ -10,6 +10,7 @@ import EditableField from './common/EditableField';
 import TodoAssignmentModal from './TodoAssignmentModal';
 import UserAvatar from './UserAvatar';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface BudgetItemsTableProps {
   budgetItems: BudgetItem[];
@@ -28,7 +29,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   onAddItem,
   newlyAddedItems = new Set(),
 }) => {
-  const { user } = useAuth();
+  const { user, profileImageUrl } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { userName, partnerName, plannerName } = useUserProfileData();
   const [editingCell, setEditingCell] = useState<{ itemId: string; field: string } | null>(null);
@@ -275,7 +276,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                           
                           if (assigneeId === user?.uid) {
                             assigneeName = userName || 'You';
-                            assigneeProfileImageUrl = user.photoURL || undefined;
+                            assigneeProfileImageUrl = profileImageUrl || undefined;
                           } else if (assigneeId === 'partner' && partnerName) {
                             assigneeName = partnerName;
                           } else if (assigneeId === 'planner' && plannerName) {
@@ -291,6 +292,14 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                                   profileImageUrl={assigneeProfileImageUrl}
                                   size="sm"
                                   showTooltip={true}
+                                  avatarColor={assigneeId === user?.uid
+                                    ? getRoleBasedAvatarColor('user')
+                                    : assigneeId === 'partner'
+                                    ? getRoleBasedAvatarColor('partner')
+                                    : assigneeId === 'planner'
+                                    ? getRoleBasedAvatarColor('planner')
+                                    : getAssigneeAvatarColor(assigneeId)
+                                  }
                                 />
                               </div>
                             </div>

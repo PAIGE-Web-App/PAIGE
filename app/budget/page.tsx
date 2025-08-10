@@ -6,7 +6,7 @@ import { AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
 // Firebase imports
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 // UI component imports
 import Banner from '@/components/Banner';

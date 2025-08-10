@@ -6,6 +6,7 @@ import { useDragDrop } from './DragDropContext';
 import FilePreview from './FilePreview';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
 
 interface FileItemComponentProps {
   file: FileItem;
@@ -162,6 +163,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
             profileImageUrl={profileImageUrl}
             size="sm"
             showTooltip={true}
+            avatarColor={file.userId ? getRoleBasedAvatarColor('user') : getAssigneeAvatarColor('unknown')}
           />
         </div>
 
