@@ -137,7 +137,7 @@ const VendorFilters = ({
   const { weddingLocation } = useUserProfileData();
   
   return (
-    <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 h-fit">
+    <div className="bg-white p-4 h-fit">
               <h5 className="h5 mb-4">Search Filters</h5>
       
       {/* Service Type */}
@@ -679,9 +679,9 @@ export default function RoverStyleVendorSearch() {
                 />
               </div>
 
-              {/* Main content area */}
+                            {/* Main content area */}
               <div className="unified-main-content">
-              <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
+                <div className="h-full flex flex-col">
                 {/* Results Header */}
                 <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-4">
