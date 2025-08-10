@@ -657,29 +657,30 @@ export default function RoverStyleVendorSearch() {
           
 
 
-          {/* Main content area with three columns */}
+          {/* Main content area with unified container pattern */}
           <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
-            {/* Left Sidebar - Filters */}
-            <div className="w-[320px] flex-shrink-0">
-              <VendorFilters
-                category={category}
-                setCategory={setCategory}
-                location={location}
-                setLocation={setLocation}
-                priceRange={priceRange}
-                setPriceRange={setPriceRange}
-                rating={rating}
-                setRating={setRating}
-                distance={distance}
-                setDistance={setDistance}
-                expandedFilters={expandedFilters}
-                setExpandedFilters={setExpandedFilters}
-                onSearch={triggerSearch}
-              />
-            </div>
+            {/* Left Sidebar - Filters + Results (unified container) */}
+            <main className="unified-container">
+              <div className="unified-sidebar">
+                <VendorFilters
+                  category={category}
+                  setCategory={setCategory}
+                  location={location}
+                  setLocation={setLocation}
+                  priceRange={priceRange}
+                  setPriceRange={setPriceRange}
+                  rating={rating}
+                  setRating={setRating}
+                  distance={distance}
+                  setDistance={setDistance}
+                  expandedFilters={expandedFilters}
+                  setExpandedFilters={setExpandedFilters}
+                  onSearch={triggerSearch}
+                />
+              </div>
 
-            {/* Center - Results */}
-            <div className="flex-1">
+              {/* Main content area */}
+              <div className="unified-main-content">
               <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
                 {/* Results Header */}
                 <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
@@ -798,6 +799,7 @@ export default function RoverStyleVendorSearch() {
                 )}
               </div>
             </div>
+          </main>
 
             {/* Right Sidebar - Map */}
             <div className="w-[420px] flex-shrink-0">
