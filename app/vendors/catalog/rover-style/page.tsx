@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -131,13 +131,14 @@ const VendorFilters = ({
   distance,
   setDistance,
   expandedFilters,
-  setExpandedFilters 
+  setExpandedFilters,
+  onSearch
 }) => {
   const { weddingLocation } = useUserProfileData();
   
   return (
     <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 h-fit">
-      <h3 className="font-semibold text-[#332B42] mb-4">Search Filters</h3>
+              <h5 className="h5 mb-4">Search Filters</h5>
       
       {/* Service Type */}
       <div className="mb-6">
@@ -285,6 +286,18 @@ const VendorFilters = ({
         )}
       </div>
 
+      {/* Search Button */}
+      <button
+        onClick={() => {
+          if (category && location && onSearch) {
+            onSearch({ category, location, priceRange, rating, distance });
+          }
+        }}
+        className="w-full p-3 text-sm font-medium text-white bg-[#A85C36] border border-[#A85C36] rounded-[5px] hover:bg-[#784528] hover:border-[#784528] transition-colors mb-3"
+      >
+        Search Vendors
+      </button>
+
       {/* Reset Filters */}
       <button
         onClick={() => {
@@ -307,7 +320,7 @@ const VendorMapPlaceholder = ({ vendors, selectedVendor, onVendorSelect }) => {
   return (
     <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
       <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
-        <h3 className="font-semibold text-[#332B42]">Map View</h3>
+        <h5 className="h5">Map View</h5>
         <button className="text-[#A85C36] hover:text-[#784528] text-sm">
           Enlarge map
         </button>
@@ -347,13 +360,21 @@ export default function RoverStyleVendorSearch() {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [hoveredVendor, setHoveredVendor] = useState<any>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce(async (searchParams) => {
+  // Debounced search function - use useRef to maintain stable reference
+  const debouncedSearchRef = useRef<any>(null);
+  
+  // Initialize the debounced search function once
+  useEffect(() => {
+    debouncedSearchRef.current = debounce(async (searchParams) => {
       console.log('Starting vendor search with params:', searchParams);
       setLoading(true);
+      setCurrentPage(1); // Reset to first page on new search
       try {
         // Build API parameters similar to the existing vendor catalog
         const apiParams: any = {
@@ -416,6 +437,7 @@ export default function RoverStyleVendorSearch() {
               });
               
               setVendors(enhancedVendors);
+              setCurrentPage(1); // Reset to first page when new results arrive
               console.log('Enhanced vendors with images and basic geometry data');
             } catch (error) {
               console.error('Error enhancing vendors:', error);
@@ -438,14 +460,39 @@ export default function RoverStyleVendorSearch() {
       } finally {
         setLoading(false);
       }
-    }, 500),
-    []
-  );
+    }, 1000); // Increased debounce time to 1 second
 
-  // Effect to trigger search when filters change
+    // Cleanup function
+    return () => {
+      if (debouncedSearchRef.current) {
+        debouncedSearchRef.current.cancel();
+      }
+    };
+  }, [showErrorToast, showSuccessToast]);
+
+  // Manual search trigger function
+  const triggerSearch = useCallback(() => {
+    if (category && location && debouncedSearchRef.current) {
+      debouncedSearchRef.current({ category, location, priceRange, rating, distance });
+    }
+  }, [category, location, priceRange, rating, distance]);
+
+  // Memoized vendor selection handler to prevent infinite re-renders
+  const handleVendorSelect = useCallback((vendor: any) => {
+    setSelectedVendor(vendor);
+  }, []);
+
+  // Initial search on component mount - wait for debounced function to be ready
   useEffect(() => {
-    debouncedSearch({ category, location, priceRange, rating, distance });
-  }, [category, location, priceRange, rating, distance, debouncedSearch]);
+    const timer = setTimeout(() => {
+      if (category && location && debouncedSearchRef.current) {
+        console.log('Running initial search with:', { category, location, priceRange, rating, distance });
+        debouncedSearchRef.current({ category, location, priceRange, rating, distance });
+      }
+    }, 100); // Small delay to ensure debounced function is initialized
+    
+    return () => clearTimeout(timer);
+  }, [category, location, priceRange, rating, distance]); // Re-run when these change
 
   // Update URL when filters change
   useEffect(() => {
@@ -608,17 +655,10 @@ export default function RoverStyleVendorSearch() {
             ]}
           />
           
-          <div className="mt-6 mb-4">
-            <h1 className="text-2xl font-playfair font-medium text-[#332B42]">
-              Find {currentCategory?.label?.toLowerCase()} in {location}
-            </h1>
-            <p className="text-[#AB9C95] mt-1">
-              {loading ? 'Searching...' : `${vendors.length} vendors found`}
-            </p>
-          </div>
+
 
           {/* Main content area with three columns */}
-          <div className="grid grid-cols-12 gap-6" style={{ height: 'calc(100vh - 180px)' }}>
+          <div className="grid grid-cols-12 gap-4" style={{ height: 'calc(100vh - 180px)' }}>
             {/* Left Sidebar - Filters */}
             <div className="col-span-3">
               <VendorFilters
@@ -634,6 +674,7 @@ export default function RoverStyleVendorSearch() {
                 setDistance={setDistance}
                 expandedFilters={expandedFilters}
                 setExpandedFilters={setExpandedFilters}
+                onSearch={triggerSearch}
               />
             </div>
 
@@ -643,14 +684,9 @@ export default function RoverStyleVendorSearch() {
                 {/* Results Header */}
                 <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-4">
-                    <h3 className="font-semibold text-[#332B42]">
-                      {currentCategory?.label} in {location}
-                    </h3>
-                    {!loading && (
-                      <span className="text-sm text-[#AB9C95]">
-                        {vendors.length} results
-                      </span>
-                    )}
+                    <h5 className="h5">
+                      {!loading ? `${vendors.length} ${currentCategory?.label} in ${location}` : `${currentCategory?.label} in ${location}`}
+                    </h5>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -672,34 +708,36 @@ export default function RoverStyleVendorSearch() {
                 <div 
                   className="overflow-y-auto" 
                   style={{ 
-                    height: 'calc(100vh - 220px)',
+                    height: 'calc(100vh - 280px)', // Reduced height to make room for pagination
                   }}
                 >
                   <div className="p-4 space-y-4">
                     {loading ? (
                       // Loading skeletons
-                      Array.from({ length: 10 }).map((_, i) => ( // More skeletons to test scrolling
+                      Array.from({ length: 10 }).map((_, i) => (
                         <VendorCardSkeleton key={i} />
                       ))
                     ) : vendors.length > 0 ? (
-                      // Vendor results
-                      vendors.map((vendor, index) => (
-                        <motion.div
-                          key={vendor.place_id || index}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          onMouseEnter={() => setHoveredVendor(vendor)}
-                          onMouseLeave={() => setHoveredVendor(null)}
-                        >
-                          <VendorCardRoverStyle
-                            vendor={vendor}
-                            onContact={() => handleVendorContact(vendor)}
-                            onShowFlagModal={() => handleVendorFlag(vendor)}
-                            communityData={communityVendorData[vendor.place_id]}
-                          />
-                        </motion.div>
-                      ))
+                      // Vendor results with pagination
+                      vendors
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map((vendor, index) => (
+                          <motion.div
+                            key={vendor.place_id || index}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            onMouseEnter={() => setHoveredVendor(vendor)}
+                            onMouseLeave={() => setHoveredVendor(null)}
+                          >
+                            <VendorCardRoverStyle
+                              vendor={vendor}
+                              onContact={() => handleVendorContact(vendor)}
+                              onShowFlagModal={() => handleVendorFlag(vendor)}
+                              communityData={communityVendorData[vendor.place_id]}
+                            />
+                          </motion.div>
+                        ))
                     ) : (
                       // Empty state
                       <div className="text-center py-12 text-[#AB9C95]">
@@ -710,6 +748,54 @@ export default function RoverStyleVendorSearch() {
                     )}
                   </div>
                 </div>
+
+                {/* Pagination Controls */}
+                {vendors.length > 0 && !loading && (
+                  <div className="p-4 border-t border-[#AB9C95] bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-[#AB9C95]">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, vendors.length)} of {vendors.length} vendors
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="p-2 rounded border border-[#AB9C95] text-[#AB9C95] hover:text-[#332B42] hover:border-[#332B42] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Previous
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.ceil(vendors.length / itemsPerPage) }, (_, i) => i + 1)
+                            .filter(page => page === 1 || page === Math.ceil(vendors.length / itemsPerPage) || (page >= currentPage - 1 && page <= currentPage + 1))
+                            .map((page, index, array) => (
+                              <React.Fragment key={page}>
+                                {index > 0 && array[index - 1] !== page - 1 && (
+                                  <span className="px-2 text-[#AB9C95]">...</span>
+                                )}
+                                <button
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`px-3 py-1 rounded text-sm ${
+                                    currentPage === page
+                                      ? 'bg-[#A85C36] text-white'
+                                      : 'text-[#AB9C95] hover:text-[#332B42] hover:bg-[#F3F2F0]'
+                                  } transition-colors`}
+                                >
+                                  {page}
+                                </button>
+                              </React.Fragment>
+                            ))}
+                        </div>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(vendors.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage === Math.ceil(vendors.length / itemsPerPage)}
+                          className="p-2 rounded border border-[#AB9C95] text-[#AB9C95] hover:text-[#332B42] hover:border-[#332B42] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -718,8 +804,10 @@ export default function RoverStyleVendorSearch() {
               <VendorMap
                 vendors={vendors}
                 selectedVendor={selectedVendor}
-                onVendorSelect={setSelectedVendor}
+                onVendorSelect={handleVendorSelect}
                 hoveredVendor={hoveredVendor}
+                currentPage={currentPage}
+                itemsPerPage={itemsPerPage}
               />
             </div>
           </div>

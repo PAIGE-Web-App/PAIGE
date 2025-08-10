@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 
 // TypeScript declarations for Google Maps
@@ -15,17 +15,118 @@ interface VendorMapProps {
   selectedVendor: any;
   onVendorSelect: (vendor: any) => void;
   hoveredVendor?: any;
+  currentPage?: number;
+  itemsPerPage?: number;
 }
+
+// Custom map theme that matches the app's color scheme - defined outside component to prevent recreation
+const mapTheme = [
+  {
+    featureType: 'all',
+    elementType: 'geometry',
+    stylers: [{ color: '#F3F2F0' }] // Light cream background
+  },
+  {
+    featureType: 'all',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#332B42' }] // Dark text
+  },
+  {
+    featureType: 'all',
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#F3F2F0' }]
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'geometry.fill',
+    stylers: [{ color: '#E8E6E0' }] // Slightly darker cream
+  },
+  {
+    featureType: 'landscape',
+    elementType: 'geometry',
+    stylers: [{ color: '#F8F7F5' }] // Very light cream
+  },
+  {
+    featureType: 'poi',
+    elementType: 'geometry',
+    stylers: [{ color: '#E8E6E0' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#FFFFFF' }] // White roads
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#D4D1CB' }] // Light gray road borders
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#332B42' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#E8E6E0' }]
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#D4D1CB' }] // Light gray water
+  }
+];
 
 const VendorMap: React.FC<VendorMapProps> = ({
   vendors,
   selectedVendor,
   onVendorSelect,
-  hoveredVendor
+  hoveredVendor,
+  currentPage = 1,
+  itemsPerPage = 10
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [markers, setMarkers] = useState<any[]>([]);
+
+  // Calculate which vendors to show based on pagination - memoized to prevent infinite re-renders
+  const startIndex = useMemo(() => (currentPage - 1) * itemsPerPage, [currentPage, itemsPerPage]);
+  const endIndex = useMemo(() => startIndex + itemsPerPage, [startIndex, itemsPerPage]);
+  const visibleVendors = useMemo(() => vendors.slice(startIndex, endIndex), [vendors, startIndex, endIndex]);
+
+
+
+  // Memoized function to update marker appearance
+  const updateMarkerAppearance = useCallback((marker: any, vendor: any, isHovered: boolean, isSelected: boolean) => {
+    if (!window.google) return;
+    
+    let scale = 8;
+    let fillColor = '#AB9C95';
+    let fillOpacity = 0.9;
+    let strokeWeight = 2;
+
+    if (isHovered) {
+      scale = 10;
+      fillColor = '#A85C36';
+      fillOpacity = 1;
+      strokeWeight = 3;
+    } else if (isSelected) {
+      scale = 8;
+      fillColor = '#A85C36';
+      fillOpacity = 0.9;
+      strokeWeight = 2;
+    }
+
+    marker.setIcon({
+      path: window.google.maps.SymbolPath.CIRCLE,
+      scale,
+      fillColor,
+      fillOpacity,
+      strokeColor: '#332B42',
+      strokeWeight
+    });
+  }, []); // No dependencies needed - this function doesn't depend on any props or state
 
   // Initialize map
   useEffect(() => {
@@ -41,19 +142,27 @@ const VendorMap: React.FC<VendorMapProps> = ({
         streetViewControl: false,
         fullscreenControl: false,
         zoomControl: true,
-        gestureHandling: 'cooperative'
+        gestureHandling: 'cooperative',
+        styles: mapTheme, // Apply custom theme
+        backgroundColor: '#F3F2F0' // Match theme background
       });
 
       setMap(newMap);
-      console.log('Map initialized successfully');
+      console.log('Map initialized successfully with custom theme');
     } catch (error) {
       console.error('Error initializing map:', error);
+      
+      // Check for quota error specifically
+      if (error.message && error.message.includes('OverQuotaMapError')) {
+        console.error('Google Maps API quota exceeded. Please check your billing and quotas.');
+        // You could set a state here to show a specific quota error message
+      }
     }
-  }, [vendors.length]);
+  }, [vendors.length]); // mapTheme is now defined outside component, no need to depend on it
 
-  // Add markers when map is ready and vendors change
+  // Add markers when map is ready and visible vendors change
   useEffect(() => {
-    if (!map || !vendors.length || !window.google) return;
+    if (!map || !visibleVendors.length || !window.google) return;
 
     try {
       // Clear existing markers
@@ -62,7 +171,7 @@ const VendorMap: React.FC<VendorMapProps> = ({
       const newMarkers: any[] = [];
       const bounds = new window.google.maps.LatLngBounds();
 
-      vendors.forEach((vendor, index) => {
+      visibleVendors.forEach((vendor, index) => {
         if (vendor.geometry?.location) {
           try {
             const marker = new window.google.maps.Marker({
@@ -70,7 +179,7 @@ const VendorMap: React.FC<VendorMapProps> = ({
               map,
               title: vendor.name,
               label: {
-                text: (index + 1).toString(),
+                text: (startIndex + index + 1).toString(),
                 color: 'white',
                 fontSize: '12px',
                 fontWeight: 'bold'
@@ -78,97 +187,96 @@ const VendorMap: React.FC<VendorMapProps> = ({
               icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 8,
-                fillColor: '#A85C36',
-                fillOpacity: 1,
+                fillColor: selectedVendor?.place_id === vendor.place_id ? '#A85C36' : '#AB9C95',
+                fillOpacity: 0.9,
                 strokeColor: '#332B42',
                 strokeWeight: 2
               }
             });
 
-            // Add click listener
+            // Add click event
             marker.addListener('click', () => {
               onVendorSelect(vendor);
             });
 
             newMarkers.push(marker);
             bounds.extend(vendor.geometry.location);
-          } catch (markerError) {
-            console.error(`Error creating marker for vendor ${vendor.name}:`, markerError);
+          } catch (error) {
+            console.error('Error creating marker for vendor:', vendor.name, error);
           }
         }
       });
 
       setMarkers(newMarkers);
 
-      // Fit bounds if we have markers
+      // Fit map to show all visible markers
       if (newMarkers.length > 0) {
         map.fitBounds(bounds);
-        console.log(`Successfully created ${newMarkers.length} markers`);
+        
+        // Add some padding to the bounds
+        const listener = window.google.maps.event.addListener(map, 'idle', () => {
+          if (map.getZoom() > 15) map.setZoom(15);
+          window.google.maps.event.removeListener(listener);
+        });
       }
     } catch (error) {
-      console.error('Error creating markers:', error);
+      console.error('Error updating markers:', error);
     }
-  }, [map, vendors, onVendorSelect]);
+  }, [map, visibleVendors, selectedVendor, startIndex]); // onVendorSelect is only used for event listeners, not effect logic
 
-  // Handle vendor hover highlighting
+  // Update marker hover states when hoveredVendor or selectedVendor changes
   useEffect(() => {
     if (!markers.length || !window.google) return;
 
     markers.forEach((marker, index) => {
-      const vendor = vendors[index];
-      const isHovered = hoveredVendor?.place_id === vendor?.place_id;
-      const isSelected = selectedVendor?.place_id === vendor?.place_id;
-
-      let color = '#A85C36'; // Default color
-      let scale = 8;
-
-      if (isHovered) {
-        color = '#784528'; // Darker on hover
-        scale = 10;
-      } else if (isSelected) {
-        color = '#A85C36'; // Selected color
-        scale = 9;
+      const vendor = visibleVendors[index];
+      if (vendor) {
+        const isHovered = hoveredVendor?.place_id === vendor.place_id;
+        const isSelected = selectedVendor?.place_id === vendor.place_id;
+        updateMarkerAppearance(marker, vendor, isHovered, isSelected);
       }
-
-      marker.setIcon({
-        path: window.google.maps.SymbolPath.CIRCLE,
-        scale,
-        fillColor: color,
-        fillOpacity: 1,
-        strokeColor: '#332B42',
-        strokeWeight: isHovered || isSelected ? 3 : 2
-      });
     });
-  }, [markers, hoveredVendor, selectedVendor, vendors]);
+  }, [hoveredVendor, selectedVendor, markers, visibleVendors, updateMarkerAppearance]);
 
-  // Show loading state while waiting for Google Maps
   if (!window.google?.maps) {
     return (
-      <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
-        <div className="p-4 border-b border-[#AB9C95]">
-          <h3 className="font-semibold text-[#332B42]">Map View</h3>
+      <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
+        <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
+          <h5 className="h5">Map View</h5>
+          <button className="text-[#A85C36] hover:text-[#784528] text-sm">
+            Enlarge map
+          </button>
         </div>
         <div className="flex-1 bg-[#F3F2F0] flex items-center justify-center">
           <div className="text-center text-[#AB9C95]">
             <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">Loading map...</p>
+            <p className="text-sm">Google Maps API Quota Exceeded</p>
+            <p className="text-xs mt-2">Please check your Google Cloud Console billing and quotas</p>
+            <p className="text-xs mt-1 text-[#A85C36]">
+              <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline">
+                Go to Google Cloud Console
+              </a>
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Show empty state if no vendors
   if (vendors.length === 0) {
     return (
-      <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
-        <div className="p-4 border-b border-[#AB9C95]">
-          <h3 className="font-semibold text-[#332B42]">Map View</h3>
+      <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
+        <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
+          <h5 className="h5">Map View</h5>
+          <button className="text-[#A85C36] hover:text-[#784528] text-sm">
+            Enlarge map
+          </button>
         </div>
         <div className="flex-1 bg-[#F3F2F0] flex items-center justify-center">
           <div className="text-center text-[#AB9C95]">
             <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">No vendors to display</p>
+            <p className="text-sm">No vendors found</p>
+            <p className="text-xs mt-2">Try adjusting your search filters</p>
           </div>
         </div>
       </div>
@@ -176,27 +284,20 @@ const VendorMap: React.FC<VendorMapProps> = ({
   }
 
   return (
-    <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
+    <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
       <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
-        <h3 className="font-semibold text-[#332B42]">Map View</h3>
-        <span className="text-sm text-[#AB9C95]">
-          {vendors.filter(v => v.geometry?.location).length} locations
-        </span>
+        <h5 className="h5">Map View</h5>
+        <button className="text-[#A85C36] hover:text-[#784528] text-sm">
+          Enlarge map
+        </button>
       </div>
-      
       <div className="flex-1 relative">
-        <div
-          ref={mapRef}
-          className="w-full h-full"
-          style={{ minHeight: '400px' }}
-        />
-        
-        {/* Vendor count overlay */}
-        <div className="absolute bottom-4 right-4 bg-white bg-opacity-90 px-3 py-2 rounded shadow-sm">
-          <p className="text-sm text-[#332B42] font-medium">
-            {vendors.filter(v => v.geometry?.location).length} vendors on map
-          </p>
-        </div>
+        <div ref={mapRef} className="w-full h-full rounded-b-[5px]" />
+        {visibleVendors.length > 0 && (
+          <div className="absolute bottom-4 left-4 bg-white border border-[#AB9C95] rounded-[5px] px-3 py-2 text-sm text-[#332B42] shadow-sm">
+            Showing {startIndex + 1}-{Math.min(endIndex, vendors.length)} of {vendors.length} vendors
+          </div>
+        )}
       </div>
     </div>
   );

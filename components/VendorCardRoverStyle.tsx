@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,47 +63,51 @@ export default function VendorCardRoverStyle({
 
   const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
-  // Enhanced image loading
-  useEffect(() => {
-    const loadVendorImage = async () => {
-      setImageLoading(true);
-      setImageError(false);
-      
-      try {
-        // If vendor already has a Google Places image, use it
-        if (vendor.image && vendor.image.includes('maps.googleapis.com')) {
-          setImgSrc(vendor.image);
-          setImageLoading(false);
-          return;
-        }
+  // Enhanced image loading - memoized to prevent infinite re-renders
+  const loadVendorImage = useCallback(async () => {
+    setImageLoading(true);
+    setImageError(false);
+    
+    try {
+      // If vendor already has a Google Places image, use it
+      if (vendor.image && vendor.image.includes('maps.googleapis.com')) {
+        setImgSrc(vendor.image);
+        setImageLoading(false);
+        return;
+      }
 
-        // Try to fetch images from Google Places API
-        if (vendor.place_id) {
-          const response = await fetch(`/api/vendor-photos/${vendor.place_id}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.images && data.images.length > 0) {
-              setImgSrc(data.images[0]);
-              setImageLoading(false);
-              return;
-            }
+      // Try to fetch images from Google Places API
+      if (vendor.place_id) {
+        const response = await fetch(`/api/vendor-photos/${vendor.place_id}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.images && data.images.length > 0) {
+            setImgSrc(data.images[0]);
+            setImageLoading(false);
+            return;
           }
         }
-
-        // Fallback to immediate image or placeholder
-        const fallbackImage = getVendorImageImmediate(vendor);
-        setImgSrc(fallbackImage);
-        setImageLoading(false);
-      } catch (error) {
-        console.error('Error loading vendor image:', error);
-        setImageError(true);
-        setImgSrc('/Venue.png');
-        setImageLoading(false);
       }
-    };
 
-    loadVendorImage();
-  }, [vendor.place_id, vendor.image]);
+      // Fallback to immediate image or placeholder
+      const fallbackImage = getVendorImageImmediate(vendor);
+      setImgSrc(fallbackImage);
+      setImageLoading(false);
+    } catch (error) {
+      console.error('Error loading vendor image:', error);
+      setImageError(true);
+      setImgSrc('/Venue.png');
+      setImageLoading(false);
+    }
+  }, [vendor.place_id]); // Only depend on place_id to prevent infinite loops
+
+  // Run image loading effect only when place_id changes
+  useEffect(() => {
+    // Only run if we have a valid vendor with place_id
+    if (vendor?.place_id) {
+      loadVendorImage();
+    }
+  }, [loadVendorImage, vendor?.place_id]);
 
   useEffect(() => {
     // Set initial favorite state from localStorage
