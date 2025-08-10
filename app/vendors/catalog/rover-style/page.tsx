@@ -137,7 +137,7 @@ const VendorFilters = ({
   const { weddingLocation } = useUserProfileData();
   
   return (
-    <div className="bg-white p-4 h-fit">
+    <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 h-full">
               <h5 className="h5 mb-4">Search Filters</h5>
       
       {/* Service Type */}
@@ -644,8 +644,7 @@ export default function RoverStyleVendorSearch() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-[1800px] mx-auto p-4">
+      <div className="app-content-container flex-1 overflow-hidden">
           <Breadcrumb
             items={[
               { label: 'Vendor Hub', href: '/vendors' },
@@ -657,31 +656,30 @@ export default function RoverStyleVendorSearch() {
           
 
 
-          {/* Main content area with unified container pattern */}
-          <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
-            {/* Left Sidebar - Filters + Results (unified container) */}
-            <main className="unified-container">
-              <div className="unified-sidebar">
-                <VendorFilters
-                  category={category}
-                  setCategory={setCategory}
-                  location={location}
-                  setLocation={setLocation}
-                  priceRange={priceRange}
-                  setPriceRange={setPriceRange}
-                  rating={rating}
-                  setRating={setRating}
-                  distance={distance}
-                  setDistance={setDistance}
-                  expandedFilters={expandedFilters}
-                  setExpandedFilters={setExpandedFilters}
-                  onSearch={triggerSearch}
-                />
-              </div>
+          {/* Main content area with three columns - extends to fill remaining height */}
+          <div className="flex h-full gap-4 overflow-hidden">
+            {/* Left Sidebar - Filters */}
+            <div className="w-[320px] flex-shrink-0">
+              <VendorFilters
+                category={category}
+                setCategory={setCategory}
+                location={location}
+                setLocation={setLocation}
+                priceRange={priceRange}
+                setPriceRange={setPriceRange}
+                rating={rating}
+                setRating={setRating}
+                distance={distance}
+                setDistance={setDistance}
+                expandedFilters={expandedFilters}
+                setExpandedFilters={setExpandedFilters}
+                onSearch={triggerSearch}
+              />
+            </div>
 
-                            {/* Main content area */}
-              <div className="unified-main-content">
-                <div className="h-full flex flex-col">
+            {/* Center - Results */}
+            <div className="flex-1">
+              <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
                 {/* Results Header */}
                 <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-4">
@@ -706,12 +704,7 @@ export default function RoverStyleVendorSearch() {
                 </div>
 
                 {/* Results List - Scrollable */}
-                <div 
-                  className="overflow-y-auto" 
-                  style={{ 
-                    height: 'calc(100vh - 280px)', // Reduced height to make room for pagination
-                  }}
-                >
+                <div className="flex-1 overflow-y-auto min-h-0">
                   <div className="p-4 space-y-4">
                     {loading ? (
                       // Loading skeletons
@@ -799,7 +792,6 @@ export default function RoverStyleVendorSearch() {
                 )}
               </div>
             </div>
-          </main>
 
             {/* Right Sidebar - Map */}
             <div className="w-[420px] flex-shrink-0">
@@ -813,7 +805,6 @@ export default function RoverStyleVendorSearch() {
               />
             </div>
           </div>
-        </div>
       </div>
 
       {/* Modals */}
