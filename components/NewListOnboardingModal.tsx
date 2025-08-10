@@ -796,11 +796,11 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         </button>
       </div>
       {isLoading && showSlowGenerationBanner && (
-        <div className="w-full my-4">
-                      <Banner
-              message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
-              type="info"
-            />
+        <div className="w-full my-4 -mx-6">
+          <Banner
+            message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
+            type="warning"
+          />
         </div>
       )}
       {isLoading && !aiListResult && (
