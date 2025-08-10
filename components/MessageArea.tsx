@@ -1310,7 +1310,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                         </button>
                   </div>
                 }
-                type="feature"
+                type="info"
                 onDismiss={handleDismissBanner}
               />
             </div>

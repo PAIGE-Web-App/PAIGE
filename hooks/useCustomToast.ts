@@ -2,30 +2,15 @@ import { toast } from 'react-hot-toast';
 
 export const useCustomToast = () => {
   const showSuccessToast = (message: string) => {
-    toast.success(message, {
-      position: 'top-right',
-      style: {
-        marginTop: '80px', // Add space for the loading bar
-      },
-    });
+    toast.success(message);
   };
 
   const showErrorToast = (message: string) => {
-    toast.error(message, {
-      position: 'top-right',
-      style: {
-        marginTop: '80px', // Add space for the loading bar
-      },
-    });
+    toast.error(message);
   };
 
   const showInfoToast = (message: string) => {
-    toast(message, {
-      position: 'top-right',
-      style: {
-        marginTop: '80px', // Add space for the loading bar
-      },
-    });
+    toast(message);
   };
 
   return { showSuccessToast, showErrorToast, showInfoToast };

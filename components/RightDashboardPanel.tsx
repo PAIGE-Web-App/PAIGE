@@ -40,20 +40,7 @@ import ToDoPanel from './ToDoPanel';
 import MainTodoItemComponent from './MainTodoItemComponent';
 // import Banner from './Banner'; // Commented out as we're including it directly for demonstration
 
-// Add parseLocalDateTime utility function at the top of the file, after imports
-function parseLocalDateTime(input: string): Date {
-  if (typeof input !== 'string') return new Date(NaN);
-  const [datePart, timePart] = input.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
-  // Always create a local date
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-}
-
-// Helper to convert null to undefined for Firestore fields
-function nullToUndefined<T>(value: T | null | undefined): T | undefined {
-  return value === null ? undefined : value;
-}
+import { parseLocalDateTime, nullToUndefined } from '@/utils/dateUtils';
 
 // Define necessary interfaces
 interface RightDashboardPanelProps {
@@ -68,45 +55,12 @@ interface RightDashboardPanelProps {
   onUpdateTodoCategory: (todoId: string, category: string) => Promise<void>;
 }
 
-// Helper function to reorder an array
-const reorder = (list: TodoItem[], startIndex: number, endIndex: number): TodoItem[] => {
-  const result = Array.from(list);
-  const [removed] = result.splice(startIndex, 1);
-  result.splice(endIndex, 0, removed);
-  return result;
-};
+import { reorder } from '@/utils/arrayUtils';
 
 // Define the maximum number of lists for a "Starter" tier user
 const STARTER_TIER_MAX_LISTS = 3;
 
-// Basic Banner component (for demonstration, in a real app this would be in its own file)
-interface BannerProps {
-  message: React.ReactNode; // Changed to React.ReactNode to allow clickable elements
-  type: 'info' | 'warning' | 'error';
-  onDismiss?: () => void;
-}
-
-const Banner: React.FC<BannerProps> = ({ message, type, onDismiss }) => {
-  const bgColor = type === 'info' ? 'bg-blue-100' : type === 'warning' ? 'bg-yellow-100' : 'bg-red-100';
-  const textColor = type === 'info' ? 'text-blue-800' : type === 'warning' ? 'text-yellow-800' : 'text-red-800';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`relative ${bgColor} ${textColor} p-2 text-sm rounded-[5px] flex items-center justify-between mx-4 my-2`}
-    >
-      <p className="flex-1">{message}</p>
-      {onDismiss && (
-        <button onClick={onDismiss} className="ml-4 p-1 rounded-full hover:bg-opacity-75">
-          <X size={16} />
-        </button>
-      )}
-    </motion.div>
-  );
-};
+import Banner from './Banner';
 
 const calendarStyles = `
   .rbc-event {

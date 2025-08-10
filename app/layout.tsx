@@ -9,6 +9,7 @@ import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import VerticalNavWrapper from "../components/VerticalNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
+import PerformanceDashboard from "../components/PerformanceDashboard";
 import { usePathname } from 'next/navigation';
 
 const playfair = Playfair_Display({ 
@@ -34,6 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
           strategy="lazyOnload"
         />
+        <Script
+          src="/scripts/test-performance.js"
+          strategy="afterInteractive"
+          onError={(e) => console.warn('Performance script failed to load:', e)}
+        />
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
@@ -45,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {hideNav && children}
             
             <IdleTimeoutManager />
+            <PerformanceDashboard />
             <Toaster
               position="bottom-center"
               reverseOrder={false}

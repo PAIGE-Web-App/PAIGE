@@ -35,6 +35,9 @@ export function useTodoLists() {
   const [newListName, setNewListName] = useState('');
   const [showNewListInput, setShowNewListInput] = useState(false);
 
+  // Local storage key for selected list
+  const SELECTED_LIST_KEY = `paige-todo-selected-list-${user?.uid || 'anonymous'}`;
+
   // State for renaming lists
   const [editingListNameId, setEditingListNameId] = useState<string | null>(null);
   const [editingListNameValue, setEditingListNameValue] = useState<string | null>(null);
@@ -57,11 +60,35 @@ export function useTodoLists() {
   // State for explicit all selection
   const [explicitAllSelected, setExplicitAllSelected] = useState(false);
 
+  // Function to save selected list to localStorage
+  const saveSelectedListToStorage = (list: TodoList | null) => {
+    try {
+      if (list) {
+        localStorage.setItem(SELECTED_LIST_KEY, list.id);
+      } else {
+        localStorage.removeItem(SELECTED_LIST_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to save selected list to localStorage:', error);
+    }
+  };
+
+  // Function to restore selected list from localStorage
+  const restoreSelectedListFromStorage = (): string | null => {
+    try {
+      return localStorage.getItem(SELECTED_LIST_KEY);
+    } catch (error) {
+      console.warn('Failed to restore selected list from localStorage:', error);
+      return null;
+    }
+  };
+
   // Effect to handle URL params for "all" selection
   useEffect(() => {
     if (searchParams && searchParams.get('all') === '1') {
       setSelectedList(null);
       setExplicitAllSelected(true);
+      saveSelectedListToStorage(null);
     }
   }, [searchParams]);
 
@@ -73,6 +100,13 @@ export function useTodoLists() {
       setPendingDeleteListId(null);
     }
   }, [pendingDeleteListId]);
+
+  // Effect to save selected list to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedList) {
+      saveSelectedListToStorage(selectedList);
+    }
+  }, [selectedList]);
 
   // Fetch todo lists
   useEffect(() => {
@@ -107,8 +141,19 @@ export function useTodoLists() {
       console.log('Fetched todo lists:', lists);
       setTodoLists(lists);
 
-      // Only auto-select if we have lists, no explicit selection, and no current selection
+      // Try to restore selected list from localStorage first
       if (lists.length > 0 && !explicitAllSelected && !selectedList) {
+        const savedListId = restoreSelectedListFromStorage();
+        if (savedListId) {
+          const savedList = lists.find(list => list.id === savedListId);
+          if (savedList) {
+            console.log('Restored selected list from localStorage:', savedList.name);
+            setSelectedList(savedList);
+            return; // Don't auto-select first list if we restored from storage
+          }
+        }
+        
+        // Fallback to auto-select first list if no saved selection or saved list doesn't exist
         setSelectedList(lists[0]);
       }
     }, (error) => {
@@ -291,6 +336,8 @@ export function useTodoLists() {
         } else {
           setSelectedList(null);
         }
+        // Clear localStorage since the selected list was deleted
+        saveSelectedListToStorage(null);
       }
     } catch (error: any) {
       console.error('Error deleting list:', error);
@@ -419,6 +466,7 @@ export function useTodoLists() {
   const selectAllItems = () => {
     setSelectedList(null);
     setExplicitAllSelected(true);
+    saveSelectedListToStorage(null);
   };
 
   return {

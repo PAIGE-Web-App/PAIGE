@@ -10,6 +10,9 @@ interface ToDoListEditorProps {
   customCategoryValue: string;
   setCustomCategoryValue: (val: string) => void;
   allCategories: string[];
+  contacts?: any[];
+  currentUser?: any;
+  onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>;
 }
 
 // Utility to generate a unique id
@@ -17,7 +20,7 @@ function getStableId() {
   return Math.random().toString(36).substr(2, 9) + Date.now();
 }
 
-const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, customCategoryValue, setCustomCategoryValue, allCategories }) => {
+const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, customCategoryValue, setCustomCategoryValue, allCategories, contacts = [], currentUser = null, onAssign }) => {
   console.log('[ToDoListEditor] tasks prop on render:', tasks);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
@@ -26,14 +29,37 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
 
   const handleAddToDo = () => {
     const newId = getStableId();
-    setTasks([
-      ...tasks,
-      { _id: newId, id: newId, name: '', note: '', category: '', deadline: '', endDate: '' }
-    ]);
+    const newTask = { 
+      _id: newId, 
+      id: newId, 
+      name: 'New Task', 
+      note: '', 
+      category: '', 
+      deadline: undefined, 
+      endDate: undefined,
+      justUpdated: true 
+    };
+    const updatedTasks = [...tasks, newTask];
+    setTasks(updatedTasks);
+    
+    // Remove the justUpdated flag after 1 second to stop the green flash
+    setTimeout(() => {
+      setTasks((currentTasks: any[]) => 
+        currentTasks.map((t: any) => 
+          t.id === newId ? { ...t, justUpdated: false } : t
+        )
+      );
+    }, 1000);
   };
 
   const handleRemoveToDo = (idx: number) => {
     setTasks(tasks.filter((_, i) => i !== idx));
+  };
+
+  const handleAssignTodo = async (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
+    if (onAssign) {
+      await onAssign(todoId, assigneeIds, assigneeNames, assigneeTypes);
+    }
   };
 
   const toggleGroup = (group: string) => {
@@ -143,6 +169,10 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
     }
     return undefined;
   };
+  
+  // Debug: Log the original tasks and converted todoItems
+  console.log('[ToDoListEditor] Original tasks:', tasks);
+  
   const todoItems: TodoItem[] = tasks.map((task, idx) => ({
     id: (task._id ?? idx).toString(),
     name: task.name,
@@ -161,8 +191,12 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
     listId: 'temp-list',
     _id: task._id ?? idx,
   }));
+  
+  console.log('[ToDoListEditor] Converted todoItems:', todoItems);
+  console.log('[ToDoListEditor] todoItems deadlines:', todoItems.map(t => ({ id: t.id, deadline: t.deadline, deadlineType: typeof t.deadline })));
 
   const groupedTasks = groupTasks(todoItems);
+  console.log('[ToDoListEditor] Grouped tasks:', groupedTasks);
 
   return (
     <>
@@ -216,13 +250,13 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                     )}
                     <UnifiedTodoItem
                       todo={originalTask || item}
-                      contacts={[]}
+                      contacts={contacts}
                       allCategories={allCategories}
                       sortOption="myOrder"
                       draggedTodoId={draggedTodoId}
                       dragOverTodoId={dragOverTodoId}
                       dropIndicatorPosition={dropIndicatorPosition}
-                      currentUser={null}
+                      currentUser={currentUser}
                       handleToggleTodoComplete={() => {}}
                       handleUpdateTaskName={async (_, newName) => {
                         setTasks((tasks: any[]) => tasks.map((t: any) => (String(t.id) === String(stableId) ? { ...t, name: newName || '' } : t)));
@@ -245,10 +279,7 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                           return updatedTasks;
                         });
                         setTimeout(() => {
-                          setTasks((tasks: any[]) => tasks.map((t: any) => {
-                            if (String(t.id) !== String(stableId)) return t;
-                            return { ...t, justUpdated: false };
-                          }));
+                          setTasks((tasks: any[]) => tasks.map((t: any) => (String(t.id) === String(stableId)) ? { ...t, justUpdated: false } : t));
                         }, 1000);
                       }}
                       handleUpdateNote={(_, newNote) => {
@@ -269,6 +300,7 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                       handleDrop={() => {}}
                       mode="editor"
                       onRemove={tasks.length > 1 ? () => handleRemoveToDo((tasks as any[]).findIndex((t: any) => String(t.id) === String(stableId))) : undefined}
+                      onAssign={onAssign}
                     />
                     {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'bottom' && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A85C36]" />

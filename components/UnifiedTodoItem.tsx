@@ -48,33 +48,10 @@ interface UnifiedTodoItemProps {
   isJustMoved?: boolean;
   searchQuery?: string;
   isNewlyAdded?: boolean;
+  onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>;
 }
 
-// Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
-function formatDateForInputWithTime(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-// Utility to parse a yyyy-MM-ddTHH:mm string as a local Date
-function parseLocalDateTime(input: string): Date {
-  if (typeof input !== 'string') return new Date(NaN);
-  const [datePart, timePart] = input.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
-  // Always create a local date
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-}
-
-function formatDateStringForDisplay(dateString?: string): string {
-  if (!dateString || typeof dateString !== 'string') return '';
-  const date = parseLocalDateTime(dateString);
-  return isNaN(date.getTime()) ? '' : date.toLocaleString();
-}
+import { formatDateForInputWithTime, parseLocalDateTime, formatDateStringForDisplay } from '@/utils/dateUtils';
 
 const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   todo,
@@ -107,6 +84,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   isJustMoved,
   searchQuery,
   isNewlyAdded = false,
+  onAssign,
 }) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isEditingName, setIsEditingName] = useState(false);
@@ -454,7 +432,16 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   // Assignment handlers
   const handleAssignTodo = async (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
     try {
-      // Update the todo item with assignment info
+      // If we're in editor mode and have an external onAssign handler, use that instead
+      if (mode === 'editor' && onAssign) {
+        await onAssign(todo.id, assigneeIds, assigneeNames, assigneeTypes);
+        const namesText = assigneeIds.length > 0 ? assigneeNames.join(', ') : 'nobody';
+        showSuccessToast(`Assigned to ${namesText}`);
+        setShowAssignmentModal(false);
+        return;
+      }
+
+      // Otherwise, update Firestore directly (for existing todos)
       const todoRef = doc(db, `users/${currentUser?.uid}/todoItems`, todo.id);
       const updateData: any = {
         assignedTo: assigneeIds.length > 0 ? assigneeIds : null,

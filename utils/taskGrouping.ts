@@ -2,7 +2,9 @@ import { TodoItem } from '../types/todo';
 
 // Helper to get the group for a given deadline
 export function getTaskGroup(deadline?: Date | null): string {
+  console.log('[getTaskGroup] Input deadline:', deadline, 'type:', typeof deadline, 'isDate:', deadline instanceof Date);
   if (!deadline || !(deadline instanceof Date) || isNaN(deadline.getTime())) {
+    console.log('[getTaskGroup] Returning "No date yet" for deadline:', deadline);
     return 'No date yet';
   }
   const now = new Date();

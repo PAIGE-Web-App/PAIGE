@@ -7,7 +7,7 @@ import CategorySelectField from './CategorySelectField';
 import ToDoFields from './ToDoFields';
 import ToDoListEditor from './ToDoListEditor';
 import { useAuth } from '../hooks/useAuth';
-import { getAllCategories } from '../lib/firebaseCategories';
+import { getAllCategories, saveCategoryIfNew } from '../lib/firebaseCategories';
 import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import Banner from './Banner';
@@ -58,14 +58,70 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
-  const [tasks, setTasks] = useState([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
+  const [tasks, setTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
   const [customCategoryValue, setCustomCategoryValue] = useState('');
   const [canSubmit, setCanSubmit] = useState(false);
-  const [aiListResult, setAiListResult] = React.useState(null);
+  const [aiListResult, setAiListResult] = React.useState<any>(null);
   const [allCategories, setAllCategories] = React.useState<string[]>([]);
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [aiGenerationData, setAiGenerationData] = React.useState<any>(null);
+
+  // Create a simple contacts array for assignment functionality
+  const contacts = React.useMemo(() => {
+    if (!user?.uid) return [];
+    // For now, just return the user as a contact option
+    return [{
+      id: user.uid,
+      name: 'You',
+      email: user.email || '',
+      phone: '',
+      category: 'User',
+      website: null,
+      avatarColor: '#A85C36',
+      userId: user.uid,
+      orderIndex: 0,
+      isOfficial: false,
+      placeId: null,
+      vendorEmails: [],
+      isVendorContact: false,
+    }];
+  }, [user]);
+
+  // Create currentUser object for assignment functionality
+  const currentUser = React.useMemo(() => {
+    if (!user?.uid) return null;
+    return {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+    };
+  }, [user]);
+
+  // Handle assignment in list creation state
+  const handleAssignTodo = async (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => {
+    // In list creation state, we just update the local task state
+    // The assignment will be saved when the list is submitted
+    setTasks((currentTasks: any[]) => 
+      currentTasks.map((task: any) => 
+        task.id === todoId || task._id === todoId 
+          ? { ...task, assignedTo: assigneeIds, assignedBy: user?.uid, assignedAt: new Date() }
+          : task
+      )
+    );
+    
+    // Also update AI result tasks if they exist
+    if (aiListResult?.tasks) {
+      setAiListResult((current: any) => ({
+        ...current,
+        tasks: (current as any).tasks.map((task: any) => 
+          task.id === todoId || task._id === todoId 
+            ? { ...task, assignedTo: assigneeIds, assignedBy: user?.uid, assignedAt: new Date() }
+            : task
+        )
+      }));
+    }
+  };
 
   React.useEffect(() => {
     if (user?.uid) {
@@ -110,7 +166,10 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const handleBack = () => setStep(1);
   const handleStepChange = (newStep: number) => setStep(newStep);
 
-  const handleAddTask = () => setTasks([...tasks, { _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
+  const handleAddTask = () => {
+    const newTask = { _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined, endDate: undefined };
+    setTasks([...tasks, newTask]);
+  };
   const handleRemoveTask = (idx: number) => setTasks(tasks.filter((_, i) => i !== idx));
   const updateTask = (index: number, field: string, value: string) => setTasks(tasks.map((task, i) => {
     if (i !== index) return task;
@@ -141,27 +200,89 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     e.preventDefault();
     if (selectedTab === 'ai') {
       const aiResult: any = aiListResult;
-      if (!aiResult || !aiResult.name || !Array.isArray(aiResult.tasks)) return;
+      if (!aiResult || !aiResult.name) return;
 
-      const tasksWithDates = aiResult.tasks.map((task: any) => ({
+      console.log('=== AI SUBMIT DEBUG ===');
+      console.log('aiResult.tasks:', aiResult.tasks);
+      console.log('local tasks state:', tasks);
+      console.log('tasks length:', tasks.length);
+      console.log('tasks with _id:', tasks.filter(t => t._id));
+      console.log('tasks with names:', tasks.filter(t => t.name && t.name.trim()));
+
+      // Combine AI-generated tasks with manually added tasks
+      // Deduplicate based on _id to prevent duplicates
+      const aiTasks = Array.isArray(aiResult.tasks) ? aiResult.tasks : [];
+      const localTasks = tasks || [];
+      
+      // Create a map of AI tasks by ID for quick lookup
+      const aiTaskIds = new Set(aiTasks.map(t => t._id));
+      
+      // Only include local tasks that aren't already in AI tasks
+      const uniqueLocalTasks = localTasks.filter(task => {
+        const taskId = task._id;
+        return !aiTaskIds.has(taskId);
+      });
+      
+      const allTasks = [...aiTasks, ...uniqueLocalTasks];
+
+      console.log('combined allTasks:', allTasks);
+      console.log('allTasks length:', allTasks.length);
+
+      const tasksWithDates = allTasks.map((task: any) => ({
         ...task,
         deadline: task.deadline ? new Date(task.deadline) : null,
         endDate: task.endDate ? new Date(task.endDate) : null,
       }));
 
+      // Process tasks to remove [NEW] tags and save new categories
+      // Only filter out completely empty tasks at the end
+      const processedTasks = tasksWithDates.filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate));
+      
+      console.log('final processedTasks:', processedTasks);
+      console.log('processedTasks length:', processedTasks.length);
+      console.log('=== END AI SUBMIT DEBUG ===');
+      
+      // Save new categories and remove [NEW] tags
+      if (user?.uid) {
+        processedTasks.forEach(async (task) => {
+          if (task.category && task.category.includes('[NEW]')) {
+            const newCategory = task.category.replace('[NEW]', '').trim();
+            await saveCategoryIfNew(newCategory, user.uid);
+            task.category = newCategory;
+          }
+        });
+      }
+
       onSubmit && onSubmit({
         name: aiResult.name.trim(),
-        tasks: tasksWithDates.filter((task: any) => task.name && task.name.trim())
+        tasks: processedTasks
       });
     } else if (selectedTab === 'manual') {
       if (!listName.trim()) return;
       const validTasks: any[] = tasks
-        .filter((task: any) => task.name && task.name.trim())
+        .filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate))
         .map(task => ({
           ...task,
           deadline: task.deadline ? new Date(task.deadline) : null,
           endDate: task.endDate ? new Date(task.endDate) : null,
         }));
+
+      // Process tasks to remove [NEW] tags and save new categories
+      if (user?.uid) {
+        validTasks.forEach(async (task) => {
+          if (task.category && task.category.trim()) {
+            let categoryToSave = task.category;
+            // Remove [NEW] tag if present
+            if (task.category.includes('[NEW]')) {
+              categoryToSave = task.category.replace('[NEW]', '').trim();
+              task.category = categoryToSave;
+            }
+            // Save the category (whether it had [NEW] or not)
+            await saveCategoryIfNew(categoryToSave, user.uid);
+          }
+        });
+      }
+
       onSubmit && onSubmit({ name: listName.trim(), tasks: validTasks });
     } else if (selectedTab === 'import') {
       // TODO: Add logic to submit imported CSV list
@@ -185,7 +306,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     if (listName.trim()) return true;
     if (selectedTab === 'manual' && tasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate)) return true;
     const aiResult: any = aiListResult;
-    if (selectedTab === 'ai' && aiResult && (aiResult.name?.trim() || (Array.isArray(aiResult.tasks) && aiResult.tasks.some((t: any) => t.name?.trim())))) return true;
+    if (selectedTab === 'ai' && aiResult && (aiResult.name?.trim() || (Array.isArray(aiResult.tasks) && aiResult.tasks.some((t: any) => t.name?.trim())) || tasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate))) return true;
     // TODO: Add CSV import check if needed
     return false;
   };
@@ -195,7 +316,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     setSelectedTab('ai');
     setStep(1);
     setListName('');
-    setTasks([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
+    setTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
     setCustomCategoryValue('');
     setCanSubmit(false);
     setAiListResult(null);
@@ -307,8 +428,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
             <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto">
               {selectedTab === 'manual' && (
                 <ManualListCreationForm
-                  allCategories={[]}
-                  onSubmit={onSubmit}
+                  allCategories={allCategories}
+                  onSubmit={handleSubmit}
                   listName={listName}
                   setListName={setListName}
                   canSubmit={canSubmit}
@@ -316,21 +437,29 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   setTasks={setTasks}
                   customCategoryValue={customCategoryValue}
                   setCustomCategoryValue={setCustomCategoryValue}
+                  contacts={contacts}
+                  currentUser={currentUser}
+                  onAssign={handleAssignTodo}
                 />
               )}
               {selectedTab === 'import' && (
                 <ImportListCreationForm />
               )}
               {selectedTab === 'ai' && (
-                            <AIListCreationForm
-              isGenerating={false}
-              handleBuildWithAI={handleBuildWithAI}
-              setAiListResult={setAiListResult}
-              aiListResult={aiListResult}
-              allCategories={allCategories}
-              weddingDate={weddingDate}
-              aiGenerationData={aiGenerationData}
-            />
+                <AIListCreationForm
+                  isGenerating={false}
+                  handleBuildWithAI={handleBuildWithAI}
+                  setAiListResult={setAiListResult}
+                  aiListResult={aiListResult}
+                  allCategories={allCategories}
+                  weddingDate={weddingDate}
+                  aiGenerationData={aiGenerationData}
+                  contacts={contacts}
+                  currentUser={currentUser}
+                  onAssign={handleAssignTodo}
+                  tasks={tasks}
+                  setTasks={setTasks}
+                />
               )}
             </div>
           </div>
@@ -355,7 +484,7 @@ function parseLocalDateTime(input: string): Date {
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
-const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setListName, canSubmit, tasks, setTasks, customCategoryValue, setCustomCategoryValue }) => {
+const ManualListCreationForm = ({ allCategories = [], onSubmit, listName = '', setListName, canSubmit = false, tasks = [], setTasks, customCategoryValue = '', setCustomCategoryValue, contacts = [], currentUser = null, onAssign }: { allCategories?: string[], onSubmit?: any, listName?: string, setListName?: any, canSubmit?: boolean, tasks?: any[], setTasks?: any, customCategoryValue?: string, setCustomCategoryValue?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void> }) => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -448,18 +577,13 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setLis
           <label className="block text-xs font-medium text-[#332B42] mb-1">Initial To-Dos</label>
           <ToDoListEditor
             tasks={tasks}
-            setTasks={(maybeFn: any) => {
-              let updated;
-              if (typeof maybeFn === 'function') {
-                updated = maybeFn(Array.isArray(tasks) ? tasks : []);
-              } else {
-                updated = maybeFn;
-              }
-              setTasks(updated);
-            }}
+            setTasks={setTasks}
             customCategoryValue={customCategoryValue}
             setCustomCategoryValue={setCustomCategoryValue}
             allCategories={allCategories}
+            contacts={contacts}
+            currentUser={currentUser}
+            onAssign={onAssign}
           />
         </div>
       )}
@@ -503,7 +627,7 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -562,9 +686,14 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       // Normalize dates to string format for input and assign ids
       const normalized = updated.map((t: any) => {
         const id = t.id || t._id || getStableId();
-        let deadline = t.deadline ? formatDateForInputWithTime(t.deadline) : undefined;
-        if (!deadline || isBeforeToday(deadline)) {
-          deadline = formatDateForInputWithTime(getTodayAtFivePM());
+        // Preserve undefined deadlines for new tasks, only format existing dates
+        let deadline = t.deadline;
+        if (deadline && deadline !== undefined) {
+          deadline = formatDateForInputWithTime(deadline);
+          // Only apply "today at 5 PM" logic for existing dates that are before today
+          if (isBeforeToday(deadline)) {
+            deadline = formatDateForInputWithTime(getTodayAtFivePM());
+          }
         }
         // Don't replace categories unless they're actually IDs
         let category = t.category;
@@ -624,10 +753,18 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           if (looksLikeId(category)) {
             category = 'Uncategorized (New)';
           }
+          // Remove [NEW] tags from categories
+          if (category && category.includes('[NEW]')) {
+            category = category.replace('[NEW]', '').trim();
+          }
           return { ...task, id, _id: id, deadline, category };
         });
       }
       setAiListResult(data);
+      // Also update the local tasks state with the AI-generated tasks
+      if (setTasks && Array.isArray(data.tasks)) {
+        setTasks(data.tasks);
+      }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
     } finally {
@@ -660,10 +797,10 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       </div>
       {isLoading && showSlowGenerationBanner && (
         <div className="w-full my-4">
-          <Banner
-            message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
-            type="feature"
-          />
+                      <Banner
+              message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
+              type="info"
+            />
         </div>
       )}
       {isLoading && !aiListResult && (
@@ -701,13 +838,16 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-[#332B42] mb-1">Initial To-Dos</label>
+            <label className="block text-xs font-medium text-[#332B42] mb-1">To-Dos</label>
             <ToDoListEditor
-              tasks={Array.isArray(aiListResult.tasks) ? aiListResult.tasks : []}
-              setTasks={handleTasksUpdate}
+              tasks={tasks}
+              setTasks={setTasks}
               customCategoryValue={''}
               setCustomCategoryValue={() => {}}
               allCategories={allCategories}
+              contacts={contacts}
+              currentUser={currentUser}
+              onAssign={onAssign}
             />
           </div>
         </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useFileFolders } from '@/hooks/useFileFolders';
@@ -14,6 +14,7 @@ import { useFileNavigation } from '@/hooks/useFileNavigation';
 import { useFileUploadCompletion } from '@/hooks/useFileUploadCompletion';
 import { useContentDetection } from '@/hooks/useContentDetection';
 import { useFolderPersistence } from '@/hooks/useFolderPersistence';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
 // Components
 import WeddingBanner from '@/components/WeddingBanner';
@@ -53,6 +54,7 @@ export default function FilesPage() {
   const { user, loading } = useAuth();
   const { daysLeft, userName, profileLoading } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { trackApiCall } = usePerformanceMonitor('FilesPage');
   const {
     folders,
     selectedFolder,
@@ -94,7 +96,9 @@ export default function FilesPage() {
     return level;
   }, [folders]);
 
-
+  // Memoized values for performance
+  const isLoading = useMemo(() => foldersLoading || filesLoading, [foldersLoading, filesLoading]);
+  const userId = useMemo(() => user?.uid || '', [user?.uid]);
 
   // Move file to different folder
   const handleMoveFile = useCallback(async (fileId: string, newFolderId: string) => {
@@ -110,7 +114,7 @@ export default function FilesPage() {
       console.error('Error moving file:', error);
       showErrorToast('Failed to move file');
     }
-  }, [updateFile, folders]);
+  }, [updateFile, folders, showSuccessToast, showErrorToast]);
 
   // Custom state management hook
   const {
@@ -254,7 +258,56 @@ export default function FilesPage() {
     setSelectedFolder
   });
 
+  // Memoized handlers for better performance
+  const handleUploadFile = useCallback(() => {
+    setShowUploadModal(true);
+  }, [setShowUploadModal]);
 
+  const handleCreateFolder = useCallback(() => {
+    setShowNewFolderInput(true);
+  }, [setShowNewFolderInput]);
+
+  const handleSelectFile = useCallback((file: any) => {
+    setSelectedFile(file);
+  }, [setSelectedFile]);
+
+  const handleNavigateToFolderCallback = useCallback((folder: any) => {
+    setSelectedFolder(folder);
+  }, [setSelectedFolder]);
+
+  const handleDeleteSubfolder = useCallback((subfolder: any) => {
+    handleDeleteFolder(subfolder.id);
+  }, [handleDeleteFolder]);
+
+  const handleCloseEditFolderModal = useCallback(() => {
+    setShowEditFolderModal(false);
+  }, [setShowEditFolderModal]);
+
+  const handleCloseAIAnalyzer = useCallback(() => {
+    setSelectedFile(null);
+  }, [setSelectedFile]);
+
+  const handleUploadCompleteCallback = useCallback((fileId: string) => {
+    const uploadedFile = files.find(f => f.id === fileId);
+    if (uploadedFile) {
+      setSelectedFile(uploadedFile);
+    }
+  }, [files, setSelectedFile]);
+
+  const handleAnalyzeFile = useCallback(async (fileId: string, analysisType: string) => {
+    // TODO: Implement file analysis
+    console.log('Analyze file:', fileId, analysisType);
+  }, []);
+
+  const handleAskQuestion = useCallback(async (fileId: string, question: string) => {
+    // TODO: Implement AI question answering
+    console.log('Ask question:', fileId, question);
+    return `This is a mock response to: "${question}". In the future, this will be powered by AI analysis of your file.`;
+  }, []);
+
+  const handleSetWeddingDate = useCallback(() => {
+    // TODO: Implement wedding date setting
+  }, []);
 
   // If no content and not loading, show empty state
   if (!hasContent && !foldersLoading && !filesLoading) {
@@ -265,15 +318,15 @@ export default function FilesPage() {
             daysLeft={daysLeft}
             userName={userName}
             isLoading={profileLoading}
-            onSetWeddingDate={() => {}}
+            onSetWeddingDate={handleSetWeddingDate}
           />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
               {/* Empty State */}
               <FilesEmptyState
-                onCreateFolder={() => setShowNewFolderInput(true)}
-                onUploadFiles={() => setShowUploadModal(true)}
+                onCreateFolder={handleCreateFolder}
+                onUploadFiles={handleUploadFile}
               />
             </div>
           </div>
@@ -301,12 +354,7 @@ export default function FilesPage() {
             onConfirmDeleteFolder={() => Promise.resolve()}
             showSuccessToast={() => {}}
             showErrorToast={() => {}}
-            onUploadComplete={(fileId) => {
-              const uploadedFile = files.find(f => f.id === fileId);
-              if (uploadedFile) {
-                setSelectedFile(uploadedFile);
-              }
-            }}
+            onUploadComplete={handleUploadCompleteCallback}
           />
       </div>
       </DragDropProvider>
@@ -320,7 +368,7 @@ export default function FilesPage() {
           daysLeft={daysLeft}
           userName={userName}
           isLoading={profileLoading}
-          onSetWeddingDate={() => {}}
+          onSetWeddingDate={handleSetWeddingDate}
         />
 
         <div className="app-content-container flex-1 overflow-hidden flex flex-col">
@@ -336,7 +384,7 @@ export default function FilesPage() {
                 folders={folders}
                 selectedFolder={selectedFolder}
                 setSelectedFolder={setSelectedFolder}
-                    userId={user?.uid || ''}
+                    userId={userId}
                 showNewFolderInput={showNewFolderInput}
                 setShowNewFolderInput={setShowNewFolderInput}
                 newFolderName={newFolderName}
@@ -364,7 +412,7 @@ export default function FilesPage() {
                 filteredFiles={filteredFiles}
                 selectedFile={selectedFile}
                 STARTER_TIER_MAX_SUBFOLDER_LEVELS={STARTER_TIER_MAX_SUBFOLDER_LEVELS}
-                isLoading={foldersLoading || filesLoading}
+                isLoading={isLoading}
                 searchQuery={searchQuery}
                 onSearchQueryChange={setSearchQuery}
                 onViewModeChange={handleViewModeChange}
@@ -376,25 +424,19 @@ export default function FilesPage() {
                 onEditingFolderNameChange={setEditingFolderNameValue}
                 onCancelEdit={handleCancelEdit}
                 onNavigateToParent={handleNavigateToParent}
-                onNavigateToFolder={(folder) => setSelectedFolder(folder)}
-                onSelectFile={setSelectedFile}
+                onNavigateToFolder={handleNavigateToFolderCallback}
+                onSelectFile={handleSelectFile}
                 onDeleteFile={handleDeleteFile}
                 onEditFile={(file) => console.log('Edit file:', file)}
                 onSelectSubfolder={handleSelectSubfolder}
                 onCreateSubfolder={handleCreateSubfolder}
-                onUploadFile={() => setShowUploadModal(true)}
-                onUploadComplete={(fileId) => {
-                  // Find the uploaded file and select it
-                  const uploadedFile = files.find(f => f.id === fileId);
-                  if (uploadedFile) {
-                    setSelectedFile(uploadedFile);
-                  }
-                }}
+                onUploadFile={handleUploadFile}
+                onUploadComplete={handleUploadCompleteCallback}
                 onShowUpgradeModal={handleShowUpgradeModal}
                 onDismissSubfolderLimitBanner={handleDismissSubfolderLimitBanner}
                 onMoveFile={handleMoveFile}
                 onEditSubfolder={handleEditSubfolder}
-                onDeleteSubfolder={(subfolder) => handleDeleteFolder(subfolder.id)}
+                onDeleteSubfolder={handleDeleteSubfolder}
                 folders={folders}
                 folderFileCounts={folderFileCounts}
               />
@@ -404,16 +446,9 @@ export default function FilesPage() {
           <div className="md:w-[420px] w-full">
             <AIFileAnalyzer
               selectedFile={selectedFile}
-              onClose={() => setSelectedFile(null)}
-              onAnalyzeFile={async (fileId: string, analysisType: string) => {
-                // TODO: Implement file analysis
-                console.log('Analyze file:', fileId, analysisType);
-              }}
-              onAskQuestion={async (fileId: string, question: string) => {
-                // TODO: Implement AI question answering
-                console.log('Ask question:', fileId, question);
-                return `This is a mock response to: "${question}". In the future, this will be powered by AI analysis of your file.`;
-              }}
+              onClose={handleCloseAIAnalyzer}
+              onAnalyzeFile={handleAnalyzeFile}
+              onAskQuestion={handleAskQuestion}
             />
           </div>
         </div>
@@ -442,19 +477,14 @@ export default function FilesPage() {
           onConfirmDeleteFolder={executeDeleteFolder}
           showSuccessToast={() => {}}
           showErrorToast={() => {}}
-          onUploadComplete={(fileId) => {
-            const uploadedFile = files.find(f => f.id === fileId);
-            if (uploadedFile) {
-              setSelectedFile(uploadedFile);
-            }
-          }}
+          onUploadComplete={handleUploadCompleteCallback}
         />
 
         {/* Edit Folder Modal */}
         <EditFolderModal
           isOpen={showEditFolderModal}
           folder={folderToEdit}
-          onClose={() => setShowEditFolderModal(false)}
+          onClose={handleCloseEditFolderModal}
           onSave={handleUpdateFolder}
           isLoading={foldersLoading}
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
@@ -82,12 +82,14 @@ const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
 import { useUserProfileData } from "@/hooks/useUserProfileData";
 import { useWeddingBanner } from "@/hooks/useWeddingBanner";
 import { useBudget } from "@/hooks/useBudget";
-
+import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
+import toast from "react-hot-toast";
 import type { BudgetItem } from "@/types/budget";
 
 export default function BudgetPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { trackApiCall } = usePerformanceMonitor('BudgetPage');
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
@@ -95,7 +97,6 @@ export default function BudgetPage() {
   // Use custom hooks for budget functionality
   const budget = useBudget();
   
-
 
   // State for selected category and item
   const [selectedCategory, setSelectedCategory] = React.useState<any>(null);
@@ -123,6 +124,17 @@ export default function BudgetPage() {
 
   // Track if we've initialized the category selection
   const hasInitializedSelection = React.useRef(false);
+
+  // Memoized values for performance
+  const isLoading = useMemo(() => profileLoading || loading || budget.budgetCategories === undefined, 
+    [profileLoading, loading, budget.budgetCategories]);
+  
+  const selectedCategoryId = useMemo(() => selectedCategory?.id, [selectedCategory]);
+  
+  const filteredBudgetItems = useMemo(() => {
+    if (!selectedCategory || !budget.budgetItems) return [];
+    return budget.budgetItems.filter(item => item.categoryId === selectedCategory.id);
+  }, [selectedCategory, budget.budgetItems]);
 
   // Category persistence and auto-selection
   React.useEffect(() => {
@@ -174,16 +186,16 @@ export default function BudgetPage() {
   }, [budget.budgetCategories, selectedCategory]);
 
   // Handle mobile tab change
-  const handleMobileTabChange = (tab: string) => {
+  const handleMobileTabChange = useCallback((tab: string) => {
     if (tab === 'dashboard') {
       router.push('/');
     } else if (tab === 'todo') {
       router.push('/todo');
     }
-  };
+  }, [router]);
 
   // Handle linking vendor to budget item
-  const handleLinkVendor = async (vendor: any) => {
+  const handleLinkVendor = useCallback(async (vendor: any) => {
     if (!linkingBudgetItem || !user?.uid) return;
 
     try {
@@ -202,10 +214,10 @@ export default function BudgetPage() {
       console.error('Error linking vendor:', error);
       throw error;
     }
-  };
+  }, [linkingBudgetItem, user?.uid, budget]);
 
   // Handle unlinking vendor from budget item
-  const handleUnlinkVendor = async () => {
+  const handleUnlinkVendor = useCallback(async () => {
     if (!linkingBudgetItem || !user?.uid) return;
 
     try {
@@ -224,18 +236,81 @@ export default function BudgetPage() {
       console.error('Error unlinking vendor:', error);
       throw error;
     }
-  };
+  }, [linkingBudgetItem, user?.uid, budget]);
 
   // Open link vendor modal
-  const openLinkVendorModal = (budgetItem: any) => {
+  const openLinkVendorModal = useCallback((budgetItem: any) => {
     setLinkingBudgetItem(budgetItem);
     setShowLinkVendorModal(true);
-  };
+  }, []);
 
-  // Only show content when profile loading is complete
-  const isLoading = profileLoading || loading || budget.budgetCategories === undefined;
+  // Memoized handlers for better performance
+  const handleAddCategory = useCallback(() => {
+    const newCategory = {
+      id: 'new',
+      userId: user?.uid || '',
+      name: 'New Category',
+      allocatedAmount: 0,
+      spentAmount: 0,
+      orderIndex: budget.budgetCategories.length,
+      createdAt: new Date(),
+      color: '#A85C36',
+    };
+    setEditingCategory(newCategory);
+    setShowCategoryModal(true);
+  }, [user?.uid, budget.budgetCategories.length]);
 
-  const { handleSetWeddingDate } = useWeddingBanner(router);
+  const handleViewModeChange = useCallback((newViewMode: 'cards' | 'table') => {
+    setViewMode(newViewMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('budgetViewMode', newViewMode);
+    }
+  }, []);
+
+  const handleSearchQueryChange = useCallback((query: string) => {
+    setBudgetSearchQuery(query);
+  }, []);
+
+  const handleTriggerAddItem = useCallback(() => {
+    setTriggerAddItem(true);
+  }, []);
+
+  const handleCloseItemSideCard = useCallback(() => {
+    setShowItemSideCard(false);
+    setSelectedBudgetItem(null);
+  }, []);
+
+  const handleShowItemSideCard = useCallback((item: any) => {
+    setSelectedBudgetItem(item);
+    setShowItemSideCard(true);
+  }, []);
+
+  const handleEditCategory = useCallback((category: any) => {
+    setEditingCategory(category);
+    setShowCategoryModal(true);
+  }, []);
+
+  const handleDeleteCategory = useCallback((category: any) => {
+    setDeletingCategory(category);
+    setShowDeleteCategoryModal(true);
+  }, []);
+
+  const handleCloseCategoryModal = useCallback(() => {
+    setShowCategoryModal(false);
+    setEditingCategory(null);
+  }, []);
+
+  const handleCloseDeleteCategoryModal = useCallback(() => {
+    setShowDeleteCategoryModal(false);
+    setDeletingCategory(null);
+  }, []);
+
+  const handleCloseLinkVendorModal = useCallback(() => {
+    setShowLinkVendorModal(false);
+    setLinkingBudgetItem(null);
+  }, []);
+
+  const weddingBannerData = useWeddingBanner(router);
 
   if (isLoading) {
     return (
@@ -244,7 +319,7 @@ export default function BudgetPage() {
           daysLeft={null}
           userName={null}
           isLoading={true}
-          onSetWeddingDate={handleSetWeddingDate}
+          onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
         />
         <div className="flex-1 flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
@@ -264,7 +339,7 @@ export default function BudgetPage() {
         daysLeft={daysLeft}
         userName={userName}
         isLoading={profileLoading}
-        onSetWeddingDate={handleSetWeddingDate}
+        onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
       />
       
       <div className="app-content-container flex-1 overflow-hidden">
@@ -273,20 +348,7 @@ export default function BudgetPage() {
           budgetCategories={budget.budgetCategories}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
-          onAddCategory={() => {
-            const newCategory = {
-              id: 'new',
-              userId: user?.uid || '',
-              name: 'New Category',
-              allocatedAmount: 0,
-              spentAmount: 0,
-              orderIndex: budget.budgetCategories.length,
-              createdAt: new Date(),
-              color: '#A85C36',
-            };
-            setEditingCategory(newCategory);
-            setShowCategoryModal(true);
-          }}
+          onAddCategory={handleAddCategory}
           totalSpent={budget.totalSpent}
           totalBudget={budget.userTotalBudget || 0}
           budgetItems={budget.budgetItems}
@@ -299,20 +361,7 @@ export default function BudgetPage() {
               budgetCategories={budget.budgetCategories}
               selectedCategory={selectedCategory}
               setSelectedCategory={setSelectedCategory}
-              onAddCategory={() => {
-                const newCategory = {
-                  id: 'new',
-                  userId: user?.uid || '',
-                  name: 'New Category',
-                  allocatedAmount: 0,
-                  spentAmount: 0,
-                  orderIndex: budget.budgetCategories.length,
-                  createdAt: new Date(),
-                  color: '#A85C36',
-                };
-                setEditingCategory(newCategory);
-                setShowCategoryModal(true);
-              }}
+              onAddCategory={handleAddCategory}
               budgetItems={budget.budgetItems}
             />
 
@@ -323,27 +372,14 @@ export default function BudgetPage() {
                 <BudgetTopBar
                   selectedCategory={selectedCategory}
                   budgetSearchQuery={budgetSearchQuery}
-                  setBudgetSearchQuery={setBudgetSearchQuery}
+                  setBudgetSearchQuery={handleSearchQueryChange}
                   onShowAIAssistant={() => budget.setShowAIAssistant(true)}
                   onShowCSVUpload={() => budget.setShowCSVUpload(true)}
-                  onAddItem={() => {
-                    if (selectedCategory) {
-                      setTriggerAddItem(true);
-                    }
-                  }}
-                  onEditCategory={(category) => {
-                    setEditingCategory(category);
-                    setShowCategoryModal(true);
-                  }}
-                  onDeleteCategory={(category) => {
-                    setDeletingCategory(category);
-                    setShowDeleteCategoryModal(true);
-                  }}
+                  onAddItem={handleTriggerAddItem}
+                  onEditCategory={handleEditCategory}
+                  onDeleteCategory={handleDeleteCategory}
                   viewMode={viewMode}
-                  onViewModeChange={(mode) => {
-                    setViewMode(mode);
-                    localStorage.setItem('budgetViewMode', mode);
-                  }}
+                  onViewModeChange={handleViewModeChange}
                 />
               </div>
 
@@ -436,20 +472,17 @@ export default function BudgetPage() {
                 {showItemSideCard && selectedBudgetItem && (
                   <BudgetItemSideCard
                     isOpen={true}
-                    onClose={() => {
-                      setShowItemSideCard(false);
-                      setSelectedBudgetItem(null);
-                    }}
+                    onClose={handleCloseItemSideCard}
                     budgetItem={selectedBudgetItem}
                     category={selectedCategory}
                     onEdit={() => {
                       budget.setSelectedBudgetItem(selectedBudgetItem);
                       budget.setShowBudgetItemModal(true);
-                      setShowItemSideCard(false);
+                      handleCloseItemSideCard();
                     }}
                     onLinkVendor={() => {
                       openLinkVendorModal(selectedBudgetItem);
-                      setShowItemSideCard(false);
+                      handleCloseItemSideCard();
                     }}
                   />
                 )}
@@ -461,25 +494,8 @@ export default function BudgetPage() {
 
       {/* Floating Action Button (Mobile Only) */}
       <FloatingActionButton
-        onAddItem={() => {
-          if (selectedCategory) {
-            setTriggerAddItem(true);
-          }
-        }}
-        onAddCategory={() => {
-          const newCategory = {
-            id: 'new',
-            userId: user?.uid || '',
-            name: 'New Category',
-            allocatedAmount: 0,
-            spentAmount: 0,
-            orderIndex: budget.budgetCategories.length,
-            createdAt: new Date(),
-            color: '#A85C36',
-          };
-          setEditingCategory(newCategory);
-          setShowCategoryModal(true);
-        }}
+        onAddItem={handleTriggerAddItem}
+        onAddCategory={handleAddCategory}
         selectedCategory={selectedCategory}
       />
 
@@ -524,10 +540,7 @@ export default function BudgetPage() {
       {showLinkVendorModal && linkingBudgetItem && (
         <LinkVendorModal
           isOpen={showLinkVendorModal}
-          onClose={() => {
-            setShowLinkVendorModal(false);
-            setLinkingBudgetItem(null);
-          }}
+          onClose={handleCloseLinkVendorModal}
           onLinkVendor={handleLinkVendor}
           onUnlinkVendor={handleUnlinkVendor}
           budgetItem={linkingBudgetItem}
@@ -550,10 +563,7 @@ export default function BudgetPage() {
       {showCategoryModal && editingCategory && (
         <BudgetCategoryModal
           isOpen={showCategoryModal}
-          onClose={() => {
-            setShowCategoryModal(false);
-            setEditingCategory(null);
-          }}
+          onClose={handleCloseCategoryModal}
           category={editingCategory}
           budgetCategories={budget.budgetCategories}
                           userMaxBudget={budget.userMaxBudget}
@@ -572,14 +582,14 @@ export default function BudgetPage() {
                 });
               }
             }
-            setShowCategoryModal(false);
+            handleCloseCategoryModal();
             setEditingCategory(null);
           }}
           onDelete={editingCategory.id !== 'new' ? (categoryId) => {
             const category = budget.budgetCategories.find(cat => cat.id === categoryId);
             if (category) {
               setDeletingCategory(category);
-              setShowCategoryModal(false);
+              handleCloseCategoryModal();
               setShowDeleteCategoryModal(true);
             }
           } : undefined}
@@ -589,14 +599,11 @@ export default function BudgetPage() {
       {showDeleteCategoryModal && deletingCategory && (
         <DeleteCategoryModal
           isOpen={showDeleteCategoryModal}
-          onClose={() => {
-            setShowDeleteCategoryModal(false);
-            setDeletingCategory(null);
-          }}
+          onClose={handleCloseDeleteCategoryModal}
           category={deletingCategory}
           onDelete={(categoryId) => {
             budget.handleDeleteCategory(categoryId);
-            setShowDeleteCategoryModal(false);
+            handleCloseDeleteCategoryModal();
             setDeletingCategory(null);
           }}
         />

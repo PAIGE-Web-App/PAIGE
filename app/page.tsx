@@ -63,54 +63,9 @@ interface RightDashboardPanelProps {
   setRightPanelSelection: (selection: string | null) => void;
 }
 
-const getRelativeDate = (date: Date): string => {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
+import { getRelativeDate } from '@/utils/dateUtils';
 
-  const isToday =
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear();
-
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
-
-  if (isToday) {
-    return "Today";
-  } else if (isYesterday) {
-    return "Yesterday";
-  } else {
-    return date.toLocaleDateString("en-US", {
-      month: "numeric",
-      day: "numeric",
-      year: "2-digit",
-    });
-  }
-};
-
-const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string) => void; onClose: () => void }) => {
-  const emojis = ['😀', '😁', '😂', '🤣', '😃', '😅', '😆', '🥹', '😊', '😋', '😎', '😍', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😮', '🤐', '😯', '😴', '😫', '😩', '😤', '😡', '😠', '🤬', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
-
-  return (
-    <div className="p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 flex flex-wrap gap-1">
-      {emojis.map((emoji, index) => (
-        <button
-          key={index}
-          className="p-1 text-lg hover:bg-gray-100 rounded"
-          onClick={() => {
-            onEmojiSelect(emoji);
-            onClose();
-          }}
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
-  );
-};
+import EmojiPicker from '@/components/EmojiPicker';
 
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
@@ -154,22 +109,8 @@ const MessagesSkeleton = () => (
   </div>
 );
 
-// Utility to remove undefined fields from an object
-function removeUndefinedFields<T extends object>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([_, v]) => v !== undefined)
-  ) as Partial<T>;
-}
-
-// Utility to parse a yyyy-MM-ddTHH:mm string as a local Date
-function parseLocalDateTime(input: string): Date {
-  if (typeof input !== 'string') return new Date(NaN);
-  const [datePart, timePart] = input.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hour = 17, minute = 0] = (timePart ? timePart.split(':').map(Number) : [17, 0]);
-  // Always create a local date
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-}
+import { removeUndefinedFields } from '@/utils/arrayUtils';
+import { parseLocalDateTime } from '@/utils/dateUtils';
 
 // Add triggerGmailImport function
 const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
