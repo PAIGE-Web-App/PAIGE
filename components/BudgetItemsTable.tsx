@@ -141,9 +141,9 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
           <div className="col-span-3">Item Name</div>
           <div className="col-span-2">Amount</div>
-          <div className="col-span-3">Notes</div>
+          <div className="col-span-2">Notes</div>
           <div className="col-span-2">Vendor</div>
-          <div className="col-span-1 text-center">Assignees</div>
+          <div className="col-span-2 text-center">Assignees</div>
           <div className="col-span-1 text-center">Actions</div>
         </div>
       </div>
@@ -214,7 +214,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 </div>
 
                 {/* Notes */}
-                <div className="col-span-3 flex items-center">
+                <div className="col-span-2 flex items-center">
                   <EditableField
                     value={item.notes || ''}
                     isEditing={editingCell?.itemId === item.id && editingCell?.field === 'notes'}
@@ -258,7 +258,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                 </div>
 
                 {/* Assignees */}
-                <div className="col-span-1 flex items-center justify-center">
+                <div className="col-span-2 flex items-center justify-center">
                   {item.assignedTo && (Array.isArray(item.assignedTo) ? item.assignedTo.length > 0 : item.assignedTo) ? (
                     <button
                       onClick={(e) => {
@@ -269,7 +269,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                       title="Click to reassign"
                     >
                       <div className="flex items-center -space-x-1">
-                        {(Array.isArray(item.assignedTo) ? item.assignedTo : [item.assignedTo]).slice(0, 2).map((assigneeId, index) => {
+                        {(Array.isArray(item.assignedTo) ? item.assignedTo : [item.assignedTo]).slice(0, 4).map((assigneeId, index) => {
                           // Get assignee info for each ID
                           let assigneeName = '';
                           let assigneeProfileImageUrl: string | undefined = undefined;
@@ -306,9 +306,9 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                           );
                         })}
                       </div>
-                      {Array.isArray(item.assignedTo) && item.assignedTo.length > 2 && (
+                      {Array.isArray(item.assignedTo) && item.assignedTo.length > 4 && (
                         <div className="ml-1 w-4 h-4 rounded-full bg-[#A85C36] text-white text-xs font-medium flex items-center justify-center border border-white">
-                          +{item.assignedTo.length - 2}
+                          +{item.assignedTo.length - 4}
                         </div>
                       )}
                     </button>

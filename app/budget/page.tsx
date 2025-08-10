@@ -394,6 +394,9 @@ export default function BudgetPage() {
                 totalBudget={budget.userTotalBudget}
                 totalSpent={budget.totalSpent}
                 maxBudget={budget.userMaxBudget}
+                budgetItems={selectedCategory ? budget.budgetItems.filter((item: any) => 
+                  item.categoryId === selectedCategory.id
+                ) : []}
                 onEditCategory={(category) => {
                   setEditingCategory(category);
                   setJiggleAllocatedAmount(true);
