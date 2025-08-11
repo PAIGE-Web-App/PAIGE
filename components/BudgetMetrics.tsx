@@ -109,8 +109,8 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
 
   return (
     <div className="bg-white border-b border-[#AB9C95]">
-      {/* Budget Overview Cards */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 p-4">
+              {/* Budget Overview Cards */}
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 p-4">
         {/* Category Budget Card */}
         {selectedCategory && (
           <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 h-40 w-full">
@@ -162,7 +162,11 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                      cy="50"
                      r="42"
                      fill="none"
-                     stroke="#E0DBD7"
+                     stroke={(() => {
+                       const totalBudgetAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+                       const isOverBudget = totalBudgetAmount > selectedCategory.allocatedAmount;
+                       return isOverBudget ? "#dc2626" : "#E0DBD7";
+                     })()}
                      strokeWidth="7"
                    />
                  </svg>
@@ -170,64 +174,84 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
                  {/* Render each budget item as a colored segment using SVG for proper doughnut chart */}
                   {budgetItems.length > 0 && selectedCategory.allocatedAmount > 0 && (
                     <svg className="absolute inset-0 w-20 h-20" viewBox="0 0 100 100">
-                      {budgetItems.map((item, index) => {
-                        const itemPercentage = (item.amount / selectedCategory.allocatedAmount) * 100;
-                        const previousItemsTotal = budgetItems.slice(0, index).reduce((sum, prevItem) => 
-                          sum + (prevItem.amount / selectedCategory.allocatedAmount) * 100, 0
-                        );
-                        const startAngle = (previousItemsTotal / 100) * 360;
-                        const endAngle = ((previousItemsTotal + itemPercentage) / 100) * 360;
+                      {(() => {
+                        const totalBudgetAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+                        const isOverBudget = totalBudgetAmount > selectedCategory.allocatedAmount;
                         
-                        // Color palette from your theme
-                        const colors = [
-                          '#2563eb', '#16a34a', '#9333ea', 
-                          '#ea580c', '#4f46e5', '#0d9488',
-                          '#db2777', '#84cc16', '#d97706', 
-                          '#dc2626', '#A85C36'
-                        ];
-                        const color = colors[index % colors.length];
+                        // If over budget, show a solid red doughnut
+                        if (isOverBudget) {
+                          return (
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r="42"
+                              fill="none"
+                              stroke="#dc2626"
+                              strokeWidth="7"
+                            />
+                          );
+                        }
                         
-                        // Calculate SVG arc path for doughnut segments (not filled pie slices)
-                        const outerRadius = 42;
-                        const innerRadius = 35; // Create the doughnut hole
-                        const centerX = 50;
-                        const centerY = 50;
-                        
-                        const startRadians = (startAngle - 90) * Math.PI / 180;
-                        const endRadians = (endAngle - 90) * Math.PI / 180;
-                        
-                        // Calculate outer arc points
-                        const x1Outer = centerX + outerRadius * Math.cos(startRadians);
-                        const y1Outer = centerY + outerRadius * Math.sin(startRadians);
-                        const x2Outer = centerX + outerRadius * Math.cos(endRadians);
-                        const y2Outer = centerY + outerRadius * Math.sin(endRadians);
-                        
-                        // Calculate inner arc points
-                        const x1Inner = centerX + innerRadius * Math.cos(startRadians);
-                        const y1Inner = centerY + innerRadius * Math.sin(startRadians);
-                        const x2Inner = centerX + innerRadius * Math.cos(endRadians);
-                        const y2Inner = centerY + innerRadius * Math.sin(endRadians);
-                        
-                        const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
-                        
-                        // Create doughnut segment path (not filled pie slice)
-                        const pathData = [
-                          `M ${x1Outer} ${y1Outer}`,
-                          `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2Outer} ${y2Outer}`,
-                          `L ${x2Inner} ${y2Inner}`,
-                          `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x1Inner} ${y1Inner}`,
-                          'Z'
-                        ].join(' ');
-                        
-                        return (
-                          <path
-                            key={item.id}
-                            d={pathData}
-                            fill={color}
-                            stroke="none"
-                          />
-                        );
-                      })}
+                        // Normal budget breakdown when under/at budget
+                        return budgetItems.map((item, index) => {
+                          const itemPercentage = (item.amount / selectedCategory.allocatedAmount) * 100;
+                          const previousItemsTotal = budgetItems.slice(0, index).reduce((sum, prevItem) => 
+                            sum + (prevItem.amount / selectedCategory.allocatedAmount) * 100, 0
+                          );
+                          const startAngle = (previousItemsTotal / 100) * 360;
+                          const endAngle = ((previousItemsTotal + itemPercentage) / 100) * 360;
+                          
+                          // Color palette from your theme
+                          const colors = [
+                            '#2563eb', '#16a34a', '#9333ea', 
+                            '#ea580c', '#4f46e5', '#0d9488',
+                            '#db2777', '#84cc16', '#d97706', 
+                            '#dc2626', '#A85C36'
+                          ];
+                          const color = colors[index % colors.length];
+                          
+                          // Calculate SVG arc path for doughnut segments (not filled pie slices)
+                          const outerRadius = 42;
+                          const innerRadius = 35; // Create the doughnut hole
+                          const centerX = 50;
+                          const centerY = 50;
+                          
+                          const startRadians = (startAngle - 90) * Math.PI / 180;
+                          const endRadians = (endAngle - 90) * Math.PI / 180;
+                          
+                          // Calculate outer arc points
+                          const x1Outer = centerX + outerRadius * Math.cos(startRadians);
+                          const y1Outer = centerY + outerRadius * Math.sin(startRadians);
+                          const x2Outer = centerX + outerRadius * Math.cos(endRadians);
+                          const y2Outer = centerY + outerRadius * Math.sin(endRadians);
+                          
+                          // Calculate inner arc points
+                          const x1Inner = centerX + innerRadius * Math.cos(startRadians);
+                          const y1Inner = centerY + innerRadius * Math.sin(startRadians);
+                          const x2Inner = centerX + innerRadius * Math.cos(endRadians);
+                          const y2Inner = centerY + innerRadius * Math.sin(endRadians);
+                          
+                          const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+                          
+                          // Create doughnut segment path (not filled pie slice)
+                          const pathData = [
+                            `M ${x1Outer} ${y1Outer}`,
+                            `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2Outer} ${y2Outer}`,
+                            `L ${x2Inner} ${y2Inner}`,
+                            `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x1Inner} ${y1Inner}`,
+                            'Z'
+                          ].join(' ');
+                          
+                          return (
+                            <path
+                              key={item.id}
+                              d={pathData}
+                              fill={color}
+                              stroke="none"
+                            />
+                          );
+                        });
+                      })()}
                     </svg>
                   )}
                  
@@ -278,7 +302,11 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
             </div>
              <div className="text-center">
                <div className="text-xs text-[#AB9C95]">
-                 Hover over chart for details
+                 {(() => {
+                   const totalBudgetAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+                   const isOverBudget = totalBudgetAmount > selectedCategory.allocatedAmount;
+                   return isOverBudget ? "Over budget - hover for details" : "Hover over chart for details";
+                 })()}
                </div>
              </div>
           </div>
@@ -306,44 +334,30 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           </div>
         </div>
 
-        {/* Remaining Card */}
-        <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full">
-          <h3 className="text-sm font-medium text-[#AB9C95] mb-2">
-            {selectedCategory ? 'Remaining Budget' : 'Remaining Budget'}
-          </h3>
-          <div className="text-lg font-bold text-[#332B42] mb-1">
-            <span className={animatingValues.totalBudget ? 'animate-value-update' : ''}>
-              {formatCurrency(remaining)}
-            </span>
-          </div>
-          <div className="budget-status-text text-green-600">
-            On track
-          </div>
-        </div>
-
-        {/* Max Budget Card */}
+        {/* Combined Remaining/Max Budget Card */}
         {maxBudget && (
-          <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-[#AB9C95]">Max Budget</h3>
-              <button 
-                onClick={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
-                className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors"
-                title="Update in settings"
-              >
-                <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
-                  ✏️
-                </span>
-              </button>
-            </div>
+          <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full relative">
+            <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Remaining Budget</h3>
             <div className="text-lg font-bold text-[#332B42] mb-1">
-              <span className={animatingValues.maxBudget ? 'animate-value-update' : ''}>
-                {formatCurrency(maxBudget)}
+              <span className={animatingValues.totalBudget ? 'animate-value-update' : ''}>
+                {formatCurrency(remaining)}
               </span>
             </div>
-            <div className="text-sm text-[#AB9C95]">
-              Maximum spending limit
+            <div className="text-xs text-[#AB9C95] mb-2">
+              / {formatCurrency(maxBudget)}
             </div>
+            <div className="budget-status-text text-green-600">
+              On track
+            </div>
+            <button 
+              onClick={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
+              className="absolute top-3 right-3 p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors"
+              title="Update in settings"
+            >
+              <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
+                ✏️
+              </span>
+            </button>
           </div>
         )}
       </div>
