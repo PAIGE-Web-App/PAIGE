@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   BudgetMetricsCard,
@@ -6,7 +6,7 @@ import {
   BudgetProgressBar,
   CategoryBudgetCard,
   RemainingBudgetCard
-} from './budget';
+} from './index';
 
 interface BudgetMetricsProps {
   selectedCategory: any;
@@ -17,7 +17,7 @@ interface BudgetMetricsProps {
   onEditCategory?: (category: any) => void;
 }
 
-const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
+const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   selectedCategory,
   totalBudget,
   totalSpent,
@@ -44,6 +44,28 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
     totalBudget: totalBudget || 0,
     maxBudget: maxBudget || 0,
   });
+  
+  // Memoized calculations
+  const remaining = useMemo(() => (maxBudget || 0) - totalSpent, [maxBudget, totalSpent]);
+  
+  const categorySpent = useMemo(() => 
+    selectedCategory?.spentAmount || 0, 
+    [selectedCategory?.spentAmount]
+  );
+  
+  const categoryRemaining = useMemo(() => 
+    selectedCategory?.allocatedAmount - categorySpent, 
+    [selectedCategory?.allocatedAmount, categorySpent]
+  );
+  
+  // Memoized callbacks
+  const handleCategoryEdit = useCallback(() => {
+    onEditCategory?.(selectedCategory);
+  }, [onEditCategory, selectedCategory]);
+  
+  const handleMaxBudgetEdit = useCallback(() => {
+    router.push('/settings?tab=wedding&highlight=maxBudget');
+  }, [router]);
   
   // Check for value changes and trigger animations
   useEffect(() => {
@@ -73,8 +95,6 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
     }
   }, [selectedCategory?.allocatedAmount, totalBudget, maxBudget]);
 
-  const remaining = (maxBudget || 0) - totalSpent;
-
   return (
     <div className="bg-white border-b border-[#AB9C95]">
       {/* Budget Overview Cards */}
@@ -84,9 +104,9 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           <CategoryBudgetCard
             categoryName={selectedCategory.name}
             allocatedAmount={selectedCategory.allocatedAmount}
-            totalSpent={selectedCategory.spentAmount || 0}
-            remaining={selectedCategory.allocatedAmount - (selectedCategory.spentAmount || 0)}
-            onEdit={() => onEditCategory?.(selectedCategory)}
+            totalSpent={categorySpent}
+            remaining={categoryRemaining}
+            onEdit={handleCategoryEdit}
           />
         )}
         
@@ -115,7 +135,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           <RemainingBudgetCard
             remaining={remaining}
             maxBudget={maxBudget}
-            onEdit={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
+            onEdit={handleMaxBudgetEdit}
           />
         )}
       </div>
@@ -128,6 +148,8 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
       )}
     </div>
   );
-};
+});
 
-export default BudgetMetrics; 
+BudgetMetrics.displayName = 'BudgetMetrics';
+
+export default BudgetMetrics;
