@@ -312,9 +312,9 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           </div>
         )}
         
-        {/* Progress Bar Card */}
-        <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full">
-          <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Budget Progress</h3>
+                    {/* Progress Bar Card */}
+            <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full">
+              <h3 className="text-sm font-medium text-[#AB9C95] mb-2">Overall Budget</h3>
           <div className="text-lg font-bold text-[#332B42] mb-2">
             {formatCurrency(totalSpent)} <span className="text-sm font-normal text-[#AB9C95]">Spent</span>
           </div>
