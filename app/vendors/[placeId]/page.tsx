@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck } from 'lucide-react';
 import VendorContactModal from '@/components/VendorContactModal';
+import FlagVendorModal from '@/components/FlagVendorModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import Breadcrumb from '@/components/Breadcrumb';
 import CategoryPill from '@/components/CategoryPill';
@@ -68,6 +69,9 @@ export default function VendorDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
+  const [selectedVendorForContact, setSelectedVendorForContact] = useState<any>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isOfficialVendor, setIsOfficialVendor] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -617,6 +621,40 @@ export default function VendorDetailPage() {
     }
   };
 
+  // Flag modal handlers
+  const handleShowFlagModal = (vendor: any) => {
+    setSelectedVendorForFlag(vendor);
+    setShowFlagModal(true);
+  };
+
+  const handleFlagVendor = async (reason: string, customReason?: string) => {
+    if (!selectedVendorForFlag) return;
+    
+    try {
+      const response = await fetch('/api/flag-vendor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorId: selectedVendorForFlag.id,
+          vendorName: selectedVendorForFlag.name,
+          reason,
+          customReason
+        })
+      });
+
+      if (response.ok) {
+        showSuccessToast('Vendor flagged successfully');
+        setShowFlagModal(false);
+        setSelectedVendorForFlag(null);
+      } else {
+        showErrorToast('Failed to flag vendor');
+      }
+    } catch (error) {
+      console.error('Error flagging vendor:', error);
+      showErrorToast('Failed to flag vendor');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-linen">
@@ -860,6 +898,11 @@ export default function VendorDetailPage() {
                 currentVendorId={vendor.id}
                 category={vendor.category}
                 location={userWeddingLocation || location}
+                onShowFlagModal={handleShowFlagModal}
+                onShowContactModal={(vendor) => {
+                  setSelectedVendorForContact(vendor);
+                  setShowContactModal(true);
+                }}
               />
                 </div>
 
@@ -877,11 +920,27 @@ export default function VendorDetailPage() {
       </div>
 
       {/* Contact Modal */}
-      {showContactModal && vendor && (
+      {showContactModal && selectedVendorForContact && (
         <VendorContactModal
-          vendor={vendor}
+          vendor={selectedVendorForContact}
           isOpen={showContactModal}
-          onClose={() => setShowContactModal(false)}
+          onClose={() => {
+            setShowContactModal(false);
+            setSelectedVendorForContact(null);
+          }}
+        />
+      )}
+
+      {/* Flag Modal */}
+      {showFlagModal && selectedVendorForFlag && (
+        <FlagVendorModal
+          vendor={selectedVendorForFlag}
+          onClose={() => {
+            setShowFlagModal(false);
+            setSelectedVendorForFlag(null);
+          }}
+          onSubmit={handleFlagVendor}
+          isSubmitting={false}
         />
       )}
 

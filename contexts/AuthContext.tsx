@@ -2,12 +2,15 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { getUserWithRole } from '@/utils/userRoleMigration';
+import { UserRole, UserType, UserPermissions, UserSubscription } from '@/types/user';
 
 const PROFILE_IMAGE_KEY = 'paige_profile_image_url';
 const PROFILE_IMAGE_LQIP_KEY = 'paige_profile_image_lqip';
 
+// Extend the existing context with role information
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -17,6 +20,15 @@ interface AuthContextType {
   profileImageLQIP: string | null;
   setProfileImageLQIP: (lqip: string | null) => void;
   updateUser: (newUserData: Partial<{ userName: string; profileImageUrl: string; profileImageLQIP: string }>) => void;
+  
+  // New role system fields
+  userRole: UserRole;
+  userType: UserType;
+  permissions: UserPermissions | null;
+  subscription: UserSubscription | null;
+  isAdmin: boolean;
+  canAccessAdmin: boolean;
+  refreshUserRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,6 +40,15 @@ const AuthContext = createContext<AuthContextType>({
   profileImageLQIP: null,
   setProfileImageLQIP: () => {},
   updateUser: () => {},
+  
+  // New role system fields
+  userRole: 'couple' as UserRole,
+  userType: 'couple' as UserType,
+  permissions: null,
+  subscription: null,
+  isAdmin: false,
+  canAccessAdmin: false,
+  refreshUserRole: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -40,21 +61,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileImageLQIP, setProfileImageLQIPState] = useState<string | null>(
     typeof window !== 'undefined' ? localStorage.getItem(PROFILE_IMAGE_LQIP_KEY) : null
   );
+  
+  // Role system state
+  const [userRole, setUserRole] = useState<UserRole>('couple');
+  const [userType, setUserType] = useState<UserType>('couple');
+  const [permissions, setPermissions] = useState<UserPermissions | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [canAccessAdmin, setCanAccessAdmin] = useState(false);
 
   // Always prefer Firestore value over localStorage after Firestore loads
   useEffect(() => {
     if (!loading && user) {
       (async () => {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserName(data.userName || user.displayName || 'User');
-          setProfileImageUrlState(data.profileImageUrl || null);
-          setProfileImageLQIPState(data.profileImageLQIP || null);
-        } else {
+        try {
+          // Use the new role-aware user fetching
+          const userData = await getUserWithRole(user.uid);
+          if (userData) {
+            setUserName(userData.userName || user.displayName || 'User');
+            setProfileImageUrlState(userData.profileImageUrl || null);
+            setProfileImageLQIPState(userData.profileImageLQIP || null);
+            
+            // Set role system data
+            setUserRole(userData.role || 'couple');
+            setUserType(userData.userType || 'couple');
+            setPermissions(userData.permissions || null);
+            setSubscription(userData.subscription || null);
+            
+            // Calculate admin access
+            const adminRoles = ['moderator', 'admin', 'super_admin'];
+            const isUserAdmin = adminRoles.includes(userData.role);
+            setIsAdmin(isUserAdmin);
+            setCanAccessAdmin(isUserAdmin);
+          } else {
+            setUserName(user.displayName || 'User');
+            setProfileImageUrlState(null);
+            setProfileImageLQIPState(null);
+            
+            // Set default role system data
+            setUserRole('couple');
+            setUserType('couple');
+            setPermissions(null);
+            setSubscription(null);
+            setIsAdmin(false);
+            setCanAccessAdmin(false);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // Fallback to basic user data
           setUserName(user.displayName || 'User');
           setProfileImageUrlState(null);
           setProfileImageLQIPState(null);
+          
+          // Set default role system data
+          setUserRole('couple');
+          setUserType('couple');
+          setPermissions(null);
+          setSubscription(null);
+          setIsAdmin(false);
+          setCanAccessAdmin(false);
         }
       })();
     }
@@ -106,6 +171,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Function to force refresh user role data
+  const refreshUserRole = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('🔄 Refreshing user role data...');
+      const userData = await getUserWithRole(user.uid);
+      if (userData) {
+        setUserName(userData.userName || user.displayName || 'User');
+        setProfileImageUrlState(userData.profileImageUrl || null);
+        setProfileImageLQIPState(userData.profileImageLQIP || null);
+        
+        // Set role system data
+        setUserRole(userData.role || 'couple');
+        setUserType(userData.userType || 'couple');
+        setPermissions(userData.permissions || null);
+        setSubscription(userData.subscription || null);
+        
+        // Calculate admin access
+        const adminRoles = ['moderator', 'admin', 'super_admin'];
+        const isUserAdmin = adminRoles.includes(userData.role);
+        setIsAdmin(isUserAdmin);
+        setCanAccessAdmin(isUserAdmin);
+        
+        console.log('✅ Role refreshed:', userData.role, 'Admin:', isUserAdmin);
+      }
+    } catch (error) {
+      console.error('Error refreshing user role:', error);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
@@ -120,7 +216,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, userName, profileImageUrl, setProfileImageUrl, profileImageLQIP, setProfileImageLQIP, updateUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      userName, 
+      profileImageUrl, 
+      setProfileImageUrl, 
+      profileImageLQIP, 
+      setProfileImageLQIP, 
+      updateUser,
+      userRole,
+      userType,
+      permissions,
+      subscription,
+      isAdmin,
+      canAccessAdmin,
+      refreshUserRole
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -20,7 +20,7 @@ export default function MyFavoritesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { weddingLocation } = useUserProfileData();
-  const { favorites, isLoading: favoritesLoading, syncFavorites } = useFavorites();
+  const { favorites, isLoading: favoritesLoading, refreshFavorites } = useFavorites();
   
   const [vendors, setVendors] = useState<any[]>([]);
   const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
@@ -345,7 +345,7 @@ export default function MyFavoritesPage() {
               </div>
               <div className="mt-4 flex gap-2">
                 <button
-                  onClick={syncFavorites}
+                  onClick={refreshFavorites}
                   className="bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                 >
                   Sync Favorites

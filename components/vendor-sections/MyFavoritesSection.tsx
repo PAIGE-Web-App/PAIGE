@@ -10,24 +10,40 @@ interface MyFavoritesSectionProps {
   defaultLocation: string;
   onContact?: (vendor: any) => void;
   onFlagged?: (vendorId: string) => void;
+  onShowContactModal?: (vendor: any) => void;
+  onShowFlagModal?: (vendor: any) => void;
 }
 
 export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
   vendors,
   defaultLocation,
   onContact,
-  onFlagged
+  onFlagged,
+  onShowContactModal,
+  onShowFlagModal
 }) => {
   const router = useRouter();
 
   if (vendors.length === 0) {
-    return null;
+    return (
+      <section className="mb-8">
+        <div className="text-center py-12">
+          <div className="text-gray-500 mb-4">No favorite vendors yet</div>
+          <button 
+            className="btn-primary"
+            onClick={() => router.push('/vendors/catalog')}
+          >
+            Browse Vendor Catalog
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
     <section className="mb-8">
       {/* 2x4 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {vendors.slice(0, 8).map((vendor) => (
           <div key={vendor.id} className="w-full">
             <VendorCatalogCard
@@ -39,6 +55,8 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
               isFavoriteOverride={true}
               location={defaultLocation}
               category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+              onShowContactModal={onShowContactModal}
+              onShowFlagModal={onShowFlagModal}
             />
           </div>
         ))}

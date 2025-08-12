@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
@@ -28,11 +28,16 @@ import {
   convertVendorToCatalogFormat,
   mapGoogleTypesToCategory
 } from '@/utils/vendorUtils';
+import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection';
 import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
 import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import VendorTabs from '@/components/VendorTabs';
+import FlagVendorModal from '@/components/FlagVendorModal';
+import VendorContactModal from '@/components/VendorContactModal';
+import { AdminNavigation } from '@/components/AdminNavigation';
+
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -116,8 +121,117 @@ export default function VendorsPage() {
   const [vendorSearch, setVendorSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [selectedVendorForContact, setSelectedVendorForContact] = useState<any>(null);
+  const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
 
-  const [favoriteVendors, setFavoriteVendors] = useState<any[]>([]);
+  // Temporary: Use localStorage directly until we fix the SSR issue
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  
+  // Helper function to get favorites from localStorage
+  const getFavorites = useCallback(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+    } catch {
+      return [];
+    }
+  }, []);
+  
+  // Helper function to check if a vendor is favorited
+  const isFavorite = useCallback((placeId: string) => {
+    return favorites.includes(placeId);
+  }, [favorites]);
+
+  // Flag modal handlers
+  const handleShowFlagModal = (vendor: any) => {
+    setSelectedVendorForFlag(vendor);
+    setShowFlagModal(true);
+  };
+
+  const handleFlagVendor = async (reason: string, customReason?: string) => {
+    if (!selectedVendorForFlag) return;
+    
+    try {
+      const response = await fetch('/api/flag-vendor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorId: selectedVendorForFlag.id,
+          vendorName: selectedVendorForFlag.name,
+          reason,
+          customReason
+        })
+      });
+
+      if (response.ok) {
+        showSuccessToast('Vendor flagged successfully');
+        setShowFlagModal(false);
+        setSelectedVendorForFlag(null);
+      } else {
+        showErrorToast('Failed to flag vendor');
+      }
+    } catch (error) {
+      console.error('Error flagging vendor:', error);
+      showErrorToast('Failed to flag vendor');
+    }
+  };
+
+  // Contact modal handlers
+  const handleShowContactModal = (vendor: any) => {
+    setSelectedVendorForContact(vendor);
+    setShowContactModal(true);
+  };
+  
+  // Load favorites from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const localFavorites = getFavorites();
+      setFavorites(localFavorites);
+    }
+  }, [getFavorites]);
+
+  // Listen for favorites changes from other components
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleFavoritesChange = (event: CustomEvent) => {
+      if (event.detail?.favorites) {
+        console.log('🔄 Favorites changed, updating state:', event.detail.favorites);
+        setFavorites(event.detail.favorites);
+      }
+    };
+
+    const handleStorageChange = () => {
+      const localFavorites = getFavorites();
+      console.log('🔄 Storage changed, updating favorites:', localFavorites);
+      setFavorites(localFavorites);
+    };
+
+    const handleRecentlyViewedChange = () => {
+      // Force a re-render when recently viewed vendors change
+      console.log('🔄 Recently viewed vendors changed, updating favorites calculation');
+      setFavorites(prev => [...prev]); // Trigger re-render
+    };
+
+    window.addEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Listen for changes to recently viewed vendors
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'paige_recently_viewed_vendors') {
+        handleRecentlyViewedChange();
+      }
+    });
+    
+    return () => {
+      window.removeEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [getFavorites]);
+  
   const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -168,7 +282,53 @@ export default function VendorsPage() {
 
   // Filtered, searched, and sorted favorites
   const filteredFavorites = useMemo(() => {
-    let filtered = favoriteVendors.filter((v) => {
+    // Get recently viewed vendors from localStorage
+    const getRecentlyViewedVendors = () => {
+      if (typeof window === 'undefined') return [];
+      try {
+        return JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
+      } catch {
+        return [];
+      }
+    };
+    
+    const recentlyViewedVendors = getRecentlyViewedVendors();
+    
+    // Get favorite vendors from both the main vendors list and recently viewed vendors
+    const favoriteVendorsFromMain = vendors.filter(v => isFavorite(v.id) || isFavorite(v.placeId));
+    const favoriteVendorsFromRecent = recentlyViewedVendors.filter(v => isFavorite(v.id) || isFavorite(v.placeId));
+    
+    // Create a map to track unique vendors by placeId (preferred) or id
+    const uniqueVendorsMap = new Map();
+    
+    // Add vendors from main list first (these are more complete)
+    favoriteVendorsFromMain.forEach(vendor => {
+      const key = vendor.placeId || vendor.id;
+      if (key && !uniqueVendorsMap.has(key)) {
+        uniqueVendorsMap.set(key, vendor);
+      }
+    });
+    
+    // Add vendors from recently viewed only if not already present
+    favoriteVendorsFromRecent.forEach(vendor => {
+      const key = vendor.placeId || vendor.id;
+      if (key && !uniqueVendorsMap.has(key)) {
+        uniqueVendorsMap.set(key, vendor);
+      }
+    });
+    
+    const allFavoriteVendors = Array.from(uniqueVendorsMap.values());
+    
+    console.log('🔄 Calculating filtered favorites:', {
+      totalVendors: vendors.length,
+      totalFavorites: favorites.length,
+      favoriteVendorsFromMain: favoriteVendorsFromMain.length,
+      favoriteVendorsFromRecent: favoriteVendorsFromRecent.length,
+      allFavoriteVendors: allFavoriteVendors.length,
+      favorites: favorites
+    });
+    
+    let filtered = allFavoriteVendors.filter((v) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
       const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -207,17 +367,27 @@ export default function VendorsPage() {
       default:
         return filtered;
     }
-  }, [favoriteVendors, selectedCategories, vendorSearch, sortOption]);
+  }, [vendors, favorites, isFavorite, selectedCategories, vendorSearch, sortOption]);
 
   useEffect(() => {
     if (user?.uid) {
       setIsLoading(true);
-      getAllVendors(user.uid).then((data) => {
+      getAllVendors(user.uid).then(async (data) => {
         console.log('🏪 Vendor Hub - Loaded vendors from Firestore:', JSON.stringify(data, null, 2));
         console.log('🏪 Vendor Hub - Vendor images:', data.map(v => ({ name: v.name, image: v.image, placeId: v.placeId })));
         
+        // Enhance vendors with high-quality images
+        let enhancedVendors = data;
+        try {
+          enhancedVendors = await enhanceVendorsWithImages(data);
+          console.log('🏪 Vendor Hub - Enhanced vendors with images:', enhancedVendors.map(v => ({ name: v.name, image: v.image, hasRealImages: (v as any).hasRealImages })));
+        } catch (error) {
+          console.error('Error enhancing vendors with images:', error);
+          // Continue with unenhanced vendors if enhancement fails
+        }
+        
         // Sort vendors by most recently added first
-        const sortedVendors = data.sort((a, b) => {
+        const sortedVendors = enhancedVendors.sort((a, b) => {
           // Use orderIndex if available (negative timestamp for recent first)
           if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
             return a.orderIndex - b.orderIndex;
@@ -249,76 +419,7 @@ export default function VendorsPage() {
 
 
 
-  // Helper to get favorite vendor IDs from localStorage
-  function getFavoriteVendorIds() {
-    if (typeof window === 'undefined') return [];
-    try {
-      return JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-    } catch {
-      return [];
-    }
-  }
-
-  // Update favorite vendors when vendors or favorites change
-  useEffect(() => {
-    const updateFavorites = () => {
-      const favIds = getFavoriteVendorIds();
-      
-      // Get recently viewed vendors from localStorage
-      const getRecentlyViewedVendors = () => {
-        if (typeof window === 'undefined') return [];
-        try {
-          return JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
-        } catch {
-          return [];
-        }
-      };
-      
-      const recentlyViewedVendors = getRecentlyViewedVendors();
-      
-      // Find vendor data in user's vendors list
-      const favsFromUserVendors = favIds
-        .map((id: string) => vendors.find((v) => v.id === id || v.placeId === id))
-        .filter(Boolean);
-      
-      // Find vendor data in recently viewed vendors list
-      const favsFromRecentlyViewed = favIds
-        .map((id: string) => recentlyViewedVendors.find((v) => v.id === id || v.placeId === id))
-        .filter(Boolean);
-      
-      // Create a map to track unique vendors by placeId (preferred) or id
-      const uniqueVendorsMap = new Map();
-      
-      // Add vendors from user's list first (these are more complete)
-      favsFromUserVendors.forEach(vendor => {
-        const key = vendor.placeId || vendor.id;
-        if (key && !uniqueVendorsMap.has(key)) {
-          uniqueVendorsMap.set(key, vendor);
-        }
-      });
-      
-      // Add vendors from recently viewed only if not already present
-      favsFromRecentlyViewed.forEach(vendor => {
-        const key = vendor.placeId || vendor.id;
-        if (key && !uniqueVendorsMap.has(key)) {
-          uniqueVendorsMap.set(key, vendor);
-        }
-      });
-      
-      const allFavs = Array.from(uniqueVendorsMap.values());
-      setFavoriteVendors(allFavs);
-    };
-    updateFavorites();
-    
-    // Listen for both storage events (from other tabs) and custom events (from same tab)
-    window.addEventListener('storage', updateFavorites);
-    window.addEventListener('vendorFavoritesChanged', updateFavorites);
-    
-    return () => {
-      window.removeEventListener('storage', updateFavorites);
-      window.removeEventListener('vendorFavoritesChanged', updateFavorites);
-    };
-  }, [vendors]);
+  // The useFavorites hook now handles all favorites management
 
   // Helper function to identify Firestore document IDs
   const isFirestoreDocumentId = (category) => {
@@ -402,6 +503,11 @@ export default function VendorsPage() {
     };
   }, [showSortMenu]);
 
+  const handleContactAdded = () => {
+    setAddContactModal(false);
+    showSuccessToast('Contact added successfully!');
+  };
+
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner
@@ -410,6 +516,10 @@ export default function VendorsPage() {
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
+      
+      {/* Admin Navigation - Only shows for admin users */}
+      <AdminNavigation />
+      
       <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative">
         {/* Vendor Hub Header */}
         <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
@@ -430,6 +540,8 @@ export default function VendorsPage() {
             onFlagged={(vendorId) => {
               // Handle flagged action
             }}
+            onShowContactModal={handleShowContactModal}
+            onShowFlagModal={handleShowFlagModal}
           />
 
           {/* Vendor Tabs and Action Buttons Row */}
@@ -560,6 +672,8 @@ export default function VendorsPage() {
               onFlagged={(vendorId) => {
                 // Handle flagged action
               }}
+              onShowContactModal={handleShowContactModal}
+              onShowFlagModal={handleShowFlagModal}
             />
           )}
 
@@ -573,6 +687,8 @@ export default function VendorsPage() {
               onFlagged={(vendorId) => {
                 // Handle flagged action
               }}
+              onShowContactModal={handleShowContactModal}
+              onShowFlagModal={handleShowFlagModal}
             />
           )}
         </div>
@@ -614,18 +730,39 @@ export default function VendorsPage() {
         </div>
       )}
       
-      {addContactModal && user?.uid && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <AddContactModal
-            userId={user.uid}
-            onClose={() => setAddContactModal(false)}
-            onSave={(newContact) => {
-              // This should add a contact person, not a vendor
-              setAddContactModal(false);
-              showSuccessToast(`Contact "${newContact.name}" added successfully!`);
-            }}
-          />
-        </div>
+      {/* Add Contact Modal */}
+      {addContactModal && (
+        <AddContactModal
+          isOpen={addContactModal}
+          onClose={() => setAddContactModal(false)}
+          onContactAdded={handleContactAdded}
+          defaultLocation={defaultLocation}
+        />
+      )}
+
+      {/* Flag Modal */}
+      {showFlagModal && selectedVendorForFlag && (
+        <FlagVendorModal
+          vendor={selectedVendorForFlag}
+          onClose={() => {
+            setShowFlagModal(false);
+            setSelectedVendorForFlag(null);
+          }}
+          onSubmit={handleFlagVendor}
+          isSubmitting={false}
+        />
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && selectedVendorForContact && (
+        <VendorContactModal
+          vendor={selectedVendorForContact}
+          isOpen={showContactModal}
+          onClose={() => {
+            setShowContactModal(false);
+            setSelectedVendorForContact(null);
+          }}
+        />
       )}
     </div>
   );

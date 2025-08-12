@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star, Heart } from 'lucide-react';
+import { Star, Heart, MapPin, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
+import VendorContactModal from '@/components/VendorContactModal';
+import { mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 
 // Same categories as used in the catalog page
 const CATEGORIES = [
@@ -39,19 +42,28 @@ interface RelatedVendor {
   reviewCount?: number;
   address?: string;
   image?: string;
+  images?: string[];
   category: string;
+  placeId?: string;
+  hasRealImages?: boolean;
+  types?: string[];
+  mainTypeLabel?: string;
 }
 
 interface RelatedVendorsSectionProps {
   currentVendorId: string;
   category: string;
   location: string;
+  onShowFlagModal?: (vendor: any) => void;
+  onShowContactModal?: (vendor: any) => void;
 }
 
 export default function RelatedVendorsSection({ 
   currentVendorId, 
   category, 
-  location 
+  location,
+  onShowFlagModal,
+  onShowContactModal
 }: RelatedVendorsSectionProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -60,6 +72,7 @@ export default function RelatedVendorsSection({
   const [relatedVendors, setRelatedVendors] = useState<RelatedVendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<string[]>([]);
+
 
   // Fetch related vendors
   useEffect(() => {
@@ -102,6 +115,7 @@ export default function RelatedVendorsSection({
             .filter((vendor: any) => vendor.place_id !== currentVendorId)
             .map((vendor: any) => ({
               id: vendor.place_id,
+              placeId: vendor.place_id,
               name: vendor.name,
               rating: vendor.rating,
               reviewCount: vendor.user_ratings_total,
@@ -109,7 +123,12 @@ export default function RelatedVendorsSection({
               image: vendor.photos && vendor.photos.length > 0
                 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${vendor.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
                 : '/Venue.png',
-              category: vendor.types?.[0] || 'Vendor'
+              images: vendor.photos ? vendor.photos.map((photo: any) => 
+                `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+              ) : ['/Venue.png'],
+              category: mapGoogleTypesToCategory(vendor.types || [], vendor.name),
+              mainTypeLabel: mapGoogleTypesToCategory(vendor.types || [], vendor.name),
+              types: vendor.types || []
             }))
             // Sort by popularity (rating * review count, with fallback to rating)
             .sort((a, b) => {
@@ -119,7 +138,19 @@ export default function RelatedVendorsSection({
             })
             .slice(0, 3); // Take top 3
 
-          setRelatedVendors(filteredVendors);
+          // Enhance vendors with proper image handling
+          try {
+            const enhancedVendors = await enhanceVendorsWithImages(filteredVendors);
+            console.log('RelatedVendorsSection: Enhanced vendors with images:', enhancedVendors.map(v => ({ 
+              name: v.name, 
+              image: v.image, 
+              hasRealImages: (v as any).hasRealImages 
+            })));
+            setRelatedVendors(enhancedVendors);
+          } catch (error) {
+            console.error('Error enhancing related vendors with images:', error);
+            setRelatedVendors(filteredVendors);
+          }
         }
       } catch (error) {
         console.error('Error fetching related vendors:', error);
@@ -163,6 +194,11 @@ export default function RelatedVendorsSection({
     router.push(`/vendors/${vendor.id}?category=${category}&location=${location}`);
   };
 
+  // Handle contact modal
+  const handleShowContactModal = (vendor: any) => {
+    onShowContactModal?.(vendor);
+  };
+
   // Don't render if no related vendors
   if (!loading && relatedVendors.length === 0) {
     return null;
@@ -177,10 +213,12 @@ export default function RelatedVendorsSection({
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-lg p-4 shadow-sm animate-pulse">
-              <div className="h-32 bg-gray-200 rounded mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div key={i} className="bg-white rounded-xl p-5 shadow-sm animate-pulse border border-gray-100">
+              <div className="h-40 bg-gray-200 rounded-xl mb-4"></div>
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+              <div className="h-10 bg-gray-200 rounded-lg w-full"></div>
             </div>
           ))}
         </div>
@@ -189,70 +227,97 @@ export default function RelatedVendorsSection({
           {relatedVendors.map((vendor) => (
             <div 
               key={vendor.id}
-              className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden group"
               onClick={() => handleVendorClick(vendor)}
             >
-              {/* Vendor Image */}
-              <div className="relative h-32 bg-[#F3F2F0] rounded-t-lg overflow-hidden">
+              {/* Vendor Image - Unique rounded design */}
+              <div className="relative h-40 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
                 <img
                   src={vendor.image}
                   alt={vendor.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = '/Venue.png';
                   }}
                 />
-                {/* Favorite Button */}
+                
+                {/* Gradient overlay for better text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                
+                {/* Favorite Button - Unique floating design */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleFavorite(vendor.id);
                   }}
-                  className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
+                  className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-300 ${
                     favorites.includes(vendor.id)
-                      ? 'bg-[#A85C36] text-white'
-                      : 'bg-white/80 text-gray-600 hover:bg-white'
+                      ? 'bg-[#A85C36] text-white scale-110'
+                      : 'bg-white/90 text-gray-600 hover:bg-white hover:scale-110'
                   }`}
                 >
-                  <Heart className={`w-3 h-3 ${favorites.includes(vendor.id) ? 'fill-current' : ''}`} />
+                  <Heart className={`w-4 h-4 ${favorites.includes(vendor.id) ? 'fill-current' : ''}`} />
                 </button>
+                
+                {/* Flag Button - Unique floating design */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShowFlagModal?.(vendor);
+                  }}
+                  className="absolute top-3 left-3 z-10 bg-white/80 rounded-full p-1 shadow hover:bg-red-100 text-xs text-red-600 border border-red-200"
+                  title="Flag vendor"
+                  style={{ border: 'none' }}
+                >
+                  🚩 Flag
+                </button>
+                
+
               </div>
               
-              {/* Vendor Info */}
-              <div className="p-4">
-                <h6 className="mb-2 line-clamp-2">
+              {/* Vendor Info - Unique layout */}
+              <div className="p-5">
+                {/* Vendor Name - Larger, more prominent */}
+                <h6 className="mb-1 line-clamp-3" style={{ fontFamily: 'Playfair Display, serif', fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.5, color: '#332B42' }}>
                   {vendor.name}
                 </h6>
                 
-                {/* Rating */}
+                {/* Rating - Enhanced design */}
                 {vendor.rating && (
-                  <div className="flex items-center gap-1 mb-2">
+                  <div className="flex items-center gap-1 text-xs mb-1">
                     <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                    <span className="text-xs text-[#364257]">
-                      {vendor.rating} {vendor.reviewCount && `(${vendor.reviewCount})`}
-                    </span>
+                    <span className="text-[#A85C36]">{vendor.rating}</span>
+                    {vendor.reviewCount && (
+                      <span className="text-[#332B42]">({vendor.reviewCount})</span>
+                    )}
                   </div>
                 )}
                 
-                {/* Address */}
+                {/* Address - With icon and better formatting */}
                 {vendor.address && (
-                  <div className="flex items-start gap-1 text-xs text-[#364257]">
+                  <div className="flex items-start gap-1 text-xs text-[#332B42] mb-1">
                     <span className="line-clamp-2">{vendor.address}</span>
                   </div>
                 )}
                 
                 {/* Category */}
-                {vendor.category && (
-                  <div className="flex items-center gap-1 text-xs text-[#AB9C95] mt-1">
-                    <span>{vendor.category}</span>
+                {vendor.mainTypeLabel && (
+                  <div className="text-xs text-[#AB9C95] mb-1">
+                    {vendor.mainTypeLabel}
                   </div>
                 )}
+                
+
+                
+
               </div>
             </div>
           ))}
         </div>
       )}
+      
+
     </div>
   );
 } 

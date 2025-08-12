@@ -11,6 +11,8 @@ interface MyVendorsSectionProps {
   isLoading?: boolean;
   onContact?: (vendor: any) => void;
   onFlagged?: (vendorId: string) => void;
+  onShowContactModal?: (vendor: any) => void;
+  onShowFlagModal?: (vendor: any) => void;
 }
 
 export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
@@ -18,7 +20,9 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
   defaultLocation,
   isLoading = false,
   onContact,
-  onFlagged
+  onFlagged,
+  onShowContactModal,
+  onShowFlagModal
 }) => {
   const router = useRouter();
 
@@ -61,6 +65,8 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
                   onSelectionChange={() => {}}
                   location={defaultLocation}
                   category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                  onShowContactModal={onShowContactModal}
+                  onShowFlagModal={onShowFlagModal}
                 />
               </div>
             ))}

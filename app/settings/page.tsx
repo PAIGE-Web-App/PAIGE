@@ -16,6 +16,7 @@ import VendorEmailFlagReviewModal from "../../components/VendorEmailFlagReviewMo
 import SettingsTabSkeleton from "./components/SettingsTabSkeleton";
 import AccountTabSkeleton from "./components/AccountTabSkeleton";
 import NotificationsTabSkeleton from "./components/NotificationsTabSkeleton";
+import { AdminNavigation } from "../../components/AdminNavigation";
 
 // Lazy load tab components - only load when needed
 const AccountTab = dynamic(() => import("./components/AccountTab"), {
@@ -190,6 +191,9 @@ export default function ProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Admin Navigation - Only shows for admin users */}
+      <AdminNavigation />
       
       <div className="app-content-container">
         <div className="max-w-[900px] mx-auto w-full">
