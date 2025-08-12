@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRouter } from 'next/navigation';
@@ -55,6 +55,25 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [updatingRole, setUpdatingRole] = useState(false);
+  
+  // Pagination and performance
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // Stats state
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    admin: 0,
+    planners: 0,
+    couples: 0,
+    moderators: 0,
+    admins: 0,
+    superAdmins: 0
+  });
 
   // Check if user has access to this page
   useEffect(() => {
@@ -71,66 +90,127 @@ export default function AdminUsersPage() {
     }
   }, [user, userRole, canAccessUserManagement, router, showErrorToast]);
 
-  // Fetch all users from the admin API
+  // Fetch users with pagination
+  const fetchUsers = async (page: number = 1, append: boolean = false) => {
+    if (page === 1) setLoading(true);
+    if (page > 1) setLoadingMore(true);
+    
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+        role: roleFilter,
+        search: searchTerm
+      });
+      
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Convert date strings back to Date objects
+        const usersWithDates = data.users.map((user: any) => ({
+          ...user,
+          createdAt: new Date(user.createdAt),
+          lastActive: new Date(user.lastActive)
+        }));
+        
+        if (append) {
+          setUsers(prev => [...prev, ...usersWithDates]);
+        } else {
+          setUsers(usersWithDates);
+        }
+        
+        setTotalUsers(data.total);
+        setHasMore(data.hasMore);
+        setTotalPages(data.totalPages);
+        setCurrentPage(page);
+      } else {
+        const errorData = await response.json();
+        showErrorToast(`Failed to fetch users: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showErrorToast('Failed to fetch users');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Fetch user statistics
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/admin/users/stats', {
+        headers: {
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // Initial data fetch
   useEffect(() => {
     if (!canAccessUserManagement || !user) return;
     
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch('/api/admin/users', {
-          headers: {
-            'Authorization': `Bearer ${await user.getIdToken()}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Convert date strings back to Date objects
-          const usersWithDates = data.users.map((user: any) => ({
-            ...user,
-            createdAt: new Date(user.createdAt),
-            lastActive: new Date(user.lastActive)
-          }));
-          setUsers(usersWithDates);
-        } else {
-          const errorData = await response.json();
-          showErrorToast(`Failed to fetch users: ${errorData.error || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        showErrorToast('Failed to fetch users');
-      } finally {
-        setLoading(false);
-      }
-    };
+    fetchUsers(1);
+    fetchStats();
+  }, [canAccessUserManagement, user?.uid]);
 
-    fetchUsers();
-  }, [canAccessUserManagement, user?.uid]); // Only depend on user.uid, not the entire user object
+  // Refetch when filters change
+  useEffect(() => {
+    if (!canAccessUserManagement || !user) return;
+    
+    setCurrentPage(1);
+    fetchUsers(1);
+  }, [roleFilter, searchTerm]); // Only depend on user.uid, not the entire user object
 
-  // Filter and sort users
-  const filteredAndSortedUsers = users
-    .filter(user => {
-      const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (user.displayName || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-      return matchesSearch && matchesRole;
-    })
-    .sort((a, b) => {
-      let aValue: any = a[sortBy];
-      let bValue: any = b[sortBy];
+  // Sort users for display (search and role filtering now handled by API)
+  const sortedUsers = useMemo(() => {
+    const sorted = [...users].sort((a, b) => {
+      let aValue: any, bValue: any;
       
-      if (sortBy === 'createdAt' || sortBy === 'lastActive') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
+      switch (sortBy) {
+        case 'email':
+          aValue = a.email.toLowerCase();
+          bValue = b.email.toLowerCase();
+          break;
+        case 'role':
+          aValue = a.role;
+          bValue = b.role;
+          break;
+        case 'createdAt':
+          aValue = a.createdAt.getTime();
+          bValue = b.createdAt.getTime();
+          break;
+        case 'lastActive':
+          aValue = a.lastActive.getTime();
+          bValue = b.lastActive.getTime();
+          break;
+        default:
+          return 0;
       }
       
       if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
-        return aValue < bValue ? 1 : -1;
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
+    
+    return sorted;
+  }, [users, sortBy, sortOrder]);
 
   const handleRoleUpdate = async (newRole: UserRole) => {
     if (!selectedUser) return;
@@ -242,6 +322,77 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
+          {/* Stats Cards - Now Above Table and Clickable */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <button
+              onClick={() => setRoleFilter('all')}
+              className={`bg-white rounded-lg shadow-sm border p-4 transition-all duration-200 hover:shadow-md ${
+                roleFilter === 'all' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Users</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setRoleFilter('couple')}
+              className={`bg-white rounded-lg shadow-sm border p-4 transition-all duration-200 hover:shadow-md ${
+                roleFilter === 'couple' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <UserCheck className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Couples</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.couples || 0}</p>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setRoleFilter('admin')}
+              className={`bg-white rounded-lg shadow-sm border p-4 transition-all duration-200 hover:shadow-md ${
+                roleFilter === 'admin' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Shield className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Admin Users</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.admin}</p>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setRoleFilter('planner')}
+              className={`bg-white rounded-lg shadow-sm border p-4 transition-all duration-200 hover:shadow-md ${
+                roleFilter === 'planner' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Crown className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Planners</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.planners}</p>
+                </div>
+              </div>
+            </button>
+          </div>
+
           {/* Filters and Search */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -334,7 +485,7 @@ export default function AdminUsersPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAndSortedUsers.map((user) => (
+                    {sortedUsers.map((user) => (
                       <tr key={user.uid} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
@@ -392,10 +543,63 @@ export default function AdminUsersPage() {
               </div>
             )}
             
-            {!loading && filteredAndSortedUsers.length === 0 && (
+            {!loading && users.length === 0 && (
               <div className="p-8 text-center">
                 <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No users found matching your criteria.</p>
+              </div>
+            )}
+            
+            {/* Pagination Controls */}
+            {!loading && users.length > 0 && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    Showing {((currentPage - 1) * 20) + 1} to {Math.min(currentPage * 20, totalUsers)} of {totalUsers} users
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => fetchUsers(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    
+                    <span className="px-3 py-2 text-sm text-gray-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    
+                    <button
+                      onClick={() => fetchUsers(currentPage + 1)}
+                      disabled={!hasMore}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Load More Button for Better UX */}
+            {hasMore && !loadingMore && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <button
+                  onClick={() => fetchUsers(currentPage + 1, true)}
+                  className="w-full py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  Load More Users
+                </button>
+              </div>
+            )}
+            
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-center">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-gray-600 mt-2">Loading more users...</p>
               </div>
             )}
           </div>

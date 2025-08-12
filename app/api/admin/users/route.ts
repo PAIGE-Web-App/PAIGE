@@ -52,8 +52,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
     }
 
-    // Fetch all users with their role information
-    const usersSnapshot = await db.collection('users').get();
+    // Get query parameters for pagination and filtering
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const roleFilter = searchParams.get('role') || 'all';
+    const searchTerm = searchParams.get('search') || '';
+    
+    // Calculate offset
+    const offset = (page - 1) * limit;
+
+    // Build query
+    let query: any = db.collection('users');
+    
+    // Apply role filter if specified
+    if (roleFilter !== 'all') {
+      query = query.where('role', '==', roleFilter);
+    }
+    
+    // Get total count first
+    const totalSnapshot = await query.get();
+    const total = totalSnapshot.size;
+    
+    // Apply pagination
+    query = query.limit(limit).offset(offset);
+    
+    // Execute query
+    const usersSnapshot = await query.get();
     const users = usersSnapshot.docs.map(doc => {
       const data = doc.data();
       
@@ -89,13 +114,24 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Filter by search term if provided
+    let filteredUsers = users;
+    if (searchTerm) {
+      filteredUsers = users.filter(user => 
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.userName || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
     // Return users with pagination info
     return NextResponse.json({
-      users,
-      total: users.length,
-      page: 1,
-      limit: users.length,
-      hasMore: false
+      users: filteredUsers,
+      total,
+      page,
+      limit,
+      hasMore: offset + limit < total,
+      totalPages: Math.ceil(total / limit)
     });
 
   } catch (error) {
