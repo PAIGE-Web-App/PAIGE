@@ -27,7 +27,7 @@ export const RemainingBudgetCard: React.FC<RemainingBudgetCardProps> = ({
         / ${maxBudget.toLocaleString()}
       </div>
       
-      <div className={`budget-status-text ${isUnderBudget ? 'text-green-600' : 'text-red-600'}`}>
+      <div className={`text-xs ${isUnderBudget ? 'text-green-600' : 'text-red-600'}`}>
         {isUnderBudget ? 'On track' : 'Over budget'}
       </div>
       

@@ -35,7 +35,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
       </div>
       
       {/* Status Message */}
-      <div className={`text-sm ${isUnderBudget ? 'text-green-600' : 'text-red-600'}`}>
+      <div className={`text-xs ${isUnderBudget ? 'text-green-600' : 'text-red-600'}`}>
         {isUnderBudget 
           ? `You're $${remaining.toLocaleString()} under your max budget.`
           : `You're $${Math.abs(remaining).toLocaleString()} over your max budget.`

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   BudgetMetricsCard,
@@ -17,7 +17,7 @@ interface BudgetMetricsProps {
   onEditCategory?: (category: any) => void;
 }
 
-const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
+const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   selectedCategory,
   totalBudget,
   totalSpent,
@@ -44,6 +44,18 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
     totalBudget: totalBudget || 0,
     maxBudget: maxBudget || 0,
   });
+  
+  // Memoized calculations
+  const remaining = useMemo(() => (maxBudget || 0) - totalSpent, [maxBudget, totalSpent]);
+  
+  // Memoized callbacks
+  const handleCategoryEdit = useCallback(() => {
+    onEditCategory?.(selectedCategory);
+  }, [onEditCategory, selectedCategory]);
+  
+  const handleMaxBudgetEdit = useCallback(() => {
+    router.push('/settings?tab=wedding&highlight=maxBudget');
+  }, [router]);
   
   // Check for value changes and trigger animations
   useEffect(() => {
@@ -73,8 +85,6 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
     }
   }, [selectedCategory?.allocatedAmount, totalBudget, maxBudget]);
 
-  const remaining = (maxBudget || 0) - totalSpent;
-
   return (
     <div className="bg-white border-b border-[#AB9C95]">
       {/* Budget Overview Cards */}
@@ -86,18 +96,20 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
             allocatedAmount={selectedCategory.allocatedAmount}
             totalSpent={selectedCategory.spentAmount || 0}
             remaining={selectedCategory.allocatedAmount - (selectedCategory.spentAmount || 0)}
-            onEdit={() => onEditCategory?.(selectedCategory)}
+            onEdit={handleCategoryEdit}
           />
         )}
         
         {/* Budget Breakdown Doughnut Chart */}
         {selectedCategory && budgetItems.length > 0 && (
           <BudgetMetricsCard title="Budget Breakdown">
-            <div className="flex items-center justify-center h-24">
-              <BudgetDoughnutChart
-                budgetItems={budgetItems}
-                allocatedAmount={selectedCategory.allocatedAmount}
-              />
+            <div className="flex items-center justify-center h-24 w-full">
+              <div className="w-20 h-20">
+                <BudgetDoughnutChart
+                  budgetItems={budgetItems}
+                  allocatedAmount={selectedCategory.allocatedAmount}
+                />
+              </div>
             </div>
           </BudgetMetricsCard>
         )}
@@ -115,7 +127,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
           <RemainingBudgetCard
             remaining={remaining}
             maxBudget={maxBudget}
-            onEdit={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
+            onEdit={handleMaxBudgetEdit}
           />
         )}
       </div>
@@ -128,6 +140,8 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = ({
       )}
     </div>
   );
-};
+});
+
+BudgetMetrics.displayName = 'BudgetMetrics';
 
 export default BudgetMetrics; 
