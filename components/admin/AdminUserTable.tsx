@@ -155,10 +155,33 @@ export default function AdminUserTable({
                 <tr key={user.uid} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">
-                          {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
-                        </span>
+                      <div className="relative w-10 h-10 mr-3">
+                        {user.profileImageUrl ? (
+                          <>
+                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium text-gray-600">
+                                {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <img 
+                              src={user.profileImageUrl} 
+                              alt={user.displayName || user.userName || 'User'}
+                              className="w-10 h-10 rounded-full object-cover absolute inset-0"
+                              loading="lazy"
+                              onError={(e) => {
+                                // Fallback to initials if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </>
+                        ) : (
+                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-600">
+                              {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">
