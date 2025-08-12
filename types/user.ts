@@ -110,3 +110,19 @@ export interface ExtendedUser {
   lastActive: Date;
   emailVerified: boolean;
 }
+
+// Admin-specific user interface for the admin panel
+export interface AdminUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  userName?: string;
+  role: UserRole;
+  userType: UserType;
+  onboarded: boolean;
+  createdAt: Date;
+  lastActive: Date;
+  isActive: boolean;
+  profileImageUrl?: string;
+  metadata?: Record<string, any>;
+}
