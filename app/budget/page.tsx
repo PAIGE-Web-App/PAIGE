@@ -433,7 +433,6 @@ export default function BudgetPage() {
                       onTriggerAddItemComplete={() => setTriggerAddItem(false)}
                       onEditItem={(item) => {
                         // Editing is now handled inline in BudgetItemComponent
-                        console.log('Edit item:', item);
                       }}
                       onDeleteItem={budget.handleDeleteBudgetItem}
                       onLinkVendor={(item) => {
@@ -456,7 +455,6 @@ export default function BudgetPage() {
                       onTriggerAddItemComplete={() => setTriggerAddItem(false)}
                       onEditItem={(item) => {
                         // Editing is now handled inline in BudgetItemComponent
-                        console.log('Edit item:', item);
                       }}
                       onDeleteItem={budget.handleDeleteBudgetItem}
                       onLinkVendor={(item) => {

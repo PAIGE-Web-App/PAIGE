@@ -16,8 +16,7 @@ components/
 │   ├── BudgetProgressBar.tsx      # Progress bar with status
 │   ├── CategoryBudgetCard.tsx     # Category-specific budget display
 │   └── RemainingBudgetCard.tsx    # Combined remaining/max budget
-├── BudgetMetrics.tsx               # Main orchestrator (refactored)
-└── BudgetMetricsOptimized.tsx     # Performance-optimized version
+└── BudgetMetrics.tsx               # Main orchestrator (performance optimized)
 ```
 
 ### **Component Responsibilities**

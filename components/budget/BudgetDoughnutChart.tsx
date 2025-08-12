@@ -122,7 +122,7 @@ export const BudgetDoughnutChart: React.FC<BudgetDoughnutChartProps> = ({
         </div>
 
         {/* Hover tooltip - now properly triggered by the group */}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-30">
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-30">
           <div className="bg-[#332B42] text-white text-xs rounded-lg p-3 max-w-56 shadow-lg">
             <div className="max-h-32 overflow-y-auto">
               {budgetItems.map((item, index) => (
@@ -139,8 +139,8 @@ export const BudgetDoughnutChart: React.FC<BudgetDoughnutChartProps> = ({
               ))}
             </div>
           </div>
-          {/* Arrow */}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#332B42]"></div>
+          {/* Arrow - now pointing up since tooltip is below */}
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-[#332B42]"></div>
         </div>
       </div>
 
