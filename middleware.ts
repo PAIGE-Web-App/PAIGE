@@ -8,9 +8,12 @@ const rateLimitStore: { [key: string]: { count: number; resetTime: number } } = 
 const rateLimitConfig = {
   general: { windowMs: 15 * 60 * 1000, max: 100 }, // 15 minutes, 100 requests
   googlePlaces: { windowMs: 60 * 1000, max: 10 }, // 1 minute, 10 requests
-  auth: { windowMs: 15 * 60 * 1000, max: 5 }, // 15 minutes, 5 requests
+  auth: { windowMs: 15 * 60 * 1000, max: 20 }, // 15 minutes, 20 requests (increased for testing)
   upload: { windowMs: 60 * 1000, max: 5 } // 1 minute, 5 requests
 };
+
+// Authentication loop prevention
+const authLoopPrevention: { [key: string]: { attempts: number; lastAttempt: number; blocked: boolean } } = {};
 
 // Get rate limit config for a path
 function getRateLimitConfig(pathname: string) {
@@ -57,6 +60,74 @@ function checkRateLimit(request: NextRequest, pathname: string) {
   
   client.count++;
   return { allowed: true, remaining: config.max - client.count, resetTime: client.resetTime };
+}
+
+// Check for authentication loops
+function checkAuthLoop(request: NextRequest): boolean {
+  const clientId = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const now = Date.now();
+  const key = `auth_loop:${clientId}`;
+  
+  // Clean up old entries
+  Object.keys(authLoopPrevention).forEach(k => {
+    if (now - authLoopPrevention[k].lastAttempt > 5 * 60 * 1000) { // 5 minutes
+      delete authLoopPrevention[k];
+    }
+  });
+  
+  if (!authLoopPrevention[key]) {
+    authLoopPrevention[key] = { attempts: 1, lastAttempt: now, blocked: false };
+    return false;
+  }
+  
+  const client = authLoopPrevention[key];
+  
+  // If blocked, check if enough time has passed
+  if (client.blocked) {
+    if (now - client.lastAttempt > 30 * 1000) { // 30 seconds (reduced from 2 minutes)
+      client.blocked = false;
+      client.attempts = 1;
+      client.lastAttempt = now;
+      return false;
+    }
+    return true; // Still blocked
+  }
+  
+  // Check for rapid auth attempts - more lenient for legitimate login attempts
+  if (now - client.lastAttempt < 500) { // Less than 500ms between attempts (more lenient)
+    client.attempts++;
+    if (client.attempts >= 10) { // 10 rapid attempts (increased threshold)
+      client.blocked = true;
+      return true;
+    }
+  } else if (now - client.lastAttempt < 5000) { // Less than 5 seconds
+    // Reset attempts if there's a reasonable gap
+    client.attempts = Math.max(1, client.attempts - 1);
+  } else {
+    // Reset completely if more than 5 seconds
+    client.attempts = 1;
+  }
+  
+  client.lastAttempt = now;
+  return false;
+}
+
+// Enhanced authentication validation
+async function validateAuthToken(token: string): Promise<boolean> {
+  try {
+    // Make a request to validate the token
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return false;
+  }
 }
 
 export function middleware(request: NextRequest) {
@@ -107,6 +178,27 @@ export function middleware(request: NextRequest) {
   // Define public paths that don't require authentication
   const isPublicPath = path === '/login' || path === '/signup';
 
+  // Check for authentication loops only on auth-related endpoints
+  if (path.startsWith('/api/auth/') || path.startsWith('/api/sessionLogin') || path.startsWith('/api/sessionLogout')) {
+    if (checkAuthLoop(request)) {
+      console.log('🚫 Authentication loop detected on auth endpoint, blocking request');
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Too many authentication attempts',
+          message: 'Please wait a moment before trying again',
+          retryAfter: 120
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '120'
+          }
+        }
+      );
+    }
+  }
+
   // Get the Firebase auth token from the cookies
   const token = request.cookies.get('__session')?.value || '';
 
@@ -122,6 +214,10 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
+  // Enhanced token validation for protected routes
+  // Note: We'll implement async validation in a future update
+  // For now, we'll rely on the client-side validation in AuthContext
+  
   // User has token and is accessing protected route - allow access
   return NextResponse.next();
 }
