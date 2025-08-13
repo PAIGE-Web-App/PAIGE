@@ -33,6 +33,7 @@ import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection'
 import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
 import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useFavorites } from '@/hooks/useFavorites';
 import VendorTabs from '@/components/VendorTabs';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import VendorContactModal from '@/components/VendorContactModal';
@@ -127,23 +128,16 @@ export default function VendorsPage() {
   const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
 
   // Temporary: Use localStorage directly until we fix the SSR issue
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [favoritesLoading, setFavoritesLoading] = useState(false);
-  
-  // Helper function to get favorites from localStorage
-  const getFavorites = useCallback(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      return JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-    } catch {
-      return [];
-    }
-  }, []);
-  
-  // Helper function to check if a vendor is favorited
-  const isFavorite = useCallback((placeId: string) => {
-    return favorites.includes(placeId);
-  }, [favorites]);
+    // Use the proper useFavorites hook for persistent favorites
+  const { 
+    favorites, 
+    isLoading: favoritesLoading, 
+    addFavorite, 
+    removeFavorite, 
+    toggleFavorite, 
+    isFavorite,
+    refreshFavorites 
+  } = useFavorites();
 
   // Flag modal handlers
   const handleShowFlagModal = (vendor: any) => {
@@ -185,52 +179,12 @@ export default function VendorsPage() {
     setShowContactModal(true);
   };
   
-  // Load favorites from localStorage
+  // Load favorites from Firestore on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const localFavorites = getFavorites();
-      setFavorites(localFavorites);
+    if (user?.uid) {
+      refreshFavorites();
     }
-  }, [getFavorites]);
-
-  // Listen for favorites changes from other components
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const handleFavoritesChange = (event: CustomEvent) => {
-      if (event.detail?.favorites) {
-        console.log('🔄 Favorites changed, updating state:', event.detail.favorites);
-        setFavorites(event.detail.favorites);
-      }
-    };
-
-    const handleStorageChange = () => {
-      const localFavorites = getFavorites();
-      console.log('🔄 Storage changed, updating favorites:', localFavorites);
-      setFavorites(localFavorites);
-    };
-
-    const handleRecentlyViewedChange = () => {
-      // Force a re-render when recently viewed vendors change
-      console.log('🔄 Recently viewed vendors changed, updating favorites calculation');
-      setFavorites(prev => [...prev]); // Trigger re-render
-    };
-
-    window.addEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Listen for changes to recently viewed vendors
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'paige_recently_viewed_vendors') {
-        handleRecentlyViewedChange();
-      }
-    });
-    
-    return () => {
-      window.removeEventListener('vendorFavoritesChanged', handleFavoritesChange as EventListener);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [getFavorites]);
+  }, [user?.uid, refreshFavorites]);
   
   const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
   const [showSortMenu, setShowSortMenu] = useState(false);

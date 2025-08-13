@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Star, Heart, MapPin, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useFavorites } from '@/hooks/useFavorites';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import VendorContactModal from '@/components/VendorContactModal';
 import { mapGoogleTypesToCategory } from '@/utils/vendorUtils';
@@ -71,7 +72,8 @@ export default function RelatedVendorsSection({
   
   const [relatedVendors, setRelatedVendors] = useState<RelatedVendor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  // Use the proper useFavorites hook for persistent favorites
+  const { isFavorite, toggleFavorite } = useFavorites();
 
 
   // Fetch related vendors
@@ -162,30 +164,16 @@ export default function RelatedVendorsSection({
     fetchRelatedVendors();
   }, [category, location, currentVendorId]);
 
-  // Load favorites from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedFavorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-      setFavorites(storedFavorites);
-    }
-  }, []);
-
-  // Handle favorite toggle
-  const toggleFavorite = (vendorId: string) => {
-    const newFavorites = favorites.includes(vendorId)
-      ? favorites.filter(id => id !== vendorId)
-      : [...favorites, vendorId];
-    
-    setFavorites(newFavorites);
-    localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
-    
-    // Dispatch custom event to notify other components
-    window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
-      detail: { favorites: newFavorites }
-    }));
-    
-    if (newFavorites.includes(vendorId)) {
-      showSuccessToast('Added to favorites!');
+  // Handle favorite toggle with proper vendor data
+  const handleToggleFavorite = async (vendorId: string) => {
+    try {
+      await toggleFavorite(vendorId, {
+        name: relatedVendors.find(v => v.id === vendorId)?.name || 'Vendor',
+        address: relatedVendors.find(v => v.id === vendorId)?.address || '',
+        category: relatedVendors.find(v => v.id === vendorId)?.category || ''
+      });
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
     }
   };
 
@@ -249,15 +237,15 @@ export default function RelatedVendorsSection({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleFavorite(vendor.id);
+                    handleToggleFavorite(vendor.id);
                   }}
                   className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-300 ${
-                    favorites.includes(vendor.id)
+                    isFavorite(vendor.id)
                       ? 'bg-[#A85C36] text-white scale-110'
                       : 'bg-white/90 text-gray-600 hover:bg-white hover:scale-110'
                   }`}
                 >
-                  <Heart className={`w-4 h-4 ${favorites.includes(vendor.id) ? 'fill-current' : ''}`} />
+                  <Heart className={`w-4 h-4 ${isFavorite(vendor.id) ? 'fill-current' : ''}`} />
                 </button>
                 
                 {/* Flag Button - Unique floating design */}

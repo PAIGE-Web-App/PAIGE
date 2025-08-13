@@ -4,8 +4,8 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useFavorites } from '@/hooks/useFavorites';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
-// Temporary: Handle favorites locally until we fix the SSR issue
 
 // Removed custom heart icons - now using Lucide React Heart component for consistency
 
@@ -47,86 +47,34 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [communityData, setCommunityData] = useState<any>(null);
 
-  // Temporary: Handle favorites locally
-  const [isFavorite, setIsFavorite] = useState(false);
+  // Use the proper useFavorites hook for persistent favorites
+  const { isFavorite, toggleFavorite } = useFavorites();
   
-  // Load favorite state from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-        setIsFavorite(favorites.includes(vendor.id));
-      } catch {
-        setIsFavorite(false);
-      }
-    }
-  }, [vendor.id]);
-  
-  // Toggle favorite function
-  const toggleFavorite = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    
+  // Handle favorite toggle with proper vendor data
+  const handleToggleFavorite = useCallback(async () => {
     try {
-      const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-      const newFavorites = isFavorite 
-        ? favorites.filter((id: string) => id !== vendor.id)
-        : [...favorites, vendor.id];
-      
-      // Update localStorage immediately
-      localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
-      
-      // Update local state immediately
-      setIsFavorite(!isFavorite);
-      
-      // Notify other components immediately
-      window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
-        detail: { favorites: newFavorites }
-      }));
-      
-      // Show toast immediately
-      if (!isFavorite) {
-        showSuccessToast(`Added ${vendor.name} to favorites!`);
-      } else {
-        showSuccessToast(`Removed ${vendor.name} from favorites`);
-      }
-      
-      // Send API request to update community data in background (don't wait for it)
-      fetch('/api/community-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          placeId: vendor.id,
-          vendorName: vendor.name,
-          vendorAddress: vendor.address || vendor.location,
-          vendorCategory: vendor.mainTypeLabel || 'Vendor',
-          userId: user?.uid || '',
-          selectedAsVenue: false,
-          selectedAsVendor: false,
-          isFavorite: !isFavorite
-        })
-      }).then(async (response) => {
-        if (response.ok) {
-          // Refresh community data to get updated counts
-          try {
-            const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
-            if (communityResponse.ok) {
-              const data = await communityResponse.json();
-              if (data.vendor) {
-                setCommunityData(data.vendor);
-              }
-            }
-          } catch (error) {
-            console.error('Error refreshing community data:', error);
-          }
-        }
-      }).catch(error => {
-        console.error('Error updating community data:', error);
+      await toggleFavorite(vendor.id, {
+        name: vendor.name,
+        address: vendor.address || vendor.location,
+        category: vendor.mainTypeLabel || 'Vendor'
       });
       
+      // Refresh community data to get updated counts
+      try {
+        const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
+        if (communityResponse.ok) {
+          const data = await communityResponse.json();
+          if (data.vendor) {
+            setCommunityData(data.vendor);
+          }
+        }
+      } catch (error) {
+        console.error('Error refreshing community data:', error);
+      }
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }
-  }, [isFavorite, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel, user?.uid, showSuccessToast]);
+  }, [toggleFavorite, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel]);
 
   const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
@@ -169,9 +117,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
 
 
 
-  const handleToggleFavorite = useCallback(async () => {
-    await toggleFavorite();
-  }, [toggleFavorite]);
+
 
   const handleFlagVendor = useCallback(async (reason, customReason) => {
     setIsSubmitting(true);
@@ -258,13 +204,13 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
         <button
           onClick={handleToggleFavorite}
           className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
-            (isFavorite || isFavoriteOverride)
+            (isFavorite(vendor.id) || isFavoriteOverride)
               ? 'bg-[#A85C36] text-white'
               : 'bg-white/80 text-gray-600 hover:bg-white'
           }`}
-          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite(vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className={`w-3 h-3 ${(isFavorite || isFavoriteOverride) ? 'fill-current' : ''}`} />
+          <Heart className={`w-3 h-3 ${(isFavorite(vendor.id) || isFavoriteOverride) ? 'fill-current' : ''}`} />
         </button>
       )}
       
@@ -317,12 +263,12 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           )}
           
           {/* Smart Favorites Badge */}
-          {(isFavorite || (communityData && communityData.totalFavorites > 0)) && (
+          {(isFavorite(vendor.id) || (communityData && communityData.totalFavorites > 0)) && (
             <div className="flex items-center gap-1 text-xs text-[#364257] mb-1">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
               <span>
                 {(() => {
-                  if (isFavorite && communityData && communityData.totalFavorites > 1) {
+                  if (isFavorite(vendor.id) && communityData && communityData.totalFavorites > 1) {
                     // You + others have favorited it
                     const othersCount = communityData.totalFavorites - 1;
                     if (othersCount === 1) {
@@ -330,7 +276,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
                     } else {
                       return `Favorited by you and ${othersCount} others`;
                     }
-                  } else if (isFavorite) {
+                  } else if (isFavorite(vendor.id)) {
                     // Only you have favorited it
                     return 'Favorited by you';
                   } else if (communityData && communityData.totalFavorites > 0) {
