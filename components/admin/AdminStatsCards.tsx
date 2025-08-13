@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserCheck, Shield, Crown } from 'lucide-react';
+import { Users, UserCheck, Shield, Crown, Star } from 'lucide-react';
 import { UserRole } from '@/types/user';
 
 interface AdminStatsCardsProps {

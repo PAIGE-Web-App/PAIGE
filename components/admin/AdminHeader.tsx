@@ -1,4 +1,5 @@
 import React from 'react';
+import { Star } from 'lucide-react';
 import { UserRole } from '@/types/user';
 
 interface AdminHeaderProps {
@@ -46,7 +47,7 @@ export default function AdminHeader({
       case 'planner': return <div className="w-4 h-4 bg-green-500 rounded-full"></div>;
       case 'moderator': return <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>;
       case 'admin': return <div className="w-4 h-4 bg-purple-500 rounded-full"></div>;
-      case 'super_admin': return <div className="w-4 h-4 bg-red-500 rounded-full"></div>;
+      case 'super_admin': return <Star className="w-4 h-4 text-red-600" />;
       default: return <div className="w-4 h-4 bg-blue-500 rounded-full"></div>;
     }
   };

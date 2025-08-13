@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Eye, Users } from 'lucide-react';
+import { Edit, Eye, Users, Star } from 'lucide-react';
 import { AdminUser, UserRole } from '@/types/user';
 import { ROLE_CONFIGS } from '@/utils/roleConfig';
 
@@ -78,7 +78,7 @@ export default function AdminUserTable({
       case 'planner': return <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>;
       case 'moderator': return <div className="w-4 h-4 bg-yellow-600 rounded-full"></div>;
       case 'admin': return <div className="w-4 h-4 bg-purple-600 rounded-full"></div>;
-      case 'super_admin': return <div className="w-4 h-4 bg-red-600 rounded-full"></div>;
+      case 'super_admin': return <Star className="w-4 h-4 text-red-600" />;
       default: return <Users className="w-4 h-4" />;
     }
   };
