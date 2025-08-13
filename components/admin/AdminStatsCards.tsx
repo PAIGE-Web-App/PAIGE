@@ -60,7 +60,7 @@ export default function AdminStatsCards({
             <Users className="w-6 h-6 text-blue-600" />
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Total Users</p>
+            <p className="text-sm font-medium text-gray-600">Total Accounts</p>
             <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
           </div>
         </div>
@@ -77,7 +77,7 @@ export default function AdminStatsCards({
             <UserCheck className="w-6 h-6 text-green-600" />
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Couples</p>
+            <p className="text-sm font-medium text-gray-600">Wedding Couples</p>
             <p className="text-2xl font-semibold text-gray-900">{stats.couples || 0}</p>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function AdminStatsCards({
             <Shield className="w-6 h-6 text-purple-600" />
           </div>
           <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">Admin Users</p>
+            <p className="text-sm font-medium text-gray-600">Admin Accounts</p>
             <p className="text-2xl font-semibold text-gray-900">{stats.admin}</p>
           </div>
         </div>

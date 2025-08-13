@@ -56,6 +56,14 @@ export async function GET(request: NextRequest) {
     const usersSnapshot = await db.collection('users').get();
     const users = usersSnapshot.docs.map(doc => doc.data());
     
+    // Debug logging to understand the data
+    console.log('Users data sample:', users.slice(0, 3).map(u => ({ email: u.email, role: u.role })));
+    console.log('Role distribution:', users.reduce((acc, u) => {
+      const role = u.role || 'couple';
+      acc[role] = (acc[role] || 0) + 1;
+      return acc;
+    }, {}));
+    
     const stats = {
       total: users.length,
       active: users.filter(u => u.isActive !== false).length,
