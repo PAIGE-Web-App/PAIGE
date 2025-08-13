@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  // Disable React Strict Mode in development to prevent double rendering
-  ...(process.env.NODE_ENV === 'development' && {
-    reactStrictMode: false,
-  }),
+  // Disable React Strict Mode in development to prevent double rendering and improve performance
+  reactStrictMode: process.env.NODE_ENV === 'production',
   
   // Optimize images
   images: {
@@ -80,18 +77,26 @@ const nextConfig = {
     ];
   },
 
-  // Improve development experience
+  // Optimize webpack configuration for better performance
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
-      // Enable faster refresh
+      // Enable faster refresh and reduce development overhead
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
       };
+      
+      // Reduce development bundle size
+      config.optimization = {
+        ...config.optimization,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
+      };
     }
     
-    // Optimize bundle size
-    if (!dev) {
+    // Production bundle optimization
+    if (!dev && !isServer) {
       config.optimization = {
         ...config.optimization,
         splitChunks: {
@@ -101,12 +106,25 @@ const nextConfig = {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               chunks: 'all',
+              priority: 10,
             },
             firebase: {
               test: /[\\/]node_modules[\\/]firebase[\\/]/,
               name: 'firebase',
               chunks: 'all',
-              priority: 10,
+              priority: 20,
+            },
+            react: {
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+              name: 'react',
+              chunks: 'all',
+              priority: 30,
+            },
+            ui: {
+              test: /[\\/]node_modules[\\/](framer-motion|lucide-react)[\\/]/,
+              name: 'ui',
+              chunks: 'all',
+              priority: 15,
             },
           },
         },

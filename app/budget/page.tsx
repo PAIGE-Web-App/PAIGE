@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Lazy load heavy components
 const BudgetSidebar = dynamic(() => import('@/components/BudgetSidebar'), {
@@ -322,7 +323,7 @@ export default function BudgetPage() {
           onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
         />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );

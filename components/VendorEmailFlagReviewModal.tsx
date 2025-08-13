@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, XCircle, AlertTriangle, Mail, User, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface VendorEmailFlagReviewModalProps {
   isOpen: boolean;
@@ -148,8 +149,7 @@ export default function VendorEmailFlagReviewModal({
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
-                  <span className="ml-3 text-gray-600">Loading...</span>
+                  <LoadingSpinner size="md" text="Loading..." />
                 </div>
               ) : flaggedEmails.length === 0 ? (
                 <div className="text-center py-8">

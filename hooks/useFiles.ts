@@ -12,6 +12,7 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  limit,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getUserCollectionRef } from '@/lib/firebase';
@@ -29,102 +30,126 @@ export function useFiles() {
   const [uploading, setUploading] = useState(false);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
 
-  // Fetch files
+  // Optimized files listener with proper cleanup
   useEffect(() => {
-    if (!user) return;
+    let isSubscribed = true;
+    
+    if (user) {
+      const q = query(
+        getUserCollectionRef('files', user.uid),
+        orderBy('uploadedAt', 'desc'),
+        limit(100) // Limit for better performance
+      );
 
-    const q = query(
-      getUserCollectionRef('files', user.uid),
-      orderBy('uploadedAt', 'desc')
-    );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isSubscribed) return;
+        
+        const fileList: FileItem[] = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          return {
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            categoryId: data.categoryId,
+            folderId: data.folderId || data.categoryId || 'all', // Use folderId if available, fallback to categoryId, then 'all'
+            uploadedAt: data.uploadedAt?.toDate() || new Date(),
+            fileType: data.fileType,
+            fileSize: data.fileSize,
+            fileUrl: data.fileUrl,
+            userId: data.userId,
+            aiSummary: data.aiSummary,
+            keyPoints: data.keyPoints || [],
+            vendorAccountability: data.vendorAccountability || [],
+            importantDates: data.importantDates || [],
+            paymentTerms: data.paymentTerms || [],
+            cancellationPolicy: data.cancellationPolicy || [],
+            vendorId: data.vendorId,
+            vendorName: data.vendorName,
+            messageId: data.messageId,
+            isProcessed: data.isProcessed || false,
+            processingStatus: data.processingStatus || 'pending',
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+        });
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fileList: FileItem[] = snapshot.docs.map(doc => {
-        const data = doc.data() as any;
-        return {
-          id: doc.id,
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          categoryId: data.categoryId,
-          folderId: data.folderId || data.categoryId || 'all', // Use folderId if available, fallback to categoryId, then 'all'
-          uploadedAt: data.uploadedAt?.toDate() || new Date(),
-          fileType: data.fileType,
-          fileSize: data.fileSize,
-          fileUrl: data.fileUrl,
-          userId: data.userId,
-          aiSummary: data.aiSummary,
-          keyPoints: data.keyPoints || [],
-          vendorAccountability: data.vendorAccountability || [],
-          importantDates: data.importantDates || [],
-          paymentTerms: data.paymentTerms || [],
-          cancellationPolicy: data.cancellationPolicy || [],
-          vendorId: data.vendorId,
-          vendorName: data.vendorName,
-          messageId: data.messageId,
-          isProcessed: data.isProcessed || false,
-          processingStatus: data.processingStatus || 'pending',
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+        if (isSubscribed) {
+          // Debug logging for file updates
+          console.log('Files updated:', {
+            count: fileList.length,
+            totalSize: fileList.reduce((sum, f) => sum + f.fileSize, 0),
+            files: fileList.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
+          });
+
+          setFiles(fileList);
+          setLoading(false);
+        }
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching files:', error);
+          showErrorToast('Failed to load files');
+          setLoading(false);
+        }
       });
 
-      // Debug logging for file updates
-      console.log('Files updated:', {
-        count: fileList.length,
-        totalSize: fileList.reduce((sum, f) => sum + f.fileSize, 0),
-        files: fileList.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
-      });
-
-      setFiles(fileList);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching files:', error);
-      showErrorToast('Failed to load files');
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+      return () => {
+        isSubscribed = false;
+        unsubscribe();
+      };
+    }
   }, [user]);
 
-  // Fetch categories
+  // Optimized categories listener with proper cleanup
   useEffect(() => {
-    if (!user) return;
+    let isSubscribed = true;
+    
+    if (user) {
+      const q = query(
+        getUserCollectionRef('fileCategories', user.uid),
+        orderBy('createdAt', 'asc'),
+        limit(50) // Limit for better performance
+      );
 
-    const q = query(
-      getUserCollectionRef('fileCategories', user.uid),
-      orderBy('createdAt', 'asc')
-    );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!isSubscribed) return;
+        
+        const categoryList: FileCategory[] = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          return {
+            id: doc.id,
+            name: data.name,
+            count: data.count || 0,
+            color: data.color,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+        });
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const categoryList: FileCategory[] = snapshot.docs.map(doc => {
-        const data = doc.data() as any;
-        return {
-          id: doc.id,
-          name: data.name,
-          count: data.count || 0,
-          color: data.color,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+        if (isSubscribed) {
+          // Add "All Files" category
+          const allFilesCategory: FileCategory = {
+            id: 'all',
+            name: 'All Files',
+            count: files.length,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          setCategories([allFilesCategory, ...categoryList]);
+        }
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching file categories:', error);
+          showErrorToast('Failed to load file categories');
+        }
       });
 
-      // Add "All Files" category
-      const allFilesCategory: FileCategory = {
-        id: 'all',
-        name: 'All Files',
-        count: files.length,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      return () => {
+        isSubscribed = false;
+        unsubscribe();
       };
-
-      setCategories([allFilesCategory, ...categoryList]);
-    }, (error) => {
-      console.error('Error fetching file categories:', error);
-      showErrorToast('Failed to load file categories');
-    });
-
-    return () => unsubscribe();
+    }
   }, [user, files.length]);
 
   // Upload file

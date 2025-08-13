@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { File, Reply, Trash2, ExternalLink, MessageSquareText } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Message } from "../types/message";
+import LoadingSpinner from "./LoadingSpinner";
 
 // Development-only logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -556,7 +557,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                   return (
                     <>
                       <div className="w-24 h-24 mb-4 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
+                        <LoadingSpinner size="md" />
                       </div>
                       <p>Checking contact information...</p>
                     </>
@@ -812,7 +813,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       )}
       {loading && !isInitialLoad && (
         <div className="flex justify-center py-2">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#A85C36]"></div>
+          <LoadingSpinner size="sm" />
         </div>
       )}
     </div>

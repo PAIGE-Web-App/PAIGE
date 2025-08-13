@@ -5,6 +5,7 @@ import { User, ContactRound, Settings, LogOut, ChevronDown, ChevronUp } from 'lu
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { handleLogout } from '../utils/logout';
+import LoadingSpinner from './LoadingSpinner';
 
 // Helper to add cache-busting parameter
 function addCacheBuster(url: string | null): string | null {
@@ -13,12 +14,7 @@ function addCacheBuster(url: string | null): string | null {
 }
 
 function Spinner() {
-  return (
-    <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-    </svg>
-  );
+  return <LoadingSpinner size="sm" />;
 }
 
 export default function TopNav() {

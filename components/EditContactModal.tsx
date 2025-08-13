@@ -4,6 +4,7 @@ import { X, Trash2 } from "lucide-react";
 import { doc, deleteDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import { getCategoryStyle } from "../utils/categoryStyle";
+import LoadingSpinner from "./LoadingSpinner";
 
 import FormField from "./FormField";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
@@ -455,7 +456,7 @@ export default function EditContactModal({
               <span className="text-xs font-medium text-[#332B42]">Link to Vendor (Optional)</span>
               {isLoadingVendor ? (
                 <div className="flex items-center gap-2 p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
+                  <LoadingSpinner size="sm" />
                   <span className="text-sm text-gray-600">Loading linked vendor...</span>
                 </div>
               ) : selectedVendor ? (

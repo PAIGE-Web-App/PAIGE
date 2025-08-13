@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Building, User, Star, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import type { VendorEmail, GlobalVendorEmail } from '@/types/contact';
 
 interface VendorEmailAssociationModalProps {
@@ -288,8 +289,7 @@ export default function VendorEmailAssociationModal({
 
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                  <p className="text-sm text-gray-600 mt-2">Loading vendor emails...</p>
+                  <LoadingSpinner size="md" text="Loading vendor emails..." />
                 </div>
               ) : vendorEmails.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">

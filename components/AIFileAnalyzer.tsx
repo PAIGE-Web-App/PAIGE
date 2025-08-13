@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FileItem } from '@/types/files';
 import { Send, FileText, Sparkles, MessageSquare, Bot, User, Loader2, Download, Eye, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import LoadingSpinner from './LoadingSpinner';
 
 interface AIAnalysisMessage {
   id: string;
@@ -291,7 +292,7 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
             </div>
             <div className="bg-[#F8F6F4] rounded-[5px] p-3 border border-[#E0DBD7]">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 text-[#A85C36] animate-spin" />
+                <LoadingSpinner size="sm" />
                 <span className="text-sm text-[#332B42]">Analyzing...</span>
               </div>
             </div>

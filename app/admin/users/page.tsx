@@ -15,6 +15,7 @@ import AdminStatsCards from '@/components/admin/AdminStatsCards';
 import AdminFilters from '@/components/admin/AdminFilters';
 import AdminUserTable from '@/components/admin/AdminUserTable';
 import AdminPagination from '@/components/admin/AdminPagination';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface AdminUser {
   uid: string;
@@ -270,8 +271,7 @@ export default function AdminUsersPage() {
     return (
       <div className="app-content-container mx-auto p-6">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading role information...</p>
+          <LoadingSpinner size="md" text="Loading role information..." />
         </div>
       </div>
     );

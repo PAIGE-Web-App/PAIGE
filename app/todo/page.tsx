@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Lazy load heavy components
 const TodoSidebar = dynamic(() => import('../../components/TodoSidebar'), {
@@ -264,10 +265,7 @@ export default function TodoPage() {
             {/* Conditional rendering for loading state */}
             {loading && !user ? (
               <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
-                  <p className="text-[#364257]">Loading your to-do lists...</p>
-                </div>
+                <LoadingSpinner size="lg" text="Loading your to-do lists..." />
               </div>
             ) : (
               <>

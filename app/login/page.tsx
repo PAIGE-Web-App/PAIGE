@@ -13,6 +13,7 @@ import { useCustomToast } from '../../hooks/useCustomToast';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
+import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -391,7 +392,7 @@ export default function Login() {
               {/* LinkedIn-style Google Account Button */}
               {detectingGoogleAccount || checkingGmailAuth ? (
                 <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
+                  <LoadingSpinner size="sm" />
                 </div>
               ) : googleAccount && !showEmailForm ? (
                 <button

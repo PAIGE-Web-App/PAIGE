@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileUp, Filter, Calendar, Hash } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import SelectField from './SelectField';
 
 interface GmailImportConfigModalProps {
@@ -219,7 +220,7 @@ const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({
             >
               {isImporting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <LoadingSpinner size="sm" />
                   Importing...
                 </>
               ) : (

@@ -5,6 +5,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { Mail, Star, User, CheckCircle, Phone, Settings } from 'lucide-react';
 import type { VendorEmail } from '@/types/contact';
 import VendorEmailManagementModal from './VendorEmailManagementModal';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface VendorContactModalProps {
   vendor: any;
@@ -256,7 +257,7 @@ Best regards,
 
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
+                  <LoadingSpinner size="md" />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -270,8 +271,7 @@ Best regards,
                     <div className="space-y-3">
                       {loadingEmails ? (
                         <div key="loading-emails" className="flex items-center justify-center py-4">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
-                          <span className="ml-2 text-sm text-gray-600">Loading contact information...</span>
+                          <LoadingSpinner size="sm" text="Loading contact information..." />
                         </div>
                       ) : (
                         <>
@@ -435,7 +435,7 @@ Best regards,
                         >
                           {loading ? (
                             <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <LoadingSpinner size="sm" />
                               Sending...
                             </>
                           ) : (

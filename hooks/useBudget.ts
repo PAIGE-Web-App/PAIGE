@@ -14,6 +14,7 @@ import {
   writeBatch,
   Timestamp,
   getDoc,
+  limit,
 } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
@@ -52,119 +53,149 @@ export function useBudget() {
   const [selectedBudgetItem, setSelectedBudgetItem] = useState<BudgetItem | null>(null);
   const [userMaxBudget, setUserMaxBudget] = useState<number | null>(null);
 
-  // Fetch budget categories
+  // Optimized budget categories listener with proper cleanup
   useEffect(() => {
-    if (!user) return;
+    let isSubscribed = true;
+    
+    if (user) {
+      const q = query(
+        getUserCollectionRef('budgetCategories', user.uid),
+        orderBy('orderIndex', 'asc'),
+        limit(50) // Limit for better performance
+      );
 
-    // Follow existing architecture - no need for userId filter since getUserCollectionRef already scopes to user
-    const q = query(
-      getUserCollectionRef('budgetCategories', user.uid),
-      orderBy('orderIndex', 'asc')
-    );
+      const unsubscribeCategories = onSnapshot(q, (snapshot) => {
+        if (!isSubscribed) return;
+        
+        const categories: BudgetCategory[] = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          return {
+            id: doc.id,
+            userId: data.userId,
+            name: data.name,
+            allocatedAmount: data.allocatedAmount || 0,
+            spentAmount: data.spentAmount || 0,
+            orderIndex: data.orderIndex || 0,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            color: data.color,
+          };
+        });
 
-    const unsubscribeCategories = onSnapshot(q, (snapshot) => {
-      const categories: BudgetCategory[] = snapshot.docs.map(doc => {
-        const data = doc.data() as any;
-        return {
-          id: doc.id,
-          userId: data.userId,
-          name: data.name,
-          allocatedAmount: data.allocatedAmount || 0,
-          spentAmount: data.spentAmount || 0,
-          orderIndex: data.orderIndex || 0,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          color: data.color,
-        };
+        // If no categories exist, create default ones
+        if (categories.length === 0) {
+          createDefaultCategories();
+        } else {
+          setBudgetCategories(categories);
+        }
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching budget categories:', error);
+          setBudgetCategories([]);
+        }
       });
 
-      // If no categories exist, create default ones
-      if (categories.length === 0) {
-        createDefaultCategories();
-      } else {
-        setBudgetCategories(categories);
-      }
-    }, (error) => {
-      console.error('Error fetching budget categories:', error);
-      setBudgetCategories([]);
-    });
-
-    return () => unsubscribeCategories();
+      return () => {
+        isSubscribed = false;
+        unsubscribeCategories();
+      };
+    }
   }, [user]);
 
-  // Fetch user's max budget from profile with real-time updates
+  // Optimized user budget listener with proper cleanup
   useEffect(() => {
-    if (!user) return;
-
-    const userDocRef = doc(db, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.maxBudget) {
-          setUserMaxBudget(userData.maxBudget);
+    let isSubscribed = true;
+    
+    if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
+      const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+        if (!isSubscribed) return;
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.maxBudget) {
+            setUserMaxBudget(userData.maxBudget);
+          } else {
+            setUserMaxBudget(null);
+          }
         } else {
           setUserMaxBudget(null);
         }
-      } else {
-        setUserMaxBudget(null);
-      }
-    }, (error) => {
-      console.error('Error fetching user budget:', error);
-      setUserMaxBudget(null);
-    });
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching user budget:', error);
+          setUserMaxBudget(null);
+        }
+      });
 
-    return () => unsubscribeUser();
+      return () => {
+        isSubscribed = false;
+        unsubscribeUser();
+      };
+    }
   }, [user]);
 
-  // Fetch budget items
+  // Optimized budget items listener with proper cleanup
   useEffect(() => {
-    if (!user) return;
+    let isSubscribed = true;
+    
+    if (user) {
+      const q = query(
+        getUserCollectionRef('budgetItems', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(100) // Limit for better performance
+      );
 
-    // Follow existing architecture - no need for userId filter since getUserCollectionRef already scopes to user
-    const q = query(
-      getUserCollectionRef('budgetItems', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeItems = onSnapshot(q, (snapshot) => {
-      const items: BudgetItem[] = snapshot.docs.map(doc => {
-        const data = doc.data() as any;
+      const unsubscribeItems = onSnapshot(q, (snapshot) => {
+        if (!isSubscribed) return;
         
-        // Optimize date processing
-        const processDate = (dateField: any): Date | undefined => {
-          if (!dateField) return undefined;
-          if (typeof dateField.toDate === 'function') return dateField.toDate();
-          if (dateField instanceof Date) return dateField;
-          return undefined;
-        };
+        const items: BudgetItem[] = snapshot.docs.map(doc => {
+          const data = doc.data() as any;
+          
+          // Optimize date processing
+          const processDate = (dateField: any): Date | undefined => {
+            if (!dateField) return undefined;
+            if (typeof dateField.toDate === 'function') return dateField.toDate();
+            if (dateField instanceof Date) return dateField;
+            return undefined;
+          };
+          
+          return {
+            id: doc.id,
+            userId: data.userId,
+            categoryId: data.categoryId,
+            name: data.name,
+            amount: data.amount || 0,
+            vendorId: data.vendorId,
+            vendorName: data.vendorName,
+            vendorPlaceId: data.vendorPlaceId,
+            notes: data.notes,
+            isCustom: data.isCustom || false,
+            isCompleted: data.isCompleted || false,
+            createdAt: processDate(data.createdAt) || new Date(),
+            updatedAt: processDate(data.updatedAt) || new Date(),
+            // Assignment fields
+            assignedTo: data.assignedTo || null,
+            assignedBy: data.assignedBy || null,
+            assignedAt: processDate(data.assignedAt),
+            notificationRead: data.notificationRead || false
+          };
+        });
         
-        return {
-          id: doc.id,
-          userId: data.userId,
-          categoryId: data.categoryId,
-          name: data.name,
-          amount: data.amount || 0,
-          vendorId: data.vendorId,
-          vendorName: data.vendorName,
-          vendorPlaceId: data.vendorPlaceId,
-          notes: data.notes,
-          isCustom: data.isCustom || false,
-          isCompleted: data.isCompleted || false,
-          createdAt: processDate(data.createdAt) || new Date(),
-          updatedAt: processDate(data.updatedAt) || new Date(),
-          // Assignment fields
-          assignedTo: data.assignedTo || null,
-          assignedBy: data.assignedBy || null,
-          assignedAt: processDate(data.assignedAt),
-          notificationRead: data.notificationRead || false
-        };
+        if (isSubscribed) {
+          setBudgetItems(items);
+        }
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching budget items:', error);
+          setBudgetItems([]);
+        }
       });
-      setBudgetItems(items);
-    }, (error) => {
-      console.error('Error fetching budget items:', error);
-      setBudgetItems([]);
-    });
 
-    return () => unsubscribeItems();
+      return () => {
+        isSubscribed = false;
+        unsubscribeItems();
+      };
+    }
   }, [user]);
 
   // Create default categories

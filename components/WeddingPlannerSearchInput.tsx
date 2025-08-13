@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Search, MapPin, Star } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface WeddingPlannerSearchInputProps {
   value: string;
@@ -128,7 +129,7 @@ export default function WeddingPlannerSearchInput({
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
         {isLoading && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
+            <LoadingSpinner size="sm" />
           </div>
         )}
       </div>

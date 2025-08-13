@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Edit, Eye, Users, Star, ChevronDown, ChevronRight } from 'lucide-react';
 import { AdminUser, UserRole } from '@/types/user';
 import { ROLE_CONFIGS } from '@/utils/roleConfig';
+import LoadingSpinner from '../LoadingSpinner';
 import RelationshipRow from './RelationshipRow';
 import RelationshipModal from './RelationshipModal';
 
@@ -346,8 +347,7 @@ export default function AdminUserTable({
       {/* Loading More Indicator */}
       {loadingMore && (
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-center">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-gray-600 mt-2">Loading more users...</p>
+          <LoadingSpinner size="sm" text="Loading more users..." />
         </div>
       )}
 

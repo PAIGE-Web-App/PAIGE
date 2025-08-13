@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useAuth } from '@/hooks/useAuth';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import VendorSavedNotification from './VendorSavedNotification';
 
 interface BulkContactModalProps {
@@ -160,7 +161,7 @@ Best regards,
 
               {isLoading && vendorDetails.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
+                  <LoadingSpinner size="md" />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -248,7 +249,7 @@ Best regards,
                     >
                       {isLoading ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <LoadingSpinner size="sm" />
                           Contacting...
                         </>
                       ) : (

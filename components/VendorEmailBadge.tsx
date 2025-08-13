@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Users, Star } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import type { VendorEmail } from '@/types/contact';
 
 interface VendorEmailBadgeProps {
@@ -36,7 +37,7 @@ export default function VendorEmailBadge({ placeId, className = '' }: VendorEmai
   if (loading) {
     return (
       <div className={`inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full ${className}`}>
-        <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-600"></div>
+        <LoadingSpinner size="sm" />
         <span>Loading...</span>
       </div>
     );

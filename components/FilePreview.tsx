@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { FileText, Image, Video, Music, Archive, File } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
 
 interface FilePreviewProps {
   fileType: string;
@@ -40,7 +41,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({ fileType, fileUrl, fileName, 
       <div className={`relative w-full h-32 bg-gray-100 rounded-[5px] overflow-hidden ${className}`}>
         {imageLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#A85C36]"></div>
+            <LoadingSpinner size="sm" />
           </div>
         )}
         <img

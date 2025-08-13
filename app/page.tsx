@@ -34,11 +34,12 @@ import OnboardingModal from "../components/OnboardingModal";
 import RightDashboardPanel from "../components/RightDashboardPanel";
 import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import Banner from "../components/Banner";
 import WeddingBanner from "../components/WeddingBanner";
 import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import GmailReauthBanner from "../components/GmailReauthBanner";
+import LoadingSpinner from "../components/LoadingSpinner";
 import type { TodoItem } from '../types/todo';
 
 import { Contact } from "../types/contact";
@@ -141,7 +142,7 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
 };
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
   console.log('Home component rendered', user, authLoading);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -288,49 +289,38 @@ export default function Home() {
     }
   }, [user, authLoading]);
 
+  // Use cached onboarding status from AuthContext
   useEffect(() => {
     if (!authLoading && user) {
-      const checkOnboarding = async () => {
+      if (onboardingStatus === 'unknown') {
+        // Only check if status is unknown (first time or cache cleared)
         setOnboardingCheckLoading(true);
-        console.log('🔍 [Onboarding Check] Starting onboarding check for user:', user.uid);
-        
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        console.log('🔍 [Onboarding Check] Firestore userSnap.exists:', userSnap.exists());
-        
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          console.log('🔍 [Onboarding Check] Firestore user data:', data);
-          
-          // Check if user is explicitly not onboarded (false) or if onboarded field is missing/undefined
-          if (data.onboarded === false || data.onboarded === undefined || data.onboarded === null) {
-            console.log('🚫 [Onboarding Check] User is not onboarded, redirecting to /signup?onboarding=1');
-            router.push('/signup?onboarding=1');
-            return;
-          }
-          
-          console.log('✅ [Onboarding Check] User is onboarded, allowing access to dashboard');
+        checkOnboardingStatus().then(() => {
           setOnboardingCheckLoading(false);
-        } else {
-          console.log('🚫 [Onboarding Check] No Firestore user document found for this user. Redirecting to onboarding.');
-          router.push('/signup?onboarding=1');
-          return;
-        }
-      };
-      checkOnboarding();
+        });
+      } else if (onboardingStatus === 'not-onboarded') {
+        // User is not onboarded, redirect to onboarding
+        console.log('🚫 [Onboarding Check] User is not onboarded, redirecting to /signup?onboarding=1');
+        router.push('/signup?onboarding=1');
+      } else {
+        // User is onboarded, no loading needed
+        setOnboardingCheckLoading(false);
+      }
     } else if (!authLoading && !user) {
       setOnboardingCheckLoading(false);
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, onboardingStatus, checkOnboardingStatus, router]);
 
   // Function to handle user logout
   const handleLogoutClick = async () => {
     await handleLogout(router);
   };
 
-   // Contacts Listener
+   // Optimized Contacts Listener with proper cleanup
   useEffect(() => {
+    let isSubscribed = true;
     let unsubscribeContacts: () => void;
+    
     if (user && user.uid) {
       setContactsLoading(true);
       const userId = user.uid;
@@ -340,10 +330,13 @@ export default function Home() {
       const q = query(
         contactsCollectionRef,
         where("userId", "==", userId),
-        orderBy("orderIndex", "asc")
+        orderBy("orderIndex", "asc"),
+        limit(100) // Limit initial load for better performance
       );
 
       unsubscribeContacts = onSnapshot(q, (snapshot) => {
+        if (!isSubscribed) return; // Prevent state updates on unmounted component
+        
         const fetchedContacts: Contact[] = snapshot.docs.map((doc, index) => {
           const data = doc.data();
           return {
@@ -363,28 +356,34 @@ export default function Home() {
             vendorEmails: data.vendorEmails || [],
           };
         });
-        setContacts(fetchedContacts);
-        if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
-          setSelectedContact(fetchedContacts[0] || null);
+        
+        if (isSubscribed) {
+          setContacts(fetchedContacts);
+          if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
+            setSelectedContact(fetchedContacts[0] || null);
+          }
+          setInitialContactLoadComplete(true);
+          console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
         }
-
-        setInitialContactLoadComplete(true);
-        console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
-
       }, (error) => {
-        console.error("page.tsx: Error fetching contacts:", error);
-        setInitialContactLoadComplete(true);
-        showErrorToast("Failed to load contacts.");
+        if (isSubscribed) {
+          console.error("page.tsx: Error fetching contacts:", error);
+          setInitialContactLoadComplete(true);
+          showErrorToast("Failed to load contacts.");
+        }
       });
     } else {
-      setContacts([]);
-      setSelectedContact(null);
-
-      if (!authLoading && !user) {
-        setInitialContactLoadComplete(true);
+      if (isSubscribed) {
+        setContacts([]);
+        setSelectedContact(null);
+        if (!authLoading && !user) {
+          setInitialContactLoadComplete(true);
+        }
       }
     }
+    
     return () => {
+      isSubscribed = false;
       if (unsubscribeContacts) {
         unsubscribeContacts();
       }
@@ -409,53 +408,67 @@ export default function Home() {
     }
   }, [input]);
 
-  // All Messages Listener
+  // Optimized Messages Listener with proper cleanup
   useEffect(() => {
-    let unsubscribeAllMessages: () => void;
+    let isSubscribed = true;
+    let unsubscribeMap = new Map<string, () => void>();
+    
     if (user && user.uid) {
       const userId = user.uid;
-      // Update the path to be under contacts collection
       const contactsRef = collection(db, `users/${userId}/contacts`);
       
-      // Create a map to store unsubscribe functions
-      const unsubscribeMap = new Map<string, () => void>();
-      
-      // Set up the listeners
       const setupListeners = async () => {
-        const contactsSnapshot = await getDocs(contactsRef);
+        if (!isSubscribed) return;
         
-        // For each contact, set up a listener for their messages
-        contactsSnapshot.docs.forEach(contactDoc => {
-          const contactId = contactDoc.id;
-          const contactMessagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
+        try {
+          const contactsSnapshot = await getDocs(contactsRef);
           
-          const q = query(
-            contactMessagesRef,
-            orderBy("createdAt", "desc"),
-            limit(1) // Only get the latest message
-          );
+          if (!isSubscribed) return;
           
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            if (!snapshot.empty) {
-              const latestMessage = snapshot.docs[0];
-              const createdAt = latestMessage.data().createdAt.toDate();
-              setContactLastMessageMap(prev => new Map(prev).set(contactId, createdAt));
-            }
+          // For each contact, set up a listener for their messages
+          contactsSnapshot.docs.forEach(contactDoc => {
+            if (!isSubscribed) return;
+            
+            const contactId = contactDoc.id;
+            const contactMessagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
+            
+            const q = query(
+              contactMessagesRef,
+              orderBy("createdAt", "desc"),
+              limit(1) // Only get the latest message
+            );
+            
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+              if (!isSubscribed) return;
+              
+              if (!snapshot.empty) {
+                const latestMessage = snapshot.docs[0];
+                const createdAt = latestMessage.data().createdAt.toDate();
+                setContactLastMessageMap(prev => new Map(prev).set(contactId, createdAt));
+              }
+            });
+            
+            unsubscribeMap.set(contactId, unsubscribe);
           });
-          
-          unsubscribeMap.set(contactId, unsubscribe);
-        });
+        } catch (error) {
+          if (isSubscribed) {
+            console.error('Error setting up message listeners:', error);
+          }
+        }
       };
       
       setupListeners();
-      
-      // Return cleanup function that unsubscribes from all listeners
-      return () => {
-        unsubscribeMap.forEach(unsubscribe => unsubscribe());
-      };
     } else {
-      setContactLastMessageMap(new Map());
+      if (isSubscribed) {
+        setContactLastMessageMap(new Map());
+      }
     }
+    
+    return () => {
+      isSubscribed = false;
+      unsubscribeMap.forEach(unsubscribe => unsubscribe());
+      unsubscribeMap.clear();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -841,10 +854,7 @@ export default function Home() {
       {/* Show loading spinner during onboarding check */}
       {onboardingCheckLoading && (
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
-            <p className="text-[#364257]">Checking your account...</p>
-          </div>
+          <LoadingSpinner size="lg" text="Checking your account..." />
         </div>
       )}
 

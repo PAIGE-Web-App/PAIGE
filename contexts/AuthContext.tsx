@@ -6,9 +6,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getUserWithRole } from '@/utils/userRoleMigration';
 import { UserRole, UserType, UserPermissions, UserSubscription } from '@/types/user';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 const PROFILE_IMAGE_KEY = 'paige_profile_image_url';
 const PROFILE_IMAGE_LQIP_KEY = 'paige_profile_image_lqip';
+const ONBOARDING_STATUS_KEY = 'paige_onboarding_status';
 
 // Extend the existing context with role information
 interface AuthContextType {
@@ -29,6 +31,10 @@ interface AuthContextType {
   isAdmin: boolean;
   canAccessAdmin: boolean;
   refreshUserRole: () => Promise<void>;
+  
+  // Onboarding status
+  onboardingStatus: 'unknown' | 'onboarded' | 'not-onboarded';
+  checkOnboardingStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,6 +55,10 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   canAccessAdmin: false,
   refreshUserRole: async () => {},
+  
+  // Onboarding status
+  onboardingStatus: 'unknown',
+  checkOnboardingStatus: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -69,6 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canAccessAdmin, setCanAccessAdmin] = useState(false);
+  
+  // Onboarding status state
+  const [onboardingStatus, setOnboardingStatus] = useState<'unknown' | 'onboarded' | 'not-onboarded'>(
+    typeof window !== 'undefined' ? (localStorage.getItem(ONBOARDING_STATUS_KEY) as any) || 'unknown' : 'unknown'
+  );
 
   // Always prefer Firestore value over localStorage after Firestore loads
   useEffect(() => {
@@ -202,6 +217,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Function to check onboarding status
+  const checkOnboardingStatus = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('🔍 Checking onboarding status for user:', user.uid);
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        const isOnboarded = data.onboarded === true;
+        const newStatus = isOnboarded ? 'onboarded' : 'not-onboarded';
+        
+        setOnboardingStatus(newStatus);
+        localStorage.setItem(ONBOARDING_STATUS_KEY, newStatus);
+        
+        console.log('✅ Onboarding status updated:', newStatus);
+      } else {
+        setOnboardingStatus('not-onboarded');
+        localStorage.setItem(ONBOARDING_STATUS_KEY, 'not-onboarded');
+        console.log('✅ New user - not onboarded');
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setOnboardingStatus('not-onboarded');
+      localStorage.setItem(ONBOARDING_STATUS_KEY, 'not-onboarded');
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
@@ -212,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div></div>;
+    return <div className="flex items-center justify-center min-h-screen"><LoadingSpinner size="lg" /></div>;
   }
 
   return (
@@ -231,7 +276,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription,
       isAdmin,
       canAccessAdmin,
-      refreshUserRole
+      refreshUserRole,
+      onboardingStatus,
+      checkOnboardingStatus
     }}>
       {children}
     </AuthContext.Provider>

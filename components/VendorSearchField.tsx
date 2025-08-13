@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, X, Star } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import ReactDOM from 'react-dom';
+import LoadingSpinner from './LoadingSpinner';
 
 interface VendorSearchFieldProps {
   value?: any;
@@ -303,8 +304,7 @@ export default function VendorSearchField({
         >
           {loading ? (
             <div className="p-4 text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
-              <p className="text-sm text-gray-600 mt-2">Searching vendors...</p>
+              <LoadingSpinner size="sm" text="Searching vendors..." />
             </div>
           ) : results.length > 0 ? (
             <div className="py-2">

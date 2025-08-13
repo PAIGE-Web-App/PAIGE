@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { debounce, googlePlacesBatcher } from '@/utils/requestBatcher';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; }) {
   
@@ -149,7 +150,7 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
       )}
       {isLoading && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
+          <LoadingSpinner size="sm" />
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from '../LoadingSpinner';
 
 interface AdminPaginationProps {
   currentPage: number;
@@ -94,8 +95,7 @@ export default function AdminPagination({
       {/* Loading More Indicator */}
       {loadingMore && (
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-center">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-gray-600 mt-2">Loading more users...</p>
+          <LoadingSpinner size="sm" text="Loading more users..." />
         </div>
       )}
     </>
