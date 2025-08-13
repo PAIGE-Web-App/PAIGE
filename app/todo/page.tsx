@@ -204,7 +204,7 @@ export default function TodoPage() {
           onSetWeddingDate={handleSetWeddingDate}
         />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );

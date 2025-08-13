@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { db, getUserCollectionRef } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc, limit } from 'firebase/firestore';
 import { getAllCategories, saveCategoryIfNew } from '@/lib/firebaseCategories';
 import Fuse from 'fuse.js';
 import { useCustomToast } from './useCustomToast';
@@ -90,7 +90,7 @@ export function useTodoItems(selectedList: TodoList | null) {
   useEffect(() => {
     if (user) {
       const categoriesRef = getUserCollectionRef('categories', user.uid);
-      const q = query(categoriesRef, orderBy('name', 'asc'));
+      const q = query(categoriesRef, orderBy('name', 'asc'), limit(50)); // Limit categories for better performance
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const categories = snapshot.docs.map(doc => (doc.data() as { name: string }).name);
@@ -107,7 +107,8 @@ export function useTodoItems(selectedList: TodoList | null) {
     
     const q = query(
       getUserCollectionRef('todoItems', user.uid),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100) // Limit to 100 most recent items for better performance
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
