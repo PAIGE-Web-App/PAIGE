@@ -82,7 +82,7 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
   return (
     <div className="flex min-h-screen">
       <VerticalNav />
-      <main className="flex-1 md:ml-16">
+      <main className="flex-1 md:ml-[72px]">
         {children}
       </main>
     </div>

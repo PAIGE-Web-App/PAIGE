@@ -87,7 +87,7 @@ export default function VerticalNav() {
   };
 
   return (
-    <nav className="fixed left-0 top-0 h-full w-16 bg-white border-r border-[#AB9C95] z-30 flex flex-col md:block hidden">
+    <nav className="fixed left-0 top-0 h-full w-[72px] bg-white border-r border-[#AB9C95] z-30 flex flex-col md:block hidden">
       {/* Top Section: Logo and Navigation Items - Centered with padding */}
       <div className="flex flex-col items-center flex-1 justify-center pt-4">
         {/* Logo */}
@@ -96,7 +96,7 @@ export default function VerticalNav() {
         </div>
 
         {/* Main Navigation Items */}
-        <div className="flex flex-col items-center space-y-2">
+        <div className="flex flex-col items-center space-y-6">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -141,7 +141,7 @@ export default function VerticalNav() {
         </div>
 
         {/* Notifications Bell */}
-        <div className="relative group mt-4" ref={notificationsRef}>
+        <div className="relative group mt-6" ref={notificationsRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group-hover:bg-[#F3F2F0] ${
