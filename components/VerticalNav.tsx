@@ -43,8 +43,8 @@ export default function VerticalNav() {
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
-    { name: "Files", href: "/files", icon: FileText },
     { name: "Inspiration", href: "/inspiration", icon: Heart },
+    { name: "Files", href: "/files", icon: FileText },
   ];
 
   const userMenuItems = [
