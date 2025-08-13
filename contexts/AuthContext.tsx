@@ -1,16 +1,18 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getUserWithRole } from '@/utils/userRoleMigration';
 import { UserRole, UserType, UserPermissions, UserSubscription } from '@/types/user';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { refreshAuthToken, validateSession } from '@/utils/authUtils';
 
 const PROFILE_IMAGE_KEY = 'paige_profile_image_url';
 const PROFILE_IMAGE_LQIP_KEY = 'paige_profile_image_lqip';
 const ONBOARDING_STATUS_KEY = 'paige_onboarding_status';
+const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
 // Extend the existing context with role information
 interface AuthContextType {
@@ -35,6 +37,10 @@ interface AuthContextType {
   // Onboarding status
   onboardingStatus: 'unknown' | 'onboarded' | 'not-onboarded';
   checkOnboardingStatus: () => Promise<void>;
+  
+  // New authentication management
+  refreshAuthToken: () => Promise<string | null>;
+  validateSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -59,6 +65,10 @@ const AuthContext = createContext<AuthContextType>({
   // Onboarding status
   onboardingStatus: 'unknown',
   checkOnboardingStatus: async () => {},
+  
+  // New authentication management
+  refreshAuthToken: async () => null,
+  validateSession: async () => false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -84,6 +94,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [onboardingStatus, setOnboardingStatus] = useState<'unknown' | 'onboarded' | 'not-onboarded'>(
     typeof window !== 'undefined' ? (localStorage.getItem(ONBOARDING_STATUS_KEY) as any) || 'unknown' : 'unknown'
   );
+
+  // Track last operation timestamps to prevent loops
+  const lastTokenRefreshRef = useRef<number>(0);
+  const lastSessionValidationRef = useRef<number>(0);
+
+  // Token refresh function - using utility function
+  const refreshAuthTokenLocal = useCallback(async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    // Prevent rapid token refresh attempts
+    const now = Date.now();
+    if (now - lastTokenRefreshRef.current < 30000) { // 30 seconds minimum between refreshes
+      console.log('⏳ Token refresh too recent, skipping...');
+      return null;
+    }
+    
+    try {
+      const result = await refreshAuthToken(user);
+      if (result) {
+        // Update last refresh time
+        lastTokenRefreshRef.current = now;
+      }
+      return result;
+    } catch (error) {
+      console.error('Error in local token refresh:', error);
+      return null;
+    }
+  }, [user]);
+
+  // Session validation function - using utility function
+  const validateSessionLocal = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    // Prevent rapid validation attempts
+    const now = Date.now();
+    if (now - lastSessionValidationRef.current < 10000) { // 10 seconds minimum between validations
+      console.log('⏳ Session validation too recent, skipping...');
+      return true; // Assume valid to prevent loops
+    }
+    
+    try {
+      const result = await validateSession(user);
+      // Update last validation time
+      lastSessionValidationRef.current = now;
+      return result;
+    } catch (error) {
+      console.error('Error in local session validation:', error);
+      return false;
+    }
+  }, [user]);
 
   // Always prefer Firestore value over localStorage after Firestore loads
   useEffect(() => {
@@ -251,10 +311,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);
-      // Do not set profileImageUrl here, let the Firestore effect above handle it
+      
+      // If user exists, validate session and set up token refresh
+      if (user) {
+        // Validate session immediately
+        const isValid = await validateSessionLocal();
+        if (!isValid) {
+          console.log('⚠️ Session validation failed, refreshing token...');
+          await refreshAuthTokenLocal();
+        }
+        
+        // Set up periodic token refresh
+        const refreshInterval = setInterval(async () => {
+          if (user && user.uid) {
+            await refreshAuthTokenLocal();
+          }
+        }, TOKEN_REFRESH_INTERVAL);
+        
+        // Clean up interval on unmount
+        return () => clearInterval(refreshInterval);
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [validateSession, refreshAuthToken]);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><LoadingSpinner size="lg" /></div>;
@@ -278,7 +357,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       canAccessAdmin,
       refreshUserRole,
       onboardingStatus,
-      checkOnboardingStatus
+      checkOnboardingStatus,
+      refreshAuthToken: refreshAuthTokenLocal,
+      validateSession: validateSessionLocal,
     }}>
       {children}
     </AuthContext.Provider>

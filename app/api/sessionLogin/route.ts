@@ -9,32 +9,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing idToken" }, { status: 400 });
     }
 
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    let sessionCookie;
+    // Verify the Firebase ID token first
+    let decodedToken;
     try {
-      sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
+      decodedToken = await admin.auth().createSessionCookie(idToken, { expiresIn: 60 * 60 * 24 * 5 * 1000 });
     } catch (err) {
       console.error("Error creating session cookie:", err);
       return NextResponse.json({ error: "Unauthorized", details: String(err) }, { status: 401 });
     }
 
-    // Set cookie options
+    // Set cookie options with enhanced security
     const isProd = process.env.NODE_ENV === "production";
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    
     const cookieOptions = [
       `Path=/`,
       `HttpOnly`,
       `Max-Age=${expiresIn / 1000}`,
-      ...(isProd ? ["Secure", "SameSite=Strict"] : ["SameSite=Lax"])
-    ].join("; ");
+      `SameSite=${isProd ? 'Strict' : 'Lax'}`,
+      ...(isProd ? ["Secure"] : [])
+    ].filter(Boolean).join("; ");
 
-    const response = NextResponse.json({ status: "success" });
+    const response = NextResponse.json({ 
+      status: "success",
+      message: "Session established successfully"
+    });
+    
     response.headers.append(
       "Set-Cookie",
-      `__session=${sessionCookie}; ${cookieOptions}`
+      `__session=${decodedToken}; ${cookieOptions}`
     );
+    
+    // Add security headers
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    
     return response;
   } catch (error) {
     console.error("General error in sessionLogin:", error);
-    return NextResponse.json({ error: "Unauthorized", details: String(error) }, { status: 401 });
+    return NextResponse.json({ error: "Internal server error", details: String(error) }, { status: 500 });
   }
 } 

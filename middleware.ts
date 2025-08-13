@@ -84,7 +84,7 @@ function checkAuthLoop(request: NextRequest): boolean {
   
   // If blocked, check if enough time has passed
   if (client.blocked) {
-    if (now - client.lastAttempt > 30 * 1000) { // 30 seconds (reduced from 2 minutes)
+    if (now - client.lastAttempt > 2 * 60 * 1000) { // 2 minutes
       client.blocked = false;
       client.attempts = 1;
       client.lastAttempt = now;
@@ -93,18 +93,14 @@ function checkAuthLoop(request: NextRequest): boolean {
     return true; // Still blocked
   }
   
-  // Check for rapid auth attempts - more lenient for legitimate login attempts
-  if (now - client.lastAttempt < 500) { // Less than 500ms between attempts (more lenient)
+  // Check for rapid auth attempts
+  if (now - client.lastAttempt < 1000) { // Less than 1 second between attempts
     client.attempts++;
-    if (client.attempts >= 10) { // 10 rapid attempts (increased threshold)
+    if (client.attempts >= 5) { // 5 rapid attempts
       client.blocked = true;
       return true;
     }
-  } else if (now - client.lastAttempt < 5000) { // Less than 5 seconds
-    // Reset attempts if there's a reasonable gap
-    client.attempts = Math.max(1, client.attempts - 1);
   } else {
-    // Reset completely if more than 5 seconds
     client.attempts = 1;
   }
   
@@ -178,25 +174,23 @@ export function middleware(request: NextRequest) {
   // Define public paths that don't require authentication
   const isPublicPath = path === '/login' || path === '/signup';
 
-  // Check for authentication loops only on auth-related endpoints
-  if (path.startsWith('/api/auth/') || path.startsWith('/api/sessionLogin') || path.startsWith('/api/sessionLogout')) {
-    if (checkAuthLoop(request)) {
-      console.log('🚫 Authentication loop detected on auth endpoint, blocking request');
-      return new NextResponse(
-        JSON.stringify({
-          error: 'Too many authentication attempts',
-          message: 'Please wait a moment before trying again',
-          retryAfter: 120
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': '120'
-          }
+  // Check for authentication loops before proceeding
+  if (checkAuthLoop(request)) {
+    console.log('🚫 Authentication loop detected, blocking request');
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Too many authentication attempts',
+        message: 'Please wait a moment before trying again',
+        retryAfter: 120
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': '120'
         }
-      );
-    }
+      }
+    );
   }
 
   // Get the Firebase auth token from the cookies
