@@ -1,7 +1,9 @@
-import React from 'react';
-import { Edit, Eye, Users, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Edit, Eye, Users, Star, ChevronDown, ChevronRight } from 'lucide-react';
 import { AdminUser, UserRole } from '@/types/user';
 import { ROLE_CONFIGS } from '@/utils/roleConfig';
+import RelationshipRow from './RelationshipRow';
+import RelationshipModal from './RelationshipModal';
 
 interface AdminUserTableProps {
   users: AdminUser[];
@@ -39,6 +41,7 @@ const TableRowSkeleton = () => (
       <div className="flex gap-2">
         <div className="w-8 h-8 bg-gray-200 rounded"></div>
         <div className="w-8 h-8 bg-gray-200 rounded"></div>
+        <div className="w-8 h-8 bg-gray-200 rounded"></div>
       </div>
     </td>
   </tr>
@@ -61,6 +64,87 @@ export default function AdminUserTable({
   onEditUser, 
   onViewUser 
 }: AdminUserTableProps) {
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [relationshipModal, setRelationshipModal] = useState<{
+    isOpen: boolean;
+    user: AdminUser | null;
+    type: 'partner' | 'planner';
+  }>({
+    isOpen: false,
+    user: null,
+    type: 'partner'
+  });
+
+  const toggleUserExpansion = (userId: string) => {
+    const newExpanded = new Set(expandedUsers);
+    if (newExpanded.has(userId)) {
+      newExpanded.delete(userId);
+    } else {
+      newExpanded.add(userId);
+    }
+    setExpandedUsers(newExpanded);
+  };
+
+  const handleLinkPartner = (userId: string) => {
+    const user = users.find(u => u.uid === userId);
+    if (user) {
+      setRelationshipModal({
+        isOpen: true,
+        user,
+        type: 'partner'
+      });
+    }
+  };
+
+  const handleAssignPlanner = (userId: string) => {
+    const user = users.find(u => u.uid === userId);
+    if (user) {
+      setRelationshipModal({
+        isOpen: true,
+        user,
+        type: 'planner'
+      });
+    }
+  };
+
+  const handleRelationshipSave = async (userId: string, targetUserId: string, action: 'link' | 'unlink') => {
+    try {
+      const relationshipType = relationshipModal.type;
+      
+      // Get the current user's ID token for authentication
+      const currentUser = await fetch('/api/auth/session').then(res => res.json());
+      if (!currentUser?.user?.uid) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch('/api/admin/users/relationships', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.user.uid}` // This should be the actual ID token
+        },
+        body: JSON.stringify({
+          userId,
+          targetUserId,
+          action,
+          relationshipType
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save relationship');
+      }
+
+      // TODO: Refresh user data to show updated relationships
+      console.log('Relationship saved successfully');
+      
+    } catch (error) {
+      console.error('Failed to save relationship:', error);
+      // TODO: Show error toast to user
+    }
+  };
+
   const getRoleColor = (role: UserRole) => {
     const colors = {
       couple: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -152,85 +236,107 @@ export default function AdminUserTable({
               <EmptyState />
             ) : (
               users.map((user) => (
-                <tr key={user.uid} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="relative w-10 h-10 mr-3">
-                        {user.profileImageUrl ? (
-                          <>
+                <React.Fragment key={user.uid}>
+                  <tr className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="relative w-10 h-10 mr-3">
+                          {user.profileImageUrl ? (
+                            <>
+                              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-medium text-gray-600">
+                                  {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <img 
+                                src={user.profileImageUrl} 
+                                alt={user.displayName || user.userName || 'User'}
+                                className="w-10 h-10 rounded-full object-cover absolute inset-0"
+                                loading="lazy"
+                                onError={(e) => {
+                                  // Fallback to initials if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            </>
+                          ) : (
                             <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                               <span className="text-sm font-medium text-gray-600">
                                 {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <img 
-                              src={user.profileImageUrl} 
-                              alt={user.displayName || user.userName || 'User'}
-                              className="w-10 h-10 rounded-full object-cover absolute inset-0"
-                              loading="lazy"
-                              onError={(e) => {
-                                // Fallback to initials if image fails to load
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-600">
-                              {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.displayName || user.userName || 'No Name'}
+                          )}
                         </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.displayName || user.userName || 'No Name'}
+                          </div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
-                      {getRoleIcon(user.role)}
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      user.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.createdAt.toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.lastActive.toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onEditUser(user)}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                        title="Change Role"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onViewUser(user)}
-                        className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
+                        {getRoleIcon(user.role)}
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        user.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.createdAt.toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.lastActive.toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleUserExpansion(user.uid)}
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
+                          title={expandedUsers.has(user.uid) ? "Hide Details" : "Show Details"}
+                        >
+                          {expandedUsers.has(user.uid) ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => onEditUser(user)}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                          title="Change Role"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onViewUser(user)}
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  {/* Relationship Row */}
+                  <RelationshipRow
+                    user={user}
+                    isExpanded={expandedUsers.has(user.uid)}
+                    onToggle={() => toggleUserExpansion(user.uid)}
+                    onLinkPartner={handleLinkPartner}
+                    onAssignPlanner={handleAssignPlanner}
+                  />
+                </React.Fragment>
               ))
             )}
           </tbody>
@@ -244,6 +350,15 @@ export default function AdminUserTable({
           <p className="text-sm text-gray-600 mt-2">Loading more users...</p>
         </div>
       )}
+
+      {/* Relationship Modal */}
+      <RelationshipModal
+        isOpen={relationshipModal.isOpen}
+        onClose={() => setRelationshipModal({ isOpen: false, user: null, type: 'partner' })}
+        user={relationshipModal.user}
+        type={relationshipModal.type}
+        onSave={handleRelationshipSave}
+      />
     </div>
   );
 }

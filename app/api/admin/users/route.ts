@@ -110,7 +110,18 @@ export async function GET(request: NextRequest) {
         lastActive: lastActive,
         isActive: data.isActive !== false, // Default to true if not set
         profileImageUrl: data.profileImageUrl || null,
-        metadata: data.metadata || {}
+        metadata: data.metadata || {},
+        
+        // Relationship fields
+        partnerId: data.partnerId || null,
+        partnerEmail: data.partnerEmail || null,
+        partnerName: data.partnerName || null,
+        plannerId: data.plannerId || null,
+        plannerEmail: data.plannerEmail || null,
+        plannerName: data.plannerName || null,
+        weddingDate: data.weddingDate || data.metadata?.weddingDate || null,
+        isLinked: !!data.partnerId,
+        hasPlanner: !!data.plannerId
       };
     });
 

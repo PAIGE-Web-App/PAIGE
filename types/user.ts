@@ -125,4 +125,15 @@ export interface AdminUser {
   isActive: boolean;
   profileImageUrl?: string;
   metadata?: Record<string, any>;
+  
+  // Relationship fields
+  partnerId?: string;
+  partnerEmail?: string;
+  partnerName?: string;
+  plannerId?: string;
+  plannerEmail?: string;
+  plannerName?: string;
+  weddingDate?: string;
+  isLinked?: boolean;
+  hasPlanner?: boolean;
 }
