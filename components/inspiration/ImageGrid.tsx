@@ -52,43 +52,49 @@ export default function ImageGrid({
     <>
       {/* Pinterest-Style Image Grid */}
       <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-4 mb-6">
-        {board.images.map((image, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-            className="break-inside-avoid mb-4 group"
-          >
-            <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow relative">
-              {/* Micro Menu - Top Right */}
-              <div className="absolute top-2 right-2 z-10">
-                <MicroMenu
-                  items={[
-                    {
-                      label: 'Edit',
-                      onClick: () => onEditImage?.(index)
-                    },
-                    {
-                      label: 'Download',
-                      onClick: () => onDownloadImage?.(image.url, image.fileName)
-                    },
-                    {
-                      label: 'Delete',
-                      onClick: () => onRemoveImage(index),
-                      className: 'text-red-600 hover:bg-red-50'
-                    }
-                  ]}
-                  buttonClassName="p-1.5 hover:bg-white/80 rounded-full transition-colors bg-white/60 backdrop-blur-sm"
-                  menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
-                />
-              </div>
+        {board.images.map((image, index) => {
+          // Handle both old string format and new object format
+          const imageUrl = typeof image === 'string' ? image : image.url;
+          const imageName = typeof image === 'string' ? `Inspiration ${index + 1}` : image.fileName;
+          const imageDescription = typeof image === 'string' ? '' : image.description;
+          
+          return (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+              className="break-inside-avoid mb-4 group"
+            >
+              <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow relative">
+                {/* Micro Menu - Top Right */}
+                <div className="absolute top-2 right-2 z-10">
+                  <MicroMenu
+                    items={[
+                      {
+                        label: 'Edit',
+                        onClick: () => onEditImage?.(index)
+                      },
+                      {
+                        label: 'Download',
+                        onClick: () => onDownloadImage?.(imageUrl, imageName)
+                      },
+                      {
+                        label: 'Delete',
+                        onClick: () => onRemoveImage(index),
+                        className: 'text-red-600 hover:bg-red-50'
+                      }
+                    ]}
+                    buttonClassName="p-1.5 hover:bg-white/80 rounded-full transition-colors bg-white/60 backdrop-blur-sm"
+                    menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+                  />
+                </div>
 
               {/* Image */}
               <div className="relative">
                 <img
-                  src={image.url}
-                  alt={image.fileName}
+                  src={imageUrl}
+                  alt={imageName}
                   className="w-full h-auto object-cover"
                   loading="lazy"
                 />
@@ -97,7 +103,7 @@ export default function ImageGrid({
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
                     <button
-                      onClick={() => onGenerateVibes(image.url)}
+                      onClick={() => onGenerateVibes(imageUrl)}
                       disabled={generatingVibes}
                       className="flex items-center gap-2 px-3 py-2 bg-white text-[#332B42] text-sm font-medium rounded-lg shadow-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -122,7 +128,7 @@ export default function ImageGrid({
               <div className="p-3">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-[#332B42] text-sm truncate">
-                    {image.fileName}
+                    {imageName}
                   </h3>
                   <div className="flex items-center gap-1 text-xs text-[#AB9C95]">
                     <Camera size={12} />
@@ -131,9 +137,9 @@ export default function ImageGrid({
                 </div>
                 
                 {/* Description */}
-                {image.description && (
+                {imageDescription && (
                   <p className="text-xs text-[#364257] mb-2 line-clamp-2">
-                    {image.description}
+                    {imageDescription}
                   </p>
                 )}
                 
@@ -144,7 +150,8 @@ export default function ImageGrid({
               </div>
             </div>
           </motion.div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Image Limit Warning */}
