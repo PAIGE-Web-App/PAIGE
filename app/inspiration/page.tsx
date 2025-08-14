@@ -8,10 +8,32 @@ import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, M
 import WeddingBanner from "../../components/WeddingBanner";
 import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
+import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
+
+// Import new components
+import PinterestBanner from "../../components/inspiration/PinterestBanner";
+import MoodBoardTabs from "../../components/inspiration/MoodBoardTabs";
+import MoodBoardContent from "../../components/inspiration/MoodBoardContent";
+import NewBoardModal from "../../components/inspiration/NewBoardModal";
+import VibeEditModal from "../../components/inspiration/VibeEditModal";
+import StorageProgressBar from "../../components/StorageProgressBar";
+import UpgradePlanModal from "../../components/UpgradePlanModal";
+
+// Import types and utilities
+import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../types/inspiration";
+import { 
+  getActiveBoard, 
+  addImageToBoard, 
+  removeImageFromBoard, 
+  updateBoardVibes,
+  createNewBoard,
+  uploadImageToStorage,
+  cleanupBase64Images
+} from "../../utils/moodBoardUtils";
 
 export default function InspirationPage() {
   const { user, loading } = useAuth();
@@ -20,6 +42,10 @@ export default function InspirationPage() {
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
+  // User plan (for now, default to free - you can integrate with your billing system)
+  const userPlan = PLAN_LIMITS.free;
+  
+  // State management
   const [isEditing, setIsEditing] = useState(false);
   const [editingVibes, setEditingVibes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -30,50 +56,165 @@ export default function InspirationPage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [generatingVibes, setGeneratingVibes] = useState(false);
-  const [moodBoardImages, setMoodBoardImages] = useState<string[]>([]);
+
   const [showPinterestSearch, setShowPinterestSearch] = useState(false);
   const [pinterestSearchQuery, setPinterestSearchQuery] = useState('');
   const [pinterestResults, setPinterestResults] = useState<any[]>([]);
   const [searchingPinterest, setSearchingPinterest] = useState(false);
-  const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(true);
+  const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Mood board state
+  const [moodBoards, setMoodBoards] = useState<MoodBoard[]>([]);
+  const [activeMoodBoard, setActiveMoodBoard] = useState<string>('wedding-day');
+  const [showNewBoardModal, setShowNewBoardModal] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+  const [newBoardType, setNewBoardType] = useState<'custom' | 'wedding-day' | 'reception' | 'engagement'>('custom');
+  const [moodBoardsLoading, setMoodBoardsLoading] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [editingBoard, setEditingBoard] = useState<MoodBoard | null>(null);
+  const [inlineEditingBoardId, setInlineEditingBoardId] = useState<string | null>(null);
+  const [inlineEditingName, setInlineEditingName] = useState('');
+  
+  // Storage tracking for mood board images
+  const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
 
-  // Initialize editing vibes when data loads
+  // Initialize editing vibes when active board changes
   useEffect(() => {
-    if (vibe && generatedVibes) {
-      setEditingVibes([...vibe, ...generatedVibes]);
+    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+    if (activeBoard && activeBoard.vibes) {
+      setEditingVibes([...activeBoard.vibes]);
+    } else {
+      setEditingVibes([]);
     }
-  }, [vibe, generatedVibes]);
+  }, [activeMoodBoard, moodBoards]);
 
-  const vibeOptions = [
-    'Intimate & cozy',
-    'Big & bold',
-    'Chic city affair',
-    'Outdoor & natural',
-    'Traditional & timeless',
-    'Modern & minimal',
-    'Destination dream',
-    'Boho & Whimsical',
-    'Glamorous & Luxe',
-    'Vintage Romance',
-    'Garden Party',
-    'Beachy & Breezy',
-    'Art Deco',
-    'Festival-Inspired',
-    'Cultural Fusion',
-    'Eco-Friendly',
-    'Fairytale',
-    'Still figuring it out',
-  ];
+  // Load mood boards from Firestore with migration
+  useEffect(() => {
+    const loadMoodBoards = async () => {
+      if (!user) return;
+      
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          let savedMoodBoards = data.moodBoards || [];
+          
+          // Migration: Check if we need to migrate existing vibes to wedding-day board
+          const existingVibes = [...(data.vibe || []), ...(data.generatedVibes || [])];
+          const existingVibeInputMethod = data.vibeInputMethod || 'pills';
+          
+          if (savedMoodBoards.length === 0) {
+            // No mood boards exist, create default with migrated vibes
+            const defaultBoard: MoodBoard = {
+              id: 'wedding-day',
+              name: 'Wedding Day',
+              type: 'wedding-day',
+              images: [], // TODO: Add onboarding image if available
+              vibes: existingVibes,
+              createdAt: new Date(),
+              vibeInputMethod: existingVibeInputMethod
+            };
+            
+            savedMoodBoards = [defaultBoard];
+          } else {
+            // Mood boards exist, but check if wedding-day board needs vibes migrated
+            const weddingDayBoard = savedMoodBoards.find(board => board.id === 'wedding-day');
+            if (weddingDayBoard && existingVibes.length > 0 && weddingDayBoard.vibes.length === 0) {
+              // Migrate vibes to existing wedding-day board
+              weddingDayBoard.vibes = existingVibes;
+              weddingDayBoard.vibeInputMethod = existingVibeInputMethod;
+              console.log('Migrated existing vibes to Wedding Day board');
+            }
+          }
+          
+          // Save the migrated data to Firestore if we made changes
+          if (existingVibes.length > 0) {
+            try {
+              await updateDoc(doc(db, "users", user.uid), {
+                moodBoards: savedMoodBoards
+              });
+              console.log('Successfully saved migrated mood boards');
+            } catch (migrationError) {
+              console.error('Error saving migrated mood boards:', migrationError);
+            }
+          }
+          
+          // Clean up any existing base64 images to prevent document size issues
+          try {
+            const cleanedBoards = await cleanupBase64Images(savedMoodBoards, user.uid);
+            if (JSON.stringify(cleanedBoards) !== JSON.stringify(savedMoodBoards)) {
+              // Save cleaned boards if changes were made
+              await updateDoc(doc(db, "users", user.uid), {
+                moodBoards: cleanedBoards
+              });
+              console.log('Successfully cleaned up base64 images');
+              setMoodBoards(cleanedBoards);
+            } else {
+              setMoodBoards(savedMoodBoards);
+            }
+          } catch (cleanupError) {
+            console.error('Error cleaning up base64 images:', cleanupError);
+            // Continue with original boards if cleanup fails
+            setMoodBoards(savedMoodBoards);
+          }
+          
+          setActiveMoodBoard(savedMoodBoards[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading mood boards:', error);
+        // Fallback to default board
+        const defaultBoard: MoodBoard = {
+          id: 'wedding-day',
+          name: 'Wedding Day',
+          type: 'wedding-day',
+          images: [],
+          vibes: [],
+          createdAt: new Date()
+        };
+        setMoodBoards([defaultBoard]);
+        setActiveMoodBoard('wedding-day');
+      } finally {
+        setMoodBoardsLoading(false);
+      }
+    };
+
+    loadMoodBoards();
+  }, [user]);
+
+  // Save mood boards to Firestore whenever they change
+  useEffect(() => {
+    const saveMoodBoards = async () => {
+      if (!user || moodBoardsLoading || moodBoards.length === 0) return;
+      
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          moodBoards: moodBoards
+        });
+      } catch (error) {
+        console.error('Error saving mood boards:', error);
+        showErrorToast('Failed to save mood boards');
+      }
+    };
+
+    // Debounce saves to avoid excessive Firestore writes
+    const timeoutId = setTimeout(saveMoodBoards, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [moodBoards, user, moodBoardsLoading]);
+
+  // Helper functions
+  const canCreateNewBoard = () => {
+    return moodBoards.length < userPlan.maxBoards;
+  };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !getActiveBoard(moodBoards, activeMoodBoard)) return;
     
     setSaving(true);
     try {
-      await updateDoc(doc(db, "users", user.uid), {
-        vibe: editingVibes.filter(v => vibeOptions.includes(v)),
-        generatedVibes: editingVibes.filter(v => !vibeOptions.includes(v)),
-      });
+      // Update the active board's vibes
+      const updatedMoodBoards = updateBoardVibes(moodBoards, activeMoodBoard, editingVibes);
+      setMoodBoards(updatedMoodBoards);
       
       showSuccessToast('Wedding vibe updated successfully!');
       setIsEditing(false);
@@ -85,118 +226,65 @@ export default function InspirationPage() {
     }
   };
 
-  const handleCancel = () => {
-    setEditingVibes([...vibe, ...generatedVibes]);
-    setIsEditing(false);
-    setShowVibeInput(false);
-    setNewVibe('');
-  };
-
-  const addVibe = (vibeToAdd: string) => {
-    if (!editingVibes.includes(vibeToAdd)) {
-      setEditingVibes([...editingVibes, vibeToAdd]);
-    }
-  };
-
-  const removeVibe = (vibeToRemove: string) => {
-    setEditingVibes(editingVibes.filter(v => v !== vibeToRemove));
-  };
-
-  const addCustomVibe = () => {
-    if (newVibe.trim() && !editingVibes.includes(newVibe.trim())) {
-      setEditingVibes([...editingVibes, newVibe.trim()]);
-      setNewVibe('');
-      setShowVibeInput(false);
-    }
-  };
-
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const imageUrl = e.target?.result as string;
-          setMoodBoardImages(prev => [...prev, imageUrl]);
+      handleFilesDrop(Array.from(files));
+    }
+  };
+
+  const handleFilesDrop = async (files: File[]) => {
+    if (!user) return;
+    
+    setUploadingImage(true);
+    
+    try {
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          // Upload to Firebase Storage instead of base64
+          const imageUrl = await uploadImageToStorage(file, user.uid, activeMoodBoard);
+          
+          // Add the Storage URL to the mood board
+          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl);
+          setMoodBoards(updatedBoards);
+          
           // Set the first image as the main preview for vibe generation
           if (!imagePreviewUrl) {
             setImagePreviewUrl(imageUrl);
             setUploadedImage(file);
           }
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const removeMoodBoardImage = (index: number) => {
-    setMoodBoardImages(prev => prev.filter((_, i) => i !== index));
-    if (index === 0 && moodBoardImages.length > 1) {
-      setImagePreviewUrl(moodBoardImages[1]);
-    } else if (moodBoardImages.length === 1) {
-      setImagePreviewUrl(null);
-      setUploadedImage(null);
-    }
-  };
-
-  const searchPinterest = async () => {
-    if (!pinterestSearchQuery.trim()) return;
-    
-    setSearchingPinterest(true);
-    try {
-      // Real Pinterest API integration
-      const response = await fetch('/api/pinterest/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: pinterestSearchQuery,
-          limit: 12 // Get 12 results for a nice grid
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Pinterest search failed');
-      }
-      
-      const data = await response.json();
-      
-      if (data.pins && Array.isArray(data.pins)) {
-        setPinterestResults(data.pins);
-        setShowPinterestSearch(true);
-      } else {
-        throw new Error('Invalid response format');
+          
+          showSuccessToast(`Uploaded ${file.name} successfully!`);
+        }
       }
     } catch (error) {
-      console.error('Error searching Pinterest:', error);
-      showErrorToast('Failed to search Pinterest. Please try again.');
-      
-      // Fallback to mock results for demo purposes
-      const mockResults = [
-        { id: 1, title: 'Romantic Garden Wedding', imageUrl: 'https://via.placeholder.com/300x400/FFB6C1/000000?text=Garden+Wedding', source: 'Pinterest' },
-        { id: 2, title: 'Modern Minimalist Ceremony', imageUrl: 'https://via.placeholder.com/300x400/E6E6FA/000000?text=Minimalist', source: 'Pinterest' },
-        { id: 3, title: 'Boho Beach Wedding', imageUrl: 'https://via.placeholder.com/300x400/F0E68C/000000?text=Boho+Beach', source: 'Pinterest' },
-      ];
-      setPinterestResults(mockResults);
-      setShowPinterestSearch(true);
+      console.error('Error uploading images:', error);
+      showErrorToast('Failed to upload images. Please try again.');
     } finally {
-      setSearchingPinterest(false);
+      setUploadingImage(false);
     }
   };
 
-  const addPinterestImage = (imageUrl: string) => {
-    setMoodBoardImages(prev => [...prev, imageUrl]);
-    showSuccessToast('Image added to mood board!');
-  };
-
-  const generateVibesFromImage = async () => {
-    if (!uploadedImage || !user) return;
+  const generateVibesFromImage = async (imageUrl?: string) => {
+    if (!user) return;
+    
+    // If no imageUrl provided, use the uploadedImage
+    const imageToUse = imageUrl || uploadedImage;
+    if (!imageToUse) return;
     
     setGeneratingVibes(true);
     try {
       const formData = new FormData();
-      formData.append('image', uploadedImage);
+      
+      // Handle both File objects and image URLs
+      if (imageToUse instanceof File) {
+        formData.append('image', imageToUse);
+      } else if (typeof imageToUse === 'string') {
+        // Convert image URL to blob for API
+        const response = await fetch(imageToUse);
+        const blob = await response.blob();
+        formData.append('image', blob, 'image.jpg');
+      }
       
       console.log('Uploading image for vibe generation...');
       const response = await fetch('/api/generate-vibes-from-image', {
@@ -207,18 +295,23 @@ export default function InspirationPage() {
       console.log('Response status:', response.status);
       const data = await response.json();
       console.log('Response data:', data);
-      console.log('Response data type:', typeof data);
-      console.log('Response data keys:', Object.keys(data));
       
       if (data.vibes && Array.isArray(data.vibes)) {
-        // Add new vibes to the editing list
-        const newVibes = data.vibes.filter((v: string) => !editingVibes.includes(v));
-        setEditingVibes([...editingVibes, ...newVibes]);
+        // Add new vibes to the active board
+        const newVibes = data.vibes.filter((v: string) => !getActiveBoard(moodBoards, activeMoodBoard)?.vibes.includes(v));
         
-        // Save the image preview and update vibe input method
-        await updateDoc(doc(db, "users", user.uid), {
-          vibeInputMethod: 'image',
-        });
+        // Update the active board with new vibes
+        const updatedMoodBoards = moodBoards.map(board => 
+          board.id === activeMoodBoard 
+            ? { 
+                ...board, 
+                vibes: [...board.vibes, ...newVibes],
+                vibeInputMethod: 'image'
+              }
+            : board
+        );
+        
+        setMoodBoards(updatedMoodBoards);
         
         showSuccessToast(`Generated ${newVibes.length} new vibes from your image!`);
         setShowImageUpload(false);
@@ -226,20 +319,161 @@ export default function InspirationPage() {
         setImagePreviewUrl(null);
       } else {
         const errorMessage = data.error || 'Failed to generate vibes from image';
-        console.error('API Error:', errorMessage);
         showErrorToast(errorMessage);
       }
     } catch (error) {
       console.error('Error generating vibes:', error);
-              showErrorToast('Network error: Failed to generate vibes from image');
+      showErrorToast('Network error: Failed to generate vibes from image');
     } finally {
       setGeneratingVibes(false);
     }
   };
 
-  const allVibes = [...vibe, ...generatedVibes];
-  const hasVibes = allVibes.length > 0;
+  const addMoodBoard = async (name: string, type: 'custom' | 'wedding-day' | 'reception' | 'engagement') => {
+    // Check if we're editing an existing board
+    if (editingBoard) {
+      // Update existing board
+      try {
+        const updatedBoards = moodBoards.map(board => 
+          board.id === editingBoard.id 
+            ? { ...board, name, type }
+            : board
+        );
+        
+        setMoodBoards(updatedBoards);
+        setShowNewBoardModal(false);
+        setNewBoardName('');
+        setEditingBoard(null);
+        showSuccessToast(`Updated mood board: ${name}`);
+        
+        // Save to Firestore
+        if (user) {
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: updatedBoards
+          });
+        }
+      } catch (error) {
+        console.error('Error updating mood board:', error);
+        showErrorToast('Failed to update mood board');
+      }
+      return;
+    }
 
+    // Creating new board
+    if (!canCreateNewBoard()) {
+      showErrorToast(`You've reached the limit of ${userPlan.maxBoards} mood boards for your plan. Upgrade to create more!`);
+      return;
+    }
+
+    const newBoard = createNewBoard(name, type);
+
+    try {
+      // Update local state immediately for responsive UI
+      setMoodBoards(prev => [...prev, newBoard]);
+      setActiveMoodBoard(newBoard.id);
+      setShowNewBoardModal(false);
+      setNewBoardName('');
+      showSuccessToast(`Created new mood board: ${name}`);
+      
+      // Save to Firestore (will be handled by useEffect)
+    } catch (error) {
+      console.error('Error creating mood board:', error);
+      showErrorToast('Failed to create mood board');
+    }
+  };
+
+  const editMoodBoard = (board: MoodBoard) => {
+    // Update the board with new data (for inline editing)
+    try {
+      const updatedBoards = moodBoards.map(b => 
+        b.id === board.id ? board : b
+      );
+      
+      setMoodBoards(updatedBoards);
+      
+      // Save to Firestore
+      if (user) {
+        updateDoc(doc(db, "users", user.uid), {
+          moodBoards: updatedBoards
+        });
+      }
+      
+      showSuccessToast('Board updated successfully');
+    } catch (error) {
+      console.error('Error updating board:', error);
+      showErrorToast('Failed to update board');
+    }
+  };
+
+  const saveInlineEdit = async () => {
+    if (!inlineEditingBoardId || !inlineEditingName.trim()) return;
+    
+    try {
+      const updatedBoards = moodBoards.map(board => 
+        board.id === inlineEditingBoardId 
+          ? { ...board, name: inlineEditingName.trim() }
+          : board
+      );
+      
+      setMoodBoards(updatedBoards);
+      setInlineEditingBoardId(null);
+      setInlineEditingName('');
+      showSuccessToast('Board name updated successfully');
+      
+      // Save to Firestore
+      if (user) {
+        await updateDoc(doc(db, "users", user.uid), {
+          moodBoards: updatedBoards
+        });
+      }
+    } catch (error) {
+      console.error('Error updating board name:', error);
+      showErrorToast('Failed to update board name');
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditingBoardId(null);
+    setInlineEditingName('');
+  };
+
+  const deleteMoodBoard = async (boardId: string) => {
+    if (!user) return;
+    
+    try {
+      const updatedBoards = moodBoards.filter(board => board.id !== boardId);
+      setMoodBoards(updatedBoards);
+      
+      // If we deleted the active board, switch to the first available board
+      if (activeMoodBoard === boardId) {
+        setActiveMoodBoard(updatedBoards[0]?.id || 'wedding-day');
+      }
+      
+      // Save to Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        moodBoards: updatedBoards
+      });
+      
+      showSuccessToast('Mood board deleted successfully');
+    } catch (error) {
+      console.error('Error deleting mood board:', error);
+      showErrorToast('Failed to delete mood board');
+    }
+  };
+
+  const addVibe = () => {
+    if (newVibe.trim()) {
+      setEditingVibes([...editingVibes, newVibe.trim()]);
+      setNewVibe('');
+      setShowVibeInput(false);
+    }
+  };
+
+  const removeVibe = (index: number) => {
+    setEditingVibes(editingVibes.filter((_, i) => i !== index));
+  };
+
+  // Auth check
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -270,594 +504,184 @@ export default function InspirationPage() {
       <div className="max-w-6xl mx-auto">
         <div className="app-content-container flex flex-col gap-6 py-8">
           {/* Page Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h5>Wedding Inspiration</h5>
-            </div>
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="btn-primary px-6 py-2 rounded-lg font-medium"
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit Vibe
-              </button>
-            )}
-          </div>
-
-          {/* Selected Vibes Section */}
-          {hasVibes && !isEditing && (
-            <div className="mb-8">
-                          <h4 className="mb-4 text-center">
-              {(() => {
-                const hasLocation = weddingLocation && weddingLocation.trim() !== '';
-                const vibeCount = editingVibes.length;
-                const isSingular = vibeCount === 1;
-                const vibeText = isSingular ? 'vibe' : 'vibes';
-
-                // Truncate very long location names to prevent layout issues
-                const truncateLocation = (location: string) => {
-                  if (location.length > 30) {
-                    return location.substring(0, 27) + '...';
-                  }
-                  return location;
-                };
-
-                if (hasLocation) {
-                  return `The ${vibeText} for your dream day in ${truncateLocation(weddingLocation)}`;
-                } else {
-                  return `The ${vibeText} for your dream day`;
-                }
-              })()}
-            </h4>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {editingVibes.map((vibeItem, index) => (
-                  <VibePill
-                    key={index}
-                    vibe={vibeItem}
-                    index={index}
-                  />
-                ))}
+          <div className="mb-8">
+            <div className="flex items-start justify-between">
+              {/* Left side: Header and Description */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <Heart className="w-5 h-5 text-[#A85C36]" />
+                  <h5>Inspiration</h5>
+                </div>
+                <p className="text-base text-[#364257]">
+                  Create multiple mood boards to organize your wedding inspiration. Each board can have its own unique set of vibes that can be generated from images, helping you curate the perfect aesthetic for different aspects of your special day.
+                </p>
               </div>
               
-              {/* Vibe Input Method Info */}
-              {vibeInputMethod && (
-                <div className="mt-4 text-center">
-                  <div className="inline-flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2">
-                    {vibeInputMethod === 'image' && <Camera className="w-4 h-4 text-[#A85C36]" />}
-                    {vibeInputMethod === 'pills' && <Palette className="w-4 h-4 text-[#A85C36]" />}
-                    {vibeInputMethod === 'pinterest' && <Upload className="w-4 h-4 text-[#A85C36]" />}
-                    <span className="text-sm font-medium text-[#332B42]">
-                      {vibeInputMethod === 'image' && 'Generated from inspiration image'}
-                      {vibeInputMethod === 'pills' && 'Selected from popular vibes'}
-                      {vibeInputMethod === 'pinterest' && 'Inspired by Pinterest'}
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* Right side: Storage Usage with 40px gap */}
+              <div className="w-64 ml-10">
+                <StorageProgressBar
+                  usedStorage={storageStats.usedStorage}
+                  totalStorage={storageStats.totalStorage}
+                  plan={storageStats.plan.toUpperCase() as 'FREE' | 'PREMIUM' | 'ENTERPRISE'}
+                  showUpgradeModal={() => {
+                    // TODO: Implement upgrade modal
+                    showErrorToast('Upgrade your plan to get more storage!');
+                  }}
+                />
+              </div>
             </div>
-          )}
-
-          {/* No Vibes State */}
-          {!hasVibes && !isEditing && (
-            <div className="text-center py-12 mb-8">
-              <Palette className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-[#332B42] mb-2">No vibe selected yet</h3>
-              <p className="text-[#364257] mb-6">
-                {moodBoardImages.length > 0 
-                  ? "You have inspiration images but no vibes selected yet. Select some vibes to get AI-powered suggestions from your images!"
-                  : "Start by selecting some vibes that resonate with your wedding vision."
-                }
-              </p>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="btn-primary px-6 py-2 rounded-lg font-medium"
-              >
-                Choose Your Vibe
-              </button>
-            </div>
-          )}
+          </div>
 
           {/* Mood Board Section */}
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h4>Your Mood Board</h4>
-              
-              {/* Pinterest Integration Banner - Compact with Overlay */}
-              <div className="relative">
-                <button
-                  onClick={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
-                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-[5px] shadow-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center gap-2"
-                >
-                  <Star className="w-4 h-4" strokeWidth={1} />
-                  <span className="text-sm font-semibold">Pinterest Integration</span>
-                  <svg 
-                    className={`w-4 h-4 transition-transform duration-200 ${pinterestBannerExpanded ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                {/* Mood Board Tabs */}
+                <MoodBoardTabs
+                  moodBoards={moodBoards}
+                  activeMoodBoard={activeMoodBoard}
+                  onTabChange={setActiveMoodBoard}
+                  onEditBoard={editMoodBoard}
+                  onDeleteBoard={deleteMoodBoard}
+                  inlineEditingBoardId={inlineEditingBoardId}
+                  inlineEditingName={inlineEditingName}
+                  onInlineEditChange={setInlineEditingName}
+                  onSaveInlineEdit={saveInlineEdit}
+                  onCancelInlineEdit={cancelInlineEdit}
+                  userPlan={userPlan}
+                  isLoading={moodBoardsLoading}
+                />
                 
-                {/* Overlay Content */}
-                <AnimatePresence>
-                  {pinterestBannerExpanded && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
-                      className="absolute top-full right-0 mt-2 w-80 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-[5px] shadow-xl z-10 border border-purple-500"
+                {/* Right side actions */}
+                <div className="flex items-center gap-3">
+                  {/* Pinterest Integration Button */}
+                  <PinterestBanner 
+                    isExpanded={pinterestBannerExpanded}
+                    onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                  />
+                  
+                  {/* New Board Button */}
+                  {canCreateNewBoard() && (
+                    <button
+                      onClick={() => setShowNewBoardModal(true)}
+                      className="btn-primary px-4 py-2 rounded-lg font-medium"
                     >
-                      <div className="p-4">
-                        <h5 className="font-semibold text-sm text-white mb-2">Coming Soon: Pinterest Integration!</h5>
-                        <p className="text-sm opacity-90 text-white leading-relaxed">
-                          Search Pinterest, import your boards, and get AI-powered vibe suggestions from your favorite wedding inspiration.
-                        </p>
-                      </div>
-                      {/* Arrow pointing up */}
-                      <div className="absolute -top-2 right-6 w-4 h-4 bg-purple-600 transform rotate-45 border-l border-t border-purple-500"></div>
-                    </motion.div>
+                      + New Board
+                    </button>
                   )}
-                </AnimatePresence>
+                </div>
               </div>
+
+              {/* Plan Limit Warning */}
+              {!canCreateNewBoard() && (
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-lg mb-4 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h6 className="font-semibold text-sm mb-1 text-white">Board Limit Reached</h6>
+                      <p className="text-sm text-white opacity-90">You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="text-sm underline hover:no-underline hover:opacity-80 transition-opacity text-white"
+                    >
+                      Upgrade Plan
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             
-            {/* Upload Area */}
-            <div className="border-2 border-dashed border-[#AB9C95] rounded-[5px] p-8 text-center bg-white hover:bg-gray-50 transition-colors mb-6">
-              <Upload className="w-16 h-16 text-[#AB9C95] mx-auto mb-4" />
-              <p className="text-[#364257] mb-2 font-medium text-lg">Drag & drop inspiration images here</p>
-              <p className="text-[#364257] text-sm mb-4">or click to browse</p>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-                id="mood-board-upload"
-              />
-              <label
-                htmlFor="mood-board-upload"
-                className="btn-primary px-6 py-2 rounded-lg font-medium cursor-pointer inline-block"
-              >
-                Upload Images
-              </label>
-            </div>
-
-            {/* Image Cards Grid */}
-            {moodBoardImages.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {moodBoardImages.map((imageUrl, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="bg-white border border-[#AB9C95] rounded-[5px] p-4 hover:shadow-md transition-shadow group"
-                  >
-                    <div className="flex gap-4">
-                      {/* Left: Image */}
-                      <div className="flex-shrink-0">
-                        <div className="w-24 h-24 bg-[#F3F2F0] rounded-[5px] overflow-hidden flex items-center justify-center">
-                          <img
-                            src={imageUrl}
-                            alt={`Inspiration ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Right: Content */}
-                      <div className="flex-1 min-w-0">
-                        {/* Header Row */}
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-[#332B42] text-lg truncate">
-                              Inspiration {index + 1}
-                            </h3>
-                            <div className="flex items-center gap-2 text-sm text-[#AB9C95] mt-1">
-                              <Camera size={14} />
-                              <span className="truncate">Uploaded image</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2">
-                            <button
-                              onClick={() => removeMoodBoardImage(index)}
-                              className="p-2 rounded-full text-[#AB9C95] hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Category Tag */}
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="px-2 py-1 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">
-                            Wedding Inspiration
-                          </span>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setImagePreviewUrl(imageUrl);
-                              setUploadedImage(null);
-                            }}
-                            className="px-3 py-1 bg-[#A85C36] text-white text-xs font-medium rounded hover:bg-[#8B4513] transition-colors"
-                          >
-                            Generate Vibes
-                          </button>
-                          <button className="px-3 py-1 border border-[#AB9C95] text-[#332B42] text-xs font-medium rounded hover:bg-gray-50 transition-colors">
-                            View Details
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-white border border-[#AB9C95] rounded-[5px]">
-                <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h5 className="text-lg font-medium text-[#332B42] mb-2">No inspiration images yet</h5>
-                <p className="text-[#364257] mb-4">Start building your mood board by uploading some wedding inspiration images</p>
-                <p className="text-sm text-[#A85C36]">💡 Tip: Upload images that capture your dream wedding aesthetic</p>
+            {/* Mood Board Content */}
+            {getActiveBoard(moodBoards, activeMoodBoard) && (
+              <div className="bg-gray-50 border border-gray-100 rounded-lg p-6">
+                <MoodBoardContent
+                  board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                  userPlan={userPlan}
+                  weddingLocation={weddingLocation || undefined}
+                  isEditing={isEditing}
+                  generatingVibes={generatingVibes}
+                  isDragOver={isDragOver}
+                  onRemoveImage={(index) => {
+                    const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
+                    setMoodBoards(updatedBoards);
+                  }}
+                  onGenerateVibes={generateVibesFromImage}
+                  onChooseVibe={() => setIsEditing(true)}
+                  onEditVibes={() => setIsEditing(true)}
+                  onEditBoardName={editMoodBoard}
+                  onDeleteBoard={deleteMoodBoard}
+                  onImageUpload={handleImageUpload}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(false);
+                    const files = Array.from(e.dataTransfer.files) as File[];
+                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                    
+                    if (imageFiles.length !== files.length) {
+                      showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
+                    }
+                    
+                    if (imageFiles.length > 0) {
+                      handleFilesDrop(imageFiles);
+                    }
+                  }}
+                  isLoading={moodBoardsLoading}
+                  uploadingImage={uploadingImage}
+                />
               </div>
             )}
           </div>
 
-          {/* Edit Wedding Details Link */}
-          {!isEditing && (
-            <div className="text-center pt-8 border-t border-gray-200">
-              <a
-                href="/settings?tab=wedding"
-                className="text-[#A85C36] hover:text-[#784528] underline text-sm font-medium transition-colors"
-              >
-                Edit Wedding Details
-              </a>
-            </div>
+          {/* Modals */}
+          <NewBoardModal
+            isOpen={showNewBoardModal}
+            onClose={() => {
+              setShowNewBoardModal(false);
+              setEditingBoard(null);
+              setNewBoardName('');
+            }}
+            onCreate={addMoodBoard}
+            newBoardName={newBoardName}
+            setNewBoardName={setNewBoardName}
+            newBoardType={newBoardType}
+            setNewBoardType={setNewBoardType}
+            isEditing={!!editingBoard}
+            editingBoard={editingBoard}
+          />
+
+          <VibeEditModal
+            isOpen={isEditing}
+            onClose={() => setIsEditing(false)}
+            onSave={handleSave}
+            editingVibes={editingVibes}
+            setEditingVibes={setEditingVibes}
+            boardName={getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Mood Board'}
+            saving={saving}
+            showVibeInput={showVibeInput}
+            setShowVibeInput={setShowVibeInput}
+            newVibe={newVibe}
+            setNewVibe={setNewVibe}
+            onAddVibe={addVibe}
+            onRemoveVibe={removeVibe}
+          />
+
+          {showUpgradeModal && (
+            <UpgradePlanModal
+              maxLists={userPlan.maxBoards}
+              reason="lists"
+              onClose={() => setShowUpgradeModal(false)}
+            />
           )}
         </div>
       </div>
-
-      {/* Edit Vibes Modal */}
-      <AnimatePresence>
-        {isEditing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={() => setIsEditing(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
-                  Edit Your Wedding Vibes
-                </h3>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Current Vibes */}
-                <div>
-                  <h4 className="text-md font-medium text-[#332B42] mb-3">Current Vibes:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {editingVibes.map((vibeItem, index) => (
-                      <VibePill
-                        key={index}
-                        vibe={vibeItem}
-                        index={index}
-                        isEditing={true}
-                        onRemove={() => removeVibe(vibeItem)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Add from popular vibes */}
-                <div>
-                  <h4 className="text-md font-medium text-[#332B42] mb-3">Add from popular vibes:</h4>
-                                      <div className="flex flex-wrap gap-2 justify-center">
-                      {vibeOptions.map((option) => (
-                        <button
-                          key={option}
-                          onClick={() => addVibe(option)}
-                          disabled={editingVibes.includes(option)}
-                          className={`px-4 py-2 rounded-xl text-base font-normal transition-all ${
-                            editingVibes.includes(option)
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-white text-[#332B42] hover:bg-[#A85C36] hover:text-white border-2 border-[#AB9C95] hover:border-[#A85C36]'
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                </div>
-
-                {/* Add custom vibe */}
-                <div>
-                  <h4 className="text-md font-medium text-[#332B42] mb-3">Add custom vibe:</h4>
-                  {!showVibeInput ? (
-                    <button
-                      onClick={() => setShowVibeInput(true)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#A85C36] border border-[#A85C36] rounded-lg hover:bg-[#A85C36] hover:text-white transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Custom Vibe
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newVibe}
-                        onChange={(e) => setNewVibe(e.target.value)}
-                        placeholder="Enter your custom vibe..."
-                        className="flex-1 px-3 py-2 border border-[#AB9C95] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                        onKeyPress={(e) => e.key === 'Enter' && addCustomVibe()}
-                      />
-                      <button
-                        onClick={addCustomVibe}
-                        disabled={!newVibe.trim()}
-                        className="px-4 py-2 bg-[#A85C36] text-white rounded-lg text-sm font-medium hover:bg-[#8B4513] disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowVibeInput(false);
-                          setNewVibe('');
-                        }}
-                        className="px-6 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg font-medium hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Generate vibes from image */}
-                <div>
-                  <h4 className="text-md font-medium text-[#332B42] mb-3">Generate vibes from image:</h4>
-                  <button
-                    onClick={() => setShowImageUpload(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#A85C36] border border-[#A85C36] rounded-lg hover:bg-[#A85C36] hover:text-white transition-colors"
-                  >
-                    <Camera className="w-4 h-4" />
-                    Upload Image & Generate Vibes
-                  </button>
-                </div>
-
-                {/* Save/Cancel buttons */}
-                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2 bg-[#A85C36] text-white rounded-lg font-medium hover:bg-[#8B4513] disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="px-6 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg font-medium hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Pinterest Search Modal */}
-      <AnimatePresence>
-        {showPinterestSearch && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowPinterestSearch(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-[#E60023] to-[#BD081C] rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">P</span>
-                  </div>
-                  <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
-                    Pinterest Inspiration Search
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowPinterestSearch(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Search Input */}
-              <div className="flex gap-3 mb-6">
-                <input
-                  type="text"
-                  value={pinterestSearchQuery}
-                  onChange={(e) => setPinterestSearchQuery(e.target.value)}
-                  placeholder="Search for wedding inspiration (e.g., 'boho garden wedding', 'modern minimalist')"
-                  className="flex-1 px-4 py-2 border border-[#AB9C95] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                  onKeyPress={(e) => e.key === 'Enter' && searchPinterest()}
-                />
-                <button
-                  onClick={searchPinterest}
-                  disabled={searchingPinterest || !pinterestSearchQuery.trim()}
-                  className="px-6 py-2 bg-[#E60023] text-white rounded-lg font-medium hover:bg-[#BD081C] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {searchingPinterest ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-
-              {/* Search Results */}
-              {pinterestResults.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {pinterestResults.map((result) => (
-                    <div key={result.id} className="group relative">
-                      <img
-                        src={result.imageUrl}
-                        alt={result.title}
-                        className="w-full h-32 object-cover rounded-lg shadow-sm"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
-                        <button
-                          onClick={() => addPinterestImage(result.imageUrl)}
-                          className="opacity-0 group-hover:opacity-100 bg-white text-[#E60023] px-3 py-1 rounded-lg font-medium hover:bg-gray-50 transition-all"
-                        >
-                          Add to Mood Board
-                        </button>
-                      </div>
-                      <p className="text-xs text-[#364257] mt-2 text-center">{result.title}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Empty State */}
-              {!searchingPinterest && pinterestResults.length === 0 && pinterestSearchQuery && (
-                <div className="text-center py-8">
-                  <p className="text-[#364257]">No results found. Try different search terms!</p>
-                </div>
-              )}
-
-              {/* Initial State */}
-              {!searchingPinterest && pinterestResults.length === 0 && !pinterestSearchQuery && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gradient-to-r from-[#E60023] to-[#BD081C] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white font-bold text-2xl">P</span>
-                  </div>
-                  <h4 className="text-lg font-medium text-[#332B42] mb-2">Find Your Perfect Wedding Vibe</h4>
-                  <p className="text-[#364257] mb-4">Search Pinterest for wedding inspiration and add images to your mood board</p>
-                  <p className="text-sm text-[#A85C36]">💡 Tip: Try searching for specific styles like "boho garden wedding" or "modern minimalist ceremony"</p>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Image Upload Modal */}
-      <AnimatePresence>
-        {showImageUpload && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowImageUpload(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-md w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
-                  Upload Inspiration Image
-                </h3>
-                <button
-                  onClick={() => setShowImageUpload(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <p className="text-[#364257] mb-6">
-                Upload a wedding inspiration image and we'll generate vibes that match your vision.
-              </p>
-
-              {!imagePreviewUrl ? (
-                <div className="border-2 border-dashed border-[#AB9C95] rounded-lg p-8 text-center">
-                  <Camera className="w-12 h-12 text-[#AB9C95] mx-auto mb-4" />
-                  <p className="text-[#364257] mb-4">
-                    Click to upload or drag and drop
-                  </p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="btn-primary px-6 py-2 rounded-lg font-medium cursor-pointer inline-block"
-                  >
-                    Choose Image
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <button
-                      onClick={() => {
-                        setImagePreviewUrl(null);
-                        setUploadedImage(null);
-                      }}
-                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-lg"
-                    >
-                      <X className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={generateVibesFromImage}
-                      disabled={generatingVibes}
-                      className="flex-1 btn-primary py-2 rounded-lg font-medium disabled:opacity-50"
-                    >
-                      {generatingVibes ? 'Generating Vibes...' : 'Generate Vibes'}
-                    </button>
-                    <button
-                      onClick={() => setShowImageUpload(false)}
-                      className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg text-sm font-medium hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
-} 
+}

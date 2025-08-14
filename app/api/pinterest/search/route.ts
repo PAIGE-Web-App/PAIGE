@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  let query: string | undefined;
+  let limit: number;
+  
   try {
-    const { query, limit = 12 } = await request.json();
+    const body = await request.json();
+    query = body.query;
+    limit = body.limit || 12;
     
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         pins: fallbackPins,
         total: fallbackPins.length,
-        query: query,
+        query: query || 'unknown',
         note: 'Using fallback images (Pinterest API not configured)'
       });
     }

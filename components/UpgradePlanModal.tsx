@@ -24,7 +24,9 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             'Invite partner to your wedding portal',
             'Send @mention notifications via email',
             'Collaborate on vendor decisions',
-            'Share comments and notes'
+            'Share comments and notes',
+            'Real-time team notifications',
+            'Advanced collaboration features'
           ]
         };
       case 'collaboration':
@@ -36,19 +38,23 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
             'Real-time collaboration features',
             'Shared vendor management',
             'Team notifications',
-            'Unlimited team members'
+            'Unlimited team members',
+            'Advanced team permissions',
+            'Collaborative planning tools'
           ]
         };
       default:
         return {
           title: 'Upgrade Your Plan',
-          description: `You have reached the maximum of ${maxLists} lists allowed on your current plan. Upgrade your account to create more lists and unlock additional features!`,
-          icon: <Bell className="w-8 h-8 text-[#A85C36]" />,
+          description: `You've reached the limit of ${maxLists} mood boards on your current plan. Upgrade to unlock unlimited boards, more storage, advanced AI features, and premium collaboration tools!`,
+          icon: null,
           features: [
-            'Unlimited to-do lists',
-            'Advanced organization features',
-            'Priority support',
-            'Premium templates'
+            'Unlimited to-do lists & planning lists',
+            'More mood boards & inspiration storage',
+            'Increased file storage & upload limits',
+            'Advanced AI functionality & credits',
+            'Priority support & premium templates',
+            'Pinterest integration & collaboration tools'
           ]
         };
     }
@@ -72,21 +78,30 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           className="bg-white rounded-[5px] shadow-xl max-w-xl w-full p-6 relative"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
+          {/* Header row with title and close button */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1"></div>
+            <h5 className="h5 text-center flex-1">{content.title}</h5>
+            <button
+              onClick={onClose}
+              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full flex-1 flex justify-end"
+              title="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          <div className="text-center mb-6">
+          {/* Description */}
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 text-left">{content.description}</p>
+          </div>
+
+          {/* Icon (only if exists) */}
+          {content.icon && (
             <div className="flex justify-center mb-4">
               {content.icon}
             </div>
-            <h5 className="h5 mb-2">{content.title}</h5>
-            <p className="text-sm text-gray-600">{content.description}</p>
-          </div>
+          )}
 
           <img
             src="/Upgrade.jpg"
