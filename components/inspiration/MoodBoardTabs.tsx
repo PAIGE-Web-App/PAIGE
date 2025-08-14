@@ -6,6 +6,7 @@ interface MoodBoardTabsProps {
   moodBoards: MoodBoard[];
   activeMoodBoard: string;
   onTabChange: (boardId: string) => void;
+  onNewBoard?: () => void;
   onEditBoard?: (board: MoodBoard) => void;
   onDeleteBoard?: (boardId: string) => void;
   inlineEditingBoardId?: string | null;
@@ -21,6 +22,7 @@ export default function MoodBoardTabs({
   moodBoards,
   activeMoodBoard,
   onTabChange,
+  onNewBoard,
   onEditBoard,
   onDeleteBoard,
   inlineEditingBoardId,
@@ -96,6 +98,16 @@ export default function MoodBoardTabs({
           )}
         </div>
       ))}
+      
+      {/* + New Board Tab */}
+      {onNewBoard && (
+        <button
+          onClick={onNewBoard}
+          className="px-4 py-2 rounded font-work-sans text-sm font-medium border border-[#E0D6D0] bg-[#F3F2F0] text-[#332B42] hover:bg-[#E0D6D0] hover:text-[#332B42] transition-colors duration-150 focus:outline-none"
+        >
+          + New Board
+        </button>
+      )}
     </div>
   );
 }

@@ -36,17 +36,16 @@ export default function DragDropZone({
 
   return (
     <motion.div
-      className={`border-2 border-dashed rounded-[5px] p-4 text-center transition-all duration-200 ${
+      className={`rounded-[5px] p-4 text-center transition-all duration-200 ${
         isDragOver 
-          ? 'border-[#A85C36] bg-[#F3F2F0] scale-[1.02]' 
-          : 'border-[#AB9C95] bg-white hover:bg-gray-50'
+          ? 'border-2 border-dashed border-[#A85C36] bg-[#F3F2F0] scale-[1.02]' 
+          : 'bg-white hover:bg-gray-50'
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       animate={{
         scale: isDragOver ? 1.02 : 1,
-        borderColor: isDragOver ? '#A85C36' : '#AB9C95',
         backgroundColor: isDragOver ? '#F3F2F0' : '#FFFFFF'
       }}
       transition={{ duration: 0.2 }}

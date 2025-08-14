@@ -21,7 +21,7 @@ export default function BulkContactBanner({ isVisible }: BulkContactBannerProps)
             duration: 0.3
           }}
         >
-          <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-lg shadow-lg mb-4">
+          <div className="bg-[#805d93] text-white p-4 rounded-lg shadow-lg mb-4">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 <MailPlus className="w-5 h-5" strokeWidth={1} />

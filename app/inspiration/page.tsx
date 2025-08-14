@@ -22,6 +22,7 @@ import NewBoardModal from "../../components/inspiration/NewBoardModal";
 import VibeEditModal from "../../components/inspiration/VibeEditModal";
 import StorageProgressBar from "../../components/StorageProgressBar";
 import UpgradePlanModal from "../../components/UpgradePlanModal";
+import Banner from "../../components/Banner";
 
 // Import types and utilities
 import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../types/inspiration";
@@ -35,7 +36,7 @@ import {
   cleanupBase64Images
 } from "../../utils/moodBoardUtils";
 
-export default function InspirationPage() {
+export default function MoodBoardsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
@@ -72,6 +73,7 @@ export default function InspirationPage() {
   const [newBoardType, setNewBoardType] = useState<'custom' | 'wedding-day' | 'reception' | 'engagement'>('custom');
   const [moodBoardsLoading, setMoodBoardsLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showBoardLimitBanner, setShowBoardLimitBanner] = useState(true);
   const [editingBoard, setEditingBoard] = useState<MoodBoard | null>(null);
   const [inlineEditingBoardId, setInlineEditingBoardId] = useState<string | null>(null);
   const [inlineEditingName, setInlineEditingName] = useState('');
@@ -501,8 +503,7 @@ export default function InspirationPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="max-w-6xl mx-auto">
-        <div className="app-content-container flex flex-col gap-6 py-8">
+      <div className="app-content-container flex flex-col gap-6 py-8">
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-start justify-between">
@@ -510,11 +511,17 @@ export default function InspirationPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-4">
                   <Heart className="w-5 h-5 text-[#A85C36]" />
-                  <h5>Inspiration</h5>
+                  <h5>Mood Boards</h5>
                 </div>
-                <p className="text-base text-[#364257]">
-                  Create multiple mood boards to organize your wedding inspiration. Each board can have its own unique set of vibes that can be generated from images, helping you curate the perfect aesthetic for different aspects of your special day.
+                <p className="text-sm text-[#364257] mb-2">
+                  Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.
                 </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-[#A85C36]" />
+                  <a href="#" className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium transition-colors">
+                    See it in action
+                  </a>
+                </div>
               </div>
               
               {/* Right side: Storage Usage with 40px gap */}
@@ -532,6 +539,9 @@ export default function InspirationPage() {
             </div>
           </div>
 
+          {/* Border line underneath header */}
+          <div className="border-b border-gray-200 mb-2"></div>
+
           {/* Mood Board Section */}
           <div>
             <div className="mb-6">
@@ -541,6 +551,7 @@ export default function InspirationPage() {
                   moodBoards={moodBoards}
                   activeMoodBoard={activeMoodBoard}
                   onTabChange={setActiveMoodBoard}
+                  onNewBoard={() => setShowNewBoardModal(true)}
                   onEditBoard={editMoodBoard}
                   onDeleteBoard={deleteMoodBoard}
                   inlineEditingBoardId={inlineEditingBoardId}
@@ -559,32 +570,32 @@ export default function InspirationPage() {
                     isExpanded={pinterestBannerExpanded}
                     onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
                   />
-                  
-                  {/* New Board Button */}
-                  {canCreateNewBoard() && (
-                    <button
-                      onClick={() => setShowNewBoardModal(true)}
-                      className="btn-primary px-4 py-2 rounded-lg font-medium"
-                    >
-                      + New Board
-                    </button>
-                  )}
                 </div>
               </div>
 
               {/* Plan Limit Warning */}
-              {!canCreateNewBoard() && (
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-lg mb-4 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h6 className="font-semibold text-sm mb-1 text-white">Board Limit Reached</h6>
-                      <p className="text-sm text-white opacity-90">You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.</p>
+              {!canCreateNewBoard() && showBoardLimitBanner && (
+                <div className="mb-4">
+                  <div className="bg-blue-100 text-blue-800 p-2 text-sm rounded-[5px] mb-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.{' '}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowUpgradeModal(true);
+                        }}
+                        className="underline text-blue-700 hover:text-blue-900"
+                      >
+                        Upgrade to create more!
+                      </a>
                     </div>
                     <button 
-                      onClick={() => setShowUpgradeModal(true)}
-                      className="text-sm underline hover:no-underline hover:opacity-80 transition-opacity text-white"
+                      onClick={() => setShowBoardLimitBanner(false)}
+                      className="ml-4 p-1 rounded-full hover:bg-opacity-75 transition-colors"
+                      aria-label="Dismiss banner"
                     >
-                      Upgrade Plan
+                      <X size={16} />
                     </button>
                   </div>
                 </div>
@@ -593,7 +604,7 @@ export default function InspirationPage() {
             
             {/* Mood Board Content */}
             {getActiveBoard(moodBoards, activeMoodBoard) && (
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-6">
+              <div className="bg-white border border-gray-100 rounded-lg p-6">
                 <MoodBoardContent
                   board={getActiveBoard(moodBoards, activeMoodBoard)!}
                   userPlan={userPlan}
@@ -682,6 +693,5 @@ export default function InspirationPage() {
           )}
         </div>
       </div>
-    </div>
   );
 }

@@ -231,7 +231,7 @@ export default function VendorComments({ vendorId, vendorName }: VendorCommentsP
         Comments
       </h6>
       
-                        <div className="mb-4 p-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg text-white text-xs">
+                        <div className="mb-4 p-3 bg-[#805d93] rounded-lg text-white text-xs">
                     <p>💡 Upgrade to enable @mention notifications for your partner and wedding planner</p>
                   </div>
       

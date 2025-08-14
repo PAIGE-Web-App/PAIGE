@@ -5,7 +5,7 @@ import { MoodBoard } from '../types/inspiration';
 // Storage limits by plan (matching your PLAN_LIMITS from types/inspiration.ts)
 export const MOOD_BOARD_STORAGE_LIMITS = {
   free: {
-    storageMB: 50, // 50MB
+    storageMB: 25, // 25MB
     maxBoards: 2,
     maxImagesPerBoard: 10,
     planName: 'Free'

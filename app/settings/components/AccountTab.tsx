@@ -245,7 +245,7 @@ export default function AccountTab({
         </div>
           
         {/* Collaboration Banner */}
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+        <div className="bg-[#805d93] rounded-lg p-4 text-white">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
               <CircleArrowUp className="w-4 h-4 text-white" />

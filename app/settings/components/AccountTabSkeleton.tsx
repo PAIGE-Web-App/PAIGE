@@ -24,7 +24,7 @@ const AccountTabSkeleton: React.FC = () => (
     </div>
     
     {/* Collaboration Banner skeleton */}
-    <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4">
+    <div className="bg-[#805d93] rounded-lg p-4">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-white/20 rounded-full" />
         <div className="space-y-2">

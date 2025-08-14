@@ -50,38 +50,38 @@ export default function MoodBoardContent({
   const [editingNameValue, setEditingNameValue] = useState(board.name);
   return (
     <div className="space-y-6">
-      {/* Editable Board Name Section */}
-      {board.type !== 'wedding-day' && onEditBoardName ? (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            {isEditingName ? (
-              // Inline editing mode - matching todo list style
-              <input
-                type="text"
-                value={editingNameValue}
-                onChange={(e) => setEditingNameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    onEditBoardName({ ...board, name: editingNameValue.trim() });
-                    setIsEditingName(false);
-                  } else if (e.key === 'Escape') {
-                    setEditingNameValue(board.name);
-                    setIsEditingName(false);
-                  }
-                }}
-                onBlur={() => {
+      {/* Board Name Section - Show for all boards including Wedding Day */}
+                        <div className="mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          {board.type !== 'wedding-day' && onEditBoardName && isEditingName ? (
+            // Inline editing mode for custom boards
+            <input
+              type="text"
+              value={editingNameValue}
+              onChange={(e) => setEditingNameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
                   onEditBoardName({ ...board, name: editingNameValue.trim() });
                   setIsEditingName(false);
-                }}
-                className="text-base font-playfair font-semibold text-[#332B42] bg-transparent border-b-2 border-[#A85C36] outline-none px-1"
-                autoFocus
-              />
-            ) : (
-              // Display mode - matching vibe header style
-              <h6 className="text-base font-playfair font-semibold text-[#332B42]">
-                {board.name}
-              </h6>
-            )}
+                } else if (e.key === 'Escape') {
+                  setEditingNameValue(board.name);
+                  setIsEditingName(false);
+                }
+              }}
+              onBlur={() => {
+                onEditBoardName({ ...board, name: editingNameValue.trim() });
+                setIsEditingName(false);
+              }}
+              className="text-base font-playfair font-semibold text-[#332B42] bg-transparent border-b-2 border-[#A85C36] outline-none px-1"
+              autoFocus
+            />
+          ) : (
+            // Display mode - matching vibe header style
+            <h6 className="text-base font-playfair font-semibold text-[#332B42]">
+              {board.name}
+            </h6>
+          )}
+          {board.type !== 'wedding-day' && onEditBoardName && (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -101,9 +101,9 @@ export default function MoodBoardContent({
                 <Trash2 size={16} className="text-[#AB9C95]" />
               </button>
             </div>
-          </div>
+          )}
         </div>
-      ) : null}
+      </div>
 
       {/* Vibes Section - Show for all boards */}
       <VibeSection 
@@ -157,9 +157,9 @@ export default function MoodBoardContent({
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Uploading...
                 </div>
-              ) : (
-                'Upload Images'
-              )}
+                                        ) : (
+                            'Upload and Train Paige'
+                          )}
             </label>
           </div>
         </div>

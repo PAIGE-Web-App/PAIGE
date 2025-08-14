@@ -48,7 +48,7 @@ export default function ImageGrid({
   return (
     <>
       {/* Pinterest-Style Image Grid */}
-      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 mb-6">
+      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-4 mb-6">
         {board.images.map((imageUrl, index) => (
           <motion.div
             key={index}

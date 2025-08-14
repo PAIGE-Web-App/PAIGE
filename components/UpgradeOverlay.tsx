@@ -21,7 +21,7 @@ export default function UpgradeOverlay({
   return (
     <div className={`absolute inset-0 bg-white/60 backdrop-blur-sm rounded-lg z-10 flex flex-col items-center justify-center p-6 pointer-events-none ${className}`}>
       <div className="text-center">
-        <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+        <div className="w-12 h-12 bg-[#805d93] rounded-full flex items-center justify-center mb-4 mx-auto">
           <CircleArrowUp className="w-6 h-6 text-white" />
         </div>
         <h6 className="mb-2">{title}</h6>

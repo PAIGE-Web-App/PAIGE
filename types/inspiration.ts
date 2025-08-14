@@ -29,7 +29,7 @@ export const PLAN_LIMITS: Record<string, UserPlan> = {
     tier: 'free',
     maxBoards: 2,
     maxImagesPerBoard: 10,
-    maxStorageMB: 50,
+    maxStorageMB: 25,
     features: ['basic-vibes', 'mood-boards']
   },
   premium: {

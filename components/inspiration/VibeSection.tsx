@@ -10,24 +10,11 @@ interface VibeSectionProps {
 }
 
 export default function VibeSection({ board, weddingLocation, isEditing = false, onEdit }: VibeSectionProps) {
-  if (isEditing) {
-    return null;
-  }
 
   // Show empty state when no vibes exist
   if (!board.vibes || board.vibes.length === 0) {
     return (
-      <div className="mb-8">
-        <div className="mb-4">
-          <h6 className="text-base font-playfair font-semibold text-[#332B42]">
-            {board.type === 'wedding-day' 
-              ? weddingLocation 
-                ? `The vibes for your dream day in ${weddingLocation}`
-                : 'The vibes for your dream day'
-              : `The vibes for ${board.name}`
-            }
-          </h6>
-        </div>
+      <div className="mb-6">
         <div className="flex flex-col gap-3">
           <button 
             onClick={onEdit}
@@ -67,11 +54,15 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
 
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <h6 className="text-base font-playfair font-semibold text-[#332B42]">
-          {getVibeTitle()}
-        </h6>
+    <div className="mb-6">
+      <div className="flex flex-wrap items-center gap-3">
+        {board.vibes.map((vibeItem, index) => (
+          <VibePill
+            key={index}
+            vibe={vibeItem}
+            index={index}
+          />
+        ))}
         {onEdit && (
           <button
             onClick={onEdit}
@@ -83,15 +74,6 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
             </span>
           </button>
         )}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        {board.vibes.map((vibeItem, index) => (
-          <VibePill
-            key={index}
-            vibe={vibeItem}
-            index={index}
-          />
-        ))}
       </div>
     </div>
   );

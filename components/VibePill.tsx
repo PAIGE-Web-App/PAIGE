@@ -21,7 +21,7 @@ export default function VibePill({
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, delay: index * 0.1 }}
-      className={`px-4 py-2 rounded-2xl text-sm font-medium bg-white border border-[#332B42] text-[#332B42] ${
+      className={`px-3 py-1.5 rounded-xl text-xs font-medium bg-white border border-[#332B42] text-[#332B42] ${
         isEditing ? 'hover:border-red-300 hover:bg-red-50' : ''
       }`}
       onClick={onClick}
