@@ -4,19 +4,20 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star } from "lucide-react";
+import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
 import WeddingBanner from "../../components/WeddingBanner";
 import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
+import VibePill from "../../components/VibePill";
 
 export default function InspirationPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
-  const { vibe, generatedVibes, vibeInputMethod } = useUserProfileData();
+  const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -34,6 +35,7 @@ export default function InspirationPage() {
   const [pinterestSearchQuery, setPinterestSearchQuery] = useState('');
   const [pinterestResults, setPinterestResults] = useState<any[]>([]);
   const [searchingPinterest, setSearchingPinterest] = useState(false);
+  const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(true);
 
   // Initialize editing vibes when data loads
   useEffect(() => {
@@ -257,7 +259,7 @@ export default function InspirationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F2F0]">
+    <div className="min-h-screen bg-linen">
       <WeddingBanner 
         daysLeft={daysLeft}
         userName={userName}
@@ -265,279 +267,404 @@ export default function InspirationPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="app-content-container flex-1 overflow-hidden">
-        <main className="unified-container">
-          <div className="unified-main-content">
-            {/* Sticky Header Section */}
-            <div className="sticky top-0 bg-white border-b border-[#AB9C95] z-10">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <Heart className="w-6 h-6 text-[#A85C36]" />
-                    <h6>
-                      Wedding Inspiration
-                    </h6>
+      <div className="max-w-6xl mx-auto">
+        <div className="app-content-container flex flex-col gap-6 py-8">
+          {/* Page Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h5>Wedding Inspiration</h5>
+            </div>
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn-primary px-6 py-2 rounded-lg font-medium"
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit Vibe
+              </button>
+            )}
+          </div>
+
+          {/* Selected Vibes Section */}
+          {hasVibes && !isEditing && (
+            <div className="mb-8">
+                          <h4 className="mb-4 text-center">
+              {(() => {
+                const hasLocation = weddingLocation && weddingLocation.trim() !== '';
+                const vibeCount = editingVibes.length;
+                const isSingular = vibeCount === 1;
+                const vibeText = isSingular ? 'vibe' : 'vibes';
+
+                // Truncate very long location names to prevent layout issues
+                const truncateLocation = (location: string) => {
+                  if (location.length > 30) {
+                    return location.substring(0, 27) + '...';
+                  }
+                  return location;
+                };
+
+                if (hasLocation) {
+                  return `The ${vibeText} for your dream day in ${truncateLocation(weddingLocation)}`;
+                } else {
+                  return `The ${vibeText} for your dream day`;
+                }
+              })()}
+            </h4>
+              <div className="flex flex-wrap gap-3 justify-center">
+                {editingVibes.map((vibeItem, index) => (
+                  <VibePill
+                    key={index}
+                    vibe={vibeItem}
+                    index={index}
+                  />
+                ))}
+              </div>
+              
+              {/* Vibe Input Method Info */}
+              {vibeInputMethod && (
+                <div className="mt-4 text-center">
+                  <div className="inline-flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2">
+                    {vibeInputMethod === 'image' && <Camera className="w-4 h-4 text-[#A85C36]" />}
+                    {vibeInputMethod === 'pills' && <Palette className="w-4 h-4 text-[#A85C36]" />}
+                    {vibeInputMethod === 'pinterest' && <Upload className="w-4 h-4 text-[#A85C36]" />}
+                    <span className="text-sm font-medium text-[#332B42]">
+                      {vibeInputMethod === 'image' && 'Generated from inspiration image'}
+                      {vibeInputMethod === 'pills' && 'Selected from popular vibes'}
+                      {vibeInputMethod === 'pinterest' && 'Inspired by Pinterest'}
+                    </span>
                   </div>
-                  {!isEditing && (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="btn-primary px-6 py-2 rounded-lg font-medium"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                      Edit Vibe
-                    </button>
-                  )}
                 </div>
+              )}
+            </div>
+          )}
 
-                {!hasVibes && !isEditing ? (
-                  <div className="text-center py-8">
-                    <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-[#332B42] mb-2">No vibe selected yet</h3>
-                    <p className="text-[#364257] mb-6">Start by selecting some vibes that resonate with your wedding vision.</p>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="btn-primary px-6 py-2 rounded-lg font-medium"
+          {/* No Vibes State */}
+          {!hasVibes && !isEditing && (
+            <div className="text-center py-12 mb-8">
+              <Palette className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-[#332B42] mb-2">No vibe selected yet</h3>
+              <p className="text-[#364257] mb-6">
+                {moodBoardImages.length > 0 
+                  ? "You have inspiration images but no vibes selected yet. Select some vibes to get AI-powered suggestions from your images!"
+                  : "Start by selecting some vibes that resonate with your wedding vision."
+                }
+              </p>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn-primary px-6 py-2 rounded-lg font-medium"
+              >
+                Choose Your Vibe
+              </button>
+            </div>
+          )}
+
+          {/* Mood Board Section */}
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h4>Your Mood Board</h4>
+              
+              {/* Pinterest Integration Banner - Compact with Overlay */}
+              <div className="relative">
+                <button
+                  onClick={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-[5px] shadow-lg hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center gap-2"
+                >
+                  <Star className="w-4 h-4" strokeWidth={1} />
+                  <span className="text-sm font-semibold">Pinterest Integration</span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform duration-200 ${pinterestBannerExpanded ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Overlay Content */}
+                <AnimatePresence>
+                  {pinterestBannerExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute top-full right-0 mt-2 w-80 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-[5px] shadow-xl z-10 border border-purple-500"
                     >
-                      Choose Your Vibe
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Current Vibes */}
-                    <div className="text-center">
-                      <h4 className="mb-4">
-                        {isEditing ? 'Edit Your Vibes' : 'Selected Vibes'}
-                      </h4>
-                      <div className="flex flex-wrap gap-3 justify-center">
-                        {editingVibes.map((vibeItem, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3, delay: index * 0.1 }}
-                            className={`px-3 py-1 rounded-full text-sm font-normal ${
-                              isEditing
-                                ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 cursor-pointer'
-                                : 'btn-primaryinverse border-[#A85C36] text-[#A85C36] hover:bg-[#F3F2F0]'
-                            }`}
-                            onClick={() => isEditing && removeVibe(vibeItem)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {vibeItem}
-                              {isEditing && <X className="w-3 h-3" />}
-                            </div>
-                          </motion.div>
-                        ))}
+                      <div className="p-4">
+                        <h5 className="font-semibold text-sm text-white mb-2">Coming Soon: Pinterest Integration!</h5>
+                        <p className="text-sm opacity-90 text-white leading-relaxed">
+                          Search Pinterest, import your boards, and get AI-powered vibe suggestions from your favorite wedding inspiration.
+                        </p>
                       </div>
-                    </div>
+                      {/* Arrow pointing up */}
+                      <div className="absolute -top-2 right-6 w-4 h-4 bg-purple-600 transform rotate-45 border-l border-t border-purple-500"></div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+            
+            {/* Upload Area */}
+            <div className="border-2 border-dashed border-[#AB9C95] rounded-[5px] p-8 text-center bg-white hover:bg-gray-50 transition-colors mb-6">
+              <Upload className="w-16 h-16 text-[#AB9C95] mx-auto mb-4" />
+              <p className="text-[#364257] mb-2 font-medium text-lg">Drag & drop inspiration images here</p>
+              <p className="text-[#364257] text-sm mb-4">or click to browse</p>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="hidden"
+                id="mood-board-upload"
+              />
+              <label
+                htmlFor="mood-board-upload"
+                className="btn-primary px-6 py-2 rounded-lg font-medium cursor-pointer inline-block"
+              >
+                Upload Images
+              </label>
+            </div>
 
-                                         {/* Vibe Input Method Info */}
-                     {!isEditing && vibeInputMethod && (
-                       <div className="bg-gray-50 rounded-lg p-4">
-                         <div className="flex items-center gap-2 mb-2">
-                           {vibeInputMethod === 'image' && <Camera className="w-4 h-4 text-[#A85C36]" />}
-                           {vibeInputMethod === 'pills' && <Palette className="w-4 h-4 text-[#A85C36]" />}
-                           {vibeInputMethod === 'pinterest' && <Upload className="w-4 h-4 text-[#A85C36]" />}
-                           <span className="text-sm font-medium text-[#332B42]">
-                             {vibeInputMethod === 'image' && 'Generated from inspiration image'}
-                             {vibeInputMethod === 'pills' && 'Selected from popular vibes'}
-                             {vibeInputMethod === 'pinterest' && 'Inspired by Pinterest'}
-                           </span>
-                         </div>
-                       </div>
-                     )}
+            {/* Image Cards Grid */}
+            {moodBoardImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {moodBoardImages.map((imageUrl, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="bg-white border border-[#AB9C95] rounded-[5px] p-4 hover:shadow-md transition-shadow group"
+                  >
+                    <div className="flex gap-4">
+                      {/* Left: Image */}
+                      <div className="flex-shrink-0">
+                        <div className="w-24 h-24 bg-[#F3F2F0] rounded-[5px] overflow-hidden flex items-center justify-center">
+                          <img
+                            src={imageUrl}
+                            alt={`Inspiration ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
 
-                     {/* Mood Board Section */}
-                     <div className="mt-6">
-                       <h4 className="text-md font-medium text-[#332B42] mb-4 text-center">Your Mood Board</h4>
-                       
-                                               {/* Pinterest Integration - Coming Soon */}
-                        <div className="mb-4 p-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-lg text-white">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-0.5">
-                              <Star className="w-5 h-5" strokeWidth={1} />
+                      {/* Right: Content */}
+                      <div className="flex-1 min-w-0">
+                        {/* Header Row */}
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-[#332B42] text-lg truncate">
+                              Inspiration {index + 1}
+                            </h3>
+                            <div className="flex items-center gap-2 text-sm text-[#AB9C95] mt-1">
+                              <Camera size={14} />
+                              <span className="truncate">Uploaded image</span>
                             </div>
-                            <div className="flex-1">
-                              <h5 className="font-semibold text-sm mb-1 text-white">Coming Soon: Pinterest Integration!</h5>
-                              <p className="text-sm opacity-90 text-white">
-                                We're working on bringing Pinterest inspiration directly to your mood board! Soon you'll be able to search Pinterest, import your boards, and get AI-powered vibe suggestions from your favorite wedding inspiration.
-                              </p>
-                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
+                            <button
+                              onClick={() => removeMoodBoardImage(index)}
+                              className="p-2 rounded-full text-[#AB9C95] hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
                         </div>
 
-                       {/* Drag & Drop Area */}
-                       <div className="border-2 border-dashed border-[#AB9C95] rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors">
-                         <Upload className="w-12 h-12 text-[#AB9C95] mx-auto mb-4" />
-                         <p className="text-[#364257] mb-2 font-medium">Drag & drop inspiration images here</p>
-                         <p className="text-[#364257] text-sm mb-4">or click to browse</p>
-                         <input
-                           type="file"
-                           accept="image/*"
-                           multiple
-                           onChange={handleImageUpload}
-                           className="hidden"
-                           id="mood-board-upload"
-                         />
-                         <label
-                           htmlFor="mood-board-upload"
-                           className="btn-primary px-6 py-2 rounded-lg font-medium cursor-pointer inline-block"
-                         >
-                           Upload Images
-                         </label>
-                       </div>
+                        {/* Category Tag */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className="px-2 py-1 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">
+                            Wedding Inspiration
+                          </span>
+                        </div>
 
-                       {/* Image Mosaic Grid */}
-                       {moodBoardImages.length > 0 && (
-                         <div className="mt-6">
-                           <h5 className="text-sm font-medium text-[#332B42] mb-3">Your Inspiration Collection</h5>
-                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                             {moodBoardImages.map((imageUrl, index) => (
-                               <div key={index} className="relative group">
-                                 <img
-                                   src={imageUrl}
-                                   alt={`Inspiration ${index + 1}`}
-                                   className="w-full h-24 object-cover rounded-lg shadow-sm"
-                                 />
-                                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
-                                   <button 
-                                     onClick={() => removeMoodBoardImage(index)}
-                                     className="opacity-0 group-hover:opacity-100 bg-white text-red-600 p-1 rounded-full hover:bg-red-50 transition-all"
-                                   >
-                                     <X className="w-4 h-4" />
-                                   </button>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                       )}
-                     </div>
-                  </div>
-                )}
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setImagePreviewUrl(imageUrl);
+                              setUploadedImage(null);
+                            }}
+                            className="px-3 py-1 bg-[#A85C36] text-white text-xs font-medium rounded hover:bg-[#8B4513] transition-colors"
+                          >
+                            Generate Vibes
+                          </button>
+                          <button className="px-3 py-1 border border-[#AB9C95] text-[#332B42] text-xs font-medium rounded hover:bg-gray-50 transition-colors">
+                            View Details
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
+            ) : (
+              <div className="text-center py-8 bg-white border border-[#AB9C95] rounded-[5px]">
+                <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h5 className="text-lg font-medium text-[#332B42] mb-2">No inspiration images yet</h5>
+                <p className="text-[#364257] mb-4">Start building your mood board by uploading some wedding inspiration images</p>
+                <p className="text-sm text-[#A85C36]">💡 Tip: Upload images that capture your dream wedding aesthetic</p>
+              </div>
+            )}
+          </div>
+
+          {/* Edit Wedding Details Link */}
+          {!isEditing && (
+            <div className="text-center pt-8 border-t border-gray-200">
+              <a
+                href="/settings?tab=wedding"
+                className="text-[#A85C36] hover:text-[#784528] underline text-sm font-medium transition-colors"
+              >
+                Edit Wedding Details
+              </a>
             </div>
+          )}
+        </div>
+      </div>
 
-                         {/* Divider Line */}
-             <div className="border-b border-gray-200"></div>
+      {/* Edit Vibes Modal */}
+      <AnimatePresence>
+        {isEditing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setIsEditing(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
+                  Edit Your Wedding Vibes
+                </h3>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-            {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto">
-              {isEditing && (
-                <div className="p-6 space-y-6">
-                  {/* Add from popular vibes */}
-                  <div>
-                    <h4 className="text-md font-medium text-[#332B42] mb-3">Add from popular vibes:</h4>
-                    <div className="flex flex-wrap gap-2 justify-center">
+              <div className="space-y-6">
+                {/* Current Vibes */}
+                <div>
+                  <h4 className="text-md font-medium text-[#332B42] mb-3">Current Vibes:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {editingVibes.map((vibeItem, index) => (
+                      <VibePill
+                        key={index}
+                        vibe={vibeItem}
+                        index={index}
+                        isEditing={true}
+                        onRemove={() => removeVibe(vibeItem)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Add from popular vibes */}
+                <div>
+                  <h4 className="text-md font-medium text-[#332B42] mb-3">Add from popular vibes:</h4>
+                                      <div className="flex flex-wrap gap-2 justify-center">
                       {vibeOptions.map((option) => (
                         <button
                           key={option}
                           onClick={() => addVibe(option)}
                           disabled={editingVibes.includes(option)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          className={`px-4 py-2 rounded-xl text-base font-normal transition-all ${
                             editingVibes.includes(option)
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-[#F3F2F0] text-[#332B42] hover:bg-[#A85C36] hover:text-white border border-[#AB9C95]'
+                              : 'bg-white text-[#332B42] hover:bg-[#A85C36] hover:text-white border-2 border-[#AB9C95] hover:border-[#A85C36]'
                           }`}
                         >
                           {option}
                         </button>
                       ))}
                     </div>
-                  </div>
+                </div>
 
-                  {/* Add custom vibe */}
-                  <div>
-                    <h4 className="text-md font-medium text-[#332B42] mb-3">Add custom vibe:</h4>
-                    {!showVibeInput ? (
-                      <button
-                        onClick={() => setShowVibeInput(true)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#A85C36] border border-[#A85C36] rounded-lg hover:bg-[#A85C36] hover:text-white transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Custom Vibe
-                      </button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newVibe}
-                          onChange={(e) => setNewVibe(e.target.value)}
-                          placeholder="Enter your custom vibe..."
-                          className="flex-1 px-3 py-2 border border-[#AB9C95] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
-                          onKeyPress={(e) => e.key === 'Enter' && addCustomVibe()}
-                        />
-                        <button
-                          onClick={addCustomVibe}
-                          disabled={!newVibe.trim()}
-                          className="px-4 py-2 bg-[#A85C36] text-white rounded-lg text-sm font-medium hover:bg-[#8B4513] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Add
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowVibeInput(false);
-                            setNewVibe('');
-                          }}
-                          className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg text-sm font-medium hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Generate vibes from image */}
-                  <div>
-                    <h4 className="text-md font-medium text-[#332B42] mb-3">Generate vibes from image:</h4>
+                {/* Add custom vibe */}
+                <div>
+                  <h4 className="text-md font-medium text-[#332B42] mb-3">Add custom vibe:</h4>
+                  {!showVibeInput ? (
                     <button
-                      onClick={() => setShowImageUpload(true)}
+                      onClick={() => setShowVibeInput(true)}
                       className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#A85C36] border border-[#A85C36] rounded-lg hover:bg-[#A85C36] hover:text-white transition-colors"
                     >
-                      <Camera className="w-4 h-4" />
-                      Upload Image & Generate Vibes
+                      <Plus className="w-4 h-4" />
+                      Add Custom Vibe
                     </button>
-                  </div>
-
-                  {/* Save/Cancel buttons */}
-                  <div className="flex gap-3 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-6 py-2 bg-[#A85C36] text-white rounded-lg font-medium hover:bg-[#8B4513] disabled:opacity-50"
-                    >
-                      <Save className="w-4 h-4" />
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="px-6 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg font-medium hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newVibe}
+                        onChange={(e) => setNewVibe(e.target.value)}
+                        placeholder="Enter your custom vibe..."
+                        className="flex-1 px-3 py-2 border border-[#AB9C95] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                        onKeyPress={(e) => e.key === 'Enter' && addCustomVibe()}
+                      />
+                      <button
+                        onClick={addCustomVibe}
+                        disabled={!newVibe.trim()}
+                        className="px-4 py-2 bg-[#A85C36] text-white rounded-lg text-sm font-medium hover:bg-[#8B4513] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowVibeInput(false);
+                          setNewVibe('');
+                        }}
+                        className="px-6 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg font-medium hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Fixed Footer Section */}
-            <div className="sticky bottom-0 bg-white border-t border-[#AB9C95] z-10">
-              <div className="p-6">
-                {!isEditing && (
-                  <div className="text-center">
-                    <a
-                      href="/settings?tab=wedding"
-                      className="text-[#A85C36] hover:text-[#784528] underline text-sm font-medium transition-colors"
-                    >
-                      Edit Wedding Details
-                    </a>
-                  </div>
-                )}
+                {/* Generate vibes from image */}
+                <div>
+                  <h4 className="text-md font-medium text-[#332B42] mb-3">Generate vibes from image:</h4>
+                  <button
+                    onClick={() => setShowImageUpload(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#A85C36] border border-[#A85C36] rounded-lg hover:bg-[#A85C36] hover:text-white transition-colors"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Upload Image & Generate Vibes
+                  </button>
+                </div>
+
+                {/* Save/Cancel buttons */}
+                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-6 py-2 bg-[#A85C36] text-white rounded-lg font-medium hover:bg-[#8B4513] disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="px-6 py-2 border border-[#AB9C95] text-[#332B42] rounded-lg font-medium hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        </main>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Pinterest Search Modal */}
       <AnimatePresence>
