@@ -18,6 +18,8 @@ interface MoodBoardContentProps {
   onEditVibes?: () => void;
   onEditBoardName?: (board: MoodBoard) => void;
   onDeleteBoard?: (boardId: string) => void;
+  onEditImage?: (imageIndex: number) => void;
+  onDownloadImage?: (imageUrl: string, imageName: string) => void;
   onImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
@@ -39,6 +41,8 @@ export default function MoodBoardContent({
   onEditVibes,
   onEditBoardName,
   onDeleteBoard,
+  onEditImage,
+  onDownloadImage,
   onImageUpload,
   onDragOver,
   onDragLeave,
@@ -130,6 +134,8 @@ export default function MoodBoardContent({
           onGenerateVibes={onGenerateVibes}
           generatingVibes={generatingVibes}
           onChooseVibe={onChooseVibe}
+          onEditImage={onEditImage}
+          onDownloadImage={onDownloadImage}
         />
 
         {/* Upload Button */}

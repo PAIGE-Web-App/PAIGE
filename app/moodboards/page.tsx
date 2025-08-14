@@ -20,6 +20,7 @@ import MoodBoardTabs from "../../components/inspiration/MoodBoardTabs";
 import MoodBoardContent from "../../components/inspiration/MoodBoardContent";
 import NewBoardModal from "../../components/inspiration/NewBoardModal";
 import VibeEditModal from "../../components/inspiration/VibeEditModal";
+import ImageEditModal from "../../components/inspiration/ImageEditModal";
 import StorageProgressBar from "../../components/StorageProgressBar";
 import UpgradePlanModal from "../../components/UpgradePlanModal";
 import Banner from "../../components/Banner";
@@ -78,8 +79,57 @@ export default function MoodBoardsPage() {
   const [inlineEditingBoardId, setInlineEditingBoardId] = useState<string | null>(null);
   const [inlineEditingName, setInlineEditingName] = useState('');
   
+  // Image edit modal state
+  const [showImageEditModal, setShowImageEditModal] = useState(false);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
+
+  // Image management functions
+  const handleEditImage = (imageIndex: number) => {
+    setEditingImageIndex(imageIndex);
+    setShowImageEditModal(true);
+  };
+
+  const handleDownloadImage = async (imageUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showSuccessToast('Image downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      showErrorToast('Failed to download image');
+    }
+  };
+
+  const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
+    if (!editingImageIndex || !editingBoard) return;
+    
+    const updatedBoards = moodBoards.map(board => {
+      if (board.id === editingBoard.id) {
+        const updatedImages = [...board.images];
+        updatedImages[imageIndex] = {
+          ...updatedImages[imageIndex],
+          fileName,
+          description
+        };
+        return { ...board, images: updatedImages };
+      }
+      return board;
+    });
+    
+    setMoodBoards(updatedBoards);
+    showSuccessToast('Image updated successfully!');
+  };
 
   // Initialize editing vibes when active board changes
   useEffect(() => {
@@ -621,6 +671,8 @@ export default function MoodBoardsPage() {
                   onEditVibes={() => setIsEditing(true)}
                   onEditBoardName={editMoodBoard}
                   onDeleteBoard={deleteMoodBoard}
+                  onEditImage={handleEditImage}
+                  onDownloadImage={handleDownloadImage}
                   onImageUpload={handleImageUpload}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -689,6 +741,22 @@ export default function MoodBoardsPage() {
               maxLists={userPlan.maxBoards}
               reason="lists"
               onClose={() => setShowUpgradeModal(false)}
+            />
+          )}
+
+          {/* Image Edit Modal */}
+          {showImageEditModal && editingImageIndex !== null && getActiveBoard(moodBoards, activeMoodBoard) && (
+            <ImageEditModal
+              isOpen={showImageEditModal}
+              onClose={() => {
+                setShowImageEditModal(false);
+                setEditingImageIndex(null);
+              }}
+              onSave={handleUpdateImage}
+              imageIndex={editingImageIndex}
+              currentFileName={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].fileName}
+              currentDescription={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].description}
+              imageUrl={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].url}
             />
           )}
         </div>

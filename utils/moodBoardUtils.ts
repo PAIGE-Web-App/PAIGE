@@ -15,7 +15,7 @@ export const getActiveBoard = (moodBoards: MoodBoard[], activeMoodBoardId: strin
   return moodBoards.find(board => board.id === activeMoodBoardId);
 };
 
-export const getActiveBoardImages = (moodBoards: MoodBoard[], activeMoodBoardId: string): string[] => {
+export const getActiveBoardImages = (moodBoards: MoodBoard[], activeMoodBoardId: string): any[] => {
   const board = getActiveBoard(moodBoards, activeMoodBoardId);
   return board?.images || [];
 };
@@ -43,7 +43,15 @@ export const uploadImageToStorage = async (file: File, userId: string, boardId: 
 export const addImageToBoard = (moodBoards: MoodBoard[], boardId: string, imageUrl: string): MoodBoard[] => {
   return moodBoards.map(board => 
     board.id === boardId 
-      ? { ...board, images: [...board.images, imageUrl] }
+      ? { 
+          ...board, 
+          images: [...board.images, {
+            url: imageUrl,
+            fileName: `Inspiration ${board.images.length + 1}`,
+            description: '',
+            uploadedAt: new Date()
+          }]
+        }
       : board
   );
 };
@@ -96,32 +104,47 @@ export const cleanupBase64Images = async (moodBoards: MoodBoard[], userId: strin
   
   for (const board of moodBoards) {
     const cleanedBoard: MoodBoard = { ...board };
-    const cleanedImages: string[] = [];
+    const cleanedImages: any[] = [];
     
-    for (const imageUrl of board.images) {
-      // Check if this is a base64 image (starts with data:)
-      if (imageUrl.startsWith('data:')) {
-        try {
-          // Convert base64 to blob and upload to Storage
-          const response = await fetch(imageUrl);
-          const blob = await response.blob();
-          
-          // Create a file from the blob
-          const file = new File([blob], `migrated-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          
-          // Upload to Firebase Storage
-          const newImageUrl = await uploadImageToStorage(file, userId, board.id);
-          cleanedImages.push(newImageUrl);
-          
-          console.log(`Migrated base64 image to Storage: ${newImageUrl}`);
-        } catch (error) {
-          console.error('Failed to migrate base64 image:', error);
-          // Remove the image if migration fails
-          continue;
+    for (const image of board.images) {
+      // Handle legacy string images or new MoodBoardImage objects
+      if (typeof image === 'string') {
+        if (image.startsWith('data:')) {
+          try {
+            // Convert base64 to blob and upload to Storage
+            const response = await fetch(image);
+            const blob = await response.blob();
+            
+            // Create a file from the blob
+            const file = new File([blob], `migrated-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            
+            // Upload to Firebase Storage
+            const newImageUrl = await uploadImageToStorage(file, userId, board.id);
+            cleanedImages.push({
+              url: newImageUrl,
+              fileName: `Inspiration ${cleanedImages.length + 1}`,
+              description: '',
+              uploadedAt: new Date()
+            });
+            
+            console.log(`Migrated base64 image to Storage: ${newImageUrl}`);
+          } catch (error) {
+            console.error('Failed to migrate base64 image:', error);
+            // Remove the image if migration fails
+            continue;
+          }
+        } else {
+          // Keep non-base64 URLs (already in Storage) - convert to new format
+          cleanedImages.push({
+            url: image,
+            fileName: `Inspiration ${cleanedImages.length + 1}`,
+            description: '',
+            uploadedAt: new Date()
+          });
         }
       } else {
-        // Keep non-base64 URLs (already in Storage)
-        cleanedImages.push(imageUrl);
+        // Already in new format
+        cleanedImages.push(image);
       }
     }
     

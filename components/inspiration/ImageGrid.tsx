@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Sparkles, Camera } from 'lucide-react';
+import { X, Sparkles, Camera, MoreHorizontal } from 'lucide-react';
 import { MoodBoard, UserPlan } from '../../types/inspiration';
 import { canAddMoreImages } from '../../utils/moodBoardUtils';
+import MicroMenu from '../MicroMenu';
 
 interface ImageGridProps {
   board: MoodBoard;
@@ -11,6 +12,8 @@ interface ImageGridProps {
   onGenerateVibes: (imageUrl: string) => void;
   generatingVibes: boolean;
   onChooseVibe?: () => void;
+  onEditImage?: (imageIndex: number) => void;
+  onDownloadImage?: (imageUrl: string, imageName: string) => void;
 }
 
 export default function ImageGrid({
@@ -49,7 +52,7 @@ export default function ImageGrid({
     <>
       {/* Pinterest-Style Image Grid */}
       <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-4 mb-6">
-        {board.images.map((imageUrl, index) => (
+        {board.images.map((image, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
@@ -57,12 +60,35 @@ export default function ImageGrid({
             transition={{ duration: 0.3, delay: index * 0.1 }}
             className="break-inside-avoid mb-4 group"
           >
-            <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow">
+            <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow relative">
+              {/* Micro Menu - Top Right */}
+              <div className="absolute top-2 right-2 z-10">
+                <MicroMenu
+                  items={[
+                    {
+                      label: 'Edit',
+                      onClick: () => onEditImage?.(index)
+                    },
+                    {
+                      label: 'Download',
+                      onClick: () => onDownloadImage?.(image.url, image.fileName)
+                    },
+                    {
+                      label: 'Delete',
+                      onClick: () => onRemoveImage(index),
+                      className: 'text-red-600 hover:bg-red-50'
+                    }
+                  ]}
+                  buttonClassName="p-1.5 hover:bg-white/80 rounded-full transition-colors bg-white/60 backdrop-blur-sm"
+                  menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+                />
+              </div>
+
               {/* Image */}
               <div className="relative">
                 <img
-                  src={imageUrl}
-                  alt={`Inspiration ${index + 1}`}
+                  src={image.url}
+                  alt={image.fileName}
                   className="w-full h-auto object-cover"
                   loading="lazy"
                 />
@@ -71,7 +97,7 @@ export default function ImageGrid({
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
                     <button
-                      onClick={() => onGenerateVibes(imageUrl)}
+                      onClick={() => onGenerateVibes(image.url)}
                       disabled={generatingVibes}
                       className="flex items-center gap-2 px-3 py-2 bg-white text-[#332B42] text-sm font-medium rounded-lg shadow-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -96,13 +122,20 @@ export default function ImageGrid({
               <div className="p-3">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-[#332B42] text-sm truncate">
-                    Inspiration {index + 1}
+                    {image.fileName}
                   </h3>
                   <div className="flex items-center gap-1 text-xs text-[#AB9C95]">
                     <Camera size={12} />
                     <span>Uploaded</span>
                   </div>
                 </div>
+                
+                {/* Description */}
+                {image.description && (
+                  <p className="text-xs text-[#364257] mb-2 line-clamp-2">
+                    {image.description}
+                  </p>
+                )}
                 
                 {/* Category Tag */}
                 <span className="inline-block px-2 py-1 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">

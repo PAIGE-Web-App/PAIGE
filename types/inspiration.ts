@@ -1,8 +1,15 @@
+export interface MoodBoardImage {
+  url: string;
+  fileName: string;
+  description?: string;
+  uploadedAt: Date;
+}
+
 export interface MoodBoard {
   id: string;
   name: string;
   type: 'wedding-day' | 'reception' | 'engagement' | 'custom';
-  images: string[];
+  images: MoodBoardImage[];
   vibes: string[];
   createdAt: Date;
   vibeInputMethod?: string; // How vibes were created (pills, image, pinterest)
