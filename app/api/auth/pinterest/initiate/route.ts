@@ -6,7 +6,7 @@ export async function GET() {
   
   if (!PINTEREST_APP_ID) {
     console.error('Pinterest App ID not configured');
-    return NextResponse.redirect('/inspiration?error=pinterest_not_configured');
+    return NextResponse.redirect('/moodboards?error=pinterest_not_configured');
   }
 
   // Build Pinterest OAuth URL

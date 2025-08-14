@@ -9,18 +9,18 @@ export async function GET(request: NextRequest) {
   // Check for OAuth errors
   if (error) {
     console.error('Pinterest OAuth error:', error);
-    return NextResponse.redirect('/inspiration?error=pinterest_oauth_failed');
+    return NextResponse.redirect('/moodboards?error=pinterest_oauth_failed');
   }
   
   if (!code) {
     console.error('No authorization code received');
-    return NextResponse.redirect('/inspiration?error=no_auth_code');
+    return NextResponse.redirect('/moodboards?error=no_auth_code');
   }
   
   // Verify state parameter for security
   if (state !== 'wedding_inspiration') {
     console.error('Invalid state parameter');
-    return NextResponse.redirect('/inspiration?error=invalid_state');
+    return NextResponse.redirect('/moodboards?error=invalid_state');
   }
 
   try {
@@ -52,10 +52,10 @@ export async function GET(request: NextRequest) {
     
     // For now, we'll redirect with success
     // In a real app, you'd store the token and redirect to the mood board
-    return NextResponse.redirect('/inspiration?pinterest_connected=true&token=' + encodeURIComponent(tokenData.access_token));
+    return NextResponse.redirect('/moodboards?pinterest_connected=true&token=' + encodeURIComponent(tokenData.access_token));
     
   } catch (error) {
     console.error('Error exchanging Pinterest code for token:', error);
-    return NextResponse.redirect('/inspiration?error=token_exchange_failed');
+    return NextResponse.redirect('/moodboards?error=token_exchange_failed');
   }
 }

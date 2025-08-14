@@ -181,7 +181,7 @@ export default function WeddingTab({
                   </span>
                 ))}
               </div>
-              <a href="/inspiration" className="text-xs text-[#A85C36] underline mt-2 inline-block hover:opacity-80">
+              <a href="/moodboards" className="text-xs text-[#A85C36] underline mt-2 inline-block hover:opacity-80">
                 Update vibe
               </a>
             </div>

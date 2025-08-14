@@ -55,7 +55,7 @@ export default function TopNav() {
     { name: "Budget", href: "/budget" },
     { name: "Vendors", href: "/vendors" },
     { name: "Files", href: "/files" },
-    { name: "Inspiration", href: "/inspiration" },
+            { name: "Mood Boards", href: "/moodboards" },
   ];
 
   useEffect(() => {
