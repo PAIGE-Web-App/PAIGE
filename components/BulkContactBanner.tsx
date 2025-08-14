@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MailPlus } from 'lucide-react';
 
 interface BulkContactBannerProps {
   isVisible: boolean;
@@ -23,9 +24,7 @@ export default function BulkContactBanner({ isVisible }: BulkContactBannerProps)
           <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-lg shadow-lg mb-4">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0L9.937 15.5Z" />
-                </svg>
+                <MailPlus className="w-5 h-5" strokeWidth={1} />
               </div>
               <div className="flex-1">
                 <h5 className="font-semibold text-sm mb-1 text-white">Bulk Contact with AI</h5>
