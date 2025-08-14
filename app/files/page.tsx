@@ -14,7 +14,6 @@ import { useFileNavigation } from '@/hooks/useFileNavigation';
 import { useFileUploadCompletion } from '@/hooks/useFileUploadCompletion';
 import { useContentDetection } from '@/hooks/useContentDetection';
 import { useFolderPersistence } from '@/hooks/useFolderPersistence';
-import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
 // Components
 import WeddingBanner from '@/components/WeddingBanner';
@@ -54,7 +53,6 @@ export default function FilesPage() {
   const { user, loading } = useAuth();
   const { daysLeft, userName, profileLoading } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
-  const { trackApiCall } = usePerformanceMonitor('FilesPage');
   const {
     folders,
     selectedFolder,

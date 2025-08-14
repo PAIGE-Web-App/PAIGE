@@ -83,14 +83,12 @@ const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
 import { useUserProfileData } from "@/hooks/useUserProfileData";
 import { useWeddingBanner } from "@/hooks/useWeddingBanner";
 import { useBudget } from "@/hooks/useBudget";
-import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
 import toast from "react-hot-toast";
 import type { BudgetItem } from "@/types/budget";
 
 export default function BudgetPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { trackApiCall } = usePerformanceMonitor('BudgetPage');
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
