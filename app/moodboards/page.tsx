@@ -112,21 +112,46 @@ export default function MoodBoardsPage() {
   };
 
   const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
-    if (!editingImageIndex || !editingBoard) return;
+    console.log('handleUpdateImage called with:', { imageIndex, fileName, description });
+    
+    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+    if (!activeBoard) {
+      console.log('No active board found');
+      return;
+    }
+    
+    console.log('Active board:', activeBoard);
+    console.log('Current images:', activeBoard.images);
+    console.log('Image at index:', activeBoard.images[imageIndex]);
     
     const updatedBoards = moodBoards.map(board => {
-      if (board.id === editingBoard.id) {
+      if (board.id === activeBoard.id) {
         const updatedImages = [...board.images];
-        updatedImages[imageIndex] = {
-          ...updatedImages[imageIndex],
-          fileName,
-          description
-        };
+        // Handle both old string format and new object format
+        if (typeof updatedImages[imageIndex] === 'string') {
+          // Convert old string format to new object format
+          updatedImages[imageIndex] = {
+            url: updatedImages[imageIndex] as string,
+            fileName,
+            description,
+            uploadedAt: new Date()
+          };
+          console.log('Converted string image to object:', updatedImages[imageIndex]);
+        } else {
+          // Update existing object format
+          updatedImages[imageIndex] = {
+            ...updatedImages[imageIndex],
+            fileName,
+            description
+          };
+          console.log('Updated existing object image:', updatedImages[imageIndex]);
+        }
         return { ...board, images: updatedImages };
       }
       return board;
     });
     
+    console.log('Updated boards:', updatedBoards);
     setMoodBoards(updatedBoards);
     showSuccessToast('Image updated successfully!');
   };
@@ -555,23 +580,21 @@ export default function MoodBoardsPage() {
       
       <div className="app-content-container flex flex-col gap-6 py-8">
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-start justify-between">
+          <div className="mb-2">
+            <div className="flex items-center justify-between">
               {/* Left side: Header and Description */}
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-2">
                   <Heart className="w-5 h-5 text-[#A85C36]" />
                   <h5>Mood Boards</h5>
                 </div>
-                <p className="text-sm text-[#364257] mb-2">
-                  Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.
-                </p>
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-[#A85C36]" />
+                <p className="text-sm text-[#364257]">
+                  Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.{' '}
+                  <Sparkles className="w-4 h-4 text-[#A85C36] inline" />
                   <a href="#" className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium transition-colors">
                     See it in action
                   </a>
-                </div>
+                </p>
               </div>
               
               {/* Right side: Storage Usage with 40px gap */}
@@ -590,7 +613,7 @@ export default function MoodBoardsPage() {
           </div>
 
           {/* Border line underneath header */}
-          <div className="border-b border-gray-200 mb-2"></div>
+          <div className="border-b border-[#AB9C95] mb-2"></div>
 
           {/* Mood Board Section */}
           <div>
@@ -745,20 +768,30 @@ export default function MoodBoardsPage() {
           )}
 
           {/* Image Edit Modal */}
-          {showImageEditModal && editingImageIndex !== null && getActiveBoard(moodBoards, activeMoodBoard) && (
-            <ImageEditModal
-              isOpen={showImageEditModal}
-              onClose={() => {
-                setShowImageEditModal(false);
-                setEditingImageIndex(null);
-              }}
-              onSave={handleUpdateImage}
-              imageIndex={editingImageIndex}
-              currentFileName={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].fileName}
-              currentDescription={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].description}
-              imageUrl={getActiveBoard(moodBoards, activeMoodBoard)!.images[editingImageIndex].url}
-            />
-          )}
+          {showImageEditModal && editingImageIndex !== null && getActiveBoard(moodBoards, activeMoodBoard) && (() => {
+            const activeBoard = getActiveBoard(moodBoards, activeMoodBoard)!;
+            const image = activeBoard.images[editingImageIndex];
+            
+            // Handle both old string format and new object format
+            const imageUrl = typeof image === 'string' ? image : image.url;
+            const imageName = typeof image === 'string' ? `Inspiration ${editingImageIndex + 1}` : image.fileName;
+            const imageDescription = typeof image === 'string' ? '' : image.description;
+            
+            return (
+              <ImageEditModal
+                isOpen={showImageEditModal}
+                onClose={() => {
+                  setShowImageEditModal(false);
+                  setEditingImageIndex(null);
+                }}
+                onSave={handleUpdateImage}
+                imageIndex={editingImageIndex}
+                currentFileName={imageName}
+                currentDescription={imageDescription}
+                imageUrl={imageUrl}
+              />
+            );
+          })()}
         </div>
       </div>
   );

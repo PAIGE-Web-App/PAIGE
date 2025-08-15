@@ -22,7 +22,9 @@ export default function ImageGrid({
   onRemoveImage,
   onGenerateVibes,
   generatingVibes,
-  onChooseVibe
+  onChooseVibe,
+  onEditImage,
+  onDownloadImage
 }: ImageGridProps) {
   const hasImages = board.images.length > 0;
   const canAddMore = canAddMoreImages(board, userPlan);
@@ -67,8 +69,8 @@ export default function ImageGrid({
               className="break-inside-avoid mb-4 group"
             >
               <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow relative">
-                {/* Micro Menu - Top Right */}
-                <div className="absolute top-2 right-2 z-10">
+                {/* Micro Menu - Top Right (Only on Hover) */}
+                <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <MicroMenu
                     items={[
                       {
@@ -101,7 +103,7 @@ export default function ImageGrid({
                 
                 {/* Overlay with actions */}
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button
                       onClick={() => onGenerateVibes(imageUrl)}
                       disabled={generatingVibes}
@@ -113,12 +115,6 @@ export default function ImageGrid({
                         <Sparkles className="w-4 h-4" />
                       )}
                       Generate Vibes
-                    </button>
-                    <button
-                      onClick={() => onRemoveImage(index)}
-                      className="p-2 bg-white text-red-500 rounded-lg shadow-lg hover:bg-red-50 transition-colors"
-                    >
-                      <X size={16} />
                     </button>
                   </div>
                 </div>

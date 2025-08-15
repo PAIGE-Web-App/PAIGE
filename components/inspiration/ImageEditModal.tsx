@@ -55,90 +55,88 @@ export default function ImageEditModal({
         className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
         onClick={onClose}
       >
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="bg-white rounded-[5px] shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-[#A85C36]" />
-              <h3 className="text-lg font-semibold text-[#332B42]">Edit Image</h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X size={20} className="text-gray-500" />
-            </button>
-          </div>
+                            <motion.div
+                      initial={{ y: -50, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -50, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6 relative"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Header */}
+                      <div className="text-left mb-6">
+                        <h5 className="h5 mb-2">Edit Image</h5>
+                        <p className="text-sm text-gray-600">
+                          Update your image details below.
+                        </p>
+                      </div>
+                      
+                      {/* Close Button */}
+                      <button
+                        onClick={onClose}
+                        className="absolute top-3 right-3 text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                        title="Close"
+                      >
+                        <X size={20} />
+                      </button>
 
-          {/* Content */}
-          <div className="p-4 space-y-4">
-            {/* Image Preview */}
-            <div className="text-center">
-              <img
-                src={imageUrl}
-                alt={fileName}
-                className="w-32 h-32 object-cover rounded-[5px] border border-gray-200 mx-auto"
-              />
-            </div>
+                                {/* Content */}
+                      <div className="space-y-4">
+                        {/* Image Preview */}
+                        <div className="text-center">
+                          <img
+                            src={imageUrl}
+                            alt={fileName}
+                            className="w-32 h-32 object-cover rounded-[5px] border border-[#AB9C95] mx-auto"
+                          />
+                        </div>
 
-            {/* File Name Input */}
-            <div>
-              <label htmlFor="fileName" className="block text-sm font-medium text-[#332B42] mb-2">
-                File Name
-              </label>
-              <input
-                id="fileName"
-                type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-gray-300 rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent"
-                placeholder="Enter file name"
-                autoFocus
-              />
-            </div>
+                        {/* File Name Input */}
+                        <div>
+                          <h6 className="font-medium text-[#332B42] mb-3">File Name</h6>
+                          <input
+                            id="fileName"
+                            type="text"
+                            value={fileName}
+                            onChange={(e) => setFileName(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="w-full px-3 py-2 border border-[#AB9C95] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
+                            placeholder="Enter file name"
+                            autoFocus
+                          />
+                        </div>
 
-            {/* Description Input */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-[#332B42] mb-2">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent resize-none"
-                placeholder="Add a description for this image..."
-              />
-            </div>
-          </div>
+                        {/* Description Input */}
+                        <div>
+                          <h6 className="font-medium text-[#332B42] mb-3">Description</h6>
+                          <textarea
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-[#AB9C95] rounded-[5px] focus:outline-none focus:border-[#A85C36] resize-none"
+                            placeholder="Add a description for this image..."
+                          />
+                        </div>
+                      </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!fileName.trim()}
-              className="px-4 py-2 bg-[#A85C36] text-white rounded-[5px] hover:bg-[#A85C36]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Save size={16} />
-              Save Changes
-            </button>
-          </div>
+                                {/* Footer */}
+                      <div className="flex justify-end gap-3 mt-6">
+                        <button
+                          onClick={onClose}
+                          className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-[5px] text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={!fileName.trim()}
+                          className="btn-primary px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
