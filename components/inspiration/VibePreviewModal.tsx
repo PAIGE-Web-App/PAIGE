@@ -6,6 +6,7 @@ import VibePill from '../VibePill';
 import { useUserProfileData } from '../../hooks/useUserProfileData';
 import { useTodoItems } from '../../hooks/useTodoItems';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface VibePreviewModalProps {
   isOpen: boolean;
@@ -32,8 +33,18 @@ export default function VibePreviewModal({
   const [selectedBoardId, setSelectedBoardId] = useState<string>(activeMoodBoard);
   
   // Data hooks for AI integration
-  const { weddingLocation } = useUserProfileData();
-  const { todos } = useTodoItems();
+  const { user } = useAuth();
+  const { 
+    userName, 
+    partnerName, 
+    weddingDate, 
+    weddingLocation, 
+    hasVenue, 
+    guestCount, 
+    maxBudget, 
+    vibe 
+  } = useUserProfileData();
+  const { todoItems: todos } = useTodoItems(null); // Pass null for selectedList to get all todos
   const { favorites } = useFavorites();
   
   const activeBoard = moodBoards.find(board => board.id === selectedBoardId);
@@ -65,21 +76,35 @@ export default function VibePreviewModal({
       // Prepare context data for AI - handle undefined data
       const completedTodos = (todos || []).filter(todo => todo.isCompleted).slice(0, 5);
       const pendingTodos = (todos || []).filter(todo => !todo.isCompleted).slice(0, 5);
-      const selectedVendors = (favorites || []).slice(0, 5);
       
+      // Prepare user profile data for AI personalization
+      const userProfileData = {
+        userName,
+        partnerName,
+        weddingDate,
+        weddingLocation,
+        hasVenue,
+        guestCount,
+        maxBudget,
+        vibe: vibe || []
+      };
+
+      console.log('VibePreviewModal - User profile data being sent:', userProfileData);
+
       const response = await fetch('/api/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contact: { name: 'Vendor', category: 'vendor' },
           messages: [],
+          userId: user?.uid,
+          userData: userProfileData,
           vibeContext: {
             vibes: vibes.slice(0, 4),
             boardType,
             weddingLocation,
-            completedTodos: completedTodos.map(todo => todo.title),
-            pendingTodos: pendingTodos.map(todo => todo.title),
-            selectedVendors: selectedVendors.map(vendor => vendor.name)
+            completedTodos: completedTodos.map(todo => todo.name),
+            pendingTodos: pendingTodos.map(todo => todo.name)
           }
         }),
       });
@@ -115,11 +140,18 @@ export default function VibePreviewModal({
     
     const vibeText = vibes.slice(0, 4).join(', ');
     
+    // Use actual user data for fallback message
+    const userNameText = userName || 'We';
+    const weddingDateText = weddingDate ? ` on ${weddingDate.toLocaleDateString()}` : '';
+    const locationText = weddingLocation ? ` in ${weddingLocation}` : '';
+    
     const template = `Hi there! 👋
 
-I'm planning my ${boardTypeLabel} and love your work! I'm going for a ${vibeText} vibe and think you'd be perfect for our day.
+${userNameText}'re planning our ${boardTypeLabel}${weddingDateText}${locationText} and love your work! We're going for a ${vibeText} vibe and think you'd be perfect for our day.
 
-Could you tell me more about your services and availability? Thanks so much!`;
+Could you tell me more about your services and availability? Thanks so much!
+
+Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
 
     setPreviewMessage(template);
     

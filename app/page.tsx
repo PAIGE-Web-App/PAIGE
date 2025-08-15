@@ -68,6 +68,7 @@ import { getRelativeDate } from '@/utils/dateUtils';
 
 import EmojiPicker from '@/components/EmojiPicker';
 
+
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
   <div className="space-y-2 animate-pulse">
@@ -953,6 +954,7 @@ export default function Home() {
             )}
             </div>
           </div>
+
 
 
           {isEditing && selectedContact && user && (

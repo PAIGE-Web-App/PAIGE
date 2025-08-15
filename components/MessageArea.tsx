@@ -27,6 +27,7 @@ import GmailReauthNotification from './GmailReauthNotification';
 import GmailReauthBanner from './GmailReauthBanner';
 import DropdownMenu, { DropdownItem } from './DropdownMenu';
 import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
+import { useUserProfileData } from "../hooks/useUserProfileData";
 
 
 // Define interfaces for types needed in this component
@@ -41,7 +42,7 @@ interface MessageAreaProps {
   input: string;
   setInput: (input: string) => void;
   draftLoading: boolean;
-  generateDraft: () => Promise<string>;
+  generateDraft: (contact?: any, messages?: string[], userId?: string, userData?: any) => Promise<string>;
   selectedFiles: File[];
   setSelectedFiles: React.Dispatch<React.SetStateAction<File[]>>;
   contactsLoading: boolean;
@@ -218,6 +219,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const prevContactIdRef = useRef<string | null>(null);
   const prevUserIdRef = useRef<string | null>(null);
+  const isGeneratingRef = useRef(false); // Add ref to track generation state
+  
+  // Cleanup function to reset generation state on unmount
+  useEffect(() => {
+    return () => {
+      isGeneratingRef.current = false;
+    };
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,6 +234,18 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+
+  // Get user profile data for AI draft personalization
+  const { 
+    userName: profileUserName, 
+    partnerName, 
+    weddingDate, 
+    weddingLocation, 
+    hasVenue, 
+    guestCount, 
+    maxBudget, 
+    vibe 
+  } = useUserProfileData();
 
   const [pendingDraft, setPendingDraft] = useState<string | null>(null); // For AI draft
   const [showGmailImport, setShowGmailImport] = useState(false);
@@ -648,15 +669,36 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     setInput(input + emoji);
   };
 
-  const handleGenerateDraft = async () => {
-    if (!selectedContact) return;
+  const handleGenerateDraft = useCallback(async () => {
+    console.log('[handleGenerateDraft] Called with:', { selectedContact: !!selectedContact, isGenerating: isGeneratingRef.current });
+    
+    if (!selectedContact || isGeneratingRef.current) {
+      console.log('[handleGenerateDraft] Early return - no contact or already generating');
+      return; // Use ref to prevent multiple simultaneous executions
+    }
+    
     try {
+      isGeneratingRef.current = true;
       setIsGenerating(true);
+      console.log('[handleGenerateDraft] Starting draft generation...');
       
       // If replying to a message, generate a contextual response
       let draft;
       if (replyingToMessage) {
+        console.log('[handleGenerateDraft] Generating reply draft...');
         // For replies, we need to call the draft API directly with reply context
+        // Use actual user profile data for reply draft personalization
+        const userProfileData = {
+          userName: profileUserName || userName,
+          partnerName,
+          weddingDate,
+          weddingLocation,
+          hasVenue,
+          guestCount,
+          maxBudget,
+          vibe: vibe || []
+        };
+        
         const res = await fetch("/api/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -665,17 +707,32 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             messages: [replyingToMessage.body],
             isReply: true,
             originalSubject: replyingToMessage.subject,
-            originalFrom: replyingToMessage.from
+            originalFrom: replyingToMessage.from,
+            userId: currentUser?.uid,
+            userData: userProfileData
           }),
         });
         const data = await res.json();
         draft = data.draft || "Failed to generate response";
       } else {
-        // Generate a new message draft
-        draft = await generateDraft();
+        console.log('[handleGenerateDraft] Generating new draft...');
+        // Generate a new message draft with enhanced context
+        // Use actual user profile data for AI draft personalization
+        const userProfileData = {
+          userName: profileUserName || userName,
+          partnerName,
+          weddingDate,
+          weddingLocation,
+          hasVenue,
+          guestCount,
+          maxBudget,
+          vibe: vibe || []
+        };
+        draft = await generateDraft(selectedContact, [], currentUser?.uid, userProfileData);
       }
       
       if (draft) {
+        console.log('[handleGenerateDraft] Draft generated, processing...');
         // Replace placeholders with userName
         if (userName) {
           draft = draft.replace(/\[Your Name\]/g, userName).replace(/\[Your Full Name\]/g, userName);
@@ -702,24 +759,21 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           const finalHeight = Math.min(textareaRef.current.scrollHeight, 200);
           textareaRef.current.style.height = finalHeight + 'px';
         }
-        // Animate the text with much faster speed
-        let currentText = "";
-        const chunkSize = 15; // Process more characters at once for much faster animation
-        for (let i = 0; i < newBody.length; i += chunkSize) {
-          await new Promise(resolve => setTimeout(resolve, 2)); // Much faster animation
-          currentText += newBody.slice(i, i + chunkSize);
-          setAnimatedDraft(currentText);
-        }
+        // Set the final text immediately without animation to avoid infinite loops
+        setAnimatedDraft(newBody);
         setInput(newBody);
         setIsAnimating(false);
+        console.log('[handleGenerateDraft] Draft processing complete');
       }
     } catch (error) {
-      console.error('Error generating draft:', error);
+      console.error('[handleGenerateDraft] Error generating draft:', error);
       showErrorToast('Failed to generate draft');
     } finally {
+      isGeneratingRef.current = false;
       setIsGenerating(false);
+      console.log('[handleGenerateDraft] Generation complete, state reset');
     }
-  };
+  }, [selectedContact?.id, replyingToMessage?.id, currentUser?.uid, generateDraft, userName, subject]);
 
   // TEMP: Simple onSnapshot test
   useEffect(() => {
