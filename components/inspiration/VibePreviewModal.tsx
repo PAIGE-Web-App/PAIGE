@@ -18,12 +18,13 @@ export default function VibePreviewModal({
   activeMoodBoard,
   onUseInDraft
 }: VibePreviewModalProps) {
-  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
+    const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
   const [previewMessage, setPreviewMessage] = useState('');
   const [generating, setGenerating] = useState(false);
   const [selectedBoardType, setSelectedBoardType] = useState<string>('');
-
-  const activeBoard = moodBoards.find(board => board.id === activeMoodBoard);
+  const [selectedBoardId, setSelectedBoardId] = useState<string>(activeMoodBoard);
+  
+  const activeBoard = moodBoards.find(board => board.id === selectedBoardId);
 
   useEffect(() => {
     if (isOpen && activeBoard) {
@@ -32,6 +33,12 @@ export default function VibePreviewModal({
       generatePreviewMessage(activeBoard.vibes || [], activeBoard.type);
     }
   }, [isOpen, activeBoard]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedBoardId(activeMoodBoard);
+    }
+  }, [isOpen, activeMoodBoard]);
 
   const generatePreviewMessage = async (vibes: string[], boardType: string) => {
     if (vibes.length === 0) return;
@@ -124,11 +131,11 @@ Thanks so much!
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#A85C36] rounded-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
               <div>
-                <h3 className="text-xl font-semibold text-[#332B42]">See it in Action</h3>
+                <h3 className="text-xl font-semibold text-[#332B42] flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#A85C36]" />
+                  See it in Action
+                </h3>
                 <p className="text-sm text-gray-600">How your vibes translate to vendor communication</p>
               </div>
             </div>
@@ -144,26 +151,26 @@ Thanks so much!
           <div className="p-6">
             {/* Board Selection */}
             <div className="mb-6">
-              <h4 className="font-medium text-[#332B42] mb-3">Mood Board: {activeBoard.name}</h4>
-              <div className="flex flex-wrap gap-2">
+              <h4 className="font-medium text-[#332B42] mb-3">Select Mood Board</h4>
+              <select
+                value={selectedBoardId}
+                onChange={(e) => {
+                  const selectedBoard = moodBoards.find(board => board.id === e.target.value);
+                  if (selectedBoard) {
+                    setSelectedBoardId(e.target.value);
+                    setSelectedVibes(selectedBoard.vibes || []);
+                    setSelectedBoardType(selectedBoard.type);
+                    generatePreviewMessage(selectedBoard.vibes || [], selectedBoard.type);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-[#AB9C95] rounded-[5px] focus:outline-none focus:border-[#A85C36] text-[#332B42] bg-white"
+              >
                 {moodBoards.map(board => (
-                  <button
-                    key={board.id}
-                    onClick={() => {
-                      setSelectedVibes(board.vibes || []);
-                      setSelectedBoardType(board.type);
-                      generatePreviewMessage(board.vibes || [], board.type);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      board.id === activeMoodBoard
-                        ? 'bg-[#A85C36] text-white'
-                        : 'bg-gray-100 text-[#332B42] hover:bg-gray-200'
-                    }`}
-                  >
+                  <option key={board.id} value={board.id}>
                     {board.name}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* Vibe Selection */}

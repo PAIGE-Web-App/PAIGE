@@ -109,7 +109,8 @@ export const cleanupBase64Images = async (moodBoards: MoodBoard[], userId: strin
     for (const image of board.images) {
       // Handle legacy string images or new MoodBoardImage objects
       if (typeof image === 'string') {
-        if (image.startsWith('data:')) {
+        const imageString = image as string;
+        if (imageString.startsWith('data:')) {
           try {
             // Convert base64 to blob and upload to Storage
             const response = await fetch(image);
