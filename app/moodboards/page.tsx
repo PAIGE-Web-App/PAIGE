@@ -25,6 +25,7 @@ import StorageProgressBar from "../../components/StorageProgressBar";
 import UpgradePlanModal from "../../components/UpgradePlanModal";
 import Banner from "../../components/Banner";
 import MoodBoardSkeleton from "../../components/inspiration/MoodBoardSkeleton";
+import VibePreviewModal from "../../components/inspiration/VibePreviewModal";
 
 // Import types and utilities
 import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../types/inspiration";
@@ -83,6 +84,9 @@ export default function MoodBoardsPage() {
   // Image edit modal state
   const [showImageEditModal, setShowImageEditModal] = useState(false);
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  
+  // Vibe preview modal state
+  const [showVibePreviewModal, setShowVibePreviewModal] = useState(false);
   
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
@@ -155,6 +159,22 @@ export default function MoodBoardsPage() {
     console.log('Updated boards:', updatedBoards);
     setMoodBoards(updatedBoards);
     showSuccessToast('Image updated successfully!');
+  };
+
+  const handleUseVibesInDraft = (vibes: string[], boardType: string) => {
+    // Store the selected vibes and board type for use in draft messages
+    // This will be accessible from the main dashboard draft message area
+    localStorage.setItem('selectedVibes', JSON.stringify(vibes));
+    localStorage.setItem('selectedBoardType', boardType);
+    localStorage.setItem('vibesLastUpdated', new Date().toISOString());
+    
+    // Dispatch custom event for same-tab updates
+    window.dispatchEvent(new CustomEvent('vibesUpdated'));
+    
+    showSuccessToast(`Vibes saved! They'll be available in your Draft Message area.`);
+    
+    // Optionally redirect to main dashboard or open draft message area
+    // router.push('/');
   };
 
   // Initialize editing vibes when active board changes
@@ -592,9 +612,12 @@ export default function MoodBoardsPage() {
                 <p className="text-sm text-[#364257]">
                   Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.{' '}
                   <Sparkles className="w-4 h-4 text-[#A85C36] inline" />
-                  <a href="#" className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium transition-colors">
+                  <button 
+                    onClick={() => setShowVibePreviewModal(true)}
+                    className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium transition-colors"
+                  >
                     See it in action
-                  </a>
+                  </button>
                 </p>
               </div>
               
@@ -797,6 +820,15 @@ export default function MoodBoardsPage() {
               />
             );
           })()}
+
+          {/* Vibe Preview Modal */}
+          <VibePreviewModal
+            isOpen={showVibePreviewModal}
+            onClose={() => setShowVibePreviewModal(false)}
+            moodBoards={moodBoards}
+            activeMoodBoard={activeMoodBoard}
+            onUseInDraft={handleUseVibesInDraft}
+          />
         </div>
       </div>
   );
