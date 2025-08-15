@@ -41,7 +41,7 @@ VENDOR CONTEXT:
 - Category: ${vendorCategory}
 
 EXISTING TODOS:
-${existingTodos?.map((todo: any) => `- ${todo.title} (${todo.category}) - ${todo.isCompleted ? 'Completed' : 'Pending'}`).join('\n') || 'None'}
+${existingTodos?.map((todo: any) => `- ${todo.name} (${todo.category}) - ${todo.isCompleted ? 'Completed' : 'Pending'}`).join('\n') || 'None'}
 
 WEDDING CONTEXT:
 ${weddingContext ? `- Wedding Date: ${weddingContext.weddingDate}
@@ -52,37 +52,32 @@ ANALYSIS TASK:
 1. Detect NEW to-do items that need to be created
 2. Identify UPDATES to existing to-do items
 3. Spot COMPLETED to-do items
-4. Categorize by priority and suggest deadlines
+4. Suggest relevant categories and deadlines
 
 OUTPUT FORMAT (JSON only, no other text):
 {
   "newTodos": [
     {
-      "title": "Task title",
-      "description": "Detailed description",
+      "name": "Task name",
+      "note": "Optional note or description",
       "category": "Category name",
-      "priority": "low|medium|high",
-      "suggestedDeadline": "YYYY-MM-DD",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "deadline": "YYYY-MM-DD",
+      "sourceText": "Exact text that triggered this"
     }
   ],
   "todoUpdates": [
     {
       "updateType": "note|status_change|deadline_update|category_change",
       "content": "Update content",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "sourceText": "Exact text that triggered this"
     }
   ],
   "completedTodos": [
     {
       "completionReason": "Why this is considered complete",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "sourceText": "Exact text that triggered this"
     }
   ],
-  "confidence": 0.9,
   "analysisType": "new_message|reply|ongoing_conversation"
 }`;
 
@@ -94,31 +89,34 @@ OUTPUT FORMAT (JSON only, no other text):
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.3, // Lower temperature for more consistent analysis
+      temperature: 0.1, // Very low temperature for consistent analysis
       max_tokens: 1000,
     });
 
-    const aiResponse = completion.choices[0].message.content;
     console.log('[analyze-message] OpenAI response received');
 
-    if (!aiResponse) {
-      throw new Error('No response from OpenAI');
+    if (!completion.choices[0]?.message?.content) {
+      throw new Error('No content received from OpenAI');
     }
 
-    // Parse the JSON response
+    const aiResponse = completion.choices[0].message.content;
+    console.log('[analyze-message] Raw AI response:', aiResponse);
+
+    // Try to extract JSON from the response
     let analysisResult;
     try {
-      // Extract JSON from the response (in case there's extra text)
+      // Find JSON content in the response
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
+      if (!jsonMatch) {
+        throw new Error('No JSON found in AI response');
       }
+      
+      analysisResult = JSON.parse(jsonMatch[0]);
+      console.log('[analyze-message] Parsed analysis result:', analysisResult);
     } catch (parseError) {
-      console.error('[analyze-message] Failed to parse OpenAI response:', parseError);
-      console.error('[analyze-message] Raw response:', aiResponse);
-      throw new Error('Invalid JSON response from AI');
+      console.error('[analyze-message] Failed to parse AI response:', parseError);
+      console.error('[analyze-message] Raw response was:', aiResponse);
+      throw new Error('Failed to parse AI analysis result');
     }
 
     // Validate the result structure
@@ -130,7 +128,7 @@ OUTPUT FORMAT (JSON only, no other text):
       newTodos: analysisResult.newTodos.length,
       todoUpdates: analysisResult.todoUpdates.length,
       completedTodos: analysisResult.completedTodos.length,
-      confidence: analysisResult.confidence
+      analysisType: analysisResult.analysisType
     });
 
     return NextResponse.json(analysisResult);

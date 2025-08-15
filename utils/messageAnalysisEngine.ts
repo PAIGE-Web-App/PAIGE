@@ -1,44 +1,42 @@
 // utils/messageAnalysisEngine.ts
 // AI-powered message analysis for smart to-do detection
 
-export interface MessageAnalysisResult {
-  newTodos: DetectedTodo[];
-  todoUpdates: TodoUpdate[];
-  completedTodos: CompletedTodo[];
-  confidence: number;
-  analysisType: 'new_message' | 'reply' | 'ongoing_conversation';
-}
-
 export interface DetectedTodo {
-  title: string;
-  description: string;
-  category: string;
-  priority: 'low' | 'medium' | 'high';
-  suggestedDeadline?: Date;
-  vendorContext?: {
+  name: string;
+  note?: string;
+  deadline?: Date | null;
+  category?: string | null;
+  assignedTo?: string[] | null;
+  sourceText: string;
+  vendorContext: {
     vendorName: string;
     vendorCategory: string;
     contactId: string;
   };
-  sourceText: string;
-  confidence: number;
 }
 
 export interface TodoUpdate {
-  todoId?: string; // If we can match to existing todo
-  todoTitle?: string; // If we can't match but know the title
   updateType: 'note' | 'status_change' | 'deadline_update' | 'category_change';
   content: string;
   sourceText: string;
-  confidence: number;
 }
 
 export interface CompletedTodo {
-  todoId?: string;
-  todoTitle?: string;
   completionReason: string;
   sourceText: string;
-  confidence: number;
+}
+
+export interface MessageAnalysisResult {
+  newTodos: DetectedTodo[];
+  todoUpdates: TodoUpdate[];
+  completedTodos: CompletedTodo[];
+  analysisType: 'new_message' | 'reply' | 'ongoing_conversation';
+  // Integration with existing AI to-do system
+  aiTodoList?: {
+    name: string;
+    description: string;
+    vendorContext: string;
+  };
 }
 
 export interface AnalysisContext {
@@ -89,12 +87,23 @@ export class MessageAnalysisEngine {
       // Use AI to analyze the message content
       const analysis = await this.performAIAnalysis(context);
       
-      // Cache the result
-      this.analysisCache.set(cacheKey, analysis);
+      // Cache the result with timestamp
+      this.analysisCache.set(cacheKey, this.addTimestamp(analysis));
       
       return analysis;
     } catch (error) {
       console.error('[MessageAnalysisEngine] AI analysis failed:', error);
+      
+      // Check if we have a recent cached result even if it's expired
+      const cached = this.analysisCache.get(cacheKey);
+      if (cached) {
+        const cacheAge = Date.now() - (cached as any).timestamp;
+        if (cacheAge < 30 * 60 * 1000) { // Use cache up to 30 minutes old
+          console.log('[MessageAnalysisEngine] Using expired cache due to AI failure');
+          return cached;
+        }
+      }
+      
       // Fallback to rule-based analysis
       return this.performRuleBasedAnalysis(context);
     }
@@ -135,7 +144,13 @@ export class MessageAnalysisEngine {
    * Build the AI analysis prompt
    */
   private buildAnalysisPrompt(context: AnalysisContext): string {
-    let prompt = `Analyze this message from a ${context.vendorCategory} vendor for actionable wedding planning items.
+    let prompt = `You are an AI assistant that analyzes wedding planning messages to detect actionable items and prepare them for integration with an existing AI to-do generation system.
+
+ANALYSIS TASK:
+1. Detect NEW to-do items that need to be created
+2. Identify UPDATES to existing to-do items
+3. Spot COMPLETED to-do items
+4. Prepare context for AI to-do generation using existing system
 
 MESSAGE CONTENT:
 ${context.messageContent}
@@ -145,49 +160,43 @@ VENDOR CONTEXT:
 - Category: ${context.vendorCategory}
 
 EXISTING TODOS:
-${context.existingTodos?.map(todo => `- ${todo.title} (${todo.category}) - ${todo.isCompleted ? 'Completed' : 'Pending'}`).join('\n') || 'None'}
+${context.existingTodos?.map((todo: any) => `- ${todo.name} (${todo.category}) - ${todo.isCompleted ? 'Completed' : 'Pending'}`).join('\n') || 'None'}
 
 WEDDING CONTEXT:
 ${context.weddingContext ? `- Wedding Date: ${context.weddingContext.weddingDate.toLocaleDateString()}
 - Planning Stage: ${context.weddingContext.planningStage}
 - Days Until Wedding: ${context.weddingContext.daysUntilWedding}` : 'Not available'}
 
-ANALYSIS TASK:
-1. Detect NEW to-do items that need to be created
-2. Identify UPDATES to existing to-do items
-3. Spot COMPLETED to-do items
-4. Categorize by priority and suggest deadlines
-
-OUTPUT FORMAT (JSON):
+OUTPUT FORMAT (JSON only, no other text):
 {
   "newTodos": [
     {
-      "title": "Task title",
-      "description": "Detailed description",
-      "category": "Category name",
-      "priority": "low|medium|high",
-      "suggestedDeadline": "YYYY-MM-DD",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "name": "Task name",
+      "note": "Optional note or description",
+      "category": "Category name (use existing categories when possible)",
+      "deadline": "YYYY-MM-DD",
+      "sourceText": "Exact text that triggered this"
     }
   ],
   "todoUpdates": [
     {
       "updateType": "note|status_change|deadline_update|category_change",
       "content": "Update content",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "sourceText": "Exact text that triggered this"
     }
   ],
   "completedTodos": [
     {
       "completionReason": "Why this is considered complete",
-      "sourceText": "Exact text that triggered this",
-      "confidence": 0.9
+      "sourceText": "Exact text that triggered this"
     }
   ],
-  "confidence": 0.9,
-  "analysisType": "new_message|reply|ongoing_conversation"
+  "analysisType": "new_message|reply|ongoing_conversation",
+  "aiTodoList": {
+    "name": "AI-Generated To-Do List from ${context.vendorName} Message",
+    "description": "To-do items detected from message with ${context.vendorName} (${context.vendorCategory})",
+    "vendorContext": "Message from ${context.vendorName} regarding ${context.vendorCategory} services"
+  }
 }`;
 
     return prompt;
@@ -207,11 +216,10 @@ OUTPUT FORMAT (JSON):
             vendorCategory: context.vendorCategory,
             contactId: context.contactId
           },
-          suggestedDeadline: todo.suggestedDeadline ? new Date(todo.suggestedDeadline) : undefined
+          deadline: todo.deadline ? new Date(todo.deadline) : undefined
         })) || [],
         todoUpdates: aiResult.todoUpdates || [],
         completedTodos: aiResult.completedTodos || [],
-        confidence: aiResult.confidence || 0.8,
         analysisType: aiResult.analysisType || 'new_message'
       };
 
@@ -230,7 +238,6 @@ OUTPUT FORMAT (JSON):
       newTodos: [],
       todoUpdates: [],
       completedTodos: [],
-      confidence: 0.6,
       analysisType: 'new_message'
     };
 
@@ -239,23 +246,31 @@ OUTPUT FORMAT (JSON):
     // Simple pattern matching for new todos
     if (content.includes('schedule') || content.includes('book') || content.includes('meeting')) {
       result.newTodos.push({
-        title: `Schedule ${context.vendorCategory} consultation`,
-        description: `Follow up with ${context.vendorName} about scheduling`,
+        name: `Schedule ${context.vendorCategory} consultation`,
+        note: `Follow up with ${context.vendorName} about scheduling`,
         category: context.vendorCategory,
-        priority: 'medium',
+        assignedTo: [context.contactId],
         sourceText: 'Detected scheduling language',
-        confidence: 0.7
+        vendorContext: {
+          vendorName: context.vendorName,
+          vendorCategory: context.vendorCategory,
+          contactId: context.contactId
+        }
       });
     }
 
     if (content.includes('quote') || content.includes('pricing') || content.includes('cost')) {
       result.newTodos.push({
-        title: `Get ${context.vendorCategory} pricing`,
-        description: `Request quote from ${context.vendorName}`,
+        name: `Get ${context.vendorCategory} pricing`,
+        note: `Request quote from ${context.vendorName}`,
         category: context.vendorCategory,
-        priority: 'high',
+        assignedTo: [context.contactId],
         sourceText: 'Detected pricing inquiry language',
-        confidence: 0.8
+        vendorContext: {
+          vendorName: context.vendorName,
+          vendorCategory: context.vendorCategory,
+          contactId: context.contactId
+        }
       });
     }
 
@@ -274,7 +289,17 @@ OUTPUT FORMAT (JSON):
    */
   private isCacheValid(result: MessageAnalysisResult): boolean {
     const cacheAge = Date.now() - (result as any).timestamp;
-    return cacheAge < 5 * 60 * 1000; // 5 minutes
+    return cacheAge < 10 * 60 * 1000; // 10 minutes cache validity
+  }
+
+  /**
+   * Add timestamp to cached results
+   */
+  private addTimestamp(result: MessageAnalysisResult): MessageAnalysisResult {
+    return {
+      ...result,
+      timestamp: Date.now()
+    } as MessageAnalysisResult & { timestamp: number };
   }
 
   /**

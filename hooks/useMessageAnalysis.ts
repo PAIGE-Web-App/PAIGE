@@ -60,13 +60,13 @@ export function useMessageAnalysis() {
    */
   const getAnalysisSummary = useCallback(() => {
     if (!lastAnalysis) return null;
-
+    
     return {
       hasNewTodos: lastAnalysis.newTodos.length > 0,
       hasUpdates: lastAnalysis.todoUpdates.length > 0,
       hasCompletions: lastAnalysis.completedTodos.length > 0,
       totalItems: lastAnalysis.newTodos.length + lastAnalysis.todoUpdates.length + lastAnalysis.completedTodos.length,
-      confidence: lastAnalysis.confidence
+      analysisType: lastAnalysis.analysisType
     };
   }, [lastAnalysis]);
 
@@ -81,49 +81,36 @@ export function useMessageAnalysis() {
       end: number;
       type: 'new-todo' | 'update' | 'completion';
       content: string;
-      confidence: number;
     }> = [];
 
-    // Find new todo source text
+    // New to-dos
     lastAnalysis.newTodos.forEach(todo => {
-      const start = messageContent.indexOf(todo.sourceText);
-      if (start !== -1) {
-        ranges.push({
-          start,
-          end: start + todo.sourceText.length,
-          type: 'new-todo',
-          content: todo.sourceText,
-          confidence: todo.confidence
-        });
-      }
+      ranges.push({
+        start: messageContent.indexOf(todo.sourceText),
+        end: messageContent.indexOf(todo.sourceText) + todo.sourceText.length,
+        type: 'new-todo',
+        content: todo.sourceText
+      });
     });
 
-    // Find update source text
+    // Updates
     lastAnalysis.todoUpdates.forEach(update => {
-      const start = messageContent.indexOf(update.sourceText);
-      if (start !== -1) {
-        ranges.push({
-          start,
-          end: start + update.sourceText.length,
-          type: 'update',
-          content: update.sourceText,
-          confidence: update.confidence
-        });
-      }
+      ranges.push({
+        start: messageContent.indexOf(update.sourceText),
+        end: messageContent.indexOf(update.sourceText) + update.sourceText.length,
+        type: 'update',
+        content: update.sourceText
+      });
     });
 
-    // Find completion source text
+    // Completions
     lastAnalysis.completedTodos.forEach(completion => {
-      const start = messageContent.indexOf(completion.sourceText);
-      if (start !== -1) {
-        ranges.push({
-          start,
-          end: start + completion.sourceText.length,
-          type: 'completion',
-          content: completion.sourceText,
-          confidence: completion.confidence
-        });
-      }
+      ranges.push({
+        start: messageContent.indexOf(completion.sourceText),
+        end: messageContent.indexOf(completion.sourceText) + completion.sourceText.length,
+        type: 'completion',
+        content: completion.sourceText
+      });
     });
 
     // Sort by start position

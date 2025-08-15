@@ -4,6 +4,8 @@ import { File, Reply, Trash2, ExternalLink, MessageSquareText, Sparkles } from "
 import DOMPurify from "dompurify";
 import { Message } from "../types/message";
 import LoadingSpinner from "./LoadingSpinner";
+import AnalysisResultsDisplay from "./AnalysisResultsDisplay";
+import { useBudget } from "../hooks/useBudget";
 
 // Development-only logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -29,6 +31,7 @@ interface MessageListAreaProps {
   vendorContactLoading?: boolean;
   hasContactInfo?: boolean | null;
   setIsEditing?: (isEditing: boolean) => void;
+  onGenerateAITodoList?: (message: Message) => void;
 }
 
 const MessageListArea: React.FC<MessageListAreaProps> = ({
@@ -48,6 +51,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   vendorContactLoading,
   hasContactInfo,
   setIsEditing,
+  onGenerateAITodoList,
 }) => {
   // Debug logging
   devLog('🔍 MessageListArea props:', {
@@ -501,7 +505,17 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   // Map of messageId to ref for scrolling
   const messageRefs = useRef<{ [id: string]: HTMLDivElement | null }>({});
   const [bouncingId, setBouncingId] = useState<string | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<{
+    newTodos: any[];
+    todoUpdates: any[];
+    completedTodos: any[];
+    analysisType: string;
+  } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [scanningMessageId, setScanningMessageId] = useState<string | null>(null);
 
+  // Get the existing AI to-do generation function from useBudget
+  const { handleGenerateTodoList } = useBudget();
 
   // Helper to trigger bounce
   const triggerBounce = (id: string) => {
@@ -521,6 +535,10 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   const handleAnalyzeMessage = async (message: Message) => {
     if (!selectedContact) return;
     
+    setIsAnalyzing(true);
+    setAnalysisResults(null);
+    setScanningMessageId(message.id);
+    
     try {
       // Import and use the message analysis engine directly
       const { MessageAnalysisEngine } = await import('../utils/messageAnalysisEngine');
@@ -536,13 +554,50 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       });
       
       if (result) {
-        // Show analysis results in a toast or modal
+        setAnalysisResults(result);
         console.log('Analysis complete:', result);
-        // TODO: Display results in a clean way
       }
     } catch (error) {
       console.error('Analysis failed:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsAnalyzing(false);
+      setScanningMessageId(null);
     }
+  };
+
+  // Handle to-do actions
+  const handleNewTodo = (todo: any) => {
+    console.log('Creating new to-do:', todo);
+    // TODO: Implement actual to-do creation
+    setAnalysisResults(null);
+  };
+
+  const handleTodoUpdate = (update: any) => {
+    console.log('Updating to-do:', update);
+    // TODO: Implement actual to-do update
+    setAnalysisResults(null);
+  };
+
+  const handleTodoComplete = (completion: any) => {
+    console.log('Completing to-do:', completion);
+    // TODO: Implement actual to-do completion
+    setAnalysisResults(null);
+  };
+
+  const closeAnalysisResults = () => {
+    setAnalysisResults(null);
+  };
+
+  // Handle AI to-do list generation using existing system
+  const handleGenerateAITodoList = (aiTodoList: { name: string; description: string; vendorContext: string }) => {
+    if (!selectedContact) return;
+    
+    // Use the existing AI to-do generation system
+    const description = `${aiTodoList.description}\n\nVendor: ${selectedContact.name}\nCategory: ${selectedContact.category}\n\nContext: ${aiTodoList.vendorContext}`;
+    
+    handleGenerateTodoList(description);
+    setAnalysisResults(null);
   };
 
   return (
@@ -787,8 +842,13 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                                   className="text-xs text-[#805d93] hover:text-[#6a4d7a] ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
                                   onClick={() => handleAnalyzeMessage(msg)}
                                   title="Analyze message for to-dos using AI"
+                                  disabled={isAnalyzing}
                                 >
-                                  <Sparkles className="w-4 h-4" />
+                                  {isAnalyzing ? (
+                                    <div className="w-4 h-4 border-2 border-[#805d93] border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                  )}
                                 </button>
                               )}
                             </div>
@@ -798,7 +858,29 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           )}
                           
                           <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                            {renderMessageContent(msg)}
+                            <div className="relative">
+                              {renderMessageContent(msg)}
+                              
+                              {/* AI Scanning Animation Overlay */}
+                              {scanningMessageId === msg.id && (
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-100/30 to-transparent pointer-events-none"
+                                >
+                                  <div className="flex items-center justify-center h-full">
+                                    <div className="scanning-animation">
+                                      <div className="scanning-line"></div>
+                                      <div className="scanning-text">
+                                        <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                                        <span className="ml-2 text-purple-600 font-medium">AI scanning for to-dos...</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
                           </div>
                           
                           {/* Attachments */}
@@ -858,6 +940,16 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
           <LoadingSpinner size="sm" />
         </div>
       )}
+
+      {/* AI Analysis Results Display */}
+      <AnalysisResultsDisplay
+        results={analysisResults}
+        onClose={closeAnalysisResults}
+        onNewTodo={handleNewTodo}
+        onTodoUpdate={handleTodoUpdate}
+        onTodoComplete={handleTodoComplete}
+        onGenerateAITodoList={handleGenerateAITodoList}
+      />
     </div>
   );
 };
