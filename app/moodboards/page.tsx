@@ -24,6 +24,7 @@ import ImageEditModal from "../../components/inspiration/ImageEditModal";
 import StorageProgressBar from "../../components/StorageProgressBar";
 import UpgradePlanModal from "../../components/UpgradePlanModal";
 import Banner from "../../components/Banner";
+import MoodBoardsSkeleton from "../../components/inspiration/MoodBoardsSkeleton";
 
 // Import types and utilities
 import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../types/inspiration";
@@ -46,6 +47,11 @@ export default function MoodBoardsPage() {
   
   // User plan (for now, default to free - you can integrate with your billing system)
   const userPlan = PLAN_LIMITS.free;
+
+  // Show skeleton while loading
+  if (loading || moodBoardsLoading) {
+    return <MoodBoardsSkeleton />;
+  }
   
   // State management
   const [isEditing, setIsEditing] = useState(false);
