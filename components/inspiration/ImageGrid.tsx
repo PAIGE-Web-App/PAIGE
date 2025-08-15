@@ -57,7 +57,7 @@ export default function ImageGrid({
         {board.images.map((image, index) => {
           // Handle both old string format and new object format
           const imageUrl = typeof image === 'string' ? image : image.url;
-          const imageName = typeof image === 'string' ? `Inspiration ${index + 1}` : image.fileName;
+          const imageName = typeof image === 'string' ? `Image ${index + 1}` : image.fileName;
           const imageDescription = typeof image === 'string' ? '' : image.description;
           
           return (

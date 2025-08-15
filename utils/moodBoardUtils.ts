@@ -40,14 +40,14 @@ export const uploadImageToStorage = async (file: File, userId: string, boardId: 
   return downloadURL;
 };
 
-export const addImageToBoard = (moodBoards: MoodBoard[], boardId: string, imageUrl: string): MoodBoard[] => {
+export const addImageToBoard = (moodBoards: MoodBoard[], boardId: string, imageUrl: string, fileName?: string): MoodBoard[] => {
   return moodBoards.map(board => 
     board.id === boardId 
       ? { 
           ...board, 
           images: [...board.images, {
             url: imageUrl,
-            fileName: `Inspiration ${board.images.length + 1}`,
+            fileName: fileName || `Inspiration ${board.images.length + 1}`,
             description: '',
             uploadedAt: new Date()
           }]

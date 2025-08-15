@@ -322,7 +322,7 @@ export default function MoodBoardsPage() {
           const imageUrl = await uploadImageToStorage(file, user.uid, activeMoodBoard);
           
           // Add the Storage URL to the mood board
-          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl);
+          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl, file.name);
           setMoodBoards(updatedBoards);
           
           // Set the first image as the main preview for vibe generation
@@ -774,7 +774,7 @@ export default function MoodBoardsPage() {
             
             // Handle both old string format and new object format
             const imageUrl = typeof image === 'string' ? image : image.url;
-            const imageName = typeof image === 'string' ? `Inspiration ${editingImageIndex + 1}` : image.fileName;
+            const imageName = typeof image === 'string' ? `Image ${editingImageIndex + 1}` : image.fileName;
             const imageDescription = typeof image === 'string' ? '' : image.description;
             
             return (
