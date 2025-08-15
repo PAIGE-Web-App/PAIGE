@@ -360,9 +360,36 @@ export default function Home() {
         
         if (isSubscribed) {
           setContacts(fetchedContacts);
-          if (!selectedContact || !fetchedContacts.some(c => c.id === selectedContact.id)) {
-            setSelectedContact(fetchedContacts[0] || null);
+          
+          // Only change selectedContact if we don't have one or if the current one is invalid
+          if (!selectedContact) {
+            // First time loading - try to restore from localStorage or default to first
+            const savedContactId = localStorage.getItem('selectedContactId');
+            if (savedContactId) {
+              const savedContact = fetchedContacts.find(c => c.id === savedContactId);
+              if (savedContact) {
+                setSelectedContact(savedContact);
+              } else {
+                setSelectedContact(fetchedContacts[0] || null);
+              }
+            } else {
+              setSelectedContact(fetchedContacts[0] || null);
+            }
+          } else if (!fetchedContacts.some(c => c.id === selectedContact.id)) {
+            // Current selectedContact is no longer valid, but try to keep selection if possible
+            const savedContactId = localStorage.getItem('selectedContactId');
+            if (savedContactId) {
+              const savedContact = fetchedContacts.find(c => c.id === savedContactId);
+              if (savedContact) {
+                setSelectedContact(savedContact);
+              } else {
+                setSelectedContact(fetchedContacts[0] || null);
+              }
+            } else {
+              setSelectedContact(fetchedContacts[0] || null);
+            }
           }
+          
           setInitialContactLoadComplete(true);
           console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
         }
@@ -401,6 +428,13 @@ export default function Home() {
       if (found) setSelectedContact(found);
     }
   }, [contacts]);
+
+  // Save selected contact to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedContact && typeof window !== 'undefined') {
+      localStorage.setItem('selectedContactId', selectedContact.id);
+    }
+  }, [selectedContact]);
 
   useEffect(() => {
     if (textareaRef.current) {

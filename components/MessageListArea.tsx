@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { File, Reply, Trash2, ExternalLink, MessageSquareText } from "lucide-react";
+import { File, Reply, Trash2, ExternalLink, MessageSquareText, Sparkles } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Message } from "../types/message";
 import LoadingSpinner from "./LoadingSpinner";
@@ -502,6 +502,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   const messageRefs = useRef<{ [id: string]: HTMLDivElement | null }>({});
   const [bouncingId, setBouncingId] = useState<string | null>(null);
 
+
   // Helper to trigger bounce
   const triggerBounce = (id: string) => {
     setBouncingId(id);
@@ -513,6 +514,34 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     if (message.gmailMessageId) {
       const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${message.gmailMessageId}`;
       window.open(gmailUrl, '_blank');
+    }
+  };
+
+  // Handle AI message analysis
+  const handleAnalyzeMessage = async (message: Message) => {
+    if (!selectedContact) return;
+    
+    try {
+      // Import and use the message analysis engine directly
+      const { MessageAnalysisEngine } = await import('../utils/messageAnalysisEngine');
+      const engine = MessageAnalysisEngine.getInstance();
+      
+      const result = await engine.analyzeMessage({
+        messageContent: message.body || message.fullBody || '',
+        vendorCategory: selectedContact.category,
+        vendorName: selectedContact.name,
+        contactId: selectedContact.id,
+        existingTodos: [], // TODO: Get from your todo system
+        weddingContext: undefined // TODO: Pass from parent
+      });
+      
+      if (result) {
+        // Show analysis results in a toast or modal
+        console.log('Analysis complete:', result);
+        // TODO: Display results in a clean way
+      }
+    } catch (error) {
+      console.error('Analysis failed:', error);
     }
   };
 
@@ -751,14 +780,27 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                               >
                                 <Reply className="w-4 h-4" />
                               </button>
+                              
+                              {/* AI Analysis Button - Only show for Gmail messages */}
+                              {selectedContact && msg.source === 'gmail' && (
+                                <button
+                                  className="text-xs text-[#805d93] hover:text-[#6a4d7a] ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
+                                  onClick={() => handleAnalyzeMessage(msg)}
+                                  title="Analyze message for to-dos using AI"
+                                >
+                                  <Sparkles className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           </div>
                           {msg.source === 'gmail' && msg.subject && (
                             <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
                           )}
+                          
                           <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             {renderMessageContent(msg)}
                           </div>
+                          
                           {/* Attachments */}
                           {msg.attachments && msg.attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
