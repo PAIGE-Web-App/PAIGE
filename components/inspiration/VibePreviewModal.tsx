@@ -199,7 +199,7 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-[5px] shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Fixed Header */}

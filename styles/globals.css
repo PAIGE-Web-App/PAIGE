@@ -1256,3 +1256,19 @@ input::placeholder {
     opacity: 0;
   }
 }
+
+/* Hide checkbox and three-dot menu in modal to-do items */
+.modal-todo-item .todo-checkbox,
+.modal-todo-item .todo-checkbox input[type="checkbox"] {
+  display: none !important;
+}
+
+.modal-todo-item .more-menu-button,
+.modal-todo-item .more-menu {
+  display: none !important;
+}
+
+/* Hide contact assignment display in modal to-do items */
+.modal-todo-item .text-xs.text-\[#364257\] {
+  display: none !important;
+}

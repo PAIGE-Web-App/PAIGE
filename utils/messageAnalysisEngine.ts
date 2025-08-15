@@ -6,6 +6,7 @@ export interface DetectedTodo {
   note?: string;
   deadline?: Date | null;
   category?: string | null;
+  suggestedList?: string | null;
   assignedTo?: string[] | null;
   sourceText: string;
   vendorContext: {
@@ -151,6 +152,8 @@ ANALYSIS TASK:
 2. Identify UPDATES to existing to-do items
 3. Spot COMPLETED to-do items
 4. Prepare context for AI to-do generation using existing system
+5. Suggest appropriate deadlines based on wedding context
+6. Recommend the best list category for each item
 
 MESSAGE CONTENT:
 ${context.messageContent}
@@ -167,6 +170,14 @@ ${context.weddingContext ? `- Wedding Date: ${context.weddingContext.weddingDate
 - Planning Stage: ${context.weddingContext.planningStage}
 - Days Until Wedding: ${context.weddingContext.daysUntilWedding}` : 'Not available'}
 
+LIST TRIAGE GUIDELINES:
+- "Day-Of Wedding Timeline" - for tasks that must happen on the wedding day
+- "Vendor Coordination" - for vendor meetings, consultations, and follow-ups
+- "Planning & Logistics" - for general planning tasks, venue visits, etc.
+- "Personal Preparation" - for dress fittings, beauty appointments, etc.
+- "Budget & Finance" - for financial planning and payment tasks
+- "Guest Management" - for RSVPs, guest list, and accommodations
+
 OUTPUT FORMAT (JSON only, no other text):
 {
   "newTodos": [
@@ -175,6 +186,7 @@ OUTPUT FORMAT (JSON only, no other text):
       "note": "Optional note or description",
       "category": "Category name (use existing categories when possible)",
       "deadline": "YYYY-MM-DD",
+      "suggestedList": "Recommended list name from guidelines above",
       "sourceText": "Exact text that triggered this"
     }
   ],

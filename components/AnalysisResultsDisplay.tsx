@@ -6,6 +6,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit, CheckCircle, X, Calendar, Tag, Flag, Sparkles } from 'lucide-react';
 import { DetectedTodo, TodoUpdate, CompletedTodo } from '../utils/messageAnalysisEngine';
+import ModalTodoItem from './ModalTodoItem';
+import { useTodoLists } from '../hooks/useTodoLists';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AnalysisResultsDisplayProps {
   results: {
@@ -44,6 +47,29 @@ export default function AnalysisResultsDisplay({
     completions: true
   });
 
+  // Get user's existing to-do lists for dropdown selection
+  const { user } = useAuth();
+  const todoListsHook = useTodoLists();
+  const [selectedListIds, setSelectedListIds] = useState<{ [key: number]: string }>({});
+  const [createEnabledItems, setCreateEnabledItems] = useState<{ [key: number]: boolean }>({});
+
+  // Set default list selection when component mounts or todoLists change
+  React.useEffect(() => {
+    if (results && todoListsHook.todoLists && todoListsHook.todoLists.length > 0) {
+      const defaultListId = todoListsHook.todoLists[0].id;
+      const newSelectedListIds: { [key: number]: string } = {};
+      const newCreateEnabledItems: { [key: number]: boolean } = {};
+      
+      results.newTodos.forEach((_, index) => {
+        newSelectedListIds[index] = defaultListId;
+        newCreateEnabledItems[index] = true; // Default to enabled
+      });
+      
+      setSelectedListIds(newSelectedListIds);
+      setCreateEnabledItems(newCreateEnabledItems);
+    }
+  }, [todoListsHook.todoLists, results?.newTodos]);
+
   if (!results) return null;
 
   const hasNewTodos = results.newTodos.length > 0;
@@ -51,11 +77,36 @@ export default function AnalysisResultsDisplay({
   const hasCompletions = results.completedTodos.length > 0;
   const totalItems = results.newTodos.length + results.todoUpdates.length + results.completedTodos.length;
 
+  // Check if at least one to-do is enabled for Create All button
+  const hasEnabledTodos = Object.values(createEnabledItems).some(enabled => enabled !== false);
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  const handleListSelection = (todoIndex: number, listId: string) => {
+    setSelectedListIds(prev => ({
+      ...prev,
+      [todoIndex]: listId
+    }));
+  };
+
+  const handleToggleCreate = (todoIndex: number, enabled: boolean) => {
+    setCreateEnabledItems(prev => ({
+      ...prev,
+      [todoIndex]: enabled
+    }));
+  };
+
+
+
+  const handleCreateTodo = (todo: DetectedTodo, index: number) => {
+    const selectedListId = selectedListIds[index];
+    // Pass the selected list ID separately if needed
+    onNewTodo(todo);
   };
 
   return (
@@ -67,143 +118,122 @@ export default function AnalysisResultsDisplay({
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -50, opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-[10px] shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Fixed Header - Matching VibePreviewModal style */}
-        <div className="flex-shrink-0 bg-white border-b border-[#AB9C95] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h3 className="text-xl font-semibold text-[#332B42] flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#A85C36]" />
-                AI Analysis Complete!
-              </h3>
-              <p className="text-sm text-gray-600">
-                Found {totalItems} actionable item{totalItems !== 1 ? 's' : ''}
-              </p>
+        {/* Header - matches VibePreviewModal */}
+        <div className="border-b border-[#AB9C95] p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-[#805d93]" />
+              <h5 className="text-[#332B42] font-semibold">AI Analysis Complete!</h5>
             </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 p-1"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
+          <p className="text-sm text-gray-600 mt-2">
+            Found {totalItems} actionable item{totalItems !== 1 ? 's' : ''}
+          </p>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* New To-Dos Section */}
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {/* New To-Do Items */}
           {hasNewTodos && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h6 className="text-sm font-medium text-[#332B42] flex items-center gap-2">
+            <motion.div
+              initial={false}
+              animate={{ height: expandedSections.newTodos ? 'auto' : 'auto' }}
+              className="mb-6"
+            >
+              <button
+                onClick={() => toggleSection('newTodos')}
+                className="flex items-center justify-between w-full text-left mb-3"
+              >
+                <div className="flex items-center gap-2">
                   <Plus className="w-4 h-4 text-green-600" />
-                  New To-Do Items ({results.newTodos.length})
-                </h6>
-                <button
-                  onClick={() => toggleSection('newTodos')}
-                  className="text-[#A85C36] hover:bg-[#A85C36]/10 p-1 rounded transition-colors"
+                  <span className="font-medium text-[#332B42]">
+                    New To-Do Items ({results.newTodos.length})
+                  </span>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedSections.newTodos ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <ChevronDown 
-                    className={`w-4 h-4 transition-transform ${expandedSections.newTodos ? 'rotate-180' : ''}`} 
-                  />
-                </button>
-              </div>
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </motion.div>
+              </button>
               
               <AnimatePresence>
                 {expandedSections.newTodos && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-3"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
                     {results.newTodos.map((todo, index) => (
-                        <div key={index} className="bg-white border border-[#AB9C95] rounded-[3px] p-3 mb-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              {/* Task Name - matches your existing style */}
-                              <h4 className="font-work text-sm font-medium text-[#332B42] mb-2">
-                                {todo.name}
-                              </h4>
-                              
-                              {/* Task Note - matches your existing style */}
-                              {todo.note && (
-                                <p className="font-work text-xs text-gray-600 mb-3 leading-relaxed">
-                                  {todo.note}
-                                </p>
-                              )}
-                              
-                              {/* Task Meta - matches your existing style */}
-                              <div className="flex flex-wrap gap-2">
-                                {todo.category && (
-                                  <span className="px-2 py-1 bg-[#F3F2F0] border border-[#AB9C95] rounded-[3px] text-xs text-[#332B42] font-medium">
-                                    {todo.category}
-                                  </span>
-                                )}
-                                {todo.deadline && (
-                                  <span className="px-2 py-1 bg-[#EBE3DD] border border-[#AB9C95] rounded-[3px] text-xs text-[#332B42] font-medium">
-                                    Due: {todo.deadline.toLocaleDateString()}
-                                  </span>
-                                )}
-                                {todo.assignedTo && todo.assignedTo.length > 0 && (
-                                  <span className="px-2 py-1 bg-[#F0FDF4] border border-[#16A34A] rounded-[3px] text-xs text-[#16A34A] font-medium">
-                                    Assigned
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Create Button - uses your primary button style */}
-                            <button
-                              onClick={() => onNewTodo(todo)}
-                              className="btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2 flex-shrink-0"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Create To-Do
-                            </button>
-                          </div>
-                        </div>
+                       <ModalTodoItem
+                         key={index}
+                         todo={todo}
+                         index={index}
+                         allCategories={['Photographer', 'Caterer', 'Florist', 'DJ', 'Venue', 'Wedding Planner', 'Jewelry']}
+                         onListSelection={handleListSelection}
+                         selectedListId={selectedListIds[index] || ''}
+                         todoLists={todoListsHook.todoLists || []}
+                         onCreateTodo={handleCreateTodo}
+                         isCreateEnabled={createEnabledItems[index] !== false} // Default to true
+                         onToggleCreate={handleToggleCreate}
+                       />
                     ))}
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           )}
 
-          {/* To-Do Updates Section */}
+          {/* To-Do Updates */}
           {hasUpdates && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h6 className="text-sm font-medium text-[#332B42] flex items-center gap-2">
+            <motion.div
+              initial={false}
+              animate={{ height: expandedSections.updates ? 'auto' : 'auto' }}
+              className="mb-6"
+            >
+              <button
+                onClick={() => toggleSection('updates')}
+                className="flex items-center justify-between w-full text-left mb-3"
+              >
+                <div className="flex items-center gap-2">
                   <Edit className="w-4 h-4 text-blue-600" />
-                  To-Do Updates ({results.todoUpdates.length})
-                </h6>
-                <button
-                  onClick={() => toggleSection('updates')}
-                  className="text-[#A85C36] hover:bg-[#A85C36]/10 p-1 rounded transition-colors"
+                  <span className="font-medium text-[#332B42]">
+                    To-Do Updates ({results.todoUpdates.length})
+                  </span>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedSections.updates ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <ChevronDown 
-                    className={`w-4 h-4 transition-transform ${expandedSections.updates ? 'rotate-180' : ''}`} 
-                  />
-                </button>
-              </div>
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </motion.div>
+              </button>
               
               <AnimatePresence>
                 {expandedSections.updates && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-3"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
                     {results.todoUpdates.map((update, index) => (
                       <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -227,35 +257,43 @@ export default function AnalysisResultsDisplay({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           )}
 
-          {/* To-Do Completions Section */}
+          {/* Completed To-Dos */}
           {hasCompletions && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h6 className="text-sm font-medium text-[#332B42] flex items-center gap-2">
+            <motion.div
+              initial={false}
+              animate={{ height: expandedSections.completions ? 'auto' : 'auto' }}
+              className="mb-6"
+            >
+              <button
+                onClick={() => toggleSection('completions')}
+                className="flex items-center justify-between w-full text-left mb-3"
+              >
+                <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600" />
-                  To-Do Completions ({results.completedTodos.length})
-                </h6>
-                <button
-                  onClick={() => toggleSection('completions')}
-                  className="text-[#A85C36] hover:bg-[#A85C36]/10 p-1 rounded transition-colors"
+                  <span className="font-medium text-[#332B42]">
+                    Completed To-Dos ({results.completedTodos.length})
+                  </span>
+                </div>
+                <motion.div
+                  animate={{ rotate: expandedSections.completions ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <ChevronDown 
-                    className={`w-4 h-4 transition-transform ${expandedSections.completions ? 'rotate-180' : ''}`} 
-                  />
-                </button>
-              </div>
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </motion.div>
+              </button>
               
               <AnimatePresence>
                 {expandedSections.completions && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-3"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
                     {results.completedTodos.map((completion, index) => (
                       <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -276,35 +314,35 @@ export default function AnalysisResultsDisplay({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           )}
 
           {/* No Results */}
           {!hasNewTodos && !hasUpdates && !hasCompletions && (
-            <div className="text-center py-12">
-              <div className="mb-4">
-                <CheckCircle className="w-16 h-16 text-gray-400 mx-auto" />
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-4">
+                <Flag className="w-12 h-12 mx-auto" />
               </div>
-              <h4 className="text-lg font-medium text-[#332B42] mb-2">No Actionable Items Found</h4>
-              <p className="text-sm text-gray-600">
-                This message doesn't contain any clear to-do items, updates, or completions.
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Actionable Items Found</h3>
+              <p className="text-gray-600">
+                The AI didn't detect any specific to-do items, updates, or completions in this message.
               </p>
             </div>
           )}
         </div>
 
-        {/* Fixed Footer - Matching VibePreviewModal style */}
-        <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
+        {/* Footer */}
+        <div className="border-t border-[#AB9C95] p-6 bg-gray-50">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">💡 Tip:</span> AI-detected items can be automatically added to your to-do list
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Flag className="w-4 h-4" />
+              <span>AI-detected items can be automatically added to your to-do list</span>
             </div>
             <div className="flex gap-3">
-              {/* Generate AI To-Do List Button - integrates with existing system */}
-              {results?.aiTodoList && hasNewTodos && (
+              {results?.aiTodoList && (
                 <button
                   onClick={() => onGenerateAITodoList(results.aiTodoList!)}
-                  className="px-6 py-2 bg-[#6B46C1] text-white rounded-[5px] text-sm font-medium hover:bg-[#6B46C1]/90 transition-colors flex items-center gap-2"
+                  className="btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
                   Generate AI To-Do List
@@ -312,9 +350,25 @@ export default function AnalysisResultsDisplay({
               )}
               <button
                 onClick={onClose}
-                className="btn-primaryinverse px-6 py-2 text-sm font-medium flex items-center gap-2"
+                className="btn-primaryinverse px-4 py-2 text-sm font-medium"
               >
                 Close
+              </button>
+              <button
+                onClick={() => {
+                  // Create all enabled to-dos
+                  results.newTodos.forEach((todo, index) => {
+                    if (createEnabledItems[index] !== false) {
+                      handleCreateTodo(todo, index);
+                    }
+                  });
+                }}
+                disabled={!hasEnabledTodos}
+                className={`btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2 ${
+                  !hasEnabledTodos ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                Create All
               </button>
             </div>
           </div>
@@ -323,10 +377,3 @@ export default function AnalysisResultsDisplay({
     </motion.div>
   );
 }
-
-// Missing icon component
-const ChevronDown = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
