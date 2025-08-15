@@ -580,13 +580,8 @@ export default function MoodBoardsPage() {
       />
       
       <div className="app-content-container flex flex-col gap-6 py-8">
-        {/* Show skeleton while loading */}
-        {moodBoardsLoading ? (
-          <MoodBoardSkeleton />
-        ) : (
-          <>
-            {/* Page Header */}
-            <div className="mb-2">
+        {/* Page Header - Always show immediately */}
+        <div className="mb-4">
             <div className="flex items-center justify-between">
               {/* Left side: Header and Description */}
               <div className="flex-1">
@@ -681,58 +676,60 @@ export default function MoodBoardsPage() {
               )}
             </div>
             
-            {/* Mood Board Content */}
-            {getActiveBoard(moodBoards, activeMoodBoard) && (
-              <div className="bg-white border border-gray-100 rounded-lg p-6">
-                <MoodBoardContent
-                  board={getActiveBoard(moodBoards, activeMoodBoard)!}
-                  userPlan={userPlan}
-                  weddingLocation={weddingLocation || undefined}
-                  isEditing={isEditing}
-                  generatingVibes={generatingVibes}
-                  isDragOver={isDragOver}
-                  onRemoveImage={(index) => {
-                    const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
-                    setMoodBoards(updatedBoards);
-                  }}
-                  onGenerateVibes={generateVibesFromImage}
-                  onChooseVibe={() => setIsEditing(true)}
-                  onEditVibes={() => setIsEditing(true)}
-                  onEditBoardName={editMoodBoard}
-                  onDeleteBoard={deleteMoodBoard}
-                  onEditImage={handleEditImage}
-                  onDownloadImage={handleDownloadImage}
-                  onImageUpload={handleImageUpload}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(false);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(false);
-                    const files = Array.from(e.dataTransfer.files) as File[];
-                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-                    
-                    if (imageFiles.length !== files.length) {
-                      showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
-                    }
-                    
-                    if (imageFiles.length > 0) {
-                      handleFilesDrop(imageFiles);
-                    }
-                  }}
-                  isLoading={moodBoardsLoading}
-                  uploadingImage={uploadingImage}
-                />
-              </div>
+            {/* Mood Board Content - Show skeleton only for dynamic content */}
+            {moodBoardsLoading ? (
+              <MoodBoardSkeleton />
+            ) : (
+              getActiveBoard(moodBoards, activeMoodBoard) && (
+                <div className="bg-white border border-gray-100 rounded-lg p-6">
+                  <MoodBoardContent
+                    board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                    userPlan={userPlan}
+                    weddingLocation={weddingLocation || undefined}
+                    isEditing={isEditing}
+                    generatingVibes={generatingVibes}
+                    isDragOver={isDragOver}
+                    onRemoveImage={(index) => {
+                      const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
+                      setMoodBoards(updatedBoards);
+                    }}
+                    onGenerateVibes={generateVibesFromImage}
+                    onChooseVibe={() => setIsEditing(true)}
+                    onEditVibes={() => setIsEditing(true)}
+                    onEditBoardName={editMoodBoard}
+                    onDeleteBoard={deleteMoodBoard}
+                    onEditImage={handleEditImage}
+                    onDownloadImage={handleDownloadImage}
+                    onImageUpload={handleImageUpload}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(false);
+                      const files = Array.from(e.dataTransfer.files) as File[];
+                      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                      
+                      if (imageFiles.length !== files.length) {
+                        showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
+                      }
+                      
+                      if (imageFiles.length > 0) {
+                        handleFilesDrop(imageFiles);
+                      }
+                    }}
+                    isLoading={moodBoardsLoading}
+                    uploadingImage={uploadingImage}
+                  />
+                </div>
+              )
             )}
           </div>
-          </>
-        )}
 
         {/* Modals */}
           <NewBoardModal
