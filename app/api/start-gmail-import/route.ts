@@ -145,17 +145,67 @@ export async function POST(req: Request) {
         }
 
         console.log(`DEBUG: Searching Gmail for messages with query: from:${contactEmail} OR to:${contactEmail}`);
+        
+        // Build Gmail query - if checkForNewOnly is true, only get recent messages
+        let gmailQuery = `from:${contactEmail} OR to:${contactEmail}`;
+        if (config?.checkForNewOnly) {
+          // Only get messages from the last 24 hours for new message checks
+          // Use a more reliable date calculation
+          const now = new Date();
+          const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // 24 hours ago
+          const oneDayAgoMs = oneDayAgo.getTime();
+          gmailQuery += ` after:${Math.floor(oneDayAgoMs / 1000)}`;
+          console.log(`DEBUG: Check for new only - limiting to messages after: ${oneDayAgo.toISOString()}`);
+          console.log(`DEBUG: Current time: ${now.toISOString()}, One day ago: ${oneDayAgo.toISOString()}`);
+        }
+        
+        // For debugging, let's try a less restrictive query first
+        if (config?.checkForNewOnly) {
+          console.log(`DEBUG: Trying less restrictive query for debugging...`);
+          // Try without the restrictive filters first
+          gmailQuery = `from:${contactEmail} OR to:${contactEmail}`;
+          if (config?.checkForNewOnly) {
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+            const oneDayAgoMs = oneDayAgo.getTime();
+            gmailQuery += ` after:${Math.floor(oneDayAgoMs / 1000)}`;
+          }
+        } else {
+          // Add more specific query parameters to avoid duplicates
+          gmailQuery += ` -is:chats -is:snoozed -is:important`; // Exclude chats, snoozed, and important labels
+        }
+        
+        console.log(`DEBUG: About to query Gmail with:`, {
+          query: gmailQuery,
+          maxResults: config?.checkForNewOnly ? 10 : 50,
+          checkForNewOnly: config?.checkForNewOnly
+        });
+        
         const res = await gmail.users.messages.list({
           userId: 'me',
-          q: `from:${contactEmail} OR to:${contactEmail}`,
-          maxResults: 50,
+          q: gmailQuery,
+          maxResults: config?.checkForNewOnly ? 10 : 50, // Limit results for new message checks
         });
 
         const messages = res.data.messages;
         console.log(`DEBUG: Gmail API response:`, {
           totalResults: res.data.resultSizeEstimate,
-          messagesFound: messages?.length || 0
+          messagesFound: messages?.length || 0,
+          query: gmailQuery,
+          checkForNewOnly: config?.checkForNewOnly
         });
+        
+        // Log each message ID for debugging
+        if (messages && messages.length > 0) {
+          console.log(`DEBUG: Message IDs returned by Gmail:`, messages.map(m => m.id));
+          console.log(`DEBUG: Full Gmail response:`, {
+            resultSizeEstimate: res.data.resultSizeEstimate,
+            nextPageToken: res.data.nextPageToken,
+            messages: messages.map(m => ({ id: m.id, threadId: m.threadId }))
+          });
+        } else {
+          console.log(`DEBUG: No messages returned by Gmail for query: ${gmailQuery}`);
+        }
 
         if (messages && messages.length > 0) {
           console.log(`Found ${messages.length} messages for ${contactEmail}. Starting to process messages...`);
@@ -179,14 +229,19 @@ export async function POST(req: Request) {
           }
 
           // PRESERVE MANUAL MESSAGES: Only delete Gmail messages before import
-          console.log(`[GMAIL IMPORT] Checking for existing Gmail messages to delete for contact ${contactEmail}...`);
-          const gmailMessagesQuery = existingGmailMessagesQuery; // Reuse the query from above
-          console.log(`[GMAIL IMPORT] Found ${gmailMessagesQuery.size} Gmail messages to delete for contact ${contactEmail}`);
-          if (!gmailMessagesQuery.empty) {
-            const batch = adminDb.batch();
-            gmailMessagesQuery.docs.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            console.log(`[GMAIL IMPORT] Deleted ${gmailMessagesQuery.size} Gmail messages for contact ${contactEmail}`);
+          // Skip deletion if we're just checking for new messages
+          if (!config?.checkForNewOnly) {
+            console.log(`[GMAIL IMPORT] Checking for existing Gmail messages to delete for contact ${contactEmail}...`);
+            const gmailMessagesQuery = existingGmailMessagesQuery; // Reuse the query from above
+            console.log(`[GMAIL IMPORT] Found ${gmailMessagesQuery.size} Gmail messages to delete for contact ${contactEmail}`);
+            if (!gmailMessagesQuery.empty) {
+              const batch = adminDb.batch();
+              gmailMessagesQuery.docs.forEach(doc => batch.delete(doc.ref));
+              await batch.commit();
+              console.log(`[GMAIL IMPORT] Deleted ${gmailMessagesQuery.size} Gmail messages for contact ${contactEmail}`);
+            }
+          } else {
+            console.log(`[GMAIL IMPORT] Check for new only - skipping deletion of existing messages`);
           }
 
           let messagesToImport = messages;
@@ -222,11 +277,12 @@ export async function POST(req: Request) {
               });
               const fullMessage = fullMessageRes.data;
 
+              // Always check for duplicates to prevent importing the same message multiple times
               const existingMessageQuery = adminDb.collection(messagesCollectionPath)
                 .where('gmailMessageId', '==', message.id);
               const existingMessages = await existingMessageQuery.get();
               console.log(`DEBUG: Checked for existing message ${message.id}: ${existingMessages.empty ? 'Not found' : 'Already exists'}`);
-
+              
               if (!existingMessages.empty) {
                 console.log(`Gmail message ${message.id} for contact ${contactEmail} already exists. Skipping.`);
                 continue;
@@ -321,6 +377,16 @@ export async function POST(req: Request) {
                 fromEmails,
                 toEmails,
                 direction
+              });
+              
+              // Log message details for debugging
+              console.log(`DEBUG: Processing new message:`, {
+                id: message.id,
+                from: from,
+                to: to,
+                subject: subject,
+                direction: direction,
+                userEmail: gmailUserEmail
               });
 
               const inReplyTo = getHeader('In-Reply-To');

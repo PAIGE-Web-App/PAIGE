@@ -1027,10 +1027,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!currentUser?.uid || !selectedContact?.email) return;
     try {
       if (userInitiated) setIsCheckingGmail(true);
-      const response = await fetch('/api/check-gmail-history', {
+      // Call the actual import API to fetch new messages
+      const response = await fetch('/api/start-gmail-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.uid, contactEmail: selectedContact.email }),
+        body: JSON.stringify({ 
+          userId: currentUser.uid, 
+          contacts: [selectedContact],
+          config: { checkForNewOnly: true } // Flag to only check for new messages
+        }),
       });
       if (!response.ok) {
         throw new Error('Failed to check for new Gmail messages');
