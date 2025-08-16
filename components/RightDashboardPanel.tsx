@@ -14,6 +14,7 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
+  limit,
 } from 'firebase/firestore';
 import { db, getUserCollectionRef } from '@/lib/firebase';
 import { User } from 'firebase/auth';
@@ -150,7 +151,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         todoListsCollectionRef,
         where('userId', '==', userId),
         orderBy('orderIndex', 'asc'),
-        orderBy('createdAt', 'asc')
+        orderBy('createdAt', 'asc'),
+        limit(50) // Limit to 50 lists for better performance
       );
 
       unsubscribeTodoLists = onSnapshot(q, async (snapshot) => {
@@ -193,7 +195,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     if (currentUser?.uid) {
       const userId = currentUser.uid;
       const allTodoItemsCollectionRef = getUserCollectionRef<TodoItem>("todoItems", userId);
-      const qAll = query(allTodoItemsCollectionRef, where('userId', '==', userId));
+      const qAll = query(
+        allTodoItemsCollectionRef, 
+        where('userId', '==', userId),
+        limit(200) // Limit to 200 items for better performance
+      );
 
       unsubscribeAllTodoItems = onSnapshot(qAll, (snapshot) => {
         const counts = new Map<string, number>();
@@ -231,7 +237,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           where('userId', '==', currentUser.uid),
           where('listId', '==', selectedListId),
           orderBy('orderIndex', 'asc'),
-          orderBy('createdAt', 'asc')
+          orderBy('createdAt', 'asc'),
+          limit(100) // Limit to 100 items for better performance
         );
       } else {
         // All To-Do: fetch all tasks for the user
@@ -239,7 +246,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           todoItemsCollectionRef,
           where('userId', '==', currentUser.uid),
           orderBy('orderIndex', 'asc'),
-          orderBy('createdAt', 'asc')
+          orderBy('createdAt', 'asc'),
+          limit(200) // Limit to 200 items for better performance
         );
       }
 

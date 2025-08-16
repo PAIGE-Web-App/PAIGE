@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, writeBatch, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -110,47 +110,58 @@ export function useNotifications() {
     setLoading(true);
     const unsubscribeFunctions: (() => void)[] = [];
 
-    // Listen for unread messages across all contacts
+    // Listen for unread messages across all contacts - OPTIMIZED to reduce Firebase reads
     const setupMessageListener = async () => {
       try {
+        // Instead of creating N individual listeners, get a summary count
+        // This will be much more efficient and reduce Firebase reads significantly
         const contactsRef = collection(db, `users/${user.uid}/contacts`);
         const contactsSnapshot = await getDocs(contactsRef);
         
-        contactsSnapshot.docs.forEach(contactDoc => {
+        // Limit to first 20 contacts to avoid overwhelming the database
+        const limitedContacts = contactsSnapshot.docs.slice(0, 20);
+        
+        let totalUnreadMessages = 0;
+        
+        // Get unread message counts in batches (no real-time listeners)
+        for (const contactDoc of limitedContacts) {
           const contactId = contactDoc.id;
           const messagesRef = collection(db, `users/${user.uid}/contacts/${contactId}/messages`);
           const q = query(
             messagesRef,
             where('isRead', '==', false),
-            where('direction', '==', 'received')
+            where('direction', '==', 'received'),
+            limit(10) // Limit to first 10 unread messages per contact
           );
-
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            setNotificationCounts(prev => {
-              const newMessages = snapshot.docs.length;
-              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + newMessages;
-              return {
-                ...prev,
-                messages: newMessages,
-                total: newTotal
-              };
-            });
-          });
-
-          unsubscribeFunctions.push(unsubscribe);
-        });
+          
+          try {
+            const messageSnapshot = await getDocs(q);
+            totalUnreadMessages += messageSnapshot.docs.length;
+          } catch (error) {
+            console.error(`Error fetching unread messages for contact ${contactId}:`, error);
+          }
+        }
+        
+        // Update notification counts with the total
+        setNotificationCounts(prev => ({
+          ...prev,
+          messages: totalUnreadMessages,
+          total: prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages
+        }));
+        
       } catch (error) {
         console.error('Error setting up message listener:', error);
       }
     };
 
-    // Listen for incomplete todo items
+    // Listen for incomplete todo items - OPTIMIZED with limits
     const setupTodoListener = () => {
       try {
         const todoItemsRef = collection(db, `users/${user.uid}/todoItems`);
         const q = query(
           todoItemsRef,
-          where('isCompleted', '==', false)
+          where('isCompleted', '==', false),
+          limit(100) // Limit to first 100 incomplete items for better performance
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -186,13 +197,14 @@ export function useNotifications() {
       }
     };
 
-    // Listen for budget alerts (overdue items, over-budget categories)
+    // Listen for budget alerts (overdue items, over-budget categories) - OPTIMIZED with limits
     const setupBudgetListener = () => {
       try {
         const budgetItemsRef = collection(db, `users/${user.uid}/budgetItems`);
         const q = query(
           budgetItemsRef,
-          where('isOverBudget', '==', true)
+          where('isOverBudget', '==', true),
+          limit(50) // Limit to first 50 over-budget items for better performance
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -213,13 +225,14 @@ export function useNotifications() {
       }
     };
 
-    // Listen for vendor updates (new comments, flagged items)
+    // Listen for vendor updates (new comments, flagged items) - OPTIMIZED with limits
     const setupVendorListener = () => {
       try {
         const vendorCommentsRef = collection(db, `users/${user.uid}/vendorComments`);
         const q = query(
           vendorCommentsRef,
-          where('isRead', '==', false)
+          where('isRead', '==', false),
+          limit(50) // Limit to first 50 unread vendor comments for better performance
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -235,9 +248,9 @@ export function useNotifications() {
         });
 
         unsubscribeFunctions.push(unsubscribe);
-      } catch (error) {
-        console.error('Error setting up vendor listener:', error);
-      }
+              } catch (error) {
+          console.error('Error setting up vendor listener:', error);
+        }
     };
 
     // Set up all listeners

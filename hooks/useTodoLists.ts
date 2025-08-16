@@ -16,6 +16,7 @@ import {
   writeBatch,
   getDocs,
   Timestamp,
+  limit,
 } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
 import { saveCategoryIfNew } from '@/lib/firebaseCategories';
@@ -117,7 +118,8 @@ export function useTodoLists() {
       getUserCollectionRef('todoLists', user.uid),
       where('userId', '==', user.uid),
       orderBy('orderIndex', 'asc'),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limit(50) // Limit to 50 lists for better performance
     );
 
     const unsubscribeLists = onSnapshot(q, (snapshot) => {

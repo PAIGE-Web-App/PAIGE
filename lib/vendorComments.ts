@@ -12,7 +12,8 @@ import {
   Timestamp,
   DocumentData,
   QuerySnapshot,
-  Unsubscribe
+  Unsubscribe,
+  limit
 } from 'firebase/firestore';
 import { db, getUserCollectionRef } from './firebase';
 import { extractMentionedUsers } from './mentionNotifications';
@@ -57,7 +58,8 @@ export function getVendorComments(
   const q = query(
     commentsRef,
     where('vendorId', '==', vendorId),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(50) // Limit to 50 comments for better performance
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
@@ -147,7 +149,8 @@ export function getAllUserComments(
   const commentsRef = getUserCollectionRef<VendorComment>('vendorComments', userId);
   const q = query(
     commentsRef,
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(100) // Limit to 100 comments for better performance
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {

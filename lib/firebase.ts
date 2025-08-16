@@ -44,16 +44,27 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Enable Firestore offline persistence with new cache configuration
-// This replaces the deprecated enableIndexedDbPersistence
+// Enhanced Firestore configuration for better performance and reduced reads
 const firestoreSettings = {
-  cacheSizeBytes: 50 * 1024 * 1024, // 50MB cache
+  cacheSizeBytes: 100 * 1024 * 1024, // Increased to 100MB cache for better offline support
   experimentalForceLongPolling: false,
   useFetchStreams: false
 };
 
-// Note: The new cache configuration is handled automatically by Firestore
-// The deprecation warning will be resolved in future Firebase versions
+// Enable offline persistence to reduce Firebase reads and improve performance
+import { enableIndexedDbPersistence } from 'firebase/firestore';
+
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled in one tab at a time
+    console.log('Firebase persistence failed: Multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    // Browser doesn't support persistence
+    console.log('Firebase persistence not supported in this browser');
+  }
+});
+
+// Note: Enhanced cache configuration for better offline support and reduced Firebase reads
 
 // Global variables provided by the Canvas environment
 declare const __app_id: string | undefined;

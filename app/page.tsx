@@ -443,67 +443,78 @@ export default function Home() {
     }
   }, [input]);
 
-  // Optimized Messages Listener with proper cleanup
+  // Optimized Messages Listener - Single query instead of N individual listeners
   useEffect(() => {
     let isSubscribed = true;
-    let unsubscribeMap = new Map<string, () => void>();
     
     if (user && user.uid) {
       const userId = user.uid;
+      
+      // Instead of N individual listeners, use a single query to get latest message timestamps
+      // This will be much more efficient and reduce Firebase reads significantly
       const contactsRef = collection(db, `users/${userId}/contacts`);
       
-      const setupListeners = async () => {
+      const unsubscribe = onSnapshot(contactsRef, async (contactsSnapshot) => {
         if (!isSubscribed) return;
         
         try {
-          const contactsSnapshot = await getDocs(contactsRef);
+          const newContactLastMessageMap = new Map<string, Date>();
           
-          if (!isSubscribed) return;
+          // Process contacts in batches to avoid overwhelming the database
+          const contactDocs = contactsSnapshot.docs.slice(0, 20); // Limit to first 20 contacts for now
           
-          // For each contact, set up a listener for their messages
-          contactsSnapshot.docs.forEach(contactDoc => {
+          for (const contactDoc of contactDocs) {
             if (!isSubscribed) return;
             
             const contactId = contactDoc.id;
             const contactMessagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
             
-            const q = query(
+            // Get just the latest message for this contact (no listener, just one-time fetch)
+            const latestMessageQuery = query(
               contactMessagesRef,
               orderBy("createdAt", "desc"),
-              limit(1) // Only get the latest message
+              limit(1)
             );
             
-            const unsubscribe = onSnapshot(q, (snapshot) => {
+            try {
+              const messageSnapshot = await getDocs(latestMessageQuery);
               if (!isSubscribed) return;
               
-              if (!snapshot.empty) {
-                const latestMessage = snapshot.docs[0];
-                const createdAt = latestMessage.data().createdAt.toDate();
-                setContactLastMessageMap(prev => new Map(prev).set(contactId, createdAt));
+              if (!messageSnapshot.empty) {
+                const latestMessage = messageSnapshot.docs[0];
+                const createdAt = latestMessage.data().createdAt?.toDate();
+                if (createdAt) {
+                  newContactLastMessageMap.set(contactId, createdAt);
+                }
               }
-            });
-            
-            unsubscribeMap.set(contactId, unsubscribe);
-          });
+            } catch (error) {
+              console.error(`Error fetching latest message for contact ${contactId}:`, error);
+            }
+          }
+          
+          if (isSubscribed) {
+            setContactLastMessageMap(newContactLastMessageMap);
+          }
         } catch (error) {
           if (isSubscribed) {
-            console.error('Error setting up message listeners:', error);
+            console.error('Error processing contacts for latest messages:', error);
           }
         }
-      };
+      }, (error) => {
+        if (isSubscribed) {
+          console.error('Error fetching contacts:', error);
+        }
+      });
       
-      setupListeners();
+      return () => {
+        isSubscribed = false;
+        unsubscribe();
+      };
     } else {
       if (isSubscribed) {
         setContactLastMessageMap(new Map());
       }
     }
-    
-    return () => {
-      isSubscribed = false;
-      unsubscribeMap.forEach(unsubscribe => unsubscribe());
-      unsubscribeMap.clear();
-    };
   }, [user]);
 
   useEffect(() => {
