@@ -110,21 +110,17 @@ export function useNotifications() {
     setLoading(true);
     const unsubscribeFunctions: (() => void)[] = [];
 
-    // Listen for unread messages across all contacts - OPTIMIZED to reduce Firebase reads
+    // Listen for unread messages across all contacts - RESTORED real-time functionality
     const setupMessageListener = async () => {
       try {
-        // Instead of creating N individual listeners, get a summary count
-        // This will be much more efficient and reduce Firebase reads significantly
         const contactsRef = collection(db, `users/${user.uid}/contacts`);
         const contactsSnapshot = await getDocs(contactsRef);
         
         // Limit to first 20 contacts to avoid overwhelming the database
         const limitedContacts = contactsSnapshot.docs.slice(0, 20);
         
-        let totalUnreadMessages = 0;
-        
-        // Get unread message counts in batches (no real-time listeners)
-        for (const contactDoc of limitedContacts) {
+        // Set up real-time listeners for unread messages (this is what users expect)
+        limitedContacts.forEach(contactDoc => {
           const contactId = contactDoc.id;
           const messagesRef = collection(db, `users/${user.uid}/contacts/${contactId}/messages`);
           const q = query(
@@ -134,20 +130,20 @@ export function useNotifications() {
             limit(10) // Limit to first 10 unread messages per contact
           );
           
-          try {
-            const messageSnapshot = await getDocs(q);
-            totalUnreadMessages += messageSnapshot.docs.length;
-          } catch (error) {
-            console.error(`Error fetching unread messages for contact ${contactId}:`, error);
-          }
-        }
-        
-        // Update notification counts with the total
-        setNotificationCounts(prev => ({
-          ...prev,
-          messages: totalUnreadMessages,
-          total: prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages
-        }));
+          const unsubscribe = onSnapshot(q, (snapshot) => {
+            setNotificationCounts(prev => {
+              const newMessages = snapshot.docs.length;
+              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + newMessages;
+              return {
+                ...prev,
+                messages: newMessages,
+                total: newTotal
+              };
+            });
+          });
+          
+          unsubscribeFunctions.push(unsubscribe);
+        });
         
       } catch (error) {
         console.error('Error setting up message listener:', error);
@@ -184,8 +180,8 @@ export function useNotifications() {
             const newTotal = prev.messages + prev.budget + prev.vendors + newAssignedCount;
             return {
               ...prev,
-              todo: totalIncomplete,
-              todoAssigned: newAssignedCount,
+              todo: totalIncomplete, // This should show total incomplete items (15)
+              todoAssigned: newAssignedCount, // This should show assigned items only
               total: newTotal
             };
           });
@@ -248,10 +244,10 @@ export function useNotifications() {
         });
 
         unsubscribeFunctions.push(unsubscribe);
-              } catch (error) {
+        } catch (error) {
           console.error('Error setting up vendor listener:', error);
         }
-    };
+      };
 
     // Set up all listeners
     setupMessageListener();
