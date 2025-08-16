@@ -189,8 +189,16 @@ export default function VerticalNav() {
           {/* Hover Tooltip for Notifications - Only show when popover is closed */}
           {!showNotifications && (
             <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-              Notifications
-              <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+              <div className="text-center">
+                <div className="font-medium">Notifications</div>
+                <div className="text-[10px] text-gray-200 mt-1">
+                  {notificationCounts.messages > 0 && `${notificationCounts.messages} unread messages`}
+                  {notificationCounts.todoAssigned > 0 && `${notificationCounts.todoAssigned} assigned tasks`}
+                  {notificationCounts.budget > 0 && `${notificationCounts.budget} budget alerts`}
+                  {notificationCounts.vendors > 0 && `${notificationCounts.vendors} vendor updates`}
+                </div>
+              </div>
+              <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-l-transparent border-b-4 border-b-transparent"></div>
             </div>
           )}
         </div>

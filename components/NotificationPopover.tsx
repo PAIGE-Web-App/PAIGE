@@ -19,11 +19,11 @@ const notificationIcons = {
 };
 
 const notificationLabels = {
-  messages: 'New messages',
+  messages: 'Unread messages',
   todo: 'Incomplete to-do items',
-  todoAssigned: 'New to-do items assigned',
-  budget: 'Budget alerts',
-  vendors: 'Vendor updates',
+  todoAssigned: 'Tasks assigned to you',
+  budget: 'Budget overages',
+  vendors: 'Unread vendor comments',
 };
 
 const notificationColors = {
@@ -48,7 +48,10 @@ export default function NotificationPopover({
   return (
     <div className="absolute left-full ml-2 bottom-0 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 py-2 min-w-[280px] max-h-[400px] overflow-y-auto">
       <div className="px-3 py-2 border-b border-[#AB9C95] flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-[#332B42]">Notifications</h4>
+        <div>
+          <h4 className="text-sm font-semibold text-[#332B42]">Notifications</h4>
+          <p className="text-xs text-[#AB9C95] mt-1">Click 'View' to see details or 'Dismiss' to clear</p>
+        </div>
         <button
           onClick={onClose}
           className="text-[#AB9C95] hover:text-[#332B42] transition-colors"
@@ -113,7 +116,7 @@ export default function NotificationPopover({
                             {label}
                           </span>
                           <span className="text-xs text-[#AB9C95]">
-                            {count} {count === 1 ? 'item' : 'items'} requiring attention
+                            {count} {count === 1 ? 'item' : 'items'} to review
                           </span>
                         </div>
                       </div>
@@ -121,18 +124,68 @@ export default function NotificationPopover({
                         {count > 9 ? '9+' : count}
                       </span>
                     </button>
-                    {onMarkAsRead && key !== 'todo' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMarkAsRead(key as keyof NotificationCounts);
-                        }}
-                        className="ml-2 text-xs text-[#AB9C95] hover:text-[#A85C36] transition-colors"
-                        title="Mark as read"
-                      >
-                        Dismiss
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {key === 'messages' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNotificationClick('messages');
+                          }}
+                          className="text-xs text-[#A85C36] hover:text-[#784528] transition-colors font-medium"
+                          title="View messages"
+                        >
+                          View
+                        </button>
+                      )}
+                      {key === 'todoAssigned' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNotificationClick('todoAssigned');
+                          }}
+                          className="text-xs text-[#A85C36] hover:text-[#784528] transition-colors font-medium"
+                          title="View assigned tasks"
+                        >
+                          View
+                        </button>
+                      )}
+                      {key === 'budget' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNotificationClick('budget');
+                          }}
+                          className="text-xs text-[#A85C36] hover:text-[#784528] transition-colors font-medium"
+                          title="View budget issues"
+                        >
+                          View
+                        </button>
+                      )}
+                      {key === 'vendors' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNotificationClick('vendors');
+                          }}
+                          className="text-xs text-[#A85C36] hover:text-[#784528] transition-colors font-medium"
+                          title="View vendor updates"
+                        >
+                          View
+                        </button>
+                      )}
+                      {onMarkAsRead && key !== 'todo' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAsRead(key as keyof NotificationCounts);
+                          }}
+                          className="text-xs text-[#AB9C95] hover:text-[#A85C36] transition-colors"
+                          title="Mark as read"
+                        >
+                          Dismiss
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
