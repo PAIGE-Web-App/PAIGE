@@ -35,6 +35,7 @@ import RightDashboardPanel from "../components/RightDashboardPanel";
 import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
 import Banner from "../components/Banner";
 import WeddingBanner from "../components/WeddingBanner";
 import { useWeddingBanner } from "../hooks/useWeddingBanner";
@@ -180,6 +181,9 @@ export default function Home() {
 
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  
+  // Use notifications hook for unread message counts
+  const { contactUnreadCounts } = useNotifications();
 
   // Check Gmail authentication status globally
   const checkGmailAuthStatus = async () => {
@@ -953,6 +957,7 @@ export default function Home() {
               displayContacts={displayContacts}
               deletingContactId={deletingContactId}
               setIsAdding={setIsAdding}
+              unreadCounts={contactUnreadCounts}
             />
             <MessagesPanel
               contactsLoading={messagesLoading}

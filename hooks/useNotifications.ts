@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, getDocs, writeBatch, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, writeBatch, limit, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -23,6 +23,7 @@ export function useNotifications() {
     total: 0
   });
   const [loading, setLoading] = useState(true);
+  const [contactUnreadCounts, setContactUnreadCounts] = useState<Record<string, number>>({});
 
   // Function to mark notifications as read
   const markNotificationAsRead = async (type: keyof NotificationCounts) => {
@@ -109,8 +110,11 @@ export function useNotifications() {
 
     setLoading(true);
     const unsubscribeFunctions: (() => void)[] = [];
+    
+    // Debug: Log initial state
+    console.log('🔔 [useNotifications] Setting up listeners for user:', user.uid);
 
-    // Listen for unread messages across all contacts - RESTORED real-time functionality
+    // Listen for unread messages across all contacts - FIXED aggregation logic
     const setupMessageListener = async () => {
       try {
         const contactsRef = collection(db, `users/${user.uid}/contacts`);
@@ -119,7 +123,10 @@ export function useNotifications() {
         // Limit to first 20 contacts to avoid overwhelming the database
         const limitedContacts = contactsSnapshot.docs.slice(0, 20);
         
-        // Set up real-time listeners for unread messages (this is what users expect)
+        // Set up real-time listeners for unread messages - FIXED aggregation
+        const messageListeners: (() => void)[] = [];
+        const contactMessageCounts = new Map<string, number>();
+        
         limitedContacts.forEach(contactDoc => {
           const contactId = contactDoc.id;
           const messagesRef = collection(db, `users/${user.uid}/contacts/${contactId}/messages`);
@@ -131,42 +138,61 @@ export function useNotifications() {
           );
           
           const unsubscribe = onSnapshot(q, (snapshot) => {
+            // Update the count for this specific contact
+            contactMessageCounts.set(contactId, snapshot.docs.length);
+            
+            // Update the contact unread counts state
+            setContactUnreadCounts(Object.fromEntries(contactMessageCounts));
+            
+            // Calculate total unread messages across all contacts
+            const totalUnreadMessages = Array.from(contactMessageCounts.values()).reduce((sum, count) => sum + count, 0);
+            
+            console.log('🔔 [useNotifications] Contact', contactId, 'has', snapshot.docs.length, 'unread messages. Total:', totalUnreadMessages);
+            
             setNotificationCounts(prev => {
-              const newMessages = snapshot.docs.length;
-              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + newMessages;
-              return {
+              const newTotal = prev.todo + prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages;
+              const newCounts = {
                 ...prev,
-                messages: newMessages,
+                messages: totalUnreadMessages,
                 total: newTotal
               };
+              console.log('🔔 [useNotifications] Message listener - totalUnreadMessages:', totalUnreadMessages, 'newTotal:', newTotal, 'fullCounts:', newCounts);
+              return newCounts;
             });
           });
           
-          unsubscribeFunctions.push(unsubscribe);
+          messageListeners.push(unsubscribe);
         });
+        
+        // Add all message listeners to the main unsubscribe array
+        unsubscribeFunctions.push(...messageListeners);
         
       } catch (error) {
         console.error('Error setting up message listener:', error);
       }
     };
 
-    // Listen for incomplete todo items - OPTIMIZED with limits
+    // Listen for incomplete todo items - FIXED query to get all items
     const setupTodoListener = () => {
       try {
         const todoItemsRef = collection(db, `users/${user.uid}/todoItems`);
-        const q = query(
-          todoItemsRef,
-          where('isCompleted', '==', false),
-          limit(100) // Limit to first 100 incomplete items for better performance
-        );
+                  // Get all items and filter by isCompleted on the client side
+          const q = query(
+            todoItemsRef,
+            orderBy('createdAt', 'desc')
+          );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
           let totalIncomplete = 0;
           let newAssignedCount = 0;
 
-          snapshot.docs.forEach(doc => {
+          snapshot.docs.forEach((doc, index) => {
             const data = doc.data();
-            totalIncomplete++;
+            
+            // Only count incomplete items (both false and undefined)
+            if (!data.isCompleted) {
+              totalIncomplete++;
+            }
             
             // Check for new todos assigned by others (notifications)
             // This would need a 'notificationRead' field to track properly
@@ -176,14 +202,21 @@ export function useNotifications() {
             }
           });
 
+          // Log only when there are issues or for debugging
+          if (totalIncomplete === 0) {
+            console.log('🔔 [useNotifications] Warning: No incomplete todo items found');
+          }
+
           setNotificationCounts(prev => {
             const newTotal = prev.messages + prev.budget + prev.vendors + newAssignedCount;
-            return {
+            const newCounts = {
               ...prev,
               todo: totalIncomplete, // This should show total incomplete items (15)
               todoAssigned: newAssignedCount, // This should show assigned items only
               total: newTotal
             };
+            console.log('🔔 [useNotifications] Updated counts:', newCounts);
+            return newCounts;
           });
         });
 
@@ -266,6 +299,7 @@ export function useNotifications() {
   return {
     notificationCounts,
     loading,
-    markNotificationAsRead
+    markNotificationAsRead,
+    contactUnreadCounts
   };
 } 

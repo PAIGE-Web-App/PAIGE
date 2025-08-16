@@ -46,6 +46,7 @@ const ContactsList = ({
   displayContacts,
   deletingContactId,
   setIsAdding,
+  unreadCounts = {}, // New prop for unread message counts per contact
 }) => (
   <aside
     className={`unified-sidebar
@@ -202,20 +203,34 @@ const ContactsList = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-                      style={{ backgroundColor: contact.avatarColor || "#364257" }}
-                    >
-                      {contact.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                    <div className="relative">
+                      <div
+                        className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
+                        style={{ backgroundColor: contact.avatarColor || "#364257" }}
+                      >
+                        {contact.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      {/* Unread message indicator */}
+                      {unreadCounts[contact.id] > 0 && (
+                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                      )}
                     </div>
-                    <div>
-                      <div className="text-sm font-medium text-[#332B42]">
-                        {highlightText(name, searchQuery)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-[#332B42]">
+                          {highlightText(name, searchQuery)}
+                        </div>
+                        {/* Unread count badge */}
+                        {unreadCounts[contact.id] > 0 && (
+                          <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                            {unreadCounts[contact.id] > 9 ? '9+' : unreadCounts[contact.id]}
+                          </span>
+                        )}
                       </div>
                       <CategoryPill category={contact.category} />
                     </div>

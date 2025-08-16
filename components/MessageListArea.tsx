@@ -6,6 +6,8 @@ import { Message } from "../types/message";
 import LoadingSpinner from "./LoadingSpinner";
 import AnalysisResultsDisplay from "./AnalysisResultsDisplay";
 import { useBudget } from "../hooks/useBudget";
+import { doc, writeBatch, collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 // Development-only logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -517,6 +519,48 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   // Get the existing AI to-do generation function from useBudget
   const { handleGenerateTodoList } = useBudget();
 
+  // Auto-mark messages as read when contact is selected
+  const markMessagesAsRead = async () => {
+    if (!selectedContact || !currentUser?.email) return;
+    
+    try {
+      // Get all unread received messages for this contact
+      const messagesRef = collection(db, `users/${selectedContact.userId || 'unknown'}/contacts/${selectedContact.id}/messages`);
+      const q = query(
+        messagesRef,
+        where('isRead', '==', false),
+        where('direction', '==', 'received')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const batch = writeBatch(db);
+        
+        snapshot.docs.forEach(doc => {
+          batch.update(doc.ref, { isRead: true });
+        });
+        
+        await batch.commit();
+        console.log(`✅ Marked ${snapshot.docs.length} messages as read for ${selectedContact.name}`);
+      }
+    } catch (error) {
+      console.error('❌ Error marking messages as read:', error);
+    }
+  };
+
+  // Mark messages as read when contact is selected
+  useEffect(() => {
+    if (selectedContact && messages.length > 0) {
+      // Small delay to ensure messages are loaded
+      const timer = setTimeout(() => {
+        markMessagesAsRead();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [selectedContact?.id, messages.length]);
+
   // Helper to trigger bounce
   const triggerBounce = (id: string) => {
     setBouncingId(id);
@@ -795,6 +839,13 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         >
                           <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
                             <span className="flex items-center gap-1">
+                              {/* NEW badge for unread received messages - moved to top left */}
+                              {!isSent && !msg.isRead && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full border border-red-200 mr-1">
+                                  <div className="w-2 h-2 bg-red-500 rounded-full mr-1 animate-pulse"></div>
+                                  NEW
+                                </span>
+                              )}
                               {msg.source === 'gmail' ? (
                                 <>
                                   <img src="/Gmail_icon_(2020).svg" alt="Gmail" className="w-3 h-3" />
@@ -856,6 +907,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                           {msg.source === 'gmail' && msg.subject && (
                             <div className="text-xs font-semibold text-gray-700 mb-1">{msg.subject}</div>
                           )}
+                          
+
                           
                           <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             <div className="relative">
