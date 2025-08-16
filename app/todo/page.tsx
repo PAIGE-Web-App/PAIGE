@@ -262,6 +262,8 @@ export default function TodoPage() {
               allTodoItems={todoItems.allTodoItems}
               allCategories={todoItems.allCategories}
               showUpgradeModal={() => todoLists.setShowUpgradeModal(true)}
+              draggedTodoId={viewOptions.draggedTodoId}
+              onMoveTodoItem={todoItems.handleMoveTodoItem}
             />
 
             <div className="unified-main-content">
@@ -360,6 +362,7 @@ export default function TodoPage() {
                       showCompletedTasks={viewOptions.showCompletedTasks}
                       setShowCompletedTasks={viewOptions.setShowCompletedTasks}
                       justMovedItemId={todoItems.justMovedItemId}
+                      onMoveTodoItem={todoItems.handleMoveTodoItem}
                               />
                   ) : (
                     <CalendarView

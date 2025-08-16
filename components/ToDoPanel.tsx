@@ -82,6 +82,9 @@ interface ToDoPanelProps {
   itemRefs?: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
   highlightedItemId?: string | null;
   justMovedItemId?: string | null;
+  
+  // Props for moving to-do items between lists
+  onMoveTodoItem?: (taskId: string, targetListId: string) => Promise<void>;
 }
 
 const ToDoPanel = ({
@@ -151,8 +154,12 @@ const ToDoPanel = ({
   itemRefs,
   highlightedItemId,
   justMovedItemId,
+  onMoveTodoItem,
 }: ToDoPanelProps) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  
+  // Debug move functionality
+  console.log('🎯 ToDoPanel render - onMoveTodoItem:', !!onMoveTodoItem, 'draggedTodoId:', draggedTodoId);
   
   // Debug highlight state
   useEffect(() => {
@@ -169,6 +176,9 @@ const ToDoPanel = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [showNewListModal, setShowNewListModal] = useState(false);
+  
+  // State for tracking which list is being hovered over during drag
+  const [hoveredListForMove, setHoveredListForMove] = useState<any>(null);
 
   // Fetch pinned lists from Firestore on mount
   useEffect(() => {
@@ -474,18 +484,71 @@ const ToDoPanel = ({
         <div className="flex gap-2 pt-3 flex-nowrap overflow-x-auto scrollbar-thin scrollbar-thumb-[#AB9C95] scrollbar-track-[#F3F2F0]" style={{ WebkitOverflowScrolling: 'touch' }}>
           {visibleLists.map(list => {
             const isAll = list.id === 'all';
+            console.log('🎯 Rendering list tab:', { listId: list.id, listName: list.name, isAll });
             return (
               <div
                 key={list.id}
                 onClick={() => setSelectedListId(isAll ? null : list.id)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🎯 Drag over list:', list.name, 'draggedTodoId:', draggedTodoId, 'isAll:', isAll);
+                  // Don't allow dropping into the currently selected list
+                  if (draggedTodoId && !isAll && onMoveTodoItem && selectedListId !== list.id) {
+                    e.currentTarget.classList.add('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
+                    // Show the move indicator
+                    setHoveredListForMove(list);
+                  }
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
+                    // Clear the move indicator
+                    setHoveredListForMove(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
+                  
+                  console.log('🎯 Drop on list:', list.name, 'draggedTodoId:', draggedTodoId, 'isAll:', isAll, 'onMoveTodoItem:', !!onMoveTodoItem);
+                  
+                  // Clear the move indicator
+                  setHoveredListForMove(null);
+                  
+                  // Don't allow dropping into the currently selected list
+                  if (draggedTodoId && !isAll && onMoveTodoItem && selectedListId !== list.id) {
+                    // Get the current list ID from the dragged todo item
+                    const draggedTodo = [...filteredTodoItems.incompleteTasks, ...filteredTodoItems.completedTasks]
+                      .find(todo => todo.id === draggedTodoId);
+                    
+                    console.log('🎯 Found dragged todo:', draggedTodo);
+                    
+                    if (draggedTodo && draggedTodo.listId !== list.id) {
+                      console.log('🎯 Moving todo from', draggedTodo.listId, 'to', list.id);
+                      // Call the move function with just taskId and targetListId
+                      onMoveTodoItem(draggedTodoId, list.id);
+                    } else {
+                      console.log('🎯 No move needed - same list or todo not found');
+                    }
+                  } else {
+                    console.log('🎯 Drop conditions not met:', { draggedTodoId, isAll, hasOnMoveTodoItem: !!onMoveTodoItem, isCurrentList: selectedListId === list.id });
+                  }
+                }}
                 className={`flex items-center px-4 py-1 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out group relative cursor-pointer
                   ${selectedListId === list.id || (isAll && !selectedListId)
                     ? 'bg-white text-[#332B42] rounded-t-[5px]'
                     : 'bg-[#F3F2F0] text-[#364257] hover:bg-[#E0DBD7] border-b-2 border-transparent hover:border-[#AB9C95] rounded-t-[5px]'
                   }
+                  ${draggedTodoId && !isAll ? 'cursor-copy' : ''}
                 `}
               >
-                <span>{list.name}</span>
+                <span title={draggedTodoId && !isAll ? `Drop to-do item here to move it to "${list.name}"` : list.name}>
+                  {list.name}
+                </span>
                 {isAll ? (
                   <BadgeCount count={allTodoCount} />
                 ) : (
@@ -666,6 +729,23 @@ const ToDoPanel = ({
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      )}
+
+      {/* Floating indicator for todo move operations */}
+      {draggedTodoId && onMoveTodoItem && hoveredListForMove && selectedListId !== hoveredListForMove.id && (
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+          <div className="bg-[#332B42] text-white px-4 py-3 md:px-6 md:py-4 rounded-full shadow-2xl animate-pulse max-w-[90vw]">
+            <div className="flex items-center gap-2 md:gap-3">
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M7 17l5-5 5 5"></path>
+                <path d="M7 7l5 5 5-5"></path>
+              </svg>
+              <span className="font-playfair font-medium text-base md:text-lg leading-5 md:leading-6 text-white">
+                Move to-do item to "{hoveredListForMove.name}"
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

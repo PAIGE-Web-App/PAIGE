@@ -85,6 +85,11 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
+  
+  // Debug draggedTodoId changes
+  useEffect(() => {
+    console.log('🎯 draggedTodoId changed to:', draggedTodoId);
+  }, [draggedTodoId]);
   const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
   const [dropIndicatorPosition, setDropIndicatorPosition] = useState<{ id: string | null, position: 'top' | 'bottom' | null }>({ id: null, position: null });
   const [showNewListInput, setShowNewListInput] = useState(false);
@@ -985,6 +990,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // Drag and Drop Handlers (these remain in parent as they manage global drag state)
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, id: string) => {
+    console.log('🎯 Drag start for todo:', id);
     setDraggedTodoId(id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', id);
@@ -1369,6 +1375,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             itemRefs={itemRefs}
             highlightedItemId={highlightedItemId}
             justMovedItemId={justMovedItemId}
+            onMoveTodoItem={handleMoveTodoItem}
           />
         )}
 

@@ -39,7 +39,6 @@ interface TodoListViewProps {
   showCompletedTasks: boolean;
   setShowCompletedTasks: (val: boolean) => void;
   justMovedItemId: string | null;
-  onMoveTodoItem?: (taskId: string, currentListId: string, targetListId: string) => Promise<void>;
 }
 
 const TodoListView: React.FC<TodoListViewProps> = ({
@@ -77,7 +76,6 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   showCompletedTasks,
   setShowCompletedTasks,
   justMovedItemId,
-  onMoveTodoItem,
 }) => {
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);

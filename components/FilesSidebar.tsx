@@ -65,6 +65,9 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
   // Drag and drop functionality
   const { draggedItem, isDragging, dropTarget, setDropTarget } = useDragDrop();
 
+  // State for floating indicator
+  const [hoveredFolderForMove, setHoveredFolderForMove] = useState<FileFolder | null>(null);
+
   const handleAddFolderWithDescription = async ({ name, description, color }: { name: string; description?: string; color: string }) => {
     if (folderLimitReached) {
       return;
@@ -155,8 +158,10 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (isDragging && draggedItem?.type === 'file') {
+                // Don't allow dropping into the currently selected folder
+                if (isDragging && draggedItem?.type === 'file' && selectedFolder?.id !== subfolder.id) {
                   setDropTarget(subfolder.id);
+                  setHoveredFolderForMove(subfolder);
                 }
               }}
               onDragLeave={(e) => {
@@ -165,13 +170,16 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                 // Only clear if we're not dragging over a child element
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                   setDropTarget(null);
+                  setHoveredFolderForMove(null);
                 }
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 setDropTarget(null);
-                if (draggedItem?.type === 'file' && onMoveFile) {
+                setHoveredFolderForMove(null);
+                // Don't allow dropping into the currently selected folder
+                if (draggedItem?.type === 'file' && onMoveFile && selectedFolder?.id !== subfolder.id) {
                   onMoveFile(draggedItem.item.id, subfolder.id);
                 }
               }}
@@ -253,36 +261,11 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                   setFileSearchQuery('');
                 }
               }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (isDragging && draggedItem?.type === 'file') {
-                  setDropTarget('all');
-                }
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // Only clear if we're not dragging over a child element
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDropTarget(null);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDropTarget(null);
-                if (draggedItem?.type === 'file' && onMoveFile) {
-                  onMoveFile(draggedItem.item.id, 'all');
-                }
-              }}
-              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer transition-all duration-200 ${selectedFolder?.id === 'all' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2 ${
-                dropTarget === 'all' && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
-              }`}
+              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer transition-all duration-200 ${selectedFolder?.id === 'all' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
             >
-                              <span className="mr-2" title="All Files">
-                  <Folder className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1, fill: '#8B4513' }} />
-                </span>
+              <span className="mr-2" title="All Files">
+                <Folder className="w-4 h-4" style={{ color: '#8B4513', strokeWidth: 1, fill: '#8B4513' }} />
+              </span>
               <span className="truncate flex-1 min-w-0" title="All Files">
                 All Files
               </span>
@@ -350,8 +333,10 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                               onDragOver={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (isDragging && draggedItem?.type === 'file') {
+                                // Don't allow dropping into the currently selected folder
+                                if (isDragging && draggedItem?.type === 'file' && selectedFolder?.id !== folder.id) {
                                   setDropTarget(folder.id);
+                                  setHoveredFolderForMove(folder);
                                 }
                               }}
                               onDragLeave={(e) => {
@@ -360,13 +345,16 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                                 // Only clear if we're not dragging over a child element
                                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                                   setDropTarget(null);
+                                  setHoveredFolderForMove(null);
                                 }
                               }}
                               onDrop={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setDropTarget(null);
-                                if (draggedItem?.type === 'file' && onMoveFile) {
+                                setHoveredFolderForMove(null);
+                                // Don't allow dropping into the currently selected folder
+                                if (draggedItem?.type === 'file' && onMoveFile && selectedFolder?.id !== folder.id) {
                                   onMoveFile(draggedItem.item.id, folder.id);
                                 }
                               }}
@@ -508,6 +496,23 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
         </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Floating indicator for file move operations */}
+      {draggedItem?.type === 'file' && onMoveFile && hoveredFolderForMove && selectedFolder?.id !== hoveredFolderForMove.id && (
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+          <div className="bg-[#332B42] text-white px-4 py-3 md:px-6 md:py-4 rounded-full shadow-2xl animate-pulse max-w-[90vw]">
+            <div className="flex items-center gap-2 md:gap-3">
+              <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M7 17l5-5 5 5"></path>
+                <path d="M7 7l5 5 5-5"></path>
+              </svg>
+              <span className="font-playfair font-medium text-base md:text-lg leading-5 md:leading-6 text-white">
+                Move file to "{hoveredFolderForMove.name}"
+              </span>
+            </div>
           </div>
         </div>
       )}

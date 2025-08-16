@@ -545,23 +545,76 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     <>
       <div
         draggable={!isEditingName && sortOption === 'myOrder'}
-        onDragStart={(e) => handleDragStart(e, todo.id)}
+        onDragStart={(e) => {
+          console.log('🎯 UnifiedTodoItem drag start:', { todoId: todo.id, isEditingName, sortOption, draggable: !isEditingName && sortOption === 'myOrder' });
+          handleDragStart(e, todo.id);
+          // Create a custom drag image with white background
+          const dragPreview = document.createElement('div');
+          dragPreview.style.cssText = `
+            width: 300px;
+            min-height: 60px;
+            background: white;
+            border: 2px dashed #A85C36;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            font-family: inherit;
+            font-size: 14px;
+            color: #332B42;
+            font-weight: 500;
+            opacity: 0.9;
+            z-index: 9999;
+          `;
+          dragPreview.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              <div style="width: 20px; height: 20px; background-color: #F8F6F4; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg style="width: 16px; height: 16px; color: #6B7280;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 11l3 3L22 4"></path>
+                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+                </svg>
+              </div>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; line-height: 1.4;">${todo.name || 'Untitled Task'}</span>
+            </div>
+          `;
+          document.body.appendChild(dragPreview);
+          e.dataTransfer.setDragImage(dragPreview, 150, 30);
+          
+          // Remove the preview after drag starts
+          setTimeout(() => {
+            if (document.body.contains(dragPreview)) {
+              document.body.removeChild(dragPreview);
+            }
+          }, 0);
+        }}
         onDragEnd={handleDragEnd}
         onDragEnter={(e) => handleDragEnter(e, todo.id)}
         onDragLeave={handleDragLeave}
         onDragOver={(e) => handleItemDragOver(e, todo.id)}
         onDrop={handleDrop}
       >
-    <div
+    <motion.div
         className={`
           relative flex items-start gap-1 py-3 border-b-[0.5px] border-[#AB9C95]
           transition-all duration-300 ease-in-out
           ${sortOption === 'myOrder' ? 'cursor-grab' : ''}
-          ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36]' : ''}
+          ${draggedTodoId === todo.id ? 'opacity-50 border-dashed border-2 border-[#A85C36] bg-white shadow-lg' : ''}
           ${dragOverTodoId === todo.id ? 'bg-[#EBE3DD]' : ''}
           ${(justUpdated || isJustMoved || isJustUpdatedFromParent || isNewlyAdded) ? 'bg-green-100' : ''}
           ${className || ''}
         `}
+        animate={{
+          y: draggedTodoId && draggedTodoId !== todo.id ? 
+            (dragOverTodoId === todo.id && dropIndicatorPosition?.id === todo.id && dropIndicatorPosition?.position === 'top' ? -12 : 
+             dragOverTodoId === todo.id && dropIndicatorPosition?.id === todo.id && dropIndicatorPosition?.position === 'bottom' ? 12 : 0) : 0,
+          scale: draggedTodoId && draggedTodoId !== todo.id ? 0.98 : 1,
+          opacity: draggedTodoId && draggedTodoId !== todo.id ? 0.8 : 1,
+        }}
+        transition={{
+          duration: 0.3,
+          ease: "easeOut"
+        }}
     >
       {/* Visual Drop Indicator */}
         {dropIndicatorPosition.id === todo.id && (
@@ -1011,7 +1064,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         )}
           </div>
       </div>
-      </div>
+      </motion.div>
     </div>
 
     {/* Assignment Modal */}
