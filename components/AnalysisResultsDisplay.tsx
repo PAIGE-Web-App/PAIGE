@@ -67,6 +67,13 @@ export default function AnalysisResultsDisplay({
       
       setSelectedListIds(newSelectedListIds);
       setCreateEnabledItems(newCreateEnabledItems);
+    } else if (results && (!todoListsHook.todoLists || todoListsHook.todoLists.length === 0)) {
+      // Disable all to-dos if no lists are available
+      const newCreateEnabledItems: { [key: number]: boolean } = {};
+      results.newTodos.forEach((_, index) => {
+        newCreateEnabledItems[index] = false;
+      });
+      setCreateEnabledItems(newCreateEnabledItems);
     }
   }, [todoListsHook.todoLists, results?.newTodos]);
 
@@ -105,8 +112,12 @@ export default function AnalysisResultsDisplay({
 
   const handleCreateTodo = (todo: DetectedTodo, index: number) => {
     const selectedListId = selectedListIds[index];
-    // Pass the selected list ID separately if needed
-    onNewTodo(todo);
+    // Pass the selected list ID with the todo object
+    const todoWithListId = {
+      ...todo,
+      selectedListId: selectedListId
+    };
+    onNewTodo(todoWithListId);
   };
 
   return (
@@ -152,6 +163,17 @@ export default function AnalysisResultsDisplay({
               animate={{ height: expandedSections.newTodos ? 'auto' : 'auto' }}
               className="mb-6"
             >
+              {/* Warning if no to-do lists available */}
+              {(!todoListsHook.todoLists || todoListsHook.todoLists.length === 0) && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-800">
+                    <Flag className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      No to-do lists available. Please create a to-do list first to add items.
+                    </span>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => toggleSection('newTodos')}
                 className="flex items-center justify-between w-full text-left mb-3"
@@ -336,7 +358,12 @@ export default function AnalysisResultsDisplay({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Flag className="w-4 h-4" />
-              <span>AI-detected items can be automatically added to your to-do list</span>
+              <span>
+                {(!todoListsHook.todoLists || todoListsHook.todoLists.length === 0) 
+                  ? 'Create a to-do list first to add AI-detected items'
+                  : 'AI-detected items can be automatically added to your to-do list'
+                }
+              </span>
             </div>
             <div className="flex gap-3">
               {results?.aiTodoList && (

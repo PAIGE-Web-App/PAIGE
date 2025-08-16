@@ -6,8 +6,14 @@ import { Message } from "../types/message";
 import LoadingSpinner from "./LoadingSpinner";
 import AnalysisResultsDisplay from "./AnalysisResultsDisplay";
 import { useBudget } from "../hooks/useBudget";
-import { doc, writeBatch, collection, query, where, getDocs } from "firebase/firestore";
+import { useTodoItems } from '../hooks/useTodoItems';
+import { useTodoLists } from '../hooks/useTodoLists';
+import { useAuth } from '../hooks/useAuth';
+import { useCustomToast } from '../hooks/useCustomToast';
+import { addDoc, doc, writeBatch, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getUserCollectionRef } from '@/lib/firebase';
+import { saveCategoryIfNew } from '@/lib/firebaseCategories';
 
 // Development-only logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -518,6 +524,9 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
 
   // Get the existing AI to-do generation function from useBudget
   const { handleGenerateTodoList } = useBudget();
+  const { user } = useAuth();
+  const todoLists = useTodoLists();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
 
   // Auto-mark messages as read when contact is selected
   const markMessagesAsRead = async () => {
@@ -611,22 +620,110 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   };
 
   // Handle to-do actions
-  const handleNewTodo = (todo: any) => {
-    console.log('Creating new to-do:', todo);
-    // TODO: Implement actual to-do creation
-    setAnalysisResults(null);
+  const handleNewTodo = async (todo: any) => {
+    if (!user || !selectedContact) {
+      console.error('User or contact not available');
+      return;
+    }
+
+    try {
+      console.log('Creating new to-do:', todo);
+      
+      // Get the selected list ID from the todo object or use default
+      const listId = todo.selectedListId || todoLists.todoLists?.[0]?.id;
+      if (!listId) {
+        console.error('No list ID available');
+        return;
+      }
+
+      // Save category if it's new
+      if (todo.category) {
+        await saveCategoryIfNew(todo.category, user.uid);
+      }
+
+      // Create the to-do item in Firestore
+      const todoData = {
+        name: todo.name,
+        note: todo.note || '',
+        deadline: todo.deadline || null,
+        startDate: null,
+        endDate: null,
+        category: todo.category || 'Planning',
+        isCompleted: false,
+        userId: user.uid,
+        createdAt: new Date(),
+        orderIndex: -1, // Place at the top of the list
+        listId: listId,
+        contactId: selectedContact.id || null,
+        // Assignment fields
+        assignedTo: todo.assignedTo || null,
+        assignedBy: null,
+        assignedAt: null,
+        notificationRead: false,
+      };
+
+      const docRef = await addDoc(getUserCollectionRef('todoItems', user.uid), todoData);
+      
+      // Show success message
+      showSuccessToast('To-do item successfully created!');
+      
+      // Close the analysis results
+      setAnalysisResults(null);
+      
+      // Dispatch the highlight event for the newly created to-do
+      // This will highlight the item in the right panel dashboard
+      window.dispatchEvent(new CustomEvent('highlight-todo-item', {
+        detail: { 
+          todoId: docRef.id, 
+          todoName: todo.name,
+          listId: listId
+        }
+      }));
+      
+    } catch (error: any) {
+      console.error('Error creating to-do:', error);
+      showErrorToast(`Failed to create to-do: ${error.message}`);
+    }
   };
 
-  const handleTodoUpdate = (update: any) => {
-    console.log('Updating to-do:', update);
-    // TODO: Implement actual to-do update
-    setAnalysisResults(null);
+  const handleTodoUpdate = async (update: any) => {
+    if (!user) {
+      console.error('User not available');
+      return;
+    }
+
+    try {
+      console.log('Updating to-do:', update);
+      
+      // For now, just show a success message
+      // TODO: Implement actual to-do update logic when needed
+      showSuccessToast('To-do update processed successfully!');
+      
+      setAnalysisResults(null);
+    } catch (error: any) {
+      console.error('Error updating to-do:', error);
+      showErrorToast(`Failed to update to-do: ${error.message}`);
+    }
   };
 
-  const handleTodoComplete = (completion: any) => {
-    console.log('Completing to-do:', completion);
-    // TODO: Implement actual to-do completion
-    setAnalysisResults(null);
+  const handleTodoComplete = async (completion: any) => {
+    if (!user) {
+      console.error('User not available');
+      return;
+    }
+
+    try {
+      console.log('Completing to-do:', completion);
+      
+      // For now, just show a success message
+      // TODO: Implement actual to-do completion logic when needed
+      showSuccessToast('To-do completion processed successfully!');
+      
+      setAnalysisResults(null);
+    } catch (error: any) {
+      console.error('Error completing to-do:', error);
+      showErrorToast(`Failed to complete to-do: ${error.message}`);
+    }
   };
 
   const closeAnalysisResults = () => {

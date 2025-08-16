@@ -78,6 +78,10 @@ interface ToDoPanelProps {
   allTodoCount: number;
   handleDrop: (e: any) => void;
   newlyAddedTodoItems?: Set<string>;
+  // Props for highlighting and scrolling to newly created to-dos
+  itemRefs?: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
+  highlightedItemId?: string | null;
+  justMovedItemId?: string | null;
 }
 
 const ToDoPanel = ({
@@ -143,9 +147,20 @@ const ToDoPanel = ({
   setShowUpgradeModal,
   allTodoCount,
   handleDrop,
-  newlyAddedTodoItems = new Set()
+  newlyAddedTodoItems = new Set(),
+  itemRefs,
+  highlightedItemId,
+  justMovedItemId,
 }: ToDoPanelProps) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  
+  // Debug highlight state
+  useEffect(() => {
+    if (highlightedItemId) {
+      console.log('🎯 ToDoPanel received highlightedItemId:', highlightedItemId);
+    }
+  }, [highlightedItemId]);
+  
   // Dropdown state
   const [showListDropdown, setShowListDropdown] = useState(false);
   const [pinnedListIds, setPinnedListIdsState] = useState<string[]>([]);
@@ -528,36 +543,49 @@ const ToDoPanel = ({
             {filterBySearch(filteredTodoItems.incompleteTasks).length > 0 && (
               <AnimatePresence initial={false}>
                 {filterBySearch(filteredTodoItems.incompleteTasks).map((todo) => (
-                  <UnifiedTodoItem
+                  <div
                     key={todo.id}
-                    todo={todo}
-                    contacts={contacts}
-                    allCategories={allCategories}
-                    sortOption={sortOption}
-                    draggedTodoId={draggedTodoId}
-                    dragOverTodoId={dragOverTodoId}
-                    dropIndicatorPosition={dropIndicatorPosition}
-                    currentUser={currentUser}
-                    handleToggleTodoComplete={handleToggleTodoComplete}
-                    handleUpdateTaskName={handleUpdateTaskName}
-                    handleUpdateDeadline={handleUpdateDeadline}
-                    handleUpdateNote={handleUpdateNote}
-                    handleUpdateCategory={handleUpdateCategory}
-                    handleCloneTodo={handleCloneTodo}
-                    handleDeleteTodo={handleDeleteTodo}
-                    setTaskToMove={setTaskToMove}
-                    setShowMoveTaskModal={setShowMoveTaskModal}
-                    handleDragStart={handleDragStart}
-                    handleDragEnter={handleDragEnter}
-                    handleDragLeave={handleDragLeave}
-                    handleItemDragOver={handleItemDragOver}
-                    handleDragEnd={handleDragEnd}
-                    handleDrop={handleDrop}
-                    mode="page"
-                    {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
-                    searchQuery={searchQuery}
-                    isNewlyAdded={newlyAddedTodoItems.has(todo.id)}
-                  />
+                    ref={(el) => { 
+                      if (itemRefs) {
+                        itemRefs.current[todo.id] = el;
+                        if (justMovedItemId === todo.id) {
+                          console.log('🎯 Ref set for green flash item:', todo.id, 'Element:', !!el);
+                        }
+                      }
+                    }}
+                  >
+                                            <UnifiedTodoItem
+                          key={todo.id}
+                          todo={todo}
+                          contacts={contacts}
+                          allCategories={allCategories}
+                          sortOption={sortOption}
+                          draggedTodoId={draggedTodoId}
+                          dragOverTodoId={dragOverTodoId}
+                          dropIndicatorPosition={dropIndicatorPosition}
+                          currentUser={currentUser}
+                          handleToggleTodoComplete={handleToggleTodoComplete}
+                          handleUpdateTaskName={handleUpdateTaskName}
+                          handleUpdateDeadline={handleUpdateDeadline}
+                          handleUpdateNote={handleUpdateNote}
+                          handleUpdateCategory={handleUpdateCategory}
+                          handleCloneTodo={handleCloneTodo}
+                          handleDeleteTodo={handleDeleteTodo}
+                          setTaskToMove={setTaskToMove}
+                          setShowMoveTaskModal={setShowMoveTaskModal}
+                          handleDragStart={handleDragStart}
+                          handleDragEnter={handleDragEnter}
+                          handleDragLeave={handleDragLeave}
+                          handleItemDragOver={handleItemDragOver}
+                          handleDragEnd={handleDragEnd}
+                          handleDrop={handleDrop}
+                          mode="page"
+                          {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
+                          searchQuery={searchQuery}
+                          isNewlyAdded={newlyAddedTodoItems.has(todo.id)}
+                          isJustMoved={todo.id === justMovedItemId}
+                        />
+                  </div>
                 ))}
               </AnimatePresence>
             )}
@@ -590,7 +618,18 @@ const ToDoPanel = ({
               >
                 <div className="space-y-0 transition-all duration-300 ease-in-out">
                   {filterBySearch(filteredTodoItems.completedTasks).map((todo) => (
-                    <UnifiedTodoItem
+                    <div
+                      key={todo.id}
+                      ref={(el) => { 
+                        if (itemRefs) {
+                          itemRefs.current[todo.id] = el;
+                          if (justMovedItemId === todo.id) {
+                            console.log('🎯 Ref set for green flash item (completed):', todo.id, 'Element:', !!el);
+                          }
+                        }
+                      }}
+                    >
+                      <UnifiedTodoItem
                       key={todo.id}
                       todo={todo}
                       contacts={contacts}
@@ -618,8 +657,10 @@ const ToDoPanel = ({
                       mode="page"
                       className="px-3 md:px-4"
                       {...(!selectedListId && { listName: (todoLists.find(l => l.id === todo.listId)?.name) || 'Unknown List' })}
-                      searchQuery={searchQuery}
-                    />
+                                                searchQuery={searchQuery}
+                          isJustMoved={todo.id === justMovedItemId}
+                        />
+                      </div>
                   ))}
                 </div>
               </motion.div>

@@ -163,6 +163,9 @@ export default function TodoPage() {
     };
   }, []);
 
+  // Note: Highlight functionality is now handled directly in the dashboard
+  // No need for URL parameter handling
+
   // Compute categories for the current selected list's to-do items, filtering out ID-like categories
   const idLikeCategory = React.useCallback((cat) => typeof cat === 'string' && /^[a-zA-Z0-9]{15,}$/.test(cat), []);
   const categoriesForCurrentList = React.useMemo(() => {

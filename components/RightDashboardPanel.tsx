@@ -75,7 +75,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null); // null = "All To-Do" view
   const [listTaskCounts, setListTaskCounts] = useState<Map<string, number>>(new Map()); // NEW: State for task counts per list
 
   const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -98,6 +98,14 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   const [editingListNameId, setEditingListNameId] = useState<string | null>(null);
   const [editingListNameValue, setEditingListNameValue] = useState<string | null>(null);
   const [openListMenuId, setOpenListMenuId] = useState<string | null>(null); // State for list's three-dot menu
+  
+  // Ref system for highlighting and scrolling to newly created to-dos
+  const itemRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const highlightedItemIdRef = useRef<string | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  
+  // State for the existing green flash animation system
+  const [justMovedItemId, setJustMovedItemId] = useState<string | null>(null);
 
   // New states for delete confirmation modal
   const [showDeleteListModal, setShowDeleteListModal] = useState<boolean>(false);
@@ -117,6 +125,84 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       return () => clearTimeout(timer);
     }
   }, [newlyAddedTodoItems]);
+
+  // Clear justMovedItemId after green flash animation
+  useEffect(() => {
+    if (justMovedItemId) {
+      const timer = setTimeout(() => {
+        setJustMovedItemId(null);
+      }, 1200); // Flash for 1.2s (same as existing system)
+      return () => clearTimeout(timer);
+    }
+  }, [justMovedItemId]);
+
+  // Listen for highlight events from newly created to-dos
+  useEffect(() => {
+    const handleHighlight = (event: CustomEvent) => {
+      console.log('🎯 Highlight event received:', event.detail);
+      const { todoId, todoName, listId } = event.detail;
+      
+      // Use the existing green flash animation system
+      setJustMovedItemId(todoId);
+      console.log('🎯 Green flash animation triggered for:', todoId);
+      console.log('🎯 Current selected list:', selectedListId);
+      console.log('🎯 Target list from event:', listId);
+      
+      // If the to-do is in a different list, switch to that list
+      if (listId && selectedListId !== listId) {
+        console.log('🎯 Switching to list:', listId);
+        setSelectedListId(listId);
+        
+        // Wait a bit for the list to switch before trying to scroll
+        setTimeout(() => {
+          console.log('🎯 List switched, now scrolling to item');
+          scrollToItem(todoId);
+        }, 300);
+        return; // Exit early, let the delayed function handle the scroll
+      }
+      
+      // If we're already on the right list, scroll immediately
+      scrollToItem(todoId);
+    };
+    
+    // Helper function to scroll to an item
+    const scrollToItem = (todoId: string) => {
+      // Scroll to the item after a delay to ensure it's rendered
+      setTimeout(() => {
+        const itemElement = itemRefs.current[todoId];
+        console.log('🎯 Looking for item element:', todoId, 'Found:', !!itemElement);
+        if (itemElement && itemElement.isConnected) {
+          itemElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          console.log('🎯 Scrolled to item');
+        } else {
+          console.log('🎯 Item element not found or not connected, available refs:', Object.keys(itemRefs.current));
+          // Try again after a longer delay in case items are still loading
+          setTimeout(() => {
+            const retryElement = itemRefs.current[todoId];
+            console.log('🎯 Retry looking for item element:', todoId, 'Found:', !!retryElement, 'Connected:', retryElement?.isConnected);
+            if (retryElement && retryElement.isConnected) {
+              retryElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+              });
+              console.log('🎯 Scrolled to item on retry');
+            }
+          }, 1000);
+        }
+      }, 500);
+    };
+
+    console.log('🎯 Setting up highlight event listener');
+    window.addEventListener('highlight-todo-item', handleHighlight as EventListener);
+    
+    return () => {
+      console.log('🎯 Cleaning up highlight event listener');
+      window.removeEventListener('highlight-todo-item', handleHighlight as EventListener);
+    };
+  }, []);
 
 
   // Ref for each list's more button
@@ -170,12 +256,15 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
         const currentSelectedListExists = fetchedLists.some(list => list.id === selectedListId);
 
+        // Set default to show "All To-Do" if no list is currently selected
+        if (selectedListId === null && fetchedLists.length > 0) {
+          // Keep selectedListId as null to show "All To-Do" view
+          console.log('🎯 Defaulting to "All To-Do" view');
+        }
         // Only set selectedListId if there are no lists at all
         if (fetchedLists.length === 0 && selectedListId !== null) {
           setSelectedListId(null);
         }
-        // Do NOT auto-select 'My To-do' or any other list if selectedListId is null
-        // This allows 'All To-Do' to be the default view
       }, (error) => {
         console.error('Error fetching To-do lists:', error);
         showErrorToast('Failed to load To-do lists.');
@@ -1277,6 +1366,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
             router={router}
             setShowUpgradeModal={setShowUpgradeModal}
             allTodoCount={allTodoCount}
+            itemRefs={itemRefs}
+            highlightedItemId={highlightedItemId}
+            justMovedItemId={justMovedItemId}
           />
         )}
 
