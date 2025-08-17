@@ -612,7 +612,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       }
     } catch (error) {
       console.error('Analysis failed:', error);
-      // TODO: Show error toast
+      showErrorToast('Message analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
       setScanningMessageId(null);

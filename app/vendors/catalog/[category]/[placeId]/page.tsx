@@ -7,7 +7,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
 import { getCategoryFromSlug } from '@/utils/vendorUtils';
 import { Star, MapPin } from 'lucide-react';
-// import MessagingModal from '../../../components/MessagingModal'; // TODO: Use your real messaging modal
+// import MessagingModal from '../../../components/MessagingModal'; // Note: Messaging modal integration pending
 
 export default function VendorCatalogDetailsPage() {
   const [showContact, setShowContact] = useState(false);
@@ -75,13 +75,13 @@ export default function VendorCatalogDetailsPage() {
           {/* Comments section placeholder */}
           <div className="w-[420px] bg-white border rounded p-4">
             <div className="font-semibold mb-2">Comments</div>
-            {/* TODO: Comments section */}
+            {/* Comments section - Coming soon */}
             <div className="text-xs text-gray-400">Add a comment. To tag someone enter @ and add their names.</div>
           </div>
         </div>
       </div>
       {/* Contact Modal */}
-      {/* TODO: Use your real messaging modal from app/page.tsx */}
+      {/* Note: Messaging modal integration pending */}
       
     </div>
   );

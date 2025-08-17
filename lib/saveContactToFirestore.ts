@@ -3,12 +3,6 @@ import { doc, setDoc } from "firebase/firestore";
 import { db, getUserCollectionRef } from "./firebase"; // Import getUserCollectionRef
 
 export const saveContactToFirestore = async (contact: any) => {
-  // --- DEBUGGING CONSOLE LOG ---
-  console.log("saveContactToFirestore: Attempting to save contact:", contact);
-  console.log("saveContactToFirestore: userId being saved:", contact.userId);
-  console.log("saveContactToFirestore: contact.id being saved:", contact.id);
-  console.log("saveContactToFirestore: contact.orderIndex being saved:", contact.orderIndex);
-  // --- END DEBUGGING CONSOLE LOG ---
 
   if (!contact.userId) {
     console.error("saveContactToFirestore: Contact object is missing userId!");
@@ -23,7 +17,7 @@ export const saveContactToFirestore = async (contact: any) => {
     // new fields are added without overwriting existing ones.
     // This is crucial if you later add message history to the contact document.
     await setDoc(contactDocRef, contact, { merge: true });
-    console.log("saveContactToFirestore: Document successfully written to Firestore.");
+
   } catch (error) {
     console.error("saveContactToFirestore: Error writing document to Firestore:", error);
     throw error; // Re-throw the error so the calling function can handle it
@@ -32,9 +26,6 @@ export const saveContactToFirestore = async (contact: any) => {
 
 // New function to save vendors to the vendor management collection
 export const saveVendorToFirestore = async (vendor: any) => {
-  console.log("saveVendorToFirestore: Attempting to save vendor:", vendor);
-  console.log("saveVendorToFirestore: userId being saved:", vendor.userId);
-  console.log("saveVendorToFirestore: vendor.id being saved:", vendor.id);
 
   if (!vendor.userId) {
     console.error("saveVendorToFirestore: Vendor object is missing userId!");
@@ -48,7 +39,7 @@ export const saveVendorToFirestore = async (vendor: any) => {
     // Use { merge: true } to ensure that if a document with this ID already exists,
     // new fields are added without overwriting existing ones.
     await setDoc(vendorDocRef, vendor, { merge: true });
-    console.log("saveVendorToFirestore: Document successfully written to Firestore.");
+
   } catch (error) {
     console.error("saveVendorToFirestore: Error writing document to Firestore:", error);
     throw error; // Re-throw the error so the calling function can handle it

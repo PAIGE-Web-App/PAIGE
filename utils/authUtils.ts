@@ -7,7 +7,6 @@ import { db } from '@/lib/firebase';
  */
 export async function refreshAuthToken(user: User): Promise<string | null> {
   try {
-    console.log('🔄 Refreshing Firebase auth token...');
     const newToken = await getIdToken(user, true); // Force refresh
     
     // Update session cookie with new token
@@ -19,7 +18,6 @@ export async function refreshAuthToken(user: User): Promise<string | null> {
     });
     
     if (sessionRes.ok) {
-      console.log('✅ Session cookie updated with new token');
       return newToken;
     } else {
       console.error('❌ Failed to update session cookie');
@@ -74,7 +72,6 @@ export async function checkAndRefreshGoogleTokens(userId: string): Promise<boole
     const fiveMinutesFromNow = now + (5 * 60 * 1000);
     
     if (expiresAt < fiveMinutesFromNow) {
-      console.log('⚠️ Google tokens expired or expiring soon, need re-authentication');
       return false;
     }
     
@@ -101,7 +98,7 @@ export async function updateGoogleTokens(
     await updateDoc(doc(db, "users", userId), {
       googleTokens: tokens
     });
-    console.log('✅ Google tokens updated successfully');
+
   } catch (error) {
     console.error('Error updating Google tokens:', error);
     throw error;
@@ -116,7 +113,7 @@ export async function clearGoogleTokens(userId: string): Promise<void> {
     await updateDoc(doc(db, "users", userId), {
       googleTokens: null
     });
-    console.log('✅ Google tokens cleared successfully');
+
   } catch (error) {
     console.error('Error clearing Google tokens:', error);
     throw error;

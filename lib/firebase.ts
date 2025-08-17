@@ -57,10 +57,10 @@ import { enableIndexedDbPersistence } from 'firebase/firestore';
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code === 'failed-precondition') {
     // Multiple tabs open, persistence can only be enabled in one tab at a time
-    console.log('Firebase persistence failed: Multiple tabs open');
+    // console.log('Firebase persistence failed: Multiple tabs open');
   } else if (err.code === 'unimplemented') {
     // Browser doesn't support persistence
-    console.log('Firebase persistence not supported in this browser');
+    // console.log('Firebase persistence not supported in this browser');
   }
 });
 
