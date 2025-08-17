@@ -106,7 +106,7 @@ export default function SignUp() {
     'Still figuring it out',
   ];
 
-  console.log('Current step:', step);
+  
 
   const passwordRequirements = [
     { label: "At least 8 characters", test: (pw: string) => pw.length >= 8 },
@@ -181,18 +181,14 @@ export default function SignUp() {
 
   // Handle redirect for onboarded users
   useEffect(() => {
-    console.log('Signup page - auth state:', { user: !!user, authLoading, onboarded, isNewSignup });
     if (!authLoading && user && onboarded === true) {
-      console.log('Redirecting onboarded user to dashboard');
       router.push('/');
     }
   }, [user, authLoading, onboarded, router]);
 
   // Handle moving to step 2 for non-onboarded users
   useEffect(() => {
-    console.log('Signup page - checking step transition:', { user: !!user, authLoading, onboarded, step });
     if (!authLoading && user && onboarded === false && step === 1) {
-      console.log('Moving to step 2 for non-onboarded user');
       setStep(2);
     }
   }, [user, authLoading, onboarded, step]);
@@ -245,28 +241,28 @@ export default function SignUp() {
     }
 
     try {
-      console.log('Creating user account...');
+
       const result = await createUserWithEmailAndPassword(auth, email, password);
       if (result.user) {
-        console.log('User account created, setting up session...');
+
         // Get the ID token and set the session cookie
         const idToken = await result.user.getIdToken();
-        console.log('Got ID token, calling sessionLogin...');
+
         const res = await fetch("/api/sessionLogin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
         });
         
-        console.log('SessionLogin response:', res.ok);
+
         if (res.ok) {
-          console.log('Session login successful, creating user document...');
+
           await setDoc(doc(db, "users", result.user.uid), {
             email: result.user.email,
             onboarded: false,
             createdAt: new Date(),
           }, { merge: true });
-          console.log('User document created, setting new signup flag...');
+
           setIsNewSignup(true);
           setStep(2);
         } else {

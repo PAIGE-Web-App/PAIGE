@@ -96,7 +96,7 @@ export function useTodoLists() {
   // Effect to handle pending delete
   useEffect(() => {
     if (pendingDeleteListId) {
-      console.log('[useEffect] pendingDeleteListId changed:', pendingDeleteListId);
+      
       handleDeleteList(pendingDeleteListId);
       setPendingDeleteListId(null);
     }
@@ -113,7 +113,7 @@ export function useTodoLists() {
   useEffect(() => {
     if (!user) return;
 
-    console.log('User authenticated:', user.uid);
+    
     const q = query(
       getUserCollectionRef('todoLists', user.uid),
       where('userId', '==', user.uid),
@@ -140,7 +140,7 @@ export function useTodoLists() {
           orderIndex: data.orderIndex || 0
         };
       });
-      console.log('Fetched todo lists:', lists);
+      
       setTodoLists(lists);
 
       // Try to restore selected list from localStorage first
@@ -149,7 +149,7 @@ export function useTodoLists() {
         if (savedListId) {
           const savedList = lists.find(list => list.id === savedListId);
           if (savedList) {
-            console.log('Restored selected list from localStorage:', savedList.name);
+    
             setSelectedList(savedList);
             return; // Don't auto-select first list if we restored from storage
           }

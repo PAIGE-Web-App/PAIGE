@@ -75,12 +75,7 @@ export function useFiles() {
         });
 
         if (isSubscribed) {
-          // Debug logging for file updates
-          console.log('Files updated:', {
-            count: fileList.length,
-            totalSize: fileList.reduce((sum, f) => sum + f.fileSize, 0),
-            files: fileList.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
-          });
+
 
           setFiles(fileList);
           setLoading(false);
@@ -162,11 +157,11 @@ export function useFiles() {
       const fileName = `${Date.now()}_${uploadData.fileName}`;
       const fileRef = storageRef(storage, `users/${user.uid}/files/${fileName}`);
       
-      console.log('Uploading file to Firebase Storage:', fileName);
+
       const snapshot = await uploadBytes(fileRef, uploadData.file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      console.log('File uploaded successfully, URL:', downloadURL);
+
 
       const fileDoc = {
         name: uploadData.fileName,

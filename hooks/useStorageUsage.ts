@@ -42,13 +42,7 @@ export function useStorageUsage() {
     const totalBytes = files.reduce((sum, file) => sum + file.fileSize, 0);
     const totalFiles = files.length;
     
-    // Debug logging
-    console.log('Storage calculation:', {
-      totalFiles,
-      totalBytes,
-      totalBytesMB: (totalBytes / 1024 / 1024).toFixed(2) + ' MB',
-      files: files.map(f => ({ name: f.name, size: f.fileSize, folderId: f.folderId }))
-    });
+
     
     // Get user's plan (you'll need to implement this)
     const userPlan = getUserPlan(user);

@@ -102,7 +102,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
           className="flex-1 h-full min-h-0"
           onInternalDrop={(draggedItem) => {
             // TODO: Move file to this folder
-            console.log('Move file to content area:', draggedItem.item);
+    
           }}
         >
           <div className="p-6 h-full">

@@ -406,7 +406,7 @@ export function useBudget() {
     if (!user) return;
 
     try {
-      console.log('handleEditCategory: Starting update for category', categoryId, 'with updates:', updates);
+      
       
       const categoryRef = doc(getUserCollectionRef('budgetCategories', user.uid), categoryId);
       await updateDoc(categoryRef, {
@@ -414,7 +414,7 @@ export function useBudget() {
         updatedAt: new Date(),
       });
 
-      console.log('handleEditCategory: Category updated successfully');
+      
 
       // If allocated amount changed, update the user's budget range
       if (updates.allocatedAmount !== undefined) {
@@ -426,7 +426,7 @@ export function useBudget() {
         
         const newTotalBudget = otherCategoriesTotal + updates.allocatedAmount;
         
-        console.log('handleEditCategory: Calculated new total budget:', newTotalBudget);
+
         
         // Update user's budget range to reflect the new total
         const newBudgetRange = {
@@ -434,7 +434,7 @@ export function useBudget() {
           max: Math.round(newTotalBudget * 1.2), // 20% buffer above
         };
         
-        console.log('handleEditCategory: Updating budget range to:', newBudgetRange);
+
         
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
@@ -442,7 +442,7 @@ export function useBudget() {
           updatedAt: new Date(),
         });
         
-        console.log('handleEditCategory: Budget range updated successfully');
+
       }
 
       showSuccessToast('Category updated!');
@@ -639,7 +639,7 @@ export function useBudget() {
 
   const handleGenerateIntegratedPlan = async (description: string, totalBudget: number) => {
     try {
-      console.log('Generating integrated plan:', { description, totalBudget });
+      
       
       // Get wedding date from user profile
       let weddingDate: string | null = null;
@@ -681,7 +681,7 @@ export function useBudget() {
       }
       
       const data: IntegratedPlan = await response.json();
-      console.log('Integrated plan response:', data);
+      
       
       // Create both budget and todo list from integrated plan
       await createBudgetFromAI(data.budget);

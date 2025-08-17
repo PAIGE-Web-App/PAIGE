@@ -273,14 +273,7 @@ export default function VendorsPage() {
     
     const allFavoriteVendors = Array.from(uniqueVendorsMap.values());
     
-    console.log('🔄 Calculating filtered favorites:', {
-      totalVendors: vendors.length,
-      totalFavorites: favorites.length,
-      favoriteVendorsFromMain: favoriteVendorsFromMain.length,
-      favoriteVendorsFromRecent: favoriteVendorsFromRecent.length,
-      allFavoriteVendors: allFavoriteVendors.length,
-      favorites: favorites
-    });
+
     
     let filtered = allFavoriteVendors.filter((v) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
@@ -327,14 +320,13 @@ export default function VendorsPage() {
     if (user?.uid) {
       setIsLoading(true);
       getAllVendors(user.uid).then(async (data) => {
-        console.log('🏪 Vendor Hub - Loaded vendors from Firestore:', JSON.stringify(data, null, 2));
-        console.log('🏪 Vendor Hub - Vendor images:', data.map(v => ({ name: v.name, image: v.image, placeId: v.placeId })));
+
         
         // Enhance vendors with high-quality images
         let enhancedVendors = data;
         try {
           enhancedVendors = await enhanceVendorsWithImages(data);
-          console.log('🏪 Vendor Hub - Enhanced vendors with images:', enhancedVendors.map(v => ({ name: v.name, image: v.image, hasRealImages: (v as any).hasRealImages })));
+
         } catch (error) {
           console.error('Error enhancing vendors with images:', error);
           // Continue with unenhanced vendors if enhancement fails

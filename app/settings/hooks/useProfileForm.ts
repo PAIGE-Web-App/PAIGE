@@ -193,10 +193,10 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
             selectedAsVendor: false
           });
 
-          console.log('Result from addVendorToUserAndCommunity:', result);
+  
 
           if (result.success) {
-            console.log('Successfully added venue to user vendor management system');
+    
             
             // Mark the venue as official (starred) in the user's vendor list
             try {

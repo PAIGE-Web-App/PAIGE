@@ -124,7 +124,7 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           <div className="flex justify-center">
             <button
               onClick={() => {
-                console.log("Upgrade Now clicked!");
+        
                 onClose();
               }}
               className="btn-primary px-6 py-2 text-sm"

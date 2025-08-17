@@ -191,7 +191,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     }
     // Add debug log in updateTask for deadline changes
     if (field === 'deadline') {
-      console.log('[NewListOnboardingModal] updateTask deadline', { index, value, tasks: tasks.map(t => ({ _id: t._id, deadline: t.deadline })) });
+
     }
     return updated;
   }));
@@ -202,12 +202,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       const aiResult: any = aiListResult;
       if (!aiResult || !aiResult.name) return;
 
-      console.log('=== AI SUBMIT DEBUG ===');
-      console.log('aiResult.tasks:', aiResult.tasks);
-      console.log('local tasks state:', tasks);
-      console.log('tasks length:', tasks.length);
-      console.log('tasks with _id:', tasks.filter(t => t._id));
-      console.log('tasks with names:', tasks.filter(t => t.name && t.name.trim()));
+
 
       // Combine AI-generated tasks with manually added tasks
       // Deduplicate based on _id to prevent duplicates
@@ -225,8 +220,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       
       const allTasks = [...aiTasks, ...uniqueLocalTasks];
 
-      console.log('combined allTasks:', allTasks);
-      console.log('allTasks length:', allTasks.length);
+
 
       const tasksWithDates = allTasks.map((task: any) => ({
         ...task,
@@ -238,9 +232,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       // Only filter out completely empty tasks at the end
       const processedTasks = tasksWithDates.filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate));
       
-      console.log('final processedTasks:', processedTasks);
-      console.log('processedTasks length:', processedTasks.length);
-      console.log('=== END AI SUBMIT DEBUG ===');
+
       
       // Save new categories and remove [NEW] tags
       if (user?.uid) {
@@ -709,7 +701,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           category,
         };
       });
-      console.log('[AIListCreationForm] handleTasksUpdate - normalized:', normalized);
+
       return {
         ...prev,
         tasks: normalized

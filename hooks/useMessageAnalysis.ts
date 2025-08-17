@@ -17,16 +17,12 @@ export function useMessageAnalysis() {
     setError(null);
 
     try {
-      console.log('[useMessageAnalysis] Starting analysis for:', context.vendorName);
+  
       
       const result = await messageAnalysisEngine.analyzeMessage(context);
       
       setLastAnalysis(result);
-      console.log('[useMessageAnalysis] Analysis complete:', {
-        newTodos: result.newTodos.length,
-        todoUpdates: result.todoUpdates.length,
-        completedTodos: result.completedTodos.length
-      });
+
 
       return result;
     } catch (err) {

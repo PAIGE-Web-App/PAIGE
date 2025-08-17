@@ -551,7 +551,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
         });
         
         await batch.commit();
-        console.log(`✅ Marked ${snapshot.docs.length} messages as read for ${selectedContact.name}`);
+
       }
     } catch (error) {
       console.error('❌ Error marking messages as read:', error);
@@ -608,7 +608,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       
       if (result) {
         setAnalysisResults(result);
-        console.log('Analysis complete:', result);
+
       }
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -627,7 +627,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     }
 
     try {
-      console.log('Creating new to-do:', todo);
+      
       
       // Get the selected list ID from the todo object or use default
       const listId = todo.selectedListId || todoLists.todoLists?.[0]?.id;
@@ -693,7 +693,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     }
 
     try {
-      console.log('Updating to-do:', update);
+      
       
       // For now, just show a success message
       // TODO: Implement actual to-do update logic when needed
@@ -713,7 +713,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     }
 
     try {
-      console.log('Completing to-do:', completion);
+      
       
       // For now, just show a success message
       // TODO: Implement actual to-do completion logic when needed
@@ -771,12 +771,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
           >
             <div className="flex flex-col items-center text-center text-[#7A7A7A] px-4">
               {(() => {
-                console.log('🔍 Empty state condition check:', {
-                  vendorContactLoading,
-                  selectedContactPlaceId: selectedContact?.placeId,
-                  hasContactInfo,
-                  shouldShowNoContactInfo: selectedContact?.placeId && hasContactInfo === false
-                });
+
                 
                 if (vendorContactLoading) {
                   return (

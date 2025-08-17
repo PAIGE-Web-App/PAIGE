@@ -64,7 +64,7 @@ export const useFavorites = (): UseFavoritesReturn => {
         // Update state
         setFavorites(mergedFavorites);
         
-        console.log('✅ Loaded favorites from Firestore and merged with localStorage:', mergedFavorites);
+
       } else {
         throw new Error('Failed to load favorites from Firestore');
       }
@@ -98,7 +98,7 @@ export const useFavorites = (): UseFavoritesReturn => {
         throw new Error('Failed to sync favorites to Firestore');
       }
       
-      console.log('✅ Synced favorites to Firestore');
+      
     } catch (err) {
       console.error('Error syncing favorites to Firestore:', err);
       throw err;

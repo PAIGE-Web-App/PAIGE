@@ -99,7 +99,7 @@ export default function Login() {
           }
         }
       } catch (error) {
-        console.log('Error detecting Google account:', error);
+  
       } finally {
         setDetectingGoogleAccount(false);
       }
@@ -147,7 +147,7 @@ export default function Login() {
     try {
       setLoading(true);
       const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log('signInWithEmailAndPassword result:', result);
+      
       const idToken = await result.user.getIdToken();
       // Call sessionLogin to set the __session cookie
       const sessionRes = await fetch("/api/sessionLogin", {
@@ -165,10 +165,10 @@ export default function Login() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('showLoginToast', '1');
       }
-      console.log('user from useAuth after login:', user);
+      
       router.push("/");
     } catch (error: any) {
-      console.log('Login error:', error);
+      
       if (
         error.code === 'auth/invalid-credential' ||
         error.code === 'auth/user-not-found' ||
@@ -197,14 +197,10 @@ export default function Login() {
     const provider = new GoogleAuthProvider();
     try {
       setLoading(true);
-      console.log('🔍 [Google Login] Starting Google sign-in process...');
+
       
       const result = await signInWithPopup(auth, provider);
-      console.log('✅ [Google Login] Google sign-in successful:', {
-        user: result.user.email,
-        uid: result.user.uid,
-        displayName: result.user.displayName
-      });
+      
       
       // Save Google account info for future detection
       if (typeof window !== 'undefined') {
@@ -216,7 +212,7 @@ export default function Login() {
       }
       
       const idToken = await result.user.getIdToken();
-      console.log('🔍 [Google Login] Got ID token, calling session login...');
+      
       
       // POST the ID token to your session login API
       const res = await fetch("/api/sessionLogin", {
@@ -225,16 +221,13 @@ export default function Login() {
         body: JSON.stringify({ idToken }),
       });
       
-      console.log('🔍 [Google Login] Session login response:', {
-        status: res.status,
-        ok: res.ok
-      });
+
       
       if (res.ok) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('showLoginToast', '1');
         }
-        console.log('✅ [Google Login] Session login successful, redirecting...');
+
         window.location.href = "/";
       } else {
         const errorText = await res.text();

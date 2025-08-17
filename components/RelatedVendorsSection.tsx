@@ -92,12 +92,7 @@ export default function RelatedVendorsSection({
         );
         const apiCategory = categoryObj ? categoryObj.value : category.toLowerCase().replace(/\s+/g, '_');
         
-        console.log('RelatedVendorsSection: Fetching related vendors', {
-          displayCategory: category,
-          apiCategory,
-          location,
-          currentVendorId
-        });
+
         
         const response = await fetch('/api/google-places', {
           method: 'POST',
@@ -143,11 +138,7 @@ export default function RelatedVendorsSection({
           // Enhance vendors with proper image handling
           try {
             const enhancedVendors = await enhanceVendorsWithImages(filteredVendors);
-            console.log('RelatedVendorsSection: Enhanced vendors with images:', enhancedVendors.map(v => ({ 
-              name: v.name, 
-              image: v.image, 
-              hasRealImages: (v as any).hasRealImages 
-            })));
+
             setRelatedVendors(enhancedVendors);
           } catch (error) {
             console.error('Error enhancing related vendors with images:', error);

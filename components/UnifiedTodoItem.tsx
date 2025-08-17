@@ -125,15 +125,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
 
-  // Debugging log: Check todo item properties when component renders
-  useEffect(() => {
-    if (todo.isCompleted) {
-      console.log(`UnifiedTodoItem: Todo ID: ${todo.id}, isCompleted: ${todo.isCompleted}, completedAt: ${todo.completedAt}`);
-      if (todo.completedAt && !(todo.completedAt instanceof Date)) {
-        console.error(`UnifiedTodoItem: completedAt for ID ${todo.id} is not a Date object:`, todo.completedAt);
-      }
-    }
-  }, [todo]);
+
 
   // Effect to manage click outside for "More" menu
   useEffect(() => {
@@ -182,7 +174,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         showErrorToast('Task name cannot be empty.');
         setEditingNameValue(todo.name); // Revert to original name
       } else {
-        console.log('Updating name:', todo.id, editingNameValue);
+
         await handleUpdateTaskName(todo.id, editingNameValue.trim());
         setJustUpdated(true);
         setTimeout(() => setJustUpdated(false), 1000);
@@ -348,10 +340,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     return deadline.toLocaleDateString();
   };
 
-  console.log('Rendering todo.deadline:', todo.deadline, typeof todo.deadline);
 
-  // Add a debug log to confirm prop type
-  console.log('UnifiedTodoItem handleUpdateDeadline prop type:', typeof handleUpdateDeadline);
 
   const handleDeadlineChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setEditingDeadlineValue(e.target.value);
@@ -362,7 +351,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   }, []);
 
   const handleDeadlineBlur = useCallback(async () => {
-    console.log('[UnifiedTodoItem] handleDeadlineBlur', { id: todo.id, editingDeadlineValue, endDate: todo.endDate });
+
     let endDateStr = '';
     if (todo.endDate) {
       if (todo.endDate instanceof Date) {
@@ -546,7 +535,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       <div
         draggable={!isEditingName && sortOption === 'myOrder'}
         onDragStart={(e) => {
-          console.log('🎯 UnifiedTodoItem drag start:', { todoId: todo.id, isEditingName, sortOption, draggable: !isEditingName && sortOption === 'myOrder' });
+    
           handleDragStart(e, todo.id);
           // Create a custom drag image with white background
           const dragPreview = document.createElement('div');

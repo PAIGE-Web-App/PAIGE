@@ -146,7 +146,7 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
 export default function Home() {
   const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
-  console.log('Home component rendered', user, authLoading);
+  
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -395,7 +395,7 @@ export default function Home() {
           }
           
           setInitialContactLoadComplete(true);
-          console.log(`page.tsx: Fetched ${fetchedContacts.length} contacts.`);
+  
         }
       }, (error) => {
         if (isSubscribed) {
@@ -582,7 +582,7 @@ export default function Home() {
       });
       setInput("");
       setSelectedFiles([]);
-      console.log("page.tsx: Message sent successfully.");
+      
       showSuccessToast("Message sent successfully.");
     } catch (error: any) {
       showErrorToast(`Failed to send message: ${error.message}`);
@@ -702,7 +702,7 @@ export default function Home() {
   // Handle Gmail re-authentication success - just clear URL parameters
   useEffect(() => {
     if (!user) {
-      console.log('No current user, skipping Gmail auth check');
+      
       return;
     }
 
@@ -710,21 +710,15 @@ export default function Home() {
     const gmailAuth = params.get('gmailAuth');
     const userId = params.get('userId');
 
-    console.log('Checking Gmail auth on page load:', {
-      gmailAuth,
-      userId,
-      urlParams: Object.fromEntries(params.entries()),
-      currentUrl: window.location.href,
-      currentUserId: user.uid
-    });
+
 
     if (gmailAuth === 'success' && userId === user.uid) {
-      console.log('Gmail re-authentication success detected, clearing URL parameters');
+
       
       // Clear URL parameters without triggering import
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-      console.log('Cleared URL parameters after Gmail re-auth');
+
       
       // Hide the reauth banner since authentication is now valid
       setShowGmailReauthBanner(false);
@@ -732,11 +726,7 @@ export default function Home() {
       // Show success toast
       showSuccessToast('Gmail re-authentication successful!');
     } else {
-      console.log('No Gmail auth success or user ID mismatch', {
-        gmailAuth,
-        userId,
-        currentUserId: user.uid
-      });
+
     }
   }, [user]);
 
@@ -752,7 +742,7 @@ export default function Home() {
       const contactsSnapshot = await getDocs(contactsQuery);
       const fetchedContacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
       setContacts(fetchedContacts);
-      console.log('Fetched contacts:', fetchedContacts);
+
     } catch (error) {
       console.error('Error fetching contacts:', error);
       showErrorToast('Failed to fetch contacts. Please try again.');
@@ -762,7 +752,7 @@ export default function Home() {
   // Update the handleOnboardingComplete function
   const handleOnboardingComplete = async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => {
     try {
-      console.log('Handling onboarding completion with contacts:', onboardedContacts);
+
       
       // Update contacts in Firestore
       const batch = writeBatch(db);
@@ -800,7 +790,7 @@ export default function Home() {
 
       // If Gmail was selected, trigger the import
       if (selectedChannelsFromModal.includes('Gmail') && user) {
-        console.log('Gmail selected, triggering import');
+
         try {
           await triggerGmailImport(user.uid, onboardedContacts);
           showSuccessToast('Gmail import started successfully');

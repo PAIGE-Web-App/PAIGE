@@ -341,7 +341,7 @@ export default function AdminUsersPage() {
             }}
             onViewUser={(user) => {
               // TODO: Implement view user functionality
-              console.log('View user:', user);
+      
             }}
           />
           

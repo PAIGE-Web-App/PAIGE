@@ -148,7 +148,7 @@ const VendorMap: React.FC<VendorMapProps> = ({
       });
 
       setMap(newMap);
-      console.log('Map initialized successfully with custom theme');
+
     } catch (error) {
       console.error('Error initializing map:', error);
       

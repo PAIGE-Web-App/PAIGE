@@ -7,8 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; }) {
   
   // Debug logging
-  console.log('PlacesAutocompleteInput - locationBias:', locationBias);
-  console.log('PlacesAutocompleteInput - types:', types);
+
   
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,16 +87,14 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
     // Only use location bias for non-venue searches (like city selection)
     if (locationBias && !types.includes('establishment')) {
       request.locationBias = `circle:${locationBias.radius || 50000}@${locationBias.lat},${locationBias.lng}`;
-      console.log('Using location bias for non-venue search:', request.locationBias);
+
     }
 
     autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
       setIsLoading(false);
       if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-        console.log('Autocomplete results:', predictions);
         setSuggestions(predictions);
       } else {
-        console.log('Autocomplete status:', status);
         setSuggestions([]);
       }
     });

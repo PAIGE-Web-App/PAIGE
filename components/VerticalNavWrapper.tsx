@@ -18,34 +18,23 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
   // Check if user is onboarded
   useEffect(() => {
     if (!user) {
-      console.log('🔍 [VerticalNavWrapper] No user, setting onboarded to null');
+
       setOnboarded(null);
       setOnboardingLoading(false);
       return;
     }
 
-    console.log('🔍 [VerticalNavWrapper] Setting up real-time listener for user:', {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName
-    });
+    
     setOnboardingLoading(true);
 
     // Set up real-time listener to user document
     const unsubscribe = onSnapshot(doc(db, "users", user.uid), (userDoc) => {
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        console.log('✅ [VerticalNavWrapper] User document exists, data:', {
-          onboarded: userData.onboarded,
-          email: userData.email,
-          displayName: userData.displayName,
-          hasProfileImage: !!userData.profileImageUrl,
-          createdAt: userData.createdAt,
-          fullData: userData
-        });
+
         setOnboarded(!!userData.onboarded);
       } else {
-        console.log('❌ [VerticalNavWrapper] User document does not exist for:', user.uid);
+
         setOnboarded(false);
       }
       setOnboardingLoading(false);
@@ -60,7 +49,7 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
     });
 
     return () => {
-      console.log('🔍 [VerticalNavWrapper] Cleaning up listener for user:', user.uid);
+      
       unsubscribe();
     };
   }, [user, user?.uid]);

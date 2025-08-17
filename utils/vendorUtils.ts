@@ -492,18 +492,7 @@ export const convertVendorToCatalogFormat = (vendor: any, recentlyViewed?: any[]
   
   const bestImage = getVendorImageImmediate(vendorWithRecentData);
   
-  console.log('🔄 Converting vendor to catalog format:', {
-    vendorName: vendor.name,
-    vendorImage: vendor.image,
-    vendorPlaceId: vendor.placeId,
-    recentlyViewedVendor: recentlyViewedVendor ? {
-      name: recentlyViewedVendor.name,
-      image: recentlyViewedVendor.image,
-      id: recentlyViewedVendor.id
-    } : null,
-    bestImage: bestImage,
-    finalImage: bestImage
-  });
+
   
   return {
     id: vendor.placeId || vendor.id,

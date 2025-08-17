@@ -98,7 +98,7 @@ export default function VendorDetailPage() {
     if (!vendor || !user?.uid) return;
     
     try {
-      console.log('Checking if vendor is official:', vendor.id, 'for user:', user.uid);
+
       
       // Use Firestore directly for faster response
       const { collection, query, where, getDocs } = await import('firebase/firestore');
@@ -109,7 +109,7 @@ export default function VendorDetailPage() {
       const querySnapshot = await getDocs(q);
       
       const isOfficial = !querySnapshot.empty;
-      console.log('Vendor existence check result:', isOfficial);
+      
       
       // Set state immediately without waiting for API
       setIsOfficialVendor(isOfficial);
@@ -127,9 +127,7 @@ export default function VendorDetailPage() {
     
     // Check if vendor is favorited
     const favorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-    console.log('Checking favorites for vendor:', vendor.id, 'Current favorites:', favorites);
     const isVendorFavorited = favorites.includes(vendor.id);
-    console.log('Setting isFavorite to:', isVendorFavorited);
     setIsFavorite(isVendorFavorited);
     
     // Check if vendor is an official vendor
@@ -141,7 +139,7 @@ export default function VendorDetailPage() {
     const handleFavoritesChange = (event: CustomEvent) => {
       if (vendor && event.detail.favorites) {
         const isVendorFavorited = event.detail.favorites.includes(vendor.id);
-        console.log('Favorites changed, updating vendor favorite status:', isVendorFavorited);
+
         
         // Only update if not in the middle of an optimistic update
         if (!isUpdatingFavorite) {
@@ -187,32 +185,17 @@ export default function VendorDetailPage() {
 
 
 
-    // Debug: Log the googleData state
-    console.log('🔍 Vendor Detail Debug:', {
-      placeId,
-      googleData: !!googleData,
-      googleDataStatus: googleData?.status,
-      googleDataError: googleData?.error,
-      googleDataResult: !!googleData?.result,
-      vendorError,
-      vendorLoading,
-      googleDataKeys: googleData ? Object.keys(googleData) : 'no data'
-    });
+
 
     // Use cached vendor details from hook
     if (!googleData || googleData.status !== 'OK' || !googleData.result) {
-      console.log('❌ Falling back to error state because:', {
-        noGoogleData: !googleData,
-        statusNotOK: googleData?.status !== 'OK',
-        noResult: !googleData?.result,
-        actualStatus: googleData?.status
-      });
+
       
       if (vendorError) {
         console.error('Vendor details error:', vendorError);
       }
       if (vendorLoading) {
-        console.log('⏳ Still loading vendor data...');
+
         setLoading(true);
         return;
       }
@@ -222,7 +205,7 @@ export default function VendorDetailPage() {
       return;
     }
 
-    console.log('✅ Using real vendor data:', googleData.result?.name);
+    
 
     // Transform Google Places data to our vendor format
     const vendorDetails: VendorDetails = {
@@ -351,7 +334,7 @@ export default function VendorDetailPage() {
     // Fetch photos and community data using unified image handling
     const fetchAdditionalData = async () => {
       try {
-        console.log('🖼️ Fetching vendor images using unified system for:', placeId);
+
         
         // Create a vendor object for the unified image system
         const vendorForImages = {
@@ -365,32 +348,21 @@ export default function VendorDetailPage() {
         // Use unified image handling to get the best available images
         const imageData = await getVendorImages(vendorForImages);
         
-        console.log('📸 Unified image data:', {
-          primaryImage: imageData.primaryImage,
-          imageCount: imageData.allImages.length,
-          hasRealImages: imageData.hasRealImages
-        });
+
         
         if (imageData.hasRealImages && imageData.allImages.length > 0) {
-          console.log('✅ Setting vendor images from unified system:', imageData.allImages.length, 'images');
-          
           // Update the vendor state with real images
           setVendor(prev => ({
             ...prev!,
             images: imageData.allImages
           }));
-        } else {
-          console.log('❌ No real images found, keeping placeholders');
         }
         
         // Fetch community data separately
         try {
           const communityData = await fetchCommunityVendor(placeId);
           if ((communityData as any).vendor) {
-            console.log('✅ Setting community data');
             setCommunityData((communityData as any).vendor);
-          } else {
-            console.log('❌ No community data found');
           }
         } catch (error) {
           console.error('❌ Error fetching community data:', error);
@@ -401,11 +373,7 @@ export default function VendorDetailPage() {
       }
     };
 
-    console.log('🎯 Setting vendor details:', {
-      name: vendorDetails.name,
-      imageCount: vendorDetails.images?.length || 0,
-      firstImage: vendorDetails.images?.[0]
-    });
+
     
     setVendor(vendorDetails);
     setLoading(false);
@@ -419,10 +387,7 @@ export default function VendorDetailPage() {
     });
 
     // Fetch additional data in background
-    console.log('🚀 Starting to fetch additional data...');
-    fetchAdditionalData().then(() => {
-      console.log('✅ Additional data fetch completed');
-    }).catch((error) => {
+    fetchAdditionalData().catch((error) => {
       console.error('❌ Additional data fetch failed:', error);
     });
   }, [placeId, googleData, vendorError, vendorLoading]);

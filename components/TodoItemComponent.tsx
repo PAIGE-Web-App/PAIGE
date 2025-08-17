@@ -122,15 +122,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
 
-  // Debugging log: Check todo item properties when component renders
-  useEffect(() => {
-    if (todo.isCompleted) {
-      console.log(`TodoItemComponent: Todo ID: ${todo.id}, isCompleted: ${todo.isCompleted}, completedAt: ${todo.completedAt}`);
-      if (todo.completedAt && !(todo.completedAt instanceof Date)) {
-        console.error(`TodoItemComponent: completedAt for ID ${todo.id} is not a Date object:`, todo.completedAt);
-      }
-    }
-  }, [todo]);
+
 
   // Effect to manage click outside for "More" menu
   useEffect(() => {
@@ -169,7 +161,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         showErrorToast('Task name cannot be empty.');
         setEditingNameValue(todo.name); // Revert to original name
       } else {
-        console.log('Updating name:', todo.id, editingNameValue);
+
         await handleUpdateTaskName(todo.id, editingNameValue.trim());
         setJustUpdated(true);
         setTimeout(() => setJustUpdated(false), 1000);
@@ -335,10 +327,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
     return deadline.toLocaleDateString();
   };
 
-  console.log('Rendering todo.deadline:', todo.deadline, typeof todo.deadline);
 
-  // Add a debug log to confirm prop type
-  console.log('TodoItemComponent handleUpdateDeadline prop type:', typeof handleUpdateDeadline);
 
   const handleDeadlineChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setEditingDeadlineValue(e.target.value);

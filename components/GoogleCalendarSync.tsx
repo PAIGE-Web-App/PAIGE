@@ -109,9 +109,9 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   };
 
   const syncToCalendar = async () => {
-    console.log('Syncing to Google...');
+    
     if (todoItems.length === 0) {
-      console.log('No to-do items to sync, aborting syncToCalendar');
+
       showErrorToast('No to-do items to sync');
       return;
     }
@@ -141,12 +141,12 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       showErrorToast('Failed to sync to Google Calendar');
     } finally {
       setIsSyncingTo(false);
-      console.log('syncToCalendar finished');
+
     }
   };
 
   const syncFromCalendar = async () => {
-    console.log('Syncing from Google...');
+    
     setIsSyncingFrom(true);
     try {
       const response = await fetch('/api/google-calendar/sync-from-calendar', {
@@ -171,7 +171,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       showErrorToast('Failed to sync from Google Calendar');
     } finally {
       setIsSyncingFrom(false);
-      console.log('syncFromCalendar finished');
+
     }
   };
 
@@ -201,7 +201,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   const handleUnifiedSync = async () => {
     setIsSyncing(true);
     try {
-      console.log('Unified sync started');
+
       await syncFromCalendar();
       await syncToCalendar();
       showSuccessToast('Synced with Google successfully!');
@@ -210,7 +210,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       showErrorToast('Failed to sync with Google.');
     } finally {
       setIsSyncing(false);
-      console.log('Unified sync finished');
+
     }
   };
 

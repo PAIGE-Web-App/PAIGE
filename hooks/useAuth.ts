@@ -15,11 +15,11 @@ export const useAuth = () => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
       setUser(authUser);
       setLoading(false);
-      console.log('[useAuth] onAuthStateChanged:', { authUser, pathname });
+  
 
       // Only redirect to login if not already on /login or /signup
       if (!authUser && pathname !== '/login' && pathname !== '/signup') {
-        console.log('[useAuth] Redirecting to /login from', pathname);
+
         router.push('/login');
       }
     });
@@ -29,7 +29,7 @@ export const useAuth = () => {
   }, [pathname, router]);
 
   useEffect(() => {
-    console.log('[useAuth] State:', { user, loading, pathname });
+
   }, [user, loading, pathname]);
 
   return { user, loading }; // <-- ADD THIS LINE

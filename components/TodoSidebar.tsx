@@ -94,18 +94,15 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   const handleBuildWithAI = async (template: string) => {
     setIsGenerating(true);
     try {
-      console.log('Calling /api/generate-list with template:', template);
+
       const response = await fetch('/api/generate-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weddingDate: '2023-12-31', template }), // Pass the selected template
       });
       const data = await response.json();
-      console.log('Response from /api/generate-list:', data);
       setListName(data.listName);
       setTasks(data.tasks);
-      console.log('Updated listName:', data.listName);
-      console.log('Updated tasks:', data.tasks);
     } catch (error) {
       console.error('Error generating list:', error);
     } finally {
