@@ -196,7 +196,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                       strokeWidth={2}
                     />
                     <span>{group}</span>
-                    <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-1.5 py-0.5 rounded-full font-work">
+                    <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-2.5 py-0.5 rounded-full font-work">
                       {incompleteItems.length}
                     </span>
                   </button>

@@ -114,7 +114,7 @@ export default function VerticalNav() {
                 >
                   <Icon className="w-5 h-5" />
                   {notificationCount > 0 && (
-                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ${
+                    <div className={`absolute -top-1 -right-1 w-5 h-4 rounded-full flex items-center justify-center px-1 ${
                       item.notificationKey === 'todo' ? 'bg-blue-500' : 'bg-red-500'
                     }`}>
                       <span className="text-[10px] text-white font-medium">

@@ -938,7 +938,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                             <span className="flex items-center gap-1">
                               {/* NEW badge for unread received messages - moved to top left */}
                               {!isSent && !msg.isRead && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full border border-red-200 mr-1">
+                                <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full border border-red-200 mr-1">
                                   <div className="w-2 h-2 bg-red-500 rounded-full mr-1 animate-pulse"></div>
                                   NEW
                                 </span>

@@ -351,7 +351,7 @@ export default function VendorComments({ vendorId, vendorName }: VendorCommentsP
                           if (mentionedUser) {
                             return (
                               <span key={index}>
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#A85C36] text-white text-xs rounded-full">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#A85C36] text-white text-xs rounded-full">
                                   {word}
                                 </span>
                                 {' '}

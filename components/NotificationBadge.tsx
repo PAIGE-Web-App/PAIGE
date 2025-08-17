@@ -16,9 +16,9 @@ export default function NotificationBadge({
   if (count === 0) return null;
 
   const sizeClasses = {
-    sm: 'w-3 h-3 text-[10px]',
-    md: 'w-4 h-4 text-[10px]',
-    lg: 'w-5 h-5 text-xs'
+    sm: 'w-4 h-3 text-[10px] px-1',
+    md: 'w-5 h-4 text-[10px] px-1',
+    lg: 'w-6 h-5 text-xs px-1'
   };
 
   const colorClasses = {

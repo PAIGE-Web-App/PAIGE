@@ -227,7 +227,7 @@ const ContactsList = ({
                         </div>
                         {/* Unread count badge */}
                         {unreadCounts[contact.id] > 0 && (
-                          <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                          <span className="bg-red-500 text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center">
                             {unreadCounts[contact.id] > 9 ? '9+' : unreadCounts[contact.id]}
                           </span>
                         )}

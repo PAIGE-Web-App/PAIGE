@@ -120,7 +120,7 @@ export default function NotificationPopover({
                           </span>
                         </div>
                       </div>
-                      <span className={`text-xs ${bgColor} text-white px-2 py-1 rounded-full font-medium`}>
+                      <span className={`text-xs ${bgColor} text-white px-3 py-1 rounded-full font-medium`}>
                         {count > 9 ? '9+' : count}
                       </span>
                     </button>
