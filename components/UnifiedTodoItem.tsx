@@ -612,7 +612,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
           />
         )}
         {/* Main content */}
-        <div className="flex-1 flex items-start gap-2">
+        <div className="flex-1 flex items-start gap-1">
       {/* Checkbox (only in page mode) */}
       {mode === 'page' && (
             <button onClick={(e) => { 
