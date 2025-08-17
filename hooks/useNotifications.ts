@@ -111,8 +111,7 @@ export function useNotifications() {
     setLoading(true);
     const unsubscribeFunctions: (() => void)[] = [];
     
-    // Debug: Log initial state
-    console.log('🔔 [useNotifications] Setting up listeners for user:', user.uid);
+    // Set up listeners for user
 
     // Listen for unread messages across all contacts - FIXED aggregation logic
     const setupMessageListener = async () => {
@@ -147,16 +146,16 @@ export function useNotifications() {
             // Calculate total unread messages across all contacts
             const totalUnreadMessages = Array.from(contactMessageCounts.values()).reduce((sum, count) => sum + count, 0);
             
-            console.log('🔔 [useNotifications] Contact', contactId, 'has', snapshot.docs.length, 'unread messages. Total:', totalUnreadMessages);
+
             
             setNotificationCounts(prev => {
-              const newTotal = prev.todo + prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages;
+              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages;
               const newCounts = {
                 ...prev,
                 messages: totalUnreadMessages,
                 total: newTotal
               };
-              console.log('🔔 [useNotifications] Message listener - totalUnreadMessages:', totalUnreadMessages, 'newTotal:', newTotal, 'fullCounts:', newCounts);
+
               return newCounts;
             });
           });
@@ -202,10 +201,7 @@ export function useNotifications() {
             }
           });
 
-          // Log only when there are issues or for debugging
-          if (totalIncomplete === 0) {
-            console.log('🔔 [useNotifications] Warning: No incomplete todo items found');
-          }
+
 
           setNotificationCounts(prev => {
             const newTotal = prev.messages + prev.budget + prev.vendors + newAssignedCount;
@@ -215,7 +211,7 @@ export function useNotifications() {
               todoAssigned: newAssignedCount, // This should show assigned items only
               total: newTotal
             };
-            console.log('🔔 [useNotifications] Updated counts:', newCounts);
+
             return newCounts;
           });
         });

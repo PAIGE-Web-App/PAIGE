@@ -47,24 +47,24 @@ export default function NotificationPopover({
 
   return (
     <div className="absolute left-full ml-2 bottom-0 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 py-2 min-w-[280px] max-h-[400px] overflow-y-auto">
-      <div className="px-3 py-2 border-b border-[#AB9C95] flex items-center justify-between">
-        <div>
+      <div className="px-3 py-2 border-b border-[#AB9C95]">
+        <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-semibold text-[#332B42]">Notifications</h4>
-          <p className="text-xs text-[#AB9C95] mt-1">Click 'View' to see details or 'Dismiss' to clear</p>
+          <button
+            onClick={onClose}
+            className="text-[#AB9C95] hover:text-[#332B42] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="text-[#AB9C95] hover:text-[#332B42] transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <p className="text-xs text-[#AB9C95]">Click 'View' to see details or 'Dismiss' to clear</p>
       </div>
       
       {!hasNotifications ? (
         <>
           <div className="px-3 py-8 text-center text-sm text-[#AB9C95]">
             <div className="mb-2">
-              <ThumbsUp className="w-8 h-8 mx-auto text-[#AB9C95]" />
+              <ThumbsUp className="w-8 h-8 mx-auto text-[#AB9C95] border border-[#AB9C95] border-[1.5px] rounded-full p-1" />
             </div>
             <p>You're all caught up!</p>
             <p className="text-xs mt-1">Nothing new to review</p>
