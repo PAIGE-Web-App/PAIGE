@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileItem, FileFolder } from '@/types/files';
-import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit } from 'lucide-react';
+import { FileText, MoreHorizontal, Download, Eye, Trash2, Edit, Sparkles } from 'lucide-react';
 import MicroMenu from './MicroMenu';
 import { useDragDrop } from './DragDropContext';
 import FilePreview from './FilePreview';
@@ -13,12 +13,13 @@ interface FileItemComponentProps {
   onDelete: (fileId: string) => void;
   onEdit: (file: FileItem) => void;
   onSelect: (file: FileItem) => void;
+  onAnalyze: (file: FileItem) => void;
   isSelected?: boolean;
   viewMode?: 'list' | 'grid';
   folders?: FileFolder[];
 }
 
-const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, isSelected, viewMode, folders = [] }) => {
+const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, onAnalyze, isSelected, viewMode, folders = [] }) => {
   const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
   const { profileImageUrl } = useAuth();
   
@@ -68,6 +69,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         } ${isThisFileDragging ? 'opacity-40' : ''}`}
 
         onClick={() => onSelect(file)}
+        onDoubleClick={() => onAnalyze(file)}
         draggable
         onDragStart={(e) => {
           setDraggedItem({ type: 'file', item: file });
@@ -172,17 +174,24 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           <MicroMenu
             items={[
               {
+                label: 'Analyze with Paige',
+                icon: <Sparkles className="w-4 h-4" />,
+                onClick: () => onAnalyze(file)
+              },
+              {
                 label: 'Edit',
+                icon: <Edit className="w-4 h-4" />,
                 onClick: () => onEdit(file)
               },
               {
                 label: 'Delete',
+                icon: <Trash2 className="w-4 h-4" />,
                 onClick: () => onDelete(file.id),
                 className: 'text-red-600 hover:bg-red-50'
               }
             ]}
             buttonClassName="p-1.5 hover:bg-[#F8F6F4] rounded-full transition-colors"
-            menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            menuClassName="absolute right-0 mt-1 w-48 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
           />
         </div>
       </div>
@@ -198,6 +207,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           : 'border-[#E0DBD7] hover:border-[#AB9C95]'
       } ${isThisFileDragging ? 'opacity-40' : ''}`}
       onClick={() => onSelect(file)}
+      onDoubleClick={() => onAnalyze(file)}
       draggable
       onDragStart={(e) => {
         setDraggedItem({ type: 'file', item: file });
@@ -281,17 +291,24 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           <MicroMenu
             items={[
               {
+                label: 'Analyze with Paige',
+                icon: <Sparkles className="w-4 h-4" />,
+                onClick: () => onAnalyze(file)
+              },
+              {
                 label: 'Edit',
+                icon: <Edit className="w-4 h-4" />,
                 onClick: () => onEdit(file)
               },
               {
                 label: 'Delete',
+                icon: <Trash2 className="w-4 h-4" />,
                 onClick: () => onDelete(file.id),
                 className: 'text-red-600 hover:bg-red-50'
               }
             ]}
             buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
-            menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            menuClassName="absolute right-0 mt-1 w-48 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
           />
         </div>
       </div>

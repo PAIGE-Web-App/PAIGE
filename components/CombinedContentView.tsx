@@ -16,6 +16,7 @@ interface CombinedContentViewProps {
   onSelectFile: (file: FileItem) => void;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
+  onAnalyzeFile: (file: FileItem) => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
   onMoveFile?: (fileId: string, newFolderId: string) => Promise<void>;
   onEditSubfolder?: (subfolder: FileFolder) => void;
@@ -33,6 +34,7 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
   onSelectFile,
   onDeleteFile,
   onEditFile,
+  onAnalyzeFile,
   onSelectSubfolder,
   onMoveFile,
   onEditSubfolder,
@@ -97,6 +99,7 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
               onSelectFile={onSelectFile}
               onDeleteFile={onDeleteFile}
               onEditFile={onEditFile}
+              onAnalyzeFile={onAnalyzeFile}
             />
           </div>
         </div>

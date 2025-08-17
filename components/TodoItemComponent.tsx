@@ -426,13 +426,13 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
       )}
 
       {/* Checkbox */}
-      <button onClick={() => handleToggleTodoComplete(todo)} className="flex-shrink-0 flex items-center justify-center w-auto m-0" style={{marginRight: 0, marginLeft: 0, padding: 0}}>
+      <button onClick={() => handleToggleTodoComplete(todo)} className="flex-shrink-0 flex items-center justify-center w-4 h-4">
         {todo.isCompleted ? (
-          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center" style={{width: '16px', height: '16px', minWidth: '16px', minHeight: '16px', margin: 0, padding: 0}}>
+          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] flex items-center justify-center w-4 h-4">
             <Check size={10} className="text-[#A85C36]" />
           </div>
         ) : (
-          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0]" style={{width: '16px', height: '16px', minWidth: '16px', minHeight: '16px', margin: 0, padding: 0}}></div>
+          <div className="rounded-full border-[1px] border-[#AEAEAE] bg-[#F3F2F0] w-4 h-4"></div>
         )}
       </button>
 

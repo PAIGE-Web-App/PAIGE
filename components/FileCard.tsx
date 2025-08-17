@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { FileItem, FileFolder } from '@/types/files';
-import { Eye, Download, MoreHorizontal } from 'lucide-react';
+import { Eye, Download, MoreHorizontal, Sparkles, Edit, Trash2 } from 'lucide-react';
 import MicroMenu from './MicroMenu';
 import { useDragDrop } from './DragDropContext';
 import FilePreview from './FilePreview';
@@ -10,11 +10,12 @@ interface FileCardProps {
   onDelete: (fileId: string) => void;
   onEdit: (file: FileItem) => void;
   onSelect: (file: FileItem) => void;
+  onAnalyze: (file: FileItem) => void;
   isSelected?: boolean;
   folders?: FileFolder[];
 }
 
-const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, isSelected, folders = [] }: FileCardProps) => {
+const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, onAnalyze, isSelected, folders = [] }: FileCardProps) => {
   const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
   
   // Check if this file is currently being dragged
@@ -44,6 +45,16 @@ const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, isSelected, fol
     
     onSelect(file);
   }, [onSelect, file]);
+
+  const handleCardDoubleClick = useCallback((e: React.MouseEvent) => {
+    // Don't trigger if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('a')) {
+      return;
+    }
+    
+    onAnalyze(file);
+  }, [onAnalyze, file]);
 
   const handleViewClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -110,6 +121,7 @@ const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, isSelected, fol
         isSelected ? 'border-[#A85C36] border-2' : 'border-[#E0DBD7]'
       } ${isThisFileDragging ? 'opacity-40' : ''}`}
       onClick={handleCardClick}
+      onDoubleClick={handleCardDoubleClick}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -209,17 +221,24 @@ const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, isSelected, fol
         <MicroMenu
           items={[
             {
+              label: 'Analyze with Paige',
+              icon: <Sparkles className="w-4 h-4" />,
+              onClick: () => onAnalyze(file)
+            },
+            {
               label: 'Edit',
+              icon: <Edit className="w-4 h-4" />,
               onClick: () => onEdit(file)
             },
             {
               label: 'Delete',
+              icon: <Trash2 className="w-4 h-4" />,
               onClick: () => onDelete(file.id),
               className: 'text-red-600 hover:bg-red-50'
             }
           ]}
           buttonClassName="p-1.5 hover:bg-[#F8F6F4] rounded-full transition-colors"
-          menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+          menuClassName="absolute right-0 mt-1 w-48 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
         />
       </div>
     </div>

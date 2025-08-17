@@ -54,6 +54,7 @@ export function useFilesPageState({
   const [folderToEdit, setFolderToEdit] = useState<FileFolder | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSubfolderLimitBanner, setShowSubfolderLimitBanner] = useState(true);
+  const [showAIPanel, setShowAIPanel] = useState(false);
 
   // Computed values with memoization
   const currentFolder = selectedFolder;
@@ -325,6 +326,7 @@ export function useFilesPageState({
     folderToEdit,
     showUpgradeModal,
     showSubfolderLimitBanner,
+    showAIPanel,
     
     // Computed values
     currentFolder,
@@ -354,6 +356,7 @@ export function useFilesPageState({
     setFolderToEdit,
     setShowUpgradeModal,
     setShowSubfolderLimitBanner,
+    setShowAIPanel,
     
     // Handlers
     handleAddFolder,

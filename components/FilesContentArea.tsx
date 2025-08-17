@@ -36,6 +36,7 @@ interface FilesContentAreaProps {
   onSelectFile: (file: FileItem) => void;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
+  onAnalyzeFile: (file: FileItem) => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
   onCreateSubfolder: () => void;
   onUploadFile: () => void;
@@ -77,6 +78,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   onSelectFile,
   onDeleteFile,
   onEditFile,
+  onAnalyzeFile,
   onSelectSubfolder,
   onCreateSubfolder,
   onUploadFile,
@@ -158,6 +160,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         selectedFile={selectedFile}
         onDeleteFile={onDeleteFile}
         onEditFile={onEditFile}
+        onAnalyzeFile={onAnalyzeFile}
         onSelectSubfolder={onSelectSubfolder}
         onUploadComplete={onUploadComplete}
         onMoveFile={onMoveFile}

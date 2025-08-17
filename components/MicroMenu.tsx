@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface MicroMenuItem {
   label: string;
   onClick: () => void;
   className?: string;
+  icon?: React.ReactNode;
 }
 
 interface MicroMenuProps {
@@ -62,21 +64,32 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
         <MoreHorizontal size={16} className="text-gray-500" />
       </button>
       
-      {isOpen && (
-        <div className={menuClassName}>
-          {items.map((item, index) => (
-            <button
-              key={index}
-              onClick={() => handleItemClick(item)}
-              className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                item.className || 'text-gray-700'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={menuClassName}
+          >
+            {items.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => handleItemClick(item)}
+                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                  item.className || 'text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  {item.icon && <span className="flex-shrink-0">{item.icon}</span>}
+                  <span className="truncate">{item.label}</span>
+                </div>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

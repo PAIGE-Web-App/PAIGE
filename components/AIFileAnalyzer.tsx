@@ -18,6 +18,7 @@ interface AIFileAnalyzerProps {
   onClose: () => void;
   onAnalyzeFile: (fileId: string, analysisType: string) => Promise<void>;
   onAskQuestion: (fileId: string, question: string) => Promise<string>;
+  isVisible: boolean;
 }
 
 const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
@@ -25,6 +26,7 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
   onClose,
   onAnalyzeFile,
   onAskQuestion,
+  isVisible,
 }) => {
   const [messages, setMessages] = useState<AIAnalysisMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -47,6 +49,16 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
   useEffect(() => {
     if (selectedFile && messages.length === 0) {
       initializeFileAnalysis();
+    }
+  }, [selectedFile, messages.length]);
+
+  // Reset messages when file changes
+  useEffect(() => {
+    if (selectedFile) {
+      setMessages([]);
+      setInputValue('');
+      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   }, [selectedFile]);
 
@@ -220,7 +232,7 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
         <div className="p-6 border-b border-[#E0DBD7]">
           <h3 className="text-lg font-playfair font-semibold text-[#332B42] flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#A85C36]" />
-            AI File Analyzer
+            Analyze with Paige
           </h3>
           <p className="text-sm text-[#AB9C95] mt-1">
             Select a file to start analyzing
@@ -234,7 +246,7 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
               No File Selected
             </h4>
             <p className="text-[#AB9C95] text-sm">
-              Choose a file from the list to analyze it with AI
+              Choose a file from the list to analyze it with Paige
             </p>
           </div>
         </div>
@@ -243,21 +255,33 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
   }
 
   return (
-    <div className="h-full bg-white border-l border-[#E0DBD7] flex flex-col">
-      {/* Header */}
-      <div className="p-6 border-b border-[#E0DBD7] flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-playfair font-semibold text-[#332B42] flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#A85C36]" />
-            AI File Analyzer
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-[#AB9C95] hover:text-[#332B42] p-1 rounded-full"
-          >
-            <Plus className="w-4 h-4 rotate-45" />
-          </button>
-        </div>
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
+          className="h-full bg-white border-l border-[#E0DBD7] flex flex-col overflow-hidden w-[600px] flex-shrink-0"
+        >
+          {/* Header */}
+          <div className="p-6 border-b border-[#E0DBD7] flex-shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-playfair font-semibold text-[#332B42] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#A85C36]" />
+                Analyze with Paige
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-[#AB9C95] hover:text-[#332B42] p-1 rounded-full hover:bg-[#F8F6F4] transition-colors"
+                title="Close Analyze with Paige"
+              >
+                <Plus className="w-4 h-4 rotate-45" />
+              </button>
+            </div>
         
         {/* Selected File Info */}
         <div className="bg-[#F8F6F4] rounded-[5px] p-3 border border-[#E0DBD7]">
@@ -336,7 +360,9 @@ const AIFileAnalyzer: React.FC<AIFileAnalyzerProps> = ({
           </div>
         </div>
       </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

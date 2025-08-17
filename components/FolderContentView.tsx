@@ -16,6 +16,7 @@ interface FolderContentViewProps {
   selectedFile: FileItem | null;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
+  onAnalyzeFile: (file: FileItem) => void;
   onSelectSubfolder: (subfolder: FileFolder) => void;
   onUploadComplete: (fileId: string) => void;
   onMoveFile?: (fileId: string, newFolderId: string) => Promise<void>;
@@ -35,6 +36,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   selectedFile,
   onDeleteFile,
   onEditFile,
+  onAnalyzeFile,
   onSelectSubfolder,
   onUploadComplete,
   onMoveFile,
@@ -117,6 +119,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
               onSelectFile={onSelectFile}
               onDeleteFile={onDeleteFile}
               onEditFile={onEditFile}
+              onAnalyzeFile={onAnalyzeFile}
               onSelectSubfolder={onSelectSubfolder}
               onMoveFile={onMoveFile}
               onEditSubfolder={onEditSubfolder}

@@ -44,7 +44,7 @@ const AIFileAnalyzer = dynamic(() => import('@/components/AIFileAnalyzer'), {
 });
 
 // Types
-import { FileFolder } from '@/types/files';
+import { FileFolder, FileItem } from '@/types/files';
 
 // Constants
 const STARTER_TIER_MAX_SUBFOLDER_LEVELS = 3;
@@ -135,6 +135,7 @@ export default function FilesPage() {
     folderToEdit,
     showUpgradeModal,
     showSubfolderLimitBanner,
+    showAIPanel,
     
     // Computed values
     currentFolder,
@@ -164,6 +165,7 @@ export default function FilesPage() {
     setFolderToEdit,
     setShowUpgradeModal,
     setShowSubfolderLimitBanner,
+    setShowAIPanel,
     
     // Handlers
     handleAddFolder,
@@ -297,6 +299,13 @@ export default function FilesPage() {
     console.log('Analyze file:', fileId, analysisType);
   }, []);
 
+  const handleAnalyzeFileFromMenu = useCallback((file: FileItem) => {
+    // Open AI analyzer for the selected file
+    setSelectedFile(file);
+    // Show the AI panel with smooth animation
+    setShowAIPanel(true);
+  }, [setSelectedFile, setShowAIPanel]);
+
   const handleAskQuestion = useCallback(async (fileId: string, question: string) => {
     // TODO: Implement AI question answering
     console.log('Ask question:', fileId, question);
@@ -426,6 +435,7 @@ export default function FilesPage() {
                 onSelectFile={handleSelectFile}
                 onDeleteFile={handleDeleteFile}
                 onEditFile={(file) => console.log('Edit file:', file)}
+                onAnalyzeFile={handleAnalyzeFileFromMenu}
                 onSelectSubfolder={handleSelectSubfolder}
                 onCreateSubfolder={handleCreateSubfolder}
                 onUploadFile={handleUploadFile}
@@ -440,15 +450,18 @@ export default function FilesPage() {
               />
           </main>
 
-          {/* AI File Analyzer Panel */}
-          <div className="md:w-[420px] w-full">
-            <AIFileAnalyzer
-              selectedFile={selectedFile}
-              onClose={handleCloseAIAnalyzer}
-              onAnalyzeFile={handleAnalyzeFile}
-              onAskQuestion={handleAskQuestion}
-            />
-          </div>
+          {/* AI File Analyzer Panel - Only rendered when visible */}
+          {showAIPanel && (
+            <div className="md:w-[600px] w-full">
+              <AIFileAnalyzer
+                selectedFile={selectedFile}
+                onClose={() => setShowAIPanel(false)}
+                onAnalyzeFile={handleAnalyzeFile}
+                onAskQuestion={handleAskQuestion}
+                isVisible={showAIPanel}
+              />
+            </div>
+          )}
         </div>
       </div>
 
