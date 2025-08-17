@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-
-const db = admin.firestore();
+const db = getAdminDb();
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    const decodedToken = await (await import('@/lib/firebaseAdmin')).adminAuth.verifyIdToken(token);
     
     // Check if user has admin privileges
     const userDoc = await db.collection('users').doc(decodedToken.uid).get();

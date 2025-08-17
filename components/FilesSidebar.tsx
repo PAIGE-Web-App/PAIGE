@@ -4,6 +4,7 @@ import { FileFolder } from '@/types/files';
 import { Folder, FolderOpen, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 import { useDragDrop } from './DragDropContext';
+import SectionHeader from './SectionHeader';
 
 interface FilesSidebarProps {
   folders: FileFolder[];
@@ -278,7 +279,8 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               </span>
             </div>
 
-            {/* Show folders with hierarchy - always show this section since "All Files" is always present */}
+            {/* Folders Section */}
+            <SectionHeader title="Folders" />
             {(() => {
               const topLevelFolders = folders.filter(f => f.id !== 'all' && !f.parentId);
               const subfolders = folders.filter(f => f.id !== 'all' && f.parentId);

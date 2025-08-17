@@ -307,15 +307,10 @@ export default function Login() {
       setNeedsGmailReauth(false);
       
       // Show success toast
-      showSuccessToast('Gmail re-authentication successful! Logging you in...');
+      showSuccessToast('Gmail re-authentication successful! Please Login.');
       
-      // Automatically trigger login with the existing Google account
-      if (googleAccount) {
-        // Small delay to ensure state is updated
-        setTimeout(() => {
-          handleSmartGoogleLogin();
-        }, 1000);
-      }
+      // Note: Gmail re-authentication and user login are separate processes
+      // Users need to manually complete the login flow
     }
   }, [googleAccount]);
 

@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+import { getAdminDb, adminAuth } from '@/lib/firebaseAdmin';
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(
-    Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!, 'base64').toString()
-  );
-  
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-}
-
-const auth = admin.auth();
-const db = admin.firestore();
+const db = getAdminDb();
+const auth = adminAuth;
 
 export async function GET(request: NextRequest) {
   try {

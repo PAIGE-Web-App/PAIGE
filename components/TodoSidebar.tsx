@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import TaskSideCard from './TaskSideCard';
 import BadgeCount from './BadgeCount';
 import NewListOnboardingModal from './NewListOnboardingModal';
+import SectionHeader from './SectionHeader';
 
 interface TodoSidebarProps {
   todoLists: any[];
@@ -161,10 +162,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                 <BadgeCount count={allTodoItems.filter(item => item.isCompleted).length} />
               </span>
             </div>
-            <div className="my-12 flex items-center gap-2">
-              <span className="text-xs text-[#AB9C95] uppercase tracking-wider font-semibold">Your Lists</span>
-              <div className="flex-1 h-px bg-[#E0DBD7]"></div>
-            </div>
+            <SectionHeader title="Your Lists" />
             {todoLists.map((list) => (
               <div
                 key={list.id}
