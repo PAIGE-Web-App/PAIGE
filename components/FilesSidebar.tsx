@@ -188,7 +188,11 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               }`}
             >
               <span className="mr-2" title={subfolder.name}>
-                <Folder className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
+                {hasChildren ? (
+                  <FolderOpen className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
+                ) : (
+                  <Folder className="w-4 h-4" style={{ color: subfolder.color || '#8B7355', strokeWidth: 1, fill: subfolder.color || '#8B7355' }} />
+                )}
               </span>
               <span className="truncate flex-1 min-w-0" title={subfolder.name}>
                 {subfolder.name}
@@ -303,76 +307,85 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                     
                     return (
                       <div key={folder.id}>
-                                                  <div className="flex items-center">
-                            {/* Expand/Collapse button - only show if folder has children */}
-                            {hasChildren && (
-                              <div className="w-6 h-6 flex items-center justify-center mr-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleFolderExpansion(folder.id);
-                                  }}
-                                  className="p-1 hover:bg-[#F8F6F4] rounded-[3px]"
-                                  title={isExpanded ? "Collapse" : "Expand"}
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDown className="w-4 h-4 text-[#AB9C95]" />
-                                  ) : (
-                                    <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
-                                  )}
-                                </button>
-                              </div>
-                            )}
-                            
-                            {/* Folder item */}
-                            <div
-                              onClick={() => {
-                                setSelectedFolder(folder);
-                                setFileSearchQuery('');
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // Don't allow dropping into the currently selected folder
-                                if (isDragging && draggedItem?.type === 'file' && selectedFolder?.id !== folder.id) {
-                                  setDropTarget(folder.id);
-                                  setHoveredFolderForMove(folder);
-                                }
-                              }}
-                              onDragLeave={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // Only clear if we're not dragging over a child element
-                                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                                  setDropTarget(null);
-                                  setHoveredFolderForMove(null);
-                                }
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
+                        <div className="flex items-center">
+                          {/* Expand/Collapse button - only show if folder has children */}
+                          {hasChildren && (
+                            <div className="w-5 h-6 flex items-center justify-center mr-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFolderExpansion(folder.id);
+                                }}
+                                className="p-1 hover:bg-[#F8F6F4] rounded-[3px] transition-colors"
+                                title={isExpanded ? "Collapse" : "Expand"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-[#AB9C95]" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-[#AB9C95]" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                          
+                          {/* Spacer for folders without children to maintain alignment */}
+                          {!hasChildren && (
+                            <div className="w-5 h-6 mr-1"></div>
+                          )}
+                          
+                          {/* Folder item */}
+                          <div
+                            onClick={() => {
+                              setSelectedFolder(folder);
+                              setFileSearchQuery('');
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Don't allow dropping into the currently selected folder
+                              if (isDragging && draggedItem?.type === 'file' && selectedFolder?.id !== folder.id) {
+                                setDropTarget(folder.id);
+                                setHoveredFolderForMove(folder);
+                              }
+                            }}
+                            onDragLeave={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Only clear if we're not dragging over a child element
+                              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                                 setDropTarget(null);
                                 setHoveredFolderForMove(null);
-                                // Don't allow dropping into the currently selected folder
-                                if (draggedItem?.type === 'file' && onMoveFile && selectedFolder?.id !== folder.id) {
-                                  onMoveFile(draggedItem.item.id, folder.id);
-                                }
-                              }}
-                              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 transition-all duration-200 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${
-                                dropTarget === folder.id && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
-                              }`}
-                            >
-                              <span className="mr-2" title={folder.name}>
+                              }
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropTarget(null);
+                              setHoveredFolderForMove(null);
+                              // Don't allow dropping into the currently selected folder
+                              if (draggedItem?.type === 'file' && onMoveFile && selectedFolder?.id !== folder.id) {
+                                onMoveFile(draggedItem.item.id, folder.id);
+                              }
+                            }}
+                            className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer flex-1 transition-all duration-200 ${selectedFolder?.id === folder.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${
+                              dropTarget === folder.id && isDragging ? 'bg-[#F0EDE8] border-2 border-[#A85C36] shadow-md' : ''
+                            }`}
+                          >
+                            <span className="mr-2" title={folder.name}>
+                              {hasChildren ? (
+                                <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1, fill: folder.color || '#8B7355' }} />
+                              ) : (
                                 <Folder className="w-4 h-4" style={{ color: folder.color || '#8B7355', strokeWidth: 1, fill: folder.color || '#8B7355' }} />
-                              </span>
-                              <span className="truncate flex-1 min-w-0" title={folder.name}>
-                                {folder.name}
-                              </span>
-                              <span className="ml-auto">
-                                <BadgeCount count={folderFileCounts.get(folder.id) ?? 0} />
-                              </span>
-                            </div>
+                              )}
+                            </span>
+                            <span className="truncate flex-1 min-w-0" title={folder.name}>
+                              {folder.name}
+                            </span>
+                            <span className="ml-auto">
+                              <BadgeCount count={folderFileCounts.get(folder.id) ?? 0} />
+                            </span>
                           </div>
+                        </div>
                         
                         {/* Subfolders of this folder - only show if expanded */}
                         {isExpanded && renderSubfolders(folder.id)}
