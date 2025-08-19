@@ -201,7 +201,9 @@ export default function VendorCardRoverStyle({
 
 
   return (
-    <div className={`group bg-white p-4 transition-all duration-200 min-h-[140px] flex flex-col ${isHighlighted ? 'bg-[#F8F7F5] ring-1 ring-[#A85C36] ring-opacity-30' : ''}`}>
+    <div 
+      className={`group p-4 transition-all duration-200 min-h-[140px] flex flex-col ${isHighlighted ? 'bg-[#F8F7F5] ring-1 ring-[#A85C36] ring-opacity-30' : 'bg-white'}`}
+    >
       <div className="flex gap-4 flex-1">
         {/* Left: Image */}
         <div className="flex-shrink-0">

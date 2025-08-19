@@ -42,6 +42,11 @@ export default function RoverStyleVendorSearch() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [hoveredVendor, setHoveredVendor] = useState<Vendor | null>(null);
+  
+  // Debug hoveredVendor changes
+  useEffect(() => {
+    console.log('🎯 hoveredVendor state changed:', hoveredVendor);
+  }, [hoveredVendor]);
   const [expandedFilters, setExpandedFilters] = useState({ price: false, rating: false, distance: false });
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   
@@ -116,21 +121,7 @@ export default function RoverStyleVendorSearch() {
     if (urlDistance) setSearchParams({ distance: parseInt(urlDistance) });
   }, []);
 
-  // Handle vendor hover events from map
-  useEffect(() => {
-    const handleVendorHover = (event: CustomEvent) => {
-      if (event.detail.isHovered) {
-        setHoveredVendor(event.detail.vendor);
-      } else {
-        setHoveredVendor(null);
-      }
-    };
 
-    window.addEventListener('vendorHover', handleVendorHover as EventListener);
-    return () => {
-      window.removeEventListener('vendorHover', handleVendorHover as EventListener);
-    };
-  }, []);
 
   // Search functionality
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
