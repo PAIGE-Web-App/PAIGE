@@ -189,12 +189,23 @@ export function useTodoItems(selectedList: TodoList | null) {
     try {
       await addDoc(getUserCollectionRef('todoItems', user.uid), {
         name: newTaskName.trim(),
+        deadline: null,
+        startDate: null,
+        endDate: null,
+        note: null,
+        category: null,
+        contactId: null,
         isCompleted: false,
-        order: todoItems.length,
         createdAt: new Date(),
         listId,
         userId: user.uid,
-        orderIndex: todoItems.length
+        orderIndex: todoItems.length,
+        completedAt: null,
+        justUpdated: false,
+        assignedTo: null,
+        assignedBy: null,
+        assignedAt: null,
+        notificationRead: false
       });
       showSuccessToast(`Task "${newTaskName}" added!`);
       setNewTaskName('');
@@ -324,20 +335,49 @@ export function useTodoItems(selectedList: TodoList | null) {
     if (!user) return;
 
     try {
-      await addDoc(getUserCollectionRef('todoItems', user.uid), {
+      // Get the current max orderIndex in the list
+      const maxOrderIndex = todoItems.length > 0 ? Math.max(...todoItems.map(item => item.orderIndex)) : -1;
+      
+      // Create the cloned todo with all required fields, handling undefined values
+      const clonedTodo = {
         name: `${todo.name} (Copy)`,
-        note: todo.note,
-        deadline: todo.deadline,
-        endDate: todo.endDate,
-        category: todo.category,
+        note: todo.note || null,
+        deadline: todo.deadline || null,
+        startDate: todo.startDate || null,
+        endDate: todo.endDate || null,
+        category: todo.category || null,
+        contactId: todo.contactId || null,
         isCompleted: false,
-        order: todoItems.length,
         createdAt: new Date(),
         listId: todo.listId,
         userId: user.uid,
-        orderIndex: todoItems.length
-      });
+        orderIndex: maxOrderIndex + 1,
+        completedAt: null,
+        justUpdated: false,
+        assignedTo: todo.assignedTo || null,
+        assignedBy: todo.assignedBy || null,
+        assignedAt: todo.assignedAt || null,
+        notificationRead: false
+      };
+
+      const docRef = await addDoc(getUserCollectionRef('todoItems', user.uid), clonedTodo);
       showSuccessToast(`Task "${todo.name}" cloned!`);
+      
+      // Trigger green flash animation for the cloned item
+      if (docRef.id) {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: true } : item
+          )
+        );
+        setTimeout(() => {
+          setTodoItems(prevItems =>
+            prevItems.map(item =>
+              item.id === docRef.id ? { ...item, justUpdated: false } : item
+            )
+          );
+        }, 1000);
+      }
     } catch (error: any) {
       console.error('Error cloning task:', error);
       showErrorToast('Failed to clone task.');
@@ -526,13 +566,21 @@ export function useTodoItems(selectedList: TodoList | null) {
         name: data.name,
         note: data.note || null,
         deadline: data.deadline || null,
+        startDate: data.startDate || null,
+        endDate: data.endDate || null,
         category: data.category || null,
+        contactId: null,
         isCompleted: false,
-        order: todoItems.length,
         createdAt: new Date(),
         listId,
         userId: user.uid,
-        orderIndex: todoItems.length
+        orderIndex: todoItems.length,
+        completedAt: null,
+        justUpdated: false,
+        assignedTo: null,
+        assignedBy: null,
+        assignedAt: null,
+        notificationRead: false
       });
       showSuccessToast(`Task "${data.name}" added!`);
       handleCloseAddTodo();

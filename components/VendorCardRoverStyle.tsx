@@ -306,7 +306,7 @@ export default function VendorCardRoverStyle({
           <div className="flex items-center gap-2">
             <button
               onClick={onContact}
-              className="flex items-center gap-2 px-3 py-2 bg-[#A85C36] text-white text-sm font-medium rounded-[5px] hover:bg-[#784528] transition-colors"
+              className="btn-secondary flex items-center gap-2"
             >
               <MessageSquare size={14} />
               Contact
@@ -315,7 +315,7 @@ export default function VendorCardRoverStyle({
             {vendor.formatted_phone_number && (
               <a
                 href={`tel:${vendor.formatted_phone_number}`}
-                className="flex items-center gap-1 px-3 py-2 text-[#A85C36] border border-[#A85C36] text-sm font-medium rounded-[5px] hover:bg-[#A85C36] hover:text-white transition-colors"
+                className="btn-primaryinverse flex items-center gap-1"
               >
                 <Phone size={14} />
                 Call
@@ -327,9 +327,9 @@ export default function VendorCardRoverStyle({
                 href={vendor.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-2 text-[#A85C36] border border-[#A85C36] text-sm font-medium rounded-[5px] hover:bg-[#A85C36] hover:text-white transition-colors"
+                className="btn-primaryinverse flex items-center gap-1"
               >
-                <Globe size={14} />
+                <Globe size={16} />
                 Website
               </a>
             )}

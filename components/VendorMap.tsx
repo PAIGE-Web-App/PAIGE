@@ -241,12 +241,6 @@ const VendorMap: React.FC<VendorMapProps> = ({
   if (!window.google?.maps) {
     return (
       <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
-        <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
-          <h5 className="h5">Map View</h5>
-          <button className="text-[#A85C36] hover:text-[#784528] text-sm">
-            Enlarge map
-          </button>
-        </div>
         <div className="flex-1 bg-[#F3F2F0] flex items-center justify-center">
           <div className="text-center text-[#AB9C95]">
             <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -266,12 +260,6 @@ const VendorMap: React.FC<VendorMapProps> = ({
   if (vendors.length === 0) {
     return (
       <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
-        <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
-          <h5 className="h5">Map View</h5>
-          <button className="text-[#A85C36] hover:text-[#784528] text-sm">
-            Enlarge map
-          </button>
-        </div>
         <div className="flex-1 bg-[#F3F2F0] flex items-center justify-center">
           <div className="text-center text-[#AB9C95]">
             <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -285,12 +273,6 @@ const VendorMap: React.FC<VendorMapProps> = ({
 
   return (
     <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full min-h-[600px] flex flex-col">
-      <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between">
-        <h5 className="h5">Map View</h5>
-        <button className="text-[#A85C36] hover:text-[#784528] text-sm">
-          Enlarge map
-        </button>
-      </div>
       <div className="flex-1 relative">
         <div ref={mapRef} className="w-full h-full rounded-b-[5px]" />
         {visibleVendors.length > 0 && (

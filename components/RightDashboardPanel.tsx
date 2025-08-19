@@ -521,11 +521,23 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     const newTodo: TodoItem = {
       id: uuidv4(),
       name: 'New To-do Item (Click to Edit)',
+      deadline: null,
+      startDate: null,
+      endDate: null,
+      note: null,
+      category: null,
+      contactId: null,
       isCompleted: false,
       userId: currentUser.uid,
       createdAt: new Date(),
       orderIndex: maxOrderIndex + 1,
       listId: selectedListId, // Assign to the currently selected list
+      completedAt: null,
+      justUpdated: false,
+      assignedTo: null,
+      assignedBy: null,
+      assignedAt: null,
+      notificationRead: false
     };
 
     try {
@@ -875,6 +887,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     const clonedTodo: Omit<TodoItem, 'id'> = {
       name: `Clone of ${todo.name}`,
       deadline: todo.deadline || null,
+      startDate: todo.startDate || null,
+      endDate: todo.endDate || null,
       note: todo.note || null,
       category: todo.category || null,
       contactId: todo.contactId || null,
@@ -883,14 +897,36 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       createdAt: newCreatedAt,
       orderIndex: maxOrderIndex + 1,
       listId: selectedListId, // Cloned item goes to the currently selected list
+      completedAt: null,
+      justUpdated: false,
+      assignedTo: todo.assignedTo || null,
+      assignedBy: todo.assignedBy || null,
+      assignedAt: todo.assignedAt || null,
+      notificationRead: false
     };
 
     try {
-      await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
+      const docRef = await addDoc(getUserCollectionRef("todoItems", currentUser.uid), {
         ...clonedTodo,
         createdAt: clonedTodo.createdAt, // Ensure Firestore Timestamp conversion
       });
       showSuccessToast('To-do item cloned successfully!');
+      
+      // Trigger green flash animation for the cloned item
+      if (docRef.id) {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: true } : item
+          )
+        );
+        setTimeout(() => {
+          setTodoItems(prevItems =>
+            prevItems.map(item =>
+              item.id === docRef.id ? { ...item, justUpdated: false } : item
+            )
+          );
+        }, 1000);
+      }
     } catch (error: any) {
       console.error('Error cloning To-do item:', error);
       showErrorToast(`Failed to clone To-do item: ${error.message}`);

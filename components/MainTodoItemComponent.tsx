@@ -410,7 +410,7 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
           todo.isCompleted ? 'bg-gray-50' : 'bg-white'
         } ${draggedTodoId === todo.id ? 'opacity-50' : ''} ${
           dragOverTodoId === todo.id ? 'border-blue-500' : ''
-        } ${(justUpdated || todo.justUpdated) ? 'animate-pulse' : ''}`}
+        } ${(justUpdated || todo.justUpdated) ? 'bg-green-100' : ''}`}
       >
         <div className="flex items-start gap-3">
           <button
