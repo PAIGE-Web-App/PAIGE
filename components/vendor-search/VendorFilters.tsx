@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Star, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { VendorCategory } from '@/types/vendor';
+import SelectField from '@/components/SelectField';
 
 interface VendorFiltersProps {
   category: string;
@@ -67,23 +68,16 @@ export default function VendorFilters({
           Search Filters
         </h5>
         
-        {/* Service Type */}
+        {/* Category */}
         <div className="mb-6">
-        <label className="block text-sm font-medium text-[#332B42] mb-2">
-          Service Type
-        </label>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] bg-white focus:border-[#A85C36] focus:outline-none transition-colors"
-        >
-          {categories.map(cat => (
-            <option key={cat.value} value={cat.value}>
-              {cat.label}
-            </option>
-          ))}
-        </select>
-      </div>
+          <SelectField
+            label="Category"
+            name="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            options={categories.map(cat => ({ value: cat.value, label: cat.label }))}
+          />
+        </div>
 
       {/* Location */}
       <div className="mb-6">
@@ -112,7 +106,7 @@ export default function VendorFilters({
             Distance
           </label>
           <button
-            onClick={() => setExpandedFilters(prev => ({ ...prev, distance: !prev.distance }))}
+            onClick={() => setExpandedFilters({ ...expandedFilters, distance: !expandedFilters.distance })}
             className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
           >
             {expandedFilters.distance ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -142,7 +136,7 @@ export default function VendorFilters({
             Price Range
           </label>
           <button
-            onClick={() => setExpandedFilters(prev => ({ ...prev, price: !prev.price }))}
+            onClick={() => setExpandedFilters({ ...expandedFilters, price: !expandedFilters.price })}
             className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
           >
             {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -155,14 +149,14 @@ export default function VendorFilters({
                 type="number"
                 placeholder="Min"
                 value={priceRange.min}
-                onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
                 className="flex-1 p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] focus:border-[#A85C36] focus:outline-none transition-colors"
               />
               <input
                 type="number"
                 placeholder="Max"
                 value={priceRange.max}
-                onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
                 className="flex-1 p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] focus:border-[#A85C36] focus:outline-none transition-colors"
               />
             </div>
@@ -177,7 +171,7 @@ export default function VendorFilters({
             Minimum Rating
           </label>
           <button
-            onClick={() => setExpandedFilters(prev => ({ ...prev, rating: !prev.rating }))}
+            onClick={() => setExpandedFilters({ ...expandedFilters, rating: !expandedFilters.rating })}
             className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
           >
             {expandedFilters.rating ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
