@@ -81,43 +81,41 @@ export default function VendorFilters({
 
       {/* Location */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-[#332B42] mb-2">
-          Location
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-[#332B42]">Location</span>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Enter city, state, or zip"
+            className="w-full border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95]"
+          />
+          <a
+            href="/settings?tab=wedding&highlight=weddingLocation"
+            className="text-xs text-[#A85C36] underline mt-1 inline-block hover:text-[#784528] transition-colors"
+          >
+            Update default location
+          </a>
         </label>
-        <input
-          type="text"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Enter city, state, or zip"
-          className="w-full p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] focus:border-[#A85C36] focus:outline-none transition-colors"
-        />
-        <a
-          href="/settings?tab=wedding&highlight=weddingLocation"
-          className="text-xs text-[#A85C36] underline mt-1 inline-block hover:text-[#784528] transition-colors"
-        >
-          Update default location
-        </a>
       </div>
 
       {/* Distance */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-[#332B42]">
-            Distance
-          </label>
-          <button
-            onClick={() => setExpandedFilters({ ...expandedFilters, distance: !expandedFilters.distance })}
-            className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
-          >
-            {expandedFilters.distance ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        </div>
-        {expandedFilters.distance && (
-          <div className="space-y-2">
+        <label className="block space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-[#332B42]">Distance</span>
+            <button
+              onClick={() => setExpandedFilters({ ...expandedFilters, distance: !expandedFilters.distance })}
+              className="text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0] p-1 rounded transition-colors"
+            >
+              {expandedFilters.distance ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+          {expandedFilters.distance && (
             <select
               value={distance}
               onChange={(e) => setDistance(parseInt(e.target.value))}
-              className="w-full p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] bg-white focus:border-[#A85C36] focus:outline-none transition-colors"
+              className="w-full border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95]"
             >
               <option value={5}>5 miles</option>
               <option value={10}>10 miles</option>
@@ -125,86 +123,84 @@ export default function VendorFilters({
               <option value={50}>50 miles</option>
               <option value={100}>100 miles</option>
             </select>
-          </div>
-        )}
+          )}
+        </label>
       </div>
 
       {/* Price Range */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-[#332B42]">
-            Price Range
-          </label>
-          <button
-            onClick={() => setExpandedFilters({ ...expandedFilters, price: !expandedFilters.price })}
-            className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
-          >
-            {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        </div>
-        {expandedFilters.price && (
-          <div className="space-y-2">
+        <label className="block space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-[#332B42]">Price Range</span>
+            <button
+              onClick={() => setExpandedFilters({ ...expandedFilters, price: !expandedFilters.price })}
+              className="text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0] p-1 rounded transition-colors"
+            >
+              {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+          {expandedFilters.price && (
             <div className="flex gap-2">
               <input
                 type="number"
                 placeholder="Min"
                 value={priceRange.min}
                 onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
-                className="flex-1 p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] focus:border-[#A85C36] focus:outline-none transition-colors"
+                className="flex-1 border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95]"
               />
               <input
                 type="number"
                 placeholder="Max"
                 value={priceRange.max}
                 onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
-                className="flex-1 p-2 border border-[#AB9C95] rounded-[5px] text-[#332B42] focus:border-[#A85C36] focus:outline-none transition-colors"
+                className="flex-1 border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95]"
               />
             </div>
-          </div>
-        )}
+          )}
+        </label>
       </div>
 
       {/* Rating Filter */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-[#332B42]">
-            Minimum Rating
-          </label>
-          <button
-            onClick={() => setExpandedFilters({ ...expandedFilters, rating: !expandedFilters.rating })}
-            className="icon-button text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0]"
-          >
-            {expandedFilters.rating ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        </div>
-        {expandedFilters.rating && (
-          <div className="space-y-2">
-            {[4, 4.5, 5].map(r => (
-              <label key={r} className="flex items-center gap-2 cursor-pointer hover:bg-[#F3F2F0] p-2 rounded transition-colors">
-                <input
-                  type="radio"
-                  name="rating"
-                  value={r}
-                  checked={rating === r}
-                  onChange={(e) => setRating(Number(e.target.value))}
-                  className="text-[#A85C36]"
-                />
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-[#332B42]">{r}+</span>
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={12}
-                        className={i < r ? "text-yellow-400 fill-current" : "text-gray-300"}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </label>
-            ))}
+        <label className="block space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-[#332B42]">Minimum Rating</span>
+            <button
+              onClick={() => setExpandedFilters({ ...expandedFilters, rating: !expandedFilters.rating })}
+              className="text-[#A85C36] hover:text-[#784528] hover:bg-[#F3F2F0] p-1 rounded transition-colors"
+            >
+              {expandedFilters.rating ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
           </div>
-        )}
+          {expandedFilters.rating && (
+            <div className="space-y-2">
+              {[4, 4.5, 5].map(r => (
+                <label key={r} className="flex items-center gap-2 cursor-pointer hover:bg-[#F3F2F0] p-2 rounded transition-colors">
+                  <input
+                    type="radio"
+                    name="rating"
+                    value={r}
+                    checked={rating === r}
+                    onChange={(e) => setRating(Number(e.target.value))}
+                    className="text-[#A85C36]"
+                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm text-[#332B42]">{r}+</span>
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={12}
+                          className={i < r ? "text-yellow-400 fill-current" : "text-gray-300"}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </label>
       </div>
       </div>
       
