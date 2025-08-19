@@ -4,7 +4,7 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star, MapPin, Phone, Mail, Globe, Flag, MessageSquare } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
+
 import { useFavorites } from '@/hooks/useFavorites';
 
 
@@ -50,7 +50,7 @@ export default function VendorCardRoverStyle({
   const [communityDataState, setCommunityDataState] = useState<any>(null);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
-  const [imgSrc, setImgSrc] = useState<string>(getVendorImageImmediate(vendor));
+  const [imgSrc, setImgSrc] = useState<string>('');
   
   // Use the proper useFavorites hook for persistent favorites
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -60,14 +60,11 @@ export default function VendorCardRoverStyle({
   // Use communityData prop if provided, otherwise fall back to local state
   const effectiveCommunityData = communityData || communityDataState;
 
-  const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
-  // Enhanced image loading - memoized to prevent infinite re-renders
-  const loadVendorImage = useCallback(async () => {
-    setImageLoading(true);
-    setImageError(false);
-    
-    try {
+
+  // Simplified image loading - only load if not already loaded
+  useEffect(() => {
+    if (!imgSrc || imgSrc === '/Venue.png') {
       // If vendor already has a Google Places image, use it
       if (vendor.image && vendor.image.includes('maps.googleapis.com')) {
         setImgSrc(vendor.image);
@@ -77,36 +74,29 @@ export default function VendorCardRoverStyle({
 
       // Try to fetch images from Google Places API
       if (vendor.place_id) {
-        const response = await fetch(`/api/vendor-photos/${vendor.place_id}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.images && data.images.length > 0) {
-            setImgSrc(data.images[0]);
+        fetch(`/api/vendor-photos/${vendor.place_id}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.images && data.images.length > 0) {
+              setImgSrc(data.images[0]);
+              setImageLoading(false);
+            } else {
+              setImgSrc('/Venue.png');
+              setImageLoading(false);
+            }
+          })
+          .catch(() => {
+            setImgSrc('/Venue.png');
             setImageLoading(false);
-            return;
-          }
-        }
+          });
+      } else {
+        setImgSrc('/Venue.png');
+        setImageLoading(false);
       }
-
-      // Fallback to immediate image or placeholder
-      const fallbackImage = getVendorImageImmediate(vendor);
-      setImgSrc(fallbackImage);
-      setImageLoading(false);
-    } catch (error) {
-      console.error('Error loading vendor image:', error);
-      setImageError(true);
-      setImgSrc('/Venue.png');
+    } else {
       setImageLoading(false);
     }
-  }, [vendor.place_id]); // Only depend on place_id to prevent infinite loops
-
-  // Run image loading effect only when place_id changes
-  useEffect(() => {
-    // Only run if we have a valid vendor with place_id
-    if (vendor?.place_id) {
-      loadVendorImage();
-    }
-  }, [loadVendorImage, vendor?.place_id]);
+  }, [vendor.place_id, vendor.image, imgSrc]);
 
   useEffect(() => {
     // Only fetch data if communityData prop is not provided
@@ -150,12 +140,7 @@ export default function VendorCardRoverStyle({
     }
 
     try {
-      console.log('📤 Sending vendor data for favorite:', {
-        place_id: vendor.place_id,
-        name: vendor.name,
-        address: vendor.vicinity || vendor.formatted_address,
-        category: 'Vendor'
-      });
+
       
       await toggleFavorite(vendor.place_id, {
         name: vendor.name,
@@ -183,14 +168,11 @@ export default function VendorCardRoverStyle({
     }
   };
 
-  const handleImageError = () => {
-    setImageError(true);
-    setImgSrc('/Venue.png');
-  };
+
 
   const handleViewDetailsClick = () => {
-    // Navigate to vendor details page
-    router.push(`/vendors/${vendor.place_id}`);
+    // Open vendor details page in a new tab
+    window.open(`/vendors/${vendor.place_id}`, '_blank');
   };
 
   const getPriceLevel = (level?: number) => {
@@ -204,31 +186,34 @@ export default function VendorCardRoverStyle({
     <div 
       className={`group p-4 transition-all duration-200 min-h-[140px] flex flex-col ${isHighlighted ? 'bg-[#F8F7F5] ring-1 ring-[#A85C36] ring-opacity-30' : 'bg-white'}`}
     >
-      <div className="flex gap-4 flex-1">
+      {/* Clickable area for the entire card */}
+      <div 
+        className="flex gap-4 flex-1 cursor-pointer"
+        onClick={() => window.open(`/vendors/${vendor.place_id}`, '_blank')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            window.open(`/vendors/${vendor.place_id}`, '_blank');
+          }
+        }}
+      >
         {/* Left: Image */}
         <div className="flex-shrink-0">
           <div className="w-24 h-24 bg-[#F3F2F0] overflow-hidden rounded-lg flex items-center justify-center">
-            {imageLoading && vendor.name ? (
-              <div className="w-12 h-12 bg-[#AB9C95] rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {vendor.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            ) : !vendor.name ? (
-              // Skeleton state - show gray placeholder
+            {imageLoading ? (
+              // Simple loading state - just show gray placeholder
               <div className="w-full h-full bg-[#E0D6D0] rounded-lg" />
-            ) : imageError || isPlaceholder ? (
-              <img
-                src="/Venue.png"
-                alt={vendor.name}
-                className="w-full h-full object-contain"
-              />
             ) : (
               <img
-                src={imgSrc}
+                src={imgSrc || '/Venue.png'}
                 alt={vendor.name}
                 className="w-full h-full object-cover"
-                onError={handleImageError}
+                onError={() => {
+                  setImageError(true);
+                  setImgSrc('/Venue.png');
+                }}
                 onLoad={() => setImageLoading(false)}
               />
             )}
@@ -250,7 +235,10 @@ export default function VendorCardRoverStyle({
             </div>
             <div className="flex items-center gap-2 ml-2">
               <button
-                onClick={handleFavoriteToggle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFavoriteToggle();
+                }}
                 className={`p-2 rounded-full transition-colors ${
                   isFavorite(vendor.place_id)
                     ? 'text-[#A85C36] bg-[#F3F2F0]' 
@@ -260,7 +248,10 @@ export default function VendorCardRoverStyle({
                 <Heart size={16} className={isFavorite(vendor.place_id) ? 'fill-current' : ''} />
               </button>
               <button
-                onClick={() => onShowFlagModal?.(vendor)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowFlagModal?.(vendor);
+                }}
                 className={`p-2 rounded-full transition-colors ${
                   isFlagged 
                     ? 'text-red-600 bg-red-100' 
@@ -340,7 +331,10 @@ export default function VendorCardRoverStyle({
           {/* Contact Actions - Hidden by default, shown on hover */}
           <div className="flex gap-2 mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <button
-              onClick={onContact}
+              onClick={(e) => {
+                e.stopPropagation();
+                onContact?.();
+              }}
               className="btn-primaryinverse flex items-center gap-2"
             >
               <MessageSquare size={14} />

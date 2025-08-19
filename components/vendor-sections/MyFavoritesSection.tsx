@@ -4,6 +4,7 @@ import VendorCatalogCard from '@/components/VendorCatalogCard';
 import { convertVendorToCatalogFormat, mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 import BadgeCount from '@/components/BadgeCount';
 import { Heart } from 'lucide-react';
+import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
 
 interface MyFavoritesSectionProps {
   vendors: any[];
@@ -27,15 +28,11 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
   if (vendors.length === 0) {
     return (
       <section className="mb-8">
-        <div className="text-center py-12">
-          <div className="text-gray-500 mb-4">No favorite vendors yet</div>
-          <button 
-            className="btn-primary"
-            onClick={() => router.push('/vendors/catalog')}
-          >
-            Browse Vendor Catalog
-          </button>
-        </div>
+        <VendorHubEmptyState 
+          variant="favorites"
+          imageSize="w-56"
+          className="py-12"
+        />
       </section>
     );
   }

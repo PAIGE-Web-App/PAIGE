@@ -4,6 +4,7 @@ import VendorCatalogCard from '@/components/VendorCatalogCard';
 import { convertVendorToCatalogFormat, mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 import BadgeCount from '@/components/BadgeCount';
 import { Star } from 'lucide-react';
+import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
 
 interface MyVendorsSectionProps {
   vendors: any[];
@@ -42,16 +43,12 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
             </div>
           ))}
         </div>
-      ) : vendors.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500 mb-4">No vendors found</div>
-          <button 
-            className="btn-primary"
-            onClick={() => router.push('/vendors/catalog')}
-          >
-            Browse Vendor Catalog
-          </button>
-        </div>
+              ) : vendors.length === 0 ? (
+          <VendorHubEmptyState 
+            variant="my-vendors"
+            imageSize="w-56"
+            className="py-12"
+          />
       ) : (
         <>
           {/* 2x4 Grid Layout */}

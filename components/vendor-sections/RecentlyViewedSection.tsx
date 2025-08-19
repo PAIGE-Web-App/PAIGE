@@ -65,6 +65,11 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
     localStorage.removeItem('paige_recently_viewed_vendors');
     setRecentlyViewedVendors([]);
     setEnhancedVendors([]);
+    
+    // Dispatch custom event to notify parent components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('historyCleared'));
+    }
   };
 
   // Cap at 10 most recently viewed vendors

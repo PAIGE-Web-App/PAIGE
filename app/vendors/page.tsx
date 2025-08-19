@@ -38,6 +38,7 @@ import VendorTabs from '@/components/VendorTabs';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import VendorContactModal from '@/components/VendorContactModal';
 import { AdminNavigation } from '@/components/AdminNavigation';
+import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
 
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
@@ -127,6 +128,7 @@ export default function VendorsPage() {
   const [selectedVendorForContact, setSelectedVendorForContact] = useState<any>(null);
   const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
   const [enhancedFavorites, setEnhancedFavorites] = useState<any[]>([]);
+  const [recentlyViewedCount, setRecentlyViewedCount] = useState<number>(0);
 
   // Temporary: Use localStorage directly until we fix the SSR issue
     // Use the proper useFavorites hook for persistent favorites
@@ -186,6 +188,36 @@ export default function VendorsPage() {
       refreshFavorites();
     }
   }, [user?.uid, refreshFavorites]);
+
+  // Watch for changes in recently viewed vendors
+  useEffect(() => {
+    const checkRecentlyViewed = () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const recent = JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
+        setRecentlyViewedCount(recent.length);
+      } catch {
+        setRecentlyViewedCount(0);
+      }
+    };
+
+    // Check initially
+    checkRecentlyViewed();
+
+    // Listen for storage changes (when other tabs/windows update localStorage)
+    window.addEventListener('storage', checkRecentlyViewed);
+    
+    // Custom event listener for when RecentlyViewedSection clears history
+    const handleHistoryCleared = () => {
+      checkRecentlyViewed();
+    };
+    window.addEventListener('historyCleared', handleHistoryCleared);
+
+    return () => {
+      window.removeEventListener('storage', checkRecentlyViewed);
+      window.removeEventListener('historyCleared', handleHistoryCleared);
+    };
+  }, []);
 
   // Fetch missing favorites data from Firestore
   useEffect(() => {
@@ -563,17 +595,26 @@ export default function VendorsPage() {
       {/* Admin Navigation - Only shows for admin users */}
       <AdminNavigation />
       
-      <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative">
-        {/* Vendor Hub Header */}
-        <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
-          <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendor Hub</h4>
-          <div className="flex items-center gap-4">
-            <button className="btn-primaryinverse" onClick={() => setAddContactModal(true)}>Add Vendor</button>
-            <button className="btn-primary" onClick={() => router.push('/vendors/catalog')}>Browse all</button>
-          </div>
-        </div>
-        {/* Main Content */}
-        <div className="app-content-container flex-1 pt-24">
+      <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative h-screen">
+        {/* Check if we should show empty state */}
+                  {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
+            /* Empty State - No header, no tabs, just warm welcome */
+            <VendorHubEmptyState 
+              variant="main"
+              className="h-full px-4"
+            />
+        ) : (
+          /* Normal State - Show header and content */
+          <>
+            {/* Vendor Hub Header */}
+            <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
+              <h4 className="text-lg font-playfair font-medium text-[#332B42]">My Vendors</h4>
+              <div className="flex items-center gap-4">
+                <button className="btn-primary" onClick={() => router.push('/vendors/catalog/search')}>Browse Vendors</button>
+              </div>
+            </div>
+            {/* Main Content */}
+            <div className="app-content-container flex-1 pt-24">
           {/* Recently Viewed Section - Now at the top */}
           <RecentlyViewedSection
             defaultLocation={defaultLocation}
@@ -734,7 +775,9 @@ export default function VendorsPage() {
               onShowFlagModal={handleShowFlagModal}
             />
           )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       <ConfirmOfficialModal

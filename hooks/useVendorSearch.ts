@@ -45,10 +45,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
     distance: parseInt(searchParams?.get('distance') || '25')
   });
 
-  console.log('🔧 useVendorSearch initialized with:');
-  console.log('🔧 searchParams from URL:', searchParams);
-  console.log('🔧 searchParamsState:', searchParamsState);
-  console.log('🔧 Default category:', searchParams?.get('category') || 'venue');
+
   
   // Sync state with URL parameters when they change
   useEffect(() => {
@@ -79,11 +76,9 @@ export function useVendorSearch(): UseVendorSearchReturn {
   
   // Initialize the debounced search function
   useEffect(() => {
-    console.log('🔧 Setting up debounced search function');
+
     debouncedSearchRef.current = debounce(async (params: VendorSearchParams) => {
-      console.log('🚀 DEBOUNCED FUNCTION EXECUTING! Starting vendor search with params:', params);
-      console.log('🔍 Category being sent:', params.category);
-      console.log('📍 Location being sent:', params.location);
+
       setLoading(true);
       setCurrentPage(1); // Reset to first page on new search
       
@@ -108,8 +103,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
           apiParams.minrating = params.rating;
         }
 
-        console.log('📡 Fetching vendors with API params:', apiParams);
-        console.log('🌐 API endpoint: /api/google-places');
+
 
         const response = await fetch('/api/google-places', {
           method: 'POST',
@@ -117,20 +111,18 @@ export function useVendorSearch(): UseVendorSearchReturn {
           body: JSON.stringify(apiParams),
         });
 
-        console.log('📥 Response status:', response.status);
-        console.log('📥 Response ok:', response.ok);
-        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
 
         if (response.ok) {
           const data = await response.json();
-          console.log('📊 API response data:', data);
+
           
           if (data.error) {
             console.error('❌ API returned error:', data.error);
             showErrorToast(data.error);
             setVendors([]);
           } else if (Array.isArray(data.results) && data.results.length > 0) {
-            console.log(`✅ Successfully loaded ${data.results.length} vendors`);
+
             
             // Enhance vendors with images
             try {
@@ -152,13 +144,13 @@ export function useVendorSearch(): UseVendorSearchReturn {
               
               setVendors(enhancedVendors);
               setCurrentPage(1);
-              console.log('🎨 Enhanced vendors with images and basic geometry data');
+
             } catch (error) {
               console.error('❌ Error enhancing vendors:', error);
               setVendors(data.results);
             }
           } else {
-            console.log('🔍 No vendors found in response');
+
             setVendors([]);
           }
         } else {
@@ -197,19 +189,8 @@ export function useVendorSearch(): UseVendorSearchReturn {
 
   // Trigger search when parameters change
   useEffect(() => {
-    console.log('🔄 Search effect triggered with params:', searchParamsState);
-    console.log('🔄 Category in effect:', searchParamsState.category);
-    console.log('🔄 Location in effect:', searchParamsState.location);
-    
     if (searchParamsState.category && searchParamsState.location) {
-      console.log('✅ Triggering search with valid params');
-      console.log('🔧 Calling debounced search function...');
-      console.log('🔧 debouncedSearchRef.current exists:', !!debouncedSearchRef.current);
       debouncedSearchRef.current(searchParamsState);
-    } else {
-      console.log('❌ Not triggering search - missing category or location');
-      console.log('❌ Category:', searchParamsState.category);
-      console.log('❌ Location:', searchParamsState.location);
     }
   }, [searchParamsState]);
 
@@ -225,45 +206,28 @@ export function useVendorSearch(): UseVendorSearchReturn {
       if (vendors.length === 0) return;
       
       try {
-        console.log('Batch fetching community vendor data for', vendors.length, 'vendors...');
+        // Only fetch for the first 10 vendors to prevent rate limiting
+        const vendorsToFetch = vendors.slice(0, 10);
         
-        // Create a batch request for all vendors
-        const batchPromises = vendors.map(async (vendor) => {
+        // Process vendors one by one with delays to prevent rate limiting
+        const results: Record<string, any> = {};
+        
+        for (const vendor of vendorsToFetch) {
           try {
+            // Add delay between each request to prevent rate limiting
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
             const response = await fetch(`/api/community-vendors?placeId=${vendor.place_id}`);
             if (response.ok) {
               const data = await response.json();
-              return { placeId: vendor.place_id, data: data.vendor };
+              results[vendor.place_id] = data.vendor;
             }
-            return { placeId: vendor.place_id, data: null };
           } catch (error) {
             console.error(`Error fetching data for ${vendor.place_id}:`, error);
-            return { placeId: vendor.place_id, data: null };
-          }
-        });
-
-        // Add a small delay between batches to prevent rate limiting
-        const batchSize = 5;
-        const results: Record<string, any> = {};
-        
-        for (let i = 0; i < batchPromises.length; i += batchSize) {
-          const batch = batchPromises.slice(i, i + batchSize);
-          const batchResults = await Promise.all(batch);
-          
-          batchResults.forEach(({ placeId, data }) => {
-            if (data) {
-              results[placeId] = data;
-            }
-          });
-          
-          // Small delay between batches
-          if (i + batchSize < batchPromises.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
         
         setCommunityVendorData(results);
-        console.log('Community vendor data fetched for', Object.keys(results).length, 'vendors');
       } catch (error) {
         console.error('Error batch fetching community vendor data:', error);
       }

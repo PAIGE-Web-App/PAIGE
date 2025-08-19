@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
@@ -18,8 +18,7 @@ import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 import { Vendor } from '@/types/vendor';
 
 // Main component
-
-export default function RoverStyleVendorSearch() {
+export default function VendorSearchPage() {
   const router = useRouter();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
@@ -43,10 +42,6 @@ export default function RoverStyleVendorSearch() {
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [hoveredVendor, setHoveredVendor] = useState<Vendor | null>(null);
   
-  // Debug hoveredVendor changes
-  useEffect(() => {
-    console.log('🎯 hoveredVendor state changed:', hoveredVendor);
-  }, [hoveredVendor]);
   const [expandedFilters, setExpandedFilters] = useState({ price: false, rating: false, distance: false });
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   
@@ -120,8 +115,6 @@ export default function RoverStyleVendorSearch() {
     if (urlRating) setSearchParams({ rating: parseFloat(urlRating) });
     if (urlDistance) setSearchParams({ distance: parseInt(urlDistance) });
   }, []);
-
-
 
   // Search functionality
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
