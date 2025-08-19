@@ -22,7 +22,7 @@ import {
 import { VendorCategory } from '@/types/vendor';
 
 export const VENDOR_CATEGORIES: VendorCategory[] = [
-  { value: 'venue', label: 'Venues', singular: 'Venue', icon: Building2 },
+  { value: 'restaurant', label: 'Venues', singular: 'Venue', icon: Building2 },
   { value: 'photographer', label: 'Photographers', singular: 'Photographer', icon: Camera },
   { value: 'florist', label: 'Florists', singular: 'Florist', icon: Flower },
   { value: 'caterer', label: 'Catering', singular: 'Caterer', icon: Utensils },

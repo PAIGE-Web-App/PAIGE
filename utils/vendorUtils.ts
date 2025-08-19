@@ -500,7 +500,7 @@ export const convertVendorToCatalogFormat = (vendor: any, recentlyViewed?: any[]
     address: vendor.address,
     location: vendor.address,
     rating: vendor.rating || recentlyViewedVendor?.rating || 0,
-    reviewCount: vendor.reviewCount || recentlyViewedVendor?.reviewCount || 0,
+    reviewCount: vendor.reviewCount || vendor.user_ratings_total || recentlyViewedVendor?.reviewCount || recentlyViewedVendor?.user_ratings_total || 0,
     price: vendor.price || recentlyViewedVendor?.price || '',
     mainTypeLabel: vendor.category,
     image: bestImage,

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { motion } from 'framer-motion';
-import { Building2 } from 'lucide-react';
+import { Building2, Search, X as LucideX } from 'lucide-react';
 import VendorCardRoverStyle from '@/components/VendorCardRoverStyle';
 import VendorCardSkeleton from './VendorCardSkeleton';
 import { Vendor } from '@/types/vendor';
@@ -17,9 +17,21 @@ interface VendorSearchResultsProps {
   onVendorFlag: (vendor: Vendor) => void;
   onVendorHover: (vendor: Vendor | null) => void;
   communityVendorData: Record<string, any>;
+  // Search functionality
+  searchTerm: string;
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearSearch: () => void;
+  isSearching: boolean;
+  searchResults: Vendor[];
+  // Map highlighting
+  hoveredVendor?: Vendor | null;
 }
 
-export default function VendorSearchResults({
+export interface VendorSearchResultsRef {
+  scrollToVendor: (placeId: string) => void;
+}
+
+const VendorSearchResults = forwardRef<VendorSearchResultsRef, VendorSearchResultsProps>(({
   vendors,
   loading,
   currentPage,
@@ -30,12 +42,79 @@ export default function VendorSearchResults({
   onVendorContact,
   onVendorFlag,
   onVendorHover,
-  communityVendorData
-}: VendorSearchResultsProps) {
-  const totalPages = Math.ceil(vendors.length / itemsPerPage);
+  communityVendorData,
+  // Search functionality
+  searchTerm,
+  onSearchChange,
+  onClearSearch,
+  isSearching,
+  searchResults,
+  // Map highlighting
+  hoveredVendor
+}, ref) => {
+  // Use search results when searching, otherwise use regular vendors
+  const allVendors = searchResults.length > 0 ? searchResults : vendors;
+  const totalPages = Math.ceil(allVendors.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentVendors = vendors.slice(startIndex, endIndex);
+  const currentVendors = allVendors.slice(startIndex, endIndex);
+
+  // Collapsible search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Refs for vendor cards to enable scrolling
+  const vendorRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Expose scrollToVendor function to parent component
+  useImperativeHandle(ref, () => ({
+    scrollToVendor: (placeId: string) => {
+      const vendorElement = vendorRefs.current[placeId];
+      const scrollContainer = scrollContainerRef.current;
+      
+      if (vendorElement && scrollContainer) {
+        // Calculate the scroll position to bring the vendor into view
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const vendorRect = vendorElement.getBoundingClientRect();
+        const scrollTop = scrollContainer.scrollTop;
+        
+        // Calculate the target scroll position
+        const targetScrollTop = scrollTop + vendorRect.top - containerRect.top - 20; // 20px offset from top
+        
+        // Smooth scroll to the vendor
+        scrollContainer.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }), []);
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
+  // Close search when clicking outside (only if no text)
+  useEffect(() => {
+    if (!searchOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        // Only close if there's no text in the search bar
+        if (!searchTerm.trim()) {
+          setSearchOpen(false);
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [searchOpen, searchTerm]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -47,7 +126,7 @@ export default function VendorSearchResults({
     if (totalPages <= 1) return null;
 
     const getVisiblePages = () => {
-      const pages = [];
+      const pages: (number | string)[] = [];
       const maxVisible = 5;
       
       if (totalPages <= maxVisible) {
@@ -87,7 +166,7 @@ export default function VendorSearchResults({
       <div className="p-4 border-t border-[#AB9C95] bg-white">
         <div className="flex items-center justify-between">
           <div className="text-sm text-[#AB9C95]">
-            Showing {startIndex + 1} to {Math.min(endIndex, vendors.length)} of {vendors.length} vendors
+            Showing {startIndex + 1} to {Math.min(endIndex, allVendors.length)} of {allVendors.length} vendors
           </div>
           <div className="flex items-center gap-2">
                                 <button
@@ -136,52 +215,140 @@ export default function VendorSearchResults({
       <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
           <h5 className="h5">
-            {!loading ? `${vendors.length} ${currentCategory} in ${location}` : `${currentCategory} in ${location}`}
+            {!loading ? `${allVendors.length} ${currentCategory} in ${location}` : `${currentCategory} in ${location}`}
           </h5>
         </div>
-
+        
+        {/* Collapsible Search */}
+        <motion.div 
+          className="flex items-center transition-all duration-300"
+          style={{ height: '32px' }}
+          layout
+          transition={{ duration: 0.25, ease: 'easeInOut' }}
+        >
+          {!searchOpen && (
+            <motion.button
+              layout
+              className="p-2 rounded-full hover:bg-[#EBE3DD] transition-colors duration-200 flex-shrink-0"
+              style={{ height: '32px', width: '32px' }}
+              onClick={() => setSearchOpen(true)}
+              aria-label="Open search"
+              type="button"
+            >
+              <Search className="w-4 h-4 text-[#364257]" />
+            </motion.button>
+          )}
+          {searchOpen && (
+            <motion.div
+              layout
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '320px', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="relative flex items-center w-[320px] h-8"
+            >
+              <Search className="w-4 h-4 text-[#364257] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={`Search ${currentCategory}...`}
+                className="pl-12 pr-9 w-full h-8 border border-[#A85C36] rounded-[5px] bg-white text-base focus:outline-none focus:border-[#A85C36] transition-all duration-300"
+                value={searchTerm}
+                onChange={onSearchChange}
+                onKeyDown={e => { if (e.key === 'Escape') setSearchOpen(false); }}
+                tabIndex={0}
+                autoFocus
+              />
+              {searchTerm && (
+                <button
+                  className="absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 opacity-100"
+                  onClick={() => {
+                    onClearSearch();
+                    setSearchOpen(false);
+                  }}
+                  tabIndex={0}
+                  type="button"
+                  style={{ zIndex: 10 }}
+                >
+                  <LucideX className="w-4 h-4" />
+                </button>
+              )}
+            </motion.div>
+          )}
+        </motion.div>
       </div>
 
       {/* Results List - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-4 space-y-4">
-          {loading ? (
-            // Loading skeletons
-            Array.from({ length: 10 }).map((_, i) => (
-              <VendorCardSkeleton key={i} />
-            ))
-          ) : vendors.length > 0 ? (
-            // Vendor results
-            currentVendors.map((vendor, index) => (
-              <motion.div
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
+        {loading ? (
+          // Loading skeletons
+          <div className="space-y-0">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i}>
+                <VendorCardSkeleton />
+                {i < 9 && <div className="border-b border-[#AB9C95] h-px" />}
+              </div>
+            ))}
+          </div>
+        ) : allVendors.length > 0 ? (
+          // Vendor results
+          <div className="space-y-0">
+            {currentVendors.map((vendor, index) => (
+              <div 
                 key={vendor.place_id || index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                onMouseEnter={() => onVendorHover(vendor)}
-                onMouseLeave={() => onVendorHover(null)}
+                ref={(el) => {
+                  if (vendor.place_id) {
+                    vendorRefs.current[vendor.place_id] = el;
+                  }
+                }}
               >
-                <VendorCardRoverStyle
-                  vendor={vendor}
-                  onContact={() => onVendorContact(vendor)}
-                  onShowFlagModal={() => onVendorFlag(vendor)}
-                  communityData={communityVendorData[vendor.place_id]}
-                />
-              </motion.div>
-            ))
-          ) : (
-            // Empty state
-            <div className="text-center py-12 text-[#AB9C95]">
-              <Building2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No vendors found</p>
-              <p className="text-sm">Try adjusting your search filters</p>
-            </div>
-          )}
-        </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  onMouseEnter={() => onVendorHover(vendor)}
+                  onMouseLeave={() => onVendorHover(null)}
+                >
+                  <VendorCardRoverStyle
+                    vendor={vendor}
+                    onContact={() => onVendorContact(vendor)}
+                    onShowFlagModal={() => onVendorFlag(vendor)}
+                    communityData={communityVendorData[vendor.place_id]}
+                    isHighlighted={hoveredVendor?.place_id === vendor.place_id}
+                  />
+                </motion.div>
+                {index < currentVendors.length - 1 && <div className="border-b border-[#AB9C95] h-px" />}
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Empty state
+          <div className="text-center py-12 text-[#AB9C95]">
+            <Building2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium mb-2">
+              {searchTerm ? `No ${currentCategory} found for "${searchTerm}"` : 'No vendors found'}
+            </p>
+            <p className="text-sm">
+              {searchTerm ? 'Try a different search term' : 'Try adjusting your search filters'}
+            </p>
+            {searchTerm && (
+              <button 
+                onClick={onClearSearch}
+                className="mt-2 text-[#A85C36] hover:underline text-sm"
+              >
+                Clear search and show all {currentCategory}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Pagination Controls */}
       {renderPagination()}
     </div>
   );
-}
+});
+
+VendorSearchResults.displayName = 'VendorSearchResults';
+
+export default VendorSearchResults;

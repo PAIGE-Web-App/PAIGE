@@ -5,17 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star, MapPin, Phone, Mail, Globe, Flag, MessageSquare } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
+import { useFavorites } from '@/hooks/useFavorites';
 
-// Move utility functions outside component to prevent recreation
-function getFavorites() {
-  if (typeof window === 'undefined') return [];
-  return JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-}
 
-function setFavorites(favorites: string[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('vendorFavorites', JSON.stringify(favorites));
-}
 
 interface VendorCardRoverStyleProps {
   vendor: {
@@ -39,6 +31,7 @@ interface VendorCardRoverStyleProps {
   onShowContactModal?: (vendor: any) => void;
   onShowFlagModal?: (vendor: any) => void;
   communityData?: any; // Added for community vendor data
+  isHighlighted?: boolean; // Added for highlighting when map marker is hovered/clicked
 }
 
 export default function VendorCardRoverStyle({ 
@@ -47,16 +40,22 @@ export default function VendorCardRoverStyle({
   onFlag, 
   onShowContactModal, 
   onShowFlagModal,
-  communityData 
+  communityData,
+  isHighlighted = false
 }: VendorCardRoverStyleProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isFlagged, setIsFlagged] = useState(false);
   const [communityDataState, setCommunityDataState] = useState<any>(null);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [imgSrc, setImgSrc] = useState<string>(getVendorImageImmediate(vendor));
+  
+  // Use the proper useFavorites hook for persistent favorites
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+
 
   // Use communityData prop if provided, otherwise fall back to local state
   const effectiveCommunityData = communityData || communityDataState;
@@ -110,10 +109,6 @@ export default function VendorCardRoverStyle({
   }, [loadVendorImage, vendor?.place_id]);
 
   useEffect(() => {
-    // Set initial favorite state from localStorage
-    const favs = getFavorites();
-    setIsFavorite(favs.includes(vendor.place_id));
-    
     // Only fetch data if communityData prop is not provided
     if (!communityData) {
       // Batch API calls
@@ -154,15 +149,38 @@ export default function VendorCardRoverStyle({
       return;
     }
 
-    const favs = getFavorites();
-    const newFavs = isFavorite 
-      ? favs.filter(id => id !== vendor.place_id)
-      : [...favs, vendor.place_id];
-    
-    setFavorites(newFavs);
-    setIsFavorite(!isFavorite);
-    
-    showSuccessToast(isFavorite ? 'Removed from favorites' : 'Added to favorites');
+    try {
+      console.log('📤 Sending vendor data for favorite:', {
+        place_id: vendor.place_id,
+        name: vendor.name,
+        address: vendor.vicinity || vendor.formatted_address,
+        category: 'Vendor'
+      });
+      
+      await toggleFavorite(vendor.place_id, {
+        name: vendor.name,
+        address: vendor.vicinity || vendor.formatted_address,
+        category: 'Vendor'
+      });
+      
+      // Refresh community data to get updated counts
+      try {
+        const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.place_id}`);
+        if (communityResponse.ok) {
+          const data = await communityResponse.json();
+          if (data.vendor) {
+            setCommunityDataState(data.vendor);
+          }
+        }
+      } catch (error) {
+        console.error('Error refreshing community data:', error);
+      }
+      
+      // Don't show additional toast - the hook handles this
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      showSuccessToast('Failed to update favorites');
+    }
   };
 
   const handleImageError = () => {
@@ -170,64 +188,39 @@ export default function VendorCardRoverStyle({
     setImgSrc('/Venue.png');
   };
 
+  const handleViewDetailsClick = () => {
+    // Navigate to vendor details page
+    router.push(`/vendors/${vendor.place_id}`);
+  };
+
   const getPriceLevel = (level?: number) => {
     if (!level) return '';
     return '$'.repeat(level);
   };
 
-  const getMainCategory = () => {
-    if (!vendor.types || vendor.types.length === 0) return 'Vendor';
-    
-    // Map Google Places types to friendly names
-    const categoryMap: Record<string, string> = {
-      'photographer': 'Photographer',
-      'restaurant': 'Venue',
-      'florist': 'Florist',
-      'jewelry_store': 'Jeweler',
-      'bakery': 'Bakery',
-      'beauty_salon': 'Beauty Salon',
-      'spa': 'Spa',
-      'dj': 'DJ',
-      'band': 'Band',
-      'wedding_planner': 'Wedding Planner',
-      'caterer': 'Caterer',
-      'car_rental': 'Car Rental',
-      'travel_agency': 'Travel Agency',
-      'officiant': 'Officiant',
-      'suit_rental': 'Suit Rental',
-      'makeup_artist': 'Makeup Artist',
-      'stationery': 'Stationery',
-      'rentals': 'Event Rentals',
-      'favors': 'Wedding Favors'
-    };
 
-    for (const type of vendor.types) {
-      if (categoryMap[type]) {
-        return categoryMap[type];
-      }
-    }
-    
-    return vendor.types[0]?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Vendor';
-  };
 
   return (
-    <div className="bg-white border border-[#AB9C95] rounded-[5px] p-4 hover:shadow-md transition-shadow">
-      <div className="flex gap-4">
+    <div className={`group bg-white p-4 transition-all duration-200 min-h-[140px] flex flex-col ${isHighlighted ? 'bg-[#F8F7F5] ring-1 ring-[#A85C36] ring-opacity-30' : ''}`}>
+      <div className="flex gap-4 flex-1">
         {/* Left: Image */}
         <div className="flex-shrink-0">
-          <div className="w-24 h-24 bg-[#F3F2F0] rounded-[5px] overflow-hidden flex items-center justify-center">
-            {imageLoading ? (
+          <div className="w-24 h-24 bg-[#F3F2F0] overflow-hidden rounded-lg flex items-center justify-center">
+            {imageLoading && vendor.name ? (
               <div className="w-12 h-12 bg-[#AB9C95] rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-lg">
-                  L
+                  {vendor.name.charAt(0).toUpperCase()}
                 </span>
               </div>
+            ) : !vendor.name ? (
+              // Skeleton state - show gray placeholder
+              <div className="w-full h-full bg-[#E0D6D0] rounded-lg" />
             ) : imageError || isPlaceholder ? (
-              <div className="w-12 h-12 bg-[#AB9C95] rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {imageError ? 'E' : vendor.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <img
+                src="/Venue.png"
+                alt={vendor.name}
+                className="w-full h-full object-contain"
+              />
             ) : (
               <img
                 src={imgSrc}
@@ -241,15 +234,15 @@ export default function VendorCardRoverStyle({
         </div>
 
         {/* Right: Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col">
           {/* Header Row */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-[#332B42] text-lg truncate">
+              <h6 className="h6 truncate">
                 {vendor.name}
-              </h3>
-              <div className="flex items-center gap-2 text-sm text-[#AB9C95] mt-1">
-                <MapPin size={14} />
+              </h6>
+              <div className="flex items-center gap-1 text-xs text-[#332B42] mt-1">
+                <MapPin size={12} />
                 <span className="truncate">{vendor.vicinity || vendor.formatted_address}</span>
               </div>
             </div>
@@ -257,90 +250,108 @@ export default function VendorCardRoverStyle({
               <button
                 onClick={handleFavoriteToggle}
                 className={`p-2 rounded-full transition-colors ${
-                  isFavorite 
+                  isFavorite(vendor.place_id)
                     ? 'text-[#A85C36] bg-[#F3F2F0]' 
                     : 'text-[#AB9C95] hover:text-[#A85C36] hover:bg-[#F3F2F0]'
                 }`}
               >
-                <Heart size={16} className={isFavorite ? 'fill-current' : ''} />
+                <Heart size={16} className={isFavorite(vendor.place_id) ? 'fill-current' : ''} />
               </button>
               <button
-                onClick={onFlag}
-                className="p-2 rounded-full text-[#AB9C95] hover:text-[#A85C36] hover:bg-[#F3F2F0] transition-colors"
+                onClick={() => onShowFlagModal?.(vendor)}
+                className={`p-2 rounded-full transition-colors ${
+                  isFlagged 
+                    ? 'text-red-600 bg-red-100' 
+                    : 'text-[#AB9C95] hover:text-[#A85C36] hover:bg-[#F3F2F0]'
+                }`}
+                disabled={isFlagged}
               >
                 <Flag size={16} />
               </button>
             </div>
           </div>
 
-          {/* Category and Price */}
-          <div className="flex items-center gap-3 mb-3">
-            <span className="px-2 py-1 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">
-              {getMainCategory()}
-            </span>
-            {vendor.price_level && (
-              <span className="text-[#AB9C95] text-sm">
+          {/* Price Level */}
+          {vendor.price_level && (
+            <div className="mb-1">
+              <span className="text-xs text-[#332B42]">
                 {getPriceLevel(vendor.price_level)}
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Rating and Reviews */}
           {vendor.rating && (
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1 mb-1">
               <div className="flex items-center gap-1">
-                <Star size={14} className="text-yellow-400 fill-current" />
-                <span className="text-sm font-medium text-[#332B42]">
+                <Star size={12} className="text-yellow-500 fill-current" />
+                <span className="text-xs text-[#A85C36]">
                   {vendor.rating}
                 </span>
               </div>
               {vendor.user_ratings_total && (
-                <span className="text-sm text-[#AB9C95]">
+                <span className="text-xs text-[#332B42]">
                   ({vendor.user_ratings_total} reviews)
                 </span>
               )}
             </div>
           )}
 
-          {/* Contact Actions */}
-          <div className="flex items-center gap-2">
+          {/* Smart Favorites Badge */}
+          {(isFavorite(vendor.place_id) || (communityDataState && communityDataState.totalFavorites > 0)) && (
+            <div className="flex items-center gap-1 text-xs text-[#364257] mb-3">
+              <Heart className="w-3 h-3 text-pink-500 fill-current" />
+              <span>
+                {(() => {
+                  if (isFavorite(vendor.place_id) && communityDataState && communityDataState.totalFavorites > 1) {
+                    // You + others have favorited it
+                    const othersCount = communityDataState.totalFavorites - 1;
+                    if (othersCount === 1) {
+                      return 'Favorited by you and 1 other';
+                    } else {
+                      return `Favorited by you and ${othersCount} others`;
+                    }
+                  } else if (isFavorite(vendor.place_id)) {
+                    // Only you have favorited it
+                    return 'Favorited by you';
+                  } else if (communityDataState && communityDataState.totalFavorites > 0) {
+                    // Others have favorited it but you haven't
+                    if (communityDataState.totalFavorites === 1) {
+                      return 'Favorited by 1 user';
+                    } else {
+                      return `Favorited by ${communityDataState.totalFavorites} users`;
+                    }
+                  }
+                  return '';
+                })()}
+              </span>
+            </div>
+          )}
+
+          {/* Community Badge */}
+          {effectiveCommunityData && (
+            <div className="mt-3 mb-3">
+              <VendorEmailBadge placeId={vendor.place_id} />
+            </div>
+          )}
+
+          {/* Contact Actions - Hidden by default, shown on hover */}
+          <div className="flex gap-2 mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <button
               onClick={onContact}
-              className="btn-secondary flex items-center gap-2"
+              className="btn-primaryinverse flex items-center gap-2"
             >
               <MessageSquare size={14} />
               Contact
             </button>
             
-            {vendor.formatted_phone_number && (
-              <a
-                href={`tel:${vendor.formatted_phone_number}`}
-                className="btn-primaryinverse flex items-center gap-1"
-              >
-                <Phone size={14} />
-                Call
-              </a>
-            )}
-            
-            {vendor.website && (
-              <a
-                href={vendor.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primaryinverse flex items-center gap-1"
-              >
-                <Globe size={16} />
-                Website
-              </a>
-            )}
+            <button
+              onClick={handleViewDetailsClick}
+              className="btn-primary flex items-center gap-2"
+            >
+              View Details
+            </button>
           </div>
-
-          {/* Community Badge */}
-          {effectiveCommunityData && (
-            <div className="mt-3">
-              <VendorEmailBadge placeId={vendor.place_id} />
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -35,7 +35,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
 
   // Search parameters state
   const [searchParamsState, setSearchParamsState] = useState<VendorSearchParams>({
-    category: searchParams?.get('category') || 'venue',
+    category: searchParams?.get('category') || 'venue', // Default to venue for wedding venues
     location: searchParams?.get('location') || 'Dallas, TX',
     priceRange: {
       min: searchParams?.get('minprice') || '',
@@ -45,13 +45,45 @@ export function useVendorSearch(): UseVendorSearchReturn {
     distance: parseInt(searchParams?.get('distance') || '25')
   });
 
+  console.log('🔧 useVendorSearch initialized with:');
+  console.log('🔧 searchParams from URL:', searchParams);
+  console.log('🔧 searchParamsState:', searchParamsState);
+  console.log('🔧 Default category:', searchParams?.get('category') || 'venue');
+  
+  // Sync state with URL parameters when they change
+  useEffect(() => {
+    const urlCategory = searchParams?.get('category');
+    const urlLocation = searchParams?.get('location');
+    const urlMinPrice = searchParams?.get('minprice');
+    const urlMaxPrice = searchParams?.get('maxprice');
+    const urlRating = searchParams?.get('rating');
+    const urlDistance = searchParams?.get('distance');
+
+    if (urlCategory || urlLocation || urlMinPrice || urlMaxPrice || urlRating || urlDistance) {
+      setSearchParamsState(prev => ({
+        ...prev,
+        category: urlCategory || prev.category,
+        location: urlLocation || prev.location,
+        priceRange: {
+          min: urlMinPrice || prev.priceRange.min,
+          max: urlMaxPrice || prev.priceRange.max
+        },
+        rating: urlRating ? parseFloat(urlRating) : prev.rating,
+        distance: urlDistance ? parseInt(urlDistance) : prev.distance
+      }));
+    }
+  }, [searchParams]);
+  
   // Debounced search function
   const debouncedSearchRef = useRef<any>(null);
   
   // Initialize the debounced search function
   useEffect(() => {
+    console.log('🔧 Setting up debounced search function');
     debouncedSearchRef.current = debounce(async (params: VendorSearchParams) => {
-      console.log('Starting vendor search with params:', params);
+      console.log('🚀 DEBOUNCED FUNCTION EXECUTING! Starting vendor search with params:', params);
+      console.log('🔍 Category being sent:', params.category);
+      console.log('📍 Location being sent:', params.location);
       setLoading(true);
       setCurrentPage(1); // Reset to first page on new search
       
@@ -76,7 +108,8 @@ export function useVendorSearch(): UseVendorSearchReturn {
           apiParams.minrating = params.rating;
         }
 
-        console.log('Fetching vendors with API params:', apiParams);
+        console.log('📡 Fetching vendors with API params:', apiParams);
+        console.log('🌐 API endpoint: /api/google-places');
 
         const response = await fetch('/api/google-places', {
           method: 'POST',
@@ -84,15 +117,20 @@ export function useVendorSearch(): UseVendorSearchReturn {
           body: JSON.stringify(apiParams),
         });
 
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response ok:', response.ok);
+        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
         if (response.ok) {
           const data = await response.json();
+          console.log('📊 API response data:', data);
           
           if (data.error) {
-            console.error('API returned error:', data.error);
+            console.error('❌ API returned error:', data.error);
             showErrorToast(data.error);
             setVendors([]);
           } else if (Array.isArray(data.results) && data.results.length > 0) {
-            console.log(`Successfully loaded ${data.results.length} vendors`);
+            console.log(`✅ Successfully loaded ${data.results.length} vendors`);
             
             // Enhance vendors with images
             try {
@@ -114,29 +152,34 @@ export function useVendorSearch(): UseVendorSearchReturn {
               
               setVendors(enhancedVendors);
               setCurrentPage(1);
-              console.log('Enhanced vendors with images and basic geometry data');
+              console.log('🎨 Enhanced vendors with images and basic geometry data');
             } catch (error) {
-              console.error('Error enhancing vendors:', error);
+              console.error('❌ Error enhancing vendors:', error);
               setVendors(data.results);
             }
           } else {
-            console.log('No vendors found in response');
+            console.log('🔍 No vendors found in response');
             setVendors([]);
           }
         } else {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          console.error('API request failed:', errorData);
+          console.error('❌ API request failed:', errorData);
           showErrorToast(errorData.error || 'Failed to load vendors');
           setVendors([]);
         }
       } catch (error) {
-        console.error('Error fetching vendors:', error);
+        console.error('❌ Error fetching vendors:', error);
+        console.error('❌ Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         showErrorToast('Failed to load vendors');
         setVendors([]);
       } finally {
         setLoading(false);
       }
-    }, 1000);
+    }, 100); // Reduced from 1000ms to 100ms for faster response
 
     return () => {
       if (debouncedSearchRef.current) {
@@ -152,17 +195,29 @@ export function useVendorSearch(): UseVendorSearchReturn {
     setSearchParamsState(prev => ({ ...prev, ...params }));
   }, []);
 
-  // Initial search on component mount
+  // Trigger search when parameters change
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (debouncedSearchRef.current) {
-        console.log('Running initial search with:', searchParamsState);
-        debouncedSearchRef.current(searchParamsState);
-      }
-    }, 100);
+    console.log('🔄 Search effect triggered with params:', searchParamsState);
+    console.log('🔄 Category in effect:', searchParamsState.category);
+    console.log('🔄 Location in effect:', searchParamsState.location);
     
-    return () => clearTimeout(timer);
-  }, []); // Only run once on mount
+    if (searchParamsState.category && searchParamsState.location) {
+      console.log('✅ Triggering search with valid params');
+      console.log('🔧 Calling debounced search function...');
+      console.log('🔧 debouncedSearchRef.current exists:', !!debouncedSearchRef.current);
+      debouncedSearchRef.current(searchParamsState);
+    } else {
+      console.log('❌ Not triggering search - missing category or location');
+      console.log('❌ Category:', searchParamsState.category);
+      console.log('❌ Location:', searchParamsState.location);
+    }
+  }, [searchParamsState]);
+
+  // Initial search on component mount - REMOVED to prevent race condition
+  // The parameter change effect above handles the initial search automatically because:
+  // 1. searchParamsState initializes with default values on mount
+  // 2. This triggers the useEffect above
+  // 3. No duplicate search calls = consistent behavior
 
   // Fetch community vendor data when vendors change
   useEffect(() => {

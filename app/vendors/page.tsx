@@ -126,6 +126,7 @@ export default function VendorsPage() {
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [selectedVendorForContact, setSelectedVendorForContact] = useState<any>(null);
   const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
+  const [enhancedFavorites, setEnhancedFavorites] = useState<any[]>([]);
 
   // Temporary: Use localStorage directly until we fix the SSR issue
     // Use the proper useFavorites hook for persistent favorites
@@ -185,6 +186,96 @@ export default function VendorsPage() {
       refreshFavorites();
     }
   }, [user?.uid, refreshFavorites]);
+
+  // Fetch missing favorites data from Firestore
+  useEffect(() => {
+    const fetchMissingFavorites = async () => {
+      if (!user?.uid || favorites.length === 0) return;
+      
+      try {
+        const response = await fetch(`/api/user-favorites?userId=${user.uid}`);
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Process Firestore favorites data
+          let favsFromFirestore = data.favorites
+            .filter((f: any) => favorites.includes(f.placeId || f.id))
+            .map((f: any) => {
+              // Try multiple possible field names for each property
+              const vendorName = f.name || f.vendorName || f.vendor?.name || 'Unknown Vendor';
+              const vendorAddress = f.address || f.vendorAddress || f.vendor?.address || '';
+              const vendorCategory = f.category || f.vendorCategory || f.vendor?.category || 'Vendor';
+              const vendorRating = f.rating || f.vendor?.rating || 0;
+              const vendorReviewCount = f.reviewCount || f.vendor?.reviewCount || f.user_ratings_total || 0;
+              const vendorImage = f.image || f.vendor?.image || '';
+              
+              return {
+                id: f.placeId || f.id,
+                place_id: f.placeId || f.id,
+                name: vendorName,
+                address: vendorAddress,
+                rating: vendorRating,
+                user_ratings_total: vendorReviewCount,
+                image: vendorImage,
+                mainTypeLabel: vendorCategory
+              };
+            });
+          
+          // For favorites without vendor data, try to fetch from Google Places API
+          const incompleteFavorites = favsFromFirestore.filter(f => f.name === 'Unknown Vendor');
+          if (incompleteFavorites.length > 0) {
+            try {
+              const placeDetailsPromises = incompleteFavorites.map(async (favorite) => {
+                try {
+                  const response = await fetch(`/api/google-place-details?placeId=${favorite.place_id}`);
+                  if (response.ok) {
+                    const placeData = await response.json();
+                    
+                    if (placeData.result) {
+                      // Get the best available image
+                      let bestImage = favorite.image;
+                      if (placeData.result.photos && placeData.result.photos.length > 0) {
+                        const photo = placeData.result.photos[0];
+                        bestImage = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+                      }
+                      
+                      return {
+                        ...favorite,
+                        name: placeData.result.name || favorite.name,
+                        address: placeData.result.formatted_address || favorite.address,
+                        rating: placeData.result.rating || favorite.rating,
+                        user_ratings_total: placeData.result.user_ratings_total || favorite.user_ratings_total,
+                        image: bestImage
+                      };
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error fetching place details for', favorite.place_id, ':', error);
+                }
+                return favorite;
+              });
+              
+              const enhancedFavorites = await Promise.all(placeDetailsPromises);
+              
+              // Replace incomplete favorites with enhanced ones
+              favsFromFirestore = favsFromFirestore.map(f => {
+                const enhanced = enhancedFavorites.find(ef => ef.place_id === f.place_id);
+                return enhanced || f;
+              });
+            } catch (error) {
+              console.error('Error enhancing incomplete favorites:', error);
+            }
+          }
+          
+          setEnhancedFavorites(favsFromFirestore);
+        }
+      } catch (error) {
+        console.error('Error fetching favorites from Firestore:', error);
+      }
+    };
+
+    fetchMissingFavorites();
+  }, [user?.uid, favorites]);
   
   const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -271,9 +362,15 @@ export default function VendorsPage() {
       }
     });
     
-    const allFavoriteVendors = Array.from(uniqueVendorsMap.values());
+    // Add enhanced favorites from Firestore (Google Places vendors)
+    enhancedFavorites.forEach(vendor => {
+      const key = vendor.place_id || vendor.id;
+      if (key && !uniqueVendorsMap.has(key)) {
+        uniqueVendorsMap.set(key, vendor);
+      }
+    });
     
-
+    const allFavoriteVendors = Array.from(uniqueVendorsMap.values());
     
     let filtered = allFavoriteVendors.filter((v) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
@@ -314,7 +411,7 @@ export default function VendorsPage() {
       default:
         return filtered;
     }
-  }, [vendors, favorites, isFavorite, selectedCategories, vendorSearch, sortOption]);
+  }, [vendors, favorites, isFavorite, selectedCategories, vendorSearch, sortOption, user?.uid, enhancedFavorites]);
 
   useEffect(() => {
     if (user?.uid) {

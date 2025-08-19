@@ -139,8 +139,21 @@ export const useFavorites = (): UseFavoritesReturn => {
         }).catch(console.error);
       }
       
-      // Sync to Firestore
-      await syncFavoritesToFirestore(newFavorites);
+      // Store in Firestore with vendor data
+      const response = await fetch('/api/user-favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          placeId,
+          vendorData,
+          isFavorite: true
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to store favorite in Firestore');
+      }
       
       // Notify other components
       if (isClient) {
@@ -158,7 +171,7 @@ export const useFavorites = (): UseFavoritesReturn => {
       const currentFavorites = getLocalFavorites();
       setFavorites(currentFavorites);
     }
-  }, [user?.uid, isClient, getLocalFavorites, setLocalFavorites, syncFavoritesToFirestore, showSuccessToast, showErrorToast]);
+  }, [user?.uid, isClient, getLocalFavorites, setLocalFavorites, showSuccessToast, showErrorToast]);
 
   // Remove a favorite
   const removeFavorite = useCallback(async (placeId: string) => {
@@ -192,8 +205,21 @@ export const useFavorites = (): UseFavoritesReturn => {
         })
       }).catch(console.error);
       
-      // Sync to Firestore
-      await syncFavoritesToFirestore(newFavorites);
+      // Remove from Firestore
+      const response = await fetch('/api/user-favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          placeId,
+          vendorData: {},
+          isFavorite: false
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove favorite from Firestore');
+      }
       
       // Notify other components
       if (isClient) {
@@ -211,7 +237,7 @@ export const useFavorites = (): UseFavoritesReturn => {
       const currentFavorites = getLocalFavorites();
       setFavorites(currentFavorites);
     }
-  }, [user?.uid, isClient, getLocalFavorites, setLocalFavorites, syncFavoritesToFirestore, showSuccessToast, showErrorToast]);
+  }, [user?.uid, isClient, getLocalFavorites, setLocalFavorites, showSuccessToast, showErrorToast]);
 
   // Toggle favorite state
   const toggleFavorite = useCallback(async (placeId: string, vendorData?: any) => {

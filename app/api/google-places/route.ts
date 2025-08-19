@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const { category, location, searchTerm, nextPageToken, minprice, maxprice, minrating, radius, opennow } = await req.json();
+    
+    console.log('🚀 Google Places API called with:', { category, location, searchTerm, nextPageToken, minprice, maxprice, minrating, radius, opennow });
+    
     if (!category || !location) {
+      console.log('❌ Missing category or location');
       return NextResponse.json({ error: 'Missing category or location' }, { status: 400 });
     }
 
@@ -51,6 +55,7 @@ export async function POST(req: NextRequest) {
       const data = await response.json();
       return NextResponse.json(data);
     } else if (venueCategories.includes(category)) {
+      console.log('🏛️ Using venue search path for category:', category);
       // Run multiple queries and merge results for venues
       const queries = [
         'wedding venue',
@@ -60,6 +65,7 @@ export async function POST(req: NextRequest) {
         'wedding reception',
         'wedding event venue'
       ];
+      console.log('🔍 Executing venue queries:', queries);
       let allResults: any[] = [];
       for (const q of queries) {
         let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}&type=${encodeURIComponent(category)}`;
@@ -68,14 +74,21 @@ export async function POST(req: NextRequest) {
         if (radius !== undefined) baseUrl += `&radius=${radius}`;
         if (opennow) baseUrl += `&opennow=true`;
         baseUrl += `&key=${apiKey}`;
+        console.log('🌐 Calling Google Places with URL:', baseUrl);
         const response = await fetch(baseUrl);
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data.results)) {
+            console.log(`✅ Query "${q}" returned ${data.results.length} results`);
             allResults = allResults.concat(data.results);
+          } else {
+            console.log(`❌ Query "${q}" returned no results or invalid data`);
           }
+        } else {
+          console.log(`❌ Query "${q}" failed with status:`, response.status);
         }
       }
+      console.log(`🏛️ Total venue results before deduplication: ${allResults.length}`);
       // Deduplicate by place_id
       const seen = new Set();
       const deduped = allResults.filter(place => {
@@ -83,6 +96,7 @@ export async function POST(req: NextRequest) {
         seen.add(place.place_id);
         return true;
       });
+      console.log(`🏛️ Final deduplicated venue results: ${deduped.length}`);
       return NextResponse.json({ results: deduped });
     } else if (specialSearchCategories[category] || specialSearchCategories[category + 's']) {
       // Run multiple targeted queries for special categories

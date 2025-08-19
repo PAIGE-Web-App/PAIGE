@@ -17,6 +17,7 @@ interface VendorMapProps {
   hoveredVendor?: any;
   currentPage?: number;
   itemsPerPage?: number;
+  onVendorClick?: (vendor: any) => void; // Added for scrolling functionality
 }
 
 // Custom map theme that matches the app's color scheme - defined outside component to prevent recreation
@@ -84,7 +85,8 @@ const VendorMap: React.FC<VendorMapProps> = ({
   onVendorSelect,
   hoveredVendor,
   currentPage = 1,
-  itemsPerPage = 10
+  itemsPerPage = 10,
+  onVendorClick
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
@@ -101,30 +103,34 @@ const VendorMap: React.FC<VendorMapProps> = ({
   const updateMarkerAppearance = useCallback((marker: any, vendor: any, isHovered: boolean, isSelected: boolean) => {
     if (!window.google) return;
     
-    let scale = 8;
+    let scale = 1;
     let fillColor = '#AB9C95';
     let fillOpacity = 0.9;
-    let strokeWeight = 2;
+    let strokeWeight = 1;
 
     if (isHovered) {
-      scale = 10;
+      scale = 1.2;
       fillColor = '#A85C36';
       fillOpacity = 1;
-      strokeWeight = 3;
+      strokeWeight = 2;
     } else if (isSelected) {
-      scale = 8;
+      scale = 1;
       fillColor = '#A85C36';
       fillOpacity = 0.9;
-      strokeWeight = 2;
+      strokeWeight = 1;
     }
 
+    // Custom pin path - creates a teardrop/pin shape
+    const pinPath = 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z';
+
     marker.setIcon({
-      path: window.google.maps.SymbolPath.CIRCLE,
+      path: pinPath,
       scale,
       fillColor,
       fillOpacity,
       strokeColor: '#332B42',
-      strokeWeight
+      strokeWeight,
+      anchor: { x: 12, y: 24 } // Center the pin at the bottom point
     });
   }, []); // No dependencies needed - this function doesn't depend on any props or state
 
@@ -185,18 +191,28 @@ const VendorMap: React.FC<VendorMapProps> = ({
                 fontWeight: 'bold'
               },
               icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 8,
+                path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+                scale: 1,
                 fillColor: selectedVendor?.place_id === vendor.place_id ? '#A85C36' : '#AB9C95',
                 fillOpacity: 0.9,
                 strokeColor: '#332B42',
-                strokeWeight: 2
+                strokeWeight: 1,
+                anchor: { x: 12, y: 24 }
               }
             });
 
             // Add click event
             marker.addListener('click', () => {
               onVendorSelect(vendor);
+              // Also highlight the vendor in the list
+              const event = new CustomEvent('vendorHover', {
+                detail: { vendor, isHovered: true }
+              });
+              window.dispatchEvent(event);
+              // Trigger scroll to vendor in list
+              if (onVendorClick) {
+                onVendorClick(vendor);
+              }
             });
 
             newMarkers.push(marker);
@@ -237,6 +253,40 @@ const VendorMap: React.FC<VendorMapProps> = ({
       }
     });
   }, [hoveredVendor, selectedVendor, markers, visibleVendors, updateMarkerAppearance]);
+
+  // Add hover events to markers to highlight corresponding vendors in the list
+  useEffect(() => {
+    if (!markers.length) return;
+
+    markers.forEach((marker, index) => {
+      const vendor = visibleVendors[index];
+      if (vendor) {
+        // Add mouse enter event to highlight vendor in list
+        marker.addListener('mouseenter', () => {
+          // Dispatch custom event to notify parent component
+          const event = new CustomEvent('vendorHover', {
+            detail: { vendor, isHovered: true }
+          });
+          window.dispatchEvent(event);
+        });
+
+        // Add mouse leave event to remove highlight
+        marker.addListener('mouseleave', () => {
+          const event = new CustomEvent('vendorHover', {
+            detail: { vendor, isHovered: false }
+          });
+          window.dispatchEvent(event);
+        });
+      }
+    });
+
+    // Cleanup function to remove event listeners
+    return () => {
+      markers.forEach(marker => {
+        window.google?.maps.event.clearInstanceListeners(marker);
+      });
+    };
+  }, [markers, visibleVendors]);
 
   if (!window.google?.maps) {
     return (

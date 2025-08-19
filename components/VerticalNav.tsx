@@ -128,7 +128,7 @@ export default function VerticalNav() {
                 <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                   {item.name}
                   {notificationCount > 0 && (
-                    <span className="ml-1 text-[#A85C36]">
+                    <span className="ml-1 text-gray-300">
                       ({notificationCount})
                     </span>
                   )}
