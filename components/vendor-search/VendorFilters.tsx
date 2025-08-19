@@ -129,40 +129,7 @@ export default function VendorFilters({
         </div>
       </div>
 
-      {/* Price Range */}
-      <div className="mb-6">
-        <div className="space-y-1">
-          <button
-            onClick={() => setExpandedFilters({ ...expandedFilters, price: !expandedFilters.price })}
-            className="w-full flex items-center justify-between text-left hover:bg-[#F3F2F0] p-2 rounded transition-colors"
-          >
-            <span className="text-sm font-medium text-[#332B42]">Price Range</span>
-            <span className="text-[#A85C36]">
-              {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </span>
-          </button>
-          {expandedFilters.price && (
-            <div className="pl-2 space-y-2">
-              <div className="flex gap-2 min-w-0">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={priceRange.min}
-                  onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
-                  className="flex-1 border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95] min-w-0"
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={priceRange.max}
-                  onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
-                  className="flex-1 border pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95] min-w-0"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+
 
       {/* Rating Filter */}
       <div className="mb-6">
