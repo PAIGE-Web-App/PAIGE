@@ -7,75 +7,52 @@ import FilePreview from './FilePreview';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAssigneeAvatarColor, getRoleBasedAvatarColor } from '@/utils/assigneeAvatarColors';
+import { formatFileSize, getFolderDisplayName, getFileTypeIcon } from '@/utils/fileUtils';
 
 interface FileItemComponentProps {
   file: FileItem;
   onDelete: (fileId: string) => void;
   onEdit: (file: FileItem) => void;
   onSelect: (file: FileItem) => void;
+  onDoubleClick: (file: FileItem) => void;
   onAnalyze: (file: FileItem) => void;
   isSelected?: boolean;
   viewMode?: 'list' | 'grid';
   folders?: FileFolder[];
 }
 
-const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, onAnalyze, isSelected, viewMode, folders = [] }) => {
+const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, onEdit, onSelect, onDoubleClick, onAnalyze, isSelected, viewMode, folders = [] }) => {
   const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
   const { profileImageUrl } = useAuth();
   
   // Check if this file is currently being dragged
   const isThisFileDragging = isDragging && draggedItem?.type === 'file' && draggedItem.item.id === file.id;
   
-  // Get folder name for display
-  const getFolderName = (folderId: string) => {
-    if (folderId === 'all') return 'All Files';
-    const folder = folders.find(f => f.id === folderId);
-    return folder ? folder.name : 'Unknown Folder';
-  };
-  
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   const getFileIcon = (fileType: string) => {
-    switch (fileType.toLowerCase()) {
-      case 'pdf':
-        return <FileText className="w-6 h-6 text-red-600" />;
-      case 'doc':
-      case 'docx':
-        return <FileText className="w-6 h-6 text-blue-600" />;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-        return <FileText className="w-6 h-6 text-green-600" />;
-      default:
-        return <FileText className="w-6 h-6 text-gray-600" />;
-    }
+    const iconProps = getFileTypeIcon(fileType);
+    return <FileText {...iconProps} />;
   };
 
   // List view layout - Proper table row structure
   if (viewMode === 'list') {
     return (
       <div 
-        className={`grid grid-cols-12 gap-0.5 p-2 border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-colors group cursor-pointer ${
+        className={`grid grid-cols-12 gap-0.5 p-2 border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-colors group cursor-pointer relative ${
           isSelected 
             ? 'bg-[#F8F6F4] border-[#A85C36]' 
             : 'bg-white'
         } ${isThisFileDragging ? 'opacity-40' : ''}`}
 
         onClick={() => onSelect(file)}
-        onDoubleClick={() => onAnalyze(file)}
+        onDoubleClick={() => onDoubleClick(file)}
         draggable
         onDragStart={(e) => {
           setDraggedItem({ type: 'file', item: file });
           setIsDragging(true);
           e.dataTransfer.effectAllowed = 'move';
           e.dataTransfer.setData('text/plain', file.id);
+          
+
           
           // Create a better sized drag preview
           const dragPreview = document.createElement('div');
@@ -114,6 +91,16 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           setIsDragging(false);
         }}
       >
+        {/* 💡 Hover Help Popover */}
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#332B42] text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3 h-3 text-white" />
+            <span>Double click to Analyze file with Paige to get Insights!</span>
+          </div>
+          {/* Arrow pointing down */}
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#332B42]"></div>
+        </div>
+        
         {/* File Name */}
         <div className="col-span-3 flex items-center">
           <div className="text-sm font-medium text-[#332B42] truncate max-w-full">{file.name}</div>
@@ -149,7 +136,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
 
         {/* Folder */}
         <div className="col-span-2 flex items-center">
-          <span className="text-sm text-[#AB9C95] truncate">{getFolderName(file.folderId)}</span>
+          <span className="text-sm text-[#AB9C95] truncate">{getFolderDisplayName(file.folderId || 'all', folders)}</span>
         </div>
 
         {/* Upload Date */}
@@ -267,8 +254,8 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           
           {/* File Metadata */}
           <div className="flex items-center gap-4 text-xs text-[#AB9C95]">
-            <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]" title={`Folder: ${getFolderName(file.folderId)}`}>
-              {getFolderName(file.folderId)}
+            <span className="px-2 py-1 bg-[#F8F6F4] rounded-[3px]" title={`Folder: ${getFolderDisplayName(file.folderId || 'all', folders)}`}>
+              {getFolderDisplayName(file.folderId || 'all', folders)}
             </span>
             <span>{formatFileSize(file.fileSize)}</span>
             <span>{file.uploadedAt.toLocaleDateString()}</span>

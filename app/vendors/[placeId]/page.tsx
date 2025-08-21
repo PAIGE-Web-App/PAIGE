@@ -670,14 +670,7 @@ export default function VendorDetailPage() {
         <div className="app-content-container py-8">
           {/* Breadcrumb */}
           <Breadcrumb
-            items={generateVendorDetailBreadcrumbs({
-              category: categoryFromUrl ? getCategoryFromSlug(categoryFromUrl) : undefined,
-              location: userWeddingLocation || location,
-              vendorName: vendor.name,
-              vendorTypes: vendor.amenities,
-              vendorAddress: vendor.address,
-              userWeddingLocation: userWeddingLocation || undefined
-            })}
+            items={generateVendorDetailBreadcrumbs()}
           />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Vendor Details */}

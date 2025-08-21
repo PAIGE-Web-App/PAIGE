@@ -97,7 +97,7 @@ const SubfolderGrid: React.FC<SubfolderGridProps> = memo(({
             ]}
             className="flex-shrink-0"
             buttonClassName="p-1 hover:bg-[#F8F6F4] rounded-full"
-            menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            menuClassName="absolute mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-50"
           />
         </div>
       ))}

@@ -34,7 +34,7 @@ interface VendorCardRoverStyleProps {
   isHighlighted?: boolean; // Added for highlighting when map marker is hovered/clicked
 }
 
-export default function VendorCardRoverStyle({ 
+const VendorCardRoverStyle = React.memo(({ 
   vendor, 
   onContact, 
   onFlag, 
@@ -42,10 +42,10 @@ export default function VendorCardRoverStyle({
   onShowFlagModal,
   communityData,
   isHighlighted = false
-}: VendorCardRoverStyleProps) {
+}: VendorCardRoverStyleProps) => {
   const router = useRouter();
   const { user } = useAuth();
-  const { showSuccessToast } = useCustomToast();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isFlagged, setIsFlagged] = useState(false);
   const [communityDataState, setCommunityDataState] = useState<any>(null);
   const [imageLoading, setImageLoading] = useState(true);
@@ -58,7 +58,7 @@ export default function VendorCardRoverStyle({
 
 
   // Use communityData prop if provided, otherwise fall back to local state
-  const effectiveCommunityData = communityData || communityDataState;
+  const effectiveCommunityData = useMemo(() => communityData || communityDataState, [communityData, communityDataState]);
 
 
 
@@ -133,15 +133,36 @@ export default function VendorCardRoverStyle({
     }
   }, [vendor.place_id, communityData]);
 
-  const handleFavoriteToggle = async () => {
+  // Listen for vendor flagged/unflagged events to update UI immediately
+  useEffect(() => {
+    const handleVendorFlagged = (event: CustomEvent) => {
+      if (event.detail.vendorId === vendor.place_id) {
+        setIsFlagged(true);
+      }
+    };
+
+    const handleVendorUnflagged = (event: CustomEvent) => {
+      if (event.detail.vendorId === vendor.place_id) {
+        setIsFlagged(false);
+      }
+    };
+
+    window.addEventListener('vendorFlagged', handleVendorFlagged as EventListener);
+    window.addEventListener('vendorUnflagged', handleVendorUnflagged as EventListener);
+    
+    return () => {
+      window.removeEventListener('vendorFlagged', handleVendorFlagged as EventListener);
+      window.removeEventListener('vendorUnflagged', handleVendorUnflagged as EventListener);
+    };
+  }, [vendor.place_id]);
+
+  const handleFavoriteToggle = useCallback(async () => {
     if (!user?.uid) {
       showSuccessToast('Please log in to save favorites');
       return;
     }
 
     try {
-
-      
       await toggleFavorite(vendor.place_id, {
         name: vendor.name,
         address: vendor.vicinity || vendor.formatted_address,
@@ -166,21 +187,47 @@ export default function VendorCardRoverStyle({
       console.error('Error toggling favorite:', error);
       showSuccessToast('Failed to update favorites');
     }
-  };
+  }, [user?.uid, toggleFavorite, vendor.place_id, vendor.name, vendor.vicinity, vendor.formatted_address, showSuccessToast]);
 
+  const handleUnflagVendor = useCallback(async () => {
+    try {
+      const response = await fetch('/api/flag-vendor', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorId: vendor.place_id
+        }),
+      });
 
+      if (response.ok) {
+        setIsFlagged(false);
+        showSuccessToast('Vendor unflagged successfully');
+        
+        // Dispatch unflag event for other components
+        window.dispatchEvent(new CustomEvent('vendorUnflagged', { 
+          detail: { vendorId: vendor.place_id } 
+        }));
+      } else {
+        showErrorToast('Failed to unflag vendor');
+      }
+    } catch (error) {
+      console.error('Error unflagging vendor:', error);
+      showErrorToast('Failed to unflag vendor');
+    }
+  }, [vendor.place_id, showSuccessToast, showErrorToast]);
 
-  const handleViewDetailsClick = () => {
+  const handleViewDetailsClick = useCallback(() => {
     // Open vendor details page in a new tab
     window.open(`/vendors/${vendor.place_id}`, '_blank');
-  };
+  }, [vendor.place_id]);
 
-  const getPriceLevel = (level?: number) => {
+  const getPriceLevel = useCallback((level?: number) => {
     if (!level) return '';
     return '$'.repeat(level);
-  };
+  }, []);
 
-
+  // Memoize computed values
+  const priceLevelDisplay = useMemo(() => getPriceLevel(vendor.price_level), [getPriceLevel, vendor.price_level]);
 
   return (
     <div 
@@ -225,12 +272,14 @@ export default function VendorCardRoverStyle({
           {/* Header Row */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1 min-w-0">
-              <h6 className="h6 truncate">
-                {vendor.name}
+              <h6 className="h6 max-w-full">
+                {vendor.name && vendor.name.length > 40 
+                  ? `${vendor.name.substring(0, 40)}...` 
+                  : vendor.name}
               </h6>
               <div className="flex items-center gap-1 text-xs text-[#332B42] mt-1">
                 <MapPin size={12} />
-                <span className="truncate">{vendor.vicinity || vendor.formatted_address}</span>
+                <span className="truncate max-w-full">{vendor.vicinity || vendor.formatted_address}</span>
               </div>
             </div>
             <div className="flex items-center gap-2 ml-2">
@@ -250,14 +299,18 @@ export default function VendorCardRoverStyle({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onShowFlagModal?.(vendor);
+                  if (isFlagged) {
+                    handleUnflagVendor();
+                  } else {
+                    onShowFlagModal?.(vendor);
+                  }
                 }}
                 className={`p-2 rounded-full transition-colors ${
                   isFlagged 
-                    ? 'text-red-600 bg-red-100' 
+                    ? 'text-red-600 bg-red-100 hover:text-red-700 hover:bg-red-200' 
                     : 'text-[#AB9C95] hover:text-[#A85C36] hover:bg-[#F3F2F0]'
                 }`}
-                disabled={isFlagged}
+                title={isFlagged ? 'Click to unflag vendor' : 'Click to flag vendor'}
               >
                 <Flag size={16} />
               </button>
@@ -268,7 +321,7 @@ export default function VendorCardRoverStyle({
           {vendor.price_level && (
             <div className="mb-1">
               <span className="text-xs text-[#332B42]">
-                {getPriceLevel(vendor.price_level)}
+                {priceLevelDisplay}
               </span>
             </div>
           )}
@@ -292,7 +345,7 @@ export default function VendorCardRoverStyle({
 
           {/* Smart Favorites Badge */}
           {(isFavorite(vendor.place_id) || (communityDataState && communityDataState.totalFavorites > 0)) && (
-            <div className="flex items-center gap-1 text-xs text-[#364257] mb-3">
+            <div className="flex items-center gap-1 text-xs text-[#364257] mb-2">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
               <span>
                 {(() => {
@@ -321,9 +374,17 @@ export default function VendorCardRoverStyle({
             </div>
           )}
 
+          {/* Flagged Vendor Badge */}
+          {isFlagged && (
+            <div className="flex items-center gap-1 text-xs text-red-600 mb-2">
+              <Flag size={12} className="text-red-600" />
+              <span>Flagged by you • Click flag to unflag</span>
+            </div>
+          )}
+
           {/* Community Badge */}
           {effectiveCommunityData && (
-            <div className="mt-3 mb-3">
+            <div className="mt-2 mb-2">
               <VendorEmailBadge placeId={vendor.place_id} />
             </div>
           )}
@@ -352,4 +413,6 @@ export default function VendorCardRoverStyle({
       </div>
     </div>
   );
-}
+});
+
+export default VendorCardRoverStyle;

@@ -11,7 +11,6 @@ import { AnimatePresence } from 'framer-motion';
 interface FilesContentAreaProps {
   currentFolder: FileFolder | null;
   parentFolder: FileFolder | null;
-  viewMode: 'list' | 'grid';
   editingFolderNameId: string | null;
   editingFolderNameValue: string | null;
   hasReachedSubfolderLimit: boolean;
@@ -23,7 +22,6 @@ interface FilesContentAreaProps {
   isLoading?: boolean;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  onViewModeChange: (mode: 'list' | 'grid') => void;
   onSearchToggle: () => void;
   onEditFolder: (folderId: string, name: string) => void;
   onCloneFolder: (folderId: string) => void;
@@ -34,6 +32,7 @@ interface FilesContentAreaProps {
   onNavigateToParent: () => void;
   onNavigateToFolder: (folder: FileFolder) => void;
   onSelectFile: (file: FileItem) => void;
+  onDoubleClickFile: (file: FileItem) => void;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
   onAnalyzeFile: (file: FileItem) => void;
@@ -53,7 +52,6 @@ interface FilesContentAreaProps {
 const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   currentFolder,
   parentFolder,
-  viewMode,
   editingFolderNameId,
   editingFolderNameValue,
   hasReachedSubfolderLimit,
@@ -65,7 +63,6 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   isLoading = false,
   searchQuery,
   onSearchQueryChange,
-  onViewModeChange,
   onSearchToggle,
   onEditFolder,
   onCloneFolder,
@@ -76,6 +73,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   onNavigateToParent,
   onNavigateToFolder,
   onSelectFile,
+  onDoubleClickFile,
   onDeleteFile,
   onEditFile,
   onAnalyzeFile,
@@ -106,12 +104,10 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
       {/* Top Bar */}
       <FilesTopBar
         currentFolder={currentFolder}
-        viewMode={viewMode}
         editingFolderNameId={editingFolderNameId}
         editingFolderNameValue={editingFolderNameValue}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
-        onViewModeChange={onViewModeChange}
         onSearchToggle={onSearchToggle}
         onEditFolder={onEditFolder}
         onCloneFolder={onCloneFolder}
@@ -119,6 +115,8 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         onRenameFolder={onRenameFolder}
         onEditingFolderNameChange={onEditingFolderNameChange}
         onCancelEdit={onCancelEdit}
+        onCreateSubfolder={onCreateSubfolder}
+        onUploadFile={onUploadFile}
       />
 
       {/* Breadcrumb Navigation */}
@@ -127,8 +125,6 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         parentFolder={parentFolder}
         onNavigateToParent={onNavigateToParent}
         onNavigateToFolder={onNavigateToFolder}
-        onCreateSubfolder={onCreateSubfolder}
-        onUploadFile={onUploadFile}
         folders={folders}
       />
 
@@ -155,8 +151,9 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
         selectedFolder={currentFolder}
         subfolders={currentSubfolders}
         files={filteredFiles}
-        viewMode={viewMode}
+        viewMode="list"
         onSelectFile={onSelectFile}
+        onDoubleClickFile={onDoubleClickFile}
         selectedFile={selectedFile}
         onDeleteFile={onDeleteFile}
         onEditFile={onEditFile}

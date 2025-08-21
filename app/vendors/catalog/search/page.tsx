@@ -101,10 +101,10 @@ export default function VendorSearchPage() {
     const urlRating = urlParams.get('rating');
     const urlDistance = urlParams.get('distance');
 
-    // Only set category if it's not 'restaurant' (default to 'venue' for wedding venues)
-    if (urlCategory && urlCategory !== 'restaurant') {
+    // Set category from URL or default to 'venue' for wedding venues
+    if (urlCategory) {
       setSearchParams({ category: urlCategory });
-    } else if (!urlCategory) {
+    } else {
       // Set default category to 'venue' if none specified
       setSearchParams({ category: 'venue' });
     }
@@ -170,6 +170,15 @@ export default function VendorSearchPage() {
         showSuccessToast('Vendor flagged successfully');
         setShowFlagModal(false);
         setSelectedVendor(null);
+        
+        // Refresh vendor data to show flagged status
+        // This will trigger a re-fetch of community data including flag status
+        if (vendorSearchResultsRef.current) {
+          // Force a refresh of the vendor list to show updated flag status
+          window.dispatchEvent(new CustomEvent('vendorFlagged', { 
+            detail: { vendorId: selectedVendor.place_id } 
+          }));
+        }
       } else {
         showErrorToast('Failed to flag vendor');
       }
@@ -194,7 +203,7 @@ export default function VendorSearchPage() {
         <div className="pb-2">
           <a 
             href="/vendors" 
-            className="text-[#A85C36] hover:text-[#8B4513] transition-colors text-sm flex items-center gap-1 no-underline"
+            className="text-[#A85C36] hover:text-[#8B4513] transition-colors text-sm flex items-center gap-1 no-underline w-fit"
           >
             ← Back to Vendor Hub
           </a>
@@ -224,7 +233,7 @@ export default function VendorSearchPage() {
           </div>
 
           {/* Center - Results */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0 max-w-none overflow-hidden">
             <VendorSearchResults
               ref={vendorSearchResultsRef}
               vendors={vendors}

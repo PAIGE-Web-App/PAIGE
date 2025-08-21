@@ -37,6 +37,7 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.5",
     "openai": "^4.100.0",
+    "pdfjs-dist": "^5.4.54",
     "postcss": "8.4.38",
     "rc-slider": "^11.1.8",
     "react": "latest",

@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useClickOutside } from '@/hooks/useClickOutside';
 
 interface MicroMenuItem {
   label: string;
@@ -26,26 +27,55 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'>('bottom-right');
 
   // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+  useClickOutside(menuRef, () => setIsOpen(false), isOpen);
 
   const handleToggleMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    if (!isOpen) {
+      // Calculate position to prevent overlap
+      const buttonRect = e.currentTarget.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const menuWidth = 128; // w-32 = 128px
+      const menuHeight = 80; // Approximate height
+      
+      // Find the actual container element to get real available space
+      const container = e.currentTarget.closest('.grid, .flex, [class*="grid"], [class*="flex"]');
+      let containerRect: DOMRect | null = null;
+      if (container) {
+        containerRect = container.getBoundingClientRect();
+      }
+      
+      let position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' = 'bottom-right';
+      
+      // Calculate available space considering the actual container
+      const availableRight = containerRect ? containerRect.right - buttonRect.right : viewportWidth - buttonRect.right;
+      const availableLeft = containerRect ? buttonRect.left - containerRect.left : buttonRect.left;
+      
+      // Always prefer left alignment for grid layouts to prevent overlap with adjacent cards
+      // This is especially important when the middle pane is constrained by the AI panel
+      if (availableRight < menuWidth + 30 || buttonRect.right > (containerRect?.right || viewportWidth) - 100) {
+        position = position.includes('bottom') ? 'bottom-left' : 'top-left';
+      }
+      
+      // Additional safety check: if we're very close to the right edge of any container, force left alignment
+      const rightEdgeBuffer = 50; // 50px buffer from right edge
+      if (buttonRect.right > (containerRect?.right || viewportWidth) - rightEdgeBuffer) {
+        position = position.includes('bottom') ? 'bottom-left' : 'top-left';
+      }
+      
+      // Check if menu would overflow bottom edge
+      if (buttonRect.bottom + menuHeight > viewportHeight) {
+        position = position.includes('left') ? 'top-left' : 'top-right';
+      }
+      
+      setMenuPosition(position);
+    }
+    
     setIsOpen(!isOpen);
   };
 
@@ -71,7 +101,12 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={menuClassName}
+            className={`${menuClassName} ${
+              menuPosition === 'bottom-right' ? 'top-full left-0' :
+              menuPosition === 'bottom-left' ? 'top-full right-0' :
+              menuPosition === 'top-right' ? 'bottom-full left-0' :
+              'bottom-full right-0'
+            }`}
           >
             {items.map((item, index) => (
               <button

@@ -210,7 +210,7 @@ const VendorSearchResults = forwardRef<VendorSearchResultsRef, VendorSearchResul
   };
 
   return (
-    <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col">
+    <div className="bg-white border border-[#AB9C95] rounded-[5px] h-full flex flex-col overflow-hidden">
       {/* Results Header */}
       <div className="p-4 border-b border-[#AB9C95] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">

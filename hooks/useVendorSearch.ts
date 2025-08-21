@@ -71,6 +71,26 @@ export function useVendorSearch(): UseVendorSearchReturn {
     }
   }, [searchParams]);
   
+  // Progressive enhancement function for images
+  const enhanceVendorsProgressively = async (vendors: Vendor[]) => {
+    const enhancedVendors = [...vendors];
+    
+    for (let i = 0; i < vendors.length; i++) {
+      try {
+        const enhanced = await enhanceVendorsWithImages([vendors[i]]);
+        enhancedVendors[i] = enhanced[0];
+        
+        // Update state progressively - users see improvements as they happen
+        setVendors([...enhancedVendors]);
+        
+        // Small delay to prevent overwhelming the UI
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (error) {
+        console.error(`Error enhancing vendor ${i}:`, error);
+      }
+    }
+  };
+
   // Debounced search function
   const debouncedSearchRef = useRef<any>(null);
   
@@ -123,32 +143,26 @@ export function useVendorSearch(): UseVendorSearchReturn {
             setVendors([]);
           } else if (Array.isArray(data.results) && data.results.length > 0) {
 
+            // 🚀 SHOW RESULTS IMMEDIATELY with basic geometry data
+            const vendorsWithGeometry = data.results.map((vendor, index) => {
+              if (!vendor.geometry?.location) {
+                const dallasCenter = { lat: 32.7767, lng: -96.7970 };
+                const angle = (index * 137.5) % 360; // Golden angle for better distribution
+                const distance = 0.01 + (index % 5) * 0.005; // 0.01 to 0.035 degrees
+                const lat = dallasCenter.lat + Math.cos(angle * Math.PI / 180) * distance;
+                const lng = dallasCenter.lng + Math.sin(angle * Math.PI / 180) * distance;
+                
+                vendor.geometry = { location: { lat, lng } };
+              }
+              return vendor;
+            });
             
-            // Enhance vendors with images
-            try {
-              let enhancedVendors = await enhanceVendorsWithImages(data.results);
-              
-              // Add basic geometry data for map functionality
-              enhancedVendors = enhancedVendors.map((vendor, index) => {
-                if (!vendor.geometry?.location) {
-                  const dallasCenter = { lat: 32.7767, lng: -96.7970 };
-                  const angle = (index * 137.5) % 360; // Golden angle for better distribution
-                  const distance = 0.01 + (index % 5) * 0.005; // 0.01 to 0.035 degrees
-                  const lat = dallasCenter.lat + Math.cos(angle * Math.PI / 180) * distance;
-                  const lng = dallasCenter.lng + Math.sin(angle * Math.PI / 180) * distance;
-                  
-                  vendor.geometry = { location: { lat, lng } };
-                }
-                return vendor;
-              });
-              
-              setVendors(enhancedVendors);
-              setCurrentPage(1);
+            setVendors(vendorsWithGeometry);
+            setCurrentPage(1);
 
-            } catch (error) {
-              console.error('❌ Error enhancing vendors:', error);
-              setVendors(data.results);
-            }
+            // 🔄 Enhance images progressively in background (non-blocking)
+            enhanceVendorsProgressively(vendorsWithGeometry);
+
           } else {
 
             setVendors([]);
@@ -171,7 +185,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
       } finally {
         setLoading(false);
       }
-    }, 100); // Reduced from 1000ms to 100ms for faster response
+    }, 50); // Reduced from 100ms to 50ms for faster response
 
     return () => {
       if (debouncedSearchRef.current) {
@@ -200,41 +214,41 @@ export function useVendorSearch(): UseVendorSearchReturn {
   // 2. This triggers the useEffect above
   // 3. No duplicate search calls = consistent behavior
 
-  // Fetch community vendor data when vendors change
+  // Fetch community vendor data when vendors change - optimized for pagination
   useEffect(() => {
     const fetchCommunityVendorData = async () => {
       if (vendors.length === 0) return;
       
       try {
-        // Only fetch for the first 10 vendors to prevent rate limiting
-        const vendorsToFetch = vendors.slice(0, 10);
+        // 🚀 Only fetch for visible vendors (current page) instead of first 10
+        const startIndex = (currentPage - 1) * 10; // Assuming 10 items per page
+        const endIndex = startIndex + 10;
+        const visibleVendors = vendors.slice(startIndex, endIndex);
         
-        // Process vendors one by one with delays to prevent rate limiting
-        const results: Record<string, any> = {};
-        
-        for (const vendor of vendorsToFetch) {
+        // 🔄 Fetch in parallel instead of sequentially for much faster loading
+        const promises = visibleVendors.map(async (vendor) => {
           try {
-            // Add delay between each request to prevent rate limiting
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
             const response = await fetch(`/api/community-vendors?placeId=${vendor.place_id}`);
             if (response.ok) {
               const data = await response.json();
-              results[vendor.place_id] = data.vendor;
+              return { [vendor.place_id]: data.vendor };
             }
           } catch (error) {
             console.error(`Error fetching data for ${vendor.place_id}:`, error);
           }
-        }
+          return {};
+        });
         
-        setCommunityVendorData(results);
+        const results = await Promise.all(promises);
+        const combinedResults = results.reduce((acc, result) => ({ ...acc, ...result }), {});
+        setCommunityVendorData(combinedResults);
       } catch (error) {
         console.error('Error batch fetching community vendor data:', error);
       }
     };
 
     fetchCommunityVendorData();
-  }, [vendors]);
+  }, [vendors, currentPage]); // Added currentPage dependency for pagination-aware fetching
 
   return {
     vendors,

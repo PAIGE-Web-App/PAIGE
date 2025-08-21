@@ -163,7 +163,6 @@ export const categoryToSlug = (category: string): string => {
 export const getCategorySlug = (displayCategory: string): string => {
   const categoryToGoogleType: Record<string, string> = {
     'Venue': 'restaurant', // Map Venue to restaurant (reception venues)
-    'Reception Venue': 'restaurant',
     'Church': 'church',
     'Night Club': 'night_club',
     'Baker': 'bakery',
@@ -194,7 +193,7 @@ export const getCategorySlug = (displayCategory: string): string => {
 // Helper function to convert URL slug back to display category
 export const getCategoryFromSlug = (slug: string): string => {
   const slugToCategory: Record<string, string> = {
-    'restaurant': 'Reception Venue',
+    'restaurant': 'Venue', // Changed to match vendorCategories.ts
     'church': 'Church',
     'night_club': 'Night Club',
     'bakery': 'Baker',
@@ -276,7 +275,7 @@ export const validateCategoryMappings = (): {
 
   // Get all unique categories from all three mappings
   const slugToCategory = {
-    'restaurant': 'Reception Venue',
+    'restaurant': 'Venue', // Updated to match vendorCategories.ts
     'church': 'Church',
     'night_club': 'Night Club',
     'bakery': 'Baker',
@@ -303,7 +302,6 @@ export const validateCategoryMappings = (): {
 
   const categoryToSlug = {
     'Venue': 'restaurant',
-    'Reception Venue': 'restaurant',
     'Church': 'church',
     'Night Club': 'night_club',
     'Baker': 'bakery',
@@ -325,12 +323,11 @@ export const validateCategoryMappings = (): {
     'Event Rental': 'rentals',
     'Wedding Favor': 'favors',
     'Band': 'band',
-    'DJ': 'DJ'
+    'DJ': 'dj'
   };
 
   const categoryToPlural = {
     'Venue': 'Venues',
-    'Reception Venue': 'Reception Venues',
     'Church': 'Churches',
     'Night Club': 'Night Clubs',
     'Baker': 'Bakeries & Cakes',
@@ -398,7 +395,7 @@ export const getAllCategories = (): {
   mappings: Array<{ slug: string; display: string; plural: string }>;
 } => {
   const slugToCategory = {
-    'restaurant': 'Reception Venue',
+    'restaurant': 'Venue', // Updated to match vendorCategories.ts
     'church': 'Church',
     'night_club': 'Night Club',
     'bakery': 'Baker',

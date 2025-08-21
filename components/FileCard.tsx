@@ -4,38 +4,25 @@ import { Eye, Download, MoreHorizontal, Sparkles, Edit, Trash2 } from 'lucide-re
 import MicroMenu from './MicroMenu';
 import { useDragDrop } from './DragDropContext';
 import FilePreview from './FilePreview';
+import { formatFileSize, getFolderDisplayName } from '@/utils/fileUtils';
 
 interface FileCardProps {
   file: FileItem;
   onDelete: (fileId: string) => void;
   onEdit: (file: FileItem) => void;
   onSelect: (file: FileItem) => void;
+  onDoubleClick: (file: FileItem) => void;
   onAnalyze: (file: FileItem) => void;
   isSelected?: boolean;
   folders?: FileFolder[];
 }
 
-const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, onAnalyze, isSelected, folders = [] }: FileCardProps) => {
+const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, onDoubleClick, onAnalyze, isSelected, folders = [] }: FileCardProps) => {
   const { setDraggedItem, setIsDragging, draggedItem, isDragging } = useDragDrop();
   
   // Check if this file is currently being dragged
   const isThisFileDragging = isDragging && draggedItem?.type === 'file' && draggedItem.item.id === file.id;
   
-  // Get folder name for display
-  const getFolderName = (folderId: string) => {
-    if (folderId === 'all') return 'All Files';
-    const folder = folders.find(f => f.id === folderId);
-    return folder ? folder.name : 'Unknown Folder';
-  };
-  
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // Don't trigger if clicking on interactive elements
     const target = e.target as HTMLElement;
@@ -53,8 +40,8 @@ const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, onAnalyze, isSe
       return;
     }
     
-    onAnalyze(file);
-  }, [onAnalyze, file]);
+    onDoubleClick(file);
+  }, [onDoubleClick, file]);
 
   const handleViewClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,7 +146,7 @@ const FileCard = React.memo(({ file, onDelete, onEdit, onSelect, onAnalyze, isSe
           
           {/* Folder Badge */}
           <div className="flex items-center gap-1 text-xs text-[#AB9C95] mb-2">
-            <span>📁 {getFolderName(file.folderId)}</span>
+            <span>📁 {getFolderDisplayName(file.folderId || 'all', folders)}</span>
           </div>
           
           {/* AI Analysis Status */}

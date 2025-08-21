@@ -46,58 +46,12 @@ export const extractLocationFromAddress = (
 };
 
 // Generate vendor detail page breadcrumbs
-export const generateVendorDetailBreadcrumbs = (config: BreadcrumbConfig): BreadcrumbItem[] => {
-  const cacheKey = getBreadcrumbCacheKey(config);
-  
-  // Check cache first
-  const cached = breadcrumbCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const { category, location, vendorName, vendorTypes, vendorAddress, userWeddingLocation } = config;
-  
-  // Determine the actual category
-  let actualCategory = category;
-  if (!actualCategory && vendorTypes && vendorTypes.length > 0) {
-    actualCategory = mapGoogleTypesToCategory(vendorTypes, vendorName || '');
-  }
-  
-  // Determine location
-  const actualLocation = location || extractLocationFromAddress(vendorAddress, userWeddingLocation);
-  
-  // Generate breadcrumb items
+export const generateVendorDetailBreadcrumbs = (config?: BreadcrumbConfig): BreadcrumbItem[] => {
+  // Simple, generic breadcrumb that always works
   const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Vendor Hub', href: '/vendors' },
-    { label: 'Vendor Search', href: '/vendors/catalog' }
+    { label: 'Search Vendors', href: '/vendors/catalog' }
   ];
-  
-  if (actualCategory && actualLocation) {
-    // Convert category slug to display category if needed
-    const displayCategory = getCategoryFromSlug(actualCategory);
-    const categoryLabel = getCategoryLabel(displayCategory);
-    const categorySlug = getCategorySlug(displayCategory);
-    
-    breadcrumbs.push({
-      label: `${categoryLabel} in ${actualLocation}`,
-      href: `/vendors/catalog/${categorySlug}?location=${encodeURIComponent(actualLocation)}`
-    });
-  } else if (actualCategory) {
-    // Convert category slug to display category if needed
-    const displayCategory = getCategoryFromSlug(actualCategory);
-    const categoryLabel = getCategoryLabel(displayCategory);
-    const categorySlug = getCategorySlug(displayCategory);
-    
-    breadcrumbs.push({
-      label: categoryLabel,
-      href: `/vendors/catalog/${categorySlug}`
-    });
-  }
-  
-  // Don't add current page (vendor name) to breadcrumbs since it's already displayed prominently on the page
-  
-  // Cache the result
-  breadcrumbCache.set(cacheKey, breadcrumbs);
   
   return breadcrumbs;
 };
@@ -107,8 +61,7 @@ export const generateCatalogBreadcrumbs = (config: BreadcrumbConfig): Breadcrumb
   const { category, location } = config;
   
   const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Vendor Hub', href: '/vendors' },
-    { label: 'Vendor Search', href: '/vendors/catalog' }
+    { label: 'Vendor Hub', href: '/vendors' }
   ];
   
   if (category && location) {

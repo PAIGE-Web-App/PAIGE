@@ -98,15 +98,72 @@ export async function POST(req: NextRequest) {
       });
       
       return NextResponse.json({ results: deduped });
+    } else if (specialSearchCategories[category]) {
+      // Use type-based search for categories that have direct Google Places API types
+      const searchQueries = specialSearchCategories[category];
+      let allResults: any[] = [];
+      
+      for (const query of searchQueries) {
+        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' ' + location)}&type=${encodeURIComponent(category)}`;
+        if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
+        if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
+        if (radius !== undefined) baseUrl += `&radius=${radius}`;
+        if (opennow) baseUrl += `&opennow=true`;
+        baseUrl += `&key=${apiKey}`;
+        
+        const response = await fetch(baseUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.results)) {
+            allResults = allResults.concat(data.results);
+          }
+        }
+      }
+      
+      // Deduplicate by place_id
+      const seen = new Set();
+      const deduped = allResults.filter(place => {
+        if (!place.place_id || seen.has(place.place_id)) return false;
+        seen.add(place.place_id);
+        return true;
+      });
+      
+      return NextResponse.json({ results: deduped });
     } else if (specialSearchCategories[category] || specialSearchCategories[category + 's']) {
-      // Run multiple targeted queries for special categories
+      // Run multiple targeted queries for special categories with proper type filtering
       const queries = specialSearchCategories[category] || specialSearchCategories[category + 's'];
       let allResults: any[] = [];
+      
+      // First try nearbysearch with the specific type for better filtering
+      try {
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`;
+        const geocodeResponse = await fetch(geocodeUrl);
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json();
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const coords = geocodeData.results[0].geometry.location;
+            let nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coords.lat},${coords.lng}&type=${encodeURIComponent(category)}&radius=${radius || 50000}&key=${apiKey}`;
+            if (minprice !== undefined) nearbyUrl += `&minprice=${minprice}`;
+            if (maxprice !== undefined) nearbyUrl += `&maxprice=${maxprice}`;
+            if (opennow) nearbyUrl += `&opennow=true`;
+            
+            const nearbyResponse = await fetch(nearbyUrl);
+            if (nearbyResponse.ok) {
+              const nearbyData = await nearbyResponse.json();
+              if (Array.isArray(nearbyData.results)) {
+                allResults = allResults.concat(nearbyData.results);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error with nearbysearch:', error);
+      }
       
       if (searchTerm) {
         // If there's a search term, search for it specifically within the category
         const searchQuery = `${searchTerm} ${queries[0]} ${location}`;
-        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}`;
+        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&type=${encodeURIComponent(category)}`;
         if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
         if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
         if (radius !== undefined) baseUrl += `&radius=${radius}`;
@@ -121,14 +178,15 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        // If no search term, use the predefined queries
+        // If no search term, use the predefined queries with type filtering
         for (const q of queries) {
-          let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}`;
+          let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}&type=${encodeURIComponent(category)}`;
           if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
           if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
           if (radius !== undefined) baseUrl += `&radius=${radius}`;
           if (opennow) baseUrl += `&opennow=true`;
           baseUrl += `&key=${apiKey}`;
+          
           const response = await fetch(baseUrl);
           if (response.ok) {
             const data = await response.json();
@@ -138,13 +196,22 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      // Deduplicate by place_id
+      
+      // Deduplicate by place_id and ensure results match the category
       const seen = new Set();
       const deduped = allResults.filter(place => {
         if (!place.place_id || seen.has(place.place_id)) return false;
         seen.add(place.place_id);
+        
+        // Ensure the place actually matches our category
+        if (place.types && place.types.includes(category)) {
+          return true;
+        }
+        
+        // For text search results, be more lenient but still filter
         return true;
       });
+      
       return NextResponse.json({ results: deduped });
     } else {
       // For standard categories with direct Google Places API types

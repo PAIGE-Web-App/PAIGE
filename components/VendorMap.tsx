@@ -97,6 +97,13 @@ const VendorMap: React.FC<VendorMapProps> = ({
   const endIndex = useMemo(() => startIndex + itemsPerPage, [startIndex, itemsPerPage]);
   const visibleVendors = useMemo(() => vendors.slice(startIndex, endIndex), [vendors, startIndex, endIndex]);
 
+  // 🚀 Only show current page vendors on map for better performance
+  const mapVendors = useMemo(() => {
+    // Limit map vendors to current page + next page for smooth scrolling
+    const nextPageEnd = Math.min(endIndex + itemsPerPage, vendors.length);
+    return vendors.slice(startIndex, nextPageEnd);
+  }, [vendors, startIndex, endIndex, itemsPerPage]);
+
 
 
   // Memoized function to update marker appearance
@@ -177,64 +184,84 @@ const VendorMap: React.FC<VendorMapProps> = ({
       const newMarkers: any[] = [];
       const bounds = new window.google.maps.LatLngBounds();
 
-      visibleVendors.forEach((vendor, index) => {
-        if (vendor.geometry?.location) {
-          try {
-            const marker = new window.google.maps.Marker({
-              position: vendor.geometry.location,
-              map,
-              title: vendor.name,
-              label: {
-                text: (startIndex + index + 1).toString(),
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              },
-              icon: {
-                path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-                scale: 1,
-                fillColor: selectedVendor?.place_id === vendor.place_id ? '#A85C36' : '#AB9C95',
-                fillOpacity: 0.9,
-                strokeColor: '#332B42',
-                strokeWeight: 1,
-                anchor: { x: 12, y: 24 }
-              }
-            });
-
-            // Add click event
-            marker.addListener('click', () => {
-              onVendorSelect(vendor);
-              // Also highlight the vendor in the list
-              const event = new CustomEvent('vendorHover', {
-                detail: { vendor, isHovered: true }
-              });
-              window.dispatchEvent(event);
-              // Trigger scroll to vendor in list
-              if (onVendorClick) {
-                onVendorClick(vendor);
-              }
-            });
-
-            newMarkers.push(marker);
-            bounds.extend(vendor.geometry.location);
-          } catch (error) {
-            console.error('Error creating marker for vendor:', vendor.name, error);
-          }
-        }
-      });
-
-      setMarkers(newMarkers);
-
-      // Fit map to show all visible markers
-      if (newMarkers.length > 0) {
-        map.fitBounds(bounds);
+      // 🚀 Create markers progressively for better performance
+      const createMarker = async (vendor: any, index: number) => {
+        if (!vendor.geometry?.location) return;
         
-        // Add some padding to the bounds
-        const listener = window.google.maps.event.addListener(map, 'idle', () => {
-          if (map.getZoom() > 15) map.setZoom(15);
-          window.google.maps.event.removeListener(listener);
-        });
-      }
+        try {
+          const marker = new window.google.maps.Marker({
+            position: vendor.geometry.location,
+            map,
+            title: vendor.name,
+            label: {
+              text: (startIndex + index + 1).toString(),
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            },
+            icon: {
+              path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+              scale: 1,
+              fillColor: selectedVendor?.place_id === vendor.place_id ? '#A85C36' : '#AB9C95',
+              fillOpacity: 0.9,
+              strokeColor: '#332B42',
+              strokeWeight: 1,
+              anchor: { x: 12, y: 24 }
+            }
+          });
+
+          // Add click event
+          marker.addListener('click', () => {
+            onVendorSelect(vendor);
+            // Also highlight the vendor in the list
+            const event = new CustomEvent('vendorHover', {
+              detail: { vendor, isHovered: true }
+            });
+            window.dispatchEvent(event);
+            // Trigger scroll to vendor in list
+            if (onVendorClick) {
+              onVendorClick(vendor);
+            }
+          });
+
+          newMarkers.push(marker);
+          bounds.extend(vendor.geometry.location);
+          
+          // 🔄 Update markers progressively for better UX
+          setMarkers([...newMarkers]);
+          
+        } catch (error) {
+          console.error('Error creating marker for vendor:', vendor.name, error);
+        }
+      };
+
+      // Create markers with progressive loading
+      let markersCreated = 0;
+      const totalMarkers = mapVendors.length;
+      
+      mapVendors.forEach((vendor, index) => {
+        // Add small delay between markers for progressive loading
+        setTimeout(() => {
+          createMarker(vendor, index);
+          markersCreated++;
+          
+          // Fit bounds after all markers are created
+          if (markersCreated === totalMarkers && totalMarkers > 0) {
+            // Small delay to ensure all markers are rendered
+            setTimeout(() => {
+              if (newMarkers.length > 0) {
+                map.fitBounds(bounds);
+                
+                // Add some padding to the bounds
+                const listener = window.google.maps.event.addListener(map, 'idle', () => {
+                  if (map.getZoom() > 15) map.setZoom(15);
+                  window.google.maps.event.removeListener(listener);
+                });
+              }
+            }, 100);
+          }
+        }, index * 20);
+      });
     } catch (error) {
       console.error('Error updating markers:', error);
     }

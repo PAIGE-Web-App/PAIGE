@@ -14,6 +14,7 @@ interface CombinedContentViewProps {
   folderFileCounts: Map<string, number>;
   isLoading?: boolean;
   onSelectFile: (file: FileItem) => void;
+  onDoubleClickFile: (file: FileItem) => void;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
   onAnalyzeFile: (file: FileItem) => void;
@@ -32,6 +33,7 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
   folderFileCounts,
   isLoading = false,
   onSelectFile,
+  onDoubleClickFile,
   onDeleteFile,
   onEditFile,
   onAnalyzeFile,
@@ -97,6 +99,7 @@ const CombinedContentView: React.FC<CombinedContentViewProps> = memo(({
               folders={folders}
               isLoading={isLoading}
               onSelectFile={onSelectFile}
+              onDoubleClickFile={onDoubleClickFile}
               onDeleteFile={onDeleteFile}
               onEditFile={onEditFile}
               onAnalyzeFile={onAnalyzeFile}

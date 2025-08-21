@@ -1,16 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileFolder } from '@/types/files';
-import { Search, Plus, Upload, Copy, Trash2, List, Grid3X3 } from 'lucide-react';
+import { Search, Plus, Upload, Copy, Trash2, ChevronDown, Folder } from 'lucide-react';
 import SearchBar from './SearchBar';
 
 interface FilesTopBarProps {
   currentFolder: FileFolder | null;
-  viewMode: 'list' | 'grid';
   editingFolderNameId: string | null;
   editingFolderNameValue: string | null;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  onViewModeChange: (mode: 'list' | 'grid') => void;
   onSearchToggle: () => void;
   onEditFolder: (folderId: string, name: string) => void;
   onCloneFolder: (folderId: string) => void;
@@ -18,16 +16,16 @@ interface FilesTopBarProps {
   onRenameFolder: (folderId: string) => void;
   onEditingFolderNameChange: (value: string) => void;
   onCancelEdit: () => void;
+  onCreateSubfolder: () => void;
+  onUploadFile: () => void;
 }
 
 const FilesTopBar: React.FC<FilesTopBarProps> = ({
   currentFolder,
-  viewMode,
   editingFolderNameId,
   editingFolderNameValue,
   searchQuery,
   onSearchQueryChange,
-  onViewModeChange,
   onSearchToggle,
   onEditFolder,
   onCloneFolder,
@@ -35,9 +33,13 @@ const FilesTopBar: React.FC<FilesTopBarProps> = ({
   onRenameFolder,
   onEditingFolderNameChange,
   onCancelEdit,
+  onCreateSubfolder,
+  onUploadFile,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -47,6 +49,12 @@ const FilesTopBar: React.FC<FilesTopBarProps> = ({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      // Handle dropdown click outside
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+      
+      // Handle search click outside
       if (
         searchOpen &&
         searchInputRef.current &&
@@ -168,28 +176,45 @@ const FilesTopBar: React.FC<FilesTopBarProps> = ({
           />
         </div>
 
-        {/* Right Side - View Toggle */}
+        {/* Right Side - New Button */}
         <div className="flex items-center gap-3 flex-shrink-0 ml-auto">
-          {/* View Toggle */}
-          <div className="flex rounded-full border border-gray-400 overflow-hidden" style={{ height: 32 }}>
+          {/* New button with dropdown */}
+          <div className="relative" ref={dropdownRef}>
             <button
-              className={`flex items-center justify-center px-2 transition-colors duration-150 ${viewMode === 'list' ? 'bg-[#EBE3DD]' : 'bg-white'} border-r border-gray-300`}
-              style={{ outline: 'none' }}
-              onClick={() => onViewModeChange('list')}
-              type="button"
-              title="List view"
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="btn-primaryinverse flex items-center gap-1 px-3 py-2 text-sm transition-colors"
+              title="New"
             >
-              <List className="w-4 h-4" stroke={viewMode === 'list' ? '#A85C36' : '#364257'} />
+              <span>New</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
             </button>
-            <button
-              className={`flex items-center justify-center px-2 transition-colors duration-150 ${viewMode === 'grid' ? 'bg-[#EBE3DD]' : 'bg-white'}`}
-              style={{ outline: 'none' }}
-              onClick={() => onViewModeChange('grid')}
-              type="button"
-              title="Grid view"
-            >
-              <Grid3X3 className="w-4 h-4" stroke={viewMode === 'grid' ? '#A85C36' : '#364257'} />
-            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10 min-w-[160px]">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateSubfolder();
+                    setShowDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F8F6F4] transition-colors"
+                >
+                  <Folder className="w-4 h-4" style={{ strokeWidth: 1, fill: '#AB9C95' }} />
+                  New Subfolder
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUploadFile();
+                    setShowDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#332B42] hover:bg-[#F8F6F4] transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload File(s)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

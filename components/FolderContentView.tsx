@@ -13,6 +13,7 @@ interface FolderContentViewProps {
   files: FileItem[];
   viewMode: 'list' | 'grid';
   onSelectFile: (file: FileItem) => void;
+  onDoubleClickFile: (file: FileItem) => void;
   selectedFile: FileItem | null;
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
@@ -33,6 +34,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   files,
   viewMode,
   onSelectFile,
+  onDoubleClickFile,
   selectedFile,
   onDeleteFile,
   onEditFile,
@@ -117,6 +119,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
               folderFileCounts={folderFileCounts}
               isLoading={isLoading}
               onSelectFile={onSelectFile}
+              onDoubleClickFile={onDoubleClickFile}
               onDeleteFile={onDeleteFile}
               onEditFile={onEditFile}
               onAnalyzeFile={onAnalyzeFile}

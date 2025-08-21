@@ -37,7 +37,7 @@ export function useFilesPageState({
 
   // UI State
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
@@ -251,9 +251,7 @@ export function useFilesPageState({
     setSelectedFolder(null);
   }, [setSelectedFolder]);
 
-  const handleViewModeChange = useCallback((mode: 'list' | 'grid') => {
-    setViewMode(mode);
-  }, []);
+
 
   const handleSearchToggle = useCallback(() => {
     setSearchOpen(!searchOpen);
@@ -309,7 +307,7 @@ export function useFilesPageState({
   return {
     // State
     searchQuery,
-    viewMode,
+
     searchOpen,
     showUploadModal,
     selectedFile,
@@ -339,7 +337,7 @@ export function useFilesPageState({
     
     // Setters
     setSearchQuery,
-    setViewMode,
+
     setSearchOpen,
     setShowUploadModal,
     setSelectedFile,
@@ -368,7 +366,7 @@ export function useFilesPageState({
     handleDeleteFile,
     confirmDeleteFile,
     selectAllFiles,
-    handleViewModeChange,
+
     handleSearchToggle,
     handleAddFile,
     handleEditFolder,

@@ -9,6 +9,7 @@ import {
   onSnapshot,
   addDoc,
   doc,
+  getDoc,
   updateDoc,
   deleteDoc,
   Timestamp,
@@ -212,67 +213,92 @@ export function useFiles() {
         updatedAt: new Date(),
       });
 
-      // TODO: Implement actual AI processing
-      // This would involve:
-      // 1. Extracting text from the file (PDF, image, etc.)
-      // 2. Sending to AI service for analysis
-      // 3. Storing results back to Firestore
+      // Get the file data to extract content
+      let fileDoc = files.find(f => f.id === fileId);
       
-      // Simulate AI processing delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // If file not found in local files array, try to get it from Firestore
+      if (!fileDoc) {
+        try {
+          const fileRef = doc(getUserCollectionRef('files', user.uid), fileId);
+          const fileSnap = await getDoc(fileRef);
+          if (fileSnap.exists()) {
+            const data = fileSnap.data() as any;
+            fileDoc = {
+              id: fileSnap.id,
+              name: data.name,
+              description: data.description,
+              category: data.category,
+              categoryId: data.categoryId,
+              folderId: data.folderId || data.categoryId || 'all',
+              uploadedAt: data.uploadedAt?.toDate() || new Date(),
+              fileType: data.fileType,
+              fileSize: data.fileSize,
+              fileUrl: data.fileUrl,
+              userId: data.userId,
+              aiSummary: data.aiSummary,
+              keyPoints: data.keyPoints || [],
+              vendorAccountability: data.vendorAccountability || [],
+              importantDates: data.importantDates || [],
+              paymentTerms: data.paymentTerms || [],
+              cancellationPolicy: data.cancellationPolicy || [],
+              vendorId: data.vendorId,
+              vendorName: data.vendorName,
+              messageId: data.messageId,
+              isProcessed: data.isProcessed || false,
+              processingStatus: data.processingStatus || 'pending',
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date(),
+            } as FileItem;
+          }
+        } catch (fetchError) {
+          console.warn('Could not fetch file from Firestore:', fetchError);
+        }
+      }
+      
+      if (!fileDoc) {
+        throw new Error('File not found in local state or Firestore');
+      }
 
-      // Mock AI analysis result
-      const aiResult: AIAnalysisResult = {
-        summary: 'Contract for wedding photography services covering ceremony and reception...',
-        keyPoints: [
-          'Payment schedule: 50% deposit, 50% 2 weeks before',
-          'Coverage: 8 hours on wedding day',
-          'Delivery: 4-6 weeks after wedding'
-        ],
-        vendorAccountability: [
-          'Must deliver photos within 6 weeks',
-          'Must provide backup photographer if unavailable',
-          'Must attend rehearsal dinner for planning'
-        ],
-        importantDates: [
-          'Deposit due: Upon signing',
-          'Final payment: 2 weeks before wedding',
-          'Photo delivery: 4-6 weeks after wedding'
-        ],
-        paymentTerms: [
-          '50% deposit required to secure date',
-          'Remaining 50% due 2 weeks before wedding'
-        ],
-        cancellationPolicy: [
-          'Full refund if cancelled 30+ days before',
-          '50% refund if cancelled 14-30 days before',
-          'No refund if cancelled less than 14 days before'
-        ],
-        riskFactors: [
-          'No backup photographer clause',
-          'No weather contingency plan'
-        ],
-        recommendations: [
-          'Add backup photographer requirement',
-          'Include weather contingency clause',
-          'Request sample albums before signing'
-        ]
-      };
+      // For now, we'll use a placeholder since we can't access the actual file content
+      // In a real implementation, you'd need to store the file content or re-upload it
+      // This is a limitation of the current architecture
+      const fileContent = `[File: ${fileDoc.name}] - Content extraction will be implemented in the next phase.`;
+      
+      // Call the AI analysis API
+      const response = await fetch('/api/ai-file-analyzer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileId: fileDoc.id,
+          fileName: fileDoc.name,
+          fileContent: fileContent,
+          fileType: fileDoc.fileType,
+          analysisType: 'comprehensive',
+        }),
+      });
 
+      if (!response.ok) {
+        throw new Error(`AI analysis failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
       // Update file with AI results
       await updateDoc(fileRef, {
-        aiSummary: aiResult.summary,
-        keyPoints: aiResult.keyPoints,
-        vendorAccountability: aiResult.vendorAccountability,
-        importantDates: aiResult.importantDates,
-        paymentTerms: aiResult.paymentTerms,
-        cancellationPolicy: aiResult.cancellationPolicy,
+        aiSummary: result.structuredData?.summary || result.analysis || 'Analysis completed',
+        keyPoints: result.structuredData?.keyPoints || [],
+        vendorAccountability: result.structuredData?.vendorAccountability || [],
+        importantDates: result.structuredData?.importantDates || [],
+        paymentTerms: result.structuredData?.paymentTerms || [],
+        cancellationPolicy: result.structuredData?.cancellationPolicy || [],
         isProcessed: true,
         processingStatus: 'completed',
         updatedAt: new Date(),
       });
 
-      // Don't show toast for AI completion - let the upload modal handle success
+      // Don't show toast for AI completion - let the calling component handle success
       // showSuccessToast('File analysis completed!');
     } catch (error) {
       console.error('Error processing file with AI:', error);
@@ -325,7 +351,7 @@ export function useFiles() {
   };
 
   // Update file
-  const updateFile = async (fileId: string, updates: Partial<FileItem>) => {
+  const updateFile = async (fileId: string, updates: Partial<FileItem>, suppressToast: boolean = false) => {
     if (!user) return;
 
     try {
@@ -335,7 +361,9 @@ export function useFiles() {
         updatedAt: new Date(),
       });
 
-      showSuccessToast('File updated successfully');
+      if (!suppressToast) {
+        showSuccessToast('File updated successfully');
+      }
     } catch (error) {
       console.error('Error updating file:', error);
       showErrorToast('Failed to update file');

@@ -10,6 +10,7 @@ interface FileGridProps {
   onDeleteFile: (fileId: string) => void;
   onEditFile: (file: FileItem) => void;
   onSelectFile: (file: FileItem) => void;
+  onDoubleClickFile: (file: FileItem) => void;
   onAnalyzeFile: (file: FileItem) => void;
   selectedFile: FileItem | null;
   folders?: FileFolder[];
@@ -22,6 +23,7 @@ const FileGrid = memo(({
   onDeleteFile, 
   onEditFile, 
   onSelectFile, 
+  onDoubleClickFile, 
   onAnalyzeFile, 
   selectedFile, 
   folders = [],
@@ -59,6 +61,7 @@ const FileGrid = memo(({
             onDelete={onDeleteFile}
             onEdit={onEditFile}
             onSelect={onSelectFile}
+            onDoubleClick={onDoubleClickFile}
             onAnalyze={onAnalyzeFile}
             isSelected={selectedFile?.id === file.id}
             folders={folders}
@@ -84,6 +87,7 @@ const FileGrid = memo(({
             onDelete={onDeleteFile}
             onEdit={onEditFile}
             onSelect={onSelectFile}
+            onDoubleClick={onDoubleClickFile}
             onAnalyze={onAnalyzeFile}
             isSelected={selectedFile?.id === file.id}
             folders={folders}
@@ -103,6 +107,7 @@ const FileGrid = memo(({
           onDelete={onDeleteFile}
           onEdit={onEditFile}
           onSelect={onSelectFile}
+          onDoubleClick={onDoubleClickFile}
           onAnalyze={onAnalyzeFile}
           isSelected={selectedFile?.id === file.id}
           folders={folders}
