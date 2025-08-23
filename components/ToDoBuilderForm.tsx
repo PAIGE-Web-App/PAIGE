@@ -10,6 +10,10 @@ import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import Banner from './Banner';
 import TodoItemSkeleton from './TodoItemSkeleton';
+import { useCredits } from '../hooks/useCredits';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import CreditToast from './CreditToast';
+import { useRouter } from 'next/navigation';
 
 interface ToDoBuilderFormProps {
   mode?: 'list' | 'todo';
@@ -45,6 +49,8 @@ function getStableId() {
 
 const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubmit }) => {
   const { user } = useAuth();
+  const { credits, loadCredits } = useCredits();
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [listName, setListName] = useState('');
   const [tasks, setTasks] = useState([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
@@ -53,6 +59,11 @@ const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubm
   const [aiListResult, setAiListResult] = React.useState(null);
   const [allCategories, setAllCategories] = React.useState<string[]>([]);
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
+  
+  // Credit toast state
+  const [showCreditToast, setShowCreditToast] = useState(false);
+  const [creditToastData, setCreditToastData] = useState({ creditsSpent: 0, creditsRemaining: 0 });
+  const [previousCredits, setPreviousCredits] = useState(0);
 
   React.useEffect(() => {
     if (user?.uid) {
@@ -66,6 +77,36 @@ const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubm
       });
     }
   }, [user]);
+
+  // Monitor credits for toast notifications
+  React.useEffect(() => {
+    if (credits) {
+      const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+      
+      // Check if credits decreased (indicating usage) and we have a valid previous value
+      if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
+        const creditsSpent = previousCredits - currentTotal;
+        setCreditToastData({ creditsSpent, creditsRemaining: currentTotal });
+        setShowCreditToast(true);
+      }
+      
+      // Always update previous credits when we get new data
+      setPreviousCredits(currentTotal);
+    }
+  }, [credits]);
+
+  // Listen for credit updates
+  React.useEffect(() => {
+    const handleCreditUpdate = () => {
+      setTimeout(async () => {
+        await loadCredits();
+      }, 500);
+    };
+
+    const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
+    
+    return () => unsubscribe();
+  }, [loadCredits]);
 
   const handleAddTask = () => setTasks([...tasks, { _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
   const handleRemoveTask = (idx: number) => setTasks(tasks.filter((_, i) => i !== idx));
@@ -179,9 +220,21 @@ const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubm
             aiListResult={aiListResult}
             allCategories={allCategories}
             weddingDate={weddingDate}
+            user={user}
+            credits={credits}
+            loadCredits={loadCredits}
+            router={router}
           />
         )}
       </div>
+      
+      {/* Credit Toast */}
+      <CreditToast
+        isVisible={showCreditToast}
+        creditsSpent={creditToastData.creditsSpent}
+        creditsRemaining={creditToastData.creditsRemaining}
+        onClose={() => setShowCreditToast(false)}
+      />
     </div>
   );
 };
@@ -334,7 +387,7 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, user, credits, loadCredits, router }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any }) => {
   const [description, setDescription] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -431,7 +484,12 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       const res = await fetch('/api/generate-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, categories: allCategories, weddingDate }),
+        body: JSON.stringify({ 
+          description, 
+          categories: allCategories, 
+          weddingDate,
+          userId: user?.uid 
+        }),
       });
       if (!res.ok) throw new Error('Failed to generate list');
       const data = await res.json();
@@ -565,15 +623,34 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         placeholder="e.g. Wedding planning checklist, Day of Checklist, Reception setup, etc."
         rows={4}
       />
-      <div className="w-full flex justify-end">
+      <div className="w-full flex justify-between items-center mb-4">
+        {/* Credit Display */}
+                 {credits && (
+           <div className="text-xs text-gray-600">
+             <div className="font-medium text-gray-700 mb-1">Will take 2 Credits</div>
+             <div className="text-[10px] text-gray-500 flex items-center gap-2">
+               <span>{credits.dailyCredits + credits.bonusCredits} Credits available</span>
+               <span className="text-gray-400">•</span>
+                                <button
+                   onClick={() => window.open('/settings?tab=plan', '_blank', 'noopener,noreferrer')}
+                   className="text-[#A85C36] hover:text-[#784528] underline transition-colors"
+                 >
+                   Get More Credits
+                 </button>
+             </div>
+           </div>
+         )}
+        
+        {/* Generate Button */}
         <button
-          className="btn-gradient-purple flex items-center gap-2 mb-4"
+          className="btn-gradient-purple flex items-center gap-2"
           onClick={handleGenerate}
           disabled={!description.trim() || isLoading}
         >
           <Sparkles className="w-4 h-4" />
           <span>Generate with Paige (2 Credits)</span>
         </button>
+      
       </div>
       {isLoading && showSlowGenerationBanner && (
         <div className="w-full my-4 -mx-6">

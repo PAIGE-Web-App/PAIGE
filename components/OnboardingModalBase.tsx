@@ -10,7 +10,7 @@ interface OnboardingModalBaseProps {
   currentStep: number;
   onStepChange?: (step: number) => void;
   children: React.ReactNode;
-  sidebarTitle?: string;
+  sidebarTitle?: string | React.ReactNode;
   footer?: React.ReactNode;
 }
 

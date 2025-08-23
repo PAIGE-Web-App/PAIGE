@@ -217,7 +217,7 @@ a {
 }
 
 .btn-gradient-purple:disabled {
-  background: linear-gradient(135deg, #D1D5DB 0%, #9CA3AF 50%, #6B7280 100%);
+  background: #D1D5DB;
   color: #9CA3AF;
   cursor: not-allowed;
   box-shadow: none;

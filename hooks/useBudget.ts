@@ -596,7 +596,11 @@ export function useBudget() {
       const response = await fetch('/api/generate-budget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, totalBudget }),
+        body: JSON.stringify({ 
+          description, 
+          totalBudget,
+          userId: user?.uid
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to generate budget');
@@ -621,6 +625,7 @@ export function useBudget() {
           description,
           categories: budgetCategories.map(cat => cat.name),
           budgetIntegration: true,
+          userId: user?.uid
         }),
       });
 
@@ -662,7 +667,12 @@ export function useBudget() {
         response = await fetch('/api/generate-integrated-plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ description, totalBudget, weddingDate }),
+          body: JSON.stringify({ 
+            description, 
+            totalBudget, 
+            weddingDate,
+            userId: user?.uid
+          }),
           signal: controller.signal,
         });
         

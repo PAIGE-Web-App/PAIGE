@@ -29,8 +29,8 @@ export const useAuth = () => {
   }, [pathname, router]);
 
   useEffect(() => {
-
+    // Additional logic can go here if needed
   }, [user, loading, pathname]);
 
-  return { user, loading }; // <-- ADD THIS LINE
+  return { user, loading };
 };

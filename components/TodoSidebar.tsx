@@ -98,7 +98,11 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
       const response = await fetch('/api/generate-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weddingDate: '2023-12-31', template }), // Pass the selected template
+        body: JSON.stringify({ 
+          weddingDate: '2023-12-31', 
+          template,
+          userId 
+        }),
       });
       const data = await response.json();
       setListName(data.listName);

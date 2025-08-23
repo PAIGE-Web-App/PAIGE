@@ -13,6 +13,10 @@ import { doc, getDoc } from 'firebase/firestore';
 import Banner from './Banner';
 import TodoItemSkeleton from './TodoItemSkeleton';
 import UnsavedChangesModal from './UnsavedChangesModal';
+import { useCredits } from '../hooks/useCredits';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import CreditToast from './CreditToast';
+import { useRouter } from 'next/navigation';
 
 interface NewListOnboardingModalProps {
   isOpen: boolean;
@@ -55,6 +59,8 @@ function getStableId() {
 
 const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const { user } = useAuth();
+  const { credits, loadCredits } = useCredits();
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
@@ -66,6 +72,11 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [aiGenerationData, setAiGenerationData] = React.useState<any>(null);
+  
+  // Credit toast state
+  const [showCreditToast, setShowCreditToast] = useState(false);
+  const [creditToastData, setCreditToastData] = useState({ creditsSpent: 0, creditsRemaining: 0 });
+  const [previousCredits, setPreviousCredits] = useState(0);
 
   // Create a simple contacts array for assignment functionality
   const contacts = React.useMemo(() => {
@@ -343,6 +354,36 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     }
   }, [isOpen]);
 
+  // Monitor credits for toast notifications
+  React.useEffect(() => {
+    if (credits) {
+      const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+      
+      // Check if credits decreased (indicating usage) and we have a valid previous value
+      if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
+        const creditsSpent = previousCredits - currentTotal;
+        setCreditToastData({ creditsSpent, creditsRemaining: currentTotal });
+        setShowCreditToast(true);
+      }
+      
+      // Always update previous credits when we get new data
+      setPreviousCredits(currentTotal);
+    }
+  }, [credits]);
+
+  // Listen for credit updates
+  React.useEffect(() => {
+    const handleCreditUpdate = () => {
+      setTimeout(async () => {
+        await loadCredits();
+      }, 500);
+    };
+
+    const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
+    
+    return () => unsubscribe();
+  }, [loadCredits]);
+
   return (
     <>
       <OnboardingModalBase
@@ -387,7 +428,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                 <button
                   key={tab.key}
                   onClick={() => setSelectedTab(tab.key as 'manual' | 'import' | 'ai')}
-                  className={`relative flex flex-col items-center border border-[#E0DBD7] rounded-xl px-12 py-8 w-full max-w-sm shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#a85c36] bg-white ${selectedTab === tab.key ? 'ring-2 ring-[#a85c36] border-[#a85c36]' : ''}`}
+                  className={`relative flex flex-col items-center border border-[#E0DBD7] rounded-xl px-8 py-6 w-full max-w-sm shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#a85c36] bg-white min-h-[200px] ${selectedTab === tab.key ? 'ring-2 ring-[#a85c36] border-[#a85c36]' : ''}`}
                 >
                   {tab.key === 'ai' && (
                     <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-[#7C5CBF] text-white text-xs font-semibold px-3 py-1 rounded-lg shadow-lg z-10" style={{letterSpacing: '0.03em'}}>RECOMMENDED</span>
@@ -395,6 +436,14 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   {tab.icon}
                   <span className="text-sm ml-1">{tab.label}</span>
                   <span className="text-sm text-[#8A8A8A] text-center mt-1">{tab.description}</span>
+                  {tab.key === 'ai' && credits && (
+                    <div className="text-xs text-gray-600 mt-2">
+                      <div className="font-medium text-gray-700 mb-1">Will take 2 Credits</div>
+                      <div className="text-[10px] text-gray-500">
+                        {credits.dailyCredits + credits.bonusCredits} Credits available
+                      </div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -403,7 +452,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
         {step === 2 && (
           <div className="w-full h-full flex flex-col items-center justify-center">
             {/* Tabs always visible */}
-            <div className="flex gap-2 mb-8">
+            <div className="flex gap-2 mb-4">
               {TABS.map(tab => (
                 <button
                   key={tab.key}
@@ -417,7 +466,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               ))}
             </div>
             {/* Only this area scrolls */}
-            <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto">
+            <div className="w-full flex-1 flex items-start justify-center max-h-[75vh] overflow-y-auto pb-4">
               {selectedTab === 'manual' && (
                 <ManualListCreationForm
                   allCategories={allCategories}
@@ -451,6 +500,10 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   onAssign={handleAssignTodo}
                   tasks={tasks}
                   setTasks={setTasks}
+                  user={user}
+                  credits={credits}
+                  loadCredits={loadCredits}
+                  router={router}
                 />
               )}
             </div>
@@ -463,6 +516,14 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
         onCancel={handleCancelLeave}
         title="Are you sure?"
         message="You have unsaved changes. If you leave, you will lose all of your list data."
+      />
+      
+      {/* Credit Toast */}
+      <CreditToast
+        isVisible={showCreditToast}
+        creditsSpent={creditToastData.creditsSpent}
+        creditsRemaining={creditToastData.creditsRemaining}
+        onClose={() => setShowCreditToast(false)}
       />
     </>
   );
@@ -619,7 +680,7 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -710,6 +771,12 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   }, [setAiListResult]);
 
   const handleGenerate = async () => {
+    // Check if user is available
+    if (!user?.uid) {
+      setError('User not authenticated. Please log in again.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setAiListResult(null);
@@ -728,7 +795,12 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       const res = await fetch('/api/generate-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, categories: allCategories, weddingDate }),
+        body: JSON.stringify({ 
+          description, 
+          categories: allCategories, 
+          weddingDate,
+          userId: user.uid 
+        }),
       });
       if (!res.ok) throw new Error('Failed to generate list');
       const data = await res.json();
@@ -756,6 +828,18 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       // Also update the local tasks state with the AI-generated tasks
       if (setTasks && Array.isArray(data.tasks)) {
         setTasks(data.tasks);
+      }
+      
+      // Refresh credits after successful generation to trigger dynamic updates
+      try {
+        // Add a small delay to ensure server-side credit deduction is committed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadCredits();
+        
+        // Manually trigger credit event emitter to notify other components
+        creditEventEmitter.emit();
+      } catch (error) {
+        console.error('[handleGenerate] Failed to refresh credits after generation:', error);
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
@@ -870,15 +954,34 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         placeholder="e.g. Wedding planning checklist, Day of Checklist, Reception setup, etc."
         rows={4}
       />
-      <div className="w-full flex justify-end">
+      <div className="w-full flex justify-between items-center mb-4">
+        {/* Credit Display */}
+                 {credits && (
+           <div className="text-xs text-gray-600">
+             <div className="font-medium text-gray-700 mb-1">Will take 2 Credits</div>
+             <div className="text-[10px] text-gray-500 flex items-center gap-2">
+               <span>{credits.dailyCredits + credits.bonusCredits} Credits available</span>
+               <span className="text-gray-400">•</span>
+                                <button
+                   onClick={() => window.open('/settings?tab=plan', '_blank', 'noopener,noreferrer')}
+                   className="text-[#A85C36] hover:text-[#784528] underline transition-colors"
+                 >
+                   Get More Credits
+                 </button>
+             </div>
+           </div>
+         )}
+        
+        {/* Generate Button */}
         <button
-          className="btn-gradient-purple flex items-center gap-2 mb-4"
+          className="btn-gradient-purple flex items-center gap-2"
           onClick={handleGenerate}
           disabled={!description.trim() || isLoading}
         >
           <Sparkles className="w-4 h-4" />
           <span>Generate with Paige (2 Credits)</span>
         </button>
+      
       </div>
       {isLoading && showSlowGenerationBanner && (
         <div className="w-full my-4 -mx-6">
