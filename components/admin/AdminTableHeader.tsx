@@ -54,16 +54,16 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
 
   return (
     <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-      {/* Header Row */}
-      <div className="grid grid-cols-12 gap-4 p-3 bg-[#FAF9F8] font-medium text-sm text-[#332B42]">
+            {/* Header Row */}
+      <div className="flex p-3 bg-[#FAF9F8] font-medium text-sm text-[#332B42] min-w-[1200px] w-full gap-6">
         {/* User Info */}
-        <div className="col-span-3 flex items-center justify-between">
+        <div className="w-[300px] flex items-center justify-between">
           <button
             onClick={() => handleSort('displayName')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by user info"
           >
-            <span>User Info</span>
+            <span className="whitespace-nowrap">User Info</span>
             {getSortIcon('displayName')}
           </button>
           <button
@@ -78,13 +78,13 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
         </div>
 
         {/* Role */}
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="w-[100px] flex items-center justify-between">
           <button
             onClick={() => handleSort('role')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by role"
           >
-            <span>Role</span>
+            <span className="whitespace-nowrap">Role</span>
             {getSortIcon('role')}
           </button>
           <button
@@ -99,13 +99,13 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
         </div>
 
         {/* Status */}
-        <div className="col-span-1 flex items-center justify-between">
+        <div className="w-[100px] flex items-center justify-between">
           <button
             onClick={() => handleSort('isActive')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by status"
           >
-            <span>Status</span>
+            <span className="whitespace-nowrap">Status</span>
             {getSortIcon('isActive')}
           </button>
           <button
@@ -119,20 +119,41 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
           </button>
         </div>
 
+        {/* Last Active */}
+        <div className="w-[120px] flex items-center justify-between">
+          <button
+            onClick={() => handleSort('lastActive')}
+            className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
+            title="Sort by last active"
+          >
+            <span className="whitespace-nowrap">Last Active</span>
+            {getSortIcon('lastActive')}
+          </button>
+          <button
+            onClick={() => toggleFilter('lastActive')}
+            className={`p-1 rounded transition-colors ${
+              activeFilter === 'lastActive' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'hover:bg-[#EBE3DD] text-[#AB9C95]'
+            }`}
+            title="Filter by last active"
+          >
+            <Filter className="w-3 h-3" />
+          </button>
+        </div>
+
         {/* Daily Credits */}
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="w-[150px] flex items-center justify-between">
           <button
             onClick={() => handleSort('dailyCredits')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by daily credits"
           >
-            <span>Daily Credits</span>
+            <span className="whitespace-nowrap">Daily Credits</span>
             {getSortIcon('dailyCredits')}
           </button>
           <button
             onClick={() => toggleFilter('dailyCredits')}
             className={`p-1 rounded transition-colors ${
-              activeFilter === 'dailyCredits' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'hover:bg-[#EBE3DD] text-[#AB9C95]'
+              activeFilter === 'dailyCredits' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'hover:bg-[#EBE3DD] text-[#A85C36]'
             }`}
             title="Filter by daily credits"
           >
@@ -141,13 +162,13 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
         </div>
 
         {/* Bonus Credits */}
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="w-[150px] flex items-center justify-between">
           <button
             onClick={() => handleSort('bonusCredits')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by bonus credits"
           >
-            <span>Bonus Credits</span>
+            <span className="whitespace-nowrap">Bonus Credits</span>
             {getSortIcon('bonusCredits')}
           </button>
           <button
@@ -162,13 +183,13 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
         </div>
 
         {/* Created Date */}
-        <div className="col-span-1 flex items-center justify-between">
+        <div className="w-[120px] flex items-center justify-between">
           <button
             onClick={() => handleSort('createdAt')}
             className="flex items-center gap-1 hover:text-[#A85C36] transition-colors"
             title="Sort by creation date"
           >
-            <span>Created</span>
+            <span className="whitespace-nowrap">Created</span>
             {getSortIcon('createdAt')}
           </button>
           <button
@@ -183,8 +204,8 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="col-span-1 flex items-center justify-center">
-          <span>Actions</span>
+        <div className="w-[100px] flex items-center justify-center sticky right-0 bg-[#FAF9F8] z-20">
+          <span className="whitespace-nowrap">Actions</span>
         </div>
       </div>
 
@@ -196,6 +217,7 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
               Filter: {activeFilter === 'userInfo' ? 'User Info' : 
                        activeFilter === 'role' ? 'Role' :
                        activeFilter === 'status' ? 'Status' :
+                       activeFilter === 'lastActive' ? 'Last Active' :
                        activeFilter === 'dailyCredits' ? 'Daily Credits' :
                        activeFilter === 'bonusCredits' ? 'Bonus Credits' :
                        activeFilter === 'createdAt' ? 'Created Date' : activeFilter}
@@ -252,6 +274,27 @@ const AdminTableHeader: React.FC<AdminTableHeaderProps> = ({
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
+              </div>
+            )}
+            
+            {activeFilter === 'lastActive' && (
+              <div className="flex-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    placeholder="From date"
+                    value={filterConfig.lastActiveStart || ''}
+                    onChange={(e) => handleFilterChange('lastActiveStart', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A85C36] focus:border-transparent text-sm"
+                  />
+                  <input
+                    type="date"
+                    placeholder="To date"
+                    value={filterConfig.lastActiveEnd || ''}
+                    onChange={(e) => handleFilterChange('lastActiveEnd', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#A85C36] focus:border-transparent text-sm"
+                  />
+                </div>
               </div>
             )}
             

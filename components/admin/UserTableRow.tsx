@@ -132,12 +132,12 @@ const UserTableRow = memo(({
   return (
     <>
       <div
-        className={`grid grid-cols-12 gap-4 p-3 hover:bg-[#F8F6F4] transition-colors group ${
+        className={`flex p-3 hover:bg-[#F8F6F4] transition-colors group min-w-[1200px] w-full gap-6 ${
           index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
         }`}
       >
         {/* User Info */}
-        <div className="col-span-3 flex items-center gap-3">
+        <div className="w-[300px] flex items-center gap-3">
           <button
             onClick={() => onToggleRowExpansion(user.uid)}
             className="p-1 hover:bg-[#EBE3DD] rounded transition-colors"
@@ -167,7 +167,7 @@ const UserTableRow = memo(({
         </div>
 
         {/* Role */}
-        <div className="col-span-2 flex items-center">
+        <div className="w-[100px] flex items-center">
           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${getRoleColor(user.role || 'couple')}`}>
             {getRoleIcon(user.role || 'couple')}
             <span className="capitalize">
@@ -177,7 +177,7 @@ const UserTableRow = memo(({
         </div>
 
         {/* Status */}
-        <div className="col-span-1 flex items-center">
+        <div className="w-[100px] flex items-center">
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
             user.isActive !== false 
               ? 'bg-green-100 text-green-800' 
@@ -187,8 +187,15 @@ const UserTableRow = memo(({
           </span>
         </div>
 
+        {/* Last Active */}
+        <div className="w-[120px] flex items-center">
+          <span className="text-sm text-[#AB9C95] whitespace-nowrap">
+            {formatDate(user.lastActive)}
+          </span>
+        </div>
+
         {/* Daily Credits (Read-only) */}
-        <div className="col-span-2 flex items-center gap-2">
+        <div className="w-[150px] flex items-center gap-2">
           <div className="flex items-center gap-2 w-full">
             <span className="text-sm font-medium text-[#332B42]">
               {user.credits?.dailyCredits ?? getDailyCreditsForUser(user)}
@@ -212,7 +219,7 @@ const UserTableRow = memo(({
         </div>
 
         {/* Bonus Credits (Editable) */}
-        <div className="col-span-2 flex items-center gap-2">
+        <div className="w-[150px] flex items-center gap-2">
           {isEditingBonusCredits ? (
             <EditableField
               value={editingBonusCredits.value}
@@ -244,23 +251,26 @@ const UserTableRow = memo(({
         </div>
 
         {/* Created Date */}
-        <div className="col-span-1 flex items-center">
+        <div className="w-[120px] flex items-center">
           <span className="text-sm text-[#AB9C95] whitespace-nowrap">
             {formatDate(user.createdAt)}
           </span>
         </div>
 
         {/* Actions */}
-        <div className="col-span-1 flex items-center justify-center gap-1">
+        <div className={`w-[100px] flex items-center justify-center gap-1 sticky right-0 z-20 ${
+          index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
+        }`}>
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEditUser(user);
             }}
-            className="p-2 hover:bg-[#EBE3DD] rounded"
+            className="p-2 transition-colors group/edit bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent border-none outline-none shadow-none"
+            style={{ backgroundColor: 'transparent' }}
             title="Change User Role"
           >
-            <UserPlus className="w-4 h-4 text-[#AB9C95]" />
+            <UserPlus className="w-4 h-4 text-[#AB9C95] group-hover/edit:text-[#A85C36] transition-colors" />
           </button>
           
           <button
@@ -268,10 +278,11 @@ const UserTableRow = memo(({
               e.stopPropagation();
               onDeleteUser(user);
             }}
-            className="p-2 hover:bg-[#EBE3DD] rounded"
+            className="p-2 transition-colors group/delete bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent border-none outline-none shadow-none"
+            style={{ backgroundColor: 'transparent' }}
             title="Delete User"
           >
-            <Trash2 className="w-4 h-4 text-[#AB9C95]" />
+            <Trash2 className="w-4 h-4 text-[#AB9C95] group-hover/delete:text-[#A85C36] transition-colors" />
           </button>
         </div>
       </div>

@@ -39,6 +39,10 @@ const NotificationsTab = dynamic(() => import("./components/NotificationsTab"), 
   loading: () => <NotificationsTabSkeleton />
 });
 
+const CreditsTab = dynamic(() => import("./components/CreditsTab"), {
+  loading: () => <SettingsTabSkeleton />
+});
+
 export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();
   const router = useRouter();
@@ -257,6 +261,7 @@ export default function ProfilePage() {
             />
           )}
           {activeTab === "plan" && <PlanTab />}
+          {activeTab === "credits" && <CreditsTab />}
           {activeTab === "integrations" && (
             <IntegrationsTab
               user={user}

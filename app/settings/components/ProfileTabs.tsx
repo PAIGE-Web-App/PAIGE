@@ -6,6 +6,7 @@ export const TABS = [
   { key: "account", label: "Account" },
   { key: "wedding", label: "Wedding Details" },
   { key: "plan", label: "Plan & Billing" },
+  { key: "credits", label: "Credits" },
   { key: "integrations", label: "Integrations" },
   { key: "notifications", label: "Notifications" },
 ];

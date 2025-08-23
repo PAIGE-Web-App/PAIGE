@@ -199,15 +199,17 @@ export class CreditService {
           throw new Error('Insufficient credits');
         }
 
-        // Deduct from daily credits first, then bonus credits
+        // Deduct from bonus credits first, then daily credits
         let newDailyCredits = currentCredits.dailyCredits;
         let newBonusCredits = currentCredits.bonusCredits;
         
-        if (currentCredits.dailyCredits >= cost) {
-          newDailyCredits = currentCredits.dailyCredits - cost;
+        if (currentCredits.bonusCredits >= cost) {
+          // Use bonus credits first
+          newBonusCredits = currentCredits.bonusCredits - cost;
         } else {
-          newDailyCredits = 0;
-          newBonusCredits = currentCredits.bonusCredits - (cost - currentCredits.dailyCredits);
+          // Use all bonus credits, then deduct remainder from daily credits
+          newBonusCredits = 0;
+          newDailyCredits = currentCredits.dailyCredits - (cost - currentCredits.bonusCredits);
         }
 
         // Update credits and add transaction to history array

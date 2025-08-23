@@ -487,6 +487,15 @@ export default function AdminUsersPage() {
             }}
             onDeleteUser={handleDeleteUser}
             onRefreshUsers={() => fetchUsers(1)}
+            onUpdateUserCredits={(userId, updatedCredits) => {
+              setUsers(prevUsers => 
+                prevUsers.map(u => 
+                  u.uid === userId 
+                    ? { ...u, credits: updatedCredits }
+                    : u
+                )
+              );
+            }}
           />
           
           {/* Pagination */}

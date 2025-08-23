@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { creditService } from '@/lib/creditService';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import {
   UserCredits,
   CreditTransaction,
@@ -171,6 +172,16 @@ export function useCredits() {
       loadCreditHistory();
     }
   }, [credits, loadCreditHistory]);
+
+  // Listen for global credit update events
+  useEffect(() => {
+    const unsubscribe = creditEventEmitter.subscribe(() => {
+      console.log('🔄 Credit update event received, refreshing credits...');
+      loadCredits();
+    });
+
+    return unsubscribe;
+  }, [loadCredits]);
 
   // Get credit usage percentage
   const getCreditUsagePercentage = useCallback(() => {

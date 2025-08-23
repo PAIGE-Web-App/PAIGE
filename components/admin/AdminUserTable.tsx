@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import UserTableRow from './UserTableRow';
 import AdminTableHeader from './AdminTableHeader';
 
@@ -10,6 +11,7 @@ interface AdminUserTableProps {
   onEditUser: (user: any) => void;
   onDeleteUser: (user: any) => void;
   onRefreshUsers: () => void;
+  onUpdateUserCredits?: (userId: string, updatedCredits: any) => void;
 }
 
 export default function AdminUserTable({ 
@@ -18,7 +20,8 @@ export default function AdminUserTable({
   loadingMore, 
   onEditUser, 
   onDeleteUser,
-  onRefreshUsers
+  onRefreshUsers,
+  onUpdateUserCredits
 }: AdminUserTableProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [editingBonusCredits, setEditingBonusCredits] = useState<{ userId: string; value: string } | null>(null);
@@ -116,19 +119,15 @@ export default function AdminUserTable({
         throw new Error(errorData.error || 'Failed to update bonus credits');
       }
 
-      // Update the parent component's state
-      const userIndex = users.findIndex(u => u.uid === user.uid);
-      if (userIndex !== -1) {
-        users[userIndex] = {
-          ...users[userIndex],
-          credits: {
-            ...users[userIndex].credits,
-            bonusCredits: newBonusCredits,
-            updatedAt: new Date()
-          }
-        };
-        
-        // Force a re-render by calling the refresh function
+      // Update the parent component's state if callback is provided, otherwise refresh
+      if (onUpdateUserCredits) {
+        onUpdateUserCredits(user.uid, {
+          ...user.credits,
+          bonusCredits: newBonusCredits,
+          updatedAt: new Date()
+        });
+      } else {
+        // Fallback to refreshing if no callback provided
         if (onRefreshUsers) {
           onRefreshUsers();
         }
@@ -136,6 +135,9 @@ export default function AdminUserTable({
 
       showSuccessToast(`Bonus credits updated to ${newBonusCredits}`);
       setEditingBonusCredits(null);
+      
+      // Emit credit update event for global credit displays
+      creditEventEmitter.emit();
     } catch (error: any) {
       console.error('Failed to update bonus credits:', error);
       showErrorToast(`Failed to update bonus credits: ${error.message}`);
@@ -268,6 +270,15 @@ export default function AdminUserTable({
       }
     }
 
+    if (filterConfig.lastActiveStart || filterConfig.lastActiveEnd) {
+      filteredUsers = filteredUsers.filter(user => {
+        const lastActive = new Date(user.lastActive);
+        if (filterConfig.lastActiveStart && lastActive < new Date(filterConfig.lastActiveStart)) return false;
+        if (filterConfig.lastActiveEnd && lastActive > new Date(filterConfig.lastActiveEnd)) return false;
+        return true;
+      });
+    }
+
     if (filterConfig.dailyCreditsMin || filterConfig.dailyCreditsMax) {
       filteredUsers = filteredUsers.filter(user => {
         const dailyCredits = user.credits?.dailyCredits || 0;
@@ -320,6 +331,21 @@ export default function AdminUserTable({
       } else if (sortConfig.key === 'isActive') {
         aValue = a.isActive !== false ? 1 : 0;
         bValue = b.isActive !== false ? 1 : 0;
+      } else if (sortConfig.key === 'lastActive') {
+        // Handle Firestore Timestamps and various date formats for lastActive
+        const getDateValue = (date: any) => {
+          if (!date) return 0;
+          if (date._seconds) {
+            return date._seconds * 1000; // Firestore Timestamp
+          }
+          if (date.toDate) {
+            return date.toDate().getTime(); // Firestore Timestamp with toDate method
+          }
+          const d = new Date(date);
+          return isNaN(d.getTime()) ? 0 : d.getTime();
+        };
+        aValue = getDateValue(a.lastActive);
+        bValue = getDateValue(b.lastActive);
       } else if (sortConfig.key === 'createdAt') {
         // Handle Firestore Timestamps and various date formats
         const getDateValue = (date: any) => {
@@ -394,37 +420,48 @@ export default function AdminUserTable({
         <div className="overflow-x-auto">
           {/* Table Header */}
           <div className="bg-[#F8F6F4] border-b border-[#E0DBD7] p-3">
-            <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
-              <div className="col-span-3">User</div>
-              <div className="col-span-1">Role</div>
-              <div className="col-span-1">Status</div>
-              <div className="col-span-2">Daily Credits</div>
-              <div className="col-span-2">Bonus Credits</div>
-              <div className="col-span-2">Created</div>
-              <div className="col-span-1">Actions</div>
+            <div className="flex text-sm font-medium text-[#AB9C95] min-w-[1200px] w-full gap-6">
+              <div className="w-[300px] whitespace-nowrap">User</div>
+              <div className="w-[100px] whitespace-nowrap">Role</div>
+              <div className="w-[100px] whitespace-nowrap">Status</div>
+              <div className="w-[120px] whitespace-nowrap">Last Active</div>
+              <div className="w-[150px] whitespace-nowrap">Daily Credits</div>
+              <div className="w-[150px] whitespace-nowrap">Bonus Credits</div>
+              <div className="w-[120px] whitespace-nowrap">Created</div>
+              <div className="w-[100px] whitespace-nowrap sticky right-0 bg-[#F8F6F4] z-20">Actions</div>
             </div>
           </div>
           
           {/* Loading Rows */}
           <div className="divide-y divide-[#E0DBD7]">
             {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="grid grid-cols-12 gap-4 p-3 animate-pulse">
-                <div className="col-span-3">
+              <div key={index} className={`flex p-3 animate-pulse min-w-[1200px] w-full gap-6 ${
+                index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
+              }`}>
+                <div className="w-[300px]">
                   <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 </div>
-                <div className="col-span-2">
+                <div className="w-[100px]">
                   <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </div>
-                <div className="col-span-2">
+                <div className="w-[100px]">
                   <div className="h-4 bg-gray-200 rounded w-1/3"></div>
                 </div>
-                <div className="col-span-2">
+                <div className="w-[120px]">
                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
                 </div>
-                <div className="col-span-2">
+                <div className="w-[150px]">
                   <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </div>
-                <div className="col-span-1">
+                <div className="w-[150px]">
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="w-[120px]">
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className={`w-[100px] sticky right-0 z-20 ${
+                  index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
+                }`}>
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
                 </div>
               </div>
@@ -437,7 +474,7 @@ export default function AdminUserTable({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-[#E0DBD7] overflow-hidden">
-      <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="relative">
         {/* Table Header - Sticky within scrollable container */}
         <AdminTableHeader
           sortConfig={sortConfig}
@@ -447,60 +484,62 @@ export default function AdminUserTable({
           onClearFilters={handleClearFilters}
         />
         
-        {/* Table Body */}
-        <div className="divide-y divide-[#E0DBD7]" key={`table-body-${filteredAndSortedUsers.length}-${sortConfig.key}-${sortConfig.direction}`}>
-          {displayedUsers.length === 0 ? (
-            <div className="p-8 text-center text-[#AB9C95]">
-              <p className="text-sm mb-2">No users found matching your filters.</p>
+        {/* Table Body with horizontal scroll */}
+        <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="divide-y divide-[#E0DBD7] min-w-[1200px] w-full" key={`table-body-${filteredAndSortedUsers.length}-${sortConfig.key}-${sortConfig.direction}`}>
+            {displayedUsers.length === 0 ? (
+              <div className="p-8 text-center text-[#AB9C95]">
+                <p className="text-sm mb-2">No users found matching your filters.</p>
+              </div>
+            ) : (
+              displayedUsers.map((user, index) => (
+                <UserTableRow
+                  key={user.uid}
+                  user={user}
+                  index={index}
+                  editingBonusCredits={editingBonusCredits}
+                  updatingCredits={updatingCredits}
+                  expandedRows={expandedRows}
+                  onToggleRowExpansion={toggleRowExpansion}
+                  onBonusCreditEditStart={handleBonusCreditEditStart}
+                  onBonusCreditEditSave={handleBonusCreditEditSave}
+                  onBonusCreditEditCancel={handleBonusCreditEditCancel}
+                  onResetDailyCredits={handleResetDailyCredits}
+                  onEditUser={onEditUser}
+                  onDeleteUser={onDeleteUser}
+                  onLinkPartner={(userId) => {
+                    // TODO: Implement partner linking
+                    console.log('Link partner for user:', userId);
+                  }}
+                  onAssignPlanner={(userId) => {
+                    // TODO: Implement planner assignment
+                    console.log('Assign planner for user:', userId);
+                  }}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Infinite Scroll Observer Target */}
+          <div ref={observerTarget} className="h-4" />
+          
+          {/* Loading More Indicator */}
+          {hasMore && (
+            <div className="p-4 text-center text-[#AB9C95]">
+              <div className="inline-flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
+                Loading more users...
+              </div>
             </div>
-          ) : (
-            displayedUsers.map((user, index) => (
-              <UserTableRow
-                key={user.uid}
-                user={user}
-                index={index}
-                editingBonusCredits={editingBonusCredits}
-                updatingCredits={updatingCredits}
-                expandedRows={expandedRows}
-                onToggleRowExpansion={toggleRowExpansion}
-                onBonusCreditEditStart={handleBonusCreditEditStart}
-                onBonusCreditEditSave={handleBonusCreditEditSave}
-                onBonusCreditEditCancel={handleBonusCreditEditCancel}
-                onResetDailyCredits={handleResetDailyCredits}
-                onEditUser={onEditUser}
-                onDeleteUser={onDeleteUser}
-                onLinkPartner={(userId) => {
-                  // TODO: Implement partner linking
-                  console.log('Link partner for user:', userId);
-                }}
-                onAssignPlanner={(userId) => {
-                  // TODO: Implement planner assignment
-                  console.log('Assign planner for user:', userId);
-                }}
-              />
-            ))
+          )}
+          
+          {/* End of Results */}
+          {!hasMore && displayedUsers.length > 0 && (
+            <div className="p-4 text-center text-[#AB9C95] border-t border-gray-200">
+              <p className="text-sm">All {filteredAndSortedUsers.length} users loaded</p>
+            </div>
           )}
         </div>
-
-        {/* Infinite Scroll Observer Target */}
-        <div ref={observerTarget} className="h-4" />
-        
-        {/* Loading More Indicator */}
-        {hasMore && (
-          <div className="p-4 text-center text-[#AB9C95]">
-            <div className="inline-flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
-              Loading more users...
-            </div>
-          </div>
-        )}
-        
-        {/* End of Results */}
-        {!hasMore && displayedUsers.length > 0 && (
-          <div className="p-4 text-center text-[#AB9C95] border-t border-gray-200">
-            <p className="text-sm">All {filteredAndSortedUsers.length} users loaded</p>
-          </div>
-        )}
       </div>
     </div>
   );

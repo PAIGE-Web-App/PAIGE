@@ -20,7 +20,7 @@ import { handleLogout } from '../utils/logout';
 import { useNotifications, NotificationCounts } from '../hooks/useNotifications';
 import NotificationPopover from './NotificationPopover';
 import NotificationBadge from './NotificationBadge';
-import { CreditDisplay } from './CreditDisplay';
+import VerticalNavCreditDisplay from './VerticalNavCreditDisplay';
 
 interface NavItem {
   name: string;
@@ -208,11 +208,9 @@ export default function VerticalNav() {
       </div>
 
       {/* Bottom Section: User Profile - Absolutely positioned at bottom */}
-      <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center">
         {/* Credit Display */}
-        <div className="mb-4 flex justify-center">
-          <CreditDisplay variant="compact" showUpgradePrompt={false} />
-        </div>
+        <VerticalNavCreditDisplay />
         
         <div className="relative group">
           <div
