@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Clock, Zap, FileText, MessageSquare, Calendar, DollarSign, Heart, Users, HelpCircle } from 'lucide-react';
+import { Sparkles, Zap, FileText, MessageSquare, Calendar, DollarSign, Heart, Users, HelpCircle } from 'lucide-react';
 import { useCredits } from '../../../hooks/useCredits';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserType } from '../../../types/credits';
@@ -81,17 +81,14 @@ export default function CreditsTab() {
         </div>
 
         <div className="bg-[#F3F2F0] rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <Clock className="w-5 h-5 text-[#A85C36] mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="text-sm font-medium text-[#332B42] mb-2">How Credits Work</h3>
-              <ul className="space-y-1 text-xs text-gray-600">
-                <li>• <strong>Daily Credits:</strong> Refresh every day at midnight</li>
-                <li>• <strong>Bonus Credits:</strong> Used first before daily credits</li>
-                <li>• <strong>Credit Usage:</strong> Different AI features cost different amounts</li>
-                <li>• <strong>No Rollover:</strong> Unused daily credits don't carry over</li>
-              </ul>
-            </div>
+          <div>
+            <h3 className="text-sm font-medium text-[#332B42] mb-2">How Credits Work</h3>
+            <ul className="space-y-1 text-xs text-gray-600">
+              <li>• <strong>Daily Credits:</strong> Refresh every day at midnight</li>
+              <li>• <strong>Bonus Credits:</strong> Used first before daily credits</li>
+              <li>• <strong>Credit Usage:</strong> Different AI features cost different amounts</li>
+              <li>• <strong>No Rollover:</strong> Unused daily credits don't carry over</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -108,72 +105,41 @@ export default function CreditsTab() {
         <div className="grid gap-3">
           {currentFeatures.map((feature, index) => (
             <div key={index} className="flex items-center gap-4 p-4 bg-[#F8F6F4] rounded-lg">
-              <div className="flex-shrink-0">
-                <feature.icon className="w-5 h-5 text-[#805d93]" />
+              <div className="flex-shrink-0 self-center">
+                <feature.icon className="w-4 h-4 text-[#805d93]" />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-medium text-[#332B42]">{feature.name}</h3>
-                  <span className="bg-[#805d93] text-white text-xs px-2 py-1 rounded">
-                    {feature.cost} credit{feature.cost > 1 ? 's' : ''}
-                  </span>
-                </div>
+                <h6 className="font-medium text-[#332B42] mb-1">{feature.name}</h6>
                 <p className="text-sm text-[#666]">{feature.description}</p>
+              </div>
+              <div className="flex-shrink-0 self-center">
+                <span className="bg-[#805d93] text-white text-xs px-2 py-1 rounded">
+                  {feature.cost} credit{feature.cost > 1 ? 's' : ''}
+                </span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Credit Management Tips */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h5 className="mb-6">Credit Management Tips</h5>
+      {/* Need More Credits */}
+      <div className="bg-[#805d93] rounded-lg p-6 shadow-sm text-center">
+        <h6 className="mb-4 text-white">Need More Credits?</h6>
         
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="w-2 h-2 bg-[#805d93] rounded-full mt-2 flex-shrink-0"></div>
-            <div>
-              <h3 className="font-medium text-[#332B42] mb-1">Plan Your AI Usage</h3>
-              <p className="text-sm text-[#666]">
-                Higher-cost features like Integrated Planning (5 credits) and File Analysis (3 credits) 
-                provide more comprehensive results. Use them strategically for maximum value.
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <div className="w-2 h-2 bg-[#805d93] rounded-full mt-2 flex-shrink-0"></div>
-            <div>
-              <h3 className="font-medium text-[#332B42] mb-1">Bonus Credits First</h3>
-              <p className="text-sm text-[#666]">
-                Any bonus credits you have will automatically be used before your daily credits, 
-                so you never lose them.
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <div className="w-2 h-2 bg-[#805d93] rounded-full mt-2 flex-shrink-0"></div>
-            <div>
-              <h3 className="font-medium text-[#332B42] mb-1">Daily Refresh</h3>
-              <p className="text-sm text-[#666]">
-                Your daily credits reset every day at midnight, so don't worry about saving them 
-                for tomorrow - use them today!
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-3">
-            <div className="w-2 h-2 bg-[#805d93] rounded-full mt-2 flex-shrink-0"></div>
-            <div>
-              <h3 className="font-medium text-[#332B42] mb-1">Need More Credits?</h3>
-              <p className="text-sm text-[#666]">
-                Consider upgrading your plan for more daily credits, or contact support about 
-                purchasing additional bonus credits for special projects.
-              </p>
-            </div>
-          </div>
-        </div>
+        <p className="text-white mb-6 opacity-90">
+          Consider upgrading your plan for more daily credits, or purchase additional bonus credits for special projects.
+        </p>
+
+        <button
+          onClick={() => {
+            const params = new URLSearchParams(window.location.search);
+            params.set('tab', 'plan');
+            window.location.href = `/settings?${params.toString()}`;
+          }}
+          className="bg-white text-[#805d93] px-3 py-1 rounded font-work-sans font-semibold text-xs hover:bg-gray-100 transition-all duration-200"
+        >
+          Go to Plan & Billing
+        </button>
       </div>
     </div>
   );

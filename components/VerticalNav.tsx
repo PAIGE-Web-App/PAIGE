@@ -47,7 +47,6 @@ export default function VerticalNav() {
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
     { name: "Files", href: "/files", icon: FileText },
     { name: "Mood Boards", href: "/moodboards", icon: Heart },
-    { name: "Credits", href: "/settings?tab=credits", icon: Sparkles },
   ];
 
   const userMenuItems = [
