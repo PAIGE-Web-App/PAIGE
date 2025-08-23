@@ -1,10 +1,4 @@
-import { db } from './firebase';
-import { 
-  doc, 
-  getDoc, 
-  updateDoc, 
-  runTransaction
-} from 'firebase/firestore';
+import { adminDb } from './firebaseAdmin';
 import {
   UserCredits,
   CreditTransaction,
@@ -36,14 +30,14 @@ export class CreditService {
     subscriptionTier: SubscriptionTier = 'free'
   ): Promise<UserCredits> {
     try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
+      const userRef = adminDb.collection('users').doc(userId);
+      const userSnap = await userRef.get();
 
-      if (userSnap.exists()) {
+      if (userSnap.exists) {
         const userData = userSnap.data();
         
         // Check if user already has credits
-        if (userData.credits) {
+        if (userData?.credits) {
           const existingCredits = userData.credits as UserCredits;
           
           // Check if credits need refresh
@@ -71,7 +65,7 @@ export class CreditService {
       };
 
       // Update the user document with credits field
-      await updateDoc(userRef, {
+      await userRef.update({
         credits: newUserCredits
       });
       
@@ -87,16 +81,16 @@ export class CreditService {
    */
   async getUserCredits(userId: string): Promise<UserCredits | null> {
     try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
+      const userRef = adminDb.collection('users').doc(userId);
+      const userSnap = await userRef.get();
 
-      if (!userSnap.exists()) {
+      if (!userSnap.exists) {
         return null;
       }
 
       const userData = userSnap.data();
       
-      if (!userData.credits) {
+      if (!userData?.credits) {
         return null;
       }
 
@@ -167,28 +161,32 @@ export class CreditService {
       const creditCosts = getCreditCosts(userCredits.userType);
       const cost = creditCosts[feature] || 1;
 
-      // Create transaction record
+      // Create transaction record, filtering out undefined metadata values
+      const cleanMetadata = metadata ? Object.fromEntries(
+        Object.entries(metadata).filter(([_, value]) => value !== undefined)
+      ) : undefined;
+      
       const transaction: CreditTransaction = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         type: 'spent',
         amount: cost,
         feature,
         timestamp: new Date(),
-        metadata,
+        metadata: cleanMetadata,
         description: `Used ${feature} feature`
       };
 
       // Update user credits
-      await runTransaction(db, async (firestoreTransaction) => {
-        const userRef = doc(db, 'users', userId);
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const userRef = adminDb.collection('users').doc(userId);
         const userSnap = await firestoreTransaction.get(userRef);
         
-        if (!userSnap.exists()) {
+        if (!userSnap.exists) {
           throw new Error('User not found');
         }
 
         const userData = userSnap.data();
-        if (!userData.credits) {
+        if (!userData?.credits) {
           throw new Error('User credits not found');
         }
 
@@ -250,26 +248,31 @@ export class CreditService {
         return false;
       }
 
+      // Filter out undefined metadata values
+      const cleanMetadata = metadata ? Object.fromEntries(
+        Object.entries(metadata).filter(([_, value]) => value !== undefined)
+      ) : undefined;
+      
       const transaction: CreditTransaction = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         type,
         amount,
         feature: 'bonus' as AIFeature, // Special case for adding credits
         timestamp: new Date(),
-        metadata,
+        metadata: cleanMetadata,
         description: description || `Added ${amount} credits`
       };
 
-      await runTransaction(db, async (firestoreTransaction) => {
-        const userRef = doc(db, 'users', userId);
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const userRef = adminDb.collection('users').doc(userId);
         const userSnap = await firestoreTransaction.get(userRef);
         
-        if (!userSnap.exists()) {
+        if (!userSnap.exists) {
           throw new Error('User not found');
         }
 
         const userData = userSnap.data();
-        if (!userData.credits) {
+        if (!userData?.credits) {
           throw new Error('User credits not found');
         }
 
@@ -303,15 +306,15 @@ export class CreditService {
     limitCount: number = 50
   ): Promise<CreditTransaction[]> {
     try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
+      const userRef = adminDb.collection('users').doc(userId);
+      const userSnap = await userRef.get();
 
-      if (!userSnap.exists()) {
+      if (!userSnap.exists) {
         return [];
       }
 
       const userData = userSnap.data();
-      if (!userData.credits || !userData.credits.creditHistory) {
+      if (!userData?.credits || !userData.credits.creditHistory) {
         return [];
       }
 
@@ -410,8 +413,8 @@ export class CreditService {
       // No rollover - just reset to subscription limit
       const newCredits = subscriptionCredits.monthlyCredits;
 
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
+      const userRef = adminDb.collection('users').doc(userId);
+      await userRef.update({
         'credits.dailyCredits': newCredits,
         'credits.lastCreditRefresh': new Date(),
         'credits.updatedAt': new Date()

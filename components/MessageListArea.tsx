@@ -61,15 +61,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   setIsEditing,
   onGenerateAITodoList,
 }) => {
-  // Debug logging
-  devLog('🔍 MessageListArea props:', {
-    selectedContactName: selectedContact?.name,
-    selectedContactPlaceId: selectedContact?.placeId,
-    vendorContactLoading,
-    hasContactInfo,
-    messagesLength: messages.length,
-    loading
-  });
+  // Removed excessive logging to reduce console spam
 
   // Helper function to strip quoted text and signatures
   const stripQuotedText = (text: string): string => {
@@ -983,8 +975,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                               {selectedContact && msg.source === 'gmail' && (
                                 <button
                                   className="text-xs text-[#805d93] hover:text-[#6a4d7a] ml-2 flex items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
-                                  onClick={() => handleAnalyzeMessage(msg)}
-                                  title="Analyze message for to-dos using AI"
+                                                  onClick={() => handleAnalyzeMessage(msg)}
+                title="Analyze message for to-dos using AI (2 Credits)"
                                   disabled={isAnalyzing}
                                 >
                                   {isAnalyzing ? (

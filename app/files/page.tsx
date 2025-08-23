@@ -488,6 +488,7 @@ export default function FilesPage() {
           fileContent: fileContent,
           fileType: fileToAnalyze.fileType,
           analysisType: analysisType,
+          userId: userId,
         }),
       });
 
@@ -571,6 +572,7 @@ export default function FilesPage() {
           analysisType: 'comprehensive',
           userQuestion: question,
           chatHistory: [], // For now, we'll start fresh each time
+          userId: userId,
         }),
       });
 

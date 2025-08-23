@@ -22,7 +22,7 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
   items,
   className = "",
   buttonClassName = "p-1 hover:bg-gray-100 rounded-full",
-  menuClassName = "absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10",
+  menuClassName = "absolute right-0 mt-1 w-max bg-white border border-gray-200 rounded-md shadow-lg z-10",
   title = "More options"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,7 +40,7 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
       const buttonRect = e.currentTarget.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const menuWidth = 128; // w-32 = 128px
+      const menuWidth = 200; // Approximate max width for dynamic sizing
       const menuHeight = 80; // Approximate height
       
       // Find the actual container element to get real available space

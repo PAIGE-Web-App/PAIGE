@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { creditService } from '@/lib/creditService';
+import { creditServiceClient } from '@/lib/creditServiceClient';
 import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import {
   UserCredits,
@@ -16,43 +16,44 @@ export function useCredits() {
   const [error, setError] = useState<string | null>(null);
   const [creditHistory, setCreditHistory] = useState<CreditTransaction[]>([]);
 
-  // Load user credits
-  const loadCredits = useCallback(async () => {
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
+           // Load user credits
+         const loadCredits = useCallback(async () => {
+           if (!user?.uid) {
+             setLoading(false);
+             return;
+           }
 
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const userCredits = await creditService.getUserCredits(user.uid);
-      
-      if (userCredits) {
-        setCredits(userCredits);
-      } else {
-        // Initialize credits for new user
-        const newCredits = await creditService.initializeUserCredits(
-          user.uid,
-          'couple', // Default to couple for now
-          'free'    // Default to free tier
-        );
-        setCredits(newCredits);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load credits');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.uid]);
+           try {
+             setLoading(true);
+             setError(null);
+             
+             const userCredits = await creditServiceClient.getUserCredits(user.uid);
+             
+             if (userCredits) {
+               setCredits(userCredits);
+             } else {
+               // Initialize credits for new user
+               const newCredits = await creditServiceClient.initializeUserCredits(
+                 user.uid,
+                 'couple', // Default to couple for now
+                 'free'    // Default to free tier
+               );
+               setCredits(newCredits);
+             }
+           } catch (err) {
+             console.error('🔄 useCredits: Error loading credits:', err);
+             setError(err instanceof Error ? err.message : 'Failed to load credits');
+           } finally {
+             setLoading(false);
+           }
+         }, [user?.uid]);
 
   // Load credit history
   const loadCreditHistory = useCallback(async () => {
     if (!user?.uid) return;
 
     try {
-      const history = await creditService.getCreditHistory(user.uid, 20);
+      const history = await creditServiceClient.getCreditHistory(user.uid, 20);
       setCreditHistory(history);
     } catch (err) {
       console.error('Failed to load credit history:', err);
@@ -75,7 +76,7 @@ export function useCredits() {
     }
 
     try {
-      return await creditService.validateCredits(user.uid, feature);
+      return await creditServiceClient.validateCredits(user.uid, feature);
     } catch (err) {
       return {
         hasEnoughCredits: false,
@@ -96,7 +97,7 @@ export function useCredits() {
     if (!user?.uid) return false;
 
     try {
-      const success = await creditService.deductCredits(user.uid, feature, metadata);
+      const success = await creditServiceClient.deductCredits(user.uid, feature, metadata);
       
       if (success) {
         // Reload credits to get updated count
@@ -118,7 +119,7 @@ export function useCredits() {
     if (!user?.uid) return false;
 
     try {
-      return await creditService.hasFeatureAccess(user.uid, feature);
+      return await creditServiceClient.hasFeatureAccess(user.uid, feature);
     } catch (err) {
       console.error('Failed to check feature access:', err);
       return false;
@@ -135,11 +136,11 @@ export function useCredits() {
     if (!user?.uid) return false;
 
     try {
-      const success = await creditService.addCredits(
-        user.uid,
-        amount,
-        type,
-        description,
+            const success = await creditServiceClient.addCredits(
+        user.uid, 
+        amount, 
+        type, 
+        description, 
         metadata
       );
       
@@ -173,15 +174,14 @@ export function useCredits() {
     }
   }, [credits, loadCreditHistory]);
 
-  // Listen for global credit update events
-  useEffect(() => {
-    const unsubscribe = creditEventEmitter.subscribe(() => {
-      console.log('🔄 Credit update event received, refreshing credits...');
-      loadCredits();
-    });
+           // Listen for global credit update events
+         useEffect(() => {
+           const unsubscribe = creditEventEmitter.subscribe(() => {
+             loadCredits();
+           });
 
-    return unsubscribe;
-  }, [loadCredits]);
+           return unsubscribe;
+         }, [loadCredits]);
 
   // Get credit usage percentage
   const getCreditUsagePercentage = useCallback(() => {

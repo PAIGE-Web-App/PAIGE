@@ -28,6 +28,8 @@ import GmailReauthBanner from './GmailReauthBanner';
 import DropdownMenu, { DropdownItem } from './DropdownMenu';
 import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 import { useUserProfileData } from "../hooks/useUserProfileData";
+import { useCredits } from "../hooks/useCredits";
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 
 
 // Define interfaces for types needed in this component
@@ -234,6 +236,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+  const { loadCredits } = useCredits();
 
   // Get user profile data for AI draft personalization
   const { 
@@ -714,6 +717,18 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         });
         const data = await res.json();
         draft = data.draft || "Failed to generate response";
+        
+        // Refresh credits after successful reply draft generation (with delay to ensure server commit)
+        try {
+          // Add a small delay to ensure server-side credit deduction is committed
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await loadCredits();
+          
+          // Manually trigger credit event emitter to notify other components
+          creditEventEmitter.emit();
+        } catch (error) {
+          console.error('[handleGenerateDraft] Failed to refresh credits after reply:', error);
+        }
       } else {
         console.log('[handleGenerateDraft] Generating new draft...');
         // Generate a new message draft with enhanced context
@@ -729,10 +744,22 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           vibe: vibe || []
         };
         draft = await generateDraft(selectedContact, [], currentUser?.uid, userProfileData);
+        
+        // Refresh credits after successful new draft generation (with delay to ensure server commit)
+        try {
+          // Add a small delay to ensure server-side credit deduction is committed
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await loadCredits();
+          
+          // Manually trigger credit event emitter to notify other components
+          creditEventEmitter.emit();
+        } catch (error) {
+          console.error('[handleGenerateDraft] Failed to refresh credits after new draft:', error);
+        }
       }
       
-      if (draft) {
-        console.log('[handleGenerateDraft] Draft generated, processing...');
+              if (draft) {
+        
         // Replace placeholders with userName
         if (userName) {
           draft = draft.replace(/\[Your Name\]/g, userName).replace(/\[Your Full Name\]/g, userName);
@@ -753,17 +780,29 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         setSubject(newSubject);
         setIsAnimating(true);
         setAnimatedDraft("");
+        
         // Pre-calculate the final height
         if (textareaRef.current) {
           textareaRef.current.value = newBody;
           const finalHeight = Math.min(textareaRef.current.scrollHeight, 200);
           textareaRef.current.style.height = finalHeight + 'px';
         }
-        // Set the final text immediately without animation to avoid infinite loops
-        setAnimatedDraft(newBody);
-        setInput(newBody);
-        setIsAnimating(false);
-        console.log('[handleGenerateDraft] Draft processing complete');
+        
+                  // Type out the draft word by word for ultra-fast typing animation
+          const words = newBody.split(' ');
+          let currentWordIndex = 0;
+          const typeInterval = setInterval(() => {
+            if (currentWordIndex <= words.length) {
+              const currentText = words.slice(0, currentWordIndex).join(' ');
+              setAnimatedDraft(currentText + (currentWordIndex < words.length ? ' ' : ''));
+              currentWordIndex++;
+            } else {
+              clearInterval(typeInterval);
+              setInput(newBody);
+              setIsAnimating(false);
+              console.log('[handleGenerateDraft] Draft processing complete');
+            }
+          }, 5); // 5ms per word = ~200 words per second!
       }
     } catch (error) {
       console.error('[handleGenerateDraft] Error generating draft:', error);
@@ -771,7 +810,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     } finally {
       isGeneratingRef.current = false;
       setIsGenerating(false);
-      console.log('[handleGenerateDraft] Generation complete, state reset');
     }
   }, [selectedContact?.id, replyingToMessage?.id, currentUser?.uid, generateDraft, userName, subject]);
 
@@ -1160,12 +1198,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     } finally {
       setVendorContactLoading(false);
     }
-  }, [selectedContact?.placeId, selectedContact?.email, selectedContact?.phone, vendorDetails?.place_id, addToVendorCache]);
+  }, [selectedContact?.placeId, selectedContact?.email, selectedContact?.phone, addToVendorCache]); // Remove vendorDetails?.place_id dependency
 
   // Effect to fetch vendor details when a vendor contact is selected
   useEffect(() => {
-    fetchVendorContactInfo();
-  }, [fetchVendorContactInfo]);
+    if (selectedContact?.placeId) {
+      fetchVendorContactInfo();
+    }
+  }, [selectedContact?.placeId, selectedContact?.email, selectedContact?.phone]); // Remove fetchVendorContactInfo dependency
 
   // Debug effect to track vendor details changes
   useEffect(() => {
@@ -1180,7 +1220,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     });
   }, [vendorDetails?.place_id, vendorDetails?.website, vendorDetails?.formatted_phone_number, selectedContact?.id, selectedContact?.name]);
 
-  devLog('UI messages:', state.messages);
+  // Removed excessive logging to reduce console spam
 
   return (
     <div className="flex flex-col h-full">

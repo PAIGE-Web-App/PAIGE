@@ -348,7 +348,7 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
                     className="px-6 py-2 bg-[#A85C36] text-white rounded-[5px] text-sm font-medium hover:bg-[#A85C36]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <Mail size={16} />
-                    Use in Draft Message
+                    Use in Draft Message (1 Credit)
                   </button>
                 )}
               </div>

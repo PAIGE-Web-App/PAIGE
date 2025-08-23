@@ -136,7 +136,7 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-[#A85C36]" />
                   <div>
-                    <div className="font-medium text-[#332B42]">Integrated Plan</div>
+                    <div className="font-medium text-[#332B42]">Integrated Plan (5 Credits)</div>
                     <div className="text-xs text-[#AB9C95]">Budget + Todo list together</div>
                   </div>
                 </div>
@@ -153,7 +153,7 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-[#A85C36]" />
                   <div>
-                    <div className="font-medium text-[#332B42]">Budget Only</div>
+                    <div className="font-medium text-[#332B42]">Budget Only (3 Credits)</div>
                     <div className="text-xs text-[#AB9C95]">Just the budget breakdown</div>
                   </div>
                 </div>
@@ -170,7 +170,7 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-[#A85C36]" />
                   <div>
-                    <div className="font-medium text-[#332B42]">Todo List Only</div>
+                    <div className="font-medium text-[#332B42]">Todo List Only (2 Credits)</div>
                     <div className="text-xs text-[#AB9C95]">Just the task list</div>
                   </div>
                 </div>

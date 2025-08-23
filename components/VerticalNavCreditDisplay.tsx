@@ -1,47 +1,122 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { useRouter } from 'next/navigation';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import CreditToast from './CreditToast';
 
 export default function VerticalNavCreditDisplay() {
-  const { getRemainingCredits, loading, credits } = useCredits();
+  const { getRemainingCredits, loading, credits, loadCredits } = useCredits();
   const router = useRouter();
+  const [showToast, setShowToast] = useState(false);
+  const [toastData, setToastData] = useState({ creditsSpent: 0, creditsRemaining: 0 });
+
+  // Store previous credits to compare
+  const [previousCredits, setPreviousCredits] = useState(0);
+
+           // Update previous credits when credits change
+         useEffect(() => {
+           if (credits) {
+             const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+             
+             // Check if credits decreased (indicating usage) and we have a valid previous value
+             if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
+               const creditsSpent = previousCredits - currentTotal;
+               setToastData({ creditsSpent, creditsRemaining: currentTotal });
+               setShowToast(true);
+             }
+             
+             // Always update previous credits when we get new data
+             setPreviousCredits(currentTotal);
+           }
+         }, [credits]);
+
+  // Removed aggressive polling to prevent infinite loops
+
+  // Listen for credit updates using multiple methods
+  useEffect(() => {
+    const handleCreditUpdate = () => {
+      // Reload credits to get the latest data
+      setTimeout(async () => {
+        const currentCredits = getRemainingCredits();
+        const currentPrevious = previousCredits; // Capture current value to avoid stale closure
+        
+        if (currentPrevious > 0 && currentCredits < currentPrevious) {
+          const creditsSpent = currentPrevious - currentCredits;
+          setToastData({ creditsSpent, creditsRemaining: currentCredits });
+          setShowToast(true);
+        }
+      }, 500); // Reduced delay for faster response
+    };
+
+    // Method 1: Try the creditEventEmitter
+    const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
+    
+    // Method 2: Listen for storage events (fallback for server/client communication)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'creditUpdate' && e.newValue) {
+        handleCreditUpdate();
+      }
+    };
+    
+    // Simplified polling - just reload credits periodically
+    const pollInterval = setInterval(async () => {
+      if (!loading && !showToast) {
+        await loadCredits();
+      }
+    }, 10000); // Check every 10 seconds, less frequently
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
+    };
+  }, []); // Remove dependencies to prevent infinite re-renders
 
   if (loading) {
     return (
-      <div className="animate-pulse mb-6">
-        <div className="h-12 bg-gray-200 rounded-lg w-20"></div>
+      <div className="mb-6 flex justify-center">
+        <div className="animate-pulse">
+          <div className="h-12 bg-gray-200 rounded-lg w-16"></div>
+        </div>
       </div>
     );
   }
 
-  const remainingCredits = getRemainingCredits();
+  // Calculate credits safely
   const dailyCredits = credits?.dailyCredits || 0;
   const bonusCredits = credits?.bonusCredits || 0;
+  const remainingCredits = dailyCredits + bonusCredits;
   const hasBonusCredits = bonusCredits > 0;
+  
+
 
   const handleUpgradeClick = () => {
     router.push('/settings?tab=credits');
   };
 
+  // Removed debug functions - no longer needed
+
   return (
     <div className="mb-6 flex justify-center">
-              <button
-          onClick={handleUpgradeClick}
-          className="group relative bg-[#F8F6F4] rounded-lg p-2 transition-all duration-200 hover:bg-[#F3F2F0] cursor-pointer"
-          style={{
-            background: 'linear-gradient(145deg, #F8F6F4, #F8F6F4)',
-            border: '1px solid transparent',
-            backgroundImage: `
-              linear-gradient(145deg, #F8F6F4, #F8F6F4),
-              linear-gradient(145deg, #805d93, #805d93, #805d93, #805d93)
-            `,
-            backgroundOrigin: 'border-box',
-            backgroundClip: 'padding-box, border-box',
-          }}
-        >
+      <button
+        onClick={handleUpgradeClick}
+        className="group relative bg-[#F8F6F4] rounded-lg p-2 transition-all duration-200 hover:bg-[#F3F2F0] cursor-pointer"
+        style={{
+          background: 'linear-gradient(145deg, #F8F6F4, #F8F6F4)',
+          border: '1px solid transparent',
+          backgroundImage: `
+            linear-gradient(145deg, #F8F6F4, #F8F6F4),
+            linear-gradient(145deg, #805d93, #805d93, #805d93, #805d93)
+          `,
+          backgroundOrigin: 'border-box',
+          backgroundClip: 'padding-box, border-box',
+        }}
+      >
         <div className="flex flex-col items-center gap-1">
           <Sparkles className="w-3.5 h-3.5 text-[#805d93] group-hover:text-[#6a4d7a] transition-colors" />
           <div className="text-center">
@@ -60,31 +135,39 @@ export default function VerticalNavCreditDisplay() {
           </div>
         </div>
         
-                  {/* Subtle glow effect on hover */}
-          <div
-            className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-20 transition-opacity duration-200 pointer-events-none"
-            style={{
-              background: 'linear-gradient(145deg, #805d93, #805d93, #805d93, #805d93)',
-              filter: 'blur(4px)',
-              zIndex: -1
-            }}
-          />
+        {/* Subtle glow effect on hover */}
+        <div
+          className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-20 transition-opacity duration-200 pointer-events-none"
+          style={{
+            background: 'linear-gradient(145deg, #805d93, #805d93, #805d93, #805d93)',
+            filter: 'blur(4px)',
+            zIndex: -1
+          }}
+        />
 
-          {/* Hover Tooltip - matching other nav items */}
-          <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-3 py-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-64">
-            <div className="text-left">
-              <div className="font-semibold mb-1">Paige Credits Remaining:</div>
-              <div className="text-[11px] text-gray-200 mb-2">
-                {dailyCredits} Daily Credits + {bonusCredits} Bonus Credits
-              </div>
-              <div className="text-[10px] text-gray-300">
-                Daily Credits Refresh Daily. Bonus Credits will be Used First!
-              </div>
+        {/* Hover Tooltip - matching other nav items */}
+        <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-3 py-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-64">
+          <div className="text-left">
+            <div className="font-semibold mb-1">Paige Credits Remaining:</div>
+            <div className="text-[11px] text-gray-200 mb-2">
+              {dailyCredits} Daily Credits + {bonusCredits} Bonus Credits
             </div>
-            {/* Tooltip arrow */}
-            <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+            <div className="text-[10px] text-gray-300">
+              Daily Credits Refresh Daily. Bonus Credits will be Used First!
+            </div>
           </div>
-        </button>
+          {/* Tooltip arrow */}
+          <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+        </div>
+      </button>
+
+      {/* Credit Toast */}
+      <CreditToast
+        isVisible={showToast}
+        creditsSpent={toastData.creditsSpent}
+        creditsRemaining={toastData.creditsRemaining}
+        onClose={() => setShowToast(false)}
+      />
     </div>
   );
 }

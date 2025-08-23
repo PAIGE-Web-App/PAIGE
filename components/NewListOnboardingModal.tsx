@@ -23,7 +23,7 @@ interface NewListOnboardingModalProps {
 const TABS = [
   {
     key: 'ai',
-    label: 'Create with AI',
+    label: 'Create with Paige',
     icon: <Sparkles className="w-5 h-5 mr-1" />,
     description: 'Describe what you need, and let PAIGE generate a smart to-do list for you in seconds.'
   },
@@ -872,12 +872,12 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       />
       <div className="w-full flex justify-end">
         <button
-          className="btn-primary flex items-center gap-2 mb-4"
+          className="btn-gradient-purple flex items-center gap-2 mb-4"
           onClick={handleGenerate}
           disabled={!description.trim() || isLoading}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Generate List</span>
+          <span>Generate with Paige (2 Credits)</span>
         </button>
       </div>
       {isLoading && showSlowGenerationBanner && (

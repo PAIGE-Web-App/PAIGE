@@ -114,7 +114,7 @@ export default function ImageGrid({
                       ) : (
                         <Sparkles className="w-4 h-4" />
                       )}
-                      Generate Vibes
+                      Generate Vibes (2 Credits)
                     </button>
                   </div>
                 </div>

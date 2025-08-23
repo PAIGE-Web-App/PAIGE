@@ -670,9 +670,9 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
               onClick={handleReanalyze}
               disabled={isAnalyzing}
               className="btn-gradient-purple disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Re-analyze with AI"
+              title="Re-analyze with AI (3 Credits)"
             >
-              Re-analyze
+              Re-analyze (3 Credits)
             </button>
           </div>
         </div>
@@ -717,7 +717,7 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
 
       {/* Suggested Questions - Outside Chat Area */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-        <div className="text-xs text-gray-500 mb-2 font-medium text-right">💡 Suggested Questions:</div>
+        <div className="text-xs text-gray-500 mb-2 font-medium text-right">💡 Suggested Questions (1 Credit each):</div>
         <div className="flex flex-wrap gap-2 justify-end">
           {[
             "What are the key payment terms?",
@@ -748,7 +748,7 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about this file..."
+              placeholder="Ask me anything about this file... (1 Credit per question)"
               disabled={isLoading || isAnalyzing}
               className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-[15px] text-[#332B42] focus:outline-none focus:border-[#A85C36] focus:ring-1 focus:ring-[#A85C36] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             />

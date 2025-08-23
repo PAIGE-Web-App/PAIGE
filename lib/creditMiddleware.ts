@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { creditService } from './creditService';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import { AIFeature } from '@/types/credits';
 
 export interface CreditValidationOptions {
@@ -22,19 +23,12 @@ export function withCreditValidation(
       // Extract userId from request
       let userId: string | undefined;
       
+      let requestBody: any = {};
       if (options.userIdField) {
         // Try to get userId from request body
         try {
-          const body = await request.json().catch(() => ({}));
-          userId = body[options.userIdField];
-          
-          // Reconstruct request since we consumed the body
-          const newRequest = new NextRequest(request.url, {
-            method: request.method,
-            headers: request.headers,
-            body: JSON.stringify(body)
-          });
-          request = newRequest;
+          requestBody = await request.json().catch(() => ({}));
+          userId = requestBody[options.userIdField];
         } catch (error) {
           console.error('Error parsing request body for credit validation:', error);
         }
@@ -97,7 +91,7 @@ export function withCreditValidation(
             'x-credits-remaining': validation.remainingCredits.toString(),
             'x-user-id': userId
           },
-          body: request.body
+          body: JSON.stringify(requestBody)
         });
 
         // Call the handler
@@ -106,11 +100,27 @@ export function withCreditValidation(
         // If the request was successful, deduct credits
         if (response.ok) {
           try {
-            await creditService.deductCredits(userId, options.feature, {
-              requestId: request.headers.get('x-request-id') || undefined,
-              timestamp: new Date().toISOString(),
-              userAgent: request.headers.get('user-agent') || undefined
-            });
+            // Build metadata object, filtering out undefined values
+            const metadata: Record<string, any> = {
+              timestamp: new Date().toISOString()
+            };
+            
+            const requestId = request.headers.get('x-request-id');
+            if (requestId) {
+              metadata.requestId = requestId;
+            }
+            
+            const userAgent = request.headers.get('user-agent');
+            if (userAgent) {
+              metadata.userAgent = userAgent;
+            }
+            
+            const success = await creditService.deductCredits(userId, options.feature, metadata);
+            
+            // Emit credit update event if deduction was successful
+            if (success) {
+              creditEventEmitter.emit();
+            }
           } catch (error) {
             console.error('Error deducting credits after successful request:', error);
             // Don't fail the request if credit deduction fails

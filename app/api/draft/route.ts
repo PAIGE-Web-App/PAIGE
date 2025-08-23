@@ -2,8 +2,7 @@
 import { OpenAI } from "openai";
 import { NextResponse } from "next/server";
 import { userContextBuilder } from "../../../utils/userContextBuilder";
-import { db } from "../../../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { adminDb } from "../../../lib/firebaseAdmin";
 import { withCreditValidation } from "../../../lib/creditMiddleware";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -40,24 +39,33 @@ async function handleDraftGeneration(req: Request) {
       // Fallback to server-side (for backward compatibility)
       console.log("Draft API - No frontend user data, attempting server-side fallback");
       try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) {
+        const userDoc = await adminDb.collection('users').doc(userId).get();
+        if (userDoc.exists) {
           const serverUserData = userDoc.data();
-          userContext = {
-            userName: serverUserData.userName || null,
-            partnerName: serverUserData.partnerName || null,
-            weddingDate: serverUserData.weddingDate ? serverUserData.weddingDate.toDate() : null,
-            weddingLocation: serverUserData.weddingLocation || null,
-            hasVenue: serverUserData.hasVenue || null,
-            guestCount: serverUserData.guestCount || null,
-            maxBudget: serverUserData.maxBudget || null,
-            vibe: serverUserData.vibe || [],
-            daysUntilWedding: serverUserData.weddingDate ? Math.ceil((serverUserData.weddingDate.toDate().getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null,
-            planningStage: serverUserData.weddingDate ? (Math.ceil((serverUserData.weddingDate.toDate().getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) > 180 ? 'early' : Math.ceil((serverUserData.weddingDate.toDate().getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) > 60 ? 'mid' : 'late') : 'unknown',
-            lastUpdated: new Date(),
-            contextVersion: "1.0"
-          };
-          console.log("Draft API - User context built from server fallback:", userContext);
+          if (serverUserData) {
+            userContext = {
+              userName: serverUserData.userName || null,
+              partnerName: serverUserData.partnerName || null,
+              weddingDate: serverUserData?.weddingDate ? (serverUserData.weddingDate.toDate ? serverUserData.weddingDate.toDate() : new Date(serverUserData.weddingDate)) : null,
+              weddingLocation: serverUserData.weddingLocation || null,
+              hasVenue: serverUserData.hasVenue || null,
+              guestCount: serverUserData.guestCount || null,
+              maxBudget: serverUserData.maxBudget || null,
+              vibe: serverUserData.vibe || [],
+              daysUntilWedding: serverUserData?.weddingDate ? (() => {
+                const weddingDate = serverUserData.weddingDate.toDate ? serverUserData.weddingDate.toDate() : new Date(serverUserData.weddingDate);
+                return Math.ceil((weddingDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              })() : null,
+              planningStage: serverUserData?.weddingDate ? (() => {
+                const weddingDate = serverUserData.weddingDate.toDate ? serverUserData.weddingDate.toDate() : new Date(serverUserData.weddingDate);
+                const daysUntil = Math.ceil((weddingDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                return daysUntil > 180 ? 'early' : daysUntil > 60 ? 'mid' : 'late';
+              })() : 'unknown',
+              lastUpdated: new Date(),
+              contextVersion: "1.0"
+            };
+            console.log("Draft API - User context built from server fallback:", userContext);
+          }
         }
       } catch (error) {
         console.error("Draft API - Server fallback also failed:", error);

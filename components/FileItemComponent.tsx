@@ -95,7 +95,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[#332B42] text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3 h-3 text-white" />
-            <span>Double click to Analyze file with Paige to get Insights!</span>
+            <span>Double click to Analyze file with Paige (3 Credits) to get Insights!</span>
           </div>
           {/* Arrow pointing down */}
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#332B42]"></div>
@@ -161,7 +161,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           <MicroMenu
             items={[
               {
-                label: 'Analyze with Paige',
+                label: 'Analyze with Paige (3 Credits)',
                 icon: <Sparkles className="w-4 h-4" />,
                 onClick: () => onAnalyze(file)
               },
@@ -178,7 +178,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
               }
             ]}
             buttonClassName="p-1.5 hover:bg-[#F8F6F4] rounded-full transition-colors"
-            menuClassName="absolute right-0 mt-1 w-48 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            menuClassName="absolute right-0 mt-1 w-max bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
           />
         </div>
       </div>
@@ -278,7 +278,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
           <MicroMenu
             items={[
               {
-                label: 'Analyze with Paige',
+                label: 'Analyze with Paige (3 Credits)',
                 icon: <Sparkles className="w-4 h-4" />,
                 onClick: () => onAnalyze(file)
               },
@@ -295,7 +295,7 @@ const FileItemComponent: React.FC<FileItemComponentProps> = ({ file, onDelete, o
               }
             ]}
             buttonClassName="p-2 hover:bg-[#F8F6F4] rounded-[5px]"
-            menuClassName="absolute right-0 mt-1 w-48 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+            menuClassName="absolute right-0 mt-1 w-max bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
           />
         </div>
       </div>

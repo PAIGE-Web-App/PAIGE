@@ -1346,7 +1346,7 @@ export default function SignUp() {
                     disabled={vibeLoading}
                   >
                     <WandSparkles className="w-4 h-4 mr-2" />
-                    {vibeLoading ? 'Generating...' : 'Generate vibe'}
+                    {vibeLoading ? 'Generating...' : 'Generate vibe (2 Credits)'}
                   </button>
                 )}
               </div>

@@ -240,7 +240,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
             ) : (
               <>
                 <WandSparkles className="w-4 h-4" />
-                {replyingToMessage ? 'Draft AI Response' : 'Draft AI Message'}
+                {replyingToMessage ? 'Draft Response with Paige (1 Credit)' : 'Draft Message with Paige (1 Credit)'}
               </>
             )}
           </button>

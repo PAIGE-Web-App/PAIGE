@@ -372,7 +372,7 @@ export default function AnalysisResultsDisplay({
                   className="btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generate AI To-Do List
+                  Generate AI To-Do List (2 Credits)
                 </button>
               )}
               <button
