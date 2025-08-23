@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { withCreditValidation } from '@/lib/creditMiddleware';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -14,9 +15,11 @@ interface AnalysisRequest {
     content: string;
   }>;
   userQuestion?: string;
+  userId: string; // Required for credit validation
 }
 
-export async function POST(request: NextRequest) {
+// Main handler function
+async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
   try {
     console.log('AI File Analyzer API called');
     
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { fileId, fileName, fileContent, fileType, analysisType, chatHistory, userQuestion }: AnalysisRequest = await request.json();
+    const { fileId, fileName, fileContent, fileType, analysisType, chatHistory, userQuestion, userId }: AnalysisRequest = await request.json();
 
     if (!fileContent) {
       return NextResponse.json(
@@ -266,4 +269,12 @@ function parseTextToStructuredData(analysis: string): any {
     gotchas: sections.find(s => s.includes('Gotchas'))?.split('\n').slice(1).filter(Boolean) || [],
     recommendations: sections.find(s => s.includes('Recommendations'))?.split('\n').slice(1).filter(Boolean) || [],
   };
-} 
+}
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleFileAnalysis, {
+  feature: 'file_analysis',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for file analysis. Please upgrade your plan to continue using AI features.'
+});

@@ -3,12 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { withCreditValidation } from '../../../lib/creditMiddleware';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function POST(req: NextRequest) {
+// Main handler function
+async function handleMessageAnalysis(req: NextRequest) {
   try {
     const body = await req.json();
     const { 
@@ -144,3 +146,11 @@ OUTPUT FORMAT (JSON only, no other text):
     );
   }
 }
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleMessageAnalysis, {
+  feature: 'message_analysis',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for message analysis. Please upgrade your plan to continue using AI features.'
+});

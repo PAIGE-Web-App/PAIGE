@@ -11,7 +11,8 @@ import {
   Settings, 
   LogOut,
   User,
-  Bell
+  Bell,
+  Sparkles
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +20,7 @@ import { handleLogout } from '../utils/logout';
 import { useNotifications, NotificationCounts } from '../hooks/useNotifications';
 import NotificationPopover from './NotificationPopover';
 import NotificationBadge from './NotificationBadge';
+import { CreditDisplay } from './CreditDisplay';
 
 interface NavItem {
   name: string;
@@ -44,7 +46,8 @@ export default function VerticalNav() {
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
     { name: "Files", href: "/files", icon: FileText },
-            { name: "Mood Boards", href: "/moodboards", icon: Heart },
+    { name: "Mood Boards", href: "/moodboards", icon: Heart },
+    { name: "Credits", href: "/credits", icon: Sparkles },
   ];
 
   const userMenuItems = [
@@ -206,6 +209,11 @@ export default function VerticalNav() {
 
       {/* Bottom Section: User Profile - Absolutely positioned at bottom */}
       <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+        {/* Credit Display */}
+        <div className="mb-4 flex justify-center">
+          <CreditDisplay variant="compact" showUpgradePrompt={false} />
+        </div>
+        
         <div className="relative group">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer overflow-hidden transition-all duration-200 group-hover:bg-[#F3F2F0]"

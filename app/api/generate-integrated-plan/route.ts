@@ -1,9 +1,11 @@
 import { OpenAI } from "openai";
 import { NextResponse } from "next/server";
+import { withCreditValidation } from "../../../lib/creditMiddleware";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req: Request) {
+// Main handler function
+async function handleIntegratedPlanning(req: Request) {
   try {
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -173,4 +175,12 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleIntegratedPlanning, {
+  feature: 'integrated_planning',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for integrated planning. Please upgrade your plan to continue using AI features.'
+}); 

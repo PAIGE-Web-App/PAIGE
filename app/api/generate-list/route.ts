@@ -1,9 +1,11 @@
 import { OpenAI } from "openai";
 import { NextResponse } from "next/server";
+import { withCreditValidation } from "../../../lib/creditMiddleware";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req: Request) {
+// Main handler function
+async function handleTodoGeneration(req: Request) {
   try {
     const body = await req.json();
     const { description, categories, weddingDate } = body;
@@ -162,4 +164,12 @@ export async function POST(req: Request) {
     console.error("Error in /api/generate-list:", error);
     return new NextResponse("Failed to generate list.", { status: 500 });
   }
-} 
+}
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleTodoGeneration, {
+  feature: 'todo_generation',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for todo generation. Please upgrade your plan to continue using AI features.'
+}); 

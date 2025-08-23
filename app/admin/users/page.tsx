@@ -9,26 +9,15 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { ROLE_CONFIGS } from '@/utils/roleConfig';
-import { UserRole, UserType } from '@/types/user';
+import { UserRole, UserType, AdminUser } from '@/types/user';
 import AdminHeader from '@/components/admin/AdminHeader';
 import AdminStatsCards from '@/components/admin/AdminStatsCards';
 import AdminFilters from '@/components/admin/AdminFilters';
 import AdminUserTable from '@/components/admin/AdminUserTable';
 import AdminPagination from '@/components/admin/AdminPagination';
-import LoadingSpinner from '@/components/LoadingSpinner';
 
-interface AdminUser {
-  uid: string;
-  email: string;
-  displayName?: string;
-  userName?: string;
-  role: UserRole;
-  userType: UserType;
-  onboarded: boolean;
-  createdAt: Date;
-  lastActive: Date;
-  isActive: boolean;
-}
+import Banner from '@/components/Banner';
+import ChangeUserRoleModal from '@/components/admin/ChangeUserRoleModal';
 
 export default function AdminUsersPage() {
   const { user, userRole: currentUserRole } = useAuth();
@@ -66,6 +55,13 @@ export default function AdminUsersPage() {
     superAdmins: 0
   });
 
+  // Corrupted credits state
+  const [corruptedUsers, setCorruptedUsers] = useState<AdminUser[]>([]);
+  const [bulkRepairing, setBulkRepairing] = useState(false);
+  
+  // Delete user state
+  const [deletingUser, setDeletingUser] = useState(false);
+
   // Check if user has access to this page
   useEffect(() => {
     if (!user) {
@@ -83,6 +79,7 @@ export default function AdminUsersPage() {
 
   // Fetch users with pagination
   const fetchUsers = async (page: number = 1, append: boolean = false) => {
+
     if (page === 1) setLoading(true);
     if (page > 1) setLoadingMore(true);
     
@@ -91,24 +88,53 @@ export default function AdminUsersPage() {
         page: page.toString(),
         limit: '20',
         role: roleFilter,
-        search: searchTerm
+        search: searchTerm,
+        _t: Date.now().toString() // Cache buster
       });
       
       const response = await fetch(`/api/admin/users?${params}`, {
+        cache: 'no-store', // Force fresh data
         headers: {
-          'Authorization': `Bearer ${await user?.getIdToken()}`
+          'Authorization': `Bearer ${await user?.getIdToken()}`,
+          'Cache-Control': 'no-cache'
         }
       });
       
       if (response.ok) {
         const data = await response.json();
         
-        // Convert date strings back to Date objects
+        // Convert date strings back to Date objects and preserve all fields
         const usersWithDates = data.users.map((user: any) => ({
           ...user,
           createdAt: new Date(user.createdAt),
-          lastActive: new Date(user.lastActive)
+          lastActive: new Date(user.lastActive),
+          // Ensure credits field is preserved exactly as returned by API
+          credits: user.credits || null
         }));
+        
+        // Check for corrupted credits data
+        const corruptedUsersFound = usersWithDates.filter(u => 
+          u.credits && (
+            isNaN(u.credits.dailyCredits) || 
+            isNaN(u.credits.bonusCredits) || 
+            isNaN(u.credits.totalCreditsUsed) ||
+            u.credits.dailyCredits === null ||
+            u.credits.bonusCredits === null ||
+            u.credits.totalCreditsUsed === null
+          )
+        );
+        
+        // Store corrupted users in state for banner display
+        setCorruptedUsers(corruptedUsersFound);
+        
+        if (corruptedUsersFound.length > 0) {
+          console.error('🚨 CORRUPTED CREDITS DETECTED:', corruptedUsersFound.map(u => ({
+            email: u.email,
+            dailyCredits: u.credits?.dailyCredits,
+            bonusCredits: u.credits?.bonusCredits,
+            totalCreditsUsed: u.credits?.totalCreditsUsed
+          })));
+        }
         
         if (append) {
           setUsers(prev => [...prev, ...usersWithDates]);
@@ -130,6 +156,98 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
       setLoadingMore(false);
+    }
+  };
+
+  // Bulk repair corrupted credits
+  const handleBulkRepairCredits = async () => {
+    if (!corruptedUsers.length) return;
+    
+    setBulkRepairing(true);
+    try {
+      const results = await Promise.allSettled(
+        corruptedUsers.map(async (targetUser) => {
+          const response = await fetch(`/api/admin/users/${targetUser.uid}/credits`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${await user?.getIdToken()}`
+            },
+            body: JSON.stringify({
+              action: 'repair'
+            })
+          });
+          
+          if (response.ok) {
+            return { success: true, userId: targetUser.uid };
+          } else {
+            const errorData = await response.json();
+            return { success: false, userId: targetUser.uid, error: errorData.error };
+          }
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+      
+      if (successful > 0) {
+        showSuccessToast(`Successfully repaired ${successful} user${successful > 1 ? 's' : ''}`);
+        // Refresh the user list to show updated credits
+        fetchUsers(currentPage);
+      }
+      
+      if (failed > 0) {
+        showErrorToast(`Failed to repair ${failed} user${failed > 1 ? 's' : ''}`);
+      }
+      
+      // Clear corrupted users list
+      setCorruptedUsers([]);
+      
+    } catch (error) {
+      console.error('Bulk repair error:', error);
+      showErrorToast('Failed to perform bulk repair');
+    } finally {
+      setBulkRepairing(false);
+    }
+  };
+
+  // Delete user
+  const handleDeleteUser = async (userToDelete: AdminUser) => {
+    if (!confirm(`Are you sure you want to delete ${userToDelete.email}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeletingUser(true);
+    
+    try {
+      const response = await fetch(`/api/admin/users/${userToDelete.uid}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
+      
+      showSuccessToast(`User ${userToDelete.email} deleted successfully`);
+      
+      // Remove user from local state and refresh
+      setUsers(prevUsers => prevUsers.filter(u => u.uid !== userToDelete.uid));
+      setTotalUsers(prev => prev - 1);
+      
+      // Refresh the current page if it's empty
+      if (users.length === 1 && currentPage > 1) {
+        fetchUsers(currentPage - 1);
+      }
+      
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      showErrorToast(`Failed to delete user: ${error.message}`);
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -243,35 +361,20 @@ export default function AdminUsersPage() {
     }
   };
 
-  // Helper functions for the modal
-  const getRoleColor = (role: UserRole) => {
-    const colors = {
-      couple: 'bg-blue-100 text-blue-800 border-blue-200',
-      planner: 'bg-green-100 text-green-800 border-green-200',
-      moderator: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      admin: 'bg-purple-100 text-purple-800 border-purple-200',
-      super_admin: 'bg-red-100 text-red-800 border-red-200'
-    };
-    return colors[role] || colors.couple;
-  };
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case 'couple': return <div className="w-4 h-4 bg-blue-500 rounded-full"></div>;
-      case 'planner': return <div className="w-4 h-4 bg-green-500 rounded-full"></div>;
-      case 'moderator': return <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>;
-      case 'admin': return <div className="w-4 h-4 bg-purple-500 rounded-full"></div>;
-      case 'super_admin': return <div className="w-4 h-4 bg-red-500 rounded-full"></div>;
-      default: return <div className="w-4 h-4 bg-blue-500 rounded-full"></div>;
-    }
-  };
+
+
+
 
   // Show loading while role is being determined
   if (!userRole || userRole === 'couple') {
     return (
       <div className="app-content-container mx-auto p-6">
         <div className="text-center">
-          <LoadingSpinner size="md" text="Loading role information..." />
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-48 mx-auto"></div>
+          </div>
         </div>
       </div>
     );
@@ -305,6 +408,8 @@ export default function AdminUsersPage() {
             description="Manage user accounts, roles, and permissions"
             currentUserRole={currentUserRole}
             loading={loading}
+            onRefreshUsers={() => fetchUsers(1)}
+            user={user}
           />
 
           {/* Stats Cards */}
@@ -330,6 +435,47 @@ export default function AdminUsersPage() {
             loading={loading}
           />
 
+          {/* Corrupted Credits Banner */}
+          {corruptedUsers.length > 0 && (
+            <Banner
+              type="error"
+              message={
+                <div className="flex items-center justify-between w-full">
+                  <span>
+                    🚨 <strong>{corruptedUsers.length}</strong> user{corruptedUsers.length > 1 ? 's have' : ' has'} corrupted credits that need repair
+                  </span>
+                  <button
+                    onClick={handleBulkRepairCredits}
+                    disabled={bulkRepairing}
+                    className="btn-primary ml-4"
+                  >
+                    {bulkRepairing ? 'Repairing...' : `Bulk Repair ${corruptedUsers.length} User${corruptedUsers.length > 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              }
+              expandableContent={
+                <div className="space-y-2">
+                  <div className="text-xs font-medium opacity-75 mb-2">
+                    Affected Users:
+                  </div>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {corruptedUsers.map((user, index) => (
+                      <div key={user.uid} className="flex items-center justify-between text-xs py-1 px-2 bg-white bg-opacity-20 rounded">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white">{user.email}</span>
+                          <span className="text-white opacity-90">({user.role || 'couple'})</span>
+                        </div>
+                        <div className="text-xs text-white opacity-90">
+                          Credits: {user.credits?.currentCredits ?? 'null'}/{user.credits?.totalCreditsUsed ?? 'null'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              }
+            />
+          )}
+
           {/* Users Table */}
           <AdminUserTable
             users={sortedUsers}
@@ -339,10 +485,8 @@ export default function AdminUsersPage() {
               setSelectedUser(user);
               setShowRoleModal(true);
             }}
-            onViewUser={(user) => {
-              // TODO: Implement view user functionality
-      
-            }}
+            onDeleteUser={handleDeleteUser}
+            onRefreshUsers={() => fetchUsers(1)}
           />
           
           {/* Pagination */}
@@ -362,86 +506,15 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Role Update Modal */}
-      <AnimatePresence>
-        {showRoleModal && selectedUser && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowRoleModal(false)}
-          >
-            <motion.div
-              initial={{ y: -50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -50, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
-              onClick={e => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Change User Role
-              </h3>
-              
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  Changing role for: <strong>{selectedUser.email}</strong>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Current role: <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(selectedUser.role)}`}>
-                    {getRoleIcon(selectedUser.role)}
-                    {selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1).replace('_', ' ')}
-                  </span>
-                </p>
-              </div>
-
-              <div className="space-y-2 mb-6">
-                {Object.keys(ROLE_CONFIGS).map(role => (
-                  <label key={role} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="role"
-                      value={role}
-                      defaultChecked={role === selectedUser.role}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <div className="flex items-center gap-2">
-                      {getRoleIcon(role as UserRole)}
-                      <span className="font-medium">
-                        {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 ml-auto">
-                      {ROLE_CONFIGS[role as UserRole].description}
-                    </p>
-                  </label>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowRoleModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    const selectedRoleElement = document.querySelector('input[name="role"]:checked') as HTMLInputElement;
-                    if (selectedRoleElement?.value) {
-                      handleRoleUpdate(selectedRoleElement.value as UserRole);
-                    }
-                  }}
-                  disabled={updatingRole}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {updatingRole ? 'Updating...' : 'Update Role'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Change User Role Modal */}
+      {showRoleModal && selectedUser && (
+                  <ChangeUserRoleModal
+          user={selectedUser}
+          onClose={() => setShowRoleModal(false)}
+          onUpdateRole={handleRoleUpdate}
+          updatingRole={updatingRole}
+        />
+      )}
     </div>
   );
 }

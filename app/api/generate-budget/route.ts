@@ -1,9 +1,11 @@
 import { OpenAI } from "openai";
 import { NextResponse } from "next/server";
+import { withCreditValidation } from "../../../lib/creditMiddleware";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req: Request) {
+// Main handler function
+async function handleBudgetGeneration(req: Request) {
   try {
     const body = await req.json();
     const { description, totalBudget, weddingDate } = body;
@@ -107,4 +109,12 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleBudgetGeneration, {
+  feature: 'budget_generation',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for budget generation. Please upgrade your plan to continue using AI features.'
+});

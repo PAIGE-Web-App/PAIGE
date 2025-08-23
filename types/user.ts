@@ -95,6 +95,19 @@ export interface ExtendedUser {
   subscription: UserSubscription;
   permissions: UserPermissions;
   
+  // Credit system
+  credits?: {
+    userId: string;
+    userType: UserType;
+    subscriptionTier: SubscriptionTier;
+    currentCredits: number;
+    totalCreditsUsed: number;
+    lastCreditRefresh: Date;
+    creditHistory: any[];
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  
   // Metadata
   metadata: {
     weddingDate?: string;
@@ -125,6 +138,19 @@ export interface AdminUser {
   isActive: boolean;
   profileImageUrl?: string;
   metadata?: Record<string, any>;
+  
+  // Credit system
+  credits?: {
+    userId: string;
+    userType: UserType;
+    subscriptionTier: SubscriptionTier;
+    currentCredits: number;
+    totalCreditsUsed: number;
+    lastCreditRefresh: Date;
+    creditHistory: any[];
+    createdAt: Date;
+    updatedAt: Date;
+  };
   
   // Relationship fields
   partnerId?: string;

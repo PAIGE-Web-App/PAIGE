@@ -4,10 +4,12 @@ import { NextResponse } from "next/server";
 import { userContextBuilder } from "../../../utils/userContextBuilder";
 import { db } from "../../../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { withCreditValidation } from "../../../lib/creditMiddleware";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(req: Request) {
+// Main handler function
+async function handleDraftGeneration(req: Request) {
   try {
     const body = await req.json();
     console.log("Draft API received body:", body);
@@ -305,3 +307,11 @@ function buildSystemPrompt(userContext: any, vibeContext: any, isReply: boolean)
   
   return systemPrompt;
 }
+
+// Export the POST function wrapped with credit validation
+export const POST = withCreditValidation(handleDraftGeneration, {
+  feature: 'draft_messaging',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for draft generation. Please upgrade your plan to continue using AI features.'
+});

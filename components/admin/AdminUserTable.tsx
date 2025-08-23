@@ -1,364 +1,507 @@
-import React, { useState } from 'react';
-import { Edit, Eye, Users, Star, ChevronDown, ChevronRight } from 'lucide-react';
-import { AdminUser, UserRole } from '@/types/user';
-import { ROLE_CONFIGS } from '@/utils/roleConfig';
-import LoadingSpinner from '../LoadingSpinner';
-import RelationshipRow from './RelationshipRow';
-import RelationshipModal from './RelationshipModal';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useCustomToast } from '@/hooks/useCustomToast';
+import UserTableRow from './UserTableRow';
+import AdminTableHeader from './AdminTableHeader';
 
 interface AdminUserTableProps {
-  users: AdminUser[];
+  users: any[];
   loading: boolean;
   loadingMore: boolean;
-  onEditUser: (user: AdminUser) => void;
-  onViewUser: (user: AdminUser) => void;
+  onEditUser: (user: any) => void;
+  onDeleteUser: (user: any) => void;
+  onRefreshUsers: () => void;
 }
-
-// Skeleton component for table rows
-const TableRowSkeleton = () => (
-  <tr className="animate-pulse">
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex items-center">
-        <div className="w-10 h-10 bg-gray-200 rounded-full mr-3"></div>
-        <div>
-          <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-32"></div>
-        </div>
-      </div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-6 bg-gray-200 rounded w-16"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-6 bg-gray-200 rounded w-16"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex gap-2">
-        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-        <div className="w-8 h-8 bg-gray-200 rounded"></div>
-      </div>
-    </td>
-  </tr>
-);
-
-// Empty state component
-const EmptyState = () => (
-  <tr>
-    <td colSpan={6} className="px-6 py-8 text-center">
-      <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-600">No users found matching your criteria.</p>
-    </td>
-  </tr>
-);
 
 export default function AdminUserTable({ 
   users, 
   loading, 
   loadingMore, 
   onEditUser, 
-  onViewUser 
+  onDeleteUser,
+  onRefreshUsers
 }: AdminUserTableProps) {
-  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [relationshipModal, setRelationshipModal] = useState<{
-    isOpen: boolean;
-    user: AdminUser | null;
-    type: 'partner' | 'planner';
-  }>({
-    isOpen: false,
-    user: null,
-    type: 'partner'
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [editingBonusCredits, setEditingBonusCredits] = useState<{ userId: string; value: string } | null>(null);
+  const [updatingCredits, setUpdatingCredits] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
+  // Sorting and filtering state
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'createdAt',
+    direction: 'desc'
   });
+  const [filterConfig, setFilterConfig] = useState<{ [key: string]: string }>({});
+  
+  // Infinite scroll state
+  const [displayedUsers, setDisplayedUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const USERS_PER_PAGE = 20;
 
-  const toggleUserExpansion = (userId: string) => {
-    const newExpanded = new Set(expandedUsers);
-    if (newExpanded.has(userId)) {
-      newExpanded.delete(userId);
-    } else {
-      newExpanded.add(userId);
-    }
-    setExpandedUsers(newExpanded);
-  };
 
-  const handleLinkPartner = (userId: string) => {
-    const user = users.find(u => u.uid === userId);
-    if (user) {
-      setRelationshipModal({
-        isOpen: true,
-        user,
-        type: 'partner'
-      });
-    }
-  };
 
-  const handleAssignPlanner = (userId: string) => {
-    const user = users.find(u => u.uid === userId);
-    if (user) {
-      setRelationshipModal({
-        isOpen: true,
-        user,
-        type: 'planner'
-      });
-    }
-  };
-
-  const handleRelationshipSave = async (userId: string, targetUserId: string, action: 'link' | 'unlink') => {
-    try {
-      const relationshipType = relationshipModal.type;
-      
-      // Get the current user's ID token for authentication
-      const currentUser = await fetch('/api/auth/session').then(res => res.json());
-      if (!currentUser?.user?.uid) {
-        throw new Error('User not authenticated');
+  const toggleRowExpansion = (userId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
       }
+      return newSet;
+    });
+  };
 
-      const response = await fetch('/api/admin/users/relationships', {
+  // Sorting and filtering functions
+  const handleSort = useCallback((key: string) => {
+    setSortConfig(prev => {
+      const newConfig: { key: string; direction: 'asc' | 'desc' } = {
+        key,
+        direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+      };
+      return newConfig;
+    });
+  }, []);
+
+  const handleFilter = useCallback((key: string, value: string) => {
+    setFilterConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilterConfig({});
+  }, []);
+
+  // Handle bonus credit editing start
+  const handleBonusCreditEditStart = (user: any) => {
+    const bonusCredits = user.credits?.bonusCredits || 0;
+    setEditingBonusCredits({ userId: user.uid, value: bonusCredits.toString() });
+  };
+
+  // Handle bonus credit editing save
+  const handleBonusCreditEditSave = async (user: any, value: string) => {
+    const newBonusCredits = parseInt(value);
+    if (isNaN(newBonusCredits) || newBonusCredits < 0) {
+      showErrorToast('Please enter a valid number of bonus credits');
+      return;
+    }
+
+    const currentBonusCredits = user.credits?.bonusCredits || 0;
+    const difference = newBonusCredits - currentBonusCredits;
+
+    if (difference === 0) {
+      setEditingBonusCredits(null);
+      return;
+    }
+
+    setUpdatingCredits(prev => new Set(prev).add(user.uid));
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.uid}/credits`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.user.uid}` // This should be the actual ID token
+          'Authorization': `Bearer ${await (window as any).firebase?.auth()?.currentUser?.getIdToken()}`
         },
         body: JSON.stringify({
-          userId,
-          targetUserId,
-          action,
-          relationshipType
+          action: 'set',
+          amount: newBonusCredits
         })
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save relationship');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update bonus credits');
       }
 
-      // Relationship saved successfully
-      console.log('Relationship saved successfully');
+      // Update the parent component's state
+      const userIndex = users.findIndex(u => u.uid === user.uid);
+      if (userIndex !== -1) {
+        users[userIndex] = {
+          ...users[userIndex],
+          credits: {
+            ...users[userIndex].credits,
+            bonusCredits: newBonusCredits,
+            updatedAt: new Date()
+          }
+        };
+        
+        // Force a re-render by calling the refresh function
+        if (onRefreshUsers) {
+          onRefreshUsers();
+        }
+      }
+
+      showSuccessToast(`Bonus credits updated to ${newBonusCredits}`);
+      setEditingBonusCredits(null);
+    } catch (error: any) {
+      console.error('Failed to update bonus credits:', error);
+      showErrorToast(`Failed to update bonus credits: ${error.message}`);
+    } finally {
+      setUpdatingCredits(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(user.uid);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle bonus credit editing cancel
+  const handleBonusCreditEditCancel = () => {
+    setEditingBonusCredits(null);
+  };
+
+  // Handle credit repair
+  const handleRepairCredits = async (user: any) => {
+    if (!confirm(`Repair corrupted credits for ${user.email}? This will reset them to default values.`)) {
+      return;
+    }
+
+    setUpdatingCredits(prev => new Set(prev).add(user.uid));
+    
+    try {
+      const response = await fetch(`/api/admin/users/${user.uid}/credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await (window as any).firebase?.auth()?.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({
+          action: 'repair'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to repair credits');
+      }
+
+      showSuccessToast(`Credits repaired for ${user.email}`);
       
-    } catch (error) {
-      console.error('Failed to save relationship:', error);
-      // Note: Error toast would be implemented here when toast system is available
+      // Refresh the user list to show the repaired credits
+      onRefreshUsers();
+    } catch (error: any) {
+      console.error('Failed to repair credits:', error);
+      showErrorToast(`Failed to repair credits: ${error.message}`);
+    } finally {
+      setUpdatingCredits(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(user.uid);
+        return newSet;
+      });
     }
   };
 
-  const getRoleColor = (role: UserRole) => {
-    const colors = {
-      couple: 'bg-blue-100 text-blue-800 border-blue-200',
-      planner: 'bg-green-100 text-green-800 border-green-200',
-      moderator: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      admin: 'bg-purple-100 text-purple-800 border-purple-200',
-      super_admin: 'bg-red-100 text-red-800 border-red-200'
-    };
-    return colors[role] || colors.couple;
-  };
+  // Handle reset daily credits
+  const handleResetDailyCredits = async (user: any) => {
+    if (!confirm(`Reset daily credits for ${user.email} to tier default?`)) {
+      return;
+    }
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case 'couple': return <Users className="w-4 h-4" />;
-      case 'planner': return <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>;
-      case 'moderator': return <div className="w-4 h-4 bg-yellow-600 rounded-full"></div>;
-      case 'admin': return <div className="w-4 h-4 bg-purple-600 rounded-full"></div>;
-      case 'super_admin': return <Star className="w-4 h-4 text-red-600" />;
-      default: return <Users className="w-4 h-4" />;
+    setUpdatingCredits(prev => new Set(prev).add(user.uid));
+    
+    try {
+      const response = await fetch(`/api/admin/users/${user.uid}/credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await (window as any).firebase?.auth()?.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({
+          action: 'reset_daily',
+          reason: 'Admin reset of daily credits to tier default'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reset daily credits');
+      }
+
+      showSuccessToast(`Daily credits reset to tier default for ${user.email}`);
+      
+      // Refresh the user list to show the updated credits
+      onRefreshUsers();
+    } catch (error: any) {
+      console.error('Failed to reset daily credits:', error);
+      showErrorToast(`Failed to reset daily credits: ${error.message}`);
+    } finally {
+      setUpdatingCredits(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(user.uid);
+        return newSet;
+      });
     }
   };
 
+
+
+  // Filter and sort users
+  const filteredAndSortedUsers = useMemo(() => {
+    let filteredUsers = users || [];
+    
+    // Ensure we have users to work with
+    if (!filteredUsers.length) {
+      return [];
+    }
+
+    // Apply filters
+    if (filterConfig.userInfo) {
+      const searchTerm = filterConfig.userInfo.toLowerCase();
+      filteredUsers = filteredUsers.filter(user => 
+        (user.displayName || '').toLowerCase().includes(searchTerm) ||
+        (user.email || '').toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filterConfig.role) {
+      filteredUsers = filteredUsers.filter(user => user.role === filterConfig.role);
+    }
+
+    if (filterConfig.status) {
+      if (filterConfig.status === 'active') {
+        filteredUsers = filteredUsers.filter(user => user.isActive !== false);
+      } else if (filterConfig.status === 'inactive') {
+        filteredUsers = filteredUsers.filter(user => user.isActive === false);
+      }
+    }
+
+    if (filterConfig.dailyCreditsMin || filterConfig.dailyCreditsMax) {
+      filteredUsers = filteredUsers.filter(user => {
+        const dailyCredits = user.credits?.dailyCredits || 0;
+        if (filterConfig.dailyCreditsMin && dailyCredits < parseInt(filterConfig.dailyCreditsMin)) return false;
+        if (filterConfig.dailyCreditsMax && dailyCredits > parseInt(filterConfig.dailyCreditsMax)) return false;
+        return true;
+      });
+    }
+
+    if (filterConfig.bonusCreditsMin || filterConfig.bonusCreditsMax) {
+      filteredUsers = filteredUsers.filter(user => {
+        const bonusCredits = user.credits?.bonusCredits || 0;
+        if (filterConfig.bonusCreditsMin && bonusCredits < parseInt(filterConfig.bonusCreditsMin)) return false;
+        if (filterConfig.bonusCreditsMax && bonusCredits > parseInt(filterConfig.bonusCreditsMax)) return false;
+        return true;
+      });
+    }
+
+    if (filterConfig.createdAtStart || filterConfig.createdAtEnd) {
+      filteredUsers = filteredUsers.filter(user => {
+        const createdAt = new Date(user.createdAt);
+        if (filterConfig.createdAtStart && createdAt < new Date(filterConfig.createdAtStart)) return false;
+        if (filterConfig.createdAtEnd && createdAt > new Date(filterConfig.createdAtEnd)) return false;
+        return true;
+      });
+    }
+
+    // Sort users
+    filteredUsers.sort((a, b) => {
+      let aValue: any = a[sortConfig.key];
+      let bValue: any = b[sortConfig.key];
+
+      // Handle nested properties
+      if (sortConfig.key === 'displayName') {
+        // Ensure we get strings, not objects
+        aValue = String(a.displayName || a.email || '');
+        bValue = String(b.displayName || b.email || '');
+        // Use localeCompare for proper string sorting
+        if (sortConfig.direction === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      } else if (sortConfig.key === 'dailyCredits') {
+        aValue = a.credits?.dailyCredits || 0;
+        bValue = b.credits?.dailyCredits || 0;
+      } else if (sortConfig.key === 'bonusCredits') {
+        aValue = a.credits?.bonusCredits || 0;
+        bValue = b.credits?.bonusCredits || 0;
+      } else if (sortConfig.key === 'isActive') {
+        aValue = a.isActive !== false ? 1 : 0;
+        bValue = b.isActive !== false ? 1 : 0;
+      } else if (sortConfig.key === 'createdAt') {
+        // Handle Firestore Timestamps and various date formats
+        const getDateValue = (date: any) => {
+          if (!date) return 0;
+          if (date._seconds) {
+            return date._seconds * 1000; // Firestore Timestamp
+          }
+          if (date.toDate) {
+            return date.toDate().getTime(); // Firestore Timestamp with toDate method
+          }
+          const d = new Date(date);
+          return isNaN(d.getTime()) ? 0 : d.getTime();
+        };
+        aValue = getDateValue(a.createdAt);
+        bValue = getDateValue(b.createdAt);
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filteredUsers;
+  }, [users, filterConfig, sortConfig]);
+
+  // Update displayed users when filters/sorting change
+  useEffect(() => {
+    const newDisplayedUsers = filteredAndSortedUsers.slice(0, USERS_PER_PAGE);
+    setDisplayedUsers(newDisplayedUsers);
+    setCurrentPage(1);
+    setHasMore(filteredAndSortedUsers.length > USERS_PER_PAGE);
+  }, [filteredAndSortedUsers, USERS_PER_PAGE, sortConfig.key, sortConfig.direction]);
+
+  // Load more users function
+  const loadMoreUsers = useCallback(() => {
+    if (!hasMore || loading) return;
+    
+    const nextPage = currentPage + 1;
+    const startIndex = (nextPage - 1) * USERS_PER_PAGE;
+    const endIndex = startIndex + USERS_PER_PAGE;
+    
+    const newUsers = filteredAndSortedUsers.slice(startIndex, endIndex);
+    setDisplayedUsers(prev => [...prev, ...newUsers]);
+    setCurrentPage(nextPage);
+    setHasMore(endIndex < filteredAndSortedUsers.length);
+  }, [hasMore, loading, currentPage, filteredAndSortedUsers]);
+
+  // Intersection Observer for infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMoreUsers();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMoreUsers, hasMore, loading]);
+
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-[#E0DBD7] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                  Last Active
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <TableRowSkeleton key={index} />
-              ))}
-            </tbody>
-          </table>
+          {/* Table Header */}
+          <div className="bg-[#F8F6F4] border-b border-[#E0DBD7] p-3">
+            <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
+              <div className="col-span-3">User</div>
+              <div className="col-span-1">Role</div>
+              <div className="col-span-1">Status</div>
+              <div className="col-span-2">Daily Credits</div>
+              <div className="col-span-2">Bonus Credits</div>
+              <div className="col-span-2">Created</div>
+              <div className="col-span-1">Actions</div>
+            </div>
+          </div>
+          
+          {/* Loading Rows */}
+          <div className="divide-y divide-[#E0DBD7]">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-12 gap-4 p-3 animate-pulse">
+                <div className="col-span-3">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div className="col-span-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="col-span-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                </div>
+                <div className="col-span-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                </div>
+                <div className="col-span-2">
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="col-span-1">
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                User
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                Created
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                Last Active
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.length === 0 ? (
-              <EmptyState />
-            ) : (
-              users.map((user) => (
-                <React.Fragment key={user.uid}>
-                  <tr className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="relative w-10 h-10 mr-3">
-                          {user.profileImageUrl ? (
-                            <>
-                              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                <span className="text-sm font-medium text-gray-600">
-                                  {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <img 
-                                src={user.profileImageUrl} 
-                                alt={user.displayName || user.userName || 'User'}
-                                className="w-10 h-10 rounded-full object-cover absolute inset-0"
-                                loading="lazy"
-                                onError={(e) => {
-                                  // Fallback to initials if image fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                }}
-                              />
-                            </>
-                          ) : (
-                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-600">
-                                {(user.displayName || user.userName || user.email).charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.displayName || user.userName || 'No Name'}
-                          </div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
-                        {getRoleIcon(user.role)}
-                        {user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        user.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.createdAt.toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.lastActive.toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleUserExpansion(user.uid)}
-                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
-                          title={expandedUsers.has(user.uid) ? "Hide Details" : "Show Details"}
-                        >
-                          {expandedUsers.has(user.uid) ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => onEditUser(user)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                          title="Change Role"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onViewUser(user)}
-                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  
-                  {/* Relationship Row */}
-                  <RelationshipRow
-                    user={user}
-                    isExpanded={expandedUsers.has(user.uid)}
-                    onToggle={() => toggleUserExpansion(user.uid)}
-                    onLinkPartner={handleLinkPartner}
-                    onAssignPlanner={handleAssignPlanner}
-                  />
-                </React.Fragment>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      
-      {/* Loading More Indicator */}
-      {loadingMore && (
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-center">
-          <LoadingSpinner size="sm" text="Loading more users..." />
+    <div className="bg-white rounded-lg shadow-sm border border-[#E0DBD7] overflow-hidden">
+      <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+        {/* Table Header - Sticky within scrollable container */}
+        <AdminTableHeader
+          sortConfig={sortConfig}
+          filterConfig={filterConfig}
+          onSort={handleSort}
+          onFilter={handleFilter}
+          onClearFilters={handleClearFilters}
+        />
+        
+        {/* Table Body */}
+        <div className="divide-y divide-[#E0DBD7]" key={`table-body-${filteredAndSortedUsers.length}-${sortConfig.key}-${sortConfig.direction}`}>
+          {displayedUsers.length === 0 ? (
+            <div className="p-8 text-center text-[#AB9C95]">
+              <p className="text-sm mb-2">No users found matching your filters.</p>
+            </div>
+          ) : (
+            displayedUsers.map((user, index) => (
+              <UserTableRow
+                key={user.uid}
+                user={user}
+                index={index}
+                editingBonusCredits={editingBonusCredits}
+                updatingCredits={updatingCredits}
+                expandedRows={expandedRows}
+                onToggleRowExpansion={toggleRowExpansion}
+                onBonusCreditEditStart={handleBonusCreditEditStart}
+                onBonusCreditEditSave={handleBonusCreditEditSave}
+                onBonusCreditEditCancel={handleBonusCreditEditCancel}
+                onResetDailyCredits={handleResetDailyCredits}
+                onEditUser={onEditUser}
+                onDeleteUser={onDeleteUser}
+                onLinkPartner={(userId) => {
+                  // TODO: Implement partner linking
+                  console.log('Link partner for user:', userId);
+                }}
+                onAssignPlanner={(userId) => {
+                  // TODO: Implement planner assignment
+                  console.log('Assign planner for user:', userId);
+                }}
+              />
+            ))
+          )}
         </div>
-      )}
 
-      {/* Relationship Modal */}
-      <RelationshipModal
-        isOpen={relationshipModal.isOpen}
-        onClose={() => setRelationshipModal({ isOpen: false, user: null, type: 'partner' })}
-        user={relationshipModal.user}
-        type={relationshipModal.type}
-        onSave={handleRelationshipSave}
-      />
+        {/* Infinite Scroll Observer Target */}
+        <div ref={observerTarget} className="h-4" />
+        
+        {/* Loading More Indicator */}
+        {hasMore && (
+          <div className="p-4 text-center text-[#AB9C95]">
+            <div className="inline-flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-[#AB9C95] border-t-transparent rounded-full animate-spin"></div>
+              Loading more users...
+            </div>
+          </div>
+        )}
+        
+        {/* End of Results */}
+        {!hasMore && displayedUsers.length > 0 && (
+          <div className="p-4 text-center text-[#AB9C95] border-t border-gray-200">
+            <p className="text-sm">All {filteredAndSortedUsers.length} users loaded</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

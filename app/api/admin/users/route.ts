@@ -72,19 +72,28 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       
       // Safely handle dates - Firestore timestamps or regular dates
-      let createdAt = new Date();
-      let lastActive = new Date();
+      let createdAt = null;
+      let lastActive = null;
       
       try {
         if (data.createdAt) {
-          createdAt = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+          const parsedCreatedAt = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+          // Validate the parsed date
+          if (!isNaN(parsedCreatedAt.getTime())) {
+            createdAt = parsedCreatedAt;
+          }
         }
         if (data.lastActive) {
-          lastActive = data.lastActive.toDate ? data.lastActive.toDate() : new Date(data.lastActive);
+          const parsedLastActive = data.lastActive.toDate ? data.lastActive.toDate() : new Date(data.lastActive);
+          // Validate the parsed date
+          if (!isNaN(parsedLastActive.getTime())) {
+            lastActive = parsedLastActive;
+          }
         }
       } catch (error) {
         console.log('Date conversion error for user:', doc.id, error);
-        // Use current date as fallback
+        createdAt = null;
+        lastActive = null;
       }
       
       return {
@@ -101,6 +110,18 @@ export async function GET(request: NextRequest) {
         profileImageUrl: data.profileImageUrl || null,
         metadata: data.metadata || {},
         
+        // Credit system
+        credits: data.credits || null,
+        
+        // Debug logging for credits
+        ...(data.email === 'dave.yoon92@gmail.com' && {
+          _debug_credits: {
+            hasCredits: !!data.credits,
+            currentCredits: data.credits?.currentCredits,
+            creditsObject: data.credits
+          }
+        }),
+        
         // Relationship fields
         partnerId: data.partnerId || null,
         partnerEmail: data.partnerEmail || null,
@@ -109,8 +130,8 @@ export async function GET(request: NextRequest) {
         plannerEmail: data.plannerEmail || null,
         plannerName: data.plannerName || null,
         weddingDate: data.weddingDate || data.metadata?.weddingDate || null,
-        isLinked: !!data.partnerId,
-        hasPlanner: !!data.plannerId
+        isLinked: data.isLinked !== undefined ? data.isLinked : !!data.partnerId,
+        hasPlanner: data.hasPlanner !== undefined ? data.hasPlanner : !!data.plannerId
       };
     });
 
