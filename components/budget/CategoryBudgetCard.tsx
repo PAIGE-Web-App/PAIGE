@@ -18,19 +18,21 @@ export const CategoryBudgetCard: React.FC<CategoryBudgetCardProps> = ({
   className = ''
 }) => {
   return (
-    <div className={`bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 h-40 w-full relative ${className}`}>
+    <div className={`bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 min-h-40 w-full relative flex flex-col ${className}`}>
       <h3 className="text-sm font-medium text-[#AB9C95] mb-2">{categoryName}</h3>
       
-      <div className="text-lg font-bold text-[#332B42] mb-1">
-        ${allocatedAmount.toLocaleString()}
-      </div>
-      
-      <div className="text-sm text-[#AB9C95] mb-2">
-        Budget allocated to this category
-      </div>
-      
-      <div className="text-xs text-[#AB9C95]">
-        ${totalSpent.toLocaleString()} spent • ${remaining.toLocaleString()} remaining
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="text-lg font-bold text-[#332B42] mb-1">
+          ${allocatedAmount.toLocaleString()}
+        </div>
+        
+        <div className="text-sm text-[#AB9C95] mb-2">
+          Budget allocated to this category
+        </div>
+        
+        <div className="text-xs text-[#AB9C95]">
+          ${totalSpent.toLocaleString()} spent • ${remaining.toLocaleString()} remaining
+        </div>
       </div>
       
       <button

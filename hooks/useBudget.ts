@@ -81,12 +81,8 @@ export function useBudget() {
           };
         });
 
-        // If no categories exist, create default ones
-        if (categories.length === 0) {
-          createDefaultCategories();
-        } else {
-          setBudgetCategories(categories);
-        }
+        // If no categories exist, just set empty array (don't auto-create)
+        setBudgetCategories(categories);
       }, (error) => {
         if (isSubscribed) {
           console.error('Error fetching budget categories:', error);

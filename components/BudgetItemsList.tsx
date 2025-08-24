@@ -20,6 +20,7 @@ interface BudgetItemsListProps {
   onLinkVendor: (item: BudgetItem) => void;
   onAssign?: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId: string) => Promise<void>;
   viewMode: 'cards' | 'table';
+  isLoading?: boolean;
 }
 
 const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
@@ -33,6 +34,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   onLinkVendor,
   onAssign,
   viewMode,
+  isLoading = false,
 }) => {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -123,6 +125,20 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
       showErrorToast(`Failed to add budget item: ${error.message}`);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex flex-col bg-white">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-32 h-32 bg-gray-200 rounded-full mx-auto mb-4 animate-pulse" />
+            <div className="h-6 bg-gray-300 rounded w-48 mx-auto mb-2 animate-pulse" />
+            <div className="h-4 bg-gray-200 rounded w-64 mx-auto animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedCategory) {
     return (

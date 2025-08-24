@@ -17,9 +17,11 @@ export const BudgetMetricsCard: React.FC<BudgetMetricsCardProps> = ({
   editButton
 }) => {
   return (
-    <div className={`border border-[#E0DBD7] rounded-[5px] p-4 bg-white h-40 w-full relative ${className}`}>
+    <div className={`border border-[#E0DBD7] rounded-[5px] p-4 bg-white min-h-40 w-full relative flex flex-col ${className}`}>
       <h3 className="text-sm font-medium text-[#AB9C95] mb-2">{title}</h3>
-      {children}
+      <div className="flex-1 flex flex-col">
+        {children}
+      </div>
       {editButton && (
         <button
           onClick={editButton.onClick}

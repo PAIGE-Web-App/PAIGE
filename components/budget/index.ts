@@ -6,6 +6,8 @@ export { default as KeyMetricsGrid } from './KeyMetricsGrid';
 export { default as CategoryBreakdownList } from './CategoryBreakdownList';
 export { default as CategoryBreakdownEmptyState } from './CategoryBreakdownEmptyState';
 export { default as BudgetStatusSection } from './BudgetStatusSection';
+export { default as BudgetOverviewSkeleton } from './BudgetOverviewSkeleton';
+export { default as BudgetCategoryViewSkeleton } from './BudgetCategoryViewSkeleton';
 export * from './budgetUtils';
 
 // Re-export existing components that other files depend on

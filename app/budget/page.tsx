@@ -53,6 +53,10 @@ const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'
   loading: () => <div className="flex-1 bg-white animate-pulse" />
 });
 
+const BudgetCategoryViewSkeleton = dynamic(() => import('@/components/budget/BudgetCategoryViewSkeleton'), {
+  loading: () => <div className="flex-1 bg-white animate-pulse" />
+});
+
 const BudgetOverBudgetBanner = dynamic(() => import('@/components/budget/BudgetOverBudgetBanner'), {
   loading: () => <div className="h-20 bg-red-50 animate-pulse" />
 });
@@ -405,17 +409,20 @@ export default function BudgetPage() {
             {/* Main Content Area */}
             <div className="unified-main-content">
               {/* Show Budget Overview or Category-specific content */}
-              {isBudgetOverviewSelected ? (
-                                        <BudgetOverview
-                          budgetCategories={budget.budgetCategories}
-                          budgetItems={budget.budgetItems}
-                          totalSpent={budget.totalSpent}
-                          totalBudget={budget.userTotalBudget || 0}
-                          maxBudget={budget.userMaxBudget || 0}
-                          onShowAIAssistant={() => budget.setShowAIAssistant(true)}
-                          onAddCategory={handleAddCategory}
-                          onSelectCategory={handleSelectCategory}
-                        />
+              {isBudgetOverviewSelected || !selectedCategory ? (
+                <BudgetOverview
+                  budgetCategories={budget.budgetCategories}
+                  budgetItems={budget.budgetItems}
+                  totalSpent={budget.totalSpent}
+                  totalBudget={budget.userTotalBudget || 0}
+                  maxBudget={budget.userMaxBudget || 0}
+                  onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                  onAddCategory={handleAddCategory}
+                  onSelectCategory={handleSelectCategory}
+                  isLoading={budget.budgetCategories === undefined}
+                />
+              ) : (!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems) ? (
+                <BudgetCategoryViewSkeleton />
               ) : (
                 <>
                   {/* Budget Top Bar - Category Title and Actions */}
@@ -475,6 +482,7 @@ export default function BudgetPage() {
                       // Reset jiggle after animation
                       setTimeout(() => setJiggleAllocatedAmount(false), 1000);
                     }}
+                    isLoading={!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems}
                   />
 
                   {/* Budget Items List */}
@@ -536,6 +544,7 @@ export default function BudgetPage() {
                         await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
                       }}
                       viewMode={viewMode}
+                      isLoading={!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems}
                     />
                   </div>
                 </div>
@@ -679,6 +688,11 @@ export default function BudgetPage() {
             budget.handleDeleteCategory(categoryId);
             handleCloseDeleteCategoryModal();
             setDeletingCategory(null);
+            
+            // If the deleted category was the currently selected one, go back to overview
+            if (selectedCategory && selectedCategory.id === categoryId) {
+              handleSelectBudgetOverview();
+            }
           }}
         />
       )}

@@ -8,6 +8,7 @@ import {
   CategoryBreakdownList,
   CategoryBreakdownEmptyState,
   BudgetStatusSection,
+  BudgetOverviewSkeleton,
   formatCurrency,
   calculateBudgetMetrics,
   prepareChartData,
@@ -23,6 +24,7 @@ interface BudgetOverviewProps {
   onShowAIAssistant: () => void;
   onAddCategory: () => void;
   onSelectCategory: (category: BudgetCategory) => void;
+  isLoading?: boolean;
 }
 
 const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
@@ -34,6 +36,7 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
   onShowAIAssistant,
   onAddCategory,
   onSelectCategory,
+  isLoading = false,
 }) => {
   const [collapsedSections, setCollapsedSections] = React.useState({
     chart: false,
@@ -75,6 +78,11 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
       [section]: !prev[section]
     }));
   }, []);
+
+  // Show skeleton while loading
+  if (isLoading) {
+    return <BudgetOverviewSkeleton />;
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">

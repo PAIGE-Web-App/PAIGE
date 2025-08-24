@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, Upload, Grid, List, MoreHorizontal, Plus } from 'lucide-react';
+import { Search, Sparkles, Upload, Grid, List, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import SearchBar from '@/components/SearchBar';
 import DropdownMenu from '@/components/DropdownMenu';
 
@@ -182,6 +182,13 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
                 icon: <Plus className="w-4 h-4" />,
                 onClick: onAddItem,
                 show: selectedCategory, // Only show in dropdown when category selected
+              },
+              {
+                label: 'Delete Category',
+                icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                onClick: () => onDeleteCategory?.(selectedCategory),
+                show: selectedCategory, // Only show when category selected
+                className: 'text-red-500 hover:text-red-600',
               },
             ].filter(item => item.show !== false)}
           />

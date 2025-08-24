@@ -23,7 +23,7 @@ const CategoryBreakdownList: React.FC<CategoryBreakdownListProps> = React.memo((
     {categories.map((category) => (
       <div 
         key={category.id} 
-        className="border-b border-[#F3F2F0] pb-3 last:border-b-0 cursor-pointer hover:bg-[#F8F6F4] transition-colors duration-200 rounded-[5px] p-2 -m-2"
+        className="border-b border-[#F3F2F0] pb-3 last:border-b-0 cursor-pointer hover:bg-[#F8F6F4] transition-colors duration-200 rounded-[5px] p-3"
         onClick={() => category.id && onSelectCategory(category)}
         role="button"
         tabIndex={0}
@@ -37,35 +37,35 @@ const CategoryBreakdownList: React.FC<CategoryBreakdownListProps> = React.memo((
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div 
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: category.color || '#A85C36' }}
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: category.color || '#3B82F6' }}
             />
             <span className="font-medium text-[#332B42]">{category.name}</span>
           </div>
-          <span className="text-sm text-[#6B7280]">
+          <span className="text-sm text-gray-500">
             {formatCurrency(category.spent)} / {formatCurrency(category.allocatedAmount)}
           </span>
         </div>
         
         <div className="flex items-center justify-between mb-2">
           <div className="flex-1 mr-3">
-            <div className="w-full bg-[#E0DBD7] rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  category.isOverBudget ? 'bg-red-500' : 'bg-[#A85C36]'
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  category.isOverBudget ? 'bg-red-600' : 'bg-blue-600'
                 }`}
                 style={{ width: `${Math.min(category.utilization, 100)}%` }}
               />
             </div>
           </div>
           <span className={`text-xs ${
-            category.isOverBudget ? 'text-red-600' : 'text-[#6B7280]'
+            category.isOverBudget ? 'text-red-600' : 'text-gray-600'
           }`}>
             {category.utilization.toFixed(1)}%
           </span>
         </div>
         
-        <div className="flex items-center justify-between text-xs text-[#6B7280]">
+        <div className="flex items-center justify-between text-xs text-gray-500">
           <span>
             {category.itemCount} item{category.itemCount !== 1 ? 's' : ''}
           </span>

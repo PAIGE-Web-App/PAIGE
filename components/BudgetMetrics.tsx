@@ -15,6 +15,7 @@ interface BudgetMetricsProps {
   maxBudget: number | null;
   budgetItems?: any[];
   onEditCategory?: (category: any) => void;
+  isLoading?: boolean;
 }
 
 const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
@@ -24,6 +25,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   maxBudget,
   budgetItems = [],
   onEditCategory,
+  isLoading = false,
 }) => {
   const router = useRouter();
   
@@ -48,6 +50,24 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   // Memoized calculations
   const remaining = useMemo(() => (maxBudget || 0) - totalSpent, [maxBudget, totalSpent]);
   
+  // Calculate how many cards will be visible to determine grid layout
+  const visibleCardCount = useMemo(() => {
+    let count = 0;
+    if (selectedCategory) count++; // Category Budget Card
+    if (selectedCategory && budgetItems.length > 0) count++; // Budget Breakdown Card
+    if (maxBudget) count++; // Remaining Budget Card
+    count++; // Overall Budget Card (always visible)
+    return count;
+  }, [selectedCategory, budgetItems.length, maxBudget]);
+  
+  // Dynamic grid classes based on visible card count
+  const gridClasses = useMemo(() => {
+    if (visibleCardCount === 1) return 'grid-cols-1';
+    if (visibleCardCount === 2) return 'grid-cols-1 sm:grid-cols-2';
+    if (visibleCardCount === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+    return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4'; // 4+ cards
+  }, [visibleCardCount]);
+  
   // Memoized callbacks
   const handleCategoryEdit = useCallback(() => {
     onEditCategory?.(selectedCategory);
@@ -56,6 +76,48 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   const handleMaxBudgetEdit = useCallback(() => {
     router.push('/settings?tab=wedding&highlight=maxBudget');
   }, [router]);
+
+  // Show skeleton while loading
+  if (isLoading) {
+    return (
+      <div className="bg-white border-b border-[#AB9C95]">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-4">
+          {/* Category Budget Card Skeleton */}
+          <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 min-h-40 relative animate-pulse">
+            <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="h-6 bg-gray-300 rounded w-16 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-48 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-40" />
+            </div>
+            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-200 rounded animate-pulse" />
+          </div>
+
+          {/* Overall Budget Card Skeleton */}
+          <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white min-h-40 relative animate-pulse">
+            <div className="h-4 bg-gray-300 rounded w-28 mb-2" />
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="h-6 bg-gray-300 rounded w-20 mb-2" />
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-48" />
+            </div>
+            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-200 rounded animate-pulse" />
+          </div>
+
+          {/* Remaining Budget Card Skeleton */}
+          <div className="border border-[#E0DBD7] rounded-[5px] p-4 bg-white min-h-40 relative animate-pulse">
+            <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="h-6 bg-gray-300 rounded w-20 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-16 mb-2" />
+              <div className="h-3 bg-green-200 rounded w-16" />
+            </div>
+            <div className="absolute top-3 right-3 w-6 h-6 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Check for value changes and trigger animations
   useEffect(() => {
@@ -87,8 +149,8 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
 
   return (
     <div className="bg-white border-b border-[#AB9C95]">
-      {/* Budget Overview Cards */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 p-4">
+      {/* Budget Overview Cards - {visibleCardCount} cards visible */}
+      <div className={`grid gap-3 ${gridClasses} p-4`}>
         {/* Category Budget Card */}
         {selectedCategory && (
           <CategoryBudgetCard
