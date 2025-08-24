@@ -15,12 +15,25 @@ interface CategoryBreakdownItem {
 interface CategoryBreakdownListProps {
   categories: CategoryBreakdownItem[];
   formatCurrency: (amount: number) => string;
+  onSelectCategory: (category: CategoryBreakdownItem) => void;
 }
 
-const CategoryBreakdownList: React.FC<CategoryBreakdownListProps> = React.memo(({ categories, formatCurrency }) => (
+const CategoryBreakdownList: React.FC<CategoryBreakdownListProps> = React.memo(({ categories, formatCurrency, onSelectCategory }) => (
   <div className="max-h-64 overflow-y-auto space-y-4 pr-2">
     {categories.map((category) => (
-      <div key={category.id} className="border-b border-[#F3F2F0] pb-3 last:border-b-0">
+      <div 
+        key={category.id} 
+        className="border-b border-[#F3F2F0] pb-3 last:border-b-0 cursor-pointer hover:bg-[#F8F6F4] transition-colors duration-200 rounded-[5px] p-2 -m-2"
+        onClick={() => category.id && onSelectCategory(category)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            category.id && onSelectCategory(category);
+          }
+        }}
+      >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div 

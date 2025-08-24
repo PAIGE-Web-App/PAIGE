@@ -22,6 +22,7 @@ interface BudgetOverviewProps {
   maxBudget: number;
   onShowAIAssistant: () => void;
   onAddCategory: () => void;
+  onSelectCategory: (category: BudgetCategory) => void;
 }
 
 const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
@@ -32,6 +33,7 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
   maxBudget,
   onShowAIAssistant,
   onAddCategory,
+  onSelectCategory,
 }) => {
   const [collapsedSections, setCollapsedSections] = React.useState({
     chart: false,
@@ -123,6 +125,13 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
                 <CategoryBreakdownList
                   categories={categoryBreakdown}
                   formatCurrency={formatCurrency}
+                  onSelectCategory={(category) => {
+                    // Find the full BudgetCategory object and pass it to the parent
+                    const fullCategory = budgetCategories.find(cat => cat.id === category.id);
+                    if (fullCategory) {
+                      onSelectCategory(fullCategory);
+                    }
+                  }}
                 />
               ) : (
                 <CategoryBreakdownEmptyState

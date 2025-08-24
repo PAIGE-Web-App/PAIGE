@@ -405,15 +405,16 @@ export default function BudgetPage() {
             <div className="unified-main-content">
               {/* Show Budget Overview or Category-specific content */}
               {isBudgetOverviewSelected ? (
-                <BudgetOverview
-                  budgetCategories={budget.budgetCategories}
-                  budgetItems={budget.budgetItems}
-                  totalSpent={budget.totalSpent}
-                  totalBudget={budget.userTotalBudget || 0}
-                  maxBudget={budget.userMaxBudget || 0}
-                  onShowAIAssistant={() => budget.setShowAIAssistant(true)}
-                  onAddCategory={handleAddCategory}
-                />
+                                        <BudgetOverview
+                          budgetCategories={budget.budgetCategories}
+                          budgetItems={budget.budgetItems}
+                          totalSpent={budget.totalSpent}
+                          totalBudget={budget.userTotalBudget || 0}
+                          maxBudget={budget.userMaxBudget || 0}
+                          onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                          onAddCategory={handleAddCategory}
+                          onSelectCategory={handleSelectCategory}
+                        />
               ) : (
                 <>
                   {/* Budget Top Bar - Category Title and Actions */}
