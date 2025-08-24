@@ -8,6 +8,11 @@ interface BudgetSidebarProps {
   setSelectedCategory: (category: BudgetCategory | null) => void;
   onAddCategory: () => void;
   budgetItems: any[]; // Using any for now, should be BudgetItem[]
+  totalSpent?: number;
+  totalBudget?: number;
+  maxBudget?: number;
+  onSelectBudgetOverview: () => void;
+  isBudgetOverviewSelected: boolean;
 }
 
 const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
@@ -16,8 +21,25 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
   setSelectedCategory,
   onAddCategory,
   budgetItems,
+  totalSpent = 0,
+  totalBudget = 0,
+  maxBudget = 0,
+  onSelectBudgetOverview,
+  isBudgetOverviewSelected,
 }) => {
+  // Calculate budget statistics
+  const totalRemaining = maxBudget - totalSpent;
+  const budgetUtilization = maxBudget > 0 ? (totalSpent / maxBudget) * 100 : 0;
 
+  // Format currency helper
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   return (
     <aside className="unified-sidebar hidden lg:flex flex-col">
@@ -35,13 +57,43 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
         </button>
       </div>
       
-      {/* Fixed Budget Overview - Hidden as redundant with main metrics cards */}
-      {/* <div className="p-4 flex-shrink-0">
-        <BudgetOverviewCard 
-          totalBudget={totalBudget} 
-          totalSpent={totalSpent} 
-        />
-      </div> */}
+      {/* Overall Wedding Budget Overview */}
+      <div className="p-4 border-b border-[#E0DBD7] bg-white flex-shrink-0">
+        <div className="mb-3">
+          <h6 className="text-sm font-medium text-[#332B42] mb-2">Overall Wedding Budget</h6>
+          
+          {/* Total Budget from Settings */}
+          <button
+            onClick={onSelectBudgetOverview}
+            className={`w-full p-3 rounded-[5px] border transition-all duration-200 cursor-pointer group ${
+              isBudgetOverviewSelected 
+                ? 'bg-[#EBE3DD] border-[#A85C36]' 
+                : 'bg-[#F8F6F4] border-[#E0DBD7] hover:bg-[#F0EDE8] hover:border-[#A85C36]'
+            }`}
+            title="Click to view budget overview"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-[#6B7280]">Total Budget</span>
+              <span className="text-sm font-semibold text-[#332B42] group-hover:text-[#A85C36] transition-colors">{formatCurrency(maxBudget)}</span>
+            </div>
+            <div className="w-full bg-[#E0DBD7] rounded-full h-2">
+              <div 
+                className="h-2 rounded-full transition-all duration-300 bg-[#A85C36]"
+                style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-xs text-[#6B7280]">{budgetUtilization.toFixed(1)}% used</span>
+              <span className="text-xs text-[#6B7280]">{formatCurrency(totalSpent)} spent</span>
+            </div>
+            <div className="text-center mt-2 pt-2 border-t border-[#E0DBD7]">
+              <span className="text-xs text-[#6B7280] group-hover:text-[#A85C36] transition-colors">
+                {totalRemaining >= 0 ? `${formatCurrency(totalRemaining)} remaining` : `${formatCurrency(Math.abs(totalRemaining))} over budget`}
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
       
       {/* Scrollable Categories List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">

@@ -207,11 +207,29 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     return updated;
   }));
 
+  // Function to validate list name (for submission)
+  const validateListName = (name: string) => {
+    if (!name.trim()) {
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedTab === 'ai') {
       const aiResult: any = aiListResult;
       if (!aiResult || !aiResult.name) return;
+
+      // Validate list name is not empty
+      if (!validateListName(aiResult.name)) {
+        return; // Don't submit if list name is empty
+      }
+
+      // Check if form can be submitted (no validation errors)
+      if (!canSubmit) {
+        return; // Don't submit if there are validation errors
+      }
 
 
 
@@ -412,7 +430,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               <button
                 onClick={handleSubmit}
                 className="btn-primary"
-                disabled={selectedTab === 'ai' ? !aiListResult : !listName.trim()}
+                disabled={selectedTab === 'ai' ? (!aiListResult || !canSubmit) : !listName.trim()}
               >
                 Submit
               </button>
@@ -504,6 +522,10 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   credits={credits}
                   loadCredits={loadCredits}
                   router={router}
+                  onValidationChange={(hasError: boolean) => {
+                    // Update the parent component's validation state
+                    setCanSubmit(!hasError);
+                  }}
                 />
               )}
             </div>
@@ -680,12 +702,14 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const [listNameError, setListNameError] = React.useState<string | null>(null);
+  const [isCheckingName, setIsCheckingName] = React.useState(false);
 
   // Auto-generate if description is pre-filled from budget page
   React.useEffect(() => {
@@ -693,6 +717,13 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       handleGenerate();
     }
   }, [aiGenerationData]);
+
+  // Notify parent component of validation state changes
+  React.useEffect(() => {
+    if (onValidationChange) {
+      onValidationChange(!!listNameError);
+    }
+  }, [listNameError, onValidationChange]);
 
   // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
   function formatDateForInputWithTime(date: Date | string | undefined): string | undefined {
@@ -731,6 +762,57 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     // This should NOT match normal category names
     return typeof str === 'string' && /^[a-zA-Z0-9]{15,}$/.test(str) && /\d/.test(str);
   }
+
+  // Function to check if list name already exists
+  const checkListNameExists = async (name: string) => {
+    if (!name.trim()) {
+      setListNameError('List name is required');
+      return true;
+    }
+    
+    if (!user?.uid) {
+      setListNameError(null);
+      return false;
+    }
+
+    setIsCheckingName(true);
+    setListNameError(null);
+
+    try {
+      const res = await fetch('/api/check-list-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listName: name.trim(), userId: user.uid }),
+      });
+
+      if (!res.ok) throw new Error('Failed to check list name');
+      
+      const data = await res.json();
+      
+      if (data.exists) {
+        setListNameError('A list with this name already exists');
+        return true;
+      } else {
+        setListNameError(null);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking list name:', error);
+      setListNameError('Error checking list name availability');
+      return false;
+    } finally {
+      setIsCheckingName(false);
+    }
+  };
+
+  // Function to validate list name (for submission)
+  const validateListName = (name: string) => {
+    if (!name.trim()) {
+      setListNameError('List name is required');
+      return false;
+    }
+    return true;
+  };
 
   const handleTasksUpdate = React.useCallback((updatedTasksOrFn: any[] | ((prev: any[]) => any[])) => {
     setAiListResult((prev: any) => {
@@ -788,7 +870,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
 
     slowGenerationTimer.current = setTimeout(() => {
       setShowSlowGenerationBanner(true);
-    }, 3000);
+    }, 5000);
 
     try {
       // Pass allCategories and weddingDate to the API
@@ -924,6 +1006,9 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
             onClick={() => setShowSuggestions(!showSuggestions)}
             className="text-xs text-[#A85C36] hover:text-[#8B4513] font-medium flex items-center gap-1"
           >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
             Suggestions
             <svg className={`w-3 h-3 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1004,12 +1089,32 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           <div>
             <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
             <input
-              className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+              className={`w-full border px-3 py-2 rounded-[5px] text-sm ${
+                listNameError ? 'border-red-500' : 'border-[#AB9C95]'
+              }`}
               value={aiListResult.name}
-              onChange={e => setAiListResult({ ...aiListResult, name: e.target.value })}
+              onChange={e => {
+                setAiListResult({ ...aiListResult, name: e.target.value });
+                // Clear error when user starts typing
+                if (listNameError) {
+                  setListNameError(null);
+                }
+              }}
+              onBlur={(e) => {
+                // Check for duplicate name when user leaves the input
+                if (e.target.value.trim()) {
+                  checkListNameExists(e.target.value);
+                }
+              }}
               placeholder="Enter list name"
               required
             />
+            {isCheckingName && (
+              <div className="text-xs text-gray-500 mt-1">Checking name availability...</div>
+            )}
+            {listNameError && (
+              <div className="text-xs text-red-500 mt-1">{listNameError}</div>
+            )}
           </div>
           {/* Show warning banner if present in aiListResult */}
           {aiListResult && aiListResult.warning && aiListResult.warning.length > 0 && (

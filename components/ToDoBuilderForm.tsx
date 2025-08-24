@@ -244,6 +244,8 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setLis
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [hasFetchedSuggestions, setHasFetchedSuggestions] = useState(false);
+  const [listNameError, setListNameError] = useState<string | null>(null);
+  const [isCheckingName, setIsCheckingName] = useState(false);
 
   // Fetch AI-powered suggestions from the API
   const fetchAISuggestions = async () => {
@@ -271,6 +273,35 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setLis
     setHasFetchedSuggestions(true);
   };
 
+  // Function to check if list name already exists
+  const checkListNameExists = async (name: string) => {
+    if (!name.trim()) {
+      setListNameError('List name is required');
+      return true;
+    }
+
+    setIsCheckingName(true);
+    setListNameError(null);
+
+    try {
+      // For now, we'll just check if the name is empty or too short
+      // In a real implementation, you'd call the API to check for duplicates
+      if (name.trim().length < 2) {
+        setListNameError('List name must be at least 2 characters long');
+        return true;
+      }
+      
+      setListNameError(null);
+      return false;
+    } catch (error) {
+      console.error('Error checking list name:', error);
+      setListNameError('Error checking list name availability');
+      return false;
+    } finally {
+      setIsCheckingName(false);
+    }
+  };
+
   // Fetch suggestions automatically on mount
   React.useEffect(() => {
     if (!hasFetchedSuggestions) {
@@ -294,13 +325,34 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName, setLis
       <div>
         <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
         <input
-          className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+          className={`w-full border px-3 py-2 rounded-[5px] text-sm ${
+            listNameError ? 'border-red-500' : 'border-[#AB9C95]'
+          }`}
           value={listName}
-          onChange={e => { setListName(e.target.value); setShowSuggestions(true); }}
+          onChange={e => { 
+            setListName(e.target.value); 
+            setShowSuggestions(true);
+            // Clear error when user starts typing
+            if (listNameError) {
+              setListNameError(null);
+            }
+          }}
+          onBlur={(e) => {
+            // Check for duplicate name when user leaves the input
+            if (e.target.value.trim()) {
+              checkListNameExists(e.target.value);
+            }
+          }}
           placeholder="Enter list name"
           required
           onFocus={handleListNameFocus}
         />
+        {isCheckingName && (
+          <div className="text-xs text-gray-500 mt-1">Checking name availability...</div>
+        )}
+        {listNameError && (
+          <div className="text-xs text-red-500 mt-1">{listNameError}</div>
+        )}
         {showSuggestions && !listName.trim() && (
           <div className="mt-4">
             <div className="text-sm font-semibold mb-2 text-[#332B42]">Suggestions for you</div>
@@ -393,6 +445,8 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   const [error, setError] = React.useState<string | null>(null);
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const [listNameError, setListNameError] = React.useState<string | null>(null);
+  const [isCheckingName, setIsCheckingName] = React.useState(false);
 
   // Utility to format a Date as yyyy-MM-ddTHH:mm for input type="datetime-local"
   function formatDateForInputWithTime(date: Date | string | undefined): string | undefined {
@@ -431,6 +485,43 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     // This should NOT match normal category names
     return typeof str === 'string' && /^[a-zA-Z0-9]{15,}$/.test(str) && /\d/.test(str);
   }
+
+  // Function to check if list name already exists
+  const checkListNameExists = async (name: string) => {
+    if (!name.trim() || !user?.uid) {
+      setListNameError(null);
+      return false;
+    }
+
+    setIsCheckingName(true);
+    setListNameError(null);
+
+    try {
+      const res = await fetch('/api/check-list-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listName: name.trim(), userId: user.uid }),
+      });
+
+      if (!res.ok) throw new Error('Failed to check list name');
+      
+      const data = await res.json();
+      
+      if (data.exists) {
+        setListNameError('A list with this name already exists');
+        return true;
+      } else {
+        setListNameError(null);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking list name:', error);
+      setListNameError('Error checking list name availability');
+      return false;
+    } finally {
+      setIsCheckingName(false);
+    }
+  };
 
   const handleTasksUpdate = React.useCallback((updatedTasksOrFn: any[] | ((prev: any[]) => any[])) => {
     setAiListResult((prev: any) => {
@@ -477,7 +568,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
 
     slowGenerationTimer.current = setTimeout(() => {
       setShowSlowGenerationBanner(true);
-    }, 3000);
+    }, 5000);
 
     try {
       // Pass allCategories and weddingDate to the API
@@ -673,12 +764,32 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           <div>
             <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
             <input
-              className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+              className={`w-full border px-3 py-2 rounded-[5px] text-sm ${
+                listNameError ? 'border-red-500' : 'border-[#AB9C95]'
+              }`}
               value={aiListResult.name}
-              onChange={e => setAiListResult({ ...aiListResult, name: e.target.value })}
+              onChange={e => {
+                setAiListResult({ ...aiListResult, name: e.target.value });
+                // Clear error when user starts typing
+                if (listNameError) {
+                  setListNameError(null);
+                }
+              }}
+              onBlur={(e) => {
+                // Check for duplicate name when user leaves the input
+                if (e.target.value.trim()) {
+                  checkListNameExists(e.target.value);
+                }
+              }}
               placeholder="Enter list name"
               required
             />
+            {isCheckingName && (
+              <div className="text-xs text-gray-500 mt-1">Checking name availability...</div>
+            )}
+            {listNameError && (
+              <div className="text-xs text-red-500 mt-1">{listNameError}</div>
+            )}
           </div>
           {/* Show warning banner if present in aiListResult */}
           {aiListResult && aiListResult.warning && aiListResult.warning.length > 0 && (

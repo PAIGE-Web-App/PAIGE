@@ -48,6 +48,10 @@ const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
   loading: () => <div className="h-32 bg-white border-b border-[#AB9C95] animate-pulse" />
 });
 
+const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'), {
+  loading: () => <div className="flex-1 bg-white animate-pulse" />
+});
+
 const BudgetOverBudgetBanner = dynamic(() => import('@/components/budget/BudgetOverBudgetBanner'), {
   loading: () => <div className="h-20 bg-red-50 animate-pulse" />
 });
@@ -84,7 +88,7 @@ import { useUserProfileData } from "@/hooks/useUserProfileData";
 import { useWeddingBanner } from "@/hooks/useWeddingBanner";
 import { useBudget } from "@/hooks/useBudget";
 import toast from "react-hot-toast";
-import type { BudgetItem } from "@/types/budget";
+import type { BudgetItem, BudgetCategory } from "@/types/budget";
 
 export default function BudgetPage() {
   const { user, loading } = useAuth();
@@ -120,6 +124,7 @@ export default function BudgetPage() {
     }
     return 'table';
   });
+  const [isBudgetOverviewSelected, setIsBudgetOverviewSelected] = React.useState(false);
 
   // Track if we've initialized the category selection
   const hasInitializedSelection = React.useRef(false);
@@ -140,21 +145,31 @@ export default function BudgetPage() {
     if (budget.budgetCategories && budget.budgetCategories.length > 0 && !hasInitializedSelection.current) {
       hasInitializedSelection.current = true;
       
-      // Try to restore the previously selected category from localStorage
+      // Try to restore the previously selected view from localStorage
+      const savedView = localStorage.getItem('selectedBudgetView');
       const savedCategoryId = localStorage.getItem('selectedBudgetCategoryId');
       
-      if (savedCategoryId) {
+      if (savedView === 'overview') {
+        // Restore budget overview view
+        setIsBudgetOverviewSelected(true);
+        setSelectedCategory(null);
+        return;
+      } else if (savedCategoryId) {
+        // Restore previously selected category
         const savedCategory = budget.budgetCategories.find(cat => cat.id === savedCategoryId);
         if (savedCategory) {
           setSelectedCategory(savedCategory);
+          setIsBudgetOverviewSelected(false);
           return;
         }
       }
       
-      // If no saved category or saved category doesn't exist, select the first category
+      // If no saved view or saved category doesn't exist, select the first category
       if (budget.budgetCategories[0] && budget.budgetCategories[0].id) {
         setSelectedCategory(budget.budgetCategories[0]);
+        setIsBudgetOverviewSelected(false);
         localStorage.setItem('selectedBudgetCategoryId', budget.budgetCategories[0].id);
+        localStorage.setItem('selectedBudgetView', 'category');
       }
     }
   }, [budget.budgetCategories]);
@@ -170,6 +185,7 @@ export default function BudgetPage() {
   React.useEffect(() => {
     if (selectedCategory && selectedCategory.id) {
       localStorage.setItem('selectedBudgetCategoryId', selectedCategory.id);
+      localStorage.setItem('selectedBudgetView', 'category');
     }
   }, [selectedCategory]);
 
@@ -309,6 +325,22 @@ export default function BudgetPage() {
     setLinkingBudgetItem(null);
   }, []);
 
+  const handleSelectBudgetOverview = useCallback(() => {
+    setIsBudgetOverviewSelected(true);
+    setSelectedCategory(null);
+    // Save the overview view preference
+    localStorage.setItem('selectedBudgetView', 'overview');
+    localStorage.removeItem('selectedBudgetCategoryId');
+  }, []);
+
+  const handleSelectCategory = useCallback((category: BudgetCategory) => {
+    setSelectedCategory(category);
+    setIsBudgetOverviewSelected(false);
+    // Save the category view preference
+    localStorage.setItem('selectedBudgetView', 'category');
+    localStorage.setItem('selectedBudgetCategoryId', category.id!);
+  }, []);
+
   const weddingBannerData = useWeddingBanner(router);
 
   if (isLoading) {
@@ -359,53 +391,71 @@ export default function BudgetPage() {
             <BudgetSidebar
               budgetCategories={budget.budgetCategories}
               selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
+              setSelectedCategory={handleSelectCategory}
               onAddCategory={handleAddCategory}
               budgetItems={budget.budgetItems}
+              totalSpent={budget.totalSpent}
+              totalBudget={budget.userTotalBudget}
+              maxBudget={budget.userMaxBudget || 0}
+              onSelectBudgetOverview={handleSelectBudgetOverview}
+              isBudgetOverviewSelected={isBudgetOverviewSelected}
             />
 
             {/* Main Content Area */}
             <div className="unified-main-content">
-              {/* Budget Top Bar - Category Title and Actions */}
-              <div className="lg:block">
-                <BudgetTopBar
-                  selectedCategory={selectedCategory}
-                  budgetSearchQuery={budgetSearchQuery}
-                  setBudgetSearchQuery={handleSearchQueryChange}
+              {/* Show Budget Overview or Category-specific content */}
+              {isBudgetOverviewSelected ? (
+                <BudgetOverview
+                  budgetCategories={budget.budgetCategories}
+                  budgetItems={budget.budgetItems}
+                  totalSpent={budget.totalSpent}
+                  totalBudget={budget.userTotalBudget || 0}
+                  maxBudget={budget.userMaxBudget || 0}
                   onShowAIAssistant={() => budget.setShowAIAssistant(true)}
-                  onShowCSVUpload={() => budget.setShowCSVUpload(true)}
-                  onAddItem={handleTriggerAddItem}
-                  onEditCategory={handleEditCategory}
-                  onDeleteCategory={handleDeleteCategory}
-                  viewMode={viewMode}
-                  onViewModeChange={handleViewModeChange}
+                  onAddCategory={handleAddCategory}
                 />
-              </div>
+              ) : (
+                <>
+                  {/* Budget Top Bar - Category Title and Actions */}
+                  <div className="lg:block">
+                    <BudgetTopBar
+                      selectedCategory={selectedCategory}
+                      budgetSearchQuery={budgetSearchQuery}
+                      setBudgetSearchQuery={handleSearchQueryChange}
+                      onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                      onShowCSVUpload={() => budget.setShowCSVUpload(true)}
+                      onAddItem={handleTriggerAddItem}
+                      onEditCategory={handleEditCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                      viewMode={viewMode}
+                      onViewModeChange={handleViewModeChange}
+                    />
+                  </div>
 
-              {/* Budget Metrics - After Category Title and Actions */}
-              <BudgetMetrics
-                selectedCategory={selectedCategory ? {
-                  ...selectedCategory,
-                  spentAmount: budget.budgetStats?.categoryBreakdown?.find(
-                    (cat: any) => cat.categoryId === selectedCategory.id
-                  )?.spent || 0
-                } : null}
-                totalBudget={budget.userTotalBudget}
-                totalSpent={budget.totalSpent}
-                maxBudget={budget.userMaxBudget}
-                budgetItems={selectedCategory ? budget.budgetItems.filter((item: any) => 
-                  item.categoryId === selectedCategory.id
-                ) : []}
-                onEditCategory={(category) => {
-                  setEditingCategory(category);
-                  setJiggleAllocatedAmount(true);
-                  setShowCategoryModal(true);
-                  // Reset jiggle after animation
-                  setTimeout(() => setJiggleAllocatedAmount(false), 1000);
-                }}
-              />
+                  {/* Budget Metrics - After Category Title and Actions */}
+                  <BudgetMetrics
+                    selectedCategory={selectedCategory ? {
+                      ...selectedCategory,
+                      spentAmount: budget.budgetStats?.categoryBreakdown?.find(
+                        (cat: any) => cat.categoryId === selectedCategory.id
+                      )?.spent || 0
+                    } : null}
+                    totalBudget={budget.userTotalBudget}
+                    totalSpent={budget.totalSpent}
+                    maxBudget={budget.userMaxBudget}
+                    budgetItems={selectedCategory ? budget.budgetItems.filter((item: any) => 
+                      item.categoryId === selectedCategory.id
+                    ) : []}
+                    onEditCategory={(category) => {
+                      setEditingCategory(category);
+                      setJiggleAllocatedAmount(true);
+                      setShowCategoryModal(true);
+                      // Reset jiggle after animation
+                      setTimeout(() => setJiggleAllocatedAmount(false), 1000);
+                    }}
+                  />
 
-              {/* Budget Items List */}
+                  {/* Budget Items List */}
               <div className="flex-1 flex gap-4 min-h-0">
                 <div className="flex-1 flex flex-col">
                   {/* Over Budget Warning Banner */}
@@ -487,6 +537,8 @@ export default function BudgetPage() {
                   />
                 )}
               </div>
+                </>
+              )}
             </div>
           </main>
         </div>
