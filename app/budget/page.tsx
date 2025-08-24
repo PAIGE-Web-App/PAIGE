@@ -13,6 +13,7 @@ import Banner from '@/components/Banner';
 import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import Breadcrumb from '@/components/Breadcrumb';
 
 // Lazy load heavy components
 const BudgetSidebar = dynamic(() => import('@/components/BudgetSidebar'), {
@@ -432,6 +433,26 @@ export default function BudgetPage() {
                       onViewModeChange={handleViewModeChange}
                     />
                   </div>
+
+                  {/* Breadcrumb Navigation */}
+                  {selectedCategory && (
+                    <div className="px-6 py-3 border-b border-[#E0DBD7] bg-white">
+                      <Breadcrumb
+                        items={[
+                          {
+                            label: 'Overall Budget',
+                            onClick: handleSelectBudgetOverview,
+                            isCurrent: false
+                          },
+                          {
+                            label: selectedCategory.name,
+                            isCurrent: true
+                          }
+                        ]}
+                        className="my-0"
+                      />
+                    </div>
+                  )}
 
                   {/* Budget Metrics - After Category Title and Actions */}
                   <BudgetMetrics

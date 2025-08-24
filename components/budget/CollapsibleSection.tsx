@@ -15,7 +15,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = React.memo(({
   children,
   className = ''
 }) => (
-  <div className={`bg-white p-6 rounded-[10px] border border-[#E0DBD7] ${className}`}>
+  <div className={`bg-white p-4 rounded-[10px] border border-[#E0DBD7] ${className}`}>
     <div className="flex items-center justify-between mb-4">
       <h6>{title}</h6>
       <button

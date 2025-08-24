@@ -83,10 +83,10 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
         subtitle="Complete overview of your wedding budget and spending"
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           {/* Left Column - Charts and Summary */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <CollapsibleSection
               title="Budget Spend by Category"
               isCollapsed={collapsedSections.chart}
@@ -115,7 +115,7 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
           </div>
 
           {/* Right Column - Category Breakdown */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <CollapsibleSection
               title="Category Breakdown"
               isCollapsed={collapsedSections.breakdown}
