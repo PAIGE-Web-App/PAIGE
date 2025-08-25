@@ -17,6 +17,8 @@ import { useCredits } from '../hooks/useCredits';
 import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import CreditToast from './CreditToast';
 import { useRouter } from 'next/navigation';
+import NotEnoughCreditsModal from './NotEnoughCreditsModal';
+import { COUPLE_SUBSCRIPTION_CREDITS } from '../types/credits';
 
 interface NewListOnboardingModalProps {
   isOpen: boolean;
@@ -77,6 +79,10 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [showCreditToast, setShowCreditToast] = useState(false);
   const [creditToastData, setCreditToastData] = useState({ creditsSpent: 0, creditsRemaining: 0 });
   const [previousCredits, setPreviousCredits] = useState(0);
+  
+  // Not enough credits modal state
+  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+  const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free; // For credit information
 
   // Create a simple contacts array for assignment functionality
   const contacts = React.useMemo(() => {
@@ -526,6 +532,9 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                     // Update the parent component's validation state
                     setCanSubmit(!hasError);
                   }}
+                  showNotEnoughCreditsModal={showNotEnoughCreditsModal}
+                  setShowNotEnoughCreditsModal={setShowNotEnoughCreditsModal}
+                  userCredits={userCredits}
                 />
               )}
             </div>
@@ -702,7 +711,7 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -884,7 +893,29 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           userId: user.uid 
         }),
       });
-      if (!res.ok) throw new Error('Failed to generate list');
+      
+      console.log('Response status:', res.status); // Debug log
+      console.log('Response ok:', res.ok); // Debug log
+      
+      if (!res.ok) {
+        // Check if it's a credit-related error based on status code first
+        if (res.status === 402) {
+          console.log('402 status detected, throwing insufficient credits error'); // Debug log
+          throw new Error('Insufficient credits');
+        }
+        
+        // Try to get the error message from the response for other errors
+        let errorMessage = 'Failed to generate list';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // If we can't parse the error response, use the status text
+          errorMessage = res.statusText || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
       const data = await res.json();
       // Normalize AI tasks to assign id and _id
       if (Array.isArray(data.tasks)) {
@@ -924,7 +955,16 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         console.error('[handleGenerate] Failed to refresh credits after generation:', error);
       }
     } catch (e: any) {
-      setError(e.message || 'Something went wrong');
+      console.log('Error caught in outer catch block:', e.message); // Debug log
+      
+      // Check if it's a credit-related error
+      if (e.message && (e.message.includes('Insufficient credits') || e.message.includes('Not enough credits'))) {
+        console.log('Setting showNotEnoughCreditsModal to true'); // Debug log
+        setShowNotEnoughCreditsModal(true);
+      } else {
+        console.log('Setting generic error:', e.message); // Debug log
+        setError(e.message || 'Something went wrong');
+      }
     } finally {
       setIsLoading(false);
       if (slowGenerationTimer.current) {
@@ -1062,6 +1102,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           className="btn-gradient-purple flex items-center gap-2"
           onClick={handleGenerate}
           disabled={!description.trim() || isLoading}
+          style={{ cursor: (!description.trim() || isLoading) ? 'not-allowed' : 'pointer' }}
         >
           <Sparkles className="w-4 h-4" />
           <span>Generate with Paige (2 Credits)</span>
@@ -1145,6 +1186,20 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           </div>
         </form>
       )}
+      
+      {/* Not Enough Credits Modal */}
+      <NotEnoughCreditsModal
+        isOpen={showNotEnoughCreditsModal}
+        onClose={() => setShowNotEnoughCreditsModal(false)}
+        requiredCredits={2}
+        currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
+        feature="list generation"
+        accountInfo={{
+          tier: 'Free',
+          dailyCredits: userCredits.monthlyCredits,
+          refreshTime: 'Daily at midnight'
+        }}
+      />
     </div>
   );
 };

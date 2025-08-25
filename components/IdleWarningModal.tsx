@@ -80,7 +80,7 @@ export default function IdleWarningModal({
               </p>
               <div className="flex items-center justify-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
                 <Clock className="h-5 w-5 text-red-500" />
-                <span className="text-xl font-mono font-bold text-red-600">
+                <span className="text-xl font-work-sans font-medium text-red-600">
                   {formatTime(countdown)}
                 </span>
               </div>
