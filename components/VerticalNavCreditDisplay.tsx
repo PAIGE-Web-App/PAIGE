@@ -102,8 +102,11 @@ export default function VerticalNavCreditDisplay() {
         className="group relative bg-[#F8F6F4] rounded-lg p-2 transition-all duration-200 hover:bg-[#F3F2F0] cursor-pointer"
         style={{
           background: 'linear-gradient(145deg, #F8F6F4, #F8F6F4)',
-          border: '1px solid transparent',
-          backgroundImage: `
+          border: remainingCredits === 0 ? '1px solid #ef4444' : '1px solid transparent',
+          backgroundImage: remainingCredits === 0 ? `
+            linear-gradient(145deg, #F8F6F4, #F8F6F4),
+            linear-gradient(145deg, #ef4444, #ef4444, #ef4444, #ef4444)
+          ` : `
             linear-gradient(145deg, #F8F6F4, #F8F6F4),
             linear-gradient(145deg, #805d93, #805d93, #805d93, #805d93)
           `,
@@ -118,14 +121,26 @@ export default function VerticalNavCreditDisplay() {
               <div className="text-xs font-medium text-[#2C3E50] leading-tight">
                 {dailyCredits} + <span className="text-[#805d93]">{bonusCredits}</span>
               </div>
+            ) : remainingCredits === 0 ? (
+              <div className="text-sm font-bold text-red-500 leading-tight">
+                0
+              </div>
             ) : (
               <div className="text-sm font-medium text-[#2C3E50] leading-tight">
                 {remainingCredits}
               </div>
             )}
             <div className="text-[10px] text-[#2C3E50] leading-tight w-[40px] text-center">
-              {remainingCredits === 1 ? 'Credit' : 'Credits'}
+              Credits
             </div>
+            {remainingCredits === 0 && (
+              <>
+                <div className="w-6 h-px bg-gray-300 my-1 mx-auto"></div>
+                <div className="text-[9px] text-[#805d93] font-medium w-[40px] text-center leading-tight">
+                  Get<br />More!
+                </div>
+              </>
+            )}
           </div>
         </div>
         
@@ -142,12 +157,20 @@ export default function VerticalNavCreditDisplay() {
         {/* Hover Tooltip - matching other nav items */}
         <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-3 py-2 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 w-64">
           <div className="text-left">
-            <div className="font-semibold mb-1">Paige Credits Remaining:</div>
-            <div className="text-[11px] text-gray-200 mb-2">
-              {dailyCredits} Daily Credits + {bonusCredits} Bonus Credits
+            <div className="font-semibold mb-1">
+              {remainingCredits === 0 ? 'Out of Credits!' : 'Paige Credits Remaining:'}
             </div>
+            {remainingCredits === 0 ? (
+              <div className="text-[11px] text-red-200 mb-2">
+                You're all out of credits! Click to get more.
+              </div>
+            ) : (
+              <div className="text-[11px] text-gray-200 mb-2">
+                {dailyCredits} Daily Credits + {bonusCredits} Bonus Credits
+              </div>
+            )}
             <div className="text-[10px] text-gray-300">
-              Daily Credits Refresh Daily. Bonus Credits will be Used First!
+              {remainingCredits === 0 ? 'Upgrade your plan or buy more credits to continue using AI features!' : 'Daily Credits Refresh Daily. Bonus Credits will be Used First!'}
             </div>
           </div>
           {/* Tooltip arrow */}
