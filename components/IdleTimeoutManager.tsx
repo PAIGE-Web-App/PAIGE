@@ -18,8 +18,17 @@ export default function IdleTimeoutManager() {
     setShowWarning(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowWarning(false);
+    // Actually perform the logout
+    try {
+      const { handleLogout: logoutUser } = await import('@/utils/logout');
+      await logoutUser();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: redirect to login
+      window.location.href = '/login';
+    }
   };
 
   // Use the idle timeout hook with configurable timeout
@@ -37,6 +46,7 @@ export default function IdleTimeoutManager() {
     <IdleWarningModal
       isOpen={showWarning}
       onStayLoggedIn={handleStayLoggedIn}
+      onLogout={handleLogout}
       timeRemaining={warningMinutes * 60} // Convert minutes to seconds
     />
   );
