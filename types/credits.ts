@@ -17,6 +17,7 @@ export type CoupleAIFeature =
   | 'integrated_planning'
   | 'budget_generation'
   | 'vibe_generation'
+  | 'bulk_vibe_generation'
   | 'vendor_suggestions'
   | 'follow_up_questions';
 
@@ -96,7 +97,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   free: {
     monthlyCredits: 15,
     rolloverCredits: 0,
-    aiFeatures: ['draft_messaging', 'todo_generation', 'budget_generation'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'budget_generation', 'vibe_generation', 'bulk_vibe_generation'],
     creditRefresh: 'daily',
     maxVendors: 20,
     maxContacts: 5,
@@ -169,6 +170,7 @@ export const COUPLE_AI_CREDIT_COSTS: Record<CoupleAIFeature, number> = {
   integrated_planning: 5,
   budget_generation: 3,
   vibe_generation: 2,
+  bulk_vibe_generation: 5,
   vendor_suggestions: 2,
   follow_up_questions: 1
 };

@@ -123,14 +123,12 @@ export class CreditService {
         const newCredits = await this.initializeUserCredits(userId);
         return this.validateCreditsForUser(newCredits, feature);
       }
-
       return this.validateCreditsForUser(userCredits, feature);
     } catch (error) {
-      console.error('Error validating credits:', error);
+      console.error('❌ Error validating credits:', error);
       return {
         hasEnoughCredits: false,
         requiredCredits: 0,
-        currentCredits: 0,
         remainingCredits: 0,
         canProceed: false,
         message: 'Error validating credits'
@@ -441,7 +439,6 @@ export class CreditService {
   ): CreditValidationResult {
     const creditCosts = getCreditCosts(userCredits.userType);
     const cost = creditCosts[feature] || 1;
-    
     const totalAvailable = userCredits.dailyCredits + userCredits.bonusCredits;
     const hasEnoughCredits = totalAvailable >= cost;
     const remainingCredits = Math.max(0, totalAvailable - cost);

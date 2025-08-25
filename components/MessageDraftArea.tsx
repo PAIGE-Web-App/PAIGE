@@ -200,9 +200,9 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           />
           {isGenerating && !isAnimating && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <div className="w-2 h-2 bg-[#A85C36] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-[#A85C36] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-[#A85C36] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-[#805d93] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+        <div className="w-2 h-2 bg-[#805d93] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+        <div className="w-2 h-2 bg-[#805d93] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           )}
           {selectedFiles.length > 0 && (

@@ -20,6 +20,17 @@ export function withCreditValidation(
 ) {
   return async (request: NextRequest): Promise<NextResponse> => {
     try {
+      // Check if this request has already been processed by credit middleware
+      const creditProcessed = request.headers.get('x-credit-processed');
+      
+      if (creditProcessed === 'true') {
+        // Already processed, just call the handler
+        return handler(request);
+      }
+      
+      // Mark this request as processed by credit middleware
+      request.headers.set('x-credit-processed', 'true');
+      
       // Extract userId from request
       let userId: string | undefined;
       
@@ -27,8 +38,24 @@ export function withCreditValidation(
       if (options.userIdField) {
         // Try to get userId from request body
         try {
-          requestBody = await request.json().catch(() => ({}));
-          userId = requestBody[options.userIdField];
+          // Check if it's FormData
+          const contentType = request.headers.get('content-type') || '';
+          if (contentType.includes('multipart/form-data')) {
+            // Handle FormData
+            const formData = await request.formData();
+            userId = formData.get(options.userIdField) as string;
+            // Clone the FormData so it can be read again by the handler
+            const clonedFormData = new FormData();
+            for (const [key, value] of formData.entries()) {
+              clonedFormData.append(key, value);
+            }
+            // Store cloned FormData for later use
+            requestBody = { formData: clonedFormData };
+          } else {
+            // Handle JSON
+            requestBody = await request.json().catch(() => ({}));
+            userId = requestBody[options.userIdField];
+          }
         } catch (error) {
           console.error('Error parsing request body for credit validation:', error);
         }
@@ -82,27 +109,28 @@ export function withCreditValidation(
           );
         }
 
-        // Add credit info to headers for the handler to use
-        const newRequest = new NextRequest(request.url, {
-          method: request.method,
-          headers: {
-            ...Object.fromEntries(request.headers.entries()),
-            'x-credits-required': validation.requiredCredits.toString(),
-            'x-credits-remaining': validation.remainingCredits.toString(),
-            'x-user-id': userId
-          },
-          body: JSON.stringify(requestBody)
-        });
-
-        // Call the handler
-        const response = await handler(newRequest);
-
+                // Since we're getting userId from headers, we can just modify the original request
+        // and pass it through without any body reconstruction
+        request.headers.set('x-credits-required', validation.requiredCredits.toString());
+        request.headers.set('x-credits-remaining', validation.remainingCredits.toString());
+        request.headers.set('x-user-id', userId);
+        
+        // Call the handler with the modified original request
+        const response = await handler(request);
+        
         // If the request was successful, deduct credits
         if (response.ok) {
           try {
+            // Check if we already deducted credits for this request
+            const alreadyDeducted = request.headers.get('x-credits-deducted');
+            if (alreadyDeducted === 'true') {
+              return response;
+            }
+            
             // Build metadata object, filtering out undefined values
             const metadata: Record<string, any> = {
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              requestId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             };
             
             const requestId = request.headers.get('x-request-id');
@@ -117,8 +145,10 @@ export function withCreditValidation(
             
             const success = await creditService.deductCredits(userId, options.feature, metadata);
             
-            // Emit credit update event if deduction was successful
             if (success) {
+              // Mark this request as having credits deducted
+              request.headers.set('x-credits-deducted', 'true');
+              // Emit credit update event
               creditEventEmitter.emit();
             }
           } catch (error) {
@@ -126,7 +156,7 @@ export function withCreditValidation(
             // Don't fail the request if credit deduction fails
           }
         }
-
+        
         return response;
       }
 

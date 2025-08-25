@@ -10,6 +10,7 @@ import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import VerticalNavWrapper from "../components/VerticalNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
+import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
 
 const playfair = Playfair_Display({ 
   subsets: ["latin"],
@@ -41,8 +42,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             
             {/* New Vertical Navigation */}
-            {!hideNav && <VerticalNavWrapper>{children}</VerticalNavWrapper>}
-            {hideNav && children}
+            {!hideNav && (
+              <VerticalNavWrapper>
+                <GlobalErrorBoundary>
+                  {children}
+                </GlobalErrorBoundary>
+              </VerticalNavWrapper>
+            )}
+            {hideNav && (
+              <GlobalErrorBoundary>
+                {children}
+              </GlobalErrorBoundary>
+            )}
             
             <IdleTimeoutManager />
             <Toaster

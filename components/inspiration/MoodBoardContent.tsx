@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MoodBoard, UserPlan } from '../../types/inspiration';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Sparkles } from 'lucide-react';
 import VibeSection from './VibeSection';
 import ImageGrid from './ImageGrid';
 import DragDropZone from './DragDropZone';
@@ -14,6 +14,7 @@ interface MoodBoardContentProps {
   isDragOver: boolean;
   onRemoveImage: (imageIndex: number) => void;
   onGenerateVibes: (imageUrl: string) => void;
+  onExtractVibesFromAll?: (board: MoodBoard) => void;
   onChooseVibe?: () => void;
   onEditVibes?: () => void;
   onEditBoardName?: (board: MoodBoard) => void;
@@ -37,6 +38,7 @@ export default function MoodBoardContent({
   isDragOver,
   onRemoveImage,
   onGenerateVibes,
+  onExtractVibesFromAll,
   onChooseVibe,
   onEditVibes,
   onEditBoardName,
@@ -85,6 +87,21 @@ export default function MoodBoardContent({
               {board.name}
             </h6>
           )}
+          
+          {/* Extract Vibe from All Button - Right side */}
+          {board.images && board.images.length > 1 && (
+            <div className="ml-auto">
+              <button
+                onClick={() => onExtractVibesFromAll?.(board)}
+                className="btn-gradient-purple flex items-center gap-2 text-sm px-3 py-2"
+                disabled={generatingVibes}
+              >
+                <Sparkles className="w-4 h-4" />
+                Extract Vibe from All (5 Credits)
+              </button>
+            </div>
+          )}
+          
           {board.type !== 'wedding-day' && onEditBoardName && (
             <div className="flex items-center gap-2">
               <button

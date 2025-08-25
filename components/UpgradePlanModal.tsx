@@ -124,8 +124,9 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({
           <div className="flex justify-center">
             <button
               onClick={() => {
-        
                 onClose();
+                // Navigate to settings credits tab
+                window.location.href = '/settings?tab=credits';
               }}
               className="btn-primary px-6 py-2 text-sm"
             >

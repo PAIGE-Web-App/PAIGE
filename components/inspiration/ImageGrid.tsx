@@ -32,20 +32,14 @@ export default function ImageGrid({
   if (!hasImages) {
     return (
       <div className="text-center py-8">
-        <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+        <img
+          src="/Wedding%20Illustration.png"
+          alt="Wedding Illustration"
+          className="w-32 h-32 mx-auto mb-4 opacity-60"
+        />
         <h5 className="text-lg font-medium text-[#332B42] mb-2">No {board.name.toLowerCase()} images yet</h5>
         <p className="text-[#364257] mb-4">Start building your {board.name.toLowerCase()} mood board by uploading some wedding inspiration images</p>
         <p className="text-sm text-[#A85C36] mb-4">💡 Tip: Upload images that capture your dream {board.name.toLowerCase()} aesthetic</p>
-        
-        {/* Choose Vibe Button - Only show for Wedding Day board when no vibes */}
-        {board.type === 'wedding-day' && (!board.vibes || board.vibes.length === 0) && onChooseVibe && (
-          <button
-            onClick={onChooseVibe}
-            className="btn-primary px-4 py-2 rounded-lg font-medium"
-          >
-            Choose Your Vibe
-          </button>
-        )}
       </div>
     );
   }

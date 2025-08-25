@@ -702,16 +702,20 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           vibe: vibe || []
         };
         
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (currentUser?.uid) {
+          headers["x-user-id"] = currentUser.uid;
+        }
+        
         const res = await fetch("/api/draft", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ 
             contact: selectedContact, 
             messages: [replyingToMessage.body],
             isReply: true,
             originalSubject: replyingToMessage.subject,
             originalFrom: replyingToMessage.from,
-            userId: currentUser?.uid,
             userData: userProfileData
           }),
         });

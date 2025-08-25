@@ -61,19 +61,13 @@ export default function VerticalNavCreditDisplay() {
       }
     };
     
-    // Simplified polling - just reload credits periodically
-    const pollInterval = setInterval(async () => {
-      if (!loading && !showToast) {
-        await loadCredits();
-      }
-    }, 10000); // Check every 10 seconds, less frequently
+    // Removed aggressive polling - only refresh when credits actually change
     
     window.addEventListener('storage', handleStorageChange);
     
     return () => {
       unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(pollInterval);
     };
   }, []); // Remove dependencies to prevent infinite re-renders
 
@@ -129,8 +123,8 @@ export default function VerticalNavCreditDisplay() {
                 {remainingCredits}
               </div>
             )}
-            <div className="text-[10px] text-[#2C3E50] leading-tight">
-              Credits
+            <div className="text-[10px] text-[#2C3E50] leading-tight w-[40px] text-center">
+              {remainingCredits === 1 ? 'Credit' : 'Credits'}
             </div>
           </div>
         </div>

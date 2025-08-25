@@ -319,7 +319,7 @@ function buildSystemPrompt(userContext: any, vibeContext: any, isReply: boolean)
 // Export the POST function wrapped with credit validation
 export const POST = withCreditValidation(handleDraftGeneration, {
   feature: 'draft_messaging',
-  userIdField: 'userId',
+  userIdField: undefined, // Get userId from headers instead of body
   requireAuth: true,
   errorMessage: 'Insufficient credits for draft generation. Please upgrade your plan to continue using AI features.'
 });

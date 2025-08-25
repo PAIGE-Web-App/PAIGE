@@ -13,6 +13,7 @@ import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
+import { useCredits } from "../../hooks/useCredits";
 
 // Import new components
 import PinterestBanner from "../../components/inspiration/PinterestBanner";
@@ -26,6 +27,7 @@ import UpgradePlanModal from "../../components/UpgradePlanModal";
 import Banner from "../../components/Banner";
 import MoodBoardSkeleton from "../../components/inspiration/MoodBoardSkeleton";
 import VibePreviewModal from "../../components/inspiration/VibePreviewModal";
+import LoadingBar from "../../components/LoadingBar";
 
 // Import types and utilities
 import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../types/inspiration";
@@ -38,6 +40,9 @@ import {
   uploadImageToStorage,
   cleanupBase64Images
 } from "../../utils/moodBoardUtils";
+import { creditEventEmitter } from "../../utils/creditEventEmitter";
+import NotEnoughCreditsModal from "../../components/NotEnoughCreditsModal";
+import { COUPLE_SUBSCRIPTION_CREDITS } from "../../types/credits";
 
 export default function MoodBoardsPage() {
   const { user, loading } = useAuth();
@@ -45,9 +50,11 @@ export default function MoodBoardsPage() {
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { credits } = useCredits();
   
   // User plan (for now, default to free - you can integrate with your billing system)
   const userPlan = PLAN_LIMITS.free;
+  const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free; // For credit information
   
   // State management
   const [isEditing, setIsEditing] = useState(false);
@@ -87,6 +94,14 @@ export default function MoodBoardsPage() {
   
   // Vibe preview modal state
   const [showVibePreviewModal, setShowVibePreviewModal] = useState(false);
+  
+  // Not enough credits modal state
+  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+  const [creditModalData, setCreditModalData] = useState({
+    requiredCredits: 2,
+    currentCredits: 0,
+    feature: 'this feature'
+  });
   
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
@@ -198,9 +213,10 @@ export default function MoodBoardsPage() {
           const data = userDoc.data();
           let savedMoodBoards = data.moodBoards || [];
           
-          // Migration: Check if we need to migrate existing vibes to wedding-day board
+          // Migration: Check if we need to migrate existing vibes to wedding-day board (only once)
           const existingVibes = [...(data.vibe || []), ...(data.generatedVibes || [])];
           const existingVibeInputMethod = data.vibeInputMethod || 'pills';
+          const hasMigratedVibes = data.hasMigratedVibesToMoodBoard; // Check if migration already happened
           
           if (savedMoodBoards.length === 0) {
             // No mood boards exist, create default with migrated vibes
@@ -215,8 +231,8 @@ export default function MoodBoardsPage() {
             };
             
             savedMoodBoards = [defaultBoard];
-          } else {
-            // Mood boards exist, but check if wedding-day board needs vibes migrated
+          } else if (!hasMigratedVibes) {
+            // Mood boards exist, but check if wedding-day board needs vibes migrated (only once)
             const weddingDayBoard = savedMoodBoards.find(board => board.id === 'wedding-day');
             if (weddingDayBoard && existingVibes.length > 0 && weddingDayBoard.vibes.length === 0) {
               // Migrate vibes to existing wedding-day board
@@ -226,11 +242,12 @@ export default function MoodBoardsPage() {
             }
           }
           
-          // Save the migrated data to Firestore if we made changes
-          if (existingVibes.length > 0) {
+          // Save the migrated data to Firestore if we made changes and mark migration as complete
+          if (existingVibes.length > 0 && !hasMigratedVibes) {
             try {
               await updateDoc(doc(db, "users", user.uid), {
-                moodBoards: savedMoodBoards
+                moodBoards: savedMoodBoards,
+                hasMigratedVibesToMoodBoard: true // Mark migration as complete
               });
               console.log('Successfully saved migrated mood boards');
             } catch (migrationError) {
@@ -286,9 +303,22 @@ export default function MoodBoardsPage() {
       if (!user || moodBoardsLoading || moodBoards.length === 0) return;
       
       try {
-        await updateDoc(doc(db, "users", user.uid), {
-          moodBoards: moodBoards
-        });
+        // Sync vibes with user profile settings for Wedding Day board
+        const weddingDayBoard = moodBoards.find(board => board.id === 'wedding-day');
+        if (weddingDayBoard) {
+          // Update user profile with current vibes from Wedding Day board
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: moodBoards,
+            vibe: weddingDayBoard.vibes, // Sync vibes with profile
+            generatedVibes: [], // Clear generated vibes since they're now in mood board
+            vibeInputMethod: weddingDayBoard.vibeInputMethod || 'pills'
+          });
+        } else {
+          // No wedding day board, just save mood boards
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: moodBoards
+          });
+        }
       } catch (error) {
         console.error('Error saving mood boards:', error);
         showErrorToast('Failed to save mood boards');
@@ -374,19 +404,45 @@ export default function MoodBoardsPage() {
     try {
       const formData = new FormData();
       
+      // Add user ID for credit validation
+      formData.append('userId', user.uid);
+      
       // Handle both File objects and image URLs
       if (imageToUse instanceof File) {
+        console.log('Processing File object:', imageToUse.name, imageToUse.type, imageToUse.size);
         formData.append('image', imageToUse);
       } else if (typeof imageToUse === 'string') {
-        // Convert image URL to blob for API
-        const response = await fetch(imageToUse);
-        const blob = await response.blob();
-        formData.append('image', blob, 'image.jpg');
+        console.log('Processing image URL:', imageToUse);
+        // Check if it's already a base64 string
+        if (imageToUse.startsWith('data:image/')) {
+          // It's already a base64 string, convert to blob
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        } else if (imageToUse.startsWith('blob:')) {
+          // It's a blob URL, fetch it
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        } else {
+          // It's a regular URL, fetch it
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        }
       }
       
       console.log('Uploading image for vibe generation...');
+      console.log('FormData contents:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+      
       const response = await fetch('/api/generate-vibes-from-image', {
         method: 'POST',
+        headers: {
+          'x-user-id': user.uid, // Send userId in headers for credit validation
+        },
         body: formData,
       });
       
@@ -394,7 +450,7 @@ export default function MoodBoardsPage() {
       const data = await response.json();
       console.log('Response data:', data);
       
-      if (data.vibes && Array.isArray(data.vibes)) {
+      if (data.success && data.vibes && Array.isArray(data.vibes)) {
         // Add new vibes to the active board
         const newVibes = data.vibes.filter((v: string) => !getActiveBoard(moodBoards, activeMoodBoard)?.vibes.includes(v));
         
@@ -411,17 +467,132 @@ export default function MoodBoardsPage() {
         
         setMoodBoards(updatedMoodBoards);
         
-        showSuccessToast(`Generated ${newVibes.length} new vibes from your image!`);
+        // Emit credit update event to refresh credit display
+        creditEventEmitter.emit();
+        
+        const vibeText = newVibes.length === 1 ? 'vibe' : 'vibes';
+        showSuccessToast(`Generated ${newVibes.length} new ${vibeText} from your image!`);
         setShowImageUpload(false);
         setUploadedImage(null);
         setImagePreviewUrl(null);
       } else {
         const errorMessage = data.error || 'Failed to generate vibes from image';
-        showErrorToast(errorMessage);
+        
+        // Check if it's a credit-related error
+        if (errorMessage.includes('Not enough credits') || errorMessage.includes('Insufficient credits')) {
+          setCreditModalData({
+            requiredCredits: 2, // Single vibe generation costs 2 credits
+            currentCredits: 0, // We'll get this from the error response if available
+            feature: 'vibe generation'
+          });
+          setShowNotEnoughCreditsModal(true);
+        } else {
+          showErrorToast(errorMessage);
+        }
       }
     } catch (error) {
       console.error('Error generating vibes:', error);
       showErrorToast('Network error: Failed to generate vibes from image');
+    } finally {
+      setGeneratingVibes(false);
+    }
+  };
+
+  const generateVibesFromAllImages = async (board: MoodBoard) => {
+    if (!user || !board.images || board.images.length === 0) return;
+    
+    setGeneratingVibes(true);
+    try {
+      let allNewVibes: string[] = [];
+      
+      // Process each image in the board
+      for (const image of board.images) {
+        try {
+          const imageUrl = image.url;
+          if (!imageUrl) continue;
+          
+          console.log('Processing image in board:', imageUrl);
+          
+          const formData = new FormData();
+          
+          // Add user ID for credit validation
+          formData.append('userId', user.uid);
+          
+          // Convert image URL to blob for API
+          console.log('Fetching image from URL:', imageUrl);
+          const response = await fetch(imageUrl);
+          
+          if (!response.ok) {
+            console.error('Failed to fetch image:', response.status, response.statusText);
+            continue;
+          }
+          
+          const blob = await response.blob();
+          console.log('Image blob size:', blob.size, 'type:', blob.type);
+          formData.append('image', blob, 'image.jpg');
+          
+          console.log('Processing image for bulk vibe generation...');
+          const apiResponse = await fetch('/api/generate-bulk-vibes', {
+            method: 'POST',
+            headers: {
+              'x-user-id': user.uid, // Send userId in headers for credit validation
+            },
+            body: formData,
+          });
+          
+          const data = await apiResponse.json();
+          
+          if (data.success && data.vibes && Array.isArray(data.vibes)) {
+            // Filter out vibes that already exist in the board
+            const newVibes = data.vibes.filter((v: string) => !board.vibes.includes(v));
+            allNewVibes = [...allNewVibes, ...newVibes];
+          }
+        } catch (error) {
+          console.error('Error processing image:', error);
+          
+          // Check if it's a credit-related error
+          if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
+            setCreditModalData({
+              requiredCredits: 5, // Bulk vibe generation costs 5 credits
+              currentCredits: 0,
+              feature: 'bulk vibe generation'
+            });
+            setShowNotEnoughCreditsModal(true);
+            break; // Stop processing other images if credits are insufficient
+          }
+          
+          // Continue with other images even if one fails
+        }
+      }
+      
+      if (allNewVibes.length > 0) {
+        // Remove duplicates
+        const uniqueNewVibes = [...new Set(allNewVibes)];
+        
+        // Update the board with new vibes
+        const updatedMoodBoards = moodBoards.map(b => 
+          b.id === board.id 
+            ? { 
+                ...b, 
+                vibes: [...b.vibes, ...uniqueNewVibes],
+                vibeInputMethod: 'image'
+              }
+            : b
+        );
+        
+        setMoodBoards(updatedMoodBoards);
+        
+        // Emit credit update event to refresh credit display
+        creditEventEmitter.emit();
+        
+        const vibeText = uniqueNewVibes.length === 1 ? 'vibe' : 'vibes';
+        showSuccessToast(`Generated ${uniqueNewVibes.length} new ${vibeText} from all images!`);
+      } else {
+        showErrorToast('No new vibes could be generated from the images');
+      }
+    } catch (error) {
+      console.error('Error generating vibes from all images:', error);
+      showErrorToast('Failed to generate vibes from all images');
     } finally {
       setGeneratingVibes(false);
     }
@@ -717,6 +888,7 @@ export default function MoodBoardsPage() {
                       setMoodBoards(updatedBoards);
                     }}
                     onGenerateVibes={generateVibesFromImage}
+                    onExtractVibesFromAll={generateVibesFromAllImages}
                     onChooseVibe={() => setIsEditing(true)}
                     onEditVibes={() => setIsEditing(true)}
                     onEditBoardName={editMoodBoard}
@@ -828,6 +1000,31 @@ export default function MoodBoardsPage() {
             moodBoards={moodBoards}
             activeMoodBoard={activeMoodBoard}
             onUseInDraft={handleUseVibesInDraft}
+          />
+
+          {/* Loading Bar for Generate Vibes */}
+          <LoadingBar
+            description="Generating vibes from your image..."
+            isVisible={generatingVibes}
+            onComplete={() => {
+              // Credit update event is already emitted in generateVibesFromImage
+              console.log('Vibe generation completed');
+            }}
+          />
+
+          {/* Not Enough Credits Modal */}
+          <NotEnoughCreditsModal
+            isOpen={showNotEnoughCreditsModal}
+            onClose={() => setShowNotEnoughCreditsModal(false)}
+            requiredCredits={creditModalData.requiredCredits}
+            currentCredits={creditModalData.currentCredits}
+            feature={creditModalData.feature}
+            accountInfo={{
+              tier: 'Free', // Since we're using the free tier
+              dailyCredits: userCredits.monthlyCredits,
+              refreshTime: 'Daily at midnight'
+            }}
+            currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
           />
         </div>
       </div>

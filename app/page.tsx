@@ -42,6 +42,9 @@ import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import GmailReauthBanner from "../components/GmailReauthBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import type { TodoItem } from '../types/todo';
+import NotEnoughCreditsModal from "../components/NotEnoughCreditsModal";
+import { COUPLE_SUBSCRIPTION_CREDITS } from "../types/credits";
+import { useCredits } from "../hooks/useCredits";
 
 import { Contact } from "../types/contact";
 import { SimpleMessage } from "../types/message";
@@ -72,7 +75,7 @@ import EmojiPicker from '@/components/EmojiPicker';
 
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
-  <div className="space-y-2 animate-pulse">
+  <div className="space-y-2 animate-pulse p-4">
     {[...Array(5)].map((_, i) => (
       <div key={i} className="p-3 mb-3 rounded-[5px] border border-[#AB9C95] bg-gray-100">
         <div className="flex items-center gap-3">
@@ -174,6 +177,7 @@ export default function Home() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+  const { credits } = useCredits();
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
   const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
 
@@ -234,6 +238,30 @@ export default function Home() {
   
   // Gmail authentication state
   const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
+  
+  // Not enough credits modal state
+  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+  const [creditModalData, setCreditModalData] = useState({
+    requiredCredits: 1,
+    currentCredits: 0,
+    feature: 'draft messaging'
+  });
+  
+  // User credits info
+  const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free;
+  
+  // Wrapper function to handle credit errors for draft messaging
+  const handleGenerateDraftMessage = async (contact: { name: string; category: string }, messages: string[] = [], userId?: string, userData?: any) => {
+    return generateDraftMessage(contact, messages, userId, userData, (error) => {
+      // Handle credit error by showing the modal
+      setCreditModalData({
+        requiredCredits: 1, // Draft messaging costs 1 credit
+        currentCredits: 0,
+        feature: 'draft messaging'
+      });
+      setShowNotEnoughCreditsModal(true);
+    });
+  };
 
   // Effect to handle progressive loading
   useEffect(() => {
@@ -249,12 +277,17 @@ export default function Home() {
     }
   }, [initialContactLoadComplete, minLoadTimeReached]);
 
-  // Effect to finalize contactsLoading state
+  // Effect to finalize contactsLoading state - simplified to prevent race conditions
   useEffect(() => {
-    if (initialContactLoadComplete && minLoadTimeReached) {
-      setContactsLoading(false);
+    if (initialContactLoadComplete) {
+      // Add a small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        setContactsLoading(false);
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [initialContactLoadComplete, minLoadTimeReached]);
+  }, [initialContactLoadComplete]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -401,6 +434,7 @@ export default function Home() {
         if (isSubscribed) {
           console.error("page.tsx: Error fetching contacts:", error);
           setInitialContactLoadComplete(true);
+          setContactsLoading(false); // Ensure loading state is reset on error
           showErrorToast("Failed to load contacts.");
         }
       });
@@ -408,6 +442,7 @@ export default function Home() {
       if (isSubscribed) {
         setContacts([]);
         setSelectedContact(null);
+        setContactsLoading(false); // Ensure loading state is reset
         if (!authLoading && !user) {
           setInitialContactLoadComplete(true);
         }
@@ -961,7 +996,7 @@ export default function Home() {
               input={input}
               setInput={setInput}
               draftLoading={draftLoading}
-              generateDraftMessage={generateDraftMessage}
+              generateDraftMessage={handleGenerateDraftMessage}
               selectedFiles={selectedFiles}
               setSelectedFiles={setSelectedFiles}
               setIsEditing={setIsEditing}
@@ -1049,6 +1084,20 @@ export default function Home() {
           {isMobile && user && (
             <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
           )}
+          
+          {/* Not Enough Credits Modal */}
+          <NotEnoughCreditsModal
+            isOpen={showNotEnoughCreditsModal}
+            onClose={() => setShowNotEnoughCreditsModal(false)}
+            requiredCredits={creditModalData.requiredCredits}
+            currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
+            feature={creditModalData.feature}
+            accountInfo={{
+              tier: 'Free',
+              dailyCredits: userCredits.monthlyCredits,
+              refreshTime: 'Daily at midnight'
+            }}
+          />
         </>
       )}
 
