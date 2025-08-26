@@ -111,7 +111,7 @@ const VendorIntegrationModal: React.FC<VendorIntegrationModalProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-[#332B42]">{vendor.name}</h4>
+                        <h6 className="h6">{vendor.name}</h6>
                         <p className="text-sm text-[#AB9C95]">${vendor.price.toLocaleString()}</p>
                       </div>
                       {selectedVendor?.id === vendor.id && (

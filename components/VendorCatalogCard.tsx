@@ -241,7 +241,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       
       <div className="flex-1 w-full flex flex-col justify-between">
         <div>
-          <h5 className="mb-1" style={{ fontFamily: 'Playfair Display, serif', fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.5, color: '#332B42' }}>{vendor.name}</h5>
+          <h6 className="h6 mb-1">{vendor.name}</h6>
           <div className="flex items-center gap-1 text-xs mb-1">
             <Star className="w-3 h-3 text-yellow-500 fill-current" />
             <span className="text-[#A85C36]">{vendor.rating}</span>

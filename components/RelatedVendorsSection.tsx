@@ -258,7 +258,7 @@ export default function RelatedVendorsSection({
               {/* Vendor Info - Unique layout */}
               <div className="p-5">
                 {/* Vendor Name - Larger, more prominent */}
-                <h6 className="mb-1 line-clamp-3" style={{ fontFamily: 'Playfair Display, serif', fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.5, color: '#332B42' }}>
+                <h6 className="h6 mb-1 line-clamp-3">
                   {vendor.name}
                 </h6>
                 

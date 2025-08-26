@@ -92,6 +92,13 @@ export const generateVendorHubBreadcrumbs = (): BreadcrumbItem[] => {
   ];
 };
 
+// Generate seating charts breadcrumbs
+export const generateSeatingChartsBreadcrumbs = (): BreadcrumbItem[] => {
+  return [
+    { label: 'Seating Charts', isCurrent: true }
+  ];
+};
+
 // Clear breadcrumb cache
 export const clearBreadcrumbCache = (): void => {
   breadcrumbCache.clear();

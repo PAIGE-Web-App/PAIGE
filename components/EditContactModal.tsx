@@ -462,7 +462,7 @@ export default function EditContactModal({
               ) : selectedVendor ? (
                 <div className="p-3 bg-gray-50 border border-[#AB9C95] rounded-[5px]">
                   <div className="flex items-center justify-between mb-2">
-                    <h6 className="m-0">{selectedVendor.name}</h6>
+                    <h6 className="h6 m-0">{selectedVendor.name}</h6>
                     <button
                       onClick={() => setSelectedVendor(null)}
                       className="text-gray-500 hover:text-gray-700 p-1"

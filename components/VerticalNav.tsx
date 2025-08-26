@@ -45,6 +45,7 @@ export default function VerticalNav() {
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
+    { name: "Seating Charts", href: "/seating-charts", icon: Users },
     { name: "Files", href: "/files", icon: FileText },
     { name: "Mood Boards", href: "/moodboards", icon: Heart },
   ];

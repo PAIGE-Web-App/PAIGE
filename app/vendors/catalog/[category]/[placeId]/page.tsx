@@ -50,7 +50,7 @@ export default function VendorCatalogDetailsPage() {
               <img src={vendor.photos && vendor.photos.length > 0 ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${vendor.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}` : '/Venue.png'} alt={vendor.name} className="h-60 object-contain" />
             </div>
             <div className="mb-4">
-              <h2 className="text-2xl font-playfair font-medium text-[#332B42] mb-1">{vendor.name}</h2>
+              <h6 className="h6 mb-1">{vendor.name}</h6>
               <div className="flex items-center gap-2 text-sm text-[#332B42] mb-1">
                 <span><MapPin className="w-3 h-3 text-[#A85C36] inline mr-1" />{vendor.formatted_address}</span>
                 <span className="text-[#A85C36]"><Star className="w-3 h-3 text-yellow-500 fill-current" /> {vendor.rating} ({vendor.user_ratings_total})</span>

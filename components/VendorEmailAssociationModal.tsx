@@ -268,7 +268,7 @@ export default function VendorEmailAssociationModal({
             {vendor && (
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h4 className="font-medium text-gray-900 mb-2">Vendor Information</h4>
-                <p className="font-medium text-gray-900">{vendor.name}</p>
+                <h6 className="h6">{vendor.name}</h6>
                 <p className="text-sm text-gray-600">{vendor.formatted_address}</p>
                 <p className="text-sm text-gray-600">{getVendorCategory(vendor)}</p>
               </div>

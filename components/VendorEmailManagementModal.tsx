@@ -206,7 +206,7 @@ export default function VendorEmailManagementModal({
                 <h3 className="text-lg font-playfair font-semibold text-[#332B42]">
                   Manage Vendor Emails
                 </h3>
-                <p className="text-sm text-gray-600 mt-1">{vendor?.name}</p>
+                <h6 className="h6 mt-1">{vendor?.name}</h6>
               </div>
               <button
                 onClick={onClose}

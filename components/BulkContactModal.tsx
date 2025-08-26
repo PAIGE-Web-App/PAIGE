@@ -177,7 +177,7 @@ Best regards,
                             <span className="text-white text-sm font-medium">{index + 1}</span>
                           </div>
                           <div className="flex-1">
-                            <div className="font-medium text-[#332B42] text-sm">{vendor.name}</div>
+                            <h6 className="h6">{vendor.name}</h6>
                             <div className="text-xs text-[#AB9C95]">
                               {vendor.formatted_phone_number && `📞 ${vendor.formatted_phone_number}`}
                               {vendor.website && ` 🌐 Website available`}
