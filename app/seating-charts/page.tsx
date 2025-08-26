@@ -265,17 +265,23 @@ export default function SeatingChartsPage() {
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <img 
+                  src="/SeatingArrangement.png" 
+                  alt="Seating Arrangement" 
+                  className="w-40 mx-auto mb-4"
+                />
                 <h2 className="h4 text-[#332B42] mb-2">Welcome to Seating Charts</h2>
                 <p className="text-[#AB9C95] mb-6">
                   Create and manage seating arrangements for your wedding events
                 </p>
-                <button
-                  onClick={handleCreateChart}
-                  className="btn-primary"
-                >
-                  Create Your First Chart
-                </button>
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleCreateChart}
+                    className="btn-primary"
+                  >
+                    Create Your First Chart
+                  </button>
+                </div>
               </div>
             </div>
           )}

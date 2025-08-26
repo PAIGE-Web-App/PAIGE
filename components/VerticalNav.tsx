@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   Bell,
-  Sparkles
+  Sparkles,
+  Armchair
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,7 +46,7 @@ export default function VerticalNav() {
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
-    { name: "Seating Charts", href: "/seating-charts", icon: Users },
+    { name: "Seating Charts", href: "/seating-charts", icon: Armchair },
     { name: "Files", href: "/files", icon: FileText },
     { name: "Mood Boards", href: "/moodboards", icon: Heart },
   ];
