@@ -9,17 +9,10 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import Banner from '@/components/Banner';
+import { CSVUploadModal } from '@/components/seating-charts';
+import { Guest } from '@/types/seatingChart';
 
-interface SeatingChart {
-  id: string;
-  name: string;
-  eventType: string;
-  createdAt: Date;
-  updatedAt: Date;
-  guestCount: number;
-  tableCount: number;
-  isActive: boolean;
-}
+import { SeatingChart } from '@/types/seatingChart';
 
 export default function SeatingChartsPage() {
   const { user } = useAuth();
@@ -29,8 +22,10 @@ export default function SeatingChartsPage() {
   
   const [seatingCharts, setSeatingCharts] = useState<SeatingChart[]>([]);
   const [selectedChart, setSelectedChart] = useState<SeatingChart | null>(null);
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCSVUploadModal, setShowCSVUploadModal] = useState(false);
 
   // Mock data for now - we'll replace with real data later
   useEffect(() => {
@@ -71,6 +66,11 @@ export default function SeatingChartsPage() {
 
   const handleBackToOverview = () => {
     setSelectedChart(null);
+  };
+
+  const handleGuestsUploaded = (uploadedGuests: Guest[]) => {
+    setGuests(uploadedGuests);
+    showSuccessToast(`Successfully imported ${uploadedGuests.length} guests!`);
   };
 
   if (!user) {
@@ -216,6 +216,43 @@ export default function SeatingChartsPage() {
                   <p className="text-[#AB9C95] mb-6">
                     This is where the interactive seating chart will be built
                   </p>
+                  
+                  {/* Guest Management Section */}
+                  <div className="max-w-md mx-auto mb-8">
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                      <h3 className="h6 text-[#332B42] mb-3">Guest List</h3>
+                      {guests.length === 0 ? (
+                        <div className="text-center">
+                          <p className="text-sm text-[#AB9C95] mb-4">No guests uploaded yet</p>
+                          <button
+                            onClick={() => setShowCSVUploadModal(true)}
+                            className="btn-primary"
+                          >
+                            Upload Guest List
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <p className="text-sm text-[#AB9C95] mb-4">{guests.length} guests uploaded</p>
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => setShowCSVUploadModal(true)}
+                              className="btn-primaryinverse text-sm"
+                            >
+                              Add More Guests
+                            </button>
+                            <button
+                              onClick={() => setGuests([])}
+                              className="btn-primaryinverse text-sm text-red-600 hover:text-red-700"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
                   <div className="flex items-center justify-center gap-4 text-sm text-[#7A7A7A]">
                     <span>• Upload guest list</span>
                     <span>• Design table layout</span>
@@ -270,6 +307,13 @@ export default function SeatingChartsPage() {
           </div>
         </div>
       )}
+
+      {/* CSV Upload Modal */}
+      <CSVUploadModal
+        isOpen={showCSVUploadModal}
+        onClose={() => setShowCSVUploadModal(false)}
+        onGuestsUploaded={handleGuestsUploaded}
+      />
     </div>
   );
 }
