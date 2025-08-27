@@ -135,6 +135,8 @@ export default function VisualTableLayout({
 }: VisualTableLayoutProps) {
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [draggedTable, setDraggedTable] = useState<string | null>(null);
+  const [editingTable, setEditingTable] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [tablePositions, setTablePositions] = useState<TablePosition[]>(() => {
     // Initialize table positions in a grid layout
     return tableLayout.tables.map((table, index) => ({
@@ -188,6 +190,30 @@ export default function VisualTableLayout({
     setTablePositions(prev => prev.filter(p => p.id !== tableId));
   };
 
+  const startEditing = (table: TableType) => {
+    setEditingTable(table.id);
+    setEditingValues({
+      name: table.name,
+      description: table.description || ''
+    });
+  };
+
+  const saveEditing = (tableId: string) => {
+    if (editingValues.name.trim()) {
+      updateTable(tableId, {
+        name: editingValues.name.trim(),
+        description: editingValues.description.trim() || undefined
+      });
+    }
+    setEditingTable(null);
+    setEditingValues({ name: '', description: '' });
+  };
+
+  const cancelEditing = () => {
+    setEditingTable(null);
+    setEditingValues({ name: '', description: '' });
+  };
+
   const getTableShape = (type: string) => {
     return TABLE_SHAPES[type as keyof typeof TABLE_SHAPES] || TABLE_SHAPES.round;
   };
@@ -215,6 +241,7 @@ export default function VisualTableLayout({
         onDragEnd={(_, info) => handleDragEnd(table.id, info)}
         onHoverStart={() => setHoveredTable(table.id)}
         onHoverEnd={() => setHoveredTable(null)}
+        onDoubleClick={() => startEditing(table)}
         className="absolute cursor-move"
         style={{
           left: position.x - shape.width / 2,
@@ -237,10 +264,31 @@ export default function VisualTableLayout({
         >
           {/* Table Label */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="font-semibold text-[#332B42] text-sm">{table.name}</div>
-              <div className="text-xs text-[#AB9C95]">{table.type}</div>
-            </div>
+            {editingTable === table.id ? (
+              <div className="text-center w-full px-2">
+                <input
+                  type="text"
+                  value={editingValues.name}
+                  onChange={(e) => setEditingValues(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full text-center font-semibold text-[#332B42] text-sm bg-transparent border-none outline-none focus:ring-0"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      saveEditing(table.id);
+                    } else if (e.key === 'Escape') {
+                      cancelEditing();
+                    }
+                  }}
+                  onBlur={() => saveEditing(table.id)}
+                />
+                <div className="text-xs text-[#AB9C95] mt-1">{table.type}</div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="font-semibold text-[#332B42] text-sm">{table.name}</div>
+                <div className="text-xs text-[#AB9C95]">{table.type}</div>
+              </div>
+            )}
           </div>
 
           {/* Seat Indicators */}
@@ -263,8 +311,15 @@ export default function VisualTableLayout({
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white border border-[#AB9C95] rounded-lg shadow-lg p-2 flex gap-2"
+              className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-white border border-[#AB9C95] rounded-lg shadow-lg p-2 flex gap-2"
             >
+              <button
+                onClick={() => startEditing(table)}
+                className="p-1 hover:bg-[#F3F2F0] rounded text-[#AB9C95] hover:text-[#332B42]"
+                title="Edit table name"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => updateTable(table.id, { 
                   capacity: Math.max(4, table.capacity - 1) 
@@ -358,7 +413,7 @@ export default function VisualTableLayout({
 
         {/* Canvas Instructions */}
         <div className="mt-4 text-center text-sm text-[#AB9C95]">
-          <p>💡 <strong>Tip:</strong> Drag tables to rearrange • Hover over tables to edit • Each dot represents a seat</p>
+          <p>💡 <strong>Tip:</strong> Drag tables to rearrange • Hover over tables to edit • Double-click table names to edit • Each dot represents a seat</p>
         </div>
       </div>
 
