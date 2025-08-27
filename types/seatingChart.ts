@@ -1,22 +1,29 @@
 export interface Guest {
   id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  dietaryRestrictions?: string[];
-  plusOne?: boolean;
-  plusOneName?: string;
-  familyGroup?: string;
-  friendGroup?: string;
-  workGroup?: string;
-  highSchoolGroup?: string;
-  collegeGroup?: string;
-  otherGroups?: string[];
-  notes?: string;
-  isAttending: boolean;
-  rsvpStatus: 'pending' | 'confirmed' | 'declined';
-  assignedTableId?: string;
-  assignedSeatNumber?: number;
+  firstName: string;
+  lastName: string;
+  mealPreference?: string;
+  relationship?: string;
+  // Dynamic custom fields
+  customFields: Record<string, string>;
+  // Legacy fields for backward compatibility
+  tableId?: string | null;
+  seatNumber?: number | null;
+}
+
+export interface GuestColumn {
+  id: string;
+  key: string;
+  label: string;
+  type: 'text' | 'select' | 'number';
+  options?: string[]; // For select type
+  isRequired: boolean;
+  isEditable: boolean;
+  isRemovable: boolean;
+  order: number;
+  // Inline editing support
+  isEditing?: boolean;
+  editingLabel?: string;
 }
 
 export interface Table {

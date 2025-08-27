@@ -1,1 +1,10 @@
 export { default as CSVUploadModal } from './CSVUploadModal';
+export { default as SeatingChartWizardModal } from './SeatingChartWizardModal';
+export { default as WizardSidebar } from './WizardSidebar';
+export { default as ChartDetailsForm } from './ChartDetailsForm';
+export { default as WizardFooter } from './WizardFooter';
+export { default as AddColumnModal } from './AddColumnModal';
+export { default as MealOptionsModal } from './MealOptionsModal';
+export { default as GuestListTable } from './GuestListTable';
+export { default as GuestTableHeader } from './GuestTableHeader';
+export { default as GuestTableRow } from './GuestTableRow';

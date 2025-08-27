@@ -9,7 +9,7 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import Banner from '@/components/Banner';
-import { CSVUploadModal } from '@/components/seating-charts';
+import { CSVUploadModal, SeatingChartWizardModal } from '@/components/seating-charts';
 import { Guest, SeatingChart } from '@/types/seatingChart';
 
 export default function SeatingChartsPage() {
@@ -24,6 +24,7 @@ export default function SeatingChartsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCSVUploadModal, setShowCSVUploadModal] = useState(false);
+  const [showWizardModal, setShowWizardModal] = useState(false);
 
   // Initialize with empty state
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function SeatingChartsPage() {
   }, []);
 
   const handleCreateChart = () => {
-    setShowCreateModal(true);
+    setShowWizardModal(true);
   };
 
   const handleChartSelect = (chart: SeatingChart) => {
@@ -75,17 +76,18 @@ export default function SeatingChartsPage() {
             <img 
               src="/SeatingArrangement.png" 
               alt="Seating Arrangement" 
-              className="w-40 mx-auto mb-4"
+              className="w-48 mx-auto mb-4"
             />
-            <h2 className="h4 text-[#332B42] mb-2">Welcome to Seating Charts</h2>
-            <p className="text-[#AB9C95] mb-6">
+            <h2 className="h3 text-[#332B42] mb-2">Welcome to Seating Charts</h2>
+            <p className="font-work-sans text-[#332B42] mb-6">
               Create and manage seating arrangements for your wedding events
             </p>
             <div className="flex justify-center">
               <button
                 onClick={handleCreateChart}
-                className="btn-primary"
+                className="btn-primary flex items-center gap-2"
               >
+                <Plus className="w-4 h-4" />
                 Create Your First Chart
               </button>
             </div>
@@ -271,37 +273,22 @@ export default function SeatingChartsPage() {
         </div>
       )}
 
-      {/* Create Chart Modal - We'll build this next */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-[5px] p-6 max-w-md w-full mx-4">
-            <h3 className="h4 text-[#332B42] mb-4">Create New Seating Chart</h3>
-            <p className="text-sm text-[#AB9C95] mb-6">
-              This modal will be built in the next step
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="btn-primaryinverse flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="btn-primary flex-1"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CSV Upload Modal */}
       <CSVUploadModal
         isOpen={showCSVUploadModal}
         onClose={() => setShowCSVUploadModal(false)}
         onGuestsUploaded={handleGuestsUploaded}
+      />
+
+      {/* Seating Chart Wizard Modal */}
+      <SeatingChartWizardModal
+        isOpen={showWizardModal}
+        onClose={() => setShowWizardModal(false)}
+        onChartCreated={(chart) => {
+          // TODO: Handle chart creation
+          setShowWizardModal(false);
+          showSuccessToast('Seating chart created successfully!');
+        }}
       />
     </div>
   );

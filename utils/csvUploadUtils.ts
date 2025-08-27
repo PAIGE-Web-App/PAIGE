@@ -1,4 +1,4 @@
-import { Guest, CSVUploadResult, GUEST_ATTRIBUTES } from '@/types/seatingChart';
+import { Guest, CSVUploadResult, GUEST_ATTRIBUTES } from '../types/seatingChart';
 
 export interface CSVColumnMapping {
   name: string;
@@ -144,8 +144,7 @@ function parseGuestFromRow(
 ): Guest | null {
   const guest: Partial<Guest> = {
     id: generateGuestId(),
-    isAttending: true,
-    rsvpStatus: 'pending'
+    customFields: {}
   };
 
   // Map each column
@@ -164,75 +163,49 @@ function parseGuestFromRow(
           if (!value) {
             throw new Error('Name is required');
           }
-          guest.name = value;
-          break;
-          
-        case 'email':
-          guest.email = value || undefined;
-          break;
-          
-        case 'phone':
-          guest.phone = value || undefined;
+          // Split name into firstName and lastName
+          const nameParts = value.split(' ');
+          if (nameParts.length >= 2) {
+            guest.firstName = nameParts[0];
+            guest.lastName = nameParts.slice(1).join(' ');
+          } else {
+            guest.firstName = value;
+            guest.lastName = '';
+          }
           break;
           
         case 'dietaryRestrictions':
           if (value) {
-            guest.dietaryRestrictions = value
-              .split(';')
-              .map(d => d.trim())
-              .filter(d => d && GUEST_ATTRIBUTES.dietaryRestrictions.includes(d));
+            guest.mealPreference = value;
           }
           break;
           
-        case 'plusOne':
-          guest.plusOne = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
-          break;
-          
-        case 'plusOneName':
-          guest.plusOneName = value || undefined;
-          break;
-          
         case 'familyGroup':
-          guest.familyGroup = value || undefined;
-          break;
-          
         case 'friendGroup':
-          guest.friendGroup = value || undefined;
-          break;
-          
         case 'workGroup':
-          guest.workGroup = value || undefined;
-          break;
-          
         case 'highSchoolGroup':
-          guest.highSchoolGroup = value || undefined;
-          break;
-          
         case 'collegeGroup':
-          guest.collegeGroup = value || undefined;
-          break;
-          
         case 'otherGroups':
           if (value) {
-            guest.otherGroups = value
-              .split(';')
-              .map(g => g.trim())
-              .filter(g => g);
+            guest.relationship = value;
           }
           break;
           
         case 'notes':
-          guest.notes = value || undefined;
+          if (value && guest.customFields) {
+            guest.customFields.notes = value;
+          }
           break;
           
+        case 'email':
+        case 'phone':
+        case 'plusOne':
+        case 'plusOneName':
         case 'isAttending':
-          guest.isAttending = value.toLowerCase() !== 'no' && value.toLowerCase() !== 'false';
-          break;
-          
         case 'rsvpStatus':
-          const status = value.toLowerCase();
-          if (GUEST_ATTRIBUTES.rsvpStatuses.includes(status as any)) {
-            guest.rsvpStatus = status as 'pending' | 'confirmed' | 'declined';
+          // Store these in customFields for now
+          if (value && guest.customFields) {
+            guest.customFields[key] = value;
           }
           break;
       }
@@ -240,8 +213,8 @@ function parseGuestFromRow(
   });
 
   // Validate required fields
-  if (!guest.name) {
-    throw new Error('Name is required');
+  if (!guest.firstName) {
+    throw new Error('First name is required');
   }
 
   return guest as Guest;
@@ -279,20 +252,23 @@ export function generateCSVTemplate(): string {
 export function validateGuest(guest: Guest): string[] {
   const errors: string[] = [];
   
-  if (!guest.name.trim()) {
-    errors.push('Name is required');
+  if (!guest.firstName?.trim()) {
+    errors.push('First name is required');
   }
   
-  if (guest.email && !isValidEmail(guest.email)) {
-    errors.push('Invalid email format');
-  }
-  
-  if (guest.phone && !isValidPhone(guest.phone)) {
-    errors.push('Invalid phone format');
-  }
-  
-  if (guest.plusOne && !guest.plusOneName) {
-    errors.push('Plus one name is required when plus one is enabled');
+  // Check customFields for additional validation
+  if (guest.customFields) {
+    if (guest.customFields.email && !isValidEmail(guest.customFields.email)) {
+      errors.push('Invalid email format');
+    }
+    
+    if (guest.customFields.phone && !isValidPhone(guest.customFields.phone)) {
+      errors.push('Invalid phone format');
+    }
+    
+    if (guest.customFields.plusOne === 'true' && !guest.customFields.plusOneName) {
+      errors.push('Plus one name is required when plus one is enabled');
+    }
   }
   
   return errors;

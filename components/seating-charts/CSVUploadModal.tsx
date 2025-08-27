@@ -2,8 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Download, X, AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { Guest, CSVUploadResult } from '@/types/seatingChart';
-import { parseCSVFile, generateCSVTemplate, CSVColumnMapping, DEFAULT_CSV_MAPPING } from '@/utils/csvUploadUtils';
+import { Guest, CSVUploadResult } from '../../types/seatingChart';
+import { parseCSVFile, generateCSVTemplate, CSVColumnMapping, DEFAULT_CSV_MAPPING } from '../../utils/csvUploadUtils';
 
 interface CSVUploadModalProps {
   isOpen: boolean;
@@ -251,9 +251,9 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                       {uploadResult.guests.slice(0, 5).map((guest) => (
                         <div key={guest.id} className="flex items-center gap-3 text-sm">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="font-medium">{guest.name}</span>
-                          {guest.familyGroup && (
-                            <span className="text-[#AB9C95]">({guest.familyGroup})</span>
+                          <span className="font-medium">{guest.firstName} {guest.lastName}</span>
+                          {guest.relationship && (
+                            <span className="text-[#AB9C95]">({guest.relationship})</span>
                           )}
                         </div>
                       ))}
