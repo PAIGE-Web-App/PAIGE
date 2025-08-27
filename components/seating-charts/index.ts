@@ -8,3 +8,6 @@ export { default as MealOptionsModal } from './MealOptionsModal';
 export { default as GuestListTable } from './GuestListTable';
 export { default as GuestTableHeader } from './GuestTableHeader';
 export { default as GuestTableRow } from './GuestTableRow';
+export { default as TableLayoutStep } from './TableLayoutStep';
+export { default as AIOrganizationStep } from './AIOrganizationStep';
+export { default as VisualTableLayout } from './VisualTableLayout';

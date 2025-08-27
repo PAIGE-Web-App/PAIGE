@@ -11,7 +11,9 @@ import {
   GuestListTable,
   WizardFooter,
   AddColumnModal,
-  MealOptionsModal
+  MealOptionsModal,
+  TableLayoutStep,
+  AIOrganizationStep
 } from './index';
 import { WizardState, Guest, GuestColumn } from './types';
 
@@ -279,6 +281,48 @@ export default function SeatingChartWizardModal({
     }
   };
 
+  // Create final seating chart
+  const handleCreateChart = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Create the seating chart object
+      const seatingChart: SeatingChart = {
+        id: `chart-${Date.now()}`,
+        name: wizardState.chartName,
+        eventType: wizardState.eventType,
+        description: wizardState.description,
+        guestCount: wizardState.guests.length,
+        tableCount: wizardState.tableLayout.tables.length,
+        tables: wizardState.tableLayout.tables.map(table => ({
+          id: table.id,
+          name: table.name,
+          type: table.type,
+          capacity: table.capacity,
+          position: { x: 0, y: 0 }, // Default position
+          guests: [], // No guests assigned yet
+          isActive: true
+        })),
+        guests: wizardState.guests,
+        seatingRules: [], // Will be populated based on organization choice
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+        isTemplate: false
+      };
+
+      // Call the callback to handle the created chart
+      onChartCreated(seatingChart);
+      
+      showSuccessToast('Seating chart created successfully!');
+      onClose();
+    } catch (error) {
+      showErrorToast('Failed to create seating chart');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Navigation functions
   const goToStep = (step: WizardStep) => {
     setWizardState(prev => ({ ...prev, currentStep: step }));
@@ -420,25 +464,34 @@ export default function SeatingChartWizardModal({
                   </div>
                 )}
 
-                {/* Step 2: Table Layout - Placeholder */}
+                {/* Step 2: Table Layout */}
                 {wizardState.currentStep === 'tables' && (
                   <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6">
-                    <div className="text-center py-12">
-                      <p className="text-[#AB9C95]">
-                        Table Layout step will be implemented next
-                      </p>
-                    </div>
+                    <TableLayoutStep
+                      tableLayout={wizardState.tableLayout}
+                      onUpdate={(updates) => setWizardState(prev => ({ 
+                        ...prev, 
+                        tableLayout: updates 
+                      }))}
+                      guestCount={wizardState.guests.length}
+                    />
                   </div>
                 )}
 
-                {/* Step 3: AI Organization - Placeholder */}
+                {/* Step 3: AI Organization */}
                 {wizardState.currentStep === 'organization' && (
                   <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6">
-                    <div className="text-center py-12">
-                      <p className="text-[#AB9C95]">
-                        AI Organization step will be implemented next
-                      </p>
-                    </div>
+                    <AIOrganizationStep
+                      guests={wizardState.guests}
+                      tableLayout={wizardState.tableLayout}
+                      organizationChoice={wizardState.organizationChoice}
+                      onUpdate={(choice) => setWizardState(prev => ({ 
+                        ...prev, 
+                        organizationChoice: choice 
+                      }))}
+                      onChartCreated={handleCreateChart}
+                      isLoading={isLoading}
+                    />
                   </div>
                 )}
               </div>
