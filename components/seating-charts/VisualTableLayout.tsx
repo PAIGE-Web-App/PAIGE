@@ -137,16 +137,71 @@ export default function VisualTableLayout({
   const [draggedTable, setDraggedTable] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<{ name: string; description: string }>({ name: '', description: '' });
+  
+  // Pan and zoom state
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isPanning, setIsPanning] = useState(false);
+  
   const [tablePositions, setTablePositions] = useState<TablePosition[]>(() => {
-    // Initialize table positions in a grid layout
-    return tableLayout.tables.map((table, index) => ({
-      id: table.id,
-      x: (index % 3) * 200 + 100,
-      y: Math.floor(index / 3) * 200 + 100
-    }));
+    // Initialize table positions with sweetheart table at bottom center
+    return tableLayout.tables.map((table, index) => {
+      if (table.isDefault) {
+        // Sweetheart table at bottom center within canvas bounds
+        return {
+          id: table.id,
+          x: 400, // Center of initial view
+          y: 250   // Center of initial view
+        };
+      } else {
+        // Other tables in a grid layout - allow wider spacing
+        return {
+          id: table.id,
+          x: (index % 4) * 300 + 100,
+          y: Math.floor(index / 4) * 300 + 100
+        };
+      }
+    });
   });
 
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Pan and zoom handlers
+  const handleCanvasPan = useCallback((e: React.MouseEvent) => {
+    if (e.buttons === 1 && !draggedTable) { // Left mouse button
+      setIsPanning(true);
+    }
+  }, [draggedTable]);
+
+  // Handle mouse move for panning
+  const handleCanvasPanMove = useCallback((e: React.MouseEvent) => {
+    if (e.buttons === 1 && !draggedTable) { // Left mouse button
+      setCanvasTransform(prev => ({
+        ...prev,
+        x: prev.x + e.movementX,
+        y: prev.y + e.movementY
+      }));
+    }
+  }, [draggedTable]);
+
+  const handleCanvasPanEnd = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    // Only zoom if Ctrl/Cmd key is pressed (standard zoom behavior)
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+              const newScale = Math.max(0.3, Math.min(2.0, canvasTransform.scale * delta));
+      
+      setCanvasTransform(prev => ({
+        ...prev,
+        scale: newScale
+      }));
+    }
+  }, [canvasTransform.scale]);
+
+
 
   // Update positions when tables change
   React.useEffect(() => {
@@ -154,23 +209,49 @@ export default function VisualTableLayout({
     const existingPositions = tablePositions.filter(p => currentIds.includes(p.id));
     const newPositions = tableLayout.tables
       .filter(t => !tablePositions.find(p => p.id === t.id))
-      .map((table, index) => ({
-        id: table.id,
-        x: (existingPositions.length + index) % 3 * 200 + 100,
-        y: Math.floor((existingPositions.length + index) / 3) * 200 + 100
-      }));
+      .map((table, index) => {
+        if (table.isDefault) {
+          // Sweetheart table at center
+          return {
+            id: table.id,
+            x: 400, // Center of initial view
+            y: 250   // Center of initial view
+          };
+        } else {
+          // Other tables in a grid layout - allow wider spacing
+          const baseX = (existingPositions.length + index) % 4 * 300 + 100;
+          const baseY = Math.floor((existingPositions.length + index) / 4) * 300 + 100;
+          return {
+            id: table.id,
+            x: baseX,
+            y: baseY
+          };
+        }
+      });
     
     setTablePositions([...existingPositions, ...newPositions]);
   }, [tableLayout.tables.length]);
 
+
+
   const handleDragEnd = useCallback((tableId: string, info: PanInfo) => {
     setDraggedTable(null);
     
-    setTablePositions(prev => prev.map(pos => 
-      pos.id === tableId 
-        ? { ...pos, x: pos.x + info.offset.x, y: pos.y + info.offset.y }
-        : pos
-    ));
+    setTablePositions(prev => prev.map(pos => {
+      if (pos.id === tableId) {
+        // Calculate new position
+        const newX = pos.x + info.offset.x;
+        const newY = pos.y + info.offset.y;
+        
+        // Allow tables to be placed anywhere on the infinite grid, but with reasonable bounds
+        const maxDistance = 2000; // Maximum distance from center
+        const constrainedX = Math.max(-maxDistance, Math.min(maxDistance, newX));
+        const constrainedY = Math.max(-maxDistance, Math.min(maxDistance, newY));
+        
+        return { ...pos, x: constrainedX, y: constrainedY };
+      }
+      return pos;
+    }));
   }, []);
 
   const updateTable = (tableId: string, updates: Partial<TableType>) => {
@@ -246,12 +327,19 @@ export default function VisualTableLayout({
         style={{
           left: position.x - shape.width / 2,
           top: position.y - shape.height / 2,
-          zIndex: draggedTable === table.id ? 10 : 1
+          zIndex: draggedTable === table.id ? 10 : 1,
+          transform: `scale(${1 / canvasTransform.scale})`, // Counter-scale tables to maintain size
+          maxWidth: `${shape.width}px`,
+          maxHeight: `${shape.height}px`
         }}
       >
         {/* Table Shape */}
         <motion.div
-          className={`bg-white border-2 border-[#AB9C95] shadow-md relative ${
+          className={`relative shadow-md ${
+            table.isDefault 
+              ? 'bg-gradient-to-br from-pink-50 to-purple-50 border-2 border-pink-300' 
+              : 'bg-white border-2 border-[#AB9C95]'
+          } ${
             hoveredTable === table.id ? 'border-[#A85C36] shadow-lg' : ''
           }`}
           style={{
@@ -287,6 +375,9 @@ export default function VisualTableLayout({
               <div className="text-center">
                 <div className="font-semibold text-[#332B42] text-sm">{table.name}</div>
                 <div className="text-xs text-[#AB9C95]">{table.type}</div>
+                {table.isDefault && (
+                  <div className="text-xs text-pink-600 font-medium mt-1">💕 Sweetheart</div>
+                )}
               </div>
             )}
           </div>
@@ -341,13 +432,15 @@ export default function VisualTableLayout({
               >
                 +
               </button>
-              <button
-                onClick={() => removeTable(table.id)}
-                className="p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
-                title="Remove table"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {!table.isDefault && (
+                <button
+                  onClick={() => removeTable(table.id)}
+                  className="p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                  title="Remove table"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </motion.div>
           )}
         </motion.div>
@@ -357,63 +450,57 @@ export default function VisualTableLayout({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Visual Table Layout</h3>
-          <p className="text-sm text-[#AB9C95]">
-            Drag tables to arrange them, hover to edit capacities
-          </p>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-2xl font-bold text-[#332B42]">{tableLayout.tables.length}</div>
-          <div className="text-sm text-[#AB9C95]">Total Tables</div>
-        </div>
-        <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-2xl font-bold text-[#332B42]">{tableLayout.totalCapacity}</div>
-          <div className="text-sm text-[#AB9C95]">Total Capacity</div>
-        </div>
-        <div className={`rounded-[5px] p-4 text-center ${
-          guestCount > tableLayout.totalCapacity ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
-        }`}>
-          <div className={`text-2xl font-bold ${guestCount > tableLayout.totalCapacity ? 'text-red-600' : 'text-green-600'}`}>
-            {guestCount > tableLayout.totalCapacity ? '⚠️' : '✅'}
-          </div>
-          <div className={`text-sm ${guestCount > tableLayout.totalCapacity ? 'text-red-700' : 'text-green-700'}`}>
-            {guestCount > tableLayout.totalCapacity ? `${Math.abs(guestCount - tableLayout.totalCapacity)} Over` : 'Perfect Fit'}
-          </div>
-        </div>
-      </div>
 
-      {/* Visual Canvas */}
+
+
+      {/* Visual Canvas Container */}
       <div className="relative">
-        <div 
-          ref={canvasRef}
-          className="bg-[#F8F6F4] border-2 border-dashed border-[#E0DBD7] rounded-[5px] min-h-[600px] relative overflow-hidden"
-          style={{ backgroundImage: 'radial-gradient(circle, #E0DBD7 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-        >
-          {tableLayout.tables.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-4">🪑</div>
-                <p className="text-[#AB9C95] mb-2">No tables configured yet</p>
-                <p className="text-sm text-[#AB9C95]">
-                  Add tables to see them appear here
-                </p>
-              </div>
-            </div>
-          ) : (
-            tableLayout.tables.map(table => renderTable(table))
-          )}
+        {/* Canvas Controls */}
+        <div className="mb-4">
+          <div className="text-sm text-[#AB9C95]">
+            💡 <strong>Tip:</strong> Drag tables to rearrange • Hover to edit • Double-click names • Drag background to pan • Ctrl+Scroll to zoom
+          </div>
         </div>
-
-        {/* Canvas Instructions */}
-        <div className="mt-4 text-center text-sm text-[#AB9C95]">
-          <p>💡 <strong>Tip:</strong> Drag tables to rearrange • Hover over tables to edit • Double-click table names to edit • Each dot represents a seat</p>
+        
+        {/* Canvas with edge-to-edge container */}
+        <div className="relative w-full overflow-hidden" style={{ height: '500px' }}>
+          <div 
+            ref={canvasRef}
+            className="bg-[#F8F6F4] border-2 border-dashed border-[#E0DBD7] rounded-[5px] w-full h-full relative cursor-grab active:cursor-grabbing"
+            style={{ 
+              backgroundImage: 'radial-gradient(circle, #E0DBD7 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }}
+            onMouseDown={handleCanvasPan}
+            onMouseMove={handleCanvasPanMove}
+            onMouseUp={handleCanvasPanEnd}
+            onMouseLeave={handleCanvasPanEnd}
+            onWheel={handleWheel}
+          >
+            {/* Content container that moves within the grid */}
+            <div 
+              className="absolute inset-0"
+              style={{ 
+                transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px)`,
+                transformOrigin: 'center'
+              }}
+            >
+            {tableLayout.tables.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">🪑</div>
+                  <p className="text-[#AB9C95] mb-2">No tables configured yet</p>
+                  <p className="text-sm text-[#AB9C95]">
+                    Add tables to see them appear here
+                  </p>
+                </div>
+              </div>
+            ) : (
+              tableLayout.tables.map(table => renderTable(table))
+            )}
+            </div>
+          </div>
         </div>
       </div>
 

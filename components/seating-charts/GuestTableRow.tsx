@@ -10,7 +10,7 @@ interface GuestTableRowProps {
   onUpdateGuest: (guestId: string, field: keyof Guest | string, value: string) => void;
   onRemoveGuest: (guestId: string) => void;
   onSetEditingState: (updates: Partial<WizardState>) => void;
-  onShowMealOptionsModal: (options: string[]) => void;
+  onShowMealOptionsModal: (options: string[], columnKey: string) => void;
   getCellValue: (guest: Guest, fieldKey: string) => string;
 }
 
@@ -37,15 +37,6 @@ export default function GuestTableRow({
   };
 
   const handleMealPreferenceChange = (value: string) => {
-    if (value === '__edit_options__') {
-      // Find meal preference column options
-      const mealColumn = guestColumns.find(col => col.key === 'mealPreference');
-      if (mealColumn?.options) {
-        onShowMealOptionsModal([...mealColumn.options]);
-      }
-      return;
-    }
-    
     onUpdateGuest(guest.id, 'mealPreference', value);
     // Auto-save will be handled by parent component
   };
@@ -140,6 +131,15 @@ export default function GuestTableRow({
               <select
                 value={getCellValue(guest, column.key)}
                 onChange={(e) => {
+                  if (e.target.value === '__edit_options__') {
+                    // Find column options for any dropdown column
+                    const currentColumn = guestColumns.find(col => col.id === column.id);
+                    if (currentColumn?.options) {
+                      onShowMealOptionsModal([...currentColumn.options], currentColumn.key);
+                    }
+                    return;
+                  }
+                  
                   if (column.key === 'mealPreference') {
                     handleMealPreferenceChange(e.target.value);
                   } else {
@@ -152,8 +152,8 @@ export default function GuestTableRow({
                 {column.options?.map(option => (
                   <option key={option} value={option}>{option}</option>
                 ))}
-                {/* Edit Options option for meal preference */}
-                {column.key === 'mealPreference' && (
+                {/* Edit Options option for all dropdown columns */}
+                {column.type === 'select' && (
                   <option value="__edit_options__" className="text-[#A85C36] font-medium">
                     ✏️ Edit Options...
                   </option>

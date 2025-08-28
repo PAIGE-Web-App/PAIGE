@@ -359,18 +359,17 @@ export class CreditService {
 
   /**
    * Check if credits should be refreshed daily (at midnight in user's timezone)
-   * More conservative: only refresh if it's been more than 24 hours
    */
   private shouldRefreshDaily(lastRefresh: Date): boolean {
     const now = new Date();
     const lastRefreshDate = new Date(lastRefresh);
     
-    // Check if it's been more than 24 hours since last refresh
-    const timeDiff = now.getTime() - lastRefreshDate.getTime();
-    const hoursDiff = timeDiff / (1000 * 60 * 60);
+    // Check if we've crossed midnight since last refresh
+    const lastRefreshDay = new Date(lastRefreshDate.getFullYear(), lastRefreshDate.getMonth(), lastRefreshDate.getDate());
+    const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Only refresh if it's been more than 24 hours
-    return hoursDiff >= 24;
+    // Refresh if it's a new day (crossed midnight)
+    return currentDay > lastRefreshDay;
   }
 
   /**

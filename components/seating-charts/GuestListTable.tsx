@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Plus, Upload } from 'lucide-react';
 import { Guest, GuestColumn, WizardState } from './types';
 import GuestTableHeader from './GuestTableHeader';
@@ -16,7 +16,7 @@ interface GuestListTableProps {
   onSetEditingState: (updates: Partial<WizardState>) => void;
   onShowCSVUploadModal: () => void;
   onShowAddColumnModal: () => void;
-  onShowMealOptionsModal: (options: string[]) => void;
+  onShowMealOptionsModal: (options: string[], columnKey: string) => void;
   getCellValue: (guest: Guest, fieldKey: string) => string;
   // Drag & Drop handlers
   onDragStart: (e: React.DragEvent, columnId: string) => void;
@@ -46,45 +46,41 @@ export default function GuestListTable({
   onDrop,
   onDragEnd
 }: GuestListTableProps) {
+  // Automatically create a default guest when the component loads
+  useEffect(() => {
+    if (wizardState.guests.length === 0) {
+      onAddGuest();
+    }
+  }, [wizardState.guests.length, onAddGuest]);
+
   return (
-    <div className={`bg-white rounded-[5px] border border-[#AB9C95] p-6 relative ${!areChartDetailsComplete ? 'opacity-50 pointer-events-none' : ''}`}>
-      {!areChartDetailsComplete && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 rounded-[5px] flex items-center justify-center z-10">
-          <div className="text-center">
-            <p className="text-[#AB9C95] mb-2">Complete Chart Details first</p>
-            <p className="text-sm text-[#AB9C95]">Please fill in Chart Name and Event Type</p>
-          </div>
-        </div>
-      )}
-      
+    <div className="relative">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h3>
+        <h4 className="text-base font-playfair font-semibold text-[#332B42]">Guest List</h4>
         <div className="flex items-center gap-3">
           <button
             onClick={onShowCSVUploadModal}
-            className="accent-color hover:accent-color-hover underline flex items-center gap-2 text-sm font-medium transition-colors"
+            className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium flex items-center gap-2 transition-colors"
           >
             <Upload className="w-4 h-4" />
             Upload CSV
           </button>
-          {wizardState.guests.length > 0 && (
-            <div className="flex items-center gap-3 ml-6">
-              <button
-                onClick={onShowAddColumnModal}
-                className="btn-primaryinverse flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Column
-              </button>
-              <button
-                onClick={onAddGuest}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Guest
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3 ml-6">
+            <button
+              onClick={onShowAddColumnModal}
+              className="btn-primaryinverse flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Column
+            </button>
+            <button
+              onClick={onAddGuest}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Guest
+            </button>
+          </div>
         </div>
       </div>
 
@@ -95,13 +91,21 @@ export default function GuestListTable({
             alt="Seating Arrangement"
             className="w-20 mx-auto mb-4"
           />
-          <button
-            onClick={onAddGuest}
-            className="btn-primary flex items-center gap-2 mx-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Add First Guest
-          </button>
+          <div className="mb-6">
+            <h4 className="text-lg font-medium text-[#332B42] mb-2">No Guests Added Yet</h4>
+            <p className="text-sm text-[#AB9C95] mb-4">
+              Guests are optional for now. You can add them later or proceed to plan your table layout.
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={onAddGuest}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add First Guest
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden">

@@ -62,12 +62,21 @@ export default function SeatingChartWizardModal({
   // Dynamic columns state (firstName and lastName are now fixed columns)
   const [guestColumns, setGuestColumns] = useState<GuestColumn[]>([
     { id: 'mealPreference', key: 'mealPreference', label: 'Meal Preference', type: 'select', options: ['Beef', 'Chicken', 'Fish', 'Vegetarian', 'Vegan', 'Gluten-Free'], isRequired: false, isEditable: true, isRemovable: true, order: 2 },
-    { id: 'relationship', key: 'relationship', label: 'Relationship', type: 'text', isRequired: false, isEditable: true, isRemovable: true, order: 3 }
+    { id: 'relationship', key: 'relationship', label: 'Relationship', type: 'select', options: ['Family', 'Friends', 'Bride\'s Side', 'Groom\'s Side', 'Work Colleagues', 'College Friends', 'Childhood Friends', 'Neighbors', 'Other'], isRequired: false, isEditable: true, isRemovable: true, order: 3 }
   ]);
 
   // State for editing meal preference options
   const [showMealOptionsModal, setShowMealOptionsModal] = useState(false);
   const [editingMealOptions, setEditingMealOptions] = useState<string[]>([]);
+
+  // State for editing relationship options
+  const [showRelationshipOptionsModal, setShowRelationshipOptionsModal] = useState(false);
+  const [editingRelationshipOptions, setEditingRelationshipOptions] = useState<string[]>([]);
+
+  // State for editing any column's options
+  const [showColumnOptionsModal, setShowColumnOptionsModal] = useState(false);
+  const [editingColumnOptions, setEditingColumnOptions] = useState<string[]>([]);
+  const [editingColumnId, setEditingColumnId] = useState<string>('');
 
   // State for column validation
   const [columnNameError, setColumnNameError] = useState('');
@@ -85,7 +94,7 @@ export default function SeatingChartWizardModal({
         },
         organizationChoice: null,
         chartName: '',
-        eventType: '',
+        eventType: 'Wedding Event', // Default value
         description: ''
       });
     }
@@ -174,6 +183,16 @@ export default function SeatingChartWizardModal({
   const updateMealPreferenceOptions = (newOptions: string[]) => {
     setGuestColumns(prev => prev.map(col => 
       col.key === 'mealPreference' 
+        ? { ...col, options: newOptions }
+        : col
+    ));
+    // Don't auto-save column config changes - wait for actual user input
+  };
+
+  // Function to update relationship options
+  const updateRelationshipOptions = (newOptions: string[]) => {
+    setGuestColumns(prev => prev.map(col => 
+      col.key === 'relationship' 
         ? { ...col, options: newOptions }
         : col
     ));
@@ -290,7 +309,7 @@ export default function SeatingChartWizardModal({
       const seatingChart: SeatingChart = {
         id: `chart-${Date.now()}`,
         name: wizardState.chartName,
-        eventType: wizardState.eventType,
+        eventType: 'Wedding Event', // Default since we removed the field
         description: wizardState.description,
         guestCount: wizardState.guests.length,
         tableCount: wizardState.tableLayout.tables.length,
@@ -347,20 +366,16 @@ export default function SeatingChartWizardModal({
   // Check if chart details are complete
   const areChartDetailsComplete = (): boolean => {
     const hasChartName = wizardState.chartName.trim() !== '';
-    const hasValidEventType = wizardState.eventType !== '' && 
-      (wizardState.eventType !== 'Other' || (wizardState.description ? wizardState.description.trim() !== '' : false));
-    return hasChartName && hasValidEventType;
+    return hasChartName;
   };
 
   // Step validation
   const canProceedToNext = (): boolean => {
     switch (wizardState.currentStep) {
       case 'guests':
-        const hasGuests = wizardState.guests.length > 0;
+        // Guests are optional - only require chart details
         const hasChartName = wizardState.chartName.trim() !== '';
-        const hasValidEventType = wizardState.eventType !== '' && 
-          (wizardState.eventType !== 'Other' || (wizardState.description ? wizardState.description.trim() !== '' : false));
-        return hasGuests && hasChartName && hasValidEventType;
+        return hasChartName;
       case 'tables':
         return wizardState.tableLayout.tables.length > 0;
       case 'organization':
@@ -429,7 +444,7 @@ export default function SeatingChartWizardModal({
               <div className="w-full">
                 {/* Step 1: Guest Information */}
                 {wizardState.currentStep === 'guests' && (
-                  <div className="space-y-6">
+                  <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6 mb-6">
                     {/* Chart Details Form */}
                     <ChartDetailsForm
                       wizardState={wizardState}
@@ -438,29 +453,44 @@ export default function SeatingChartWizardModal({
                     />
 
                     {/* Guest List Table */}
-                    <GuestListTable
-                      wizardState={wizardState}
-                      guestColumns={guestColumns}
-                      areChartDetailsComplete={areChartDetailsComplete()}
-                      onAddGuest={addGuest}
-                      onUpdateGuest={updateGuest}
-                      onRemoveGuest={removeGuest}
-                      onUpdateColumn={updateColumn}
-                      onRemoveColumn={removeColumn}
-                      onSetEditingState={(updates) => setWizardState(prev => ({ ...prev, ...updates }))}
-                      onShowCSVUploadModal={() => setShowCSVUploadModal(true)}
-                      onShowAddColumnModal={() => setShowAddColumnModal(true)}
-                      onShowMealOptionsModal={(options) => {
-                        setEditingMealOptions(options);
-                        setShowMealOptionsModal(true);
-                      }}
-                      getCellValue={getCellValue}
-                      onDragStart={handleDragStart}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onDragEnd={handleDragEnd}
-                    />
+                    <div className="pt-6">
+                      <GuestListTable
+                        wizardState={wizardState}
+                        guestColumns={guestColumns}
+                        areChartDetailsComplete={areChartDetailsComplete()}
+                        onAddGuest={addGuest}
+                        onUpdateGuest={updateGuest}
+                        onRemoveGuest={removeGuest}
+                        onUpdateColumn={updateColumn}
+                        onRemoveColumn={removeColumn}
+                        onSetEditingState={(updates) => setWizardState(prev => ({ ...prev, ...updates }))}
+                        onShowCSVUploadModal={() => setShowCSVUploadModal(true)}
+                        onShowAddColumnModal={() => setShowAddColumnModal(true)}
+                                              onShowMealOptionsModal={(options, columnKey) => {
+                          if (columnKey === 'mealPreference') {
+                            setEditingMealOptions(options);
+                            setShowMealOptionsModal(true);
+                          } else if (columnKey === 'relationship') {
+                            setEditingRelationshipOptions(options);
+                            setShowRelationshipOptionsModal(true);
+                          } else {
+                            // Handle any other dropdown column
+                            const column = guestColumns.find(col => col.key === columnKey);
+                            if (column) {
+                              setEditingColumnOptions(options);
+                              setEditingColumnId(column.id);
+                              setShowColumnOptionsModal(true);
+                            }
+                          }
+                        }}
+                        getCellValue={getCellValue}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onDragEnd={handleDragEnd}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -816,6 +846,155 @@ Gluten-Free"
                         setShowMealOptionsModal(false);
                       } else {
                         alert('Please enter at least one meal option');
+                      }
+                    }}
+                    className="btn-primary"
+                  >
+                    Save Options
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Relationship Options Editing Modal */}
+        <AnimatePresence>
+          {showRelationshipOptionsModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+              onClick={() => setShowRelationshipOptionsModal(false)}
+            >
+              <motion.div
+                initial={{ y: -50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -50, opacity: 0 }}
+                className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header row with title and close button */}
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="h5 text-[#332B42]">Edit Relationship Options</h5>
+                  <button
+                    onClick={() => setShowRelationshipOptionsModal(false)}
+                    className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                    title="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-[#AB9C95]">Enter relationship options, one per line:</p>
+                  
+                  <textarea
+                    value={editingRelationshipOptions.join('\n')}
+                    onChange={(e) => setEditingRelationshipOptions(e.target.value.split('\n'))}
+                    placeholder="Family
+Friends
+Bride's Side
+Groom's Side
+Work Colleagues
+College Friends
+Childhood Friends
+Neighbors
+Other"
+                    rows={8}
+                    className="w-full border border-[#AB9C95] px-4 py-4 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] resize-none"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setShowRelationshipOptionsModal(false)}
+                    className="btn-primaryinverse"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const filteredOptions = editingRelationshipOptions.filter(opt => opt.trim());
+                      if (filteredOptions.length > 0) {
+                        updateRelationshipOptions(filteredOptions);
+                        setShowRelationshipOptionsModal(false);
+                      } else {
+                        alert('Please enter at least one relationship option');
+                      }
+                    }}
+                    className="btn-primary"
+                  >
+                    Save Options
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Generic Column Options Editing Modal */}
+        <AnimatePresence>
+          {showColumnOptionsModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+              onClick={() => setShowColumnOptionsModal(false)}
+            >
+              <motion.div
+                initial={{ y: -50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -50, opacity: 0 }}
+                className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header row with title and close button */}
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="h5 text-[#332B42]">Edit Column Options</h5>
+                  <button
+                    onClick={() => setShowColumnOptionsModal(false)}
+                    className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                    title="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-[#AB9C95]">Enter options, one per line:</p>
+                  
+                  <textarea
+                    value={editingColumnOptions.join('\n')}
+                    onChange={(e) => setEditingColumnOptions(e.target.value.split('\n'))}
+                    placeholder="Option 1
+Option 2
+Option 3
+Option 4"
+                    rows={6}
+                    className="w-full border border-[#AB9C95] px-4 py-2 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] resize-none"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setShowColumnOptionsModal(false)}
+                    className="btn-primaryinverse"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const filteredOptions = editingColumnOptions.filter(opt => opt.trim());
+                      if (filteredOptions.length > 0) {
+                        updateColumn(editingColumnId, { options: filteredOptions });
+                        setShowColumnOptionsModal(false);
+                      } else {
+                        alert('Please enter at least one option');
                       }
                     }}
                     className="btn-primary"

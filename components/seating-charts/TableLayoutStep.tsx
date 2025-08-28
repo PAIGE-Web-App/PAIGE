@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, Move, Settings, Grid3X3, List } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { TableType } from '../../types/seatingChart';
 import VisualTableLayout from './VisualTableLayout';
 
@@ -14,17 +14,17 @@ interface TableLayoutStepProps {
 }
 
 const TABLE_TYPES = [
-  { id: 'round', name: 'Round', icon: '●', description: 'Traditional round tables' },
-  { id: 'long', name: 'Long', icon: '▬', description: 'Rectangular banquet tables' },
-  { id: 'oval', name: 'Oval', icon: '⬭', description: 'Elegant oval tables' },
-  { id: 'square', name: 'Square', icon: '■', description: 'Modern square tables' }
+  { id: 'round', name: 'Round Table', icon: '●' },
+  { id: 'long', name: 'Long Table', icon: '▭' },
+  { id: 'oval', name: 'Oval Table', icon: '⬭' },
+  { id: 'square', name: 'Square Table', icon: '■' }
 ];
 
 const DEFAULT_CAPACITIES = {
-  round: [6, 8, 10, 12],
+  round: [4, 6, 8, 10, 12],
   long: [6, 8, 10, 12, 14],
-  oval: [8, 10, 12],
-  square: [4, 6, 8]
+  oval: [6, 8, 10, 12],
+  square: [4, 6, 8, 10]
 };
 
 export default function TableLayoutStep({ 
@@ -33,40 +33,58 @@ export default function TableLayoutStep({
   guestCount 
 }: TableLayoutStepProps) {
   const [showAddTable, setShowAddTable] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'visual'>('visual');
   const [newTable, setNewTable] = useState({
     type: 'round' as const,
-    capacity: 8,
+    capacity: 6,
     name: '',
     description: ''
   });
 
+  // Create default sweetheart table when component loads
+  useEffect(() => {
+    if (tableLayout.tables.length === 0) {
+      const sweetheartTable: TableType = {
+        id: 'sweetheart-table',
+        name: 'Sweetheart Table',
+        type: 'round',
+        capacity: 2,
+        description: 'Special table for the happy couple',
+        isDefault: true
+      };
+      
+      onUpdate({
+        tables: [sweetheartTable],
+        totalCapacity: 2
+      });
+    }
+  }, [tableLayout.tables.length, onUpdate]);
+
   const addTable = () => {
     if (!newTable.name.trim()) return;
     
-    const table: TableType = {
+    const newTableData: TableType = {
       id: `table-${Date.now()}`,
       name: newTable.name.trim(),
       type: newTable.type,
       capacity: newTable.capacity,
-      description: newTable.description || `${newTable.type} table seating ${newTable.capacity}`,
+      description: newTable.description.trim() || '',
       isDefault: false
     };
-
-    const updatedTables = [...tableLayout.tables, table];
+    
+    const updatedTables = [...tableLayout.tables, newTableData];
     const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
     
     onUpdate({ tables: updatedTables, totalCapacity });
     
     // Reset form
-    setNewTable({ type: 'round', capacity: 8, name: '', description: '' });
+    setNewTable({
+      type: 'round',
+      capacity: 6,
+      name: '',
+      description: ''
+    });
+    
     setShowAddTable(false);
-  };
-
-  const removeTable = (tableId: string) => {
-    const updatedTables = tableLayout.tables.filter(t => t.id !== tableId);
-    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
-    onUpdate({ tables: updatedTables, totalCapacity });
   };
 
   const updateTable = (tableId: string, updates: Partial<TableType>) => {
@@ -77,15 +95,10 @@ export default function TableLayoutStep({
     onUpdate({ tables: updatedTables, totalCapacity });
   };
 
-  const getTableIcon = (type: string) => {
-    const tableType = TABLE_TYPES.find(t => t.id === type);
-    return tableType?.icon || '●';
-  };
-
-  const getCapacityColor = (capacity: number) => {
-    if (capacity >= 10) return 'text-red-600';
-    if (capacity >= 8) return 'text-orange-600';
-    return 'text-green-600';
+  const removeTable = (tableId: string) => {
+    const updatedTables = tableLayout.tables.filter(t => t.id !== tableId);
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+    onUpdate({ tables: updatedTables, totalCapacity });
   };
 
   return (
@@ -97,34 +110,13 @@ export default function TableLayoutStep({
           <p className="text-sm text-[#AB9C95]">
             Configure your table arrangement and seating capacity
           </p>
+          {tableLayout.tables.some(t => t.isDefault) && (
+            <p className="text-xs text-pink-600 mt-1">
+              💕 Your sweetheart table is ready! Add more tables for guests.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          {/* View Toggle */}
-          <div className="flex bg-[#F3F2F0] rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'list' 
-                  ? 'bg-white text-[#332B42] shadow-sm' 
-                  : 'text-[#AB9C95] hover:text-[#332B42]'
-              }`}
-            >
-              <List className="w-4 h-4 inline mr-2" />
-              List View
-            </button>
-            <button
-              onClick={() => setViewMode('visual')}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'visual' 
-                  ? 'bg-white text-[#332B42] shadow-sm' 
-                  : 'text-[#AB9C95] hover:text-[#332B42]'
-              }`}
-            >
-              <Grid3X3 className="w-4 h-4 inline mr-2" />
-              Visual View
-            </button>
-          </div>
-          
           <button
             onClick={() => setShowAddTable(true)}
             className="btn-primary flex items-center gap-2"
@@ -138,19 +130,22 @@ export default function TableLayoutStep({
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-2xl font-bold text-[#332B42]">{tableLayout.tables.length}</div>
+          <div className="text-lg font-normal text-[#332B42]">{tableLayout.tables.length}</div>
           <div className="text-sm text-[#AB9C95]">Total Tables</div>
         </div>
         <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-2xl font-bold text-[#332B42]">{tableLayout.totalCapacity}</div>
-          <div className="text-sm text-[#AB9C95]">Total Capacity</div>
+          <div className="text-lg font-normal text-[#332B42]">{tableLayout.totalCapacity}</div>
+          <div className="text-sm text-[#AB9C95]">Guests</div>
         </div>
         <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className={`text-2xl font-bold ${guestCount > tableLayout.totalCapacity ? 'text-red-600' : 'text-green-600'}`}>
-            {guestCount > tableLayout.totalCapacity ? 'Over' : 'Under'}
+          <div className={`text-lg font-normal ${guestCount > tableLayout.totalCapacity ? 'text-red-600' : 'text-green-600'}`}>
+            {guestCount > tableLayout.totalCapacity ? 'Over' : 'Seats'}
           </div>
           <div className="text-sm text-[#AB9C95]">
-            {Math.abs(guestCount - tableLayout.totalCapacity)} {guestCount > tableLayout.totalCapacity ? 'Over' : 'Under'}
+            {guestCount > tableLayout.totalCapacity 
+              ? `${Math.abs(guestCount - tableLayout.totalCapacity)} Over` 
+              : `${Math.abs(guestCount - tableLayout.totalCapacity)} Available`
+            }
           </div>
         </div>
       </div>
@@ -239,87 +234,12 @@ export default function TableLayoutStep({
         </motion.div>
       )}
 
-      {/* Conditional View Rendering */}
-      {viewMode === 'visual' ? (
-        <VisualTableLayout
-          tableLayout={tableLayout}
-          onUpdate={onUpdate}
-          guestCount={guestCount}
-        />
-      ) : (
-        /* List View */
-        <>
-          {/* Table List */}
-          {tableLayout.tables.length > 0 ? (
-            <div className="space-y-3">
-              {tableLayout.tables.map((table, index) => (
-                <motion.div
-                  key={table.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white border border-[#E0DBD7] rounded-[5px] p-4 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl text-[#AB9C95]">
-                      {getTableIcon(table.type)}
-                    </div>
-                    
-                    <div>
-                      <div className="font-medium text-[#332B42]">{table.name}</div>
-                      <div className="text-sm text-[#AB9C95]">{table.description}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className={`font-bold text-lg ${getCapacityColor(table.capacity)}`}>
-                        {table.capacity}
-                      </div>
-                      <div className="text-xs text-[#AB9C95]">guests</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateTable(table.id, { 
-                          capacity: Math.max(4, table.capacity - 1) 
-                        })}
-                        className="p-1 hover:bg-[#F3F2F0] rounded"
-                        title="Decrease capacity"
-                      >
-                        -
-                      </button>
-                      <button
-                        onClick={() => updateTable(table.id, { 
-                          capacity: Math.min(14, table.capacity + 1) 
-                        })}
-                        className="p-1 hover:bg-[#F3F2F0] rounded"
-                        title="Increase capacity"
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={() => removeTable(table.id)}
-                        className="p-1 hover:bg-red-50 rounded text-red-500"
-                        title="Remove table"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">🪑</div>
-              <p className="text-[#AB9C95] mb-2">No tables configured yet</p>
-              <p className="text-sm text-[#AB9C95]">
-                Add your first table to get started with the seating arrangement
-              </p>
-            </div>
-          )}
-        </>
-      )}
+      {/* Visual Table Layout */}
+      <VisualTableLayout
+        tableLayout={tableLayout}
+        onUpdate={onUpdate}
+        guestCount={guestCount}
+      />
 
       {/* Capacity Warning */}
       {guestCount > tableLayout.totalCapacity && tableLayout.tables.length > 0 && (

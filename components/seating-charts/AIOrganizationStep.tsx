@@ -86,9 +86,8 @@ export default function AIOrganizationStep({
   };
 
   const canProceed = selectedOption !== null && 
-    guests.length > 0 && 
     tableLayout.tables.length > 0 &&
-    tableLayout.totalCapacity >= guests.length;
+    (guests.length === 0 || tableLayout.totalCapacity >= guests.length);
 
   const getGuestSummary = () => {
     const totalGuests = guests.length;
@@ -314,13 +313,10 @@ export default function AIOrganizationStep({
       {/* Validation Messages */}
       {!canProceed && (
         <div className="text-center">
-          {guests.length === 0 && (
-            <p className="text-red-600 text-sm">Please add guests in the Guest Information step</p>
-          )}
           {tableLayout.tables.length === 0 && (
             <p className="text-red-600 text-sm">Please configure tables in the Table Layout step</p>
           )}
-          {guestSummary.overCapacity && (
+          {guests.length > 0 && guestSummary.overCapacity && (
             <p className="text-red-600 text-sm">
               You need {guestSummary.difference} more seats. Please add tables or increase capacities.
             </p>
