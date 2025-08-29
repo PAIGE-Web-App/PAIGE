@@ -79,6 +79,12 @@ const nextConfig = {
 
   // Optimize webpack configuration for better performance
   webpack: (config, { dev, isServer }) => {
+    // Fix Konva canvas issue in Next.js
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      canvas: false,
+    };
+    
     if (dev && !isServer) {
       // Enable faster refresh and reduce development overhead
       config.watchOptions = {

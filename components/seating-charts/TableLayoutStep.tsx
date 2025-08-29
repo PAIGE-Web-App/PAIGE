@@ -46,7 +46,7 @@ export default function TableLayoutStep({
       const sweetheartTable: TableType = {
         id: 'sweetheart-table',
         name: 'Sweetheart Table',
-        type: 'round',
+        type: 'long',
         capacity: 2,
         description: 'Special table for the happy couple',
         isDefault: true
@@ -103,52 +103,9 @@ export default function TableLayoutStep({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Table Layout</h3>
-          <p className="text-sm text-[#AB9C95]">
-            Configure your table arrangement and seating capacity
-          </p>
-          {tableLayout.tables.some(t => t.isDefault) && (
-            <p className="text-xs text-pink-600 mt-1">
-              💕 Your sweetheart table is ready! Add more tables for guests.
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowAddTable(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Table
-          </button>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-lg font-normal text-[#332B42]">{tableLayout.tables.length}</div>
-          <div className="text-sm text-[#AB9C95]">Total Tables</div>
-        </div>
-        <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className="text-lg font-normal text-[#332B42]">{tableLayout.totalCapacity}</div>
-          <div className="text-sm text-[#AB9C95]">Guests</div>
-        </div>
-        <div className="bg-[#F8F6F4] rounded-[5px] p-4 text-center">
-          <div className={`text-lg font-normal ${guestCount > tableLayout.totalCapacity ? 'text-red-600' : 'text-green-600'}`}>
-            {guestCount > tableLayout.totalCapacity ? 'Over' : 'Seats'}
-          </div>
-          <div className="text-sm text-[#AB9C95]">
-            {guestCount > tableLayout.totalCapacity 
-              ? `${Math.abs(guestCount - tableLayout.totalCapacity)} Over` 
-              : `${Math.abs(guestCount - tableLayout.totalCapacity)} Available`
-            }
-          </div>
-        </div>
-      </div>
+
+
 
       {/* Add Table Modal */}
       {showAddTable && (
@@ -233,6 +190,8 @@ export default function TableLayoutStep({
           </div>
         </motion.div>
       )}
+
+
 
       {/* Visual Table Layout */}
       <VisualTableLayout
