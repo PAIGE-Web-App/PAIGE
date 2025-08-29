@@ -102,40 +102,55 @@ const TABLE_SHAPES = {
     height: 100,
     radius: 12,
     seatPositions: (capacity: number) => {
-      const positions = [];
-      const seatsPerSide = Math.ceil(capacity / 4);
-      const spacing = 60 / (seatsPerSide - 1);
+      const positions: Array<{x: number, y: number}> = [];
       
-      // Top side
-      for (let i = 0; i < Math.min(seatsPerSide, capacity); i++) {
-        positions.push({
-          x: (i * spacing) - 30,
-          y: -55
-        });
-      }
-      
-      // Right side
-      for (let i = 0; i < Math.min(seatsPerSide, Math.max(0, capacity - seatsPerSide)); i++) {
-        positions.push({
-          x: 55,
-          y: (i * spacing) - 30
-        });
-      }
-      
-      // Bottom side
-      for (let i = 0; i < Math.min(seatsPerSide, Math.max(0, capacity - seatsPerSide * 2)); i++) {
-        positions.push({
-          x: (i * spacing) - 30,
-          y: 55
-        });
-      }
-      
-      // Left side
-      for (let i = 0; i < Math.min(seatsPerSide, Math.max(0, capacity - seatsPerSide * 3)); i++) {
-        positions.push({
-          x: -55,
-          y: (i * spacing) - 30
-        });
+      // Simple approach: place seats around the perimeter
+      for (let i = 0; i < capacity; i++) {
+        if (i === 0) {
+          // Top
+          positions.push({ x: 0, y: -55 });
+        } else if (i === 1) {
+          // Right
+          positions.push({ x: 55, y: 0 });
+        } else if (i === 2) {
+          // Bottom
+          positions.push({ x: 0, y: 55 });
+        } else if (i === 3) {
+          // Left
+          positions.push({ x: -55, y: 0 });
+        } else if (i === 4) {
+          // Top-right
+          positions.push({ x: 30, y: -55 });
+        } else if (i === 5) {
+          // Bottom-right
+          positions.push({ x: 55, y: 30 });
+        } else if (i === 6) {
+          // Bottom-left
+          positions.push({ x: -30, y: 55 });
+        } else if (i === 7) {
+          // Top-left
+          positions.push({ x: -55, y: -30 });
+        } else {
+          // For higher capacities, add more seats in between
+          const side = i % 4;
+          const position = Math.floor(i / 4);
+          const offset = (position + 1) * 15;
+          
+          switch (side) {
+            case 0: // Top
+              positions.push({ x: -30 + offset, y: -55 });
+              break;
+            case 1: // Right
+              positions.push({ x: 55, y: -30 + offset });
+              break;
+            case 2: // Bottom
+              positions.push({ x: 30 - offset, y: 55 });
+              break;
+            case 3: // Left
+              positions.push({ x: -55, y: 30 - offset });
+              break;
+          }
+        }
       }
       
       return positions;
@@ -341,18 +356,38 @@ export default function VisualTableLayout({
           shadowOpacity={0.1}
         />
 
-        {/* Table Name - Centered on table with h6 font */}
+        {/* Table Name - Manual centering with offsetX */}
         <Text
           text={table.name}
           x={0}
           y={0}
-          width={shape.width}
-          align="center"
+          align="left"
           fontSize={16}
-          fontFamily="'Playfair Display', serif"
-          fill="#332B42"
-          fontStyle="500"
-          offsetY={2}
+          fill="black"
+          offsetX={-80}
+        />
+        
+        {/* Debug text to test positioning */}
+        <Text
+          text="CENTER"
+          x={0}
+          y={-50}
+          fill="red"
+          fontSize={12}
+        />
+        <Text
+          text="LEFT"
+          x={-100}
+          y={-50}
+          fill="blue"
+          fontSize={12}
+        />
+        <Text
+          text="RIGHT"
+          x={100}
+          y={-50}
+          fill="green"
+          fontSize={12}
         />
 
         {/* Table Type Badge - Only for non-sweetheart tables */}
@@ -410,8 +445,6 @@ export default function VisualTableLayout({
                 y={0}
                 radius={16}
                 fill="#A85C36"
-                stroke="#8b4513"
-                strokeWidth={1}
                 shadowColor="black"
                 shadowBlur={3}
                 shadowOffset={{ x: 1, y: 1 }}
@@ -439,7 +472,7 @@ export default function VisualTableLayout({
                   fontSize={14}
                   fontFamily="var(--font-work-sans)"
                   fill="white"
-                  fontStyle="bold"
+                  fontStyle="normal"
                   offsetY={4}
                 />
               )}
@@ -452,48 +485,42 @@ export default function VisualTableLayout({
                 y={0}
                 radius={16}
                 fill="#364257"
-                stroke="#2d3748"
-                strokeWidth={1}
                 shadowColor="black"
                 shadowBlur={3}
                 shadowOffset={{ x: 1, y: 1 }}
                 shadowOpacity={0.2}
               />
               <Text
-                text={partnerName ? partnerName.charAt(0).toUpperCase() : 'P'}
+                text={partnerName ? partnerName.charAt(0).toUpperCase() : 'M'}
                 x={0}
                 y={0}
                 align="center"
                 fontSize={14}
                 fontFamily="var(--font-work-sans)"
                 fill="white"
-                fontStyle="bold"
+                fontStyle="normal"
                 offsetY={4}
               />
             </Group>
             
-            {/* Names below avatars - Perfectly center-aligned */}
+            {/* Names below avatars - Manual centering with offsetX */}
             <Text
               text={userName || 'You'}
               x={-50}
               y={80}
-              align="center"
+              align="left"
               fontSize={12}
-              fontFamily="var(--font-work-sans)"
-              fill="#374151"
-              fontStyle="medium"
-              offsetX={25}
+              fill="black"
+              offsetX={-40}
             />
             <Text
               text={partnerName || 'Partner'}
               x={50}
               y={80}
-              align="center"
+              align="left"
               fontSize={12}
-              fontFamily="var(--font-work-sans)"
-              fill="#374151"
-              fontStyle="medium"
-              offsetX={-25}
+              fill="black"
+              offsetX={-40}
             />
           </>
         )}
@@ -614,7 +641,9 @@ export default function VisualTableLayout({
               background: '#F8F6F4',
               border: '2px dashed #E0DBD7',
               borderRadius: '5px',
-              cursor: 'grab'
+              cursor: 'grab',
+              transform: 'none !important',
+              direction: 'ltr'
             }}
           >
             <Layer>

@@ -1,0 +1,54 @@
+import React from 'react';
+import { RotateCw, Plus } from 'lucide-react';
+
+interface CanvasControlsProps {
+  tableCount: number;
+  totalCapacity: number;
+  onReset: () => void;
+  onAddTable: () => void;
+}
+
+export const CanvasControls: React.FC<CanvasControlsProps> = ({
+  tableCount,
+  totalCapacity,
+  onReset,
+  onAddTable
+}) => {
+  return (
+    <>
+      {/* Fixed Header */}
+      <div className="absolute top-4 left-4 text-lg text-[#332B42] font-playfair font-semibold pointer-events-none z-20">
+        Configure your Layout
+      </div>
+      
+      {/* Fixed Total Tables Stat */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] rounded-lg px-3 py-2 text-xs text-[#AB9C95] shadow-sm pointer-events-none z-20">
+        <span className="font-medium text-[#332B42]">{tableCount}</span> Total Tables • <span className="font-medium text-[#332B42]">{totalCapacity}</span> Guests
+      </div>
+      
+      {/* Fixed Add Table Button */}
+      <div className="absolute top-4 right-4 z-20 flex gap-2">
+        <button
+          onClick={onReset}
+          className="btn-primaryinverse flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] hover:bg-white/90"
+          title="Reset View"
+        >
+          <RotateCw className="w-4 h-4" />
+          Reset
+        </button>
+        <button
+          onClick={onAddTable}
+          className="btn-primary flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] hover:bg-white/90"
+        >
+          <Plus className="w-4 h-4" />
+          Add Table
+        </button>
+      </div>
+      
+      {/* Fixed Tip Text */}
+      <div className="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] rounded-lg px-3 py-2 text-xs text-[#AB9C95] shadow-sm pointer-events-none z-20 text-center">
+        💡 <strong>Tip:</strong> Drag tables to rearrange • Drag canvas background to pan • Hold Alt + drag anywhere to pan • Scroll to zoom at cursor • Double-click to edit • Reset button to restore view
+      </div>
+    </>
+  );
+};

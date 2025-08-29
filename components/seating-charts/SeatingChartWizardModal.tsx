@@ -439,7 +439,7 @@ export default function SeatingChartWizardModal({
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 flex flex-col h-full overflow-y-auto px-0 pb-32 pt-24">
+          <div className="flex-1 flex flex-col h-full overflow-y-auto px-0 pt-24">
             <div className="flex-1 overflow-y-auto p-8 pt-4">
               <div className="w-full">
                 {/* Step 1: Guest Information */}
@@ -496,7 +496,7 @@ export default function SeatingChartWizardModal({
 
                 {/* Step 2: Table Layout */}
                 {wizardState.currentStep === 'tables' && (
-                  <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6">
+                  <div className="bg-white rounded-[5px] border border-[#AB9C95]">
                     <TableLayoutStep
                       tableLayout={wizardState.tableLayout}
                       onUpdate={(updates) => setWizardState(prev => ({ 

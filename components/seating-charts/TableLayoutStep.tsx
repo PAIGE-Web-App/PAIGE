@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2 } from 'lucide-react';
 import { TableType } from '../../types/seatingChart';
-import VisualTableLayout from './VisualTableLayout';
+import VisualTableLayoutSVG from './VisualTableLayoutSVG';
 
 interface TableLayoutStepProps {
   tableLayout: {
@@ -102,7 +102,7 @@ export default function TableLayoutStep({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="relative w-full h-full">
 
 
 
@@ -113,7 +113,7 @@ export default function TableLayoutStep({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="bg-[#F8F6F4] rounded-[5px] p-6 border border-[#E0DBD7]"
+          className="bg-[#F8F6F4] rounded-[5px] p-4 border border-[#E0DBD7]"
         >
           <h4 className="font-medium text-[#332B42] mb-4">Add New Table</h4>
           
@@ -194,25 +194,16 @@ export default function TableLayoutStep({
 
 
       {/* Visual Table Layout */}
-      <VisualTableLayout
+      <VisualTableLayoutSVG
         tableLayout={tableLayout}
         onUpdate={onUpdate}
+        onAddTable={(newTable) => {
+          const updatedTables = [...tableLayout.tables, newTable];
+          const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+          onUpdate({ tables: updatedTables, totalCapacity });
+        }}
         guestCount={guestCount}
       />
-
-      {/* Capacity Warning */}
-      {guestCount > tableLayout.totalCapacity && tableLayout.tables.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-[5px] p-4">
-          <div className="flex items-center gap-2 text-red-800">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span className="font-medium">Capacity Warning</span>
-          </div>
-          <p className="text-sm text-red-700 mt-1">
-            You have {guestCount} guests but only {tableLayout.totalCapacity} seats. 
-            Consider adding more tables or increasing table capacities.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

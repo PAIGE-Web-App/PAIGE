@@ -13,7 +13,7 @@ const TABLE_TYPES = [
   { id: 'round', name: 'Round Table', icon: '●' },
   { id: 'long', name: 'Long Table', icon: '▭' },
   { id: 'oval', name: 'Oval Table', icon: '▭' },
-  { id: 'square', name: 'Square Table', icon: '▭' }
+  { id: 'square', name: 'Square Table', icon: '■' }
 ];
 
 const DEFAULT_CAPACITIES = {

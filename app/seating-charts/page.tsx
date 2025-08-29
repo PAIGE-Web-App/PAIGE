@@ -205,7 +205,7 @@ export default function SeatingChartsPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 p-6">
+                <div className="flex-1">
                   <div className="text-center py-12">
                     <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h2 className="h4 text-[#332B42] mb-2">Seating Chart Editor</h2>
