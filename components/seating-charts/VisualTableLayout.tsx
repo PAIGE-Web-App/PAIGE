@@ -79,24 +79,7 @@ const TABLE_SHAPES = {
       return positions;
     }
   },
-  oval: {
-    width: 140,
-    height: 100,
-    radius: 50,
-    seatPositions: (capacity: number) => {
-      const positions = [];
-      const radiusX = 75;
-      const radiusY = 55;
-      for (let i = 0; i < capacity; i++) {
-        const angle = (i * 2 * Math.PI) / capacity - Math.PI / 2;
-        positions.push({
-          x: Math.cos(angle) * radiusX,
-          y: Math.sin(angle) * radiusY
-        });
-      }
-      return positions;
-    }
-  },
+
   square: {
     width: 100,
     height: 100,

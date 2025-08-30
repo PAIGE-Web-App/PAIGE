@@ -504,6 +504,7 @@ export default function SeatingChartWizardModal({
                         tableLayout: updates 
                       }))}
                       guestCount={wizardState.guests.length}
+                      guests={wizardState.guests}
                     />
                   </div>
                 )}

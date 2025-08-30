@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2 } from 'lucide-react';
-import { TableType } from '../../types/seatingChart';
+import { TableType, Guest } from '../../types/seatingChart';
 import VisualTableLayoutSVG from './VisualTableLayoutSVG';
 
 interface TableLayoutStepProps {
@@ -11,26 +11,26 @@ interface TableLayoutStepProps {
   };
   onUpdate: (updates: { tables: TableType[]; totalCapacity: number }) => void;
   guestCount: number;
+  guests: Guest[];
 }
 
 const TABLE_TYPES = [
   { id: 'round', name: 'Round Table', icon: '●' },
   { id: 'long', name: 'Long Table', icon: '▭' },
-  { id: 'oval', name: 'Oval Table', icon: '⬭' },
   { id: 'square', name: 'Square Table', icon: '■' }
 ];
 
 const DEFAULT_CAPACITIES = {
   round: [4, 6, 8, 10, 12],
   long: [6, 8, 10, 12, 14],
-  oval: [6, 8, 10, 12],
   square: [4, 6, 8, 10]
 };
 
 export default function TableLayoutStep({ 
   tableLayout, 
   onUpdate, 
-  guestCount 
+  guestCount,
+  guests
 }: TableLayoutStepProps) {
   const [showAddTable, setShowAddTable] = useState(false);
   const [newTable, setNewTable] = useState({
@@ -203,6 +203,11 @@ export default function TableLayoutStep({
           onUpdate({ tables: updatedTables, totalCapacity });
         }}
         guestCount={guestCount}
+        guests={guests}
+        onGuestAssignment={(guestId, tableId, seatNumber) => {
+          // Handle guest assignment - this will be implemented when we add drag & drop
+          console.log(`Guest ${guestId} assigned to table ${tableId} seat ${seatNumber}`);
+        }}
       />
     </div>
   );

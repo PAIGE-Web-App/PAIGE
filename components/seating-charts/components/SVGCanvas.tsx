@@ -1,5 +1,5 @@
 import React from 'react';
-import { TableType } from '../../../types/seatingChart';
+import { TableType, Guest } from '../../../types/seatingChart';
 import { TablePosition } from '../hooks/useTableDrag';
 import { CanvasTransform } from '../hooks/useCanvasPanZoom';
 import { TableRenderer } from './TableRenderer';
@@ -11,6 +11,7 @@ interface SVGCanvasProps {
   isDraggingCanvas: boolean;
   selectedTable: string | null;
   hoveredTable: string | null;
+  tableDimensions?: Record<string, { width: number; height: number }>;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: (e: React.MouseEvent) => void;
@@ -21,9 +22,20 @@ interface SVGCanvasProps {
   onTableMouseEnter: (e: React.MouseEvent) => void;
   onTableMouseLeave: (e: React.MouseEvent) => void;
   onTableDoubleClick: () => void;
+  onResizeStart?: (tableId: string, handleType: string, dimensions: { width: number; height: number }, e: React.MouseEvent) => void;
+  onResizeUpdate?: (tableId: string, mouseX: number, mouseY: number) => void;
+  onResizeEnd?: () => void;
   profileImageUrl?: string;
   userName?: string;
   partnerName?: string;
+  // Guest assignment props
+  guestAssignments?: Record<string, { tableId: string; seatNumber: number }>;
+  onGuestDrop?: (guestId: string, tableId: string, seatNumber: number) => void;
+  guests?: Guest[];
+  showingActions?: string | null;
+  onAvatarClick?: (tableId: string, seatNumber: number) => void;
+  onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
 }
 
 export const SVGCanvas: React.FC<SVGCanvasProps> = ({
@@ -33,6 +45,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   isDraggingCanvas,
   selectedTable,
   hoveredTable,
+  tableDimensions,
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -43,9 +56,19 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onTableMouseEnter,
   onTableMouseLeave,
   onTableDoubleClick,
+  onResizeStart,
+  onResizeUpdate,
+  onResizeEnd,
   profileImageUrl,
   userName,
-  partnerName
+  partnerName,
+  guestAssignments,
+  onGuestDrop,
+  guests,
+  showingActions,
+  onAvatarClick,
+  onMoveGuest,
+  onRemoveGuest
 }) => {
   return (
     <svg
@@ -62,8 +85,20 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
       }}
       className="w-full h-full border-0 outline-none m-0 p-0 block"
       onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
+      onMouseMove={(e) => {
+        onMouseMove(e);
+        // Handle resize updates
+        if (onResizeUpdate && selectedTable) {
+          onResizeUpdate(selectedTable, e.clientX, e.clientY);
+        }
+      }}
+      onMouseUp={(e) => {
+        onMouseUp(e);
+        // Handle resize end
+        if (onResizeEnd) {
+          onResizeEnd();
+        }
+      }}
       onWheel={onWheel}
     >
       <g transform={`translate(${canvasTransform.x}, ${canvasTransform.y}) scale(${canvasTransform.scale})`}>
@@ -103,15 +138,26 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   position={position}
                   isSelected={selectedTable === table.id}
                   isHovered={hoveredTable === table.id}
+                  tableDimensions={tableDimensions}
                   onMouseDown={onTableMouseDown}
                   onMouseMove={onTableMouseMove}
                   onMouseUp={onTableMouseUp}
                   onMouseEnter={onTableMouseEnter}
                   onMouseLeave={onTableMouseLeave}
                   onDoubleClick={onTableDoubleClick}
+                  onResizeStart={onResizeStart}
+                  onResizeUpdate={onResizeUpdate}
+                  onResizeEnd={onResizeEnd}
                   profileImageUrl={profileImageUrl}
                   userName={userName}
                   partnerName={partnerName}
+                  guestAssignments={guestAssignments}
+                  onGuestDrop={onGuestDrop}
+                  guests={guests}
+                  showingActions={showingActions}
+                  onAvatarClick={onAvatarClick}
+                  onMoveGuest={onMoveGuest}
+                  onRemoveGuest={onRemoveGuest}
                 />
               </g>
             );

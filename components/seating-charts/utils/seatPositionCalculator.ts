@@ -6,16 +6,18 @@ export interface SeatPosition {
 export interface TableShape {
   width: number;
   height: number;
-  seatPositions: (capacity: number) => SeatPosition[];
+  seatPositions: (capacity: number, customWidth?: number, customHeight?: number) => SeatPosition[];
 }
 
 export const TABLE_SHAPES: Record<string, TableShape> = {
   round: {
     width: 120,
     height: 120,
-    seatPositions: (capacity: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
-      const radius = 80; // Seats outside table
+      const width = customWidth || 120;
+      const height = customHeight || 120;
+      const radius = Math.min(width, height) * 0.67; // Seats outside table, proportional to size
       const positions: SeatPosition[] = [];
       for (let i = 0; i < capacity; i++) {
         const angle = (i * 2 * Math.PI) / capacity;
@@ -30,88 +32,75 @@ export const TABLE_SHAPES: Record<string, TableShape> = {
   long: {
     width: 200,
     height: 80,
-    seatPositions: (capacity: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
+      const width = customWidth || 200;
+      const height = customHeight || 80;
       const positions: SeatPosition[] = [];
-      const spacing = 160 / Math.max(1, capacity - 1);
+      const spacing = (width - 40) / Math.max(1, capacity - 1);
       for (let i = 0; i < capacity; i++) {
         positions.push({
-          x: -80 + (i * spacing),
-          y: -60 // Seats above table
+          x: -(width / 2) + 20 + (i * spacing),
+          y: -(height / 2) - 20 // Seats above table
         });
       }
       return positions;
     }
   },
-  oval: {
-    width: 160,
-    height: 100,
-    seatPositions: (capacity: number): SeatPosition[] => {
-      if (capacity <= 1) return [{ x: 0, y: 0 }];
-      const positions: SeatPosition[] = [];
-      const radiusX = 100; // Wider than tall for oval
-      const radiusY = 70;
-      for (let i = 0; i < capacity; i++) {
-        const angle = (i * 2 * Math.PI) / capacity;
-        positions.push({
-          x: radiusX * Math.cos(angle),
-          y: radiusY * Math.sin(angle)
-        });
-      }
-      return positions;
-    }
-  },
+
   square: {
     width: 120,
     height: 120,
-    seatPositions: (capacity: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
+      const width = customWidth || 120;
+      const height = customHeight || 120;
       const positions: SeatPosition[] = [];
       
       // Simple approach: place seats around the perimeter
       for (let i = 0; i < capacity; i++) {
         if (i === 0) {
           // Top
-          positions.push({ x: 0, y: -70 });
+          positions.push({ x: 0, y: -(height / 2) - 20 });
         } else if (i === 1) {
           // Right
-          positions.push({ x: 70, y: 0 });
+          positions.push({ x: (width / 2) + 20, y: 0 });
         } else if (i === 2) {
           // Bottom
-          positions.push({ x: 0, y: 70 });
+          positions.push({ x: 0, y: (height / 2) + 20 });
         } else if (i === 3) {
           // Left
-          positions.push({ x: -70, y: 0 });
+          positions.push({ x: -(width / 2) - 20, y: 0 });
         } else if (i === 4) {
           // Top-right
-          positions.push({ x: 40, y: -70 });
+          positions.push({ x: (width / 2) * 0.33, y: -(height / 2) - 20 });
         } else if (i === 5) {
           // Bottom-right
-          positions.push({ x: 70, y: 40 });
+          positions.push({ x: (width / 2) + 20, y: (height / 2) * 0.33 });
         } else if (i === 6) {
           // Bottom-left
-          positions.push({ x: -40, y: 70 });
+          positions.push({ x: -(width / 2) * 0.33, y: (height / 2) + 20 });
         } else if (i === 7) {
           // Top-left
-          positions.push({ x: -70, y: -40 });
+          positions.push({ x: -(width / 2) - 20, y: -(height / 2) * 0.33 });
         } else {
           // For higher capacities, add more seats in between
           const side = i % 4;
           const position = Math.floor(i / 4);
-          const offset = (position + 1) * 20;
+          const offset = (position + 1) * (Math.min(width, height) * 0.17);
           
           switch (side) {
             case 0: // Top
-              positions.push({ x: -40 + offset, y: -70 });
+              positions.push({ x: -(width / 2) * 0.33 + offset, y: -(height / 2) - 20 });
               break;
             case 1: // Right
-              positions.push({ x: 70, y: -40 + offset });
+              positions.push({ x: (width / 2) + 20, y: -(height / 2) * 0.33 + offset });
               break;
             case 2: // Bottom
-              positions.push({ x: 40 - offset, y: 70 });
+              positions.push({ x: (width / 2) * 0.33 - offset, y: (height / 2) + 20 });
               break;
             case 3: // Left
-              positions.push({ x: -70, y: 40 - offset });
+              positions.push({ x: -(width / 2) - 20, y: (height / 2) * 0.33 - offset });
               break;
           }
         }
