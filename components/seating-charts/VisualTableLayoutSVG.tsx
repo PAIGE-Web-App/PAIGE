@@ -610,36 +610,7 @@ export default function VisualTableLayoutSVG({
             onAddTable={() => setShowAddTableModal(true)}
           />
           
-          {/* Debug Info */}
-          <div className="absolute top-4 left-4 bg-white p-2 rounded border text-xs z-30">
-            <div>showingActions: {showingActions || 'null'}</div>
-            <div>Guest Count: {guests.length}</div>
-            <div>Assignments: {Object.keys(guestAssignments).length}</div>
-            <div>First Assignment: {Object.values(guestAssignments)[0] ? `${Object.values(guestAssignments)[0].tableId}-${Object.values(guestAssignments)[0].seatNumber}` : 'none'}</div>
-            <button 
-              onClick={() => {
-                console.log('Test button clicked!');
-                // Get the first guest assignment to test with
-                const firstAssignment = Object.values(guestAssignments)[0];
-                if (firstAssignment) {
-                  const testKey = `${firstAssignment.tableId}-${firstAssignment.seatNumber}`;
-                  console.log('Setting to test key:', testKey);
-                  setShowingActions(testKey);
-                } else {
-                  // Fallback to first table if no assignments
-                  const firstTable = tableLayout.tables[0];
-                  if (firstTable) {
-                    const testKey = `${firstTable.id}-0`;
-                    console.log('Setting to test key (fallback):', testKey);
-                    setShowingActions(testKey);
-                  }
-                }
-              }}
-              className="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded"
-            >
-              Test Action Icons
-            </button>
-          </div>
+
           
           {/* SVG Canvas */}
           <SVGCanvas

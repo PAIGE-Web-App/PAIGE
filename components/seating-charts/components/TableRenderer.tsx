@@ -161,33 +161,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   stroke="#A85C36"
                   strokeWidth={2}
                   style={{ cursor: 'pointer' }}
-                  onMouseDown={() => {
-                    console.log('🎯 Avatar circle mouse down:', table.id, index);
-                    if (onAvatarClick) {
-                      console.log('✅ Calling onAvatarClick from circle...');
-                      onAvatarClick(table.id, index);
-                    } else {
-                      console.log('❌ onAvatarClick is undefined!');
-                    }
-                  }}
-                  onMouseUp={() => {
-                    console.log('🎯 Avatar circle mouse up:', table.id, index);
-                  }}
-                  onMouseEnter={() => {
-                    console.log('🎯 Avatar circle mouse enter:', table.id, index);
-                  }}
-                  onMouseLeave={() => {
-                    console.log('🎯 Avatar circle mouse leave:', table.id, index);
-                  }}
-                  onClick={() => {
-                    console.log('🎯 Avatar circle clicked:', table.id, index);
-                    if (onAvatarClick) {
-                      console.log('✅ Calling onAvatarClick from circle click...');
-                      onAvatarClick(table.id, index);
-                    } else {
-                      console.log('❌ onAvatarClick is undefined!');
-                    }
-                  }}
+                  onClick={() => onAvatarClick?.(table.id, index)}
                 />
                 {/* Guest Initials */}
                 <text
@@ -211,31 +185,14 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   })()}
                 </text>
                 
-                {/* Test circle - small red dot to verify SVG events work */}
-                <circle
-                  cx={position.x + seat.x + 20}
-                  cy={position.y + seat.y}
-                  r={4}
-                  fill="red"
-                  stroke="none"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => {
-                    console.log('🔴 Test circle clicked:', table.id, index);
-                  }}
-                  onMouseDown={() => {
-                    console.log('🔴 Test circle mouse down:', table.id, index);
-                  }}
-                />
+                
 
                 {/* Action Icons - Move and Remove */}
                 {(() => {
                   const actionKey = `${table.id}-${index}`;
                   const shouldShow = showingActions === actionKey;
                   
-                  // Only log when there's a potential match or when debugging
-                  if (shouldShow || actionKey.includes('sweetheart') || actionKey.includes('table-1756587568260')) {
-                    console.log('Checking action icons for:', actionKey, 'shouldShow:', shouldShow, 'showingActions:', showingActions);
-                  }
+
                   
                   if (!shouldShow) return null;
                   
@@ -244,12 +201,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                                guestAssignments![guestId].seatNumber === index
                   );
                   
-                  if (!assignedGuestId) {
-                    console.log('No guest assigned to this seat:', actionKey);
-                    return null;
-                  }
-                  
-                  console.log('Rendering action icons for:', actionKey, 'guest:', assignedGuestId);
+                  if (!assignedGuestId) return null;
                   
                   return (
                     <g>
