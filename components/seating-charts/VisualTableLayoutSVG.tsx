@@ -67,7 +67,7 @@ export default function VisualTableLayoutSVG({
   const [tablePositions, setTablePositions] = useState<TablePosition[]>(() => {
     return tableLayout.tables.map((table, index) => {
       if (table.isDefault) {
-        return { id: table.id, x: 600, y: 400, rotation: 0 };
+        return { id: table.id, x: 400, y: 300, rotation: 0 };
       } else {
         const baseX = (index % 4) * 300 + 200;
         const baseY = Math.floor(index / 4) * 300 + 200;
@@ -87,7 +87,7 @@ export default function VisualTableLayoutSVG({
     handleCanvasMouseUp,
     handleCanvasWheel,
     resetCanvas
-  } = useCanvasPanZoom(1.2);
+  } = useCanvasPanZoom(0.9);
   
   const { resizeState, startResize, updateResize, stopResize } = useTableResize();
 
@@ -407,9 +407,9 @@ export default function VisualTableLayoutSVG({
   };
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden">
+    <div className="flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden bg-white">
       {/* Guest Assignment Sidebar - Left side like todo page */}
-      <div className="w-[320px] bg-[#F3F2F0] flex-shrink-0 flex flex-col border-r border-[#E0DBD7]">
+      <div className="w-[320px] bg-white flex-shrink-0 flex flex-col border-r border-[#E0DBD7]">
         {/* Header with search and filters */}
         <div className="p-4 border-b border-[#AB9C95]">
           <div className="flex items-center gap-4 mb-3">
