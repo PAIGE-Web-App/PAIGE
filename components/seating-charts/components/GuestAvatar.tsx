@@ -33,6 +33,20 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
 
   return (
     <g>
+      {/* Large invisible click target that covers the entire avatar area */}
+      <circle
+        cx={position.x}
+        cy={position.y}
+        r={20}
+        fill="transparent"
+        style={{ cursor: 'pointer' }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onAvatarClick(tableId, seatNumber);
+        }}
+      />
+      
       {/* Visible avatar circle */}
       <circle
         cx={position.x}
@@ -41,24 +55,35 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
         fill={avatarColor}
         stroke={avatarColor}
         strokeWidth={2}
-        style={{ cursor: 'pointer' }}
-        onClick={() => onAvatarClick(tableId, seatNumber)}
+        style={{ pointerEvents: 'none' }}
       />
       
-      {/* Guest Initials */}
-      <text
-        x={position.x}
-        y={position.y}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={12}
-        fontFamily="'Work Sans', sans-serif"
-        fill="white"
-        fontWeight="500"
-        style={{ userSelect: 'none', pointerEvents: 'none' }}
+      {/* Guest Initials using foreignObject for better compatibility */}
+      <foreignObject
+        x={position.x - 12}
+        y={position.y - 12}
+        width={24}
+        height={24}
+        style={{ pointerEvents: 'none' }}
       >
-        {getInitials(guest.fullName)}
-      </text>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontFamily: "'Work Sans', sans-serif",
+            color: 'white',
+            fontWeight: '500',
+            userSelect: 'none',
+            pointerEvents: 'none'
+          }}
+        >
+          {getInitials(guest.fullName)}
+        </div>
+      </foreignObject>
     </g>
   );
 };

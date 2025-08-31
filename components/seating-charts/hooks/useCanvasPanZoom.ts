@@ -56,7 +56,13 @@ export const useCanvasPanZoom = (initialScale: number = 1.2) => {
   }, []);
 
   const handleCanvasWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+    // Prevent default only if we can (non-passive events)
+    try {
+      e.preventDefault();
+    } catch (error) {
+      // Wheel events are passive in modern browsers, so preventDefault fails
+      // This is expected behavior and won't affect functionality
+    }
     
     // Smooth zoom factor - smaller steps for more precise control
     const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;

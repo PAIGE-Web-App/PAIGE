@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Trash2 } from 'lucide-react';
 import { TableType, Guest } from '../../types/seatingChart';
@@ -210,10 +210,10 @@ export default function TableLayoutStep({
         }}
         guestCount={guestCount}
         guests={guests}
-        onGuestAssignment={(guestId, tableId, seatNumber) => {
+        onGuestAssignment={useCallback((guestId: string, tableId: string, seatNumber: number) => {
           // Handle guest assignment - this will be implemented when we add drag & drop
           console.log(`Guest ${guestId} assigned to table ${tableId} seat ${seatNumber}`);
-        }}
+        }, [])}
         onRotationUpdate={handleRotationUpdate}
       />
     </div>

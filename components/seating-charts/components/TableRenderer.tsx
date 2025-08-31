@@ -4,6 +4,7 @@ import { TablePosition } from '../hooks/useTableDrag';
 import { getTableShape } from '../utils/seatPositionCalculator';
 import { GuestAvatar } from './GuestAvatar';
 import { ActionIcons } from './ActionIcons';
+import { CirclePlus } from 'lucide-react';
 
 interface TableRendererProps {
   table: TableType;
@@ -278,59 +279,102 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   );
                 })()}
               </g>
-            ) : (
-              // Empty Seat Circle
-              <circle
-                cx={position.x + seat.x}
-                cy={position.y + seat.y}
-                r={8}
-                fill="none"
-                stroke="#6b7280"
-                strokeWidth={2}
-                style={{ cursor: 'default' }}
-              />
-            )}
+                          ) : (
+                // Empty Seat with CirclePlus icon
+                <g>
+                  <foreignObject
+                    x={position.x + seat.x - 10}
+                    y={position.y + seat.y - 10}
+                    width={20}
+                    height={20}
+                    style={{ cursor: 'default' }}
+                  >
+                    <CirclePlus
+                      size={20}
+                      className="empty-seat"
+                      stroke="#6b7280"
+                      strokeWidth={1.5}
+                      fill="none"
+                    />
+                  </foreignObject>
+                </g>
+              )}
             {/* SVG Title for tooltip */}
             <title>{isSeatOccupied ? "Click to remove guest" : "Drop guest here"}</title>
             
 
             
-            {/* Drop Zone - Invisible but droppable */}
-            <circle
-              cx={position.x + seat.x}
-              cy={position.y + seat.y}
-              r={12}
-              fill="transparent"
-              stroke="transparent"
-              style={{ cursor: 'pointer' }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // Add visual feedback for drag over
-                e.currentTarget.style.fill = 'rgba(168, 92, 54, 0.1)';
-                e.currentTarget.style.stroke = '#A85C36';
-                e.currentTarget.style.strokeWidth = '2';
-              }}
-              onDragLeave={(e) => {
-                // Remove visual feedback when drag leaves
-                e.currentTarget.style.fill = 'transparent';
-                e.currentTarget.style.stroke = 'transparent';
-                e.currentTarget.style.strokeWidth = '0';
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // Remove visual feedback
-                e.currentTarget.style.fill = 'transparent';
-                e.currentTarget.style.stroke = 'transparent';
-                e.currentTarget.style.strokeWidth = '0';
-                
-                const guestId = e.dataTransfer.getData('text/plain');
-                if (guestId && onGuestDrop) {
-                  onGuestDrop(guestId, table.id, index);
-                }
-              }}
-            />
+            {/* Drop Zone - Only show when seat is empty */}
+            {!isSeatOccupied && (
+              <circle
+                cx={position.x + seat.x}
+                cy={position.y + seat.y}
+                r={12}
+                fill="transparent"
+                stroke="transparent"
+                style={{ cursor: 'pointer' }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Add visual feedback for drag over
+                  e.currentTarget.style.fill = 'rgba(168, 92, 54, 0.15)';
+                  e.currentTarget.style.stroke = '#A85C36';
+                  e.currentTarget.style.strokeWidth = '2';
+                  
+                  // Also highlight the empty seat CirclePlus icon
+                  const seatGroup = e.currentTarget.parentElement;
+                  if (seatGroup) {
+                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                    if (emptySeatIcon) {
+                      emptySeatIcon.style.stroke = '#A85C36';
+                      emptySeatIcon.style.strokeWidth = '2.5';
+                      emptySeatIcon.style.fill = 'rgba(168, 92, 54, 0.1)';
+                    }
+                  }
+                }}
+                onDragLeave={(e) => {
+                  // Remove visual feedback when drag leaves
+                  e.currentTarget.style.fill = 'transparent';
+                  e.currentTarget.style.stroke = 'transparent';
+                  e.currentTarget.style.strokeWidth = '0';
+                  
+                  // Also reset the empty seat CirclePlus icon styling
+                  const seatGroup = e.currentTarget.parentElement;
+                  if (seatGroup) {
+                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                    if (emptySeatIcon) {
+                      emptySeatIcon.style.fill = 'none';
+                      emptySeatIcon.style.stroke = '#6b7280';
+                      emptySeatIcon.style.strokeWidth = '1.5';
+                    }
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Remove visual feedback
+                  e.currentTarget.style.fill = 'transparent';
+                  e.currentTarget.style.stroke = 'transparent';
+                  e.currentTarget.style.strokeWidth = '0';
+                  
+                  // Also reset the empty seat CirclePlus icon styling
+                  const seatGroup = e.currentTarget.parentElement;
+                  if (seatGroup) {
+                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                    if (emptySeatIcon) {
+                      emptySeatIcon.style.fill = 'none';
+                      emptySeatIcon.style.stroke = '#6b7280';
+                      emptySeatIcon.style.strokeWidth = '1.5';
+                    }
+                  }
+                  
+                  const guestId = e.dataTransfer.getData('text/plain');
+                  if (guestId && onGuestDrop) {
+                    onGuestDrop(guestId, table.id, index);
+                  }
+                }}
+              />
+            )}
           </g>
         );
       })}

@@ -74,6 +74,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onRemoveGuest,
   getGuestAvatarColor
 }) => {
+
   return (
     <svg
       width="100%"

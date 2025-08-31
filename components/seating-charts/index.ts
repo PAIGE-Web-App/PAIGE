@@ -10,7 +10,7 @@ export { default as GuestTableHeader } from './GuestTableHeader';
 export { default as GuestTableRow } from './GuestTableRow';
 export { default as TableLayoutStep } from './TableLayoutStep';
 export { default as AIOrganizationStep } from './AIOrganizationStep';
-export { default as VisualTableLayout } from './VisualTableLayout';
+
 
 // New optimized components
 export { OptionsEditModal } from './components/OptionsEditModal';
@@ -22,3 +22,7 @@ export { Breadcrumbs } from './components/Breadcrumbs';
 // New hooks
 export { useModalState } from './hooks/useModalState';
 export { useWizardState } from './hooks/useWizardState';
+export { useGuestManagement } from './hooks/useGuestManagement';
+
+// New responsive components
+export { default as GuestSidebar } from './components/GuestSidebar';
