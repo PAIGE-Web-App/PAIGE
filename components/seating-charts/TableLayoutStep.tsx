@@ -49,7 +49,8 @@ export default function TableLayoutStep({
         type: 'long',
         capacity: 2,
         description: 'Special table for the happy couple',
-        isDefault: true
+        isDefault: true,
+        rotation: 0
       };
       
       onUpdate({
@@ -68,7 +69,8 @@ export default function TableLayoutStep({
       type: newTable.type,
       capacity: newTable.capacity,
       description: newTable.description.trim() || '',
-      isDefault: false
+      isDefault: false,
+      rotation: 0
     };
     
     const updatedTables = [...tableLayout.tables, newTableData];
@@ -93,6 +95,10 @@ export default function TableLayoutStep({
     );
     const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
     onUpdate({ tables: updatedTables, totalCapacity });
+  };
+
+  const handleRotationUpdate = (tableId: string, rotation: number) => {
+    updateTable(tableId, { rotation });
   };
 
   const removeTable = (tableId: string) => {
@@ -208,6 +214,7 @@ export default function TableLayoutStep({
           // Handle guest assignment - this will be implemented when we add drag & drop
           console.log(`Guest ${guestId} assigned to table ${tableId} seat ${seatNumber}`);
         }}
+        onRotationUpdate={handleRotationUpdate}
       />
     </div>
   );

@@ -25,6 +25,7 @@ interface SVGCanvasProps {
   onResizeStart?: (tableId: string, handleType: string, dimensions: { width: number; height: number }, e: React.MouseEvent) => void;
   onResizeUpdate?: (tableId: string, mouseX: number, mouseY: number) => void;
   onResizeEnd?: () => void;
+  onRotationUpdate?: (tableId: string, rotation: number) => void;
   profileImageUrl?: string;
   userName?: string;
   partnerName?: string;
@@ -60,6 +61,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onResizeStart,
   onResizeUpdate,
   onResizeEnd,
+  onRotationUpdate,
   profileImageUrl,
   userName,
   partnerName,
@@ -147,9 +149,10 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   onMouseEnter={onTableMouseEnter}
                   onMouseLeave={onTableMouseLeave}
                   onDoubleClick={onTableDoubleClick}
-                  onResizeStart={onResizeStart}
+                                    onResizeStart={onResizeStart}
                   onResizeUpdate={onResizeUpdate}
                   onResizeEnd={onResizeEnd}
+                  onRotationUpdate={onRotationUpdate}
                   profileImageUrl={profileImageUrl}
                   userName={userName}
                   partnerName={partnerName}
@@ -159,8 +162,8 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   showingActions={showingActions}
                   onAvatarClick={onAvatarClick}
                   onMoveGuest={onMoveGuest}
-                              onRemoveGuest={onRemoveGuest}
-            getGuestAvatarColor={getGuestAvatarColor}
+                  onRemoveGuest={onRemoveGuest}
+                  getGuestAvatarColor={getGuestAvatarColor}
           />
               </g>
             );

@@ -17,6 +17,7 @@ export { OptionsEditModal } from './components/OptionsEditModal';
 export { StepContent } from './components/StepContent';
 export { GuestAvatar } from './components/GuestAvatar';
 export { ActionIcons } from './components/ActionIcons';
+export { Breadcrumbs } from './components/Breadcrumbs';
 
 // New hooks
 export { useModalState } from './hooks/useModalState';

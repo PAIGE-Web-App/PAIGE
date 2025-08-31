@@ -23,6 +23,7 @@ interface VisualTableLayoutSVGProps {
   guestCount: number;
   guests: Guest[];
   onGuestAssignment?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onRotationUpdate?: (tableId: string, rotation: number) => void;
 }
 
 export default function VisualTableLayoutSVG({
@@ -31,7 +32,8 @@ export default function VisualTableLayoutSVG({
   onAddTable,
   guestCount,
   guests,
-  onGuestAssignment
+  onGuestAssignment,
+  onRotationUpdate
 }: VisualTableLayoutSVGProps) {
   const { profileImageUrl } = useAuth();
   const { userName, partnerName } = useUserProfileData();
@@ -657,6 +659,7 @@ export default function VisualTableLayoutSVG({
             onResizeStart={handleResizeStart}
             onResizeUpdate={handleResizeUpdate}
             onResizeEnd={handleResizeEnd}
+            onRotationUpdate={onRotationUpdate}
             profileImageUrl={profileImageUrl || undefined}
             userName={userName || undefined}
             partnerName={partnerName || undefined}

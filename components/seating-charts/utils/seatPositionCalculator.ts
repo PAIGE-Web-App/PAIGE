@@ -6,44 +6,88 @@ export interface SeatPosition {
 export interface TableShape {
   width: number;
   height: number;
-  seatPositions: (capacity: number, customWidth?: number, customHeight?: number) => SeatPosition[];
+  seatPositions: (capacity: number, customWidth?: number, customHeight?: number, rotation?: number) => SeatPosition[];
 }
+
+// Helper function to rotate a point around the origin
+const rotatePoint = (x: number, y: number, rotationDegrees: number): { x: number; y: number } => {
+  const rotationRadians = (rotationDegrees * Math.PI) / 180;
+  const cos = Math.cos(rotationRadians);
+  const sin = Math.sin(rotationRadians);
+  
+  return {
+    x: x * cos - y * sin,
+    y: x * sin + y * cos
+  };
+};
 
 export const TABLE_SHAPES: Record<string, TableShape> = {
   round: {
     width: 120,
     height: 120,
-    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number, rotation?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
       const width = customWidth || 120;
       const height = customHeight || 120;
       const radius = Math.min(width, height) * 0.67; // Seats outside table, proportional to size
       const positions: SeatPosition[] = [];
+      
       for (let i = 0; i < capacity; i++) {
         const angle = (i * 2 * Math.PI) / capacity;
-        positions.push({
-          x: radius * Math.cos(angle),
-          y: radius * Math.sin(angle)
-        });
+        const baseX = radius * Math.cos(angle);
+        const baseY = radius * Math.sin(angle);
+        
+        if (rotation && rotation !== 0) {
+          const rotated = rotatePoint(baseX, baseY, rotation);
+          positions.push(rotated);
+        } else {
+          positions.push({ x: baseX, y: baseY });
+        }
       }
+      
       return positions;
     }
   },
   long: {
     width: 200,
     height: 80,
-    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number, rotation?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
       const width = customWidth || 200;
       const height = customHeight || 80;
       const positions: SeatPosition[] = [];
-      const spacing = (width - 40) / Math.max(1, capacity - 1);
-      for (let i = 0; i < capacity; i++) {
-        positions.push({
-          x: -(width / 2) + 20 + (i * spacing),
-          y: -(height / 2) - 20 // Seats above table
-        });
+      
+      // Distribute seats evenly on the long sides only (top and bottom)
+      const seatsPerSide = Math.ceil(capacity / 2);
+      const seatSpacing = width / (seatsPerSide + 1);
+      
+      // Top side seats
+      for (let i = 0; i < Math.min(seatsPerSide, capacity); i++) {
+        const baseX = -(width / 2) + seatSpacing * (i + 1);
+        const baseY = -(height / 2) - 20;
+        
+        if (rotation && rotation !== 0) {
+          const rotated = rotatePoint(baseX, baseY, rotation);
+          positions.push(rotated);
+        } else {
+          positions.push({ x: baseX, y: baseY });
+        }
       }
+      
+      // Bottom side seats (if there are remaining seats)
+      const remainingSeats = capacity - Math.min(seatsPerSide, capacity);
+      for (let i = 0; i < remainingSeats; i++) {
+        const baseX = -(width / 2) + seatSpacing * (i + 1);
+        const baseY = (height / 2) + 20;
+        
+        if (rotation && rotation !== 0) {
+          const rotated = rotatePoint(baseX, baseY, rotation);
+          positions.push(rotated);
+        } else {
+          positions.push({ x: baseX, y: baseY });
+        }
+      }
+      
       return positions;
     }
   },
@@ -51,58 +95,43 @@ export const TABLE_SHAPES: Record<string, TableShape> = {
   square: {
     width: 120,
     height: 120,
-    seatPositions: (capacity: number, customWidth?: number, customHeight?: number): SeatPosition[] => {
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number, rotation?: number): SeatPosition[] => {
       if (capacity <= 1) return [{ x: 0, y: 0 }];
       const width = customWidth || 120;
       const height = customHeight || 120;
       const positions: SeatPosition[] = [];
       
-      // Simple approach: place seats around the perimeter
+      // Distribute seats evenly around the square
+      const perimeter = 2 * (width + height);
+      const seatSpacing = perimeter / capacity;
+      
       for (let i = 0; i < capacity; i++) {
-        if (i === 0) {
-          // Top
-          positions.push({ x: 0, y: -(height / 2) - 20 });
-        } else if (i === 1) {
-          // Right
-          positions.push({ x: (width / 2) + 20, y: 0 });
-        } else if (i === 2) {
-          // Bottom
-          positions.push({ x: 0, y: (height / 2) + 20 });
-        } else if (i === 3) {
-          // Left
-          positions.push({ x: -(width / 2) - 20, y: 0 });
-        } else if (i === 4) {
-          // Top-right
-          positions.push({ x: (width / 2) * 0.33, y: -(height / 2) - 20 });
-        } else if (i === 5) {
-          // Bottom-right
-          positions.push({ x: (width / 2) + 20, y: (height / 2) * 0.33 });
-        } else if (i === 6) {
-          // Bottom-left
-          positions.push({ x: -(width / 2) * 0.33, y: (height / 2) + 20 });
-        } else if (i === 7) {
-          // Top-left
-          positions.push({ x: -(width / 2) - 20, y: -(height / 2) * 0.33 });
+        const distance = i * seatSpacing;
+        let baseX: number, baseY: number;
+        
+        if (distance < width) {
+          // Top side
+          baseX = -(width / 2) + distance;
+          baseY = -(height / 2) - 20;
+        } else if (distance < width + height) {
+          // Right side
+          baseX = (width / 2) + 20;
+          baseY = -(height / 2) + (distance - width);
+        } else if (distance < 2 * width + height) {
+          // Bottom side
+          baseX = (width / 2) - (distance - width - height);
+          baseY = (height / 2) + 20;
         } else {
-          // For higher capacities, add more seats in between
-          const side = i % 4;
-          const position = Math.floor(i / 4);
-          const offset = (position + 1) * (Math.min(width, height) * 0.17);
-          
-          switch (side) {
-            case 0: // Top
-              positions.push({ x: -(width / 2) * 0.33 + offset, y: -(height / 2) - 20 });
-              break;
-            case 1: // Right
-              positions.push({ x: (width / 2) + 20, y: -(height / 2) * 0.33 + offset });
-              break;
-            case 2: // Bottom
-              positions.push({ x: (width / 2) * 0.33 - offset, y: (height / 2) + 20 });
-              break;
-            case 3: // Left
-              positions.push({ x: -(width / 2) - 20, y: (height / 2) * 0.33 - offset });
-              break;
-          }
+          // Left side
+          baseX = -(width / 2) - 20;
+          baseY = (height / 2) - (distance - 2 * width - height);
+        }
+        
+        if (rotation && rotation !== 0) {
+          const rotated = rotatePoint(baseX, baseY, rotation);
+          positions.push(rotated);
+        } else {
+          positions.push({ x: baseX, y: baseY });
         }
       }
       

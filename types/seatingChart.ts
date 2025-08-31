@@ -71,6 +71,7 @@ export interface TableType {
   capacity: number;
   description: string;
   isDefault: boolean;
+  rotation?: number; // Rotation in degrees (0-360)
 }
 
 export interface GuestGroup {

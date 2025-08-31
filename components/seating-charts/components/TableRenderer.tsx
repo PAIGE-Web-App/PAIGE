@@ -32,6 +32,7 @@ interface TableRendererProps {
   onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
   onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
   getGuestAvatarColor?: (guestId: string) => string;
+  onRotationUpdate?: (tableId: string, rotation: number) => void;
 }
 
 export const TableRenderer: React.FC<TableRendererProps> = ({
@@ -59,13 +60,15 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   onAvatarClick,
   onMoveGuest,
   onRemoveGuest,
-  getGuestAvatarColor
+  getGuestAvatarColor,
+  onRotationUpdate
 }) => {
   const shape = getTableShape(table.type);
   const customDimensions = tableDimensions?.[table.id];
   const width = customDimensions?.width || shape.width;
   const height = customDimensions?.height || shape.height;
-  const seatPositions = shape.seatPositions(table.capacity, width, height);
+  const currentRotation = table.rotation || 0;
+  const seatPositions = shape.seatPositions(table.capacity, width, height, currentRotation);
 
   const tableProps = {
     onMouseDown: (e: React.MouseEvent) => onMouseDown(table.id, e),
@@ -79,32 +82,32 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   return (
     <>
       {/* Table Shape */}
-      {table.type === 'round' ? (
-        <circle
-          cx={position.x}
-          cy={position.y}
-          r={width / 2}
-          fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
-          stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
-          strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
-          filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
-          {...tableProps}
-        />
-      ) : (
-        <rect
-          x={position.x - width / 2}
-          y={position.y - height / 2}
-          width={width}
-          height={height}
-          fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
-          stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
-          strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
-          rx={8}
-          ry={8}
-          filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
-          {...tableProps}
-        />
-      )}
+      <g transform={`rotate(${currentRotation}, ${position.x}, ${position.y})`}>
+        {table.type === 'round' ? (
+          <circle
+            cx={position.x}
+            cy={position.y}
+            r={width / 2}
+            fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
+            stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
+            strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
+            filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
+            {...tableProps}
+          />
+        ) : (
+          <rect
+            x={position.x - width / 2}
+            y={position.y - height / 2}
+            width={width}
+            height={height}
+            fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
+            stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
+            strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
+            filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
+            {...tableProps}
+          />
+        )}
+      </g>
 
       {/* Table Name */}
       <text
@@ -318,12 +321,12 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
       {/* Resize Handles - Only show when selected */}
       {isSelected && !table.isDefault && (
         <>
-          {/* Corner handles for proportional scaling - simple dots with larger hit area */}
+          {/* Corner handles for proportional scaling - positioned directly on table corners */}
           <circle
-            cx={position.x - width / 2 - 12}
-            cy={position.y - height / 2 - 12}
+            cx={position.x - width / 2}
+            cy={position.y - height / 2}
             r={8}
-            fill="none"
+            fill="white"
             stroke="#a855f7"
             strokeWidth={2}
             className="cursor-nw-resize"
@@ -337,10 +340,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           />
           
           <circle
-            cx={position.x + width / 2 + 12}
-            cy={position.y - height / 2 - 12}
+            cx={position.x + width / 2}
+            cy={position.y - height / 2}
             r={8}
-            fill="none"
+            fill="white"
             stroke="#a855f7"
             strokeWidth={2}
             className="cursor-ne-resize"
@@ -354,10 +357,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           />
           
           <circle
-            cx={position.x + width / 2 + 12}
-            cy={position.y + height / 2 + 12}
+            cx={position.x + width / 2}
+            cy={position.y + height / 2}
             r={8}
-            fill="none"
+            fill="white"
             stroke="#a855f7"
             strokeWidth={2}
             className="cursor-se-resize"
@@ -371,10 +374,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           />
           
           <circle
-            cx={position.x - width / 2 - 12}
-            cy={position.y + height / 2 + 12}
+            cx={position.x - width / 2}
+            cy={position.y + height / 2}
             r={8}
-            fill="none"
+            fill="white"
             stroke="#a855f7"
             strokeWidth={2}
             className="cursor-sw-resize"
@@ -387,6 +390,74 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             }}
           />
         </>
+      )}
+
+      {/* Rotation Handle - Only show when selected */}
+      {isSelected && !table.isDefault && (
+        <g>
+          {/* Shadow for rotation handle */}
+          <circle
+            cx={position.x + 2}
+            cy={position.y - height / 2 - 38}
+            r={12}
+            fill="rgba(0,0,0,0.2)"
+            style={{ pointerEvents: 'none' }}
+          />
+          
+          {/* Rotation handle - bigger circle above the table */}
+          <circle
+            cx={position.x}
+            cy={position.y - height / 2 - 40}
+            r={12}
+            fill="#a855f7"
+            stroke="white"
+            strokeWidth={2}
+            style={{ cursor: 'grab' }}
+                         onMouseDown={(e) => {
+               e.stopPropagation();
+               if (onRotationUpdate) {
+                 // Start rotation dragging
+                 const startX = e.clientX;
+                 const startY = e.clientY;
+                 const startRotation = currentRotation;
+                 
+                 const handleMouseMove = (moveEvent: MouseEvent) => {
+                   const deltaX = moveEvent.clientX - startX;
+                   const deltaY = moveEvent.clientY - startY;
+                   
+                   // Calculate rotation angle based on mouse movement
+                   const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+                   const newRotation = (startRotation + angle) % 360;
+                   
+                   // Update rotation in real-time
+                   onRotationUpdate(table.id, newRotation);
+                 };
+                 
+                 const handleMouseUp = () => {
+                   document.removeEventListener('mousemove', handleMouseMove);
+                   document.removeEventListener('mouseup', handleMouseUp);
+                 };
+                 
+                 document.addEventListener('mousemove', handleMouseMove);
+                 document.addEventListener('mouseup', handleMouseUp);
+               }
+             }}
+          />
+          
+          {/* Rotation icon - bigger and centered */}
+          <text
+            x={position.x}
+            y={position.y - height / 2 - 40}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={16}
+            fill="white"
+            fontWeight="bold"
+            style={{ pointerEvents: 'none' }}
+          >
+            ↻
+          </text>
+        </g>
       )}
     </>
   );

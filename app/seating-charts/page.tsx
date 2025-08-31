@@ -9,7 +9,7 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import Banner from '@/components/Banner';
-import { CSVUploadModal, SeatingChartWizardModal } from '@/components/seating-charts';
+import { CSVUploadModal } from '@/components/seating-charts';
 import { Guest, SeatingChart } from '@/types/seatingChart';
 
 export default function SeatingChartsPage() {
@@ -24,7 +24,6 @@ export default function SeatingChartsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCSVUploadModal, setShowCSVUploadModal] = useState(false);
-  const [showWizardModal, setShowWizardModal] = useState(false);
 
   // Initialize with empty state
   useEffect(() => {
@@ -33,7 +32,7 @@ export default function SeatingChartsPage() {
   }, []);
 
   const handleCreateChart = () => {
-    setShowWizardModal(true);
+    router.push('/seating-charts/create');
   };
 
   const handleChartSelect = (chart: SeatingChart) => {
@@ -280,16 +279,7 @@ export default function SeatingChartsPage() {
         onGuestsUploaded={handleGuestsUploaded}
       />
 
-      {/* Seating Chart Wizard Modal */}
-      <SeatingChartWizardModal
-        isOpen={showWizardModal}
-        onClose={() => setShowWizardModal(false)}
-        onChartCreated={(chart) => {
-          // TODO: Handle chart creation
-          setShowWizardModal(false);
-          showSuccessToast('Seating chart created successfully!');
-        }}
-      />
+
     </div>
   );
 }
