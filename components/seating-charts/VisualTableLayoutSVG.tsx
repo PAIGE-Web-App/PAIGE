@@ -341,11 +341,14 @@ export default function VisualTableLayoutSVG({
     if (!resizeState.isResizing) return;
     
     const currentDimensions = tableDimensions[tableId] || { width: 120, height: 120 };
+    const table = tableLayout.tables.find(t => t.id === tableId);
+    const tableRotation = table?.rotation || 0;
+    
     const newDimensions = updateResize(mouseX, mouseY, { 
       width: currentDimensions.width, 
       height: currentDimensions.height,
       seatPositions: () => [] // Placeholder, not used in resize calculation
-    });
+    }, tableRotation);
     
     setTableDimensions(prev => ({
       ...prev,

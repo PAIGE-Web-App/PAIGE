@@ -81,8 +81,9 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
 
   return (
     <>
-      {/* Table Shape */}
+      {/* Table Shape and Handles Group - Apply rotation to entire group */}
       <g transform={`rotate(${currentRotation}, ${position.x}, ${position.y})`}>
+        {/* Table Shape */}
         {table.type === 'round' ? (
           <circle
             cx={position.x}
@@ -106,6 +107,80 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
             {...tableProps}
           />
+        )}
+
+        {/* Scaling Handles - Positioned in local coordinates, will rotate with table */}
+        {isSelected && !table.isDefault && (
+          <>
+            {/* Corner handles for proportional scaling - positioned directly on table corners */}
+            <circle
+              cx={position.x - width / 2}
+              cy={position.y - height / 2}
+              r={8}
+              fill="white"
+              stroke="#a855f7"
+              strokeWidth={2}
+              className="cursor-nw-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onResizeStart) {
+                  onResizeStart(table.id, 'nw', { width, height }, e);
+                }
+              }}
+            />
+            
+            <circle
+              cx={position.x + width / 2}
+              cy={position.y - height / 2}
+              r={8}
+              fill="white"
+              stroke="#a855f7"
+              strokeWidth={2}
+              className="cursor-ne-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onResizeStart) {
+                  onResizeStart(table.id, 'ne', { width, height }, e);
+                }
+              }}
+            />
+            
+            <circle
+              cx={position.x + width / 2}
+              cy={position.y + height / 2}
+              r={8}
+              fill="white"
+              stroke="#a855f7"
+              strokeWidth={2}
+              className="cursor-se-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onResizeStart) {
+                  onResizeStart(table.id, 'se', { width, height }, e);
+                }
+              }}
+            />
+            
+            <circle
+              cx={position.x - width / 2}
+              cy={position.y + height / 2}
+              r={8}
+              fill="white"
+              stroke="#a855f7"
+              strokeWidth={2}
+              className="cursor-sw-resize"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onResizeStart) {
+                  onResizeStart(table.id, 'sw', { width, height }, e);
+                }
+              }}
+            />
+          </>
         )}
       </g>
 
@@ -318,79 +393,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
         </>
       )}
 
-      {/* Resize Handles - Only show when selected */}
-      {isSelected && !table.isDefault && (
-        <>
-          {/* Corner handles for proportional scaling - positioned directly on table corners */}
-          <circle
-            cx={position.x - width / 2}
-            cy={position.y - height / 2}
-            r={8}
-            fill="white"
-            stroke="#a855f7"
-            strokeWidth={2}
-            className="cursor-nw-resize"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onResizeStart) {
-                onResizeStart(table.id, 'nw', { width, height }, e);
-              }
-            }}
-          />
-          
-          <circle
-            cx={position.x + width / 2}
-            cy={position.y - height / 2}
-            r={8}
-            fill="white"
-            stroke="#a855f7"
-            strokeWidth={2}
-            className="cursor-ne-resize"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onResizeStart) {
-                onResizeStart(table.id, 'ne', { width, height }, e);
-              }
-            }}
-          />
-          
-          <circle
-            cx={position.x + width / 2}
-            cy={position.y + height / 2}
-            r={8}
-            fill="white"
-            stroke="#a855f7"
-            strokeWidth={2}
-            className="cursor-se-resize"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onResizeStart) {
-                onResizeStart(table.id, 'se', { width, height }, e);
-              }
-            }}
-          />
-          
-          <circle
-            cx={position.x - width / 2}
-            cy={position.y + height / 2}
-            r={8}
-            fill="white"
-            stroke="#a855f7"
-            strokeWidth={2}
-            className="cursor-sw-resize"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onResizeStart) {
-                onResizeStart(table.id, 'sw', { width, height }, e);
-              }
-            }}
-          />
-        </>
-      )}
+
 
       {/* Rotation Handle - Only show when selected */}
       {isSelected && !table.isDefault && (
@@ -421,6 +424,12 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                  const startY = e.clientY;
                  const startRotation = currentRotation;
                  
+                 // Hide rotation handle during rotation
+                 const rotationHandle = e.currentTarget.parentElement;
+                 if (rotationHandle) {
+                   rotationHandle.style.opacity = '0';
+                 }
+                 
                  const handleMouseMove = (moveEvent: MouseEvent) => {
                    const deltaX = moveEvent.clientX - startX;
                    const deltaY = moveEvent.clientY - startY;
@@ -434,6 +443,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                  };
                  
                  const handleMouseUp = () => {
+                   // Show rotation handle again after rotation
+                   if (rotationHandle) {
+                     rotationHandle.style.opacity = '1';
+                   }
                    document.removeEventListener('mousemove', handleMouseMove);
                    document.removeEventListener('mouseup', handleMouseUp);
                  };
