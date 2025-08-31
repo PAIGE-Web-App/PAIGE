@@ -84,6 +84,7 @@ export default function VisualTableLayoutSVG({
     guestAssignments,
     setGuestAssignments,
     handleGuestDrop,
+    handleGuestSwap,
     handleAvatarClick,
     handleMoveGuest,
     handleRemoveGuest,
@@ -289,6 +290,7 @@ export default function VisualTableLayoutSVG({
             partnerName={partnerName || undefined}
             guestAssignments={guestAssignments}
             onGuestDrop={handleGuestDrop}
+            onGuestSwap={handleGuestSwap}
             guests={guests}
             showingActions={showingActions}
             onAvatarClick={handleAvatarClickLocal}

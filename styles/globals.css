@@ -99,6 +99,17 @@ a {
   background-color: #2A2235;
 }
 
+/* Empty seat hover effects for seating chart */
+.empty-seat {
+  transition: all 0.2s ease-in-out;
+}
+
+.empty-seat:hover {
+  stroke: #A85C36 !important;
+  stroke-width: 2 !important;
+  fill: rgba(168, 92, 54, 0.05) !important;
+}
+
 .btn-search-match:active {
   background-color: #1F1A2A;
 }

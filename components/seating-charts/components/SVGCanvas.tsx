@@ -32,6 +32,7 @@ interface SVGCanvasProps {
   // Guest assignment props
   guestAssignments?: Record<string, { tableId: string; seatNumber: number }>;
   onGuestDrop?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onGuestSwap?: (guestId1: string, tableId1: string, seatNumber1: number, tableId2: string, seatNumber2: number) => void;
   guests?: Guest[];
   showingActions?: string | null;
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
@@ -67,6 +68,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   partnerName,
   guestAssignments,
   onGuestDrop,
+  onGuestSwap,
   guests,
   showingActions,
   onAvatarClick,
@@ -159,6 +161,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   partnerName={partnerName}
                   guestAssignments={guestAssignments}
                   onGuestDrop={onGuestDrop}
+                  onGuestSwap={onGuestSwap}
                   guests={guests}
                   showingActions={showingActions}
                   onAvatarClick={onAvatarClick}

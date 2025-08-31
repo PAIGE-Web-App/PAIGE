@@ -34,6 +34,7 @@ interface TableRendererProps {
   onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
   getGuestAvatarColor?: (guestId: string) => string;
   onRotationUpdate?: (tableId: string, rotation: number) => void;
+  onGuestSwap?: (guestId: string, sourceTableId: string, sourceSeatNumber: number, targetTableId: string, targetSeatNumber: number) => void;
 }
 
 export const TableRenderer: React.FC<TableRendererProps> = ({
@@ -62,7 +63,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   onMoveGuest,
   onRemoveGuest,
   getGuestAvatarColor,
-  onRotationUpdate
+  onRotationUpdate,
+  onGuestSwap
 }) => {
   const shape = getTableShape(table.type);
   const customDimensions = tableDimensions?.[table.id];
@@ -302,79 +304,138 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             {/* SVG Title for tooltip */}
             <title>{isSeatOccupied ? "Click to remove guest" : "Drop guest here"}</title>
             
-
-            
-            {/* Drop Zone - Only show when seat is empty */}
-            {!isSeatOccupied && (
-              <circle
-                cx={position.x + seat.x}
-                cy={position.y + seat.y}
-                r={12}
-                fill="transparent"
-                stroke="transparent"
-                style={{ cursor: 'pointer' }}
-                onDragOver={(e) => {
+            {/* Drop Zone - Tiny, positioned at center to catch sidebar drops but not interfere with avatars */}
+            <circle
+              cx={position.x + seat.x}
+              cy={position.y + seat.y}
+              r={4}
+              fill="transparent"
+              stroke="transparent"
+              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                              onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  // Add visual feedback for drag over
-                  e.currentTarget.style.fill = 'rgba(168, 92, 54, 0.15)';
-                  e.currentTarget.style.stroke = '#A85C36';
-                  e.currentTarget.style.strokeWidth = '2';
                   
-                  // Also highlight the empty seat CirclePlus icon
-                  const seatGroup = e.currentTarget.parentElement;
-                  if (seatGroup) {
-                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
-                    if (emptySeatIcon) {
-                      emptySeatIcon.style.stroke = '#A85C36';
-                      emptySeatIcon.style.strokeWidth = '2.5';
-                      emptySeatIcon.style.fill = 'rgba(168, 92, 54, 0.1)';
+                  // Different visual feedback based on seat status
+                  if (isSeatOccupied) {
+                    // Blue highlight for guest swap
+                    e.currentTarget.style.fill = 'rgba(59, 130, 246, 0.15)';
+                    e.currentTarget.style.stroke = '#3b82f6';
+                    e.currentTarget.style.strokeWidth = '2';
+                  } else {
+                    // Green highlight for empty seat assignment
+                    e.currentTarget.style.fill = 'rgba(34, 197, 94, 0.15)';
+                    e.currentTarget.style.stroke = '#22c55e';
+                    e.currentTarget.style.strokeWidth = '2';
+                    
+                    // Also highlight the empty seat CirclePlus icon
+                    const seatGroup = e.currentTarget.parentElement;
+                    if (seatGroup) {
+                      // Look for the CirclePlus icon in the same seat group
+                      const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                      if (emptySeatIcon) {
+                        emptySeatIcon.style.stroke = '#22c55e';
+                        emptySeatIcon.style.strokeWidth = '2.5';
+                        emptySeatIcon.style.fill = 'rgba(34, 197, 94, 0.1)';
+                      } else {
+                        // Fallback: try to find any CirclePlus icon in the seat area
+                        const allIcons = seatGroup.querySelectorAll('svg, .empty-seat');
+                        allIcons.forEach(icon => {
+                          if (icon instanceof HTMLElement) {
+                            icon.style.stroke = '#22c55e';
+                            icon.style.strokeWidth = '2.5';
+                            icon.style.fill = 'rgba(34, 197, 94, 0.1)';
+                          }
+                        });
+                      }
                     }
                   }
                 }}
-                onDragLeave={(e) => {
-                  // Remove visual feedback when drag leaves
-                  e.currentTarget.style.fill = 'transparent';
-                  e.currentTarget.style.stroke = 'transparent';
-                  e.currentTarget.style.strokeWidth = '0';
-                  
-                  // Also reset the empty seat CirclePlus icon styling
-                  const seatGroup = e.currentTarget.parentElement;
-                  if (seatGroup) {
-                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
-                    if (emptySeatIcon) {
-                      emptySeatIcon.style.fill = 'none';
-                      emptySeatIcon.style.stroke = '#6b7280';
-                      emptySeatIcon.style.strokeWidth = '1.5';
+              onDragLeave={(e) => {
+                // Remove visual feedback when drag leaves
+                e.currentTarget.style.fill = 'transparent';
+                e.currentTarget.style.stroke = 'transparent';
+                e.currentTarget.style.strokeWidth = '0';
+                
+                // Also reset the empty seat CirclePlus icon styling
+                const seatGroup = e.currentTarget.parentElement;
+                if (seatGroup) {
+                  // Look for the CirclePlus icon in the same seat group
+                  const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                  if (emptySeatIcon) {
+                    emptySeatIcon.style.fill = 'none';
+                    emptySeatIcon.style.stroke = '#6b7280';
+                    emptySeatIcon.style.strokeWidth = '1.5';
+                  } else {
+                    // Fallback: reset any CirclePlus icon in the seat area
+                    const allIcons = seatGroup.querySelectorAll('svg, .empty-seat');
+                    allIcons.forEach(icon => {
+                      if (icon instanceof HTMLElement) {
+                        icon.style.fill = 'none';
+                        icon.style.stroke = '#6b7280';
+                        icon.style.strokeWidth = '1.5';
+                      }
+                    });
+                  }
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Remove visual feedback
+                e.currentTarget.style.fill = 'transparent';
+                e.currentTarget.style.stroke = 'transparent';
+                e.currentTarget.style.strokeWidth = '0';
+                
+                // Also reset the empty seat CirclePlus icon styling
+                const seatGroup = e.currentTarget.parentElement;
+                if (seatGroup) {
+                  // Look for the CirclePlus icon in the same seat group
+                  const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
+                  if (emptySeatIcon) {
+                    emptySeatIcon.style.fill = 'none';
+                    emptySeatIcon.style.stroke = '#6b7280';
+                    emptySeatIcon.style.strokeWidth = '1.5';
+                  } else {
+                    // Fallback: reset any CirclePlus icon in the seat area
+                    const allIcons = seatGroup.querySelectorAll('svg, .empty-seat');
+                    allIcons.forEach(icon => {
+                      if (icon instanceof HTMLElement) {
+                        icon.style.fill = 'none';
+                        icon.style.stroke = '#6b7280';
+                        icon.style.strokeWidth = '1.5';
+                      }
+                    });
+                  }
+                }
+                
+                const dragData = e.dataTransfer.getData('text/plain');
+                if (!dragData) return;
+                
+                try {
+                  // Try to parse as JSON (from seated avatar)
+                  const parsedData = JSON.parse(dragData);
+                  if (parsedData.isFromSeat) {
+                    // Guest is being moved from another seat
+                    console.log('🔄 Guest swap detected:', parsedData.guestName);
+                    if (onGuestSwap) {
+                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourceSeatNumber, table.id, index);
+                    }
+                  } else {
+                    // Fallback to regular guest drop
+                    if (onGuestDrop) {
+                      onGuestDrop(parsedData.guestId, table.id, index);
                     }
                   }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Remove visual feedback
-                  e.currentTarget.style.fill = 'transparent';
-                  e.currentTarget.style.stroke = 'transparent';
-                  e.currentTarget.style.strokeWidth = '0';
-                  
-                  // Also reset the empty seat CirclePlus icon styling
-                  const seatGroup = e.currentTarget.parentElement;
-                  if (seatGroup) {
-                    const emptySeatIcon = seatGroup.querySelector('.empty-seat') as HTMLElement;
-                    if (emptySeatIcon) {
-                      emptySeatIcon.style.fill = 'none';
-                      emptySeatIcon.style.stroke = '#6b7280';
-                      emptySeatIcon.style.strokeWidth = '1.5';
-                    }
+                } catch (error) {
+                  // Fallback: treat as plain guest ID (from sidebar)
+                  console.log('📥 Guest assignment from sidebar:', dragData);
+                  if (onGuestDrop) {
+                    onGuestDrop(dragData, table.id, index);
                   }
-                  
-                  const guestId = e.dataTransfer.getData('text/plain');
-                  if (guestId && onGuestDrop) {
-                    onGuestDrop(guestId, table.id, index);
-                  }
-                }}
-              />
-            )}
+                }
+              }}
+            />
           </g>
         );
       })}

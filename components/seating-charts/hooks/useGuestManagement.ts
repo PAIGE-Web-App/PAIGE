@@ -73,13 +73,9 @@ export const useGuestManagement = (
   // Handle action icon clicks
   const handleAvatarClick = useCallback((tableId: string, seatNumber: number) => {
     const actionKey = `${tableId}-${seatNumber}`;
-    console.log('Avatar click detected:', tableId, seatNumber, 'Action key:', actionKey);
-    console.log('Current showingActions:', showingActions);
-    
     const newValue = showingActions === actionKey ? null : actionKey;
-    console.log('Setting showingActions to:', newValue);
     setShowingActions(newValue);
-  }, []);
+  }, [showingActions]);
 
   const handleMoveGuest = useCallback((guestId: string, tableId: string, seatNumber: number) => {
     // Remove current assignment and set to "moving" state
@@ -98,6 +94,50 @@ export const useGuestManagement = (
     handleGuestDrop(guestId, tableId, -1);
     setShowingActions(null);
   }, [handleGuestDrop]);
+
+  // Handle guest swapping between seats
+  const handleGuestSwap = useCallback((
+    guestId1: string, 
+    tableId1: string, 
+    seatNumber1: number,
+    tableId2: string, 
+    seatNumber2: number
+  ) => {
+    // Get current assignments
+    const newAssignments = { ...guestAssignments };
+    
+    // Find the guest currently in the destination seat (if any)
+    const guestInDestinationSeat = Object.keys(newAssignments).find(key => {
+      const assignment = newAssignments[key];
+      return assignment.tableId === tableId2 && assignment.seatNumber === seatNumber2;
+    });
+    
+    // Perform the swap
+    if (guestInDestinationSeat) {
+      // Move guest from destination seat to source seat
+      newAssignments[guestInDestinationSeat] = { tableId: tableId1, seatNumber: seatNumber1 };
+      
+      // Move guest1 to destination seat
+      newAssignments[guestId1] = { tableId: tableId2, seatNumber: seatNumber2 };
+    } else {
+      // Simple move (destination seat is empty)
+      // Remove the original assignment first
+      delete newAssignments[guestId1];
+      
+      // Add new assignment
+      newAssignments[guestId1] = { tableId: tableId2, seatNumber: seatNumber2 };
+    }
+    
+    setGuestAssignments(newAssignments);
+    
+    // Call parent callback for both guests if provided
+    if (onGuestAssignment) {
+      onGuestAssignment(guestId1, tableId2, seatNumber2);
+      if (guestInDestinationSeat) {
+        onGuestAssignment(guestInDestinationSeat, tableId1, seatNumber1);
+      }
+    }
+  }, [guestAssignments, onGuestAssignment]);
 
   // Generate consistent avatar color for guest
   const getGuestAvatarColor = useCallback((guestId: string) => {
@@ -120,6 +160,7 @@ export const useGuestManagement = (
     setShowingActions,
     getTableAssignedCount,
     handleGuestDrop,
+    handleGuestSwap,
     handleAvatarClick,
     handleMoveGuest,
     handleRemoveGuest,
