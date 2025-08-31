@@ -251,7 +251,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                       {uploadResult.guests.slice(0, 5).map((guest) => (
                         <div key={guest.id} className="flex items-center gap-3 text-sm">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="font-medium">{guest.firstName} {guest.lastName}</span>
+                          <span className="font-medium">{guest.fullName}</span>
                           {guest.relationship && (
                             <span className="text-[#AB9C95]">({guest.relationship})</span>
                           )}

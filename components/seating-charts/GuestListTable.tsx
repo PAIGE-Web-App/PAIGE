@@ -112,7 +112,7 @@ export default function GuestListTable({
           {/* Simple Table with Horizontal Scroll */}
           <div className="overflow-x-auto">
             <table className="w-full" style={{ 
-              minWidth: `${(guestColumns.length + 2) * 150 + 100}px`,
+              minWidth: `${(guestColumns.length + 1) * 150 + 200 + 100}px`,
               tableLayout: 'fixed'
             }}>
               <GuestTableHeader

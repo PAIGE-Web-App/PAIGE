@@ -214,7 +214,7 @@ export default function VisualTableLayoutSVG({
     // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(guest => 
-        `${guest.firstName} ${guest.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        guest.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         guest.relationship?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -228,8 +228,8 @@ export default function VisualTableLayoutSVG({
     
     // Apply sorting
     filtered.sort((a, b) => {
-      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
-      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+              const nameA = a.fullName.toLowerCase();
+        const nameB = b.fullName.toLowerCase();
       
       switch (sortOption) {
         case 'name-desc':
@@ -407,9 +407,9 @@ export default function VisualTableLayoutSVG({
   };
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden bg-white">
+    <div className="flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden">
       {/* Guest Assignment Sidebar - Left side like todo page */}
-      <div className="w-[320px] bg-white flex-shrink-0 flex flex-col border-r border-[#E0DBD7]">
+      <div className="w-[320px] bg-[#F3F2F0] flex-shrink-0 flex flex-col border-r border-[#E0DBD7]">
         {/* Header with search and filters */}
         <div className="p-4 border-b border-[#AB9C95]">
           <div className="flex items-center gap-4 mb-3">
@@ -571,12 +571,22 @@ export default function VisualTableLayoutSVG({
                         className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal"
                         style={{ backgroundColor: getGuestAvatarColor(guest.id) }}
                       >
-                        {guest.firstName.charAt(0)}{guest.lastName.charAt(0)}
+                        {(() => {
+                          // Parse full name to get initials
+                          if (!guest.fullName) return '';
+                          const nameParts = guest.fullName.trim().split(' ');
+                          if (nameParts.length >= 2) {
+                            return `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`;
+                          } else if (nameParts.length === 1) {
+                            return nameParts[0].charAt(0);
+                          }
+                          return '';
+                        })()}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-[#332B42] truncate">
-                        {guest.firstName} {guest.lastName}
+                        {guest.fullName}
                       </div>
                       <div className="flex items-center gap-2">
                         {guest.relationship && (
@@ -657,6 +667,7 @@ export default function VisualTableLayoutSVG({
             onAvatarClick={handleAvatarClick}
             onMoveGuest={handleMoveGuest}
             onRemoveGuest={handleRemoveGuest}
+            getGuestAvatarColor={getGuestAvatarColor}
           />
 
           {/* Capacity Warning - Positioned absolutely */}

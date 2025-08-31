@@ -36,6 +36,7 @@ interface SVGCanvasProps {
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
   onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
   onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
+  getGuestAvatarColor?: (guestId: string) => string;
 }
 
 export const SVGCanvas: React.FC<SVGCanvasProps> = ({
@@ -68,14 +69,15 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   showingActions,
   onAvatarClick,
   onMoveGuest,
-  onRemoveGuest
+  onRemoveGuest,
+  getGuestAvatarColor
 }) => {
   return (
     <svg
       width="100%"
       height="100%"
       style={{
-        background: '#F8F6F4',
+        background: 'white',
         cursor: isDraggingCanvas ? 'grabbing' : 'grab',
         border: 'none',
         outline: 'none',
@@ -105,7 +107,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
         {/* Background Grid - Cover entire viewport */}
         <defs>
           <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E0DBD7" strokeWidth="1" opacity="0.3"/>
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#D1C7C0" strokeWidth="1" opacity="0.5"/>
           </pattern>
         </defs>
         <rect 
@@ -157,8 +159,9 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   showingActions={showingActions}
                   onAvatarClick={onAvatarClick}
                   onMoveGuest={onMoveGuest}
-                  onRemoveGuest={onRemoveGuest}
-                />
+                              onRemoveGuest={onRemoveGuest}
+            getGuestAvatarColor={getGuestAvatarColor}
+          />
               </g>
             );
           })

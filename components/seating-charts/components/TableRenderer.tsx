@@ -2,6 +2,8 @@ import React from 'react';
 import { TableType, Guest } from '../../../types/seatingChart';
 import { TablePosition } from '../hooks/useTableDrag';
 import { getTableShape } from '../utils/seatPositionCalculator';
+import { GuestAvatar } from './GuestAvatar';
+import { ActionIcons } from './ActionIcons';
 
 interface TableRendererProps {
   table: TableType;
@@ -29,6 +31,7 @@ interface TableRendererProps {
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
   onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
   onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
+  getGuestAvatarColor?: (guestId: string) => string;
 }
 
 export const TableRenderer: React.FC<TableRendererProps> = ({
@@ -55,7 +58,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   showingActions,
   onAvatarClick,
   onMoveGuest,
-  onRemoveGuest
+  onRemoveGuest,
+  getGuestAvatarColor
 }) => {
   const shape = getTableShape(table.type);
   const customDimensions = tableDimensions?.[table.id];
@@ -150,52 +154,9 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           <g key={`${table.id}-seat-${index}`}>
             {/* Seat Circle or Guest Avatar */}
             {isSeatOccupied ? (
-              // Guest Avatar
+              // Guest Avatar with Actions
               <g>
-                {/* Visible avatar circle */}
-                <circle
-                  cx={position.x + seat.x}
-                  cy={position.y + seat.y}
-                  r={16}
-                  fill="#A85C36"
-                  stroke="#A85C36"
-                  strokeWidth={2}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onAvatarClick?.(table.id, index)}
-                />
-                {/* Guest Initials */}
-                <text
-                  x={position.x + seat.x}
-                  y={position.y + seat.y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={12}
-                  fontFamily="'Work Sans', sans-serif"
-                  fill="white"
-                  fontWeight="500"
-                  style={{ userSelect: 'none', pointerEvents: 'none' }}
-                >
-                  {(() => {
-                    const assignedGuestId = Object.keys(guestAssignments || {}).find(
-                      guestId => guestAssignments![guestId].tableId === table.id && 
-                                 guestAssignments![guestId].seatNumber === index
-                    );
-                    const assignedGuest = guests?.find(g => g.id === assignedGuestId);
-                    return assignedGuest ? `${assignedGuest.firstName.charAt(0)}${assignedGuest.lastName.charAt(0)}` : '';
-                  })()}
-                </text>
-                
-                
-
-                {/* Action Icons - Move and Remove */}
                 {(() => {
-                  const actionKey = `${table.id}-${index}`;
-                  const shouldShow = showingActions === actionKey;
-                  
-
-                  
-                  if (!shouldShow) return null;
-                  
                   const assignedGuestId = Object.keys(guestAssignments || {}).find(
                     guestId => guestAssignments![guestId].tableId === table.id && 
                                guestAssignments![guestId].seatNumber === index
@@ -203,77 +164,39 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   
                   if (!assignedGuestId) return null;
                   
+                  const assignedGuest = guests?.find(g => g.id === assignedGuestId);
+                  if (!assignedGuest) return null;
+                  
                   return (
-                    <g>
-                      {/* Move Icon - Arrow pointing up (left side) */}
-                      <circle
-                        cx={position.x + seat.x - 20}
-                        cy={position.y + seat.y - 35}
-                        r={12}
-                        fill="white"
-                        stroke="none"
-                        style={{ cursor: 'pointer', filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }}
-                        onClick={() => onMoveGuest?.(assignedGuestId, table.id, index)}
-                      />
-                      {/* Simple up arrow */}
-                      <line
-                        x1={position.x + seat.x - 20}
-                        y1={position.y + seat.y - 35 + 4}
-                        x2={position.x + seat.x - 20}
-                        y2={position.y + seat.y - 35 - 4}
-                        stroke="#6b7280"
-                        strokeWidth={1.5}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                      <line
-                        x1={position.x + seat.x - 23}
-                        y1={position.y + seat.y - 35 + 1}
-                        x2={position.x + seat.x - 20}
-                        y2={position.y + seat.y - 35 - 4}
-                        stroke="#6b7280"
-                        strokeWidth={1.5}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                      <line
-                        x1={position.x + seat.x - 17}
-                        y1={position.y + seat.y - 35 + 1}
-                        x2={position.x + seat.x - 20}
-                        y2={position.y + seat.y - 35 - 4}
-                        stroke="#6b7280"
-                        strokeWidth={1.5}
-                        style={{ pointerEvents: 'none' }}
+                    <>
+                      <GuestAvatar
+                        guest={assignedGuest}
+                        position={{ x: position.x + seat.x, y: position.y + seat.y }}
+                        tableId={table.id}
+                        seatNumber={index}
+                        onAvatarClick={onAvatarClick || (() => {})}
+                        getGuestAvatarColor={getGuestAvatarColor || (() => '#A85C36')}
                       />
                       
-                      {/* Remove Icon - X mark (right side) */}
-                      <circle
-                        cx={position.x + seat.x + 20}
-                        cy={position.y + seat.y - 35}
-                        r={12}
-                        fill="white"
-                        stroke="none"
-                        style={{ cursor: 'pointer', filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }}
-                        onClick={() => onRemoveGuest?.(assignedGuestId, table.id, index)}
-                      />
-                      {/* Simple X mark */}
-                      <line
-                        x1={position.x + seat.x + 16}
-                        y1={position.y + seat.y - 35 - 4}
-                        x2={position.x + seat.x + 24}
-                        y2={position.y + seat.y - 35 + 4}
-                        stroke="#6b7280"
-                        strokeWidth={1.5}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                      <line
-                        x1={position.x + seat.x + 24}
-                        y1={position.y + seat.y - 35 - 4}
-                        x2={position.x + seat.x + 16}
-                        y2={position.y + seat.y - 35 + 4}
-                        stroke="#6b7280"
-                        strokeWidth={1.5}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                    </g>
+                      {/* Action Icons - Move and Remove */}
+                      {(() => {
+                        const actionKey = `${table.id}-${index}`;
+                        const shouldShow = showingActions === actionKey;
+                        
+                        if (!shouldShow) return null;
+                        
+                        return (
+                          <ActionIcons
+                            position={{ x: position.x + seat.x, y: position.y + seat.y }}
+                            guestId={assignedGuestId}
+                            tableId={table.id}
+                            seatNumber={index}
+                            onMoveGuest={onMoveGuest || (() => {})}
+                            onRemoveGuest={onRemoveGuest || (() => {})}
+                          />
+                        );
+                      })()}
+                    </>
                   );
                 })()}
               </g>

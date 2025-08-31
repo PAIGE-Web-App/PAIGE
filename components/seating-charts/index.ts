@@ -11,3 +11,13 @@ export { default as GuestTableRow } from './GuestTableRow';
 export { default as TableLayoutStep } from './TableLayoutStep';
 export { default as AIOrganizationStep } from './AIOrganizationStep';
 export { default as VisualTableLayout } from './VisualTableLayout';
+
+// New optimized components
+export { OptionsEditModal } from './components/OptionsEditModal';
+export { StepContent } from './components/StepContent';
+export { GuestAvatar } from './components/GuestAvatar';
+export { ActionIcons } from './components/ActionIcons';
+
+// New hooks
+export { useModalState } from './hooks/useModalState';
+export { useWizardState } from './hooks/useWizardState';

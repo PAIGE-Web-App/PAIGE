@@ -1,7 +1,6 @@
 export interface Guest {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   mealPreference?: string;
   relationship?: string;
   // Dynamic custom fields

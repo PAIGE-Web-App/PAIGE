@@ -47,72 +47,36 @@ export default function GuestTableRow({
         index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
       }`}
     >
-      {/* Fixed First Name Column */}
+      {/* Fixed Full Name Column */}
       <td 
         className="p-3 border-r border-[#E0DBD7] whitespace-nowrap overflow-hidden"
-        style={{ width: '150px' }}
+        style={{ width: '200px' }}
       >
         <div
           className="w-full min-h-[40px] flex items-center cursor-text hover:bg-[#FEFEFD] rounded px-2 py-1 transition-colors"
-          onClick={() => handleCellClick('firstName')}
+          onClick={() => handleCellClick('fullName')}
         >
-          {wizardState[`editing_${guest.id}_firstName` as keyof WizardState] ? (
+          {wizardState[`editing_${guest.id}_fullName` as keyof WizardState] ? (
             <input
               type="text"
-              value={guest.firstName || ''}
-              onChange={(e) => onUpdateGuest(guest.id, 'firstName', e.target.value)}
-              onBlur={() => handleCellBlur('firstName')}
+              value={guest.fullName || ''}
+              onChange={(e) => onUpdateGuest(guest.id, 'fullName', e.target.value)}
+              onBlur={() => handleCellBlur('fullName')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleCellBlur('firstName');
+                  handleCellBlur('fullName');
                 } else if (e.key === 'Escape') {
-                  handleCellBlur('firstName');
+                  handleCellBlur('fullName');
                 }
               }}
               className="w-full text-sm text-[#332B42] bg-transparent border-none outline-none focus:ring-0"
               autoFocus
-              placeholder="First Name"
+              placeholder="Full Name"
             />
           ) : (
             <span className="text-sm text-[#332B42] flex-1 truncate block">
-              {guest.firstName || (
-                <span className="text-[#AB9C95]">First Name</span>
-              )}
-            </span>
-          )}
-        </div>
-      </td>
-      
-      {/* Fixed Last Name Column */}
-      <td 
-        className="p-3 border-r border-[#E0DBD7] whitespace-nowrap overflow-hidden"
-        style={{ width: '150px' }}
-      >
-        <div
-          className="w-full min-h-[40px] flex items-center cursor-text hover:bg-[#FEFEFD] rounded px-2 py-1 transition-colors"
-          onClick={() => handleCellClick('lastName')}
-        >
-          {wizardState[`editing_${guest.id}_lastName` as keyof WizardState] ? (
-            <input
-              type="text"
-              value={guest.lastName || ''}
-              onChange={(e) => onUpdateGuest(guest.id, 'lastName', e.target.value)}
-              onBlur={() => handleCellBlur('lastName')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleCellBlur('lastName');
-                } else if (e.key === 'Escape') {
-                  handleCellBlur('lastName');
-                }
-              }}
-              className="w-full text-sm text-[#332B42] bg-transparent border-none outline-none focus:ring-0"
-              autoFocus
-              placeholder="Last Name"
-            />
-          ) : (
-            <span className="text-sm text-[#332B42] flex-1 truncate block">
-              {guest.lastName || (
-                <span className="text-[#AB9C95]">Last Name</span>
+              {guest.fullName || (
+                <span className="text-[#AB9C95]">Full Name</span>
               )}
             </span>
           )}

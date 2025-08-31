@@ -26,23 +26,13 @@ export default function GuestTableHeader({
   return (
     <thead>
       <tr className="bg-[#F8F6F4] border-b border-[#E0DBD7]">
-        {/* Fixed First Name Column */}
+        {/* Fixed Full Name Column */}
         <th 
           className="p-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap"
-          style={{ width: '150px' }}
+          style={{ width: '200px' }}
         >
           <span className="truncate block w-full cursor-default">
-            First Name<span className="text-[#A85C36]">*</span>
-          </span>
-        </th>
-        
-        {/* Fixed Last Name Column */}
-        <th 
-          className="p-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap"
-          style={{ width: '150px' }}
-        >
-          <span className="truncate block w-full cursor-default">
-            Last Name<span className="text-[#A85C36]">*</span>
+            Full Name<span className="text-[#A85C36]">*</span>
           </span>
         </th>
         
@@ -51,15 +41,15 @@ export default function GuestTableHeader({
           <th 
             key={column.id} 
             className={`p-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] last:border-r-0 whitespace-nowrap transition-all duration-200 ${
-              column.key !== 'firstName' && column.key !== 'lastName' ? 'cursor-move hover:bg-[#F0F0F0]' : ''
+              column.key !== 'fullName' ? 'cursor-move hover:bg-[#F0F0F0]' : ''
             }`}
             style={{ width: '150px' }}
-            draggable={column.key !== 'firstName' && column.key !== 'lastName'}
-            onDragStart={(e) => column.key !== 'firstName' && column.key !== 'lastName' ? onDragStart(e, column.id) : undefined}
-            onDragOver={(e) => column.key !== 'firstName' && column.key !== 'lastName' ? onDragOver(e) : undefined}
-            onDragLeave={(e) => column.key !== 'firstName' && column.key !== 'lastName' ? onDragLeave(e) : undefined}
-            onDrop={(e) => column.key !== 'firstName' && column.key !== 'lastName' ? onDrop(e, column.id) : undefined}
-            onDragEnd={(e) => column.key !== 'firstName' && column.key !== 'lastName' ? onDragEnd(e) : undefined}
+            draggable={column.key !== 'fullName'}
+            onDragStart={(e) => column.key !== 'fullName' ? onDragStart(e, column.id) : undefined}
+            onDragOver={(e) => column.key !== 'fullName' ? onDragOver(e) : undefined}
+            onDragLeave={(e) => column.key !== 'fullName' ? onDragLeave(e) : undefined}
+            onDrop={(e) => column.key !== 'fullName' ? onDrop(e, column.id) : undefined}
+            onDragEnd={(e) => column.key !== 'fullName' ? onDragEnd(e) : undefined}
           >
             <div className="flex items-center justify-between group">
               <div className="flex-1 min-w-0 flex items-center gap-2">
