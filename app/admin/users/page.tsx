@@ -59,6 +59,9 @@ export default function AdminUsersPage() {
   const [corruptedUsers, setCorruptedUsers] = useState<AdminUser[]>([]);
   const [bulkRepairing, setBulkRepairing] = useState(false);
   
+  // Credit sync state
+  const [syncingCredits, setSyncingCredits] = useState(false);
+  
   // Delete user state
   const [deletingUser, setDeletingUser] = useState(false);
 
@@ -208,6 +211,86 @@ export default function AdminUsersPage() {
       showErrorToast('Failed to perform bulk repair');
     } finally {
       setBulkRepairing(false);
+    }
+  };
+
+  // Refresh credits for a specific user
+  const handleRefreshUserCredits = async (targetUser: AdminUser) => {
+    if (!confirm(`Refresh credits for ${targetUser.email}? This will reset their daily credits to their tier default if they need a refresh.`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/admin/users/${targetUser.uid}/credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        },
+        body: JSON.stringify({
+          action: 'refresh'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to refresh user credits');
+      }
+      
+      showSuccessToast(`Credits refreshed for ${targetUser.email}`);
+      
+      // Refresh the user list to show updated credits
+      fetchUsers(currentPage);
+      
+    } catch (error: any) {
+      console.error('Error refreshing user credits:', error);
+      showErrorToast(`Failed to refresh credits: ${error.message}`);
+    }
+  };
+
+  // Sync daily credits for all users
+  const handleSyncDailyCredits = async () => {
+    if (!confirm('This will sync daily credits for all users. Users who need a refresh (crossed midnight) will get their credits reset to their tier default. Continue?')) {
+      return;
+    }
+    
+    setSyncingCredits(true);
+    try {
+      const response = await fetch('/api/scheduled-tasks/credit-refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user?.getIdToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sync credits');
+      }
+      
+      const result = await response.json();
+      
+      if (result.refreshedCount > 0) {
+        showSuccessToast(`Successfully synced credits for ${result.refreshedCount} user${result.refreshedCount > 1 ? 's' : ''}${result.skippedCount > 0 ? `, ${result.skippedCount} skipped` : ''}`);
+      } else if (result.skippedCount > 0) {
+        showSuccessToast(`No users needed refresh - ${result.skippedCount} user${result.skippedCount > 1 ? 's' : ''} already have current credits`);
+      } else {
+        showSuccessToast('No users found with credits to sync');
+      }
+      
+      if (result.errorCount > 0) {
+        showErrorToast(`Failed to sync ${result.errorCount} user${result.errorCount > 1 ? 's' : ''}`);
+      }
+      
+      // Refresh the user list to show updated credits
+      fetchUsers(currentPage);
+      
+    } catch (error: any) {
+      console.error('Error syncing credits:', error);
+      showErrorToast(`Failed to sync credits: ${error.message}`);
+    } finally {
+      setSyncingCredits(false);
     }
   };
 
@@ -409,6 +492,8 @@ export default function AdminUsersPage() {
             currentUserRole={currentUserRole}
             loading={loading}
             onRefreshUsers={() => fetchUsers(1)}
+            onSyncCredits={handleSyncDailyCredits}
+            syncingCredits={syncingCredits}
             user={user}
           />
 
@@ -481,12 +566,14 @@ export default function AdminUsersPage() {
             users={sortedUsers}
             loading={loading}
             loadingMore={loadingMore}
+            currentUserRole={currentUserRole}
             onEditUser={(user) => {
               setSelectedUser(user);
               setShowRoleModal(true);
             }}
             onDeleteUser={handleDeleteUser}
             onRefreshUsers={() => fetchUsers(1)}
+            onRefreshUserCredits={handleRefreshUserCredits}
             onUpdateUserCredits={(userId, updatedCredits) => {
               setUsers(prevUsers => 
                 prevUsers.map(u => 

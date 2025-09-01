@@ -8,6 +8,7 @@ import { getSubscriptionCredits } from '@/types/credits';
 interface UserTableRowProps {
   user: any;
   index: number;
+  currentUserRole?: string;
   editingBonusCredits: { userId: string; value: string } | null;
   updatingCredits: Set<string>;
   expandedRows: Set<string>;
@@ -16,6 +17,7 @@ interface UserTableRowProps {
   onBonusCreditEditSave: (user: any, value: string) => void;
   onBonusCreditEditCancel: () => void;
   onResetDailyCredits: (user: any) => void;
+  onRefreshUserCredits?: (user: any) => void;
   onEditUser: (user: any) => void;
   onDeleteUser: (user: any) => void;
   onLinkPartner: (userId: string) => void;
@@ -112,6 +114,7 @@ const formatDate = (date: Date | string | null) => {
 const UserTableRow = memo(({
   user,
   index,
+  currentUserRole,
   editingBonusCredits,
   updatingCredits,
   expandedRows,
@@ -120,6 +123,7 @@ const UserTableRow = memo(({
   onBonusCreditEditSave,
   onBonusCreditEditCancel,
   onResetDailyCredits,
+  onRefreshUserCredits,
   onEditUser,
   onDeleteUser,
   onLinkPartner,
@@ -205,8 +209,8 @@ const UserTableRow = memo(({
             </span>
           </div>
           
-          {/* Reset Daily Credits Button - only show if credits are corrupted */}
-          {user.credits?.dailyCredits && user.credits.dailyCredits > (getDailyCreditsForUser(user) + 50) && (
+          {/* Reset Daily Credits Button - only show for super admin if credits are corrupted */}
+          {currentUserRole === 'super_admin' && user.credits?.dailyCredits && user.credits.dailyCredits > (getDailyCreditsForUser(user) + 50) && (
             <button
               onClick={() => onResetDailyCredits(user)}
               disabled={isUpdatingCredits}
@@ -214,6 +218,18 @@ const UserTableRow = memo(({
               title="Reset daily credits to tier default"
             >
               Reset
+            </button>
+          )}
+          
+          {/* Refresh Credits Button - only show for super admin */}
+          {currentUserRole === 'super_admin' && onRefreshUserCredits && (
+            <button
+              onClick={() => onRefreshUserCredits(user)}
+              disabled={isUpdatingCredits}
+              className="text-xs text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+              title="Refresh credits for this user"
+            >
+              Refresh
             </button>
           )}
         </div>

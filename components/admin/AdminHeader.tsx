@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Star, Crown, RefreshCw } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Star, Crown, RefreshCw, ChevronDown } from 'lucide-react';
 import { UserRole } from '@/types/user';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useAuth } from '@/contexts/AuthContext';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface AdminHeaderProps {
   title: string;
@@ -10,6 +11,8 @@ interface AdminHeaderProps {
   currentUserRole: UserRole;
   loading: boolean;
   onRefreshUsers?: () => void;
+  onSyncCredits?: () => void;
+  syncingCredits?: boolean;
   user?: any; // Firebase User object
 }
 
@@ -30,12 +33,29 @@ export default function AdminHeader({
   currentUserRole, 
   loading,
   onRefreshUsers,
+  onSyncCredits,
+  syncingCredits = false,
   user
 }: AdminHeaderProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [syncing, setSyncing] = useState(false);
   const [fixingDates, setFixingDates] = useState(false);
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { user: authUser } = useAuth();
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowActionsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (loading) {
     return <HeaderSkeleton />;
@@ -43,11 +63,11 @@ export default function AdminHeader({
 
   const getRoleColor = (role: UserRole) => {
     const colors = {
-      couple: 'bg-blue-100 text-blue-800 border-blue-200',
-      planner: 'bg-green-100 text-green-800 border-green-200',
-      moderator: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      admin: 'bg-purple-100 text-purple-800 border-purple-200',
-      super_admin: 'bg-red-100 text-red-800 border-red-200'
+      couple: 'bg-gray-50 text-gray-700 border-gray-200',
+      planner: 'bg-green-50 text-green-700 border-green-200',
+      moderator: 'bg-purple-50 text-purple-700 border-purple-200',
+      admin: 'bg-blue-50 text-blue-700 border-blue-200',
+      super_admin: 'bg-yellow-50 text-yellow-700 border-yellow-200'
     };
     return colors[role] || colors.couple;
   };
@@ -159,23 +179,82 @@ export default function AdminHeader({
         <p className="text-gray-600">{description}</p>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          onClick={handleSyncRelationships}
-          disabled={syncing}
-          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
-        >
-          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Sync Data to Fix Issues'}
-        </button>
-        
-        <button
-          onClick={handleFixCreatedAt}
-          disabled={fixingDates}
-          className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
-        >
-          <RefreshCw className={`w-4 h-4 ${fixingDates ? 'animate-spin' : ''}`} />
-          {fixingDates ? 'Fixing...' : 'Fix Created Dates'}
-        </button>
+        {/* Super Admin Only Actions Dropdown */}
+        {currentUserRole === 'super_admin' && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+              className="btn-primaryinverse flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              Actions
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            <AnimatePresence>
+              {showActionsDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 mt-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 min-w-[280px]"
+                >
+                  <button
+                    onClick={() => {
+                      handleSyncRelationships();
+                      setShowActionsDropdown(false);
+                    }}
+                    disabled={syncing}
+                    className="w-full flex flex-col items-start gap-1 px-4 py-3 text-sm text-[#332B42] hover:bg-[#F3F2F0] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                      <span className="font-medium">{syncing ? 'Syncing...' : 'Sync Data to Fix Issues'}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 ml-6">
+                      Fix partner relationships, planner assignments, and wedding dates
+                    </span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      handleFixCreatedAt();
+                      setShowActionsDropdown(false);
+                    }}
+                    disabled={fixingDates}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${fixingDates ? 'animate-spin' : ''}`} />
+                    {fixingDates ? 'Fixing...' : 'Fix Created Dates'}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onSyncCredits?.();
+                      setShowActionsDropdown(false);
+                    }}
+                    disabled={syncingCredits}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${syncingCredits ? 'animate-spin' : ''}`} />
+                    {syncingCredits ? 'Syncing Credits...' : 'Sync Daily Credits'}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      window.open('/api/scheduled-tasks/credit-refresh-monitor', '_blank');
+                      setShowActionsDropdown(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[#332B42] hover:bg-[#F3F2F0] whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    View Credit Refresh Monitor
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
         
         <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(currentUserRole)}`}>
           {getRoleIcon(currentUserRole)}

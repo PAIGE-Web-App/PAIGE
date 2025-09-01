@@ -137,6 +137,37 @@ export async function POST(
         }
         break;
         
+      case 'refresh':
+        // Refresh credits for a specific user (check if they need refresh)
+        const currentCreditsForRefresh = await creditServiceAdmin.getUserCredits(userId);
+        if (currentCreditsForRefresh) {
+          // Check if credits need refresh
+          const lastRefresh = new Date(currentCreditsForRefresh.lastCreditRefresh);
+          const now = new Date();
+          
+          // Check if we've crossed midnight since last refresh
+          const lastRefreshDay = new Date(lastRefresh.getFullYear(), lastRefresh.getMonth(), lastRefresh.getDate());
+          const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          
+          if (currentDay > lastRefreshDay) {
+            // Credits need refresh
+            await creditServiceAdmin.refreshCreditsForUser(userId, currentCreditsForRefresh);
+            success = true;
+          } else {
+            // No refresh needed - same day
+            success = true; // Still return success, just no action taken
+          }
+        } else {
+          // No credits record - initialize them
+          const newCredits = await creditServiceAdmin.initializeUserCredits(
+            userId,
+            'couple', // Default user type
+            'free'    // Default tier
+          );
+          success = !!newCredits;
+        }
+        break;
+        
       default:
         return NextResponse.json(
           { error: 'Invalid action. Must be one of: add, subtract, set, initialize, repair, reset_daily' },

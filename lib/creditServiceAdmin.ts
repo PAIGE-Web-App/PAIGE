@@ -384,6 +384,13 @@ export class CreditServiceAdmin {
   }
 
   /**
+   * Refresh credits for a specific user (public method for scheduled tasks)
+   */
+  async refreshCreditsForUser(userId: string, currentCredits: UserCredits): Promise<UserCredits> {
+    return this.refreshCredits(userId, currentCredits);
+  }
+
+  /**
    * Repair corrupted credits by resetting to default values
    */
   async repairCorruptedCredits(userId: string): Promise<boolean> {

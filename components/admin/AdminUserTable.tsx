@@ -8,9 +8,11 @@ interface AdminUserTableProps {
   users: any[];
   loading: boolean;
   loadingMore: boolean;
+  currentUserRole?: string;
   onEditUser: (user: any) => void;
   onDeleteUser: (user: any) => void;
   onRefreshUsers: () => void;
+  onRefreshUserCredits?: (user: any) => void;
   onUpdateUserCredits?: (userId: string, updatedCredits: any) => void;
 }
 
@@ -18,9 +20,11 @@ export default function AdminUserTable({
   users, 
   loading, 
   loadingMore, 
+  currentUserRole,
   onEditUser, 
   onDeleteUser,
   onRefreshUsers,
+  onRefreshUserCredits,
   onUpdateUserCredits
 }: AdminUserTableProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -497,6 +501,7 @@ export default function AdminUserTable({
                   key={user.uid}
                   user={user}
                   index={index}
+                  currentUserRole={currentUserRole}
                   editingBonusCredits={editingBonusCredits}
                   updatingCredits={updatingCredits}
                   expandedRows={expandedRows}
@@ -505,6 +510,7 @@ export default function AdminUserTable({
                   onBonusCreditEditSave={handleBonusCreditEditSave}
                   onBonusCreditEditCancel={handleBonusCreditEditCancel}
                   onResetDailyCredits={handleResetDailyCredits}
+                  onRefreshUserCredits={onRefreshUserCredits}
                   onEditUser={onEditUser}
                   onDeleteUser={onDeleteUser}
                   onLinkPartner={(userId) => {

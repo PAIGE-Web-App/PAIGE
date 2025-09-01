@@ -134,6 +134,22 @@ export const defaultScheduledTasks: Omit<ScheduledTask, 'id' | 'createdAt' | 'up
     jobType: 'email_cleanup',
     jobData: { cleanupFailed: true, retryImportant: true },
     isActive: true
+  },
+  {
+    name: 'Daily Credit Refresh Queue',
+    description: 'Create credit refresh jobs for all users at midnight',
+    cronExpression: '0 0 * * *', // Midnight daily
+    jobType: 'credit_refresh_queue',
+    jobData: { createJobs: true },
+    isActive: true
+  },
+  {
+    name: 'Credit Refresh Worker',
+    description: 'Process credit refresh jobs every 5 minutes',
+    cronExpression: '*/5 * * * *', // Every 5 minutes
+    jobType: 'credit_refresh_worker',
+    jobData: { maxJobs: 20, processTime: 60000 },
+    isActive: true
   }
 ];
 

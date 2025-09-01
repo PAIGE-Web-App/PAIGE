@@ -6,7 +6,7 @@ import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, orde
 
 export interface Job {
   id?: string;
-  type: 'email' | 'image_processing' | 'data_update' | 'scheduled_task' | 'vendor_sync';
+  type: 'email' | 'image_processing' | 'data_update' | 'scheduled_task' | 'vendor_sync' | 'credit_refresh' | 'credit_refresh_queue' | 'credit_refresh_worker';
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'retrying';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   data: any;
@@ -458,6 +458,134 @@ export const jobProcessors: JobProcessor[] = [
     },
     concurrency: 2,
     timeout: 45000
+  },
+
+  // Credit refresh processor - Phase 1 optimized
+  {
+    type: 'credit_refresh',
+    processor: async (job: Job) => {
+      const { refreshAllUsers, cursor, batchSize = 50 } = job.data;
+      
+      if (!refreshAllUsers) {
+        throw new Error('Credit refresh job requires refreshAllUsers flag');
+      }
+      
+      // Call the credit refresh API endpoint with pagination
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scheduled-tasks/credit-refresh`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SCHEDULED_TASK_SECRET}`
+        },
+        body: JSON.stringify({
+          cursor,
+          batchSize,
+          isInitialRun: !cursor
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Credit refresh failed: ${errorData.error || response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      // If there are more users to process, create a follow-up job
+      if (result.hasMore && result.nextCursor) {
+        await jobQueue.addJob({
+          type: 'credit_refresh',
+          priority: 'normal',
+          data: {
+            refreshAllUsers: true,
+            cursor: result.nextCursor,
+            batchSize
+          },
+          maxAttempts: 3,
+          scheduledFor: Timestamp.fromDate(new Date(Date.now() + 5000)) // 5 second delay
+        });
+      }
+      
+      return { 
+        refreshed: true, 
+        metrics: result.metrics,
+        hasMore: result.hasMore,
+        nextCursor: result.nextCursor
+      };
+    },
+    concurrency: 1, // Only one credit refresh job at a time
+    timeout: 300000 // 5 minutes timeout
+  },
+
+  // Credit refresh queue processor - Phase 2
+  {
+    type: 'credit_refresh_queue',
+    processor: async (job: Job) => {
+      const { createJobs } = job.data;
+      
+      if (!createJobs) {
+        throw new Error('Credit refresh queue job requires createJobs flag');
+      }
+      
+      // Call the credit refresh queue API endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scheduled-tasks/credit-refresh-queue`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SCHEDULED_TASK_SECRET}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Credit refresh queue failed: ${errorData.error || response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      return { 
+        queueCreated: true, 
+        jobsCreated: result.jobsCreated,
+        errors: result.errors
+      };
+    },
+    concurrency: 1, // Only one queue creation job at a time
+    timeout: 600000 // 10 minutes timeout
+  },
+
+  // Credit refresh worker processor - Phase 2
+  {
+    type: 'credit_refresh_worker',
+    processor: async (job: Job) => {
+      const { maxJobs = 20, processTime = 60000 } = job.data;
+      
+      // Call the credit refresh worker API endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/scheduled-tasks/credit-refresh-worker`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SCHEDULED_TASK_SECRET}`
+        },
+        body: JSON.stringify({
+          maxJobs,
+          processTime
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Credit refresh worker failed: ${errorData.error || response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      return { 
+        workerCompleted: true, 
+        metrics: result.metrics
+      };
+    },
+    concurrency: 3, // Allow multiple workers to run concurrently
+    timeout: 120000 // 2 minutes timeout
   }
 ];
 
