@@ -255,7 +255,7 @@ const VendorCategoryPage: React.FC = () => {
         ? { category, location, nextPageToken, ...apiFilters }
         : { category, location, ...apiFilters };
       console.log('Fetch request body:', body);
-      const res = await fetch('/api/google-places', {
+      const res = await fetch('/api/google-places-optimized', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -381,7 +381,7 @@ const VendorCategoryPage: React.FC = () => {
       };
       console.log('Search request body:', requestBody);
       
-      const response = await fetch('/api/google-places', {
+              const response = await fetch('/api/google-places-optimized', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)

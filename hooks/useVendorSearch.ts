@@ -94,11 +94,9 @@ export function useVendorSearch(): UseVendorSearchReturn {
   // Debounced search function
   const debouncedSearchRef = useRef<any>(null);
   
-  // Initialize the debounced search function
-  useEffect(() => {
-
-    debouncedSearchRef.current = debounce(async (params: VendorSearchParams) => {
-
+  // Create a stable debounced search function using useCallback
+  const debouncedSearch = useCallback(
+    debounce(async (params: VendorSearchParams) => {
       setLoading(true);
       setCurrentPage(1); // Reset to first page on new search
       
@@ -123,26 +121,25 @@ export function useVendorSearch(): UseVendorSearchReturn {
           apiParams.minrating = params.rating;
         }
 
-
-
-        const response = await fetch('/api/google-places', {
+        // Use progressive loading for better UX (Phase 2 enhancement)
+        const response = await fetch('/api/google-places-progressive', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(apiParams),
         });
 
-
-
         if (response.ok) {
           const data = await response.json();
-
+          
+          // Check cache status from response headers
+          const isFromCache = response.headers.get('X-Cache-Hit') === 'true';
+          const isProgressive = response.headers.get('X-Progressive-Loading') === 'true';
           
           if (data.error) {
             console.error('❌ API returned error:', data.error);
             showErrorToast(data.error);
             setVendors([]);
           } else if (Array.isArray(data.results) && data.results.length > 0) {
-
             // 🚀 SHOW RESULTS IMMEDIATELY with basic geometry data
             const vendorsWithGeometry = data.results.map((vendor, index) => {
               if (!vendor.geometry?.location) {
@@ -160,11 +157,19 @@ export function useVendorSearch(): UseVendorSearchReturn {
             setVendors(vendorsWithGeometry);
             setCurrentPage(1);
 
+            // Show cache status to user for better UX
+            if (isFromCache) {
+              showSuccessToast(`Showing ${data.results.length} vendors from cache (refreshing in background)`);
+            } else if (isProgressive) {
+              showSuccessToast(`Found ${data.results.length} vendors!`);
+            } else {
+              showSuccessToast(`Found ${data.results.length} vendors!`);
+            }
+
             // 🔄 Enhance images progressively in background (non-blocking)
             enhanceVendorsProgressively(vendorsWithGeometry);
 
           } else {
-
             setVendors([]);
           }
         } else {
@@ -185,14 +190,20 @@ export function useVendorSearch(): UseVendorSearchReturn {
       } finally {
         setLoading(false);
       }
-    }, 50); // Reduced from 100ms to 50ms for faster response
+    }, 300),
+    [showErrorToast, showSuccessToast]
+  );
 
+  // Store the stable debounced function in ref
+  useEffect(() => {
+    debouncedSearchRef.current = debouncedSearch;
+    
     return () => {
       if (debouncedSearchRef.current) {
         debouncedSearchRef.current.cancel();
       }
     };
-  }, [showErrorToast, showSuccessToast]);
+  }, [debouncedSearch]);
 
 
 
@@ -203,7 +214,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
 
   // Trigger search when parameters change
   useEffect(() => {
-    if (searchParamsState.category && searchParamsState.location) {
+    if (searchParamsState.category && searchParamsState.location && debouncedSearchRef.current) {
       debouncedSearchRef.current(searchParamsState);
     }
   }, [searchParamsState]);
