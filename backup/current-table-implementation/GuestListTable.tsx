@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Upload, Link, Download } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { Guest, GuestColumn, WizardState } from './types';
 import GuestTableHeader from './GuestTableHeader';
 import GuestTableRow from './GuestTableRow';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { exportGuestsToCSV } from '@/utils/csvUploadUtils';
-import { getCategoryHexColor } from '@/utils/categoryStyle';
 
 interface GuestListTableProps {
   wizardState: WizardState;
@@ -20,9 +18,7 @@ interface GuestListTableProps {
   onShowCSVUploadModal: () => void;
   onShowAddColumnModal: () => void;
   onShowMealOptionsModal: (options: string[], columnKey: string) => void;
-  onShowFamilyGroupingModal: (selectedGuests: Guest[]) => void;
   getCellValue: (guest: Guest, fieldKey: string) => string;
-  onEditGroup?: (groupId: string) => void;
   // Guest Drag & Drop handlers
   onDragStart: (e: React.DragEvent, columnId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -52,9 +48,7 @@ export default function GuestListTable({
   onShowCSVUploadModal,
   onShowAddColumnModal,
   onShowMealOptionsModal,
-  onShowFamilyGroupingModal,
   getCellValue,
-  onEditGroup,
   onDragStart,
   onDragOver,
   onDragLeave,
@@ -69,35 +63,13 @@ export default function GuestListTable({
 }: GuestListTableProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
-  const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
 
-  // No longer need to automatically create guests since we provide defaults
-
-  // Handle guest selection
-  const toggleGuestSelection = (guestId: string) => {
-    setSelectedGuests(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(guestId)) {
-        newSet.delete(guestId);
-      } else {
-        newSet.add(guestId);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllGuests = () => {
-    setSelectedGuests(new Set(wizardState.guests.map(guest => guest.id)));
-  };
-
-  const clearSelection = () => {
-    setSelectedGuests(new Set());
-  };
-
-  const handleLinkGuests = () => {
-    const selectedGuestObjects = wizardState.guests.filter(guest => selectedGuests.has(guest.id));
-    onShowFamilyGroupingModal(selectedGuestObjects);
-  };
+  // Automatically create a default guest when the component loads
+  useEffect(() => {
+    if (wizardState.guests.length === 0) {
+      onAddGuest();
+    }
+  }, [wizardState.guests.length, onAddGuest]);
 
   const handleGenerateAllNotes = async () => {
     const guestsWithNames = wizardState.guests.filter(guest => guest.fullName.trim());
@@ -162,31 +134,6 @@ export default function GuestListTable({
     }
   };
 
-  const handleExportCSV = () => {
-    if (wizardState.guests.length === 0) {
-      showErrorToast('No guests to export');
-      return;
-    }
-
-    try {
-      const csvContent = exportGuestsToCSV(wizardState.guests, wizardState.guestGroups || []);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `guest_list_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showSuccessToast(`Exported ${wizardState.guests.length} guests to CSV`);
-    } catch (error) {
-      console.error('Error exporting CSV:', error);
-      showErrorToast('Failed to export CSV');
-    }
-  };
-
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-4">
@@ -198,13 +145,6 @@ export default function GuestListTable({
           >
             <Upload className="w-4 h-4" />
             Upload CSV
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium flex items-center gap-2 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
           </button>
           <div className="flex items-center gap-3 ml-6">
             <button
@@ -224,36 +164,6 @@ export default function GuestListTable({
           </div>
         </div>
       </div>
-
-      {/* Bulk Actions */}
-      {selectedGuests.size > 0 && (
-        <div className="mb-4 p-3 bg-[#F0F4FF] border border-[#A85C36] rounded-[5px]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-[#332B42]">
-                {selectedGuests.size} guest{selectedGuests.size === 1 ? '' : 's'} selected
-              </span>
-              <button
-                onClick={clearSelection}
-                className="text-xs text-[#A85C36] hover:text-[#8B4513] transition-colors"
-              >
-                Clear selection
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedGuests.size >= 2 && (
-                <button
-                  onClick={handleLinkGuests}
-                  className="px-3 py-1.5 text-xs bg-[#A85C36] text-white rounded-[3px] hover:bg-[#8B4513] transition-colors flex items-center gap-1"
-                >
-                  <Link className="w-3 h-3" />
-                  Link Guests
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {wizardState.guests.length === 0 ? (
         <div className="text-center py-8">
@@ -284,7 +194,7 @@ export default function GuestListTable({
           <div className="overflow-x-auto">
             <table className="w-full" style={{ 
               tableLayout: 'fixed',
-              minWidth: `${40 + (wizardState.fullNameColumnWidth || 150) + guestColumns.reduce((sum, col) => sum + (col.width || 150), 0) + 60}px`
+              minWidth: `${(wizardState.fullNameColumnWidth || 150) + guestColumns.reduce((sum, col) => sum + (col.width || 150), 0) + 60}px`
             }}>
               <GuestTableHeader
                 guestColumns={guestColumns}
@@ -303,10 +213,6 @@ export default function GuestListTable({
                 onColumnDragLeave={onColumnDragLeave}
                 onColumnDrop={onColumnDrop}
                 onColumnDragEnd={onColumnDragEnd}
-                selectedGuests={selectedGuests}
-                totalGuests={wizardState.guests.length}
-                onSelectAll={selectAllGuests}
-                onClearSelection={clearSelection}
               />
 
               {/* Table Body */}
@@ -324,11 +230,6 @@ export default function GuestListTable({
                     onShowMealOptionsModal={onShowMealOptionsModal}
                     getCellValue={getCellValue}
                     fullNameColumnWidth={wizardState.fullNameColumnWidth}
-                    isSelected={selectedGuests.has(guest.id)}
-                    onToggleSelection={toggleGuestSelection}
-                    guestGroups={wizardState.guestGroups}
-                    getGroupColor={(groupName: string) => getCategoryHexColor(groupName)}
-                    onEditGroup={onEditGroup}
                   />
                 ))}
               </tbody>

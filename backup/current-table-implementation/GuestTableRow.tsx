@@ -1,7 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Guest, GuestColumn, WizardState } from './types';
-import { getCategoryHexColor } from '@/utils/categoryStyle';
 
 interface GuestTableRowProps {
   guest: Guest;
@@ -14,13 +13,6 @@ interface GuestTableRowProps {
   onShowMealOptionsModal: (options: string[], columnKey: string) => void;
   getCellValue: (guest: Guest, fieldKey: string) => string;
   fullNameColumnWidth?: number;
-  // Selection props
-  isSelected?: boolean;
-  onToggleSelection?: (guestId: string) => void;
-  // Group display props
-  guestGroups?: any[];
-  getGroupColor?: (type: string) => string;
-  onEditGroup?: (groupId: string) => void;
 }
 
 export default function GuestTableRow({
@@ -33,12 +25,7 @@ export default function GuestTableRow({
   onSetEditingState,
   onShowMealOptionsModal,
   getCellValue,
-  fullNameColumnWidth = 200,
-  isSelected = false,
-  onToggleSelection,
-  guestGroups = [],
-  getGroupColor,
-  onEditGroup
+  fullNameColumnWidth = 200
 }: GuestTableRowProps) {
   const handleCellClick = (fieldKey: string) => {
     const editingKey = `editing_${guest.id}_${fieldKey}`;
@@ -56,27 +43,12 @@ export default function GuestTableRow({
     // Auto-save will be handled by parent component
   };
 
-  // Get guest's group information (support multiple groups)
-  const guestGroupIds = guest.groupIds || (guest.groupId ? [guest.groupId] : []);
-  const guestGroupsForThisGuest = guestGroups.filter(group => guestGroupIds.includes(group.id));
-  
-
   return (
     <tr
       className={`border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-all duration-200 ${
         index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
-      } ${isSelected ? 'bg-[#F0F4FF]' : ''}`}
+      }`}
     >
-      {/* Selection Column */}
-      <td className="p-3 text-center border-r border-[#E0DBD7]" style={{ width: '40px' }}>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => onToggleSelection?.(guest.id)}
-          className="rounded border-[#AB9C95] text-[#A85C36] focus:ring-[#A85C36] w-4 h-4"
-        />
-      </td>
-      
       {/* Fixed Full Name Column */}
       <td 
         className="p-3 border-r-2 border-[#AB9C95] whitespace-nowrap overflow-hidden"
@@ -85,9 +57,9 @@ export default function GuestTableRow({
           minWidth: `${fullNameColumnWidth}px`,
           maxWidth: `${fullNameColumnWidth}px`,
           position: 'sticky',
-          left: '40px',
+          left: 0,
           zIndex: 5,
-          backgroundColor: isSelected ? '#F0F4FF' : (index % 2 === 0 ? 'white' : '#FAF9F8'),
+          backgroundColor: index % 2 === 0 ? 'white' : '#FAF9F8',
           boxShadow: '2px 0 4px rgba(0,0,0,0.1)'
         }}
       >
@@ -113,33 +85,11 @@ export default function GuestTableRow({
               placeholder="Full Name"
             />
           ) : (
-            <div className="flex items-center gap-2 flex-1">
-              <span className="text-xs text-[#332B42] truncate">
-                {guest.fullName || (
-                  <span className="text-[#AB9C95]">Full Name</span>
-                )}
-              </span>
-              {guestGroupsForThisGuest.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {guestGroupsForThisGuest.map((group, groupIndex) => (
-                    <span
-                      key={group.id}
-                      className={`text-xs px-1.5 py-0.5 rounded-full text-white font-medium shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${
-                        guestGroupsForThisGuest.length > 1 ? 'ring-1 ring-white ring-opacity-30' : ''
-                      }`}
-                      style={{ 
-                        backgroundColor: getGroupColor ? getGroupColor(group.name) : getCategoryHexColor(group.name),
-                        opacity: guestGroupsForThisGuest.length > 1 && groupIndex > 0 ? 0.9 : 1
-                      }}
-                      title={`${group.name} (${group.type})${guestGroupsForThisGuest.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
-                      onClick={() => onEditGroup?.(group.id)}
-                    >
-                      {group.name}
-                    </span>
-                  ))}
-                </div>
+            <span className="text-sm text-[#332B42] flex-1 truncate block">
+              {guest.fullName || (
+                <span className="text-[#AB9C95]">Full Name</span>
               )}
-            </div>
+            </span>
           )}
         </div>
       </td>
@@ -239,17 +189,15 @@ export default function GuestTableRow({
       
       {/* Actions Column */}
       <td className={`p-3 text-center border-l border-[#E0DBD7] ${
-        isSelected ? 'bg-[#F0F4FF]' : (index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]')
+        index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
       }`} style={{ width: '60px' }}>
-        {guest.isRemovable !== false && (
-          <button
-            onClick={() => onRemoveGuest(guest.id)}
-            className="p-2 hover:bg-[#F3F2F0] rounded transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={16} className="text-red-500" />
-          </button>
-        )}
+        <button
+          onClick={() => onRemoveGuest(guest.id)}
+          className="p-2 hover:bg-[#F3F2F0] rounded transition-colors"
+          title="Delete"
+        >
+          <Trash2 size={16} className="text-red-500" />
+        </button>
       </td>
     </tr>
   );

@@ -7,17 +7,57 @@ interface AddColumnModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddColumn: (columnData: Omit<GuestColumn, 'id' | 'order'>) => void;
+  guestColumns: GuestColumn[];
+  onToggleColumnVisibility: (columnId: string) => void;
 }
 
-export default function AddColumnModal({ isOpen, onClose, onAddColumn }: AddColumnModalProps) {
+export default function AddColumnModal({ isOpen, onClose, onAddColumn, guestColumns, onToggleColumnVisibility }: AddColumnModalProps) {
   const [columnName, setColumnName] = useState('');
   const [fieldType, setFieldType] = useState<'text' | 'select' | 'number'>('text');
   const [dropdownOptions, setDropdownOptions] = useState('');
   const [isRequired, setIsRequired] = useState(false);
   const [columnNameError, setColumnNameError] = useState('');
+  const [showNewColumnFields, setShowNewColumnFields] = useState(false);
 
   // Show/hide dropdown options based on field type
   const showDropdownOptions = fieldType === 'select';
+
+  // Default columns configuration
+  const defaultColumns = [
+    {
+      id: 'fullName',
+      label: 'Full Name',
+      description: 'Guest\'s complete name (required)',
+      isRequired: true,
+      isToggleable: false
+    },
+    {
+              id: 'relationship',
+        label: 'Relationship to You',
+              description: 'How the guest is related to you (the couple)',
+      isRequired: false,
+      isToggleable: true
+    },
+    {
+      id: 'mealPreference',
+      label: 'Meal Preference',
+      description: 'Dietary preferences and restrictions',
+      isRequired: false,
+      isToggleable: true
+    },
+    {
+      id: 'notes',
+      label: 'Notes/Seating Arrangement',
+      description: 'AI-generated seating recommendations and notes',
+      isRequired: false,
+      isToggleable: true
+    }
+  ];
+
+  // Check if a column is currently visible
+  const isColumnVisible = (columnId: string) => {
+    return guestColumns.some(col => col.id === columnId);
+  };
 
   const handleSubmit = () => {
     if (!columnName.trim()) {
@@ -45,6 +85,7 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn }: AddColu
     setDropdownOptions('');
     setIsRequired(false);
     setColumnNameError('');
+    setShowNewColumnFields(false);
     onClose();
   };
 
@@ -69,12 +110,12 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn }: AddColu
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: -50, opacity: 0 }}
-        className="bg-white rounded-[5px] p-6 max-w-md w-full mx-4"
+        className="bg-white rounded-[5px] max-w-md w-full mx-4 max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h5 className="h5 text-[#332B42] font-work-sans">Add New Column</h5>
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between p-6 pb-4 border-b border-[#E0DBD7] flex-shrink-0">
+          <h5 className="h5 text-[#332B42] font-work-sans">Manage Columns</h5>
           <button
             onClick={handleClose}
             className="text-[#AB9C95] hover:text-[#332B42] transition-colors"
@@ -84,8 +125,89 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn }: AddColu
           </button>
         </div>
 
-        {/* Form */}
-        <div className="space-y-4">
+        {/* Scrollable Middle Section */}
+        <div className="flex-1 overflow-y-auto p-6 pt-4">
+          {/* Default Columns Section */}
+          <div className="mb-6">
+          <h6 className="text-sm font-medium text-[#332B42] font-work-sans mb-2">Default (Recommended) Columns</h6>
+          <p className="text-xs text-[#AB9C95] mb-4 font-work-sans">
+            Toggle visibility for recommended columns. Full Name cannot be hidden as it's required.
+          </p>
+          
+          <div className="space-y-3">
+            {defaultColumns.map((column) => (
+              <div key={column.id} className="flex items-center justify-between p-3 bg-[#F8F6F4] rounded-[5px]">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[#332B42] font-work-sans">
+                      {column.label}
+                    </span>
+                    {column.isRequired && (
+                      <span className="text-xs text-[#A85C36] font-work-sans">(Required)</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#AB9C95] mt-1 font-work-sans">
+                    {column.description}
+                  </p>
+                </div>
+                
+                <div className="ml-4">
+                  {column.isToggleable ? (
+                    <button
+                      onClick={() => onToggleColumnVisibility(column.id)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${
+                        isColumnVisible(column.id) ? 'bg-[#A85C36]' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                          isColumnVisible(column.id) ? 'translate-x-4' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  ) : (
+                    <div className="text-xs text-[#AB9C95] font-work-sans px-2 py-1 bg-gray-200 rounded">
+                      Always On
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Separator Line */}
+          <div className="mt-4 mb-4">
+            <div className="border-t border-[#E0DBD7]"></div>
+          </div>
+          
+          {/* Add New Button */}
+          {!showNewColumnFields && (
+            <div>
+              <button
+                onClick={() => setShowNewColumnFields(true)}
+                className="btn-primaryinverse w-full flex items-center justify-center gap-2"
+              >
+                <span>+</span>
+                Add New
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Form - Conditionally Rendered */}
+        {showNewColumnFields && (
+          <div className="space-y-4">
+          {/* Form Header with Hide Button */}
+          <div className="flex items-center justify-between">
+            <h6 className="text-sm font-medium text-[#332B42] font-work-sans">Add Custom Column</h6>
+            <button
+              onClick={() => setShowNewColumnFields(false)}
+              className="text-xs text-[#AB9C95] hover:text-[#332B42] transition-colors font-work-sans"
+            >
+              Hide
+            </button>
+          </div>
+          
           {/* Column Name */}
           <div>
             <label className="block space-y-1">
@@ -169,23 +291,27 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn }: AddColu
             <label htmlFor="isRequired" className="text-sm text-[#332B42] font-work-sans">
               This field is required
             </label>
+                      </div>
           </div>
+        )}
         </div>
 
-        {/* Footer Buttons */}
-        <div className="flex justify-end gap-3 mt-6">
+        {/* Fixed Footer */}
+        <div className="flex justify-end gap-3 p-6 pt-4 border-t border-[#E0DBD7] flex-shrink-0">
           <button
             onClick={handleClose}
             className="btn-primaryinverse"
           >
             Cancel
           </button>
-          <button
-            onClick={handleSubmit}
-            className="btn-primary"
-          >
-            Add Column
-          </button>
+          {showNewColumnFields && (
+            <button
+              onClick={handleSubmit}
+              className="btn-primary"
+            >
+              Add Column
+            </button>
+          )}
         </div>
       </motion.div>
     </motion.div>

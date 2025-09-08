@@ -60,6 +60,28 @@ a {
   transition: opacity 0.2s ease-out;
 }
 
+/* Smooth column transitions for drag and drop */
+.column-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.column-transition-smooth {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.column-drag-active {
+  transform: rotate(2deg) scale(1.02);
+  opacity: 0.6;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  z-index: 1000;
+}
+
+.column-drop-target {
+  background-color: #E8F4FD !important;
+  border-color: #A85C36 !important;
+  transform: scale(1.01);
+}
+
 .btn-primary {
   background-color: #332B42;
   color: #F3F2F0;

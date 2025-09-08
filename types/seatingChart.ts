@@ -3,11 +3,17 @@ export interface Guest {
   fullName: string;
   mealPreference?: string;
   relationship?: string;
+  notes?: string; // AI-generated notes for seating recommendations
   // Dynamic custom fields
   customFields: Record<string, string>;
   // Legacy fields for backward compatibility
   tableId?: string | null;
   seatNumber?: number | null;
+  // Guest management
+  isRemovable?: boolean; // Whether this guest can be removed
+  groupIds?: string[]; // IDs of the groups this guest belongs to (supports multiple groups)
+  // Legacy field for backward compatibility
+  groupId?: string; // Deprecated: use groupIds instead
 }
 
 export interface GuestColumn {
@@ -20,6 +26,7 @@ export interface GuestColumn {
   isEditable: boolean;
   isRemovable: boolean;
   order: number;
+  width?: number; // Column width in pixels
   // Inline editing support
   isEditing?: boolean;
   editingLabel?: string;
@@ -77,10 +84,11 @@ export interface TableType {
 export interface GuestGroup {
   id: string;
   name: string;
-  type: 'family' | 'friends' | 'work' | 'high_school' | 'college' | 'other';
+  type: 'couple' | 'family' | 'extended' | 'friends' | 'other';
   guestIds: string[];
   color?: string;
   description?: string;
+  createdAt: Date;
 }
 
 export interface SeatingSuggestion {

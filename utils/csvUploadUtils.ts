@@ -283,3 +283,65 @@ function isValidPhone(phone: string): boolean {
   const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
   return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
 }
+
+// Export guests to CSV with group information
+export function exportGuestsToCSV(guests: any[], guestGroups: any[] = []): string {
+  const headers = [
+    'Full Name',
+    'Relationship',
+    'Meal Preference',
+    'Notes',
+    'Groups'
+  ];
+  
+  // Add custom field headers
+  const customFields = new Set<string>();
+  guests.forEach(guest => {
+    if (guest.customFields) {
+      Object.keys(guest.customFields).forEach(key => {
+        if (!headers.includes(key)) {
+          customFields.add(key);
+        }
+      });
+    }
+  });
+  
+  const allHeaders = [...headers, ...Array.from(customFields)];
+  
+  // Create CSV content
+  const csvRows = [allHeaders.join(',')];
+  
+  guests.forEach(guest => {
+    const row: string[] = [];
+    
+    // Basic fields
+    row.push(escapeCSVField(guest.fullName || ''));
+    row.push(escapeCSVField(guest.relationship || ''));
+    row.push(escapeCSVField(guest.mealPreference || ''));
+    row.push(escapeCSVField(guest.notes || ''));
+    
+    // Groups field - semicolon-separated group names
+    const guestGroupIds = guest.groupIds || (guest.groupId ? [guest.groupId] : []);
+    const guestGroupNames = guestGroups
+      .filter(group => guestGroupIds.includes(group.id))
+      .map(group => group.name);
+    row.push(escapeCSVField(guestGroupNames.join('; ')));
+    
+    // Custom fields
+    customFields.forEach(field => {
+      row.push(escapeCSVField(guest.customFields?.[field] || ''));
+    });
+    
+    csvRows.push(row.join(','));
+  });
+  
+  return csvRows.join('\n');
+}
+
+// Helper function to escape CSV fields
+function escapeCSVField(field: string): string {
+  if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+    return `"${field.replace(/"/g, '""')}"`;
+  }
+  return field;
+}

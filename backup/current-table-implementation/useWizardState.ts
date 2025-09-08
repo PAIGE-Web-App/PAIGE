@@ -1,35 +1,10 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { WizardState, Guest, GuestColumn } from '../types';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getCategoryHexColor } from '@/utils/categoryStyle';
 
 const INITIAL_WIZARD_STATE: WizardState = {
   currentStep: 'guests',
-  guests: [
-    {
-      id: 'guest-default-1',
-      fullName: '',
-      mealPreference: '',
-      relationship: '',
-      notes: '',
-      customFields: {},
-      tableId: null,
-      seatNumber: null,
-      isRemovable: false // First guest is not removable
-    },
-    {
-      id: 'guest-default-2',
-      fullName: '',
-      mealPreference: '',
-      relationship: '',
-      notes: '',
-      customFields: {},
-      tableId: null,
-      seatNumber: null,
-      isRemovable: true // Second guest is removable
-    }
-  ],
-  guestGroups: [],
+  guests: [],
   tableLayout: {
     tables: [],
     totalCapacity: 0
@@ -45,12 +20,12 @@ const INITIAL_GUEST_COLUMNS: GuestColumn[] = [
   { 
     id: 'relationship', 
     key: 'relationship', 
-    label: 'Relationship to You', 
+    label: 'Relationship', 
     type: 'select', 
-    options: ['Bride\'s Family', 'Groom\'s Family', 'Bride\'s Friends', 'Groom\'s Friends', 'Work Colleagues', 'College Friends', 'Childhood Friends', 'Neighbors', 'Other'], 
+    options: ['Family', 'Friends', 'Bride\'s Side', 'Groom\'s Side', 'Work Colleagues', 'College Friends', 'Childhood Friends', 'Neighbors', 'Other'], 
     isRequired: false, 
     isEditable: true, 
-    isRemovable: false, 
+    isRemovable: true, 
     order: 2,
     width: 120
   },
@@ -62,7 +37,7 @@ const INITIAL_GUEST_COLUMNS: GuestColumn[] = [
     options: ['Beef', 'Chicken', 'Fish', 'Vegetarian', 'Vegan', 'Gluten-Free'], 
     isRequired: false, 
     isEditable: true, 
-    isRemovable: false, 
+    isRemovable: true, 
     order: 3,
     width: 120
   },
@@ -73,7 +48,7 @@ const INITIAL_GUEST_COLUMNS: GuestColumn[] = [
     type: 'text', 
     isRequired: false, 
     isEditable: true, 
-    isRemovable: false, 
+    isRemovable: true, 
     order: 4,
     width: 250
   }
@@ -108,12 +83,7 @@ export const useWizardState = () => {
     const storedState = localStorage.getItem(storageKey);
     if (storedState) {
       try {
-        const parsedState = JSON.parse(storedState);
-        // Ensure guestGroups is always an array for backward compatibility
-        return {
-          ...parsedState,
-          guestGroups: parsedState.guestGroups || []
-        };
+        return JSON.parse(storedState);
       } catch (e) {
         console.warn('Failed to parse stored state:', e);
       }
@@ -233,8 +203,7 @@ export const useWizardState = () => {
       notes: guest.notes || '',
       customFields: guest.customFields || {},
       tableId: null,
-      seatNumber: null,
-      isRemovable: true // New guests are removable by default
+      seatNumber: null
     };
     setWizardState(prev => ({ ...prev, guests: [...prev.guests, newGuest] }));
   }, []);
@@ -244,7 +213,7 @@ export const useWizardState = () => {
       ...prev,
       guests: prev.guests.map(guest => {
         if (guest.id === guestId) {
-          if (field === 'fullName' || field === 'mealPreference' || field === 'relationship' || field === 'notes') {
+          if (field === 'fullName' || field === 'mealPreference' || field === 'relationship') {
             return { ...guest, [field]: value };
           } else {
             // Custom field - ensure customFields exists
@@ -259,13 +228,7 @@ export const useWizardState = () => {
   const removeGuest = useCallback((guestId: string) => {
     setWizardState(prev => ({
       ...prev,
-      guests: prev.guests.filter(guest => {
-        // Don't remove guests that are marked as non-removable
-        if (guest.id === guestId && guest.isRemovable === false) {
-          return true; // Keep the guest
-        }
-        return guest.id !== guestId;
-      })
+      guests: prev.guests.filter(guest => guest.id !== guestId)
     }));
   }, []);
 
@@ -380,127 +343,6 @@ export const useWizardState = () => {
     });
   }, []);
 
-  // Guest group management functions
-  const createGuestGroup = useCallback((groupData: {
-    name: string;
-    type: 'couple' | 'family' | 'extended' | 'friends' | 'other';
-    memberIds: string[];
-  }) => {
-    const newGroup = {
-      id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: groupData.name,
-      type: groupData.type,
-      guestIds: groupData.memberIds,
-      color: getGroupColor(groupData.name),
-      createdAt: new Date()
-    };
-
-    setWizardState(prev => ({
-      ...prev,
-      guestGroups: [...(prev.guestGroups || []), newGroup],
-      guests: prev.guests.map(guest => 
-        groupData.memberIds.includes(guest.id) 
-          ? { 
-              ...guest, 
-              groupIds: [...(guest.groupIds || []), newGroup.id],
-              // Keep legacy groupId for backward compatibility
-              groupId: newGroup.id
-            }
-          : guest
-      )
-    }));
-  }, []);
-
-  const removeGuestGroup = useCallback((groupId: string) => {
-    setWizardState(prev => ({
-      ...prev,
-      guestGroups: (prev.guestGroups || []).filter(group => group.id !== groupId),
-      guests: prev.guests.map(guest => {
-        const updatedGroupIds = (guest.groupIds || []).filter(id => id !== groupId);
-        return {
-          ...guest,
-          groupIds: updatedGroupIds,
-          // Update legacy groupId to the first remaining group or undefined
-          groupId: updatedGroupIds.length > 0 ? updatedGroupIds[0] : undefined
-        };
-      })
-    }));
-  }, []);
-
-  const getGroupColor = (groupName: string): string => {
-    return getCategoryHexColor(groupName);
-  };
-
-  // Helper function to get all groups for a guest
-  const getGuestGroups = useCallback((guestId: string) => {
-    const guest = wizardState.guests.find(g => g.id === guestId);
-    if (!guest) return [];
-    
-    const groupIds = guest.groupIds || (guest.groupId ? [guest.groupId] : []);
-    return (wizardState.guestGroups || []).filter(group => groupIds.includes(group.id));
-  }, [wizardState.guests, wizardState.guestGroups]);
-
-  // Function to add guests to an existing group
-  const addGuestsToGroup = useCallback((groupId: string, guestIds: string[]) => {
-    setWizardState(prev => ({
-      ...prev,
-      guestGroups: (prev.guestGroups || []).map(group => 
-        group.id === groupId 
-          ? { ...group, guestIds: [...new Set([...group.guestIds, ...guestIds])] }
-          : group
-      ),
-      guests: prev.guests.map(guest => 
-        guestIds.includes(guest.id) 
-          ? { 
-              ...guest, 
-              groupIds: [...new Set([...(guest.groupIds || []), groupId])],
-              // Keep legacy groupId for backward compatibility
-              groupId: groupId
-            }
-          : guest
-      )
-    }));
-  }, []);
-
-  // Function to update an existing group
-  const updateGuestGroup = useCallback((groupId: string, updates: {
-    name: string;
-    type: 'couple' | 'family' | 'extended' | 'friends' | 'other';
-    guestIds: string[];
-  }) => {
-    setWizardState(prev => {
-      // First, remove all guests from this group
-      const guestsWithoutGroup = prev.guests.map(guest => ({
-        ...guest,
-        groupIds: (guest.groupIds || []).filter(id => id !== groupId),
-        // Update legacy groupId if it was this group
-        groupId: guest.groupId === groupId ? undefined : guest.groupId
-      }));
-
-      // Then, add the updated guests to the group
-      const updatedGuests = guestsWithoutGroup.map(guest => 
-        updates.guestIds.includes(guest.id) 
-          ? { 
-              ...guest, 
-              groupIds: [...(guest.groupIds || []), groupId],
-              // Update legacy groupId
-              groupId: groupId
-            }
-          : guest
-      );
-
-      return {
-        ...prev,
-        guestGroups: (prev.guestGroups || []).map(group => 
-          group.id === groupId 
-            ? { ...group, name: updates.name, type: updates.type, guestIds: updates.guestIds }
-            : group
-        ),
-        guests: updatedGuests
-      };
-    });
-  }, []);
-
   // Helper functions
   const getCellValue = useCallback((guest: Guest, columnKey: string): string => {
     const value = guest[columnKey as keyof Guest];
@@ -532,13 +374,7 @@ export const useWizardState = () => {
     sessionId,
     clearStoredState,
     handleColumnResize,
-    toggleColumnVisibility,
-    createGuestGroup,
-    removeGuestGroup,
-    getGroupColor,
-    getGuestGroups,
-    addGuestsToGroup,
-    updateGuestGroup
+    toggleColumnVisibility
   };
 
   return returnValue;

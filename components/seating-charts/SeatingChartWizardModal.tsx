@@ -13,6 +13,7 @@ import {
   useModalState,
   useWizardState
 } from './index';
+import FamilyGroupingModal from './FamilyGroupingModal';
 
 interface SeatingChartWizardModalProps {
   isOpen: boolean;
@@ -53,7 +54,11 @@ export default function SeatingChartWizardModal({
     updateColumn,
     removeColumn,
     addColumn,
-    getCellValue
+    getCellValue,
+    handleColumnResize,
+    createGuestGroup,
+    removeGuestGroup,
+    getGroupColor
   } = useWizardState();
 
   const {
@@ -64,6 +69,7 @@ export default function SeatingChartWizardModal({
     openMealOptionsModal,
     openRelationshipOptionsModal,
     openColumnOptionsModal,
+    openFamilyGroupingModal,
     closeAllModals
   } = useModalState();
 
@@ -152,6 +158,16 @@ export default function SeatingChartWizardModal({
   const handleColumnOptionsSave = (options: string[]) => {
     updateColumn(modalData.columnId, { options });
     closeModal('columnOptions');
+  };
+
+  // Handle guest group creation
+  const handleCreateGuestGroup = (groupData: {
+    name: string;
+    type: 'couple' | 'family' | 'extended' | 'friends' | 'other';
+    memberIds: string[];
+  }) => {
+    createGuestGroup(groupData);
+    showSuccessToast(`Group "${groupData.name}" created successfully!`);
   };
 
   // Drag and drop handlers
@@ -270,12 +286,14 @@ export default function SeatingChartWizardModal({
                   onShowCSVUploadModal={() => openModal('csvUpload')}
                   onShowAddColumnModal={() => openModal('addColumn')}
                   onShowMealOptionsModal={openMealOptionsModal}
+                  onShowFamilyGroupingModal={openFamilyGroupingModal}
                   getCellValue={getCellValue}
                   onDragStart={handleDragStart}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
+                  onColumnResize={handleColumnResize}
                   onCreateChart={handleCreateChart}
                   isLoading={isLoading}
                 />
@@ -402,7 +420,7 @@ export default function SeatingChartWizardModal({
         <OptionsEditModal
           isOpen={modalState.relationshipOptions}
           onClose={() => closeModal('relationshipOptions')}
-          title="Edit Relationship Options"
+                          title="Edit Relationship to You Options"
           placeholder="Family\nFriends\nBride's Side\nGroom's Side\nWork Colleagues\nCollege Friends\nChildhood Friends\nNeighbors\nOther"
           initialOptions={modalData.relationshipOptions}
           onSave={handleRelationshipOptionsSave}
@@ -431,6 +449,23 @@ export default function SeatingChartWizardModal({
           isOpen={modalState.addColumn}
           onClose={() => closeModal('addColumn')}
           onAddColumn={addColumn}
+          guestColumns={guestColumns}
+          onToggleColumnVisibility={(columnId: string) => {
+            const column = guestColumns.find(col => col.id === columnId);
+            if (column) {
+              // For now, just remove the column to hide it
+              // In the future, we could add an isVisible property
+              removeColumn(columnId);
+            }
+          }}
+        />
+
+        {/* Family Grouping Modal */}
+        <FamilyGroupingModal
+          isOpen={modalState.familyGrouping}
+          onClose={() => closeModal('familyGrouping')}
+          selectedGuests={modalData.selectedGuests || []}
+          onCreateFamilyGroup={handleCreateGuestGroup}
         />
       </motion.div>
     </AnimatePresence>

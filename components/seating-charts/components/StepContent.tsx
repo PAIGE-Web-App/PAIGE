@@ -20,12 +20,14 @@ interface StepContentProps {
   onShowCSVUploadModal: () => void;
   onShowAddColumnModal: () => void;
   onShowMealOptionsModal: (options: string[], columnKey: string) => void;
+  onShowFamilyGroupingModal: (selectedGuests: WizardState['guests']) => void;
   getCellValue: (guest: WizardState['guests'][0], columnKey: string) => string;
   onDragStart: (e: React.DragEvent, guestId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: (e: React.DragEvent) => void;
+  onColumnResize?: (columnId: string, newWidth: number) => void;
   onCreateChart: () => void;
   isLoading: boolean;
 }
@@ -45,12 +47,14 @@ export const StepContent: React.FC<StepContentProps> = ({
   onShowCSVUploadModal,
   onShowAddColumnModal,
   onShowMealOptionsModal,
+  onShowFamilyGroupingModal,
   getCellValue,
   onDragStart,
   onDragOver,
   onDragLeave,
   onDrop,
   onDragEnd,
+  onColumnResize,
   onCreateChart,
   isLoading
 }) => {
@@ -80,12 +84,14 @@ export const StepContent: React.FC<StepContentProps> = ({
               onShowCSVUploadModal={onShowCSVUploadModal}
               onShowAddColumnModal={onShowAddColumnModal}
               onShowMealOptionsModal={onShowMealOptionsModal}
+              onShowFamilyGroupingModal={onShowFamilyGroupingModal}
               getCellValue={getCellValue}
               onDragStart={onDragStart}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               onDrop={onDrop}
               onDragEnd={onDragEnd}
+              onColumnResize={onColumnResize}
             />
           </div>
         </div>

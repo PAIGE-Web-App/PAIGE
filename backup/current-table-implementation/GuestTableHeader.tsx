@@ -19,11 +19,6 @@ interface GuestTableHeaderProps {
   onColumnDragLeave?: (e: React.DragEvent) => void;
   onColumnDrop?: (e: React.DragEvent, targetColumnId: string) => void;
   onColumnDragEnd?: (e: React.DragEvent) => void;
-  // Selection props
-  selectedGuests?: Set<string>;
-  totalGuests?: number;
-  onSelectAll?: () => void;
-  onClearSelection?: () => void;
 }
 
 export default function GuestTableHeader({
@@ -42,11 +37,7 @@ export default function GuestTableHeader({
   onColumnDragOver,
   onColumnDragLeave,
   onColumnDrop,
-  onColumnDragEnd,
-  selectedGuests,
-  totalGuests,
-  onSelectAll,
-  onClearSelection
+  onColumnDragEnd
 }: GuestTableHeaderProps) {
   const handleResizeStart = useCallback((e: React.MouseEvent, columnId: string) => {
     e.preventDefault();
@@ -84,31 +75,9 @@ export default function GuestTableHeader({
   }, [guestColumns, onColumnResize, fullNameColumnWidth]);
 
 
-  const isAllSelected = selectedGuests && totalGuests && selectedGuests.size === totalGuests;
-  const isIndeterminate = selectedGuests && totalGuests && selectedGuests.size > 0 && selectedGuests.size < totalGuests;
-
   return (
     <thead>
       <tr className="bg-[#F8F6F4] border-b border-[#E0DBD7]">
-        {/* Selection Column */}
-        <th className="p-3 text-center text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap" style={{ width: '40px' }}>
-          <input
-            type="checkbox"
-            checked={isAllSelected}
-            ref={(input) => {
-              if (input) input.indeterminate = isIndeterminate;
-            }}
-            onChange={() => {
-              if (isAllSelected) {
-                onClearSelection?.();
-              } else {
-                onSelectAll?.();
-              }
-            }}
-            className="rounded border-[#AB9C95] text-[#A85C36] focus:ring-[#A85C36] w-4 h-4"
-          />
-        </th>
-        
         {/* Fixed Full Name Column */}
         <th 
           className="p-3 text-left text-sm font-medium text-[#AB9C95] border-r-2 border-[#AB9C95] whitespace-nowrap relative group bg-[#F8F6F4]"
@@ -117,7 +86,7 @@ export default function GuestTableHeader({
             minWidth: `${fullNameColumnWidth}px`,
             maxWidth: `${fullNameColumnWidth}px`,
             position: 'sticky',
-            left: '40px',
+            left: 0,
             zIndex: 10,
             boxShadow: '2px 0 4px rgba(0,0,0,0.1)'
           }}

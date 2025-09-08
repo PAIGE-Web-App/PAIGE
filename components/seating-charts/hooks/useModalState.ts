@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Guest } from '../types';
 
 interface ModalState {
   csvUpload: boolean;
@@ -7,6 +8,7 @@ interface ModalState {
   relationshipOptions: boolean;
   columnOptions: boolean;
   exitConfirm: boolean;
+  familyGrouping: boolean;
 }
 
 interface ModalData {
@@ -14,6 +16,7 @@ interface ModalData {
   relationshipOptions: string[];
   columnOptions: string[];
   columnId: string;
+  selectedGuests: Guest[];
 }
 
 export const useModalState = () => {
@@ -23,14 +26,16 @@ export const useModalState = () => {
     mealOptions: false,
     relationshipOptions: false,
     columnOptions: false,
-    exitConfirm: false
+    exitConfirm: false,
+    familyGrouping: false
   });
 
   const [modalData, setModalData] = useState<ModalData>({
     mealOptions: [],
     relationshipOptions: [],
     columnOptions: [],
-    columnId: ''
+    columnId: '',
+    selectedGuests: []
   });
 
   const openModal = useCallback((modalName: keyof ModalState) => {
@@ -56,6 +61,11 @@ export const useModalState = () => {
     openModal('columnOptions');
   }, [openModal]);
 
+  const openFamilyGroupingModal = useCallback((selectedGuests: Guest[]) => {
+    setModalData(prev => ({ ...prev, selectedGuests }));
+    openModal('familyGrouping');
+  }, [openModal]);
+
   const closeAllModals = useCallback(() => {
     setModalState({
       csvUpload: false,
@@ -63,7 +73,8 @@ export const useModalState = () => {
       mealOptions: false,
       relationshipOptions: false,
       columnOptions: false,
-      exitConfirm: false
+      exitConfirm: false,
+      familyGrouping: false
     });
   }, []);
 
@@ -75,6 +86,7 @@ export const useModalState = () => {
     openMealOptionsModal,
     openRelationshipOptionsModal,
     openColumnOptionsModal,
+    openFamilyGroupingModal,
     closeAllModals
   };
 };

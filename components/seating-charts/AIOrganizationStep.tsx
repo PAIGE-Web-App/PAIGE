@@ -212,6 +212,7 @@ export default function AIOrganizationStep({
             <div>
               <p className="text-purple-700 mb-2">The AI will consider:</p>
               <ul className="space-y-1 text-purple-600">
+                <li>• AI-generated guest notes and preferences</li>
                 <li>• Family relationships and groups</li>
                 <li>• Dietary restrictions</li>
                 <li>• Age and conversation dynamics</li>
