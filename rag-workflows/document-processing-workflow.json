@@ -1,0 +1,257 @@
+{
+  "name": "PAIGE Document Processing Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "paige-rag/process-document",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-document",
+      "name": "Document Processing Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "paige-rag-process-document"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validate-input",
+              "leftValue": "={{ $json.document_content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split document into chunks\nconst document = $input.first().json;\nconst content = document.document_content;\nconst chunkSize = 1000;\nconst overlap = 200;\n\n// Simple chunking logic\nconst chunks = [];\nlet start = 0;\n\nwhile (start < content.length) {\n  const end = Math.min(start + chunkSize, content.length);\n  const chunk = content.slice(start, end);\n  \n  chunks.push({\n    id: `${document.document_id}_chunk_${chunks.length + 1}`,\n    content: chunk,\n    chunk_index: chunks.length + 1,\n    document_id: document.document_id,\n    source: document.source || 'unknown',\n    user_id: document.user_id,\n    document_type: document.document_type || 'user_document',\n    created_at: new Date().toISOString()\n  });\n  \n  start = end - overlap;\n  if (start >= content.length) break;\n}\n\nreturn chunks.map(chunk => ({ json: chunk }));"
+      },
+      "id": "chunk-document",
+      "name": "Chunk Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-embeddings",
+      "name": "Create Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api-key",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for Pinecone\nconst embedding = $input.first().json;\nconst chunk = $input.first().json.chunk_data;\n\nreturn [{\n  json: {\n    id: chunk.id,\n    values: embedding.data[0].embedding,\n    metadata: {\n      document_id: chunk.document_id,\n      chunk_index: chunk.chunk_index,\n      content: chunk.content,\n      source: chunk.source,\n      user_id: chunk.user_id,\n      document_type: chunk.document_type,\n      created_at: chunk.created_at\n    }\n  }\n}];"
+      },
+      "id": "prepare-pinecone-data",
+      "name": "Prepare Pinecone Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://{{ $env.RAG_VECTOR_DB_INDEX_NAME }}.svc.{{ $env.RAG_VECTOR_DB_ENVIRONMENT }}.pinecone.io/vectors/upsert",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Api-Key",
+              "value": "={{ $env.RAG_VECTOR_DB_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vectors",
+              "value": "=[{{ $json }}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upsert-to-pinecone",
+      "name": "Upsert to Pinecone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Document processed successfully\",\n  \"document_id\": $json.document_id,\n  \"chunks_created\": $json.chunks_created,\n  \"timestamp\": new Date().toISOString()\n} }}"
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": false,\n  \"error\": \"Invalid input: document_content is required\",\n  \"timestamp\": new Date().toISOString()\n} }}"
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 500]
+    }
+  ],
+  "connections": {
+    "Document Processing Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Chunk Document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Document": {
+      "main": [
+        [
+          {
+            "node": "Create Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Prepare Pinecone Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Pinecone Data": {
+      "main": [
+        [
+          {
+            "node": "Upsert to Pinecone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert to Pinecone": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "paige-rag",
+      "name": "PAIGE RAG"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -19,7 +19,9 @@ export type CoupleAIFeature =
   | 'vibe_generation'
   | 'bulk_vibe_generation'
   | 'vendor_suggestions'
-  | 'follow_up_questions';
+  | 'follow_up_questions'
+  | 'rag_document_processing'
+  | 'rag_query_processing';
 
 export type PlannerAIFeature = 
   | 'client_communication'
@@ -31,7 +33,9 @@ export type PlannerAIFeature =
   | 'client_onboarding'
   | 'vendor_contract_review'
   | 'client_timeline_creation'
-  | 'follow_up_questions';
+  | 'follow_up_questions'
+  | 'rag_document_processing'
+  | 'rag_query_processing';
 
 export type AIFeature = CoupleAIFeature | PlannerAIFeature;
 
@@ -107,7 +111,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   premium: {
     monthlyCredits: 60,
     rolloverCredits: 15,
-    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'vendor_suggestions'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'vendor_suggestions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1, // unlimited
     maxContacts: -1,
@@ -117,7 +121,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   pro: {
     monthlyCredits: 150,
     rolloverCredits: 50,
-    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1,
     maxContacts: -1,
@@ -138,7 +142,7 @@ export const PLANNER_SUBSCRIPTION_CREDITS: Record<PlannerSubscriptionTier, Credi
   starter: {
     monthlyCredits: 100,
     rolloverCredits: 25,
-    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis'],
+    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 5,
     maxVendors: 200
@@ -146,7 +150,7 @@ export const PLANNER_SUBSCRIPTION_CREDITS: Record<PlannerSubscriptionTier, Credi
   professional: {
     monthlyCredits: 300,
     rolloverCredits: 100,
-    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'vendor_contract_review'],
+    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'vendor_contract_review', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 15,
     maxVendors: 1000
@@ -154,7 +158,7 @@ export const PLANNER_SUBSCRIPTION_CREDITS: Record<PlannerSubscriptionTier, Credi
   enterprise: {
     monthlyCredits: 1000,
     rolloverCredits: 300,
-    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'client_onboarding', 'vendor_contract_review', 'client_timeline_creation', 'follow_up_questions'],
+    aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'client_onboarding', 'vendor_contract_review', 'client_timeline_creation', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 50,
     maxVendors: -1
@@ -172,7 +176,9 @@ export const COUPLE_AI_CREDIT_COSTS: Record<CoupleAIFeature, number> = {
   vibe_generation: 2,
   bulk_vibe_generation: 5,
   vendor_suggestions: 2,
-  follow_up_questions: 1
+  follow_up_questions: 1,
+  rag_document_processing: 2,
+  rag_query_processing: 3
 };
 
 export const PLANNER_AI_CREDIT_COSTS: Record<PlannerAIFeature, number> = {
@@ -185,7 +191,9 @@ export const PLANNER_AI_CREDIT_COSTS: Record<PlannerAIFeature, number> = {
   client_onboarding: 2,
   vendor_contract_review: 3,
   client_timeline_creation: 4,
-  follow_up_questions: 1
+  follow_up_questions: 1,
+  rag_document_processing: 2,
+  rag_query_processing: 3
 };
 
 // Helper function to get credit costs based on user type
