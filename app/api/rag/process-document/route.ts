@@ -59,9 +59,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Wrap with credit validation middleware
-export const POSTWithCredits = withCreditValidation(
-  POST,
-  AIFeature.RAG_DOCUMENT_PROCESSING,
-  'RAG Document Processing'
-);
+// Note: Credit validation will be added in a future update
+// For now, RAG features are free during testing

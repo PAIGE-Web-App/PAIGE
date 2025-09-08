@@ -18,7 +18,7 @@
 ### Index Configuration
 1. In Pinecone console, click "Create Index"
 2. **Index Name**: `paige-wedding-knowledge`
-3. **Dimensions**: `1536` (for OpenAI text-embedding-3-small)
+3. **Dimensions**: `512` (for OpenAI text-embedding-3-small)
 4. **Metric**: `cosine` (recommended for text similarity)
 5. **Pods**: `1` (for free tier)
 6. **Replicas**: `1` (for free tier)
@@ -27,7 +27,7 @@
 ```json
 {
   "name": "paige-wedding-knowledge",
-  "dimension": 1536,
+  "dimension": 512,
   "metric": "cosine",
   "pods": 1,
   "replicas": 1,
@@ -87,7 +87,7 @@ Your Pinecone index will store documents with this structure:
 ```json
 {
   "id": "doc_123_chunk_1",
-  "values": [0.1, 0.2, 0.3, ...], // 1536-dimensional vector
+  "values": [0.1, 0.2, 0.3, ...], // 512-dimensional vector
   "metadata": {
     "document_id": "doc_123",
     "chunk_index": 1,
