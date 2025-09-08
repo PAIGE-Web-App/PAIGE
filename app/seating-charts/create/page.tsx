@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, X, Sparkles, Plus, Upload, Settings, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Plus, Upload, Settings, ChevronDown } from 'lucide-react';
 import WizardSidebar from '@/components/seating-charts/WizardSidebar';
 import ChartDetailsForm from '@/components/seating-charts/ChartDetailsForm';
 import GuestListTableWithResizing from '@/components/seating-charts/GuestListTableWithResizing';
@@ -31,6 +31,7 @@ export default function CreateSeatingChartPage() {
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [clearTableSelection, setClearTableSelection] = useState(false);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -242,6 +243,10 @@ export default function CreateSeatingChartPage() {
     });
     showSuccessToast(`Created ${groupData.type} group: ${groupData.name} with ${groupData.memberIds.length} members`);
     setShowFamilyGroupingModal(false);
+    setSelectedGuestsForGrouping([]);
+    // Clear table selection
+    setClearTableSelection(true);
+    setTimeout(() => setClearTableSelection(false), 100);
   };
 
   // Handle adding guests to existing group
@@ -250,6 +255,10 @@ export default function CreateSeatingChartPage() {
     const group = wizardState.guestGroups.find(g => g.id === groupId);
     showSuccessToast(`Added ${guestIds.length} guest${guestIds.length === 1 ? '' : 's'} to ${group?.name || 'group'}`);
     setShowFamilyGroupingModal(false);
+    setSelectedGuestsForGrouping([]);
+    // Clear table selection
+    setClearTableSelection(true);
+    setTimeout(() => setClearTableSelection(false), 100);
   };
 
   const handleEditGroup = (groupId: string) => {
@@ -495,18 +504,6 @@ export default function CreateSeatingChartPage() {
                 <div className="flex items-center gap-3">
                   {/* Primary Actions */}
                   <div className="flex gap-2">
-                    {guestColumns.some(col => col.id === 'notes') && (
-                      <button
-                        onClick={async () => {
-                          // TODO: Implement bulk AI notes generation
-                          showSuccessToast('AI notes generation coming soon!');
-                        }}
-                        className="btn-gradient-purple flex items-center gap-2 text-sm"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Generate Notes with Paige (5 Credits)
-                      </button>
-                    )}
                     <button
                       onClick={() => addGuest({ fullName: '', mealPreference: '', relationship: '', customFields: {} })}
                       className="btn-primary text-sm flex items-center gap-2"
@@ -569,6 +566,7 @@ export default function CreateSeatingChartPage() {
                 onShowColumnOptionsModal={openColumnOptionsModal}
                 onShowLinkUsersModal={handleShowLinkUsersModal}
                 onEditGroup={handleEditGroup}
+                clearSelection={clearTableSelection}
               />
             </div>
           </div>
@@ -749,6 +747,7 @@ export default function CreateSeatingChartPage() {
         isOpen={showFamilyGroupingModal}
         onClose={() => setShowFamilyGroupingModal(false)}
         selectedGuests={selectedGuestsForGrouping}
+        allGuests={wizardState.guests}
         onCreateFamilyGroup={handleCreateFamilyGroup}
         existingGroups={wizardState.guestGroups || []}
         onAddToExistingGroup={handleAddToExistingGroup}

@@ -200,14 +200,35 @@ a {
 }
 
 .btn-delete {
-  background-color: #D63030;
-  color: #F3F2F0;
+  background-color: transparent;
+  color: #dc2626;
+  border: 1px solid #dc2626;
   font-family: var(--font-work-sans);
   font-weight: 600;
   font-size: 0.75rem; /* Equivalent to text-xs */
   padding: 4px 12px; /* Updated padding */
   border-radius: 5px;
   gap: 8px; /* Equivalent to gap-2 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-delete:hover {
+  background-color: #fef2f2;
+}
+
+.btn-delete.confirm {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+}
+
+.btn-delete.confirm:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .btn-secondary {

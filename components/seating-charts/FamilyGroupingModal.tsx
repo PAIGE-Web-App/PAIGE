@@ -4,11 +4,14 @@ import { motion } from 'framer-motion';
 import { X, Users } from 'lucide-react';
 import { Guest } from './types';
 import { getCategoryHexColor } from '@/utils/categoryStyle';
+import BadgeCount from '../BadgeCount';
+import Banner from '../Banner';
 
 interface FamilyGroupingModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedGuests: Guest[];
+  allGuests: Guest[];
   onCreateFamilyGroup: (groupData: {
     name: string;
     type: string;
@@ -27,6 +30,7 @@ export default function FamilyGroupingModal({
   isOpen,
   onClose,
   selectedGuests,
+  allGuests,
   onCreateFamilyGroup,
   existingGroups = [],
   onAddToExistingGroup,
@@ -36,6 +40,9 @@ export default function FamilyGroupingModal({
   const [mode, setMode] = useState<'create' | 'existing'>('create');
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [filteredGuests, setFilteredGuests] = useState<Guest[]>([]);
 
 
   // Initialize form when modal opens
@@ -53,19 +60,38 @@ export default function FamilyGroupingModal({
     }
   }, [isOpen, selectedGuests, groupName]);
 
+  // Filter guests based on search term
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      // Filter all guests that match the search term and are not already selected
+      const filtered = allGuests.filter(guest => 
+        guest.fullName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !selectedMemberIds.includes(guest.id)
+      );
+      setFilteredGuests(filtered);
+      setShowDropdown(true);
+    } else {
+      setFilteredGuests([]);
+      setShowDropdown(false);
+    }
+  }, [searchTerm, allGuests, selectedMemberIds]);
+
   // Helper function to get group color using category color system
   const getGroupColor = (groupName: string): string => {
     return getCategoryHexColor(groupName);
   };
 
-  const toggleGuestSelection = (guestId: string) => {
-    setSelectedMemberIds(prev => {
-      if (prev.includes(guestId)) {
-        return prev.filter(id => id !== guestId);
-      } else {
-        return [...prev, guestId];
-      }
-    });
+  const removeGuest = (guestId: string) => {
+    // Only allow removal if there are more than 2 guests
+    if (selectedMemberIds.length > 2) {
+      setSelectedMemberIds(prev => prev.filter(id => id !== guestId));
+    }
+  };
+
+  const addGuestFromDropdown = (guest: Guest) => {
+    setSelectedMemberIds(prev => [...prev, guest.id]);
+    setSearchTerm('');
+    setShowDropdown(false);
   };
 
   const handleSubmit = () => {
@@ -93,6 +119,7 @@ export default function FamilyGroupingModal({
     setMode('create');
     setSelectedMemberIds([]);
     setSearchTerm('');
+    setShowSearchBar(false);
     onClose();
   };
 
@@ -273,59 +300,79 @@ export default function FamilyGroupingModal({
             {mode === 'create' && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium text-[#332B42]">
-                    Guests to Link
-                  </label>
-                  <div className="text-xs text-[#AB9C95]">
-                    {selectedMemberIds.length} of {selectedGuests.length} selected
+                  <div className="flex items-center gap-2">
+                    <label className="block text-sm font-medium text-[#332B42]">
+                      Guests to Link
+                    </label>
+                    <BadgeCount count={selectedMemberIds.length} />
                   </div>
+                  {!showSearchBar && (
+                    <button
+                      onClick={() => setShowSearchBar(true)}
+                      className="text-sm text-[#A85C36] hover:text-[#8B4513] transition-colors"
+                    >
+                      +Add more guests to group
+                    </button>
+                  )}
                 </div>
                 
-                {/* Search Input */}
-                <div className="relative mb-3">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-[#AB9C95]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                {/* Search Input - Only show when showSearchBar is true */}
+                {showSearchBar && (
+                  <div className="relative mb-3">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-4 w-4 text-[#AB9C95]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Add other guests from your list"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] focus:border-[#A85C36] focus:ring-1 focus:ring-[#A85C36] focus:outline-none bg-white"
+                    />
+                    
+                    {/* Dropdown for adding guests */}
+                    {showDropdown && filteredGuests.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 max-h-48 overflow-y-auto">
+                        {filteredGuests.map(guest => (
+                          <button
+                            key={guest.id}
+                            onClick={() => addGuestFromDropdown(guest)}
+                            className="w-full px-3 py-2 text-left text-sm text-[#332B42] hover:bg-[#F8F6F4] transition-colors flex items-center justify-between"
+                          >
+                            <span>{guest.fullName}</span>
+                            <span className="text-xs text-[#AB9C95]">Add</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Search guests by name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 text-sm text-[#332B42] border border-[#AB9C95] rounded-[5px] focus:border-[#A85C36] focus:ring-1 focus:ring-[#A85C36] focus:outline-none bg-white"
+                )}
+
+                {/* Info Banner - Show when only 2 guests */}
+                {selectedMemberIds.length === 2 && (
+                  <Banner
+                    message="A group must have at least 2 users - that's why guests can't be removed"
+                    type="info"
+                    className="mb-3"
                   />
-                </div>
+                )}
 
                 {/* Guests Table */}
                 <div className="border border-[#E0DBD7] rounded-[5px] overflow-hidden">
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-48 overflow-y-auto">
                     <table className="w-full">
                       <thead className="bg-[#F8F6F4] border-b border-[#E0DBD7] sticky top-0">
                         <tr>
-                          <th className="w-12 px-3 py-2 text-left">
-                            <input
-                              type="checkbox"
-                              checked={selectedGuests.length > 0 && selectedGuests.every(guest => selectedMemberIds.includes(guest.id))}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedMemberIds(selectedGuests.map(g => g.id));
-                                } else {
-                                  setSelectedMemberIds([]);
-                                }
-                              }}
-                              className="rounded border-[#AB9C95] text-[#A85C36] focus:ring-[#A85C36] w-4 h-4"
-                            />
-                          </th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-[#332B42]">Name</th>
                           <th className="px-3 py-2 text-left text-xs font-medium text-[#332B42]">Groups</th>
+                          <th className="w-20 px-3 py-2 text-left text-xs font-medium text-[#332B42]">Action</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedGuests
-                          .filter(guest => 
-                            guest.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-                          )
+                        {allGuests
+                          .filter(guest => selectedMemberIds.includes(guest.id))
                           .map(guest => {
                             // Find groups this guest belongs to
                             const guestGroups = existingGroups.filter(group => 
@@ -335,18 +382,8 @@ export default function FamilyGroupingModal({
                             return (
                               <tr
                                 key={guest.id}
-                                className="hover:bg-[#F8F6F4] transition-colors cursor-pointer"
-                                onClick={() => toggleGuestSelection(guest.id)}
+                                className="hover:bg-[#F8F6F4] transition-colors"
                               >
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedMemberIds.includes(guest.id)}
-                                    onChange={() => toggleGuestSelection(guest.id)}
-                                    className="rounded border-[#AB9C95] text-[#A85C36] focus:ring-[#A85C36] w-4 h-4"
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </td>
                                 <td className="px-3 py-2 text-sm font-medium text-[#332B42]">
                                   {guest.fullName}
                                 </td>
@@ -367,6 +404,24 @@ export default function FamilyGroupingModal({
                                       <span className="text-xs text-[#AB9C95]">No groups</span>
                                     )}
                                   </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <button
+                                    onClick={() => {
+                                      // Only allow removal if there are more than 2 guests
+                                      if (selectedMemberIds.length > 2) {
+                                        setSelectedMemberIds(prev => prev.filter(id => id !== guest.id));
+                                      }
+                                    }}
+                                    disabled={selectedMemberIds.length <= 2}
+                                    className={`text-xs px-2 py-1 rounded-[3px] transition-colors ${
+                                      selectedMemberIds.length <= 2
+                                        ? 'text-[#AB9C95] cursor-not-allowed opacity-50'
+                                        : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                                    }`}
+                                  >
+                                    Remove
+                                  </button>
                                 </td>
                               </tr>
                             );

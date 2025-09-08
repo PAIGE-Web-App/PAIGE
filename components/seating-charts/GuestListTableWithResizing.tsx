@@ -17,6 +17,7 @@ interface GuestListTableWithResizingProps {
   onShowColumnOptionsModal?: (options: string[], columnId: string) => void;
   onShowLinkUsersModal?: (selectedGuestIds: string[]) => void;
   onEditGroup?: (groupId: string) => void;
+  clearSelection?: boolean;
 }
 
 export default function GuestListTableWithResizing({
@@ -31,6 +32,7 @@ export default function GuestListTableWithResizing({
   onShowColumnOptionsModal,
   onShowLinkUsersModal,
   onEditGroup,
+  clearSelection = false,
 }: GuestListTableWithResizingProps) {
   // Helper function to get group color using category color system
   const getGroupColor = (groupName: string): string => {
@@ -123,6 +125,13 @@ export default function GuestListTableWithResizing({
   
   // Row selection state
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  
+  // Clear selection when clearSelection prop becomes true
+  useEffect(() => {
+    if (clearSelection) {
+      setSelectedRows(new Set());
+    }
+  }, [clearSelection]);
   
   // Confirmation modal state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

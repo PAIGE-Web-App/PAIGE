@@ -373,11 +373,7 @@ export default function EditContactModal({
                 handleDelete();
               }
             }}
-            className={`px-4 py-2 text-sm rounded-[5px] border ${
-              confirmDelete
-                ? "bg-red-600 text-white"
-                : "border-red-600 text-red-600 bg-white"
-            }`}
+            className={`btn-delete ${confirmDelete ? 'confirm' : ''}`}
           >
             {confirmDelete ? "Confirm Deletion" : "Delete"}
           </button>
