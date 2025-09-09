@@ -69,9 +69,8 @@ class RAGService {
 
     try {
       // Check if RAG is enabled for this user
-      if (!shouldUseRAG(request.user_id, request.user_id)) {
-        throw new Error('RAG not enabled for this user');
-      }
+      // Note: RAG user check is already done in the API layer
+      // TODO: Pass user_email to this method for proper beta user checking
 
       // Validate request
       if (!request.document_content || !request.document_id) {
@@ -79,7 +78,7 @@ class RAGService {
       }
 
       // Call N8N webhook for document processing
-      const response = await fetch(`${this.n8nWebhookUrl}/process-document`, {
+      const response = await fetch(this.n8nWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,9 +139,8 @@ class RAGService {
 
     try {
       // Check if RAG is enabled for this user
-      if (!shouldUseRAG(request.user_id, request.user_id)) {
-        throw new Error('RAG not enabled for this user');
-      }
+      // Note: RAG user check is already done in the API layer
+      // TODO: Pass user_email to this method for proper beta user checking
 
       // Validate request
       if (!request.query || !request.user_id) {

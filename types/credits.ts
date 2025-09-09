@@ -101,7 +101,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   free: {
     monthlyCredits: 15,
     rolloverCredits: 0,
-    aiFeatures: ['draft_messaging', 'todo_generation', 'budget_generation', 'vibe_generation', 'bulk_vibe_generation'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'budget_generation', 'vibe_generation', 'bulk_vibe_generation'],
     creditRefresh: 'daily',
     maxVendors: 20,
     maxContacts: 5,

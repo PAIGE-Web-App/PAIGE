@@ -32,13 +32,23 @@ export function getRAGConfig(): RAGConfig {
 export function shouldUseRAG(userId: string, userEmail: string): boolean {
   const config = getRAGConfig();
   
+  console.log('RAG check for user:', { userId, userEmail, config });
+  
   // RAG must be enabled globally
   if (!config.enabled) {
+    console.log('RAG not enabled globally');
     return false;
   }
   
   // Check if user is in beta list
   if (config.betaUsers.includes(userEmail)) {
+    return true;
+  }
+  
+  // TEMPORARY: For testing, allow any user if RAG is enabled
+  // TODO: Remove this after query workflow is set up
+  if (config.enabled) {
+    console.log('RAG enabled for user:', userEmail, 'via global enable');
     return true;
   }
   

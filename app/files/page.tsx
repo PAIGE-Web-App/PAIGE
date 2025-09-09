@@ -39,7 +39,7 @@ const EditFolderModal = dynamic(() => import('@/components/EditFolderModal'), {
   loading: () => <div className="hidden" />
 });
 
-const AIFileAnalyzer = dynamic(() => import('@/components/AIFileAnalyzer'), {
+const AIFileAnalyzerRAG = dynamic(() => import('@/components/AIFileAnalyzerRAG'), {
   loading: () => <div className="bg-white rounded-lg p-6 animate-pulse h-96" />
 });
 
@@ -730,7 +730,7 @@ export default function FilesPage() {
           {/* AI File Analyzer Panel - Only rendered when visible */}
           {showAIPanel && (
             <div className="md:w-[600px] w-full">
-              <AIFileAnalyzer
+              <AIFileAnalyzerRAG
                 selectedFile={selectedFile}
                 onClose={() => setShowAIPanel(false)}
                 onAnalyzeFile={handleAnalyzeFile}

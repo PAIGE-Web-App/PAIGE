@@ -269,7 +269,7 @@ export function useCredits() {
       
       // Check if feature is available for user type and tier
       const availableFeatures = credits.userType === 'couple'
-        ? credits.subscriptionTier === 'free' ? ['draft_messaging', 'todo_generation', 'budget_generation']
+        ? credits.subscriptionTier === 'free' ? ['draft_messaging', 'todo_generation', 'file_analysis', 'budget_generation']
         : credits.subscriptionTier === 'premium' ? ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'vendor_suggestions']
         : ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions']
         : credits.subscriptionTier === 'free' ? ['client_communication', 'vendor_coordination']

@@ -264,8 +264,8 @@ export function useFiles() {
       // This is a limitation of the current architecture
       const fileContent = `[File: ${fileDoc.name}] - Content extraction will be implemented in the next phase.`;
       
-      // Call the AI analysis API
-      const response = await fetch('/api/ai-file-analyzer', {
+      // Call the RAG-enhanced AI analysis API
+      const response = await fetch('/api/ai-file-analyzer-rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -276,6 +276,8 @@ export function useFiles() {
           fileContent: fileContent,
           fileType: fileDoc.fileType,
           analysisType: 'comprehensive',
+          userId: user?.uid || '',
+          userEmail: user?.email || user?.uid || '',
         }),
       });
 
