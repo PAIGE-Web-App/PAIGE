@@ -5,6 +5,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Analyze File API called (DEPRECATED - Use /api/ai-file-analyzer-rag instead)');
     const { fileContent, fileName, fileType } = await request.json();
 
     if (!fileContent) {

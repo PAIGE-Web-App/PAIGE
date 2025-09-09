@@ -78,19 +78,25 @@ export function withCreditValidation(
         // Validate credits
         const validation = await creditService.validateCredits(userId, options.feature);
         
+        console.log('Credit middleware: Validation result:', validation);
+        
         if (!validation.canProceed) {
-          return NextResponse.json(
-            { 
-              error: 'Insufficient credits',
-              message: options.errorMessage || validation.message || 'Not enough credits for this feature',
-              credits: {
-                required: validation.requiredCredits,
-                current: validation.currentCredits,
-                remaining: validation.remainingCredits
-              },
-              feature: options.feature,
-              upgradeRequired: true
+          const errorResponse = { 
+            error: 'Insufficient credits',
+            message: options.errorMessage || validation.message || 'Not enough credits for this feature',
+            credits: {
+              required: validation.requiredCredits,
+              current: validation.currentCredits,
+              remaining: validation.remainingCredits
             },
+            feature: options.feature,
+            upgradeRequired: true
+          };
+          
+          console.log('Credit middleware: Returning 402 response:', errorResponse);
+          
+          return NextResponse.json(
+            errorResponse,
             { status: 402 } // Payment Required
           );
         }

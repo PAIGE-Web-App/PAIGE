@@ -15,7 +15,6 @@ interface AIAnalysisMessage {
   isGenerating?: boolean;
   displayContent?: string;
   ragEnabled?: boolean;
-  ragContext?: string;
   followUpQuestions?: string[];
 }
 
@@ -24,6 +23,7 @@ interface AIFileAnalyzerRAGProps {
   onClose: () => void;
   onAnalyzeFile: (fileId: string, analysisType: string) => Promise<void>;
   onAskQuestion: (fileId: string, question: string) => Promise<string>;
+  onCreditError?: (creditInfo: { requiredCredits: number; currentCredits: number; feature: string }) => void;
   isVisible: boolean;
 }
 
@@ -32,18 +32,33 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   onClose,
   onAnalyzeFile,
   onAskQuestion,
+  onCreditError,
   isVisible,
 }) => {
+  console.log('AIFileAnalyzerRAG: Component rendered with:', {
+    selectedFile: selectedFile?.name,
+    isVisible,
+    hasOnCreditError: !!onCreditError
+  });
+
   const [messages, setMessages] = useState<AIAnalysisMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [showSuggestedResponses, setShowSuggestedResponses] = useState(true);
+  const [hasCreditError, setHasCreditError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const { analyzeFile, askQuestion, isLoading: ragLoading, error: ragError } = useRAGFileAnalysis();
+  
+  console.log('AIFileAnalyzerRAG: Hook initialized with:', {
+    analyzeFile: !!analyzeFile,
+    askQuestion: !!askQuestion,
+    ragLoading,
+    ragError
+  });
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -57,14 +72,32 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
 
   // Initialize component when file is selected and auto-analyze if not already analyzed
   useEffect(() => {
+    console.log('AIFileAnalyzerRAG: useEffect triggered with selectedFile:', selectedFile?.name);
+    
     if (selectedFile) {
+      console.log('AIFileAnalyzerRAG: File selected, resetting state and initializing analysis');
       setMessages([]);
       setIsAnalyzing(false);
       setFollowUpQuestions([]);
+      setHasCreditError(false);
       
       // Always call initializeFileAnalysis - it will either show cached results or start new analysis
       console.log('AIFileAnalyzerRAG: File selected, initializing analysis (cached or new)');
-      initializeFileAnalysis();
+      
+      // Wrap initializeFileAnalysis in try-catch to handle errors
+      const runAnalysis = async () => {
+        try {
+          await initializeFileAnalysis();
+        } catch (error) {
+          console.error('AIFileAnalyzerRAG: Error in useEffect analysis:', error);
+          // The error handling is already done in initializeFileAnalysis's try-catch block
+          // This is just a safety net for any unhandled errors
+        }
+      };
+      
+      runAnalysis();
+    } else {
+      console.log('AIFileAnalyzerRAG: No file selected');
     }
   }, [selectedFile?.id]);
 
@@ -98,7 +131,6 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         timestamp: new Date(),
         analysisType: 'summary',
         ragEnabled: true,
-        ragContext: 'Context from other files included'
       };
 
       setMessages([cachedMessage]);
@@ -114,7 +146,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
     const loadingMessage: AIAnalysisMessage = {
       id: `loading-${Date.now()}`,
       type: 'assistant',
-      content: 'Analyzing file with RAG-enhanced AI...',
+      content: 'Hang tight! I\'m analyzing this file for key insights...',
       timestamp: new Date(),
       analysisType: 'loading',
       isGenerating: true,
@@ -126,6 +158,14 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
     try {
       // Get file content (you'll need to implement this based on your file system)
       const fileContent = await getFileContent(selectedFile);
+      
+      console.log('AIFileAnalyzerRAG: About to call analyzeFile hook with:', {
+        fileId: selectedFile.id,
+        fileName: selectedFile.name,
+        fileContentLength: fileContent.length,
+        fileType: selectedFile.fileType || 'unknown',
+        analysisType: 'comprehensive'
+      });
       
       // Use RAG-enhanced analysis
       const result = await analyzeFile({
@@ -143,8 +183,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         content: result.analysis,
         timestamp: new Date(),
         analysisType: 'summary',
-        ragEnabled: result.ragEnabled,
-        ragContext: result.ragContext
+        ragEnabled: result.ragEnabled
       };
 
       setMessages([analysisMessage]);
@@ -166,19 +205,34 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       // No need to call the original onAnalyzeFile function
       
     } catch (error) {
-      console.error('RAG analysis failed:', error);
       
       // Check if it's a credit issue
-      if (error instanceof Error && error.message.includes('credits')) {
+      if (error instanceof Error && ((error as any).isCreditError || error.message.includes('credits'))) {
+        const creditInfo = (error as any).credits;
+        const requiredCredits = creditInfo?.required || 3;
+        const currentCredits = creditInfo?.current || 0;
+        
+        console.log('AIFileAnalyzerRAG: Credit error detected, showing insufficient credits modal');
+        setHasCreditError(true);
         setMessages([{
           id: 'credit-error',
           type: 'assistant',
-          content: 'Sorry, you don\'t have enough credits to analyze this file. Please upgrade your plan or wait for your daily credits to refresh.',
+          content: `Sorry, you don't have enough credits to analyze this file. You need ${requiredCredits} credits but only have ${currentCredits}. Please upgrade your plan or wait for your daily credits to refresh.`,
           timestamp: new Date(),
           analysisType: 'summary',
           ragEnabled: false
         }]);
+        
+        // Trigger the credit modal if the parent component provides the handler
+        if (onCreditError) {
+          onCreditError({
+            requiredCredits,
+            currentCredits,
+            feature: (error as any).feature || 'file analysis'
+          });
+        }
       } else {
+        console.error('AIFileAnalyzerRAG: Analysis failed:', error);
         setMessages([{
           id: 'error',
           type: 'assistant',
@@ -205,9 +259,13 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       const arrayBuffer = await fileResponse.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       
+      // Create a proper File object for the content extractor
+      const fileBlob = new Blob([uint8Array], { type: file.fileType });
+      const fileObject = new File([fileBlob], file.name, { type: file.fileType });
+      
       // Use the same file content extraction logic as the original analyzer
-      const { fileContentExtractor } = await import('@/utils/fileContentExtractor');
-      const extractedContent = await fileContentExtractor(file.name, uint8Array, file.fileType);
+      const { extractFileContent } = await import('@/utils/fileContentExtractor');
+      const extractedContent = await extractFileContent(fileObject);
       
       if (extractedContent.success && extractedContent.text) {
         return extractedContent.text;
@@ -223,7 +281,24 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedFile || isLoading) return;
+    if (!inputValue.trim() || !selectedFile || isLoading || isAnalyzing || hasCreditError) return;
+
+    // Check if file has been analyzed (has aiSummary)
+    const isFileAnalyzed = selectedFile.isProcessed && selectedFile.aiSummary && selectedFile.aiSummary.trim().length > 0;
+    
+    if (!isFileAnalyzed) {
+      const errorMessage: AIAnalysisMessage = {
+        id: `error-${Date.now()}`,
+        type: 'assistant',
+        content: 'Please analyze this file first before asking questions. The file needs to be analyzed before you can ask follow-up questions.',
+        timestamp: new Date(),
+        fileId: selectedFile.id,
+        analysisType: 'custom',
+        isGenerating: false,
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
 
     const userMessage: AIAnalysisMessage = {
       id: `user-${Date.now()}`,
@@ -260,33 +335,61 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         fileId: selectedFile.id,
         analysisType: 'custom',
         ragEnabled: result.ragEnabled,
-        ragContext: result.ragContext
       };
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error asking question:', error);
-      const errorMessage: AIAnalysisMessage = {
-        id: `error-${Date.now()}`,
-        type: 'assistant',
-        content: 'Sorry, I encountered an error processing your question. Please try again.',
-        timestamp: new Date(),
-        fileId: selectedFile.id,
-        analysisType: 'custom'
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      
+      // Check if it's a credit issue
+      if (error instanceof Error && ((error as any).isCreditError || error.message.includes('credits'))) {
+        const creditInfo = (error as any).credits;
+        const requiredCredits = creditInfo?.required || 1;
+        const currentCredits = creditInfo?.current || 0;
+        
+        setHasCreditError(true);
+        const errorMessage: AIAnalysisMessage = {
+          id: `credit-error-${Date.now()}`,
+          type: 'assistant',
+          content: `Sorry, you don't have enough credits to ask a question. You need ${requiredCredits} credit but only have ${currentCredits}. Please upgrade your plan or wait for your daily credits to refresh.`,
+          timestamp: new Date(),
+          fileId: selectedFile.id,
+          analysisType: 'custom'
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        
+        // Trigger the credit modal if the parent component provides the handler
+        if (onCreditError) {
+          onCreditError({
+            requiredCredits,
+            currentCredits,
+            feature: (error as any).feature || 'file analysis'
+          });
+        }
+      } else {
+        const errorMessage: AIAnalysisMessage = {
+          id: `error-${Date.now()}`,
+          type: 'assistant',
+          content: 'Sorry, I encountered an error processing your question. Please try again.',
+          timestamp: new Date(),
+          fileId: selectedFile.id,
+          analysisType: 'custom'
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSuggestedQuestion = (question: string) => {
+    if (hasCreditError) return;
     setInputValue(question);
     handleSendMessage();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !hasCreditError) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -298,7 +401,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         <div className="text-center text-gray-500">
           <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
           <p className="text-lg font-medium mb-2">No file selected</p>
-          <p className="text-sm">Select a file to analyze with RAG-enhanced AI</p>
+          <p className="text-sm">Select a file to analyze with AI</p>
         </div>
       </div>
     );
@@ -323,10 +426,6 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
               <h3 className="text-lg font-semibold text-[#332B42] flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#A85C36]" />
                 Analyze with Paige
-                <div className="flex items-center gap-1 ml-2">
-                  <Database className="w-4 h-4 text-purple-600" />
-                  <span className="text-xs text-purple-600 font-medium">RAG</span>
-                </div>
               </h3>
               <button
                 onClick={onClose}
@@ -348,7 +447,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                     {selectedFile.name}
                   </p>
                   <p className="text-sm text-gray-500">
-                    {selectedFile.fileType} • {(selectedFile.size / 1024).toFixed(1)} KB
+                    {selectedFile.fileType} • {(selectedFile.fileSize / 1024).toFixed(1)} KB
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -400,29 +499,6 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                       className="text-sm prose prose-sm max-w-none"
                       dangerouslySetInnerHTML={{ __html: message.content }}
                     />
-                  
-                  {/* RAG Status Indicator */}
-                  {message.type === 'assistant' && message.ragEnabled !== undefined && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <div className="flex items-center gap-1 text-xs">
-                        {message.ragEnabled ? (
-                          <>
-                            <Database className="w-3 h-3 text-purple-600" />
-                            <span className="text-purple-600 font-medium">RAG Enhanced</span>
-                            {message.ragContext && (
-                              <span className="text-gray-500">• {message.ragContext}</span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3 h-3 text-gray-400" />
-                            <span className="text-gray-500">Standard AI</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   </div>
                 </div>
               </div>
@@ -465,7 +541,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                       <button
                         key={index}
                         onClick={() => handleSuggestedQuestion(question)}
-                        disabled={isLoading || isAnalyzing}
+                        disabled={isLoading || isAnalyzing || hasCreditError}
                         className="px-3 py-1.5 text-xs bg-white hover:bg-gray-100 text-gray-700 rounded-full border border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                       >
                         {question}
@@ -486,23 +562,23 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask Paige about this file..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-[10px] focus:outline-none focus:border-[#A85C36] text-sm"
-                disabled={isLoading || isAnalyzing}
+                placeholder={
+                  hasCreditError 
+                    ? "Please resolve credit issue to continue..." 
+                    : selectedFile?.isProcessed && selectedFile?.aiSummary 
+                      ? "Ask Paige about this file..." 
+                      : "File must be analyzed first..."
+                }
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-[10px] focus:outline-none focus:border-[#A85C36] text-sm ${hasCreditError ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                disabled={isLoading || isAnalyzing || hasCreditError}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || isAnalyzing}
+                disabled={!inputValue.trim() || isLoading || isAnalyzing || hasCreditError || !(selectedFile?.isProcessed && selectedFile?.aiSummary)}
                 className="px-4 py-2 bg-[#A85C36] text-white rounded-[10px] hover:bg-[#8B4A2A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
               </button>
-            </div>
-            
-            {/* RAG Status */}
-            <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-              <Database className="w-3 h-3 text-purple-600" />
-              <span>RAG-enhanced analysis provides context from your other files</span>
             </div>
           </div>
         </motion.div>

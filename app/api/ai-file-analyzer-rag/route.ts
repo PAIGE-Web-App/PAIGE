@@ -104,11 +104,9 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
           context: 'file_analysis'
         });
         
-        if (ragResults.results && ragResults.results.length > 0) {
+        if (ragResults.success && ragResults.answer) {
           ragContext = '\n\nRelevant context from your other files:\n' + 
-            ragResults.results.slice(0, 3).map(result => 
-              `- ${result.metadata?.content?.substring(0, 200)}...`
-            ).join('\n');
+            `- ${ragResults.answer.substring(0, 500)}...`;
         }
       } catch (ragError) {
         console.error('RAG query failed, continuing without context:', ragError);
@@ -196,7 +194,14 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     }
 
     // Parse structured data if it's a comprehensive analysis
-    let structuredData = null;
+    let structuredData: {
+      summary: string;
+      keyPoints: string[];
+      vendorAccountability: string[];
+      importantDates: string[];
+      paymentTerms: string[];
+      cancellationPolicy: string[];
+    } | null = null;
     if (analysisType === 'comprehensive') {
       structuredData = parseStructuredData(analysis);
     }
@@ -350,11 +355,11 @@ function parseStructuredData(analysis: string) {
   }
 }
 
-function getDocumentType(fileType: string): string {
-  if (fileType.includes('pdf')) return 'pdf_document';
-  if (fileType.includes('text') || fileType.includes('plain')) return 'text_document';
-  if (fileType.includes('word') || fileType.includes('document')) return 'word_document';
-  if (fileType.includes('image')) return 'image_document';
+function getDocumentType(fileType: string): 'wedding_guide' | 'vendor_template' | 'user_document' {
+  if (fileType.includes('pdf')) return 'user_document';
+  if (fileType.includes('text') || fileType.includes('plain')) return 'user_document';
+  if (fileType.includes('word') || fileType.includes('document')) return 'user_document';
+  if (fileType.includes('image')) return 'user_document';
   return 'user_document';
 }
 

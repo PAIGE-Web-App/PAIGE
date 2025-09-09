@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useFileFolders } from '@/hooks/useFileFolders';
@@ -36,6 +36,10 @@ const FilesModals = dynamic(() => import('@/components/FilesModals'), {
 });
 
 const EditFolderModal = dynamic(() => import('@/components/EditFolderModal'), {
+  loading: () => <div className="hidden" />
+});
+
+const NotEnoughCreditsModal = dynamic(() => import('@/components/NotEnoughCreditsModal'), {
   loading: () => <div className="hidden" />
 });
 
@@ -75,6 +79,14 @@ export default function FilesPage() {
   
   // Storage usage statistics
   const storageStats = useStorageUsage();
+  
+  // Credit modal state
+  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+  const [creditModalData, setCreditModalData] = useState({
+    requiredCredits: 3,
+    currentCredits: 0,
+    feature: 'file analysis'
+  });
 
   // Calculate folder level function
   const getFolderLevel = useCallback((folder: FileFolder): number => {
@@ -476,8 +488,8 @@ export default function FilesPage() {
         fileContent = `File: ${fileToAnalyze.name} (${fileToAnalyze.fileType})\nContent extraction failed. Please provide key details manually.`;
       }
 
-      // Call the AI analysis API
-      const response = await fetch('/api/ai-file-analyzer', {
+      // Call the RAG-enhanced AI analysis API
+      const response = await fetch('/api/ai-file-analyzer-rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -489,6 +501,7 @@ export default function FilesPage() {
           fileType: fileToAnalyze.fileType,
           analysisType: analysisType,
           userId: userId,
+          userEmail: user?.email || '',
         }),
       });
 
@@ -558,8 +571,8 @@ export default function FilesPage() {
         throw new Error('File not found');
       }
 
-      // Call the AI analysis API with the question
-      const response = await fetch('/api/ai-file-analyzer', {
+      // Call the RAG-enhanced AI analysis API with the question
+      const response = await fetch('/api/ai-file-analyzer-rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -573,6 +586,7 @@ export default function FilesPage() {
           userQuestion: question,
           chatHistory: [], // For now, we'll start fresh each time
           userId: userId,
+          userEmail: user?.email || '',
         }),
       });
 
@@ -581,7 +595,7 @@ export default function FilesPage() {
       }
 
       const result = await response.json();
-      return result.response || 'Sorry, I couldn\'t process your question. Please try again.';
+      return result.analysis || 'Sorry, I couldn\'t process your question. Please try again.';
     } catch (error) {
       console.error('Error asking question:', error);
       return 'Sorry, I encountered an error processing your question. Please try again.';
@@ -590,6 +604,16 @@ export default function FilesPage() {
 
   const handleSetWeddingDate = useCallback(() => {
     // TODO: Implement wedding date setting
+  }, []);
+
+  // Handle credit errors from AI file analyzer
+  const handleCreditError = useCallback((creditInfo: { requiredCredits: number; currentCredits: number; feature: string }) => {
+    setCreditModalData({
+      requiredCredits: creditInfo.requiredCredits,
+      currentCredits: creditInfo.currentCredits,
+      feature: creditInfo.feature
+    });
+    setShowNotEnoughCreditsModal(true);
   }, []);
 
   // If no content and not loading, show empty state
@@ -735,6 +759,7 @@ export default function FilesPage() {
                 onClose={() => setShowAIPanel(false)}
                 onAnalyzeFile={handleAnalyzeFile}
                 onAskQuestion={handleAskQuestion}
+                onCreditError={handleCreditError}
                 isVisible={showAIPanel}
               />
             </div>
@@ -775,6 +800,20 @@ export default function FilesPage() {
           onClose={handleCloseEditFolderModal}
           onSave={handleUpdateFolder}
           isLoading={foldersLoading}
+        />
+
+        {/* Not Enough Credits Modal */}
+        <NotEnoughCreditsModal
+          isOpen={showNotEnoughCreditsModal}
+          onClose={() => setShowNotEnoughCreditsModal(false)}
+          requiredCredits={creditModalData.requiredCredits}
+          currentCredits={creditModalData.currentCredits}
+          feature={creditModalData.feature}
+          accountInfo={{
+            tier: 'Free',
+            dailyCredits: 15,
+            refreshTime: 'Daily at midnight'
+          }}
         />
     </div>
     </DragDropProvider>

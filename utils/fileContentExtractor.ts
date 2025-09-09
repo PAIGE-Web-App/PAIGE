@@ -12,7 +12,7 @@ export interface ExtractedContent {
  */
 export async function extractFileContent(file: File): Promise<ExtractedContent> {
   try {
-    const fileType = file.type.toLowerCase();
+    const fileType = (file.type || '').toLowerCase();
     
     // Handle PDFs
     if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {

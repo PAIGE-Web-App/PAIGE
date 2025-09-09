@@ -25,6 +25,7 @@ interface RAGAnalysisResponse {
     paymentTerms: string[];
     cancellationPolicy: string[];
   };
+  followUpQuestions?: string[];
   ragEnabled: boolean;
   ragContext: string;
   credits?: {
@@ -41,6 +42,8 @@ export function useRAGFileAnalysis() {
   const [error, setError] = useState<string | null>(null);
 
   const analyzeFile = useCallback(async (request: RAGAnalysisRequest): Promise<RAGAnalysisResponse> => {
+    console.log('useRAGFileAnalysis: analyzeFile called with request:', request);
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -49,6 +52,7 @@ export function useRAGFileAnalysis() {
     setError(null);
 
     try {
+      console.log('useRAGFileAnalysis: Making fetch request to /api/ai-file-analyzer-rag');
       const response = await fetch('/api/ai-file-analyzer-rag', {
         method: 'POST',
         headers: {
@@ -61,16 +65,61 @@ export function useRAGFileAnalysis() {
         })
       });
 
-      const data = await response.json();
+      let data;
+      let responseText = '';
+      
+      console.log('RAG API: Response status:', response.status);
+      console.log('RAG API: Response ok:', response.ok);
+      console.log('RAG API: Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      try {
+        responseText = await response.text();
+        console.log('RAG API Raw response text:', responseText);
+        
+        if (responseText.trim()) {
+          data = JSON.parse(responseText);
+          console.log('RAG API Parsed data:', data);
+        } else {
+          console.log('RAG API: Empty response text');
+          data = { error: 'Empty response' };
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        console.log('Raw response text that failed to parse:', responseText);
+        data = { error: 'Invalid response format', rawText: responseText };
+      }
 
       if (!response.ok) {
+        // Check if it's a credit-related error
+        if (response.status === 402) {
+          console.log('RAG API: 402 status detected, creating credit error');
+          console.log('RAG API: Credit data from response:', data.credits);
+          
+          const creditError = new Error(data.error || 'Insufficient credits');
+          (creditError as any).isCreditError = true;
+          (creditError as any).credits = data.credits || { required: 3, current: 0, remaining: 0 };
+          (creditError as any).feature = data.feature || 'file analysis';
+          
+          console.log('RAG API: Created credit error:', {
+            message: creditError.message,
+            isCreditError: (creditError as any).isCreditError,
+            credits: (creditError as any).credits,
+            feature: (creditError as any).feature
+          });
+          
+          throw creditError;
+        }
+        
+        // Log other API errors (non-402)
         console.error('RAG API Error:', {
           status: response.status,
           statusText: response.statusText,
           error: data.error,
           message: data.message,
-          credits: data.credits
+          credits: data.credits,
+          rawData: data
         });
+        
         throw new Error(data.error || 'Analysis failed');
       }
 

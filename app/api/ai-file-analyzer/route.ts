@@ -21,7 +21,7 @@ interface AnalysisRequest {
 // Main handler function
 async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
   try {
-    console.log('AI File Analyzer API called');
+    console.log('AI File Analyzer API called (DEPRECATED - Use /api/ai-file-analyzer-rag instead)');
     
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
