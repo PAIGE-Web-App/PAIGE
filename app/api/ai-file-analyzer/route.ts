@@ -32,7 +32,7 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
       );
     }
     
-    const { fileId, fileName, fileContent, fileType, analysisType, chatHistory, userQuestion, userId }: AnalysisRequest = await request.json();
+    const { fileId, fileName, fileContent, fileType, analysisType, chatHistory, userQuestion, userId: requestUserId }: AnalysisRequest = await request.json();
 
     if (!fileContent) {
       return NextResponse.json(
@@ -318,13 +318,30 @@ If you use markdown formatting, your response will be rejected.`
       }
     }
 
-    return NextResponse.json({
+    // Get credit information from request headers (set by credit middleware)
+    const creditsRequired = request.headers.get('x-credits-required');
+    const creditsRemaining = request.headers.get('x-credits-remaining');
+    const userId = request.headers.get('x-user-id');
+
+    const response = NextResponse.json({
       analysis,
       structuredData,
       analysisType,
       fileId,
       fileName,
+      credits: {
+        required: creditsRequired ? parseInt(creditsRequired) : 0,
+        remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+        userId: userId || undefined
+      }
     });
+
+    // Add credit information to response headers for frontend
+    if (creditsRequired) response.headers.set('x-credits-required', creditsRequired);
+    if (creditsRemaining) response.headers.set('x-credits-remaining', creditsRemaining);
+    if (userId) response.headers.set('x-user-id', userId);
+
+    return response;
 
   } catch (error) {
     console.error('AI File Analyzer Error:', error);

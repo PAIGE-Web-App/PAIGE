@@ -27,6 +27,11 @@ interface RAGAnalysisResponse {
   };
   ragEnabled: boolean;
   ragContext: string;
+  credits?: {
+    required: number;
+    remaining: number;
+    userId?: string;
+  };
   error?: string;
 }
 
@@ -59,6 +64,13 @@ export function useRAGFileAnalysis() {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('RAG API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data.error,
+          message: data.message,
+          credits: data.credits
+        });
         throw new Error(data.error || 'Analysis failed');
       }
 

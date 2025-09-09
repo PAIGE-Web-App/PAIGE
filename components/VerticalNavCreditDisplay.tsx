@@ -15,48 +15,85 @@ export default function VerticalNavCreditDisplay() {
 
   // Store previous credits to compare
   const [previousCredits, setPreviousCredits] = useState(0);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Clear any corrupted localStorage data on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('previousCredits');
+    }
+  }, []);
 
            // Update previous credits when credits change
          useEffect(() => {
            if (credits) {
              const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+             console.log('VerticalNavCreditDisplay: Credits changed:', { 
+               previousCredits, 
+               currentTotal, 
+               dailyCredits: credits.dailyCredits, 
+               bonusCredits: credits.bonusCredits,
+               hasInitialized
+             });
              
              // Check if credits decreased (indicating usage) and we have a valid previous value
-             if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
+             if (hasInitialized && previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
                const creditsSpent = previousCredits - currentTotal;
+               console.log('VerticalNavCreditDisplay: Credits decreased, showing toast:', { creditsSpent, creditsRemaining: currentTotal });
                setToastData({ creditsSpent, creditsRemaining: currentTotal });
                setShowToast(true);
              }
              
              // Always update previous credits when we get new data
              setPreviousCredits(currentTotal);
+             setHasInitialized(true);
            }
-         }, [credits]);
+         }, [credits, hasInitialized]);
 
   // Removed aggressive polling to prevent infinite loops
 
   // Listen for credit updates using multiple methods
   useEffect(() => {
     const handleCreditUpdate = () => {
+      console.log('Credit update event received in VerticalNavCreditDisplay');
       // Reload credits to get the latest data
       setTimeout(async () => {
+        await loadCredits(); // Force reload credits from server
         const currentCredits = getRemainingCredits();
         const currentPrevious = previousCredits; // Capture current value to avoid stale closure
         
+        console.log('Credit update check:', { currentPrevious, currentCredits });
+        
         if (currentPrevious > 0 && currentCredits < currentPrevious) {
           const creditsSpent = currentPrevious - currentCredits;
+          console.log('Credits decreased, showing toast:', { creditsSpent, creditsRemaining: currentCredits });
           setToastData({ creditsSpent, creditsRemaining: currentCredits });
           setShowToast(true);
         }
       }, 500); // Reduced delay for faster response
     };
 
+    // Removed problematic fallback polling that was causing incorrect credit calculations
+
     // Method 1: Try the creditEventEmitter
+    console.log('VerticalNavCreditDisplay: Subscribing to credit event emitter');
     const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
+    console.log('VerticalNavCreditDisplay: Successfully subscribed to credit event emitter');
+    
+    // Manual check for pending events (debugging)
+    if (typeof window !== 'undefined') {
+      const pendingEvent = localStorage.getItem('creditUpdateEvent');
+      console.log('VerticalNavCreditDisplay: Manual check for pending events:', pendingEvent);
+      if (pendingEvent) {
+        console.log('VerticalNavCreditDisplay: Found pending event manually, triggering update');
+        setTimeout(handleCreditUpdate, 100);
+      }
+    }
     
     // Method 2: Listen for storage events (fallback for server/client communication)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'creditUpdate' && e.newValue) {
+      if (e.key === 'creditUpdateEvent' && e.newValue) {
+        console.log('VerticalNavCreditDisplay: Storage event detected for credit update');
         handleCreditUpdate();
       }
     };

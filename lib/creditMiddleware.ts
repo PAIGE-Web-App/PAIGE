@@ -109,14 +109,33 @@ export function withCreditValidation(
           );
         }
 
-                // Since we're getting userId from headers, we can just modify the original request
-        // and pass it through without any body reconstruction
+        // Set credit headers
         request.headers.set('x-credits-required', validation.requiredCredits.toString());
         request.headers.set('x-credits-remaining', validation.remainingCredits.toString());
         request.headers.set('x-user-id', userId);
         
-        // Call the handler with the modified original request
-        const response = await handler(request);
+        // Reconstruct the request with the parsed body if we read it
+        let requestToPass = request;
+        if (requestBody && !requestBody.formData) {
+          // For JSON requests, we need to reconstruct the request with the parsed body
+          const reconstructedRequest = new NextRequest(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: JSON.stringify(requestBody)
+          });
+          requestToPass = reconstructedRequest;
+        } else if (requestBody && requestBody.formData) {
+          // For FormData requests, use the cloned FormData
+          const reconstructedRequest = new NextRequest(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: requestBody.formData
+          });
+          requestToPass = reconstructedRequest;
+        }
+        
+        // Call the handler with the reconstructed request
+        const response = await handler(requestToPass);
         
         // If the request was successful, deduct credits
         if (response.ok) {
@@ -143,13 +162,19 @@ export function withCreditValidation(
               metadata.userAgent = userAgent;
             }
             
+            console.log('Attempting to deduct credits:', { userId, feature: options.feature, metadata });
             const success = await creditService.deductCredits(userId, options.feature, metadata);
+            console.log('Credit deduction result:', success);
             
             if (success) {
               // Mark this request as having credits deducted
               request.headers.set('x-credits-deducted', 'true');
               // Emit credit update event
+              console.log('Credits deducted successfully, emitting credit update event');
               creditEventEmitter.emit();
+              console.log('Credit event emitted, listeners count:', creditEventEmitter['listeners']?.length || 0);
+            } else {
+              console.log('Credit deduction failed');
             }
           } catch (error) {
             console.error('Error deducting credits after successful request:', error);

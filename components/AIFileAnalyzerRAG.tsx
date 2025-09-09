@@ -55,11 +55,15 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
     inputRef.current?.focus();
   }, []);
 
-  // Initialize with file analysis when file is selected
+  // Initialize component when file is selected and auto-analyze if not already analyzed
   useEffect(() => {
     if (selectedFile) {
       setMessages([]);
       setIsAnalyzing(false);
+      setFollowUpQuestions([]);
+      
+      // Always call initializeFileAnalysis - it will either show cached results or start new analysis
+      console.log('AIFileAnalyzerRAG: File selected, initializing analysis (cached or new)');
       initializeFileAnalysis();
     }
   }, [selectedFile?.id]);
@@ -67,6 +71,42 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   const initializeFileAnalysis = async () => {
     if (!selectedFile) return;
 
+    // Debug: Log file analysis status
+    console.log('AIFileAnalyzerRAG: File analysis check:', {
+      fileName: selectedFile.name,
+      isProcessed: selectedFile.isProcessed,
+      hasAiSummary: !!selectedFile.aiSummary,
+      aiSummaryLength: selectedFile.aiSummary?.length || 0,
+      aiSummaryPreview: selectedFile.aiSummary?.substring(0, 100) || 'No summary'
+    });
+
+    // Check if file has already been analyzed (and it's real analysis, not placeholder)
+    if (selectedFile.isProcessed && selectedFile.aiSummary && 
+        !selectedFile.aiSummary.includes("I'm currently unable to directly analyze")) {
+
+      // File already analyzed - just display results without re-analyzing
+      console.log('AIFileAnalyzerRAG: File already analyzed, displaying cached results');
+      setIsAnalyzing(false);
+      setFollowUpQuestions([]); // Clear previous follow-up questions
+      setMessages([]);
+      
+      // Create a single message with the cached analysis (same format as original analysis)
+      const cachedMessage: AIAnalysisMessage = {
+        id: `cached-analysis-${Date.now()}`,
+        type: 'assistant',
+        content: selectedFile.aiSummary || 'Analysis completed. Ask me anything about this file!',
+        timestamp: new Date(),
+        analysisType: 'summary',
+        ragEnabled: true,
+        ragContext: 'Context from other files included'
+      };
+
+      setMessages([cachedMessage]);
+      return; // Exit early - no need to re-analyze
+    }
+
+    // File not analyzed yet - proceed with RAG analysis
+    console.log('AIFileAnalyzerRAG: File not analyzed yet, starting new analysis');
     setIsAnalyzing(true);
     setFollowUpQuestions([]); // Clear previous follow-up questions
     
@@ -110,6 +150,18 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       setMessages([analysisMessage]);
       setFollowUpQuestions(result.followUpQuestions || []);
       
+      // Handle credit information if available
+      if (result.credits && result.credits.required > 0) {
+        console.log('AIFileAnalyzerRAG: Credits were deducted, triggering popover:', result.credits);
+        // Trigger credit update event for popover
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('creditUpdateEvent', Date.now().toString());
+          // Also trigger the event emitter directly
+          const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+          creditEventEmitter.emit();
+        }
+      }
+      
       // Note: File record will be updated by the RAG API response
       // No need to call the original onAnalyzeFile function
       
@@ -117,41 +169,31 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       console.error('RAG analysis failed:', error);
       
       // Check if it's a credit issue
-      const isCreditError = error instanceof Error && (
-        error.message.includes('403') || 
-        error.message.includes('Insufficient credits') ||
-        error.message.includes('credit')
-      );
-      
-      if (isCreditError) {
-        const creditMessage: AIAnalysisMessage = {
-          id: `credit-${Date.now()}`,
+      if (error instanceof Error && error.message.includes('credits')) {
+        setMessages([{
+          id: 'credit-error',
           type: 'assistant',
-          content: 'RAG analysis requires credits. Falling back to standard AI analysis...',
+          content: 'Sorry, you don\'t have enough credits to analyze this file. Please upgrade your plan or wait for your daily credits to refresh.',
           timestamp: new Date(),
-          analysisType: 'custom',
+          analysisType: 'summary',
           ragEnabled: false
-        };
-        
-        setMessages([creditMessage]);
+        }]);
+      } else {
+        setMessages([{
+          id: 'error',
+          type: 'assistant',
+          content: 'Sorry, I encountered an error analyzing your file. Please try again.',
+          timestamp: new Date(),
+          analysisType: 'summary',
+          ragEnabled: false
+        }]);
       }
-      
-      // Show a message about the credit requirement
-      const fallbackMessage: AIAnalysisMessage = {
-        id: `fallback-${Date.now()}`,
-        type: 'assistant',
-        content: 'RAG analysis is temporarily available for testing. In production, this will require credits to your account.',
-        timestamp: new Date(),
-        analysisType: 'custom',
-        ragEnabled: false
-      };
-      
-      setMessages(prev => [...prev, fallbackMessage]);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  // Get file content helper function
   const getFileContent = async (file: FileItem): Promise<string> => {
     try {
       // Download the file from Firebase Storage (same as original analyzer)
@@ -160,20 +202,12 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         throw new Error('Failed to download file');
       }
       
-      const fileBlob = await fileResponse.blob();
-      const fileObj = new File([fileBlob], file.name, { type: file.fileType });
+      const arrayBuffer = await fileResponse.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
       
-      // Extract text content using the same utility as the original analyzer
-      const { extractFileContent } = await import('@/utils/fileContentExtractor');
-      const extractedContent = await extractFileContent(fileObj);
-      
-      console.log('RAG File extraction result:', {
-        success: extractedContent.success,
-        textLength: extractedContent.text?.length || 0,
-        error: extractedContent.error,
-        fileName: file.name,
-        fileType: file.fileType
-      });
+      // Use the same file content extraction logic as the original analyzer
+      const { fileContentExtractor } = await import('@/utils/fileContentExtractor');
+      const extractedContent = await fileContentExtractor(file.name, uint8Array, file.fileType);
       
       if (extractedContent.success && extractedContent.text) {
         return extractedContent.text;
@@ -183,14 +217,9 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         return `File: ${file.name} (${file.fileType})\nContent extraction not supported for this file type. Please provide key details manually.`;
       }
     } catch (error) {
-      console.error('Error extracting file content:', error);
-      return `File: ${file.name} (${file.fileType})\nContent extraction failed. Please provide key details manually.`;
+      console.error('Error getting file content:', error);
+      return `File: ${file.name} (${file.fileType})\nError reading file content. Please provide key details manually.`;
     }
-  };
-
-  const handleSuggestedQuestion = (question: string) => {
-    setInputValue(question);
-    handleSendMessage();
   };
 
   const handleSendMessage = async () => {
@@ -201,13 +230,12 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       type: 'user',
       content: inputValue,
       timestamp: new Date(),
+      fileId: selectedFile.id,
       analysisType: 'custom'
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const question = inputValue;
     setInputValue('');
-    setFollowUpQuestions([]); // Clear follow-up questions when user asks a question
     setIsLoading(true);
 
     try {
@@ -220,8 +248,8 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         selectedFile.name,
         fileContent,
         selectedFile.fileType || 'unknown',
-        question,
-        messages.map(msg => ({ role: msg.type, content: msg.content }))
+        inputValue,
+        messages.map(m => ({ role: m.type, content: m.content }))
       );
 
       const assistantMessage: AIAnalysisMessage = {
@@ -229,50 +257,32 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
         type: 'assistant',
         content: result.analysis,
         timestamp: new Date(),
+        fileId: selectedFile.id,
         analysisType: 'custom',
         ragEnabled: result.ragEnabled,
         ragContext: result.ragContext
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
     } catch (error) {
-      console.error('RAG question failed:', error);
-      
-      // Check if it's a credit issue
-      const isCreditError = error instanceof Error && (
-        error.message.includes('403') || 
-        error.message.includes('Insufficient credits') ||
-        error.message.includes('credit')
-      );
-      
-      if (isCreditError) {
-        const creditMessage: AIAnalysisMessage = {
-          id: `credit-${Date.now()}`,
-          type: 'assistant',
-          content: 'RAG question answering requires credits. Using standard AI...',
-          timestamp: new Date(),
-          analysisType: 'custom',
-          ragEnabled: false
-        };
-        
-        setMessages(prev => [...prev, creditMessage]);
-      }
-      
-      // Show a message about the credit requirement for questions
-      const fallbackMessage: AIAnalysisMessage = {
-        id: `fallback-${Date.now()}`,
+      console.error('Error asking question:', error);
+      const errorMessage: AIAnalysisMessage = {
+        id: `error-${Date.now()}`,
         type: 'assistant',
-        content: 'RAG question answering requires credits. Please add credits to your account to ask questions with context from your other files.',
+        content: 'Sorry, I encountered an error processing your question. Please try again.',
         timestamp: new Date(),
-        analysisType: 'custom',
-        ragEnabled: false
+        fileId: selectedFile.id,
+        analysisType: 'custom'
       };
-      
-      setMessages(prev => [...prev, fallbackMessage]);
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSuggestedQuestion = (question: string) => {
+    setInputValue(question);
+    handleSendMessage();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -352,6 +362,8 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Analysis Trigger Button - REMOVED: Analysis now starts automatically */}
           </div>
 
           {/* Messages */}

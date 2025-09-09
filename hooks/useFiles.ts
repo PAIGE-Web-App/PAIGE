@@ -186,8 +186,8 @@ export function useFiles() {
 
       const docRef = await addDoc(getUserCollectionRef('files', user.uid), fileDoc);
       
-      // Start AI processing
-      await processFileWithAI(docRef.id);
+      // Don't automatically process with AI - let user trigger analysis manually
+      // await processFileWithAI(docRef.id);
       
       // Don't show toast here - let the modal handle it
       return docRef.id;

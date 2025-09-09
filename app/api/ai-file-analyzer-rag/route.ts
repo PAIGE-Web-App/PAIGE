@@ -25,6 +25,7 @@ interface RAGAnalysisRequest {
 async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse> {
   try {
     console.log('RAG-Enhanced AI File Analyzer API called');
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
     
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -34,6 +35,10 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
         { status: 500 }
       );
     }
+    
+    const requestBody = await request.json();
+    console.log('Request body keys:', Object.keys(requestBody));
+    console.log('UserId from request:', requestBody.userId);
     
     const { 
       fileId, 
@@ -45,7 +50,7 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       userQuestion, 
       userId,
       userEmail 
-    }: RAGAnalysisRequest = await request.json();
+    }: RAGAnalysisRequest = requestBody;
 
     if (!fileContent) {
       return NextResponse.json(
@@ -62,16 +67,20 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     if (useRAG) {
       try {
         console.log('Processing file for RAG...');
-        await ragService.processDocument({
+        const ragResult = await ragService.processDocument({
           document_id: fileId,
           document_content: fileContent,
           source: 'user_upload',
           user_id: userId,
           document_type: getDocumentType(fileType)
         });
-        console.log('File processed for RAG successfully');
+        console.log('File processed for RAG successfully:', ragResult);
       } catch (ragError) {
         console.error('RAG processing failed, continuing with standard analysis:', ragError);
+        console.error('RAG error details:', {
+          message: ragError instanceof Error ? ragError.message : 'Unknown error',
+          stack: ragError instanceof Error ? ragError.stack : 'No stack'
+        });
         // Continue with standard analysis even if RAG fails
       }
     }
@@ -84,7 +93,7 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       truncatedContent = fileContent.substring(0, maxContentLength) + '\n\n[Content truncated due to length]';
     }
 
-    // Get relevant context from RAG if enabled
+    // Get relevant context from RAG if enabled (only for follow-up questions)
     let ragContext = '';
     if (useRAG && userQuestion) {
       try {
@@ -103,7 +112,10 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
         }
       } catch (ragError) {
         console.error('RAG query failed, continuing without context:', ragError);
+        // Continue without RAG context
       }
+    } else if (useRAG) {
+      console.log('RAG enabled but no user question - using standard analysis');
     }
 
     // Build the analysis prompt with RAG context
@@ -118,8 +130,11 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     );
 
     console.log(`Sending request to OpenAI for ${analysisType} analysis`);
+    console.log('Analysis prompt length:', analysisPrompt.length);
     
-    const completion = await openai.chat.completions.create({
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -134,6 +149,11 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       temperature: 0.7,
       max_tokens: 2000,
     });
+    console.log('First OpenAI API call successful');
+    } catch (openaiError) {
+      console.error('First OpenAI API call failed:', openaiError);
+      throw new Error(`OpenAI API call failed: ${openaiError instanceof Error ? openaiError.message : 'Unknown error'}`);
+    }
 
     const analysis = completion.choices[0]?.message?.content || 'Analysis failed';
 
@@ -141,6 +161,7 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     let followUpQuestions: string[] = [];
     if (analysisType === 'comprehensive') {
       try {
+        console.log('Generating follow-up questions...');
         const questionsCompletion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -156,6 +177,7 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
           temperature: 0.7,
           max_tokens: 200,
         });
+        console.log('Follow-up questions generation successful');
 
         const questionsText = questionsCompletion.choices[0]?.message?.content || '';
         followUpQuestions = questionsText
@@ -163,8 +185,13 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
           .map(q => q.replace(/^\d+\.\s*/, '').replace(/^[-*]\s*/, '').trim())
           .filter(q => q.length > 0)
           .slice(0, 3);
+        console.log('Generated follow-up questions:', followUpQuestions);
       } catch (error) {
         console.error('Error generating follow-up questions:', error);
+        console.error('Follow-up questions error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : 'No stack'
+        });
       }
     }
 
@@ -176,19 +203,66 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
 
     console.log('Analysis completed successfully');
 
-    return NextResponse.json({
+    // Get credit information from request headers (set by credit middleware)
+    const creditsRequired = request.headers.get('x-credits-required');
+    const creditsRemaining = request.headers.get('x-credits-remaining');
+    const headerUserId = request.headers.get('x-user-id');
+
+    // Update the file record in Firestore with the analysis results using Admin SDK
+    try {
+      const { getFirestore } = await import('firebase-admin/firestore');
+      const db = getFirestore();
+      
+      const fileRef = db.collection('users').doc(headerUserId || '').collection('files').doc(fileId);
+      await fileRef.update({
+        aiSummary: analysis,
+        keyPoints: structuredData?.keyPoints || [],
+        vendorAccountability: structuredData?.vendorAccountability || [],
+        importantDates: structuredData?.importantDates || [],
+        paymentTerms: structuredData?.paymentTerms || [],
+        cancellationPolicy: structuredData?.cancellationPolicy || [],
+        isProcessed: true,
+        processingStatus: 'completed',
+        updatedAt: new Date(),
+      });
+      
+      console.log('File record updated with analysis results');
+    } catch (error) {
+      console.error('Error updating file record:', error);
+      // Don't fail the request if file update fails
+    }
+
+    const response = NextResponse.json({
       success: true,
       analysis,
       structuredData,
       followUpQuestions,
       ragEnabled: useRAG,
-      ragContext: ragContext ? 'Context from other files included' : 'No additional context'
+      ragContext: ragContext ? 'Context from other files included' : 'No additional context',
+      credits: {
+        required: creditsRequired ? parseInt(creditsRequired) : 0,
+        remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+        userId: headerUserId || undefined
+      }
     });
+
+    // Add credit information to response headers for frontend
+    if (creditsRequired) response.headers.set('x-credits-required', creditsRequired);
+    if (creditsRemaining) response.headers.set('x-credits-remaining', creditsRemaining);
+    if (headerUserId) response.headers.set('x-user-id', headerUserId);
+
+    return response;
 
   } catch (error) {
     console.error('Error in RAG file analysis:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
     return NextResponse.json(
-      { error: 'Analysis failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Analysis failed', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
@@ -285,13 +359,9 @@ function getDocumentType(fileType: string): string {
 }
 
 // Export the handler with credit validation
-// TEMPORARY: Bypass credit validation for RAG testing
-export const POST = handleRAGFileAnalysis;
-
-// TODO: Re-enable credit validation after testing
-// export const POST = withCreditValidation(handleRAGFileAnalysis, {
-//   feature: 'file_analysis',
-//   userIdField: 'userId',
-//   requireAuth: true,
-//   errorMessage: 'Insufficient credits for file analysis. Please upgrade your plan to continue using AI features.'
-// });
+export const POST = withCreditValidation(handleRAGFileAnalysis, {
+  feature: 'file_analysis',
+  userIdField: 'userId',
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for file analysis. Please upgrade your plan to continue using AI features.'
+});
