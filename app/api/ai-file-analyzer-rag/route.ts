@@ -213,29 +213,36 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     const creditsRemaining = request.headers.get('x-credits-remaining');
     const headerUserId = request.headers.get('x-user-id');
 
-    // Update the file record in Firestore with the analysis results using Admin SDK
-    try {
-      const { getFirestore } = await import('firebase-admin/firestore');
-      const db = getFirestore();
-      
-      const fileRef = db.collection('users').doc(headerUserId || '').collection('files').doc(fileId);
-      await fileRef.update({
-        aiSummary: analysis,
-        keyPoints: structuredData?.keyPoints || [],
-        vendorAccountability: structuredData?.vendorAccountability || [],
-        importantDates: structuredData?.importantDates || [],
-        paymentTerms: structuredData?.paymentTerms || [],
-        cancellationPolicy: structuredData?.cancellationPolicy || [],
-        isProcessed: true,
-        processingStatus: 'completed',
-        updatedAt: new Date(),
-      });
-      
-      console.log('File record updated with analysis results');
-    } catch (error) {
-      console.error('Error updating file record:', error);
-      // Don't fail the request if file update fails
-    }
+    // Update the file record in Firestore with the analysis results using Admin SDK (async, non-blocking)
+    const updateFileRecord = async () => {
+      try {
+        const { getFirestore } = await import('firebase-admin/firestore');
+        const db = getFirestore();
+        
+        const fileRef = db.collection('users').doc(headerUserId || '').collection('files').doc(fileId);
+        await fileRef.update({
+          aiSummary: analysis,
+          keyPoints: structuredData?.keyPoints || [],
+          vendorAccountability: structuredData?.vendorAccountability || [],
+          importantDates: structuredData?.importantDates || [],
+          paymentTerms: structuredData?.paymentTerms || [],
+          cancellationPolicy: structuredData?.cancellationPolicy || [],
+          isProcessed: true,
+          processingStatus: 'completed',
+          updatedAt: new Date(),
+        });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('File record updated with analysis results');
+        }
+      } catch (error) {
+        console.error('Error updating file record:', error);
+        // Don't fail the request if file update fails
+      }
+    };
+    
+    // Start the update process but don't wait for it
+    updateFileRecord();
 
     const response = NextResponse.json({
       success: true,

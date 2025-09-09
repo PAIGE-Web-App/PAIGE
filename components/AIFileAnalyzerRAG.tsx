@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { FileItem } from '@/types/files';
 import { Send, FileText, Sparkles, Bot, User, Loader2, Download, Eye, Trash2, Plus, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,7 +27,7 @@ interface AIFileAnalyzerRAGProps {
   isVisible: boolean;
 }
 
-const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
+const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
   selectedFile,
   onClose,
   onAnalyzeFile,
@@ -35,11 +35,14 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   onCreditError,
   isVisible,
 }) => {
-  console.log('AIFileAnalyzerRAG: Component rendered with:', {
-    selectedFile: selectedFile?.name,
-    isVisible,
-    hasOnCreditError: !!onCreditError
-  });
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('AIFileAnalyzerRAG: Component rendered with:', {
+      selectedFile: selectedFile?.name,
+      isVisible,
+      hasOnCreditError: !!onCreditError
+    });
+  }
 
   const [messages, setMessages] = useState<AIAnalysisMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -53,12 +56,39 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   
   const { analyzeFile, askQuestion, isLoading: ragLoading, error: ragError } = useRAGFileAnalysis();
   
-  console.log('AIFileAnalyzerRAG: Hook initialized with:', {
-    analyzeFile: !!analyzeFile,
-    askQuestion: !!askQuestion,
-    ragLoading,
-    ragError
-  });
+  // Memoize file analysis status to prevent unnecessary re-calculations
+  const isFileAnalyzed = useMemo(() => {
+    return selectedFile?.isProcessed && 
+           selectedFile?.aiSummary && 
+           selectedFile.aiSummary.trim().length > 0 &&
+           !selectedFile.aiSummary.includes("I'm currently unable to directly analyze");
+  }, [selectedFile?.isProcessed, selectedFile?.aiSummary]);
+  
+  // Memoize placeholder text to prevent re-renders
+  const placeholderText = useMemo(() => {
+    if (hasCreditError) return "Please resolve credit issue to continue...";
+    if (isFileAnalyzed) return "Ask Paige about this file...";
+    return "File must be analyzed first...";
+  }, [hasCreditError, isFileAnalyzed]);
+  
+  // Memoize button disabled state
+  const isButtonDisabled = useMemo(() => {
+    return !inputValue.trim() || 
+           isLoading || 
+           isAnalyzing || 
+           hasCreditError || 
+           !isFileAnalyzed;
+  }, [inputValue, isLoading, isAnalyzing, hasCreditError, isFileAnalyzed]);
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('AIFileAnalyzerRAG: Hook initialized with:', {
+      analyzeFile: !!analyzeFile,
+      askQuestion: !!askQuestion,
+      ragLoading,
+      ragError
+    });
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -113,9 +143,8 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       aiSummaryPreview: selectedFile.aiSummary?.substring(0, 100) || 'No summary'
     });
 
-    // Check if file has already been analyzed (and it's real analysis, not placeholder)
-    if (selectedFile.isProcessed && selectedFile.aiSummary && 
-        !selectedFile.aiSummary.includes("I'm currently unable to directly analyze")) {
+    // Check if file has already been analyzed using memoized value
+    if (isFileAnalyzed) {
 
       // File already analyzed - just display results without re-analyzing
       console.log('AIFileAnalyzerRAG: File already analyzed, displaying cached results');
@@ -280,11 +309,10 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
     }
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || !selectedFile || isLoading || isAnalyzing || hasCreditError) return;
 
-    // Check if file has been analyzed (has aiSummary)
-    const isFileAnalyzed = selectedFile.isProcessed && selectedFile.aiSummary && selectedFile.aiSummary.trim().length > 0;
+    // Use memoized file analysis status
     
     if (!isFileAnalyzed) {
       const errorMessage: AIAnalysisMessage = {
@@ -380,20 +408,20 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [inputValue, selectedFile, isLoading, isAnalyzing, hasCreditError, isFileAnalyzed, askQuestion, onCreditError]);
 
-  const handleSuggestedQuestion = (question: string) => {
+  const handleSuggestedQuestion = useCallback((question: string) => {
     if (hasCreditError) return;
     setInputValue(question);
     handleSendMessage();
-  };
+  }, [hasCreditError, handleSendMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !hasCreditError) {
       e.preventDefault();
       handleSendMessage();
     }
-  };
+  }, [hasCreditError, handleSendMessage]);
 
   if (!selectedFile) {
     return (
@@ -562,19 +590,13 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={
-                  hasCreditError 
-                    ? "Please resolve credit issue to continue..." 
-                    : selectedFile?.isProcessed && selectedFile?.aiSummary 
-                      ? "Ask Paige about this file..." 
-                      : "File must be analyzed first..."
-                }
+                placeholder={placeholderText}
                 className={`flex-1 px-3 py-2 border border-gray-300 rounded-[10px] focus:outline-none focus:border-[#A85C36] text-sm ${hasCreditError ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 disabled={isLoading || isAnalyzing || hasCreditError}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || isAnalyzing || hasCreditError || !(selectedFile?.isProcessed && selectedFile?.aiSummary)}
+                disabled={isButtonDisabled}
                 className="px-4 py-2 bg-[#A85C36] text-white rounded-[10px] hover:bg-[#8B4A2A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
@@ -585,6 +607,8 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});
+
+AIFileAnalyzerRAG.displayName = 'AIFileAnalyzerRAG';
 
 export default AIFileAnalyzerRAG;
