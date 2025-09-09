@@ -51,8 +51,28 @@ export default function VerticalNavCreditDisplay() {
 
   // Removed aggressive polling to prevent infinite loops
 
-  // Simplified approach - automatic detection from useCredits hook handles everything
-  // No need for complex event listeners since credits changes are detected directly
+  // Listen for credit refresh events to trigger useCredits reload
+  useEffect(() => {
+    const handleCreditRefresh = () => {
+      console.log('🎯 Credit refresh event received, reloading credits');
+      loadCredits();
+    };
+
+    const unsubscribe = creditEventEmitter.subscribe(handleCreditRefresh);
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'creditUpdateEvent' && e.newValue) {
+        handleCreditRefresh();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadCredits]);
 
   if (loading) {
     return (

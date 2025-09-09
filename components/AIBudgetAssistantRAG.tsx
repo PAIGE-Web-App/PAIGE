@@ -65,7 +65,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     maxBudget,
     profileLoading
   } = useUserProfileData();
-  const { updateUserMaxBudget } = useBudget();
+  const { updateMaxBudget } = useBudget();
   
   // Memoize budget validation
   const isValidBudget = useMemo(() => {
@@ -184,8 +184,17 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
           // Call createBudgetFromAI directly with the transformed RAG response
           await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
           
-        // Credits are automatically detected by VerticalNavCreditDisplay when useCredits updates
-        // No need for manual event emission
+        // Trigger credit refresh for useCredits hook
+        if (budgetResponse.credits && budgetResponse.credits.required > 0) {
+          console.log('🎯 Budget generation complete, triggering credit refresh:', budgetResponse.credits);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            setTimeout(async () => {
+              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+              creditEventEmitter.emit();
+            }, 1000);
+          }
+        }
         } else {
           throw new Error('Failed to generate budget');
         }
@@ -216,12 +225,12 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     if (!description.trim() || !canSubmit || isGenerating) return;
     
     // If there's a budget warning, automatically update max budget
-    if (budgetWarningData && updateUserMaxBudget) {
-      await updateUserMaxBudget(budgetWarningData.newMaxBudget);
+    if (budgetWarningData && updateMaxBudget) {
+      await updateMaxBudget(budgetWarningData.newMaxBudget);
     }
     
     await performGeneration();
-  }, [description, canSubmit, budgetWarningData, updateUserMaxBudget, performGeneration, isGenerating]);
+  }, [description, canSubmit, budgetWarningData, updateMaxBudget, performGeneration, isGenerating]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && canSubmit && !isGenerating) {

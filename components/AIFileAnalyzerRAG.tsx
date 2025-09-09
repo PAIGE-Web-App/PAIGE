@@ -219,8 +219,14 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
       setMessages([analysisMessage]);
       setFollowUpQuestions(result.followUpQuestions || []);
       
-      // Credits are automatically detected by VerticalNavCreditDisplay when useCredits updates
-      // No need for manual event emission
+      // Trigger credit refresh for useCredits hook
+      if (result.credits && result.credits.required > 0) {
+        console.log('AIFileAnalyzerRAG: Credits were deducted, triggering refresh:', result.credits);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('creditUpdateEvent', Date.now().toString());
+          creditEventEmitter.emit();
+        }
+      }
       
       // Note: File record will be updated by the RAG API response
       // No need to call the original onAnalyzeFile function
