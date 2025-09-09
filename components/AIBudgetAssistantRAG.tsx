@@ -65,7 +65,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     maxBudget,
     profileLoading
   } = useUserProfileData();
-  const { updateMaxBudget } = useBudget();
+  const { updateUserMaxBudget } = useBudget();
   
   // Memoize budget validation
   const isValidBudget = useMemo(() => {
@@ -216,12 +216,12 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     if (!description.trim() || !canSubmit || isGenerating) return;
     
     // If there's a budget warning, automatically update max budget
-    if (budgetWarningData && updateMaxBudget) {
-      await updateMaxBudget(budgetWarningData.newMaxBudget);
+    if (budgetWarningData && updateUserMaxBudget) {
+      await updateUserMaxBudget(budgetWarningData.newMaxBudget);
     }
     
     await performGeneration();
-  }, [description, canSubmit, budgetWarningData, updateMaxBudget, performGeneration, isGenerating]);
+  }, [description, canSubmit, budgetWarningData, updateUserMaxBudget, performGeneration, isGenerating]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && canSubmit && !isGenerating) {
