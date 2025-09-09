@@ -39,6 +39,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
+  const [showSuggestedResponses, setShowSuggestedResponses] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -434,20 +435,33 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
 
           {/* Suggested Responses - Outside Chat Area */}
           {followUpQuestions.length > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-              <div className="text-xs text-gray-500 mb-2 font-medium text-left">💡 Suggested Responses (1 Credit each):</div>
-              <div className="flex flex-wrap gap-2 justify-start">
-                {followUpQuestions.map((question, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestedQuestion(question)}
-                    disabled={isLoading || isAnalyzing}
-                    className="px-3 py-1.5 text-xs bg-white hover:bg-gray-100 text-gray-700 rounded-full border border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
+            <div className="border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowSuggestedResponses(!showSuggestedResponses)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-100 transition-colors"
+              >
+                <div className="text-xs text-gray-500 font-medium">💡 Suggested Responses (1 Credit each)</div>
+                <div className="text-xs text-gray-400">
+                  {showSuggestedResponses ? '▼' : '▶'}
+                </div>
+              </button>
+              
+              {showSuggestedResponses && (
+                <div className="px-4 pb-3">
+                  <div className="flex flex-wrap gap-2 justify-start">
+                    {followUpQuestions.map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestedQuestion(question)}
+                        disabled={isLoading || isAnalyzing}
+                        className="px-3 py-1.5 text-xs bg-white hover:bg-gray-100 text-gray-700 rounded-full border border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
