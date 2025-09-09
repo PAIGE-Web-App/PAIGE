@@ -66,9 +66,18 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
           - Help identify important dates, payment terms, and vendor responsibilities
           - Suggest action items and things to watch out for
           
-          IMPORTANT: Format your responses as HTML using <div class="prose"> containers, <h3> for headers, <p> for paragraphs, <ul> and <li> for lists, and <strong> for bold text. Do not use markdown formatting.
+          CRITICAL FORMATTING RULE: You MUST ALWAYS respond with ONLY HTML code. NEVER use markdown formatting like ### or **.
           
-          Be concise, helpful, and wedding-focused in your responses.`
+          REQUIRED HTML STRUCTURE:
+          - Start every response with <div class="prose">
+          - End every response with </div>
+          - Use <h3> for section headers
+          - Use <p> for paragraphs
+          - Use <ul> and <li> for lists
+          - Use <strong> for bold text
+          - NEVER use markdown syntax
+          
+          If you use markdown formatting, your response will be rejected. Be concise, helpful, and wedding-focused in your responses.`
         },
         ...chatHistory,
         {
@@ -97,137 +106,152 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
 
     switch (analysisType) {
       case 'comprehensive':
-        analysisPrompt = `Analyze this wedding-related document comprehensively:
+        analysisPrompt = `CRITICAL: You MUST respond with ONLY HTML code. Do NOT use markdown formatting like ### or **. 
+
+Analyze this wedding-related document comprehensively:
 
 Document: ${fileName}
 Type: ${fileType}
 Content: ${testContent}
 
-Please provide a comprehensive analysis formatted as HTML using these CSS classes:
-- Use <h3> for section headers (Summary, Key Points, etc.)
-- Use <strong> for bold text within paragraphs
-- Use <ul> and <li> for lists
-- Use <p> for paragraphs
-- Wrap everything in a <div class="prose"> container
-
-Format your response as HTML with proper structure:
+You MUST format your response as HTML using this EXACT structure. Do not add any text before or after the HTML:
 
 <div class="prose">
   <h3>Summary</h3>
-  <p>[A concise 2-3 sentence summary of the document]</p>
+  <p>Your 2-3 sentence summary here</p>
   
   <h3>Key Points</h3>
   <ul>
-    <li>[3-5 most important points from the document]</li>
+    <li>First important point</li>
+    <li>Second important point</li>
+    <li>Third important point</li>
   </ul>
   
   <h3>Vendor Responsibilities</h3>
   <ul>
-    <li>[What the vendor is responsible for and when]</li>
+    <li>What the vendor is responsible for</li>
   </ul>
   
   <h3>Your Responsibilities</h3>
   <ul>
-    <li>[What the user is responsible for and when]</li>
+    <li>What the user is responsible for</li>
   </ul>
   
   <h3>Important Dates</h3>
   <ul>
-    <li>[Any deadlines, event dates, or time-sensitive items]</li>
+    <li>Any deadlines or time-sensitive items</li>
   </ul>
   
   <h3>Payment Terms</h3>
   <ul>
-    <li>[Payment schedule, amounts, deposits, and conditions]</li>
+    <li>Payment schedule and amounts</li>
   </ul>
   
   <h3>Cancellation Policy</h3>
   <ul>
-    <li>[Any cancellation terms, refund policies, or penalties]</li>
+    <li>Any cancellation terms or penalties</li>
   </ul>
   
   <h3>Things to Watch Out For</h3>
   <ul>
-    <li>[Areas to watch out for that could backfire]</li>
+    <li>Areas to watch out for</li>
   </ul>
   
   <h3>Recommendations</h3>
   <ul>
-    <li>[Suggestions for next steps or actions needed]</li>
+    <li>Suggested next steps</li>
   </ul>
 </div>
 
-Focus on wedding-specific context and practical implications for wedding planning. Be specific about dates, amounts, and responsibilities.`;
+REMEMBER: Start your response with <div class="prose"> and end with </div>. Use <h3> for headers, <p> for paragraphs, <ul> and <li> for lists. NO markdown formatting.`;
         maxTokens = 1500;
         break;
 
       case 'summary':
-        analysisPrompt = `Provide a concise summary of this wedding document:
+        analysisPrompt = `CRITICAL: You MUST respond with ONLY HTML code. Do NOT use markdown formatting like ### or **.
+
+Provide a concise summary of this wedding document:
 
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Format your response as HTML:
+You MUST format your response as HTML using this EXACT structure:
+
 <div class="prose">
   <h3>Summary</h3>
-  <p>[A concise 2-3 sentence summary focusing on the main purpose and key terms]</p>
-</div>`;
+  <p>Your concise 2-3 sentence summary here</p>
+</div>
+
+REMEMBER: Start with <div class="prose"> and end with </div>. Use <h3> for headers, <p> for paragraphs. NO markdown formatting.`;
         maxTokens = 200;
         break;
 
       case 'insights':
-        analysisPrompt = `Extract key insights from this wedding document:
+        analysisPrompt = `CRITICAL: You MUST respond with ONLY HTML code. Do NOT use markdown formatting like ### or **.
+
+Extract key insights from this wedding document:
 
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Format your response as HTML:
+You MUST format your response as HTML using this EXACT structure:
+
 <div class="prose">
   <h3>Key Insights</h3>
   <ul>
-    <li><strong>Important Dates:</strong> [Any deadlines and time-sensitive items]</li>
-    <li><strong>Payment Terms:</strong> [Payment schedule, amounts, and conditions]</li>
-    <li><strong>Vendor Responsibilities:</strong> [What the vendor is responsible for]</li>
-    <li><strong>Concerning Terms:</strong> [Any terms to watch out for]</li>
-    <li><strong>Recommendations:</strong> [Suggested next steps for the user]</li>
+    <li><strong>Important Dates:</strong> Any deadlines and time-sensitive items</li>
+    <li><strong>Payment Terms:</strong> Payment schedule, amounts, and conditions</li>
+    <li><strong>Vendor Responsibilities:</strong> What the vendor is responsible for</li>
+    <li><strong>Concerning Terms:</strong> Any terms to watch out for</li>
+    <li><strong>Recommendations:</strong> Suggested next steps for the user</li>
   </ul>
-</div>`;
+</div>
+
+REMEMBER: Start with <div class="prose"> and end with </div>. Use <h3> for headers, <ul> and <li> for lists, <strong> for bold text. NO markdown formatting.`;
         maxTokens = 400;
         break;
 
       case 'questions':
-        analysisPrompt = `Based on this wedding document, suggest 5 helpful questions the user might want to ask:
+        analysisPrompt = `CRITICAL: You MUST respond with ONLY HTML code. Do NOT use markdown formatting like ### or **.
+
+Based on this wedding document, suggest 5 helpful questions the user might want to ask:
 
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Format your response as HTML:
+You MUST format your response as HTML using this EXACT structure:
+
 <div class="prose">
   <h3>Suggested Questions</h3>
   <p>Here are some questions you might want to ask about this document:</p>
   <ul>
-    <li>[Question about payment terms]</li>
-    <li>[Question about vendor responsibilities]</li>
-    <li>[Question about important deadlines]</li>
-    <li>[Question about potential issues]</li>
-    <li>[Question about next steps]</li>
+    <li>Question about payment terms</li>
+    <li>Question about vendor responsibilities</li>
+    <li>Question about important deadlines</li>
+    <li>Question about potential issues</li>
+    <li>Question about next steps</li>
   </ul>
 </div>
 
-Generate questions that would help the user understand payment terms, clarify vendor responsibilities, identify important deadlines, spot potential issues, and plan next steps.`;
+REMEMBER: Start with <div class="prose"> and end with </div>. Use <h3> for headers, <p> for paragraphs, <ul> and <li> for lists. NO markdown formatting.`;
         maxTokens = 300;
         break;
 
       default:
-        analysisPrompt = `Analyze this wedding document: ${fileName}
+        analysisPrompt = `CRITICAL: You MUST respond with ONLY HTML code. Do NOT use markdown formatting like ### or **.
+
+Analyze this wedding document: ${fileName}
 
 Content: ${truncatedContent}
 
-Format your response as HTML:
+You MUST format your response as HTML using this EXACT structure:
+
 <div class="prose">
   <h3>Document Analysis</h3>
-  <p>[A helpful summary and key insights about the document]</p>
-</div>`;
+  <p>Your helpful summary and key insights about the document</p>
+</div>
+
+REMEMBER: Start with <div class="prose"> and end with </div>. Use <h3> for headers, <p> for paragraphs. NO markdown formatting.`;
     }
 
     console.log(`Calling OpenAI with ${analysisType} analysis, maxTokens: ${maxTokens}, contentLength: ${truncatedContent.length}`);
@@ -242,7 +266,18 @@ Format your response as HTML:
             role: 'system',
             content: `You are an expert wedding planning assistant. You analyze documents to help couples understand contracts, invoices, proposals, and other wedding-related paperwork. Be helpful, concise, and wedding-focused. 
 
-IMPORTANT: Always format your responses as HTML using the provided structure and CSS classes. Use <h3> for headers, <p> for paragraphs, <ul> and <li> for lists, <strong> for bold text, and wrap everything in <div class="prose"> containers. Do not use markdown formatting like ### or **.`
+CRITICAL FORMATTING RULE: You MUST ALWAYS respond with ONLY HTML code. NEVER use markdown formatting like ### or **. 
+
+REQUIRED HTML STRUCTURE:
+- Start every response with <div class="prose">
+- End every response with </div>
+- Use <h3> for section headers
+- Use <p> for paragraphs
+- Use <ul> and <li> for lists
+- Use <strong> for bold text
+- NEVER use markdown syntax
+
+If you use markdown formatting, your response will be rejected.`
           },
           {
             role: 'user',
