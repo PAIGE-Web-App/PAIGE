@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { BudgetCategory } from '@/types/budget';
 import {
   BudgetOverviewHeader,
@@ -14,6 +14,7 @@ import {
   prepareChartData,
   prepareCategoryBreakdown
 } from './index';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface BudgetOverviewProps {
   budgetCategories: BudgetCategory[];
@@ -24,6 +25,7 @@ interface BudgetOverviewProps {
   onShowAIAssistant: () => void;
   onAddCategory: () => void;
   onSelectCategory: (category: BudgetCategory) => void;
+  onClearAllBudgetData: () => void;
   isLoading?: boolean;
 }
 
@@ -36,6 +38,7 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
   onShowAIAssistant,
   onAddCategory,
   onSelectCategory,
+  onClearAllBudgetData,
   isLoading = false,
 }) => {
   const [collapsedSections, setCollapsedSections] = React.useState({
@@ -44,6 +47,8 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
     breakdown: false,
     status: false
   });
+
+  const [showRemoveAllModal, setShowRemoveAllModal] = useState(false);
 
   // Memoized calculations for optimal performance
   const budgetMetrics = useMemo(() => 
@@ -79,6 +84,11 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
     }));
   }, []);
 
+  // Handle remove all budget data
+  const handleRemoveAllBudgetData = useCallback(() => {
+    onClearAllBudgetData();
+  }, [onClearAllBudgetData]);
+
   // Show skeleton while loading
   if (isLoading) {
     return <BudgetOverviewSkeleton />;
@@ -89,6 +99,8 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
       <BudgetOverviewHeader 
         title="Budget Overview"
         subtitle="Complete overview of your wedding budget and spending"
+        onShowAIAssistant={onShowAIAssistant}
+        onAddCategory={onAddCategory}
       />
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -128,6 +140,15 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
               title="Category Breakdown"
               isCollapsed={collapsedSections.breakdown}
               onToggle={() => toggleSection('breakdown')}
+              headerAction={
+                <button
+                  onClick={() => setShowRemoveAllModal(true)}
+                  className="text-red-800 hover:text-red-900 text-sm font-medium transition-colors"
+                  title="Remove all budget data"
+                >
+                  Remove All
+                </button>
+              }
             >
               {categoryBreakdown.length > 0 ? (
                 <CategoryBreakdownList
@@ -164,6 +185,18 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
           </div>
         </div>
       </div>
+
+      {/* Remove All Budget Data Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRemoveAllModal}
+        onClose={() => setShowRemoveAllModal(false)}
+        onConfirm={handleRemoveAllBudgetData}
+        title="Remove All Budget Data"
+        message="Are you sure you want to remove all budget data? This will clear all categories, items, and reset your budget settings."
+        warningMessage="This action cannot be undone. All budget data will be permanently deleted."
+        confirmButtonText="Remove All"
+        confirmButtonVariant="danger"
+      />
     </div>
   );
 });

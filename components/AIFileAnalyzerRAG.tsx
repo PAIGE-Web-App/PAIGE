@@ -4,6 +4,7 @@ import { Send, FileText, Sparkles, Bot, User, Loader2, Download, Eye, Trash2, Pl
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from './LoadingSpinner';
 import { useRAGFileAnalysis } from '@/hooks/useRAGFileAnalysis';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 
 interface AIAnalysisMessage {
   id: string;
@@ -218,17 +219,8 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
       setMessages([analysisMessage]);
       setFollowUpQuestions(result.followUpQuestions || []);
       
-      // Handle credit information if available
-      if (result.credits && result.credits.required > 0) {
-        console.log('AIFileAnalyzerRAG: Credits were deducted, triggering popover:', result.credits);
-        // Trigger credit update event for popover
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('creditUpdateEvent', Date.now().toString());
-          // Also trigger the event emitter directly
-          const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-          creditEventEmitter.emit();
-        }
-      }
+      // Credits are automatically detected by VerticalNavCreditDisplay when useCredits updates
+      // No need for manual event emission
       
       // Note: File record will be updated by the RAG API response
       // No need to call the original onAnalyzeFile function

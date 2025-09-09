@@ -6,6 +6,7 @@ interface CollapsibleSectionProps {
   onToggle: () => void;
   children: React.ReactNode;
   className?: string;
+  headerAction?: React.ReactNode;
 }
 
 const CollapsibleSection: React.FC<CollapsibleSectionProps> = React.memo(({
@@ -13,25 +14,29 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = React.memo(({
   isCollapsed,
   onToggle,
   children,
-  className = ''
+  className = '',
+  headerAction
 }) => (
   <div className={`bg-white p-4 rounded-[10px] border border-[#E0DBD7] ${className}`}>
     <div className="flex items-center justify-between mb-4">
       <h6>{title}</h6>
-      <button
-        onClick={onToggle}
-        className="text-[#6B7280] hover:text-[#332B42] transition-colors"
-        aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${title} section`}
-      >
-        <svg 
-          className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
+      <div className="flex items-center gap-2">
+        {headerAction}
+        <button
+          onClick={onToggle}
+          className="text-[#6B7280] hover:text-[#332B42] transition-colors"
+          aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${title} section`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <svg 
+            className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
     </div>
     {!isCollapsed && children}
   </div>

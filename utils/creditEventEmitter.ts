@@ -1,16 +1,24 @@
 // Enhanced event emitter for credit updates with persistence
-type CreditEventListener = () => void;
+import { AIFeature } from '@/types/credits';
+
+export type CreditEventData = {
+  creditsBeforeDeduction: number;
+  feature: AIFeature;
+  requiredCredits: number;
+} | undefined; // Allow undefined for generic emits
+
+type CreditEventListener = (data?: CreditEventData) => void;
 
 class CreditEventEmitter {
   private listeners: CreditEventListener[] = [];
   private readonly STORAGE_KEY = 'creditUpdateEvent';
+  private pendingEventData: CreditEventData | undefined = undefined; // Store pending event data
 
           // Subscribe to credit updates
         subscribe(listener: CreditEventListener): () => void {
           this.listeners.push(listener);
           
           // Check for any pending events in localStorage
-          console.log(`🎯 CreditEventEmitter: Subscribing, checking for pending events...`);
           this.checkPendingEvents();
           
           // Return unsubscribe function
@@ -23,28 +31,25 @@ class CreditEventEmitter {
         }
 
           // Emit credit update event
-        emit(): void {
-          console.log(`🎯 CreditEventEmitter: Emitting event to ${this.listeners.length} listeners`);
-          
+        emit(data?: CreditEventData): void {
           // If there are listeners, call them immediately
           if (this.listeners.length > 0) {
-            this.listeners.forEach((listener, index) => {
+            this.listeners.forEach((listener) => {
               try {
-                console.log(`🎯 CreditEventEmitter: Calling listener ${index + 1}`);
-                listener();
+                listener(data);
               } catch (error) {
-                console.error(`🎯 CreditEventEmitter: Error in listener ${index + 1}:`, error);
+                console.error(`🎯 CreditEventEmitter: Error in listener:`, error);
               }
             });
           } else {
             // No listeners yet - store the event in localStorage for later
-            console.log(`🎯 CreditEventEmitter: No listeners, storing event in localStorage`);
+            this.pendingEventData = data; // Store the event data
             // Note: This will only work on client-side, server-side localStorage is not available
             if (typeof window !== 'undefined') {
-              localStorage.setItem(this.STORAGE_KEY, Date.now().toString());
-              console.log(`🎯 CreditEventEmitter: Event stored in localStorage with key: ${this.STORAGE_KEY}`);
-            } else {
-              console.log(`🎯 CreditEventEmitter: Cannot store in localStorage - running on server side`);
+              localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ 
+                timestamp: Date.now().toString(), 
+                data: data 
+              }));
             }
           }
         }
@@ -54,23 +59,27 @@ class CreditEventEmitter {
           if (typeof window === 'undefined') return;
           
           const pendingEvent = localStorage.getItem(this.STORAGE_KEY);
-          console.log(`🎯 CreditEventEmitter: Checking localStorage for key '${this.STORAGE_KEY}':`, pendingEvent);
           
           if (pendingEvent) {
-            console.log(`🎯 CreditEventEmitter: Found pending event, triggering listeners`);
             localStorage.removeItem(this.STORAGE_KEY);
             
-            // Trigger all listeners
-            this.listeners.forEach((listener, index) => {
+            // Parse the stored event data
+            let storedData: CreditEventData = undefined;
+            try {
+              const parsed = JSON.parse(pendingEvent);
+              storedData = parsed.data;
+            } catch (e) {
+              console.error('Error parsing pending event data from localStorage:', e);
+            }
+            
+            // Trigger all listeners with the stored data
+            this.listeners.forEach((listener) => {
               try {
-                console.log(`🎯 CreditEventEmitter: Calling listener ${index + 1} for pending event`);
-                listener();
+                listener(storedData);
               } catch (error) {
-                console.error(`🎯 CreditEventEmitter: Error in listener ${index + 1}:`, error);
+                console.error(`🎯 CreditEventEmitter: Error in listener:`, error);
               }
             });
-          } else {
-            console.log(`🎯 CreditEventEmitter: No pending events found`);
           }
         }
 }

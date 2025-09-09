@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import { getCreditCosts } from '@/types/credits';
 
 interface RAGBudgetRequest {
   description: string;
@@ -46,9 +48,6 @@ export function useRAGBudgetGeneration() {
 
   const generateBudget = useCallback(async (request: RAGBudgetRequest): Promise<RAGBudgetResponse> => {
     // Debug logging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('useRAGBudgetGeneration: generateBudget called with request:', request);
-    }
     
     if (!user) {
       throw new Error('User not authenticated');
@@ -58,9 +57,6 @@ export function useRAGBudgetGeneration() {
     setError(null);
 
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('useRAGBudgetGeneration: Making fetch request to /api/generate-budget-rag');
-      }
       
       const response = await fetch('/api/generate-budget-rag', {
         method: 'POST',
@@ -77,58 +73,27 @@ export function useRAGBudgetGeneration() {
       let data;
       let responseText = '';
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('RAG Budget API: Response status:', response.status);
-        console.log('RAG Budget API: Response ok:', response.ok);
-        console.log('RAG Budget API: Response headers:', Object.fromEntries(response.headers.entries()));
-      }
       
       try {
         responseText = await response.text();
-        if (process.env.NODE_ENV === 'development') {
-          console.log('RAG Budget API Raw response text:', responseText);
-        }
         
         if (responseText.trim()) {
           data = JSON.parse(responseText);
-          if (process.env.NODE_ENV === 'development') {
-            console.log('RAG Budget API Parsed data:', data);
-          }
         } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('RAG Budget API: Empty response text');
-          }
           data = { error: 'Empty response' };
         }
       } catch (parseError) {
         console.error('Failed to parse response as JSON:', parseError);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Raw response text that failed to parse:', responseText);
-        }
         data = { error: 'Invalid response format', rawText: responseText };
       }
 
       if (!response.ok) {
         // Check if it's a credit-related error
         if (response.status === 402) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('RAG Budget API: 402 status detected, creating credit error');
-            console.log('RAG Budget API: Credit data from response:', data.credits);
-          }
-          
           const creditError = new Error(data.error || 'Insufficient credits');
           (creditError as any).isCreditError = true;
           (creditError as any).credits = data.credits || { required: 5, current: 0, remaining: 0 };
           (creditError as any).feature = data.feature || 'budget generation';
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.log('RAG Budget API: Created credit error:', {
-              message: creditError.message,
-              isCreditError: (creditError as any).isCreditError,
-              credits: (creditError as any).credits,
-              feature: (creditError as any).feature
-            });
-          }
           
           throw creditError;
         }
@@ -137,14 +102,14 @@ export function useRAGBudgetGeneration() {
         console.error('RAG Budget API Error:', {
           status: response.status,
           statusText: response.statusText,
-          error: data.error,
-          message: data.message,
-          credits: data.credits,
-          rawData: data
+          error: data.error
         });
         
         throw new Error(data.error || 'Budget generation failed');
       }
+
+      // Credit event emission moved to AIBudgetAssistantRAG component 
+      // after budget generation is complete and credits are confirmed deducted
 
       return data;
     } catch (err) {

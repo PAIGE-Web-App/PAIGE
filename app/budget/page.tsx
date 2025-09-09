@@ -53,6 +53,10 @@ const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'
   loading: () => <div className="flex-1 bg-white animate-pulse" />
 });
 
+const BudgetCreationProgress = dynamic(() => import('@/components/budget/BudgetCreationProgress'), {
+  ssr: false
+});
+
 const BudgetCategoryViewSkeleton = dynamic(() => import('@/components/budget/BudgetCategoryViewSkeleton'), {
   loading: () => <div className="flex-1 bg-white animate-pulse" />
 });
@@ -419,6 +423,7 @@ export default function BudgetPage() {
                   onShowAIAssistant={() => budget.setShowAIAssistant(true)}
                   onAddCategory={handleAddCategory}
                   onSelectCategory={handleSelectCategory}
+                  onClearAllBudgetData={budget.handleClearAllBudgetData}
                   isLoading={budget.budgetCategories === undefined}
                 />
               ) : (!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems) ? (
@@ -640,6 +645,18 @@ export default function BudgetPage() {
           onGenerateIntegratedPlan={budget.handleGenerateIntegratedPlan}
           weddingDate={weddingDate ? new Date(weddingDate) : null}
           totalBudget={budget.userTotalBudget}
+          setIsCreatingBudget={budget.setIsCreatingBudget}
+          setBudgetCreationProgress={budget.setBudgetCreationProgress}
+        />
+      )}
+
+      {/* Budget Creation Progress */}
+      {budget.budgetCreationProgress && (
+        <BudgetCreationProgress
+          isVisible={budget.isCreatingBudget}
+          current={budget.budgetCreationProgress.current}
+          total={budget.budgetCreationProgress.total}
+          currentItem={budget.budgetCreationProgress.currentItem}
         />
       )}
 

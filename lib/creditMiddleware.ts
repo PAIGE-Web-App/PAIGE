@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { creditService } from './creditService';
 import { creditEventEmitter } from '@/utils/creditEventEmitter';
-import { AIFeature } from '@/types/credits';
+import { AIFeature, getCreditCosts } from '@/types/credits';
 
 export interface CreditValidationOptions {
   feature: AIFeature;
@@ -169,16 +169,39 @@ export function withCreditValidation(
             }
             
             console.log('Attempting to deduct credits:', { userId, feature: options.feature, metadata });
+            
+            // Get credits before deduction for event data
+            const userCredits = await creditService.getUserCredits(userId);
+            const creditCosts = getCreditCosts(userCredits?.userType || 'couple');
+            const requiredCredits = creditCosts[options.feature] || 1;
+            const creditsBeforeDeduction = userCredits ? (userCredits.dailyCredits || 0) + (userCredits.bonusCredits || 0) : 0;
+            
+            console.log('🎯 Credit middleware - Before deduction:', {
+              userId,
+              feature: options.feature,
+              creditsBeforeDeduction,
+              requiredCredits,
+              userCredits: userCredits ? {
+                dailyCredits: userCredits.dailyCredits,
+                bonusCredits: userCredits.bonusCredits,
+                userType: userCredits.userType
+              } : null
+            });
+            
             const success = await creditService.deductCredits(userId, options.feature, metadata);
             console.log('Credit deduction result:', success);
             
             if (success) {
               // Mark this request as having credits deducted
               request.headers.set('x-credits-deducted', 'true');
-              // Emit credit update event
-              console.log('Credits deducted successfully, emitting credit update event');
-              creditEventEmitter.emit();
-              console.log('Credit event emitted, listeners count:', creditEventEmitter['listeners']?.length || 0);
+              
+              // Update the x-credits-remaining header to reflect the new balance
+              const newRemainingCredits = creditsBeforeDeduction - requiredCredits;
+              request.headers.set('x-credits-remaining', newRemainingCredits.toString());
+              
+              console.log('🎯 Credits deducted successfully on server-side');
+              console.log('🎯 Updated credits remaining header:', newRemainingCredits);
+              // Note: Credit event emission moved to client-side hooks
             } else {
               console.log('Credit deduction failed');
             }

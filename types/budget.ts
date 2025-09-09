@@ -45,6 +45,7 @@ export interface AIGeneratedBudgetItem {
 export interface AIGeneratedBudgetCategory {
   name: string;
   allocatedAmount: number;
+  color?: string;
   items: AIGeneratedBudgetItem[];
 }
 

@@ -14,6 +14,7 @@ import {
   writeBatch,
   Timestamp,
   getDoc,
+  getDocs,
   limit,
 } from 'firebase/firestore';
 import { getUserCollectionRef } from '@/lib/firebase';
@@ -52,6 +53,12 @@ export function useBudget() {
   // State for selected items
   const [selectedBudgetItem, setSelectedBudgetItem] = useState<BudgetItem | null>(null);
   const [userMaxBudget, setUserMaxBudget] = useState<number | null>(null);
+  const [isCreatingBudget, setIsCreatingBudget] = useState(false);
+  const [budgetCreationProgress, setBudgetCreationProgress] = useState<{
+    current: number;
+    total: number;
+    currentItem: string;
+  } | null>(null);
 
   // Optimized budget categories listener with proper cleanup
   useEffect(() => {
@@ -496,6 +503,95 @@ export function useBudget() {
     }
   };
 
+  // Delete all categories
+  const handleDeleteAllCategories = async () => {
+    if (!user) return;
+
+    try {
+      // Query all budget items to ensure we get everything
+      const itemsQuery = query(getUserCollectionRef('budgetItems', user.uid));
+      const itemsSnapshot = await getDocs(itemsQuery);
+      
+      // Query all budget categories
+      const categoriesQuery = query(getUserCollectionRef('budgetCategories', user.uid));
+      const categoriesSnapshot = await getDocs(categoriesQuery);
+
+      // Delete all budget items first
+      const batch = writeBatch(getUserCollectionRef('budgetItems', user.uid).firestore);
+      
+      itemsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // Delete all categories
+      categoriesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+
+      // Reset user's budget range
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        budgetRange: {
+          min: 0,
+          max: 0
+        },
+        updatedAt: new Date(),
+      });
+
+      showSuccessToast('All categories and items deleted!');
+    } catch (error: any) {
+      console.error('Error deleting all categories:', error);
+      showErrorToast(`Failed to delete all categories: ${error.message}`);
+    }
+  };
+
+  // Clear all budget data (emergency reset)
+  const handleClearAllBudgetData = async () => {
+    if (!user) return;
+
+    try {
+      // Query all budget items
+      const itemsQuery = query(getUserCollectionRef('budgetItems', user.uid));
+      const itemsSnapshot = await getDocs(itemsQuery);
+      
+      // Query all budget categories
+      const categoriesQuery = query(getUserCollectionRef('budgetCategories', user.uid));
+      const categoriesSnapshot = await getDocs(categoriesQuery);
+
+      // Delete everything in batches
+      const batch = writeBatch(getUserCollectionRef('budgetItems', user.uid).firestore);
+      
+      // Delete all budget items
+      itemsSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // Delete all categories
+      categoriesSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+
+      // Reset user's budget range but keep max budget
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        budgetRange: {
+          min: 0,
+          max: 0
+        },
+        updatedAt: new Date(),
+      });
+
+      showSuccessToast('All budget data cleared!');
+    } catch (error: any) {
+      console.error('Error clearing all budget data:', error);
+      showErrorToast(`Failed to clear budget data: ${error.message}`);
+    }
+  };
+
   // Add budget item
   const handleAddBudgetItem = async (categoryId: string, itemData: Partial<BudgetItem>) => {
     if (!user) return;
@@ -587,20 +683,33 @@ export function useBudget() {
   };
 
   // AI Integration Functions
-  const handleGenerateBudget = async (description: string, totalBudget: number) => {
-    try {
-      const response = await fetch('/api/generate-budget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          description, 
-          totalBudget,
-          userId: user?.uid
-        }),
-      });
+  const handleGenerateBudget = async (description: string, totalBudget: number, aiBudget?: AIGeneratedBudget) => {
+    // Prevent multiple simultaneous budget generations
+    if (isCreatingBudget) {
+      return;
+    }
 
-      if (!response.ok) throw new Error('Failed to generate budget');
-      const data: AIGeneratedBudget = await response.json();
+    try {
+      let data: AIGeneratedBudget;
+      
+      if (aiBudget) {
+        // Use the provided RAG response directly
+        data = aiBudget;
+      } else {
+        // Fallback to old API for backward compatibility
+        const response = await fetch('/api/generate-budget', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            description, 
+            totalBudget,
+            userId: user?.uid
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to generate budget');
+        data = await response.json();
+      }
       
       // Create the budget from AI response
       await createBudgetFromAI(data);
@@ -704,6 +813,25 @@ export function useBudget() {
   const createBudgetFromAI = async (aiBudget: AIGeneratedBudget) => {
     if (!user) return;
 
+    // Prevent multiple simultaneous budget creations
+    if (isCreatingBudget) {
+      return;
+    }
+
+    setIsCreatingBudget(true);
+    
+    // Calculate total items for progress tracking
+    const totalItems = aiBudget.categories.reduce((sum, cat) => {
+      return sum + (cat.items ? cat.items.length : 0);
+    }, 0);
+    let currentItem = 0;
+    
+    setBudgetCreationProgress({
+      current: 0,
+      total: totalItems,
+      currentItem: 'Starting budget creation...'
+    });
+
     const batch = writeBatch(getUserCollectionRef('budgetCategories', user.uid).firestore);
     
     // Create categories and items from AI response
@@ -716,15 +844,24 @@ export function useBudget() {
         orderIndex: budgetCategories.length,
         userId: user.uid,
         createdAt: new Date(),
+        color: category.color || '#696969', // Add the color from the transformed budget with fallback
       });
 
-      // Add items for this category
+      // Add items for this category (without amounts - amounts represent spent, not allocated)
       for (const item of category.items) {
+        currentItem++;
+        
+        setBudgetCreationProgress({
+          current: currentItem,
+          total: totalItems,
+          currentItem: `Creating "${item.name}" in ${category.name}...`
+        });
+        
         const itemRef = doc(getUserCollectionRef('budgetItems', user.uid));
         batch.set(itemRef, {
           categoryId: categoryRef.id,
           name: item.name,
-          amount: item.amount,
+          amount: 0, // Start with 0 spent amount
           notes: item.notes,
           isCustom: false,
           isCompleted: false,
@@ -732,10 +869,22 @@ export function useBudget() {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
+    setBudgetCreationProgress({
+      current: totalItems,
+      total: totalItems,
+      currentItem: 'Saving to database...'
+    });
+
     await batch.commit();
+    
+    setIsCreatingBudget(false);
+    setBudgetCreationProgress(null);
   };
 
   const createTodoListFromAI = async (aiTodoList: AIGeneratedTodoList) => {
@@ -841,6 +990,8 @@ export function useBudget() {
     showAIAssistant,
     showCSVUpload,
     selectedBudgetItem,
+    isCreatingBudget,
+    budgetCreationProgress,
 
     // Computed values
     totalSpent: budgetStats.totalSpent,
@@ -852,11 +1003,15 @@ export function useBudget() {
     setShowAIAssistant,
     setShowCSVUpload,
     setSelectedBudgetItem,
+    setIsCreatingBudget,
+    setBudgetCreationProgress,
 
     // Handlers
     handleAddCategory,
     handleEditCategory,
     handleDeleteCategory,
+    handleDeleteAllCategories,
+    handleClearAllBudgetData,
     handleAddBudgetItem,
     handleUpdateBudgetItem,
     handleDeleteBudgetItem,

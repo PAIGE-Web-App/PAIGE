@@ -31,8 +31,8 @@ interface RAGBudgetRequest {
 
 // Main handler function
 async function handleRAGBudgetGeneration(request: NextRequest): Promise<NextResponse> {
+  console.log('🎯 API: generate-budget-rag route called!');
   try {
-    console.log('RAG-Enhanced Budget Generation API called');
     
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -139,6 +139,18 @@ async function handleRAGBudgetGeneration(request: NextRequest): Promise<NextResp
     const creditsRequired = request.headers.get('x-credits-required');
     const creditsRemaining = request.headers.get('x-credits-remaining');
     const headerUserId = request.headers.get('x-user-id');
+    
+    // Calculate the correct remaining credits after deduction
+    const requiredCredits = creditsRequired ? parseInt(creditsRequired) : 0;
+    const beforeDeduction = creditsRemaining ? parseInt(creditsRemaining) : 0;
+    
+    // Since this API route is wrapped with withCreditValidation, credits will be deducted
+    // after the request succeeds. We need to return the correct remaining credits.
+    let afterDeduction = beforeDeduction;
+    if (requiredCredits > 0) {
+      // Calculate the actual remaining credits after deduction
+      afterDeduction = Math.max(0, beforeDeduction - requiredCredits);
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -147,8 +159,8 @@ async function handleRAGBudgetGeneration(request: NextRequest): Promise<NextResp
       ragEnabled: useRAG,
       ragContext: ragContext ? 'Context from your files included' : 'No additional context',
       credits: {
-        required: creditsRequired ? parseInt(creditsRequired) : 0,
-        remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+        required: requiredCredits,
+        remaining: afterDeduction,
         userId: headerUserId || undefined
       }
     });
@@ -311,7 +323,7 @@ function parseBudgetResponse(response: string, totalBudget: number) {
 
 // Export the handler with credit validation
 export const POST = withCreditValidation(handleRAGBudgetGeneration, {
-  feature: 'budget_generation',
+  feature: 'budget_generation_rag',
   userIdField: 'userId',
   requireAuth: true,
   errorMessage: 'Insufficient credits for budget generation with RAG. Please upgrade your plan to continue using AI features.'

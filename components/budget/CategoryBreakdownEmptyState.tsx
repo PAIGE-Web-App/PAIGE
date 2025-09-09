@@ -1,5 +1,4 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
 
 interface CategoryBreakdownEmptyStateProps {
   onShowAIAssistant: () => void;
@@ -17,23 +16,7 @@ const CategoryBreakdownEmptyState: React.FC<CategoryBreakdownEmptyStateProps> = 
       className="w-32 h-32 mx-auto mb-4 opacity-60"
     />
     <p className="text-gray-500 mb-2">You haven't added any budget categories yet!</p>
-    <p className="text-sm text-gray-500 mb-6">Get started with Paige AI or add categories.</p>
-    
-    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-      <button
-        onClick={onShowAIAssistant}
-        className="btn-gradient-purple flex items-center gap-2"
-      >
-        <Sparkles className="w-4 h-4" />
-        Create Budget with Paige
-      </button>
-      <button
-        onClick={onAddCategory}
-        className="btn-primaryinverse"
-      >
-        Add New Category
-      </button>
-    </div>
+    <p className="text-sm text-gray-500">Use the buttons above to get started with Paige AI or add categories.</p>
   </div>
 ));
 

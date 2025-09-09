@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { useRouter } from 'next/navigation';
-import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import { creditEventEmitter, CreditEventData } from '@/utils/creditEventEmitter';
 import CreditToast from './CreditToast';
 
 export default function VerticalNavCreditDisplay() {
@@ -13,100 +13,46 @@ export default function VerticalNavCreditDisplay() {
   const [showToast, setShowToast] = useState(false);
   const [toastData, setToastData] = useState({ creditsSpent: 0, creditsRemaining: 0 });
 
-  // Store previous credits to compare
+  // Track previous credits for automatic detection
   const [previousCredits, setPreviousCredits] = useState(0);
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Clear any corrupted localStorage data on component mount
+  // Initialize previousCredits when credits are first loaded (only once)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('previousCredits');
+    if (credits && !hasInitialized) {
+      const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+      setPreviousCredits(currentTotal);
+      setHasInitialized(true);
+      console.log('🎯 Initializing previousCredits:', currentTotal);
     }
-  }, []);
+  }, [credits, hasInitialized]);
 
-           // Update previous credits when credits change
-         useEffect(() => {
-           if (credits) {
-             const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
-             console.log('VerticalNavCreditDisplay: Credits changed:', { 
-               previousCredits, 
-               currentTotal, 
-               dailyCredits: credits.dailyCredits, 
-               bonusCredits: credits.bonusCredits,
-               hasInitialized
-             });
-             
-             // Check if credits decreased (indicating usage) and we have a valid previous value
-             if (hasInitialized && previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
-               const creditsSpent = previousCredits - currentTotal;
-               console.log('VerticalNavCreditDisplay: Credits decreased, showing toast:', { creditsSpent, creditsRemaining: currentTotal });
-               setToastData({ creditsSpent, creditsRemaining: currentTotal });
-               setShowToast(true);
-             }
-             
-             // Always update previous credits when we get new data
-             setPreviousCredits(currentTotal);
-             setHasInitialized(true);
-           }
-         }, [credits, hasInitialized]);
+  // Detect credit changes and show popover automatically
+  useEffect(() => {
+    if (credits && hasInitialized) {
+      const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+      
+      // Check if credits decreased (indicating AI function was used)
+      if (previousCredits > 0 && currentTotal < previousCredits) {
+        const creditsSpent = previousCredits - currentTotal;
+        console.log('🎯 Credits decreased, showing popover:', { 
+          previousCredits, 
+          currentTotal, 
+          creditsSpent 
+        });
+        setToastData({ creditsSpent, creditsRemaining: currentTotal });
+        setShowToast(true);
+      }
+      
+      // Update previousCredits for next comparison
+      setPreviousCredits(currentTotal);
+    }
+  }, [credits, hasInitialized, previousCredits]);
 
   // Removed aggressive polling to prevent infinite loops
 
-  // Listen for credit updates using multiple methods
-  useEffect(() => {
-    const handleCreditUpdate = () => {
-      console.log('Credit update event received in VerticalNavCreditDisplay');
-      // Reload credits to get the latest data
-      setTimeout(async () => {
-        await loadCredits(); // Force reload credits from server
-        const currentCredits = getRemainingCredits();
-        const currentPrevious = previousCredits; // Capture current value to avoid stale closure
-        
-        console.log('Credit update check:', { currentPrevious, currentCredits });
-        
-        if (currentPrevious > 0 && currentCredits < currentPrevious) {
-          const creditsSpent = currentPrevious - currentCredits;
-          console.log('Credits decreased, showing toast:', { creditsSpent, creditsRemaining: currentCredits });
-          setToastData({ creditsSpent, creditsRemaining: currentCredits });
-          setShowToast(true);
-        }
-      }, 500); // Reduced delay for faster response
-    };
-
-    // Removed problematic fallback polling that was causing incorrect credit calculations
-
-    // Method 1: Try the creditEventEmitter
-    console.log('VerticalNavCreditDisplay: Subscribing to credit event emitter');
-    const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
-    console.log('VerticalNavCreditDisplay: Successfully subscribed to credit event emitter');
-    
-    // Manual check for pending events (debugging)
-    if (typeof window !== 'undefined') {
-      const pendingEvent = localStorage.getItem('creditUpdateEvent');
-      console.log('VerticalNavCreditDisplay: Manual check for pending events:', pendingEvent);
-      if (pendingEvent) {
-        console.log('VerticalNavCreditDisplay: Found pending event manually, triggering update');
-        setTimeout(handleCreditUpdate, 100);
-      }
-    }
-    
-    // Method 2: Listen for storage events (fallback for server/client communication)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'creditUpdateEvent' && e.newValue) {
-        console.log('VerticalNavCreditDisplay: Storage event detected for credit update');
-        handleCreditUpdate();
-      }
-    };
-    
-    // Removed aggressive polling - only refresh when credits actually change
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      unsubscribe();
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []); // Remove dependencies to prevent infinite re-renders
+  // Simplified approach - automatic detection from useCredits hook handles everything
+  // No need for complex event listeners since credits changes are detected directly
 
   if (loading) {
     return (
