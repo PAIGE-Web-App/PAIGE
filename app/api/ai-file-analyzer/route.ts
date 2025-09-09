@@ -66,6 +66,8 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
           - Help identify important dates, payment terms, and vendor responsibilities
           - Suggest action items and things to watch out for
           
+          IMPORTANT: Format your responses as HTML using <div class="prose"> containers, <h3> for headers, <p> for paragraphs, <ul> and <li> for lists, and <strong> for bold text. Do not use markdown formatting.
+          
           Be concise, helpful, and wedding-focused in your responses.`
         },
         ...chatHistory,
@@ -101,19 +103,59 @@ Document: ${fileName}
 Type: ${fileType}
 Content: ${testContent}
 
-Please provide a comprehensive analysis in the following JSON format:
+Please provide a comprehensive analysis formatted as HTML using these CSS classes:
+- Use <h3> for section headers (Summary, Key Points, etc.)
+- Use <strong> for bold text within paragraphs
+- Use <ul> and <li> for lists
+- Use <p> for paragraphs
+- Wrap everything in a <div class="prose"> container
 
-{
-  "summary": "A concise 2-3 sentence summary of the document",
-  "keyPoints": ["3-5 most important points from the document"],
-  "vendorAccountability": ["What the vendor is responsible for and when"],
-  "userAccountability": ["What the user is responsible for and when"],
-  "importantDates": ["Any deadlines, event dates, or time-sensitive items"],
-  "paymentTerms": ["Payment schedule, amounts, deposits, and conditions"],
-  "cancellationPolicy": ["Any cancellation terms, refund policies, or penalties"],
-  "gotchas": ["Areas to watch out for that could backfire"],
-  "recommendations": ["Suggestions for next steps or actions needed"]
-}
+Format your response as HTML with proper structure:
+
+<div class="prose">
+  <h3>Summary</h3>
+  <p>[A concise 2-3 sentence summary of the document]</p>
+  
+  <h3>Key Points</h3>
+  <ul>
+    <li>[3-5 most important points from the document]</li>
+  </ul>
+  
+  <h3>Vendor Responsibilities</h3>
+  <ul>
+    <li>[What the vendor is responsible for and when]</li>
+  </ul>
+  
+  <h3>Your Responsibilities</h3>
+  <ul>
+    <li>[What the user is responsible for and when]</li>
+  </ul>
+  
+  <h3>Important Dates</h3>
+  <ul>
+    <li>[Any deadlines, event dates, or time-sensitive items]</li>
+  </ul>
+  
+  <h3>Payment Terms</h3>
+  <ul>
+    <li>[Payment schedule, amounts, deposits, and conditions]</li>
+  </ul>
+  
+  <h3>Cancellation Policy</h3>
+  <ul>
+    <li>[Any cancellation terms, refund policies, or penalties]</li>
+  </ul>
+  
+  <h3>Things to Watch Out For</h3>
+  <ul>
+    <li>[Areas to watch out for that could backfire]</li>
+  </ul>
+  
+  <h3>Recommendations</h3>
+  <ul>
+    <li>[Suggestions for next steps or actions needed]</li>
+  </ul>
+</div>
 
 Focus on wedding-specific context and practical implications for wedding planning. Be specific about dates, amounts, and responsibilities.`;
         maxTokens = 1500;
@@ -125,7 +167,11 @@ Focus on wedding-specific context and practical implications for wedding plannin
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Focus on the main purpose and key terms. Keep it under 3 sentences.`;
+Format your response as HTML:
+<div class="prose">
+  <h3>Summary</h3>
+  <p>[A concise 2-3 sentence summary focusing on the main purpose and key terms]</p>
+</div>`;
         maxTokens = 200;
         break;
 
@@ -135,12 +181,17 @@ Focus on the main purpose and key terms. Keep it under 3 sentences.`;
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Focus on:
-- Important dates and deadlines
-- Payment terms and amounts
-- Vendor responsibilities
-- Any concerning terms
-- Recommendations for the user`;
+Format your response as HTML:
+<div class="prose">
+  <h3>Key Insights</h3>
+  <ul>
+    <li><strong>Important Dates:</strong> [Any deadlines and time-sensitive items]</li>
+    <li><strong>Payment Terms:</strong> [Payment schedule, amounts, and conditions]</li>
+    <li><strong>Vendor Responsibilities:</strong> [What the vendor is responsible for]</li>
+    <li><strong>Concerning Terms:</strong> [Any terms to watch out for]</li>
+    <li><strong>Recommendations:</strong> [Suggested next steps for the user]</li>
+  </ul>
+</div>`;
         maxTokens = 400;
         break;
 
@@ -150,14 +201,20 @@ Focus on:
 Document: ${fileName}
 Content: ${truncatedContent}
 
-Generate questions that would help the user:
-- Understand payment terms
-- Clarify vendor responsibilities
-- Identify important deadlines
-- Spot potential issues
-- Plan next steps
+Format your response as HTML:
+<div class="prose">
+  <h3>Suggested Questions</h3>
+  <p>Here are some questions you might want to ask about this document:</p>
+  <ul>
+    <li>[Question about payment terms]</li>
+    <li>[Question about vendor responsibilities]</li>
+    <li>[Question about important deadlines]</li>
+    <li>[Question about potential issues]</li>
+    <li>[Question about next steps]</li>
+  </ul>
+</div>
 
-Format as a simple list.`;
+Generate questions that would help the user understand payment terms, clarify vendor responsibilities, identify important deadlines, spot potential issues, and plan next steps.`;
         maxTokens = 300;
         break;
 
@@ -166,7 +223,11 @@ Format as a simple list.`;
 
 Content: ${truncatedContent}
 
-Provide a helpful summary and key insights.`;
+Format your response as HTML:
+<div class="prose">
+  <h3>Document Analysis</h3>
+  <p>[A helpful summary and key insights about the document]</p>
+</div>`;
     }
 
     console.log(`Calling OpenAI with ${analysisType} analysis, maxTokens: ${maxTokens}, contentLength: ${truncatedContent.length}`);
@@ -179,7 +240,9 @@ Provide a helpful summary and key insights.`;
         messages: [
           {
             role: 'system',
-            content: `You are an expert wedding planning assistant. You analyze documents to help couples understand contracts, invoices, proposals, and other wedding-related paperwork. Be helpful, concise, and wedding-focused. Always return valid JSON when requested.`
+            content: `You are an expert wedding planning assistant. You analyze documents to help couples understand contracts, invoices, proposals, and other wedding-related paperwork. Be helpful, concise, and wedding-focused. 
+
+IMPORTANT: Always format your responses as HTML using the provided structure and CSS classes. Use <h3> for headers, <p> for paragraphs, <ul> and <li> for lists, <strong> for bold text, and wrap everything in <div class="prose"> containers. Do not use markdown formatting like ### or **.`
           },
           {
             role: 'user',

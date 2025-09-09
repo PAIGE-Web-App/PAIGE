@@ -383,9 +383,10 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = ({
                       </span>
                     </div>
                     
-                    <div className="text-sm">
-                      {message.content}
-                    </div>
+                    <div 
+                      className="text-sm prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: message.content }}
+                    />
                   
                   {/* RAG Status Indicator */}
                   {message.type === 'assistant' && message.ragEnabled !== undefined && (

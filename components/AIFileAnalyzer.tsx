@@ -586,9 +586,10 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
                   <span>Analyzing your file...</span>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap">
-                  {message.displayContent || message.content}
-                </div>
+                <div 
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: message.displayContent || message.content }}
+                />
               )}
             </div>
           </div>
