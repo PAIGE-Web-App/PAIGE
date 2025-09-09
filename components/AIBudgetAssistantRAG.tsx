@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Send, DollarSign, Calendar, Sparkles, Bot, User, Loader2, X, Database, Zap, ClipboardList } from 'lucide-react';
+import { Send, DollarSign, Calendar, Sparkles, Bot, User, Loader2, X, Database, Zap, ClipboardList, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from './LoadingSpinner';
 import { useRAGBudgetGeneration } from '@/hooks/useRAGBudgetGeneration';
+import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useBudget } from '@/hooks/useBudget';
 
 interface AIBudgetAssistantRAGProps {
   isOpen: boolean;
@@ -46,15 +48,30 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
   }
 
   const [description, setDescription] = useState('');
-  const [budgetAmount, setBudgetAmount] = useState(totalBudget?.toString() || '');
-  const [selectedOption, setSelectedOption] = useState<'budget' | 'todo' | 'integrated'>('integrated');
+  const [budgetAmount, setBudgetAmount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasCreditError, setHasCreditError] = useState(false);
+  const [showBudgetWarning, setShowBudgetWarning] = useState(false);
+  const [budgetWarningData, setBudgetWarningData] = useState<{
+    exceedAmount: number;
+    newTotalAllocated: number;
+    newMaxBudget: number;
+  } | null>(null);
+  const [autoUpdateBudget, setAutoUpdateBudget] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const { generateBudget, isLoading: ragLoading, error: ragError } = useRAGBudgetGeneration();
+  const { 
+    style, 
+    cityState, 
+    selectedVenueMetadata, 
+    weddingDate, 
+    guestCount, 
+    maxBudget 
+  } = useUserProfileData();
+  const { updateMaxBudget } = useBudget();
   
   // Memoize budget validation
   const isValidBudget = useMemo(() => {
@@ -76,40 +93,51 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     });
   }
 
-  // Focus input when component mounts
+  // Generate default description and set default budget when component opens
   useEffect(() => {
     if (isOpen) {
+      // Set default budget amount
+      setBudgetAmount(maxBudget?.toString() || '');
+      
+      // Generate default description with user metadata
+      const styleText = style ? `${style} style` : 'elegant style';
+      const cityText = cityState ? `in ${cityState}` : 'in your chosen city';
+      const venueText = selectedVenueMetadata?.name ? `at ${selectedVenueMetadata.name}` : 'at your chosen venue';
+      const dateText = weddingDate ? `on ${new Date(weddingDate).toLocaleDateString()}` : 'on your wedding date';
+      const guestText = guestCount ? `for ${guestCount} guests` : 'for your guest count';
+      
+      const defaultDescription = `Budget breakdown for a ${styleText} wedding ${cityText} ${venueText} ${dateText} ${guestText}`;
+      setDescription(defaultDescription);
+      
       inputRef.current?.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, maxBudget, style, cityState, selectedVenueMetadata, weddingDate, guestCount]);
 
   const handleGenerate = useCallback(async () => {
     if (!description.trim() || !canSubmit) return;
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('AI Budget Assistant RAG - handleGenerate called:', {
-        selectedOption,
-        hasExistingBudget: totalBudget && totalBudget > 0,
-        totalBudget
-      });
-    }
+    const budget = parseFloat(budgetAmount);
     
-    // Show overwrite warning for budget-related options if user has existing budget
-    if ((selectedOption === 'budget' || selectedOption === 'integrated') && totalBudget && totalBudget > 0) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Showing overwrite warning');
-      }
-      setShowOverwriteWarning(true);
+    // Check if budget exceeds max budget
+    if (maxBudget && budget > maxBudget) {
+      const exceedAmount = budget - maxBudget;
+      const newMaxBudget = Math.round(budget * 1.2); // Add 20% buffer
+      
+      setBudgetWarningData({
+        exceedAmount,
+        newTotalAllocated: budget,
+        newMaxBudget
+      });
+      setShowBudgetWarning(true);
       return;
     }
     
     await performGeneration();
-  }, [description, canSubmit, selectedOption, totalBudget]);
+  }, [description, canSubmit, budgetAmount, maxBudget]);
 
   const performGeneration = useCallback(async () => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('AI Budget Assistant RAG - Starting generation:', {
-        selectedOption,
+      console.log('AI Budget Assistant RAG - Starting budget generation:', {
         description,
         budgetAmount,
         isGenerating
@@ -123,69 +151,49 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     try {
       const budget = parseFloat(budgetAmount) || 0;
       
-      switch (selectedOption) {
-        case 'budget':
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Generating budget with RAG...');
-          }
-          
-          try {
-            const budgetResponse = await generateBudget({
-              description,
-              totalBudget: budget,
-              weddingDate: weddingDate?.toISOString() || new Date().toISOString(),
-              budgetType: 'comprehensive'
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Generating budget with RAG...');
+      }
+      
+      try {
+        const budgetResponse = await generateBudget({
+          description,
+          totalBudget: budget,
+          weddingDate: weddingDate?.toISOString() || new Date().toISOString(),
+          budgetType: 'comprehensive'
+        });
+        
+        // Call the original onGenerateBudget function
+        await onGenerateBudget(description, budget);
+        
+        // Close modal on success
+        onClose();
+        
+      } catch (budgetError: any) {
+        if (budgetError.isCreditError) {
+          setHasCreditError(true);
+          if (onCreditError) {
+            onCreditError({
+              requiredCredits: budgetError.credits?.required || 3,
+              currentCredits: budgetError.credits?.current || 0,
+              feature: budgetError.feature || 'budget generation'
             });
-            
-            // Call the original onGenerateBudget function
-            await onGenerateBudget(description, budget);
-            
-            // Close modal on success
-            onClose();
-            
-          } catch (budgetError: any) {
-            if (budgetError.isCreditError) {
-              setHasCreditError(true);
-              if (onCreditError) {
-                onCreditError({
-                  requiredCredits: budgetError.credits?.required || 5,
-                  currentCredits: budgetError.credits?.current || 0,
-                  feature: budgetError.feature || 'budget generation'
-                });
-              }
-            }
-            throw budgetError;
           }
-          break;
-          
-        case 'todo':
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Redirecting to todo page...');
-          }
-          // For todo-only generation, use your existing todo system
-          window.location.href = '/todo?ai-generate=true&description=' + encodeURIComponent(description);
-          break;
-          
-        case 'integrated':
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Generating integrated plan...');
-          }
-          await onGenerateIntegratedPlan(description, budget);
-          onClose();
-          break;
+        }
+        throw budgetError;
       }
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('Generation completed successfully');
+        console.log('Budget generation completed successfully');
       }
       
     } catch (error: any) {
-      console.error('Error generating:', error);
+      console.error('Error generating budget:', error);
       setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsGenerating(false);
     }
-  }, [description, budgetAmount, selectedOption, weddingDate, generateBudget, onGenerateBudget, onGenerateIntegratedPlan, onCreditError, onClose]);
+  }, [description, budgetAmount, weddingDate, generateBudget, onGenerateBudget, onCreditError, onClose]);
 
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -194,6 +202,21 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
       handleGenerate();
     }
   }, [canSubmit, handleGenerate]);
+
+  const handleContinueWithUpdate = useCallback(async () => {
+    if (budgetWarningData && updateMaxBudget) {
+      await updateMaxBudget(budgetWarningData.newMaxBudget);
+    }
+    setAutoUpdateBudget(true);
+    setShowBudgetWarning(false);
+    await performGeneration();
+  }, [budgetWarningData, updateMaxBudget, performGeneration]);
+
+  const handleContinueWithoutUpdate = useCallback(async () => {
+    setShowBudgetWarning(false);
+    setBudgetWarningData(null);
+    await performGeneration();
+  }, [performGeneration]);
 
   if (!isOpen) return null;
 
@@ -230,71 +253,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  What would you like to create?
-                </label>
-                <div className="space-y-2">
-                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="option"
-                      value="integrated"
-                      checked={selectedOption === 'integrated'}
-                      onChange={(e) => setSelectedOption(e.target.value as 'integrated')}
-                      className="mr-3 text-[#A85C36] focus:ring-[#A85C36]"
-                      disabled={isGenerating || hasCreditError}
-                    />
-                    <div className="flex items-center gap-2 flex-1">
-                      <Zap className="w-4 h-4 text-[#A85C36]" />
-                      <div>
-                        <div className="font-medium">Integrated Plan (5 Credits)</div>
-                        <div className="text-sm text-gray-500">Budget + Todo list together</div>
-                      </div>
-                    </div>
-                  </label>
-                  
-                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="option"
-                      value="budget"
-                      checked={selectedOption === 'budget'}
-                      onChange={(e) => setSelectedOption(e.target.value as 'budget')}
-                      className="mr-3 text-[#A85C36] focus:ring-[#A85C36]"
-                      disabled={isGenerating || hasCreditError}
-                    />
-                    <div className="flex items-center gap-2 flex-1">
-                      <DollarSign className="w-4 h-4 text-[#A85C36]" />
-                      <div>
-                        <div className="font-medium">Budget Only (3 Credits)</div>
-                        <div className="text-sm text-gray-500">Just the budget breakdown</div>
-                      </div>
-                    </div>
-                  </label>
-                  
-                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="option"
-                      value="todo"
-                      checked={selectedOption === 'todo'}
-                      onChange={(e) => setSelectedOption(e.target.value as 'todo')}
-                      className="mr-3 text-[#A85C36] focus:ring-[#A85C36]"
-                      disabled={isGenerating || hasCreditError}
-                    />
-                    <div className="flex items-center gap-2 flex-1">
-                      <ClipboardList className="w-4 h-4 text-[#A85C36]" />
-                      <div>
-                        <div className="font-medium">Todo List Only (2 Credits)</div>
-                        <div className="text-sm text-gray-500">Just the task list</div>
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Describe your wedding vision
+                  Describe your budget breakdown
                 </label>
                 <textarea
                   ref={inputRef}
@@ -352,6 +311,52 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
                 </button>
               </div>
             </div>
+
+            {/* Budget Warning Modal */}
+            {showBudgetWarning && budgetWarningData && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+                    <h3 className="text-lg font-semibold text-gray-900">Are you sure?</h3>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <p className="text-gray-600 mb-3">
+                      Your budget of ${budgetWarningData.newTotalAllocated.toLocaleString()} exceeds your current max budget by ${budgetWarningData.exceedAmount.toLocaleString()}.
+                    </p>
+                    <p className="text-gray-600">
+                      Would you like to update your max budget to ${budgetWarningData.newMaxBudget.toLocaleString()} to accommodate this budget?
+                    </p>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={handleContinueWithoutUpdate}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      Continue without updating
+                    </button>
+                    <button
+                      onClick={handleContinueWithUpdate}
+                      className="px-6 py-2 bg-[#A85C36] text-white rounded-lg hover:bg-[#8B4A2A] transition-colors"
+                    >
+                      Update max budget
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
           </motion.div>
         </motion.div>
       )}
