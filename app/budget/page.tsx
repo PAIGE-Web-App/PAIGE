@@ -72,7 +72,7 @@ const VendorIntegrationModal = dynamic(() => import('@/components/VendorIntegrat
   ssr: false
 });
 
-const AIBudgetAssistant = dynamic(() => import('@/components/AIBudgetAssistant'), {
+const AIBudgetAssistant = dynamic(() => import('@/components/AIBudgetAssistantRAG'), {
   ssr: false
 });
 
