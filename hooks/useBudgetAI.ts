@@ -2,11 +2,13 @@ import { useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { useCustomToast } from './useCustomToast';
 import { getCategoryColor } from '@/utils/categoryIcons';
+import { useRAGTodoGeneration } from './useRAGTodoGeneration';
 import type { AIGeneratedBudget, AIGeneratedTodoList, IntegratedPlan } from '@/types/budget';
 
 export function useBudgetAI() {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { generateTodos } = useRAGTodoGeneration();
 
   const handleGenerateBudget = useCallback(async (
     description: string, 
@@ -69,26 +71,39 @@ export function useBudgetAI() {
 
   const handleGenerateTodoList = useCallback(async (description: string) => {
     try {
-      const response = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          description,
-          userId: user?.uid
-        }),
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description,
+        weddingDate: new Date().toISOString(),
+        todoType: 'comprehensive',
+        focusCategories: [],
+        existingTodos: [],
+        vendorData: []
       });
 
-      if (!response.ok) throw new Error('Failed to generate todo list');
-      const data: AIGeneratedTodoList = await response.json();
-      
-      showSuccessToast('AI todo list generated successfully!');
-      return data;
+      if (ragResponse.success && ragResponse.todos) {
+        // Transform RAG response to match expected format
+        const transformedData: AIGeneratedTodoList = {
+          name: ragResponse.todos.listName,
+          tasks: ragResponse.todos.todos.map((task: any) => ({
+            name: task.name,
+            note: task.note || '',
+            deadline: task.deadline || '',
+            category: task.category || 'Planning'
+          }))
+        };
+        
+        showSuccessToast('AI todo list generated successfully!');
+        return transformedData;
+      } else {
+        throw new Error('Failed to generate todo list');
+      }
     } catch (error: any) {
       console.error('Error generating todo list:', error);
       showErrorToast(`Failed to generate todo list: ${error.message}`);
       throw error;
     }
-  }, [user?.uid, showSuccessToast, showErrorToast]);
+  }, [generateTodos, showSuccessToast, showErrorToast]);
 
   const handleGenerateIntegratedPlan = useCallback(async (description: string) => {
     try {

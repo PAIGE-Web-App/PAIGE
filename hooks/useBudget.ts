@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useCustomToast } from './useCustomToast';
 import { useAuth } from './useAuth';
 import { getCategoryColor } from '@/utils/categoryIcons';
+import { useRAGTodoGeneration } from './useRAGTodoGeneration';
 import {
   collection,
   query,
@@ -40,6 +41,7 @@ const DEFAULT_CATEGORIES = [
 export function useBudget() {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { generateTodos } = useRAGTodoGeneration();
 
   // State for budget categories
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
@@ -747,24 +749,35 @@ export function useBudget() {
 
   const handleGenerateTodoList = async (description: string) => {
     try {
-      const response = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          description,
-          categories: budgetCategories.map(cat => cat.name),
-          budgetIntegration: true,
-          userId: user?.uid
-        }),
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description,
+        weddingDate: new Date().toISOString(),
+        todoType: 'comprehensive',
+        focusCategories: budgetCategories.map(cat => cat.name),
+        existingTodos: [],
+        vendorData: []
       });
 
-      if (!response.ok) throw new Error('Failed to generate todo list');
-      const data: AIGeneratedTodoList = await response.json();
-      
-      // Create todo list from AI response
-      await createTodoListFromAI(data);
-      
-      showSuccessToast('AI todo list generated successfully!');
+      if (ragResponse.success && ragResponse.todos) {
+        // Transform RAG response to match expected format
+        const transformedData: AIGeneratedTodoList = {
+          name: ragResponse.todos.listName,
+          tasks: ragResponse.todos.todos.map((task: any) => ({
+            name: task.name,
+            note: task.note || '',
+            deadline: task.deadline || '',
+            category: task.category || 'Planning'
+          }))
+        };
+        
+        // Create todo list from AI response
+        await createTodoListFromAI(transformedData);
+        
+        showSuccessToast('AI todo list generated successfully!');
+      } else {
+        throw new Error('Failed to generate todo list');
+      }
     } catch (error: any) {
       console.error('Error generating todo list:', error);
       showErrorToast(`Failed to generate todo list: ${error.message}`);

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import NewListSideCard from './NewListSideCard';
+import { useRAGTodoGeneration } from '../hooks/useRAGTodoGeneration';
 
 const Sidebar = () => {
   const [isNewListOpen, setIsNewListOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [listName, setListName] = useState('');
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const categories = ['Wedding', 'Honeymoon', 'Reception', 'Ceremony']; // Example categories
+  const { generateTodos } = useRAGTodoGeneration();
 
   const handleAddList = (data: { name: string; tasks?: { name: string; note?: string; category?: string; deadline?: Date; endDate?: Date; }[] }) => {
     // Logic to add the new list to your state or database
@@ -16,16 +18,24 @@ const Sidebar = () => {
   const handleBuildWithAI = async (template: string) => {
     setIsGenerating(true);
     try {
-      console.log('Calling /api/generate-list with template:', template);
-      const response = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weddingDate: '2023-12-31', template }), // Pass the selected template
+      console.log('Calling RAG system with template:', template);
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description: template,
+        weddingDate: '2023-12-31',
+        todoType: 'comprehensive',
+        focusCategories: [],
+        existingTodos: [],
+        vendorData: []
       });
-      const data = await response.json();
-      console.log('Response from /api/generate-list:', data);
-      setListName(data.listName);
-      setTasks(data.tasks);
+
+      if (ragResponse.success && ragResponse.todos) {
+        console.log('Response from RAG system:', ragResponse.todos);
+        setListName(ragResponse.todos.listName);
+        setTasks(ragResponse.todos.todos);
+      } else {
+        throw new Error('Failed to generate todo list');
+      }
     } catch (error) {
       console.error('Error generating list:', error);
     } finally {
