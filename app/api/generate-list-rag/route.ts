@@ -13,7 +13,7 @@ import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
-import { getCachedRAGContext, setCachedRAGContext } from '@/lib/ragContextCache';
+import { ragContextCache } from '@/lib/ragContextCache';
 import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
 
 const openai = new OpenAI({
@@ -77,17 +77,19 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
         console.log('Getting RAG context for todo generation...');
         
         // Check cache first
-        const cachedContext = getCachedRAGContext(userId, description, weddingDate, todoType);
+        const queryKey = `Generate todo list for: ${description}. Wedding date: ${weddingDate}`;
+        const cachedContext = await ragContextCache.getCachedContext(userId, queryKey);
         
         if (cachedContext) {
           console.log('Using cached RAG context for todo generation');
-          ragContext = cachedContext;
+          ragContext = '\n\nRelevant context from your files and data (cached):\n' + 
+            `- ${cachedContext.substring(0, 800)}...`;
         } else {
           console.log('Cache miss - fetching fresh RAG context...');
           
           // Get context from existing todos, vendor communications, and file insights
           const ragResults = await ragService.processQuery({
-            query: `Generate todo list for: ${description}. Wedding date: ${weddingDate}`,
+            query: queryKey,
             user_id: userId,
             context: 'todo_generation'
           });
@@ -97,7 +99,7 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
               `- ${ragResults.answer.substring(0, 800)}...`;
             
             // Cache the context for future use
-            setCachedRAGContext(userId, description, weddingDate, todoType, ragContext);
+            await ragContextCache.cacheContext(userId, queryKey, ragResults.answer, 0.8);
             console.log('RAG context cached for future requests');
           }
         }
@@ -188,7 +190,7 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
       ragEnabled: useRAG,
       ragContext: ragContext ? 'Context from your files included' : 'No additional context',
       cacheInfo: {
-        contextCached: !!getCachedRAGContext(userId, description, weddingDate, todoType),
+        contextCached: !!ragContext,
         cacheEnabled: process.env.NODE_ENV === 'production' || process.env.RAG_CACHE_ENABLED === 'true'
       },
       optimizationInfo: {
