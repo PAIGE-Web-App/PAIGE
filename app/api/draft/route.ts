@@ -1,14 +1,18 @@
 // app/api/draft/route.ts
 import { OpenAI } from "openai";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { userContextBuilder } from "../../../utils/userContextBuilder";
 import { adminDb } from "../../../lib/firebaseAdmin";
 import { withCreditValidation } from "../../../lib/creditMiddleware";
+import { ragService } from '@/lib/ragService';
+import { shouldUseRAG } from '@/lib/ragFeatureFlag';
+import { ragContextCache } from '@/lib/ragContextCache';
+import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Main handler function
-async function handleDraftGeneration(req: Request) {
+async function handleDraftGeneration(req: NextRequest) {
   try {
     const body = await req.json();
     console.log("Draft API received body:", body);
@@ -160,9 +164,80 @@ async function handleDraftGeneration(req: Request) {
       }
     }
 
+    // Get RAG context if enabled
+    let ragContext = '';
+    let contextSource = 'none';
+    let optimizationApplied = false;
+    
+    if (userId) {
+      const userEmail = userContext?.userName ? `${userContext.userName}@example.com` : userId;
+      const useRAG = shouldUseRAG(userId, userEmail);
+      
+      if (useRAG) {
+        try {
+          console.log('Getting RAG context for draft generation...');
+          
+          // Create a query key based on the draft context
+          const queryKey = `Draft message to ${contact.name} (${contact.category}) - ${isReply ? 'reply' : 'initial'}`;
+          
+          // Check cache first
+          const cachedContext = await ragContextCache.getCachedContext(userId, queryKey);
+          if (cachedContext) {
+            console.log('Using cached RAG context for draft generation');
+            ragContext = '\n\nRelevant context from your files and data (cached):\n' + 
+              `- ${cachedContext.substring(0, 400)}...`;
+            contextSource = 'cache';
+          } else {
+            // If no cached context, query RAG service
+            const ragResults = await ragService.processQuery({
+              query: `Generate draft message to ${contact.name} for ${contact.category} vendor communication`,
+              user_id: userId,
+              context: 'draft_messaging'
+            });
+            
+            if (ragResults.success && ragResults.answer) {
+              ragContext = '\n\nRelevant context from your files and data:\n' + 
+                `- ${ragResults.answer.substring(0, 400)}...`;
+              contextSource = 'rag_service';
+              
+              // Cache the context for future use
+              await ragContextCache.cacheContext(userId, queryKey, ragResults.answer, 0.8);
+              console.log('RAG context cached for future draft requests');
+            }
+          }
+          
+          // Apply smart prompt optimization
+          if (ragContext) {
+            try {
+              console.log('Applying smart prompt optimization to draft generation...');
+              const { optimizedPrompt, optimization } = await smartPromptOptimizer.optimizePrompt(
+                userId,
+                prompt,
+                ragContext,
+                'draft_messaging',
+                [contact.category, isReply ? 'reply' : 'initial']
+              );
+              
+              prompt = optimizedPrompt;
+              optimizationApplied = true;
+              console.log('Smart prompt optimization applied successfully');
+            } catch (optimizationError) {
+              console.error('Smart prompt optimization failed, using base prompt:', optimizationError);
+              // Continue with base prompt
+            }
+          }
+        } catch (ragError) {
+          console.error('RAG query failed, continuing without context:', ragError);
+          // Continue without RAG context
+        }
+      }
+    }
+
     // Debug: Log what we're sending to OpenAI
     console.log("Draft API - System prompt:", buildSystemPrompt(userContext, vibeContext, isReply));
     console.log("Draft API - User prompt:", prompt);
+    console.log("Draft API - RAG context source:", contextSource);
+    console.log("Draft API - Optimization applied:", optimizationApplied);
     
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -173,7 +248,48 @@ async function handleDraftGeneration(req: Request) {
       temperature: 0.7,
     });
 
-    return NextResponse.json({ draft: completion.choices[0].message.content });
+    const draft = completion.choices[0].message.content;
+
+    // Track prompt effectiveness for continuous improvement (async, non-blocking)
+    if (userId && optimizationApplied) {
+      try {
+        await smartPromptOptimizer.trackPromptEffectiveness(
+          userId,
+          'draft_messaging',
+          [contact.category, isReply ? 'reply' : 'initial'],
+          [contact.category], // Categories generated
+          undefined // User satisfaction will be tracked separately
+        );
+      } catch (trackingError) {
+        console.error('Error tracking prompt effectiveness:', trackingError);
+        // Don't fail the request if tracking fails
+      }
+    }
+
+    // Get credit information from request headers (set by credit middleware)
+    const creditsRequired = req.headers.get('x-credits-required');
+    const creditsRemaining = req.headers.get('x-credits-remaining');
+    const headerUserId = req.headers.get('x-user-id');
+
+    const response = NextResponse.json({ 
+      draft,
+      ragEnabled: userId ? shouldUseRAG(userId, userContext?.userName ? `${userContext.userName}@example.com` : userId) : false,
+      ragContext: ragContext ? 'Context from your files included' : 'No additional context',
+      contextSource,
+      optimizationApplied,
+      credits: {
+        required: creditsRequired ? parseInt(creditsRequired) : 0,
+        remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+        userId: headerUserId || undefined
+      }
+    });
+
+    // Add credit information to response headers for frontend
+    if (creditsRequired) response.headers.set('x-credits-required', creditsRequired);
+    if (creditsRemaining) response.headers.set('x-credits-remaining', creditsRemaining);
+    if (headerUserId) response.headers.set('x-user-id', headerUserId);
+
+    return response;
   } catch (error: any) {
     console.error("Error in /api/draft:", error);
     return new NextResponse("Failed to generate draft message.", { status: 500 });
