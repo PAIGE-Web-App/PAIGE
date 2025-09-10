@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCustomToast } from './useCustomToast';
 import { useAuth } from './useAuth';
+import { getCategoryColor } from '@/utils/categoryIcons';
 import {
   collection,
   query,
@@ -696,19 +697,42 @@ export function useBudget() {
         // Use the provided RAG response directly
         data = aiBudget;
       } else {
-        // Fallback to old API for backward compatibility
-        const response = await fetch('/api/generate-budget', {
+        // Use RAG system as default (no fallback to old API)
+        const response = await fetch('/api/generate-budget-rag', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             description, 
             totalBudget,
-            userId: user?.uid
+            weddingDate: new Date().toISOString(),
+            userId: user?.uid,
+            userEmail: user?.email
           }),
         });
 
         if (!response.ok) throw new Error('Failed to generate budget');
-        data = await response.json();
+        const ragResponse = await response.json();
+        
+        if (ragResponse.success && ragResponse.budget) {
+          // Transform RAG response to match expected format
+          data = {
+            categories: ragResponse.budget.categories.map((category: any) => ({
+              name: category.name,
+              allocatedAmount: category.amount || 0,
+              color: getCategoryColor(category.name),
+              items: (category.subcategories || []).map((sub: any) => ({
+                name: sub.name,
+                amount: 0, // Set to 0 as per user requirement (amount = spent, not allocated)
+                allocatedAmount: sub.amount || 0,
+                priority: sub.priority || 'Medium',
+                notes: sub.notes || ''
+              }))
+            })),
+            totalAllocated: totalBudget
+          };
+        } else {
+          throw new Error('Invalid RAG response format');
+        }
       }
       
       // Create the budget from AI response
