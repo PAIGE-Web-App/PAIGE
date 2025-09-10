@@ -3,6 +3,8 @@ import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
+import { ragContextCache } from '@/lib/ragContextCache';
+import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -95,18 +97,40 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
 
     // Get relevant context from RAG if enabled (only for follow-up questions)
     let ragContext = '';
+    let contextSource = 'none';
+    
     if (useRAG && userQuestion) {
       try {
         console.log('Getting RAG context for question...');
-        const ragResults = await ragService.processQuery({
-          query: userQuestion,
-          user_id: userId,
-          context: 'file_analysis'
-        });
         
-        if (ragResults.success && ragResults.answer) {
-          ragContext = '\n\nRelevant context from your other files:\n' + 
-            `- ${ragResults.answer.substring(0, 500)}...`;
+        // First, try to get cached context
+        const cachedContext = await ragContextCache.getCachedContext(userId, userQuestion);
+        if (cachedContext) {
+          console.log('Using cached RAG context');
+          ragContext = '\n\nRelevant context from your other files (cached):\n' + 
+            `- ${cachedContext.substring(0, 500)}...`;
+          contextSource = 'cache';
+        } else {
+          // If no cached context, query RAG service
+          const ragResults = await ragService.processQuery({
+            query: userQuestion,
+            user_id: userId,
+            context: 'file_analysis'
+          });
+          
+          if (ragResults.success && ragResults.answer) {
+            ragContext = '\n\nRelevant context from your other files:\n' + 
+              `- ${ragResults.answer.substring(0, 500)}...`;
+            contextSource = 'rag_service';
+            
+            // Cache the context for future use
+            await ragContextCache.cacheContext(
+              userId, 
+              userQuestion, 
+              ragResults.answer,
+              0.8 // Default relevance score
+            );
+          }
         }
       } catch (ragError) {
         console.error('RAG query failed, continuing without context:', ragError);
@@ -116,8 +140,8 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       console.log('RAG enabled but no user question - using standard analysis');
     }
 
-    // Build the analysis prompt with RAG context
-    const analysisPrompt = buildAnalysisPrompt(
+    // Build the base analysis prompt
+    const basePrompt = buildAnalysisPrompt(
       fileName, 
       fileType, 
       analysisType, 
@@ -127,8 +151,33 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       ragContext
     );
 
+    // Optimize the prompt using smart prompt optimizer
+    let optimizedPrompt = basePrompt;
+    let optimizationApplied = false;
+    
+    if (useRAG && userId) {
+      try {
+        console.log('Applying smart prompt optimization...');
+        const { optimizedPrompt: optimized, optimization } = await smartPromptOptimizer.optimizePrompt(
+          userId,
+          basePrompt,
+          ragContext,
+          'file_analysis',
+          [fileType, analysisType]
+        );
+        
+        optimizedPrompt = optimized;
+        optimizationApplied = true;
+        console.log('Smart prompt optimization applied successfully');
+      } catch (optimizationError) {
+        console.error('Smart prompt optimization failed, using base prompt:', optimizationError);
+        // Continue with base prompt
+      }
+    }
+
     console.log(`Sending request to OpenAI for ${analysisType} analysis`);
-    console.log('Analysis prompt length:', analysisPrompt.length);
+    console.log('Analysis prompt length:', optimizedPrompt.length);
+    console.log('Optimization applied:', optimizationApplied);
     
     let completion;
     try {
@@ -141,7 +190,7 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
         },
         {
           role: 'user',
-          content: analysisPrompt
+          content: optimizedPrompt
         }
       ],
       temperature: 0.7,
@@ -244,6 +293,22 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
     // Start the update process but don't wait for it
     updateFileRecord();
 
+    // Track prompt effectiveness for continuous improvement (async, non-blocking)
+    if (useRAG && userId && optimizationApplied) {
+      try {
+        await smartPromptOptimizer.trackPromptEffectiveness(
+          userId,
+          'file_analysis',
+          [fileType, analysisType],
+          [fileType, analysisType], // Categories generated
+          undefined // User satisfaction will be tracked separately
+        );
+      } catch (trackingError) {
+        console.error('Error tracking prompt effectiveness:', trackingError);
+        // Don't fail the request if tracking fails
+      }
+    }
+
     const response = NextResponse.json({
       success: true,
       analysis,
@@ -251,6 +316,8 @@ async function handleRAGFileAnalysis(request: NextRequest): Promise<NextResponse
       followUpQuestions,
       ragEnabled: useRAG,
       ragContext: ragContext ? 'Context from other files included' : 'No additional context',
+      contextSource,
+      optimizationApplied,
       credits: {
         required: creditsRequired ? parseInt(creditsRequired) : 0,
         remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
