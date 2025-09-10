@@ -747,7 +747,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           maxBudget,
           vibe: vibe || []
         };
-        draft = await generateDraft(selectedContact, [], currentUser?.uid, userProfileData);
+        draft = await generateDraft();
         
         // Refresh credits after successful new draft generation (with delay to ensure server commit)
         try {
