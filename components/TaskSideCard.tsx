@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, CheckCircle } from 'lucide-react';
 import FormField from './FormField';
 import CategorySelectField from './CategorySelectField';
-import ToDoBuilderForm from './ToDoBuilderForm';
+import NewListOnboardingModal from './NewListOnboardingModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
 
 interface TaskFieldsProps {
@@ -211,9 +211,10 @@ const TaskSideCard: React.FC<AddSideCardProps & { userId: string, todoLists: any
             </div>
             <div className="p-6 flex-1 flex flex-col">
               {mode === 'list' ? (
-                // Use ToDoBuilderForm for list creation
-                <ToDoBuilderForm
-                  mode="list"
+                // Use NewListOnboardingModal for list creation
+                <NewListOnboardingModal
+                  isOpen={true}
+                  onClose={() => {}}
                   onSubmit={handleListSubmit}
                 />
               ) : (

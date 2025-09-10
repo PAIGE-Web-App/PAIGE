@@ -241,13 +241,13 @@ async function handleOptimizedRAGBudgetGeneration(request: NextRequest): Promise
       top_p: 0.9,
     });
 
-    const response = completion.choices[0]?.message?.content;
-    if (!response) {
+    const completionResponse = completion.choices[0]?.message?.content;
+    if (!completionResponse) {
       throw new Error('No response from OpenAI');
     }
 
     // Parse and validate response
-    const budgetData = parseOptimizedBudgetResponse(response, totalBudget);
+    const budgetData = parseOptimizedBudgetResponse(completionResponse, totalBudget);
 
     // Get credit information from request headers
     const creditsRequired = request.headers.get('x-credits-required');

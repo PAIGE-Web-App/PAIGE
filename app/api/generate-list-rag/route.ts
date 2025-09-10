@@ -13,6 +13,8 @@ import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
+import { getCachedRAGContext, setCachedRAGContext } from '@/lib/ragContextCache';
+import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -68,22 +70,36 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
     const useRAG = shouldUseRAG(userId, userEmail);
     console.log(`RAG enabled for todo generation: ${useRAG}`);
 
-    // Get RAG context if enabled
+    // Get RAG context if enabled (with intelligent caching)
     let ragContext = '';
     if (useRAG) {
       try {
         console.log('Getting RAG context for todo generation...');
         
-        // Get context from existing todos, vendor communications, and file insights
-        const ragResults = await ragService.processQuery({
-          query: `Generate todo list for: ${description}. Wedding date: ${weddingDate}`,
-          user_id: userId,
-          context: 'todo_generation'
-        });
+        // Check cache first
+        const cachedContext = getCachedRAGContext(userId, description, weddingDate, todoType);
         
-        if (ragResults.success && ragResults.answer) {
-          ragContext = '\n\nRelevant context from your files and data:\n' + 
-            `- ${ragResults.answer.substring(0, 800)}...`;
+        if (cachedContext) {
+          console.log('Using cached RAG context for todo generation');
+          ragContext = cachedContext;
+        } else {
+          console.log('Cache miss - fetching fresh RAG context...');
+          
+          // Get context from existing todos, vendor communications, and file insights
+          const ragResults = await ragService.processQuery({
+            query: `Generate todo list for: ${description}. Wedding date: ${weddingDate}`,
+            user_id: userId,
+            context: 'todo_generation'
+          });
+          
+          if (ragResults.success && ragResults.answer) {
+            ragContext = '\n\nRelevant context from your files and data:\n' + 
+              `- ${ragResults.answer.substring(0, 800)}...`;
+            
+            // Cache the context for future use
+            setCachedRAGContext(userId, description, weddingDate, todoType, ragContext);
+            console.log('RAG context cached for future requests');
+          }
         }
       } catch (ragError) {
         console.error('RAG query failed, continuing without context:', ragError);
@@ -91,16 +107,27 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
       }
     }
 
-    // Build the todo generation prompt with RAG context
-    const todoPrompt = buildTodoPrompt(
+    // Build the base todo generation prompt
+    const basePrompt = buildTodoPrompt(
       description,
       weddingDate,
       todoType,
       focusCategories,
       existingTodos,
       vendorData,
-      ragContext
+      '' // Don't include RAG context in base prompt
     );
+
+    // Apply smart prompt optimization
+    const { optimizedPrompt, optimization } = await smartPromptOptimizer.optimizePrompt(
+      userId,
+      basePrompt,
+      ragContext || '',
+      todoType,
+      focusCategories
+    );
+
+    const todoPrompt = optimizedPrompt;
 
     console.log(`Sending request to OpenAI for ${todoType} todo generation`);
     console.log('Todo prompt length:', todoPrompt.length);
@@ -135,6 +162,20 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
 
     console.log('Todo generation completed successfully');
 
+    // Track prompt effectiveness for continuous improvement
+    try {
+      const categoriesGenerated = structuredTodos.todos?.map((todo: any) => todo.category).filter(Boolean) || [];
+      await smartPromptOptimizer.trackPromptEffectiveness(
+        userId,
+        todoType,
+        ragContext ? ['rag_context'] : [],
+        categoriesGenerated
+      );
+    } catch (trackingError) {
+      console.error('Error tracking prompt effectiveness:', trackingError);
+      // Don't fail the request if tracking fails
+    }
+
     // Get credit information from request headers (set by credit middleware)
     const creditsRequired = request.headers.get('x-credits-required');
     const creditsRemaining = request.headers.get('x-credits-remaining');
@@ -146,6 +187,16 @@ async function handleRAGTodoGeneration(request: NextRequest): Promise<NextRespon
       rawResponse: todoResponse,
       ragEnabled: useRAG,
       ragContext: ragContext ? 'Context from your files included' : 'No additional context',
+      cacheInfo: {
+        contextCached: !!getCachedRAGContext(userId, description, weddingDate, todoType),
+        cacheEnabled: process.env.NODE_ENV === 'production' || process.env.RAG_CACHE_ENABLED === 'true'
+      },
+      optimizationInfo: {
+        personalized: true,
+        effectivenessScore: optimization.effectivenessScore,
+        categoryEmphasis: optimization.categoryEmphasis,
+        timelineAdjustments: optimization.timelineAdjustments
+      },
       credits: {
         required: creditsRequired ? parseInt(creditsRequired) : 0,
         remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,

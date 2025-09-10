@@ -722,6 +722,9 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
   const [listNameError, setListNameError] = React.useState<string | null>(null);
   const [isCheckingName, setIsCheckingName] = React.useState(false);
+  const [useProgressiveGeneration, setUseProgressiveGeneration] = React.useState(true);
+  const [loadingProgress, setLoadingProgress] = React.useState(0);
+  const [loadingStage, setLoadingStage] = React.useState('idle');
 
   // Auto-generate if description is pre-filled from budget page
   React.useEffect(() => {
@@ -753,6 +756,37 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   // Utility to generate a unique id
   function getStableId() {
     return Math.random().toString(36).substr(2, 9) + Date.now();
+  }
+
+  // Loading message helpers
+  function getLoadingMessage() {
+    switch (loadingStage) {
+      case 'analyzing':
+        return 'Analyzing your wedding requirements...';
+      case 'priority':
+        return 'Generating high-priority todos (venue, catering, photography)...';
+      case 'secondary':
+        return 'Adding remaining todos (decorations, transportation, stationery)...';
+      case 'finalizing':
+        return 'Finalizing your personalized checklist...';
+      default:
+        return 'Preparing your wedding planning checklist...';
+    }
+  }
+
+  function getLoadingSubtext() {
+    switch (loadingStage) {
+      case 'analyzing':
+        return 'Understanding your wedding vision and requirements';
+      case 'priority':
+        return 'Creating essential tasks for venue, catering, and photography';
+      case 'secondary':
+        return 'Adding decorations, transportation, and final details';
+      case 'finalizing':
+        return 'Organizing tasks and setting optimal deadlines';
+      default:
+        return 'Creating your personalized wedding planning checklist';
+    }
   }
 
   function getTodayAtFivePM() {
@@ -875,6 +909,8 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     setError(null);
     setAiListResult(null);
     setShowSlowGenerationBanner(false);
+    setLoadingProgress(0);
+    setLoadingStage('idle');
 
     if (slowGenerationTimer.current) {
       clearTimeout(slowGenerationTimer.current);
@@ -883,6 +919,46 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     slowGenerationTimer.current = setTimeout(() => {
       setShowSlowGenerationBanner(true);
     }, 5000);
+
+    // Progressive loading simulation
+    const simulateProgress = () => {
+      // Stage 1: Starting (0-20%)
+      setLoadingStage('analyzing');
+      setLoadingProgress(10);
+      
+      setTimeout(() => {
+        setLoadingProgress(20);
+        
+        // Stage 2: Generating priority todos (20-50%)
+        setTimeout(() => {
+          setLoadingStage('priority');
+          setLoadingProgress(35);
+          
+          setTimeout(() => {
+            setLoadingProgress(50);
+            
+            // Stage 3: Generating secondary todos (50-80%)
+            setTimeout(() => {
+              setLoadingStage('secondary');
+              setLoadingProgress(65);
+              
+              setTimeout(() => {
+                setLoadingProgress(80);
+                
+                // Stage 4: Finalizing (80-100%)
+                setTimeout(() => {
+                  setLoadingStage('finalizing');
+                  setLoadingProgress(95);
+                }, 800);
+              }, 1000);
+            }, 1000);
+          }, 800);
+        }, 1000);
+      }, 500);
+    };
+
+    // Start progress simulation
+    simulateProgress();
 
     try {
       // Use RAG system for todo generation
@@ -922,6 +998,10 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         if (setTasks && Array.isArray(transformedData.tasks)) {
           setTasks(transformedData.tasks);
         }
+        
+        // Complete the loading progress
+        setLoadingProgress(100);
+        setLoadingStage('complete');
         
         // Trigger credit refresh for useCredits hook
         if (ragResponse.credits && ragResponse.credits.required > 0) {
@@ -1101,10 +1181,53 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         </div>
       )}
       {(isLoading || ragLoading) && !aiListResult && (
-        <div className="w-full mt-4 space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <TodoItemSkeleton key={i} />
-          ))}
+        <div className="w-full mt-4 space-y-4">
+          {/* Progressive Loading States */}
+          <div className="space-y-4">
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="h-2 bg-purple-500 rounded-full transition-all duration-1000 ease-out" 
+                style={{ width: `${loadingProgress}%` }}
+              ></div>
+            </div>
+
+            {/* Progress Message */}
+            <div className="text-center">
+              <p className="text-sm text-gray-600 font-medium">
+                {getLoadingMessage()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {getLoadingSubtext()}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {loadingProgress}% complete
+              </p>
+            </div>
+
+            {/* Stage Indicators */}
+            <div className="flex justify-center space-x-4">
+              <div className={`flex items-center space-x-2 ${loadingStage === 'analyzing' ? 'text-blue-600' : loadingStage === 'priority' || loadingStage === 'secondary' || loadingStage === 'finalizing' ? 'text-green-600' : 'text-gray-400'}`}>
+                <div className={`w-2 h-2 rounded-full ${loadingStage === 'analyzing' ? 'bg-blue-500 animate-pulse' : loadingStage === 'priority' || loadingStage === 'secondary' || loadingStage === 'finalizing' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                <span className="text-xs font-medium">Analyzing</span>
+              </div>
+              
+              <div className={`flex items-center space-x-2 ${loadingStage === 'priority' ? 'text-blue-600' : loadingStage === 'secondary' || loadingStage === 'finalizing' ? 'text-green-600' : 'text-gray-400'}`}>
+                <div className={`w-2 h-2 rounded-full ${loadingStage === 'priority' ? 'bg-blue-500 animate-pulse' : loadingStage === 'secondary' || loadingStage === 'finalizing' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                <span className="text-xs font-medium">Priority</span>
+              </div>
+              
+              <div className={`flex items-center space-x-2 ${loadingStage === 'secondary' ? 'text-blue-600' : loadingStage === 'finalizing' ? 'text-green-600' : 'text-gray-400'}`}>
+                <div className={`w-2 h-2 rounded-full ${loadingStage === 'secondary' ? 'bg-blue-500 animate-pulse' : loadingStage === 'finalizing' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                <span className="text-xs font-medium">Secondary</span>
+              </div>
+              
+              <div className={`flex items-center space-x-2 ${loadingStage === 'finalizing' ? 'text-purple-600' : 'text-gray-400'}`}>
+                <div className={`w-2 h-2 rounded-full ${loadingStage === 'finalizing' ? 'bg-purple-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                <span className="text-xs font-medium">Complete</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {error && <div className="text-xs text-red-500 mb-2">{error}</div>}
@@ -1116,7 +1239,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
               className={`w-full border px-3 py-2 rounded-[5px] text-sm ${
                 listNameError ? 'border-red-500' : 'border-[#AB9C95]'
               }`}
-              value={aiListResult.name}
+              value={aiListResult.name || ''}
               onChange={e => {
                 setAiListResult({ ...aiListResult, name: e.target.value });
                 // Clear error when user starts typing
@@ -1167,6 +1290,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
               onAssign={onAssign}
             />
           </div>
+          
         </form>
       )}
       
@@ -1183,6 +1307,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           refreshTime: 'Daily at midnight'
         }}
       />
+
     </div>
   );
 };

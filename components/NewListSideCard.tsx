@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import ToDoBuilderForm from './ToDoBuilderForm';
+import NewListOnboardingModal from './NewListOnboardingModal';
 
 interface NewListSideCardProps {
   isOpen: boolean;
@@ -46,8 +46,9 @@ const NewListSideCard: React.FC<NewListSideCardProps> = ({ isOpen, onClose, onSu
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <ToDoBuilderForm
-                mode="list"
+              <NewListOnboardingModal
+                isOpen={true}
+                onClose={() => {}}
                 onSubmit={handleListSubmit}
               />
             </div>

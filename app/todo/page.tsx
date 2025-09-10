@@ -56,6 +56,10 @@ const NewListOnboardingModal = dynamic(() => import('@/components/NewListOnboard
   ssr: false
 });
 
+const ContinuousImprovementModal = dynamic(() => import('@/components/ContinuousImprovementModal'), {
+  ssr: false
+});
+
 const GoogleCalendarSync = dynamic(() => import('../../components/GoogleCalendarSync'), {
   ssr: false
 });
@@ -83,6 +87,11 @@ export default function TodoPage() {
   const todoLists = useTodoLists();
   const todoItems = useTodoItems(todoLists.selectedList);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [showContinuousImprovementModal, setShowContinuousImprovementModal] = React.useState(false);
+  const [aiGeneratedListData, setAiGeneratedListData] = React.useState<{
+    categories: string[];
+    promptType: string;
+  } | null>(null);
   const viewOptions = useTodoViewOptions(
     todoItems.todoItems,
     todoItems.handleReorderAndAdjustDeadline,
@@ -132,6 +141,36 @@ export default function TodoPage() {
   };
 
   const [showNewListModal, setShowNewListModal] = React.useState(false);
+
+  // Custom onSubmit handler to detect AI-generated lists
+  const handleListCreation = async (listData: { name: string; tasks: any[] }) => {
+    // Check if this is an AI-generated list (has tasks with AI-generated characteristics)
+    const isAiGenerated = listData.tasks.some(task => 
+      task.note && task.note.includes('wedding') || 
+      task.category && ['Venue', 'Catering', 'Photography', 'Flowers', 'Music'].includes(task.category)
+    );
+
+    if (isAiGenerated) {
+      // Extract categories from the tasks
+      const categories = [...new Set(listData.tasks.map(task => task.category).filter(Boolean))];
+      
+      // Store the data for the modal
+      setAiGeneratedListData({
+        categories,
+        promptType: 'comprehensive'
+      });
+    }
+
+    // Call the original handleAddList
+    await todoLists.handleAddList(listData.name, listData.tasks);
+
+    // Show the continuous improvement modal if it was AI-generated
+    if (isAiGenerated) {
+      setTimeout(() => {
+        setShowContinuousImprovementModal(true);
+      }, 1000); // Small delay to ensure the list is created and selected
+    }
+  };
 
   React.useEffect(() => {
     const handler = () => {
@@ -501,8 +540,32 @@ export default function TodoPage() {
       <NewListOnboardingModal
         isOpen={showNewListModal}
         onClose={() => setShowNewListModal(false)}
-        onSubmit={todoLists.handleAddList}
+        onSubmit={handleListCreation}
       />
+
+      {/* Continuous Improvement Modal */}
+      {aiGeneratedListData && (
+        <ContinuousImprovementModal
+          isOpen={showContinuousImprovementModal}
+          onClose={() => {
+            setShowContinuousImprovementModal(false);
+            setAiGeneratedListData(null);
+          }}
+          userId={user?.uid || ''}
+          categories={aiGeneratedListData.categories}
+          promptType={aiGeneratedListData.promptType}
+          onCreditsAwarded={(credits) => {
+            // Trigger credit refresh
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('creditUpdateEvent', Date.now().toString());
+              setTimeout(async () => {
+                const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+                creditEventEmitter.emit();
+              }, 1000);
+            }
+          }}
+        />
+      )}
 
       {/* Mobile Navigation */}
       <BottomNavBar
