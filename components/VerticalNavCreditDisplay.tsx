@@ -23,7 +23,6 @@ export default function VerticalNavCreditDisplay() {
       const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
       setPreviousCredits(currentTotal);
       setHasInitialized(true);
-      console.log('🎯 Initializing previousCredits:', currentTotal);
     }
   }, [credits, hasInitialized]);
 
@@ -54,7 +53,6 @@ export default function VerticalNavCreditDisplay() {
   // Listen for credit refresh events to trigger useCredits reload
   useEffect(() => {
     const handleCreditRefresh = () => {
-      console.log('🎯 Credit refresh event received, reloading credits');
       loadCredits();
     };
 

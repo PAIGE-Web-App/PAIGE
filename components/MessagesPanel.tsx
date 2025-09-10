@@ -104,16 +104,21 @@ const MessagesPanel = ({
             input={input}
             setInput={setInput}
             draftLoading={draftLoading}
-            generateDraft={() => selectedContact ? generateDraftMessage(selectedContact, [], currentUser?.uid, {
-              userName: profileUserName || userName,
-              partnerName,
-              weddingDate,
-              weddingLocation,
-              hasVenue,
-              guestCount,
-              maxBudget,
-              vibe: vibe || []
-            }) : Promise.resolve("")}
+            generateDraft={() => {
+              if (!selectedContact) {
+                return Promise.resolve("");
+              }
+              return generateDraftMessage(selectedContact, [], currentUser?.uid, {
+                userName: profileUserName || userName,
+                partnerName,
+                weddingDate,
+                weddingLocation,
+                hasVenue,
+                guestCount,
+                maxBudget,
+                vibe: vibe || []
+              });
+            }}
             selectedFiles={selectedFiles}
             setSelectedFiles={setSelectedFiles}
             contactsLoading={contactsLoading}

@@ -673,22 +673,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   };
 
   const handleGenerateDraft = useCallback(async () => {
-    console.log('[handleGenerateDraft] Called with:', { selectedContact: !!selectedContact, isGenerating: isGeneratingRef.current });
-    
     if (!selectedContact || isGeneratingRef.current) {
-      console.log('[handleGenerateDraft] Early return - no contact or already generating');
       return; // Use ref to prevent multiple simultaneous executions
     }
     
     try {
       isGeneratingRef.current = true;
       setIsGenerating(true);
-      console.log('[handleGenerateDraft] Starting draft generation...');
       
       // If replying to a message, generate a contextual response
       let draft;
       if (replyingToMessage) {
-        console.log('[handleGenerateDraft] Generating reply draft...');
         // For replies, we need to call the draft API directly with reply context
         // Use actual user profile data for reply draft personalization
         const userProfileData = {
@@ -728,13 +723,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           await new Promise(resolve => setTimeout(resolve, 500));
           await loadCredits();
           
-          // Manually trigger credit event emitter to notify other components
-          creditEventEmitter.emit();
+          // Notify other components about credit update
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            creditEventEmitter.emit();
+          }
         } catch (error) {
           console.error('[handleGenerateDraft] Failed to refresh credits after reply:', error);
         }
       } else {
-        console.log('[handleGenerateDraft] Generating new draft...');
         // Generate a new message draft with enhanced context
         // Use actual user profile data for AI draft personalization
         const userProfileData = {
@@ -755,8 +752,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           await new Promise(resolve => setTimeout(resolve, 500));
           await loadCredits();
           
-          // Manually trigger credit event emitter to notify other components
-          creditEventEmitter.emit();
+          // Notify other components about credit update
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            creditEventEmitter.emit();
+          }
         } catch (error) {
           console.error('[handleGenerateDraft] Failed to refresh credits after new draft:', error);
         }
@@ -804,7 +804,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               clearInterval(typeInterval);
               setInput(newBody);
               setIsAnimating(false);
-              console.log('[handleGenerateDraft] Draft processing complete');
             }
           }, 5); // 5ms per word = ~200 words per second!
       }

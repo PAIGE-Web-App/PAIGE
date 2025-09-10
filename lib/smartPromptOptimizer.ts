@@ -5,7 +5,7 @@
  * for better personalization and effectiveness.
  */
 
-import { db } from '@/lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 interface UserBehaviorPattern {
   userId: string;
@@ -45,6 +45,11 @@ class SmartPromptOptimizer {
    * Analyze user behavior patterns from their todo history
    */
   async analyzeUserBehavior(userId: string): Promise<UserBehaviorPattern> {
+    // Check if userId is valid
+    if (!userId) {
+      return this.getDefaultBehaviorPattern();
+    }
+
     // Check cache first
     const cached = this.behaviorCache.get(userId);
     if (cached && this.isCacheValid(cached.lastUpdated)) {
@@ -53,7 +58,7 @@ class SmartPromptOptimizer {
 
     try {
       // Get user's todo history
-      const todosSnapshot = await db.collection('todos')
+      const todosSnapshot = await adminDb.collection('todos')
         .where('userId', '==', userId)
         .orderBy('createdAt', 'desc')
         .limit(100)
@@ -272,6 +277,11 @@ class SmartPromptOptimizer {
     userSatisfaction?: number
   ): Promise<void> {
     
+    // Skip tracking if userId is invalid
+    if (!userId) {
+      return;
+    }
+    
     const metrics: TodoGenerationMetrics = {
       userId,
       promptType,
@@ -283,7 +293,7 @@ class SmartPromptOptimizer {
 
     try {
       // Store metrics for analysis
-      await db.collection('prompt_metrics').add(metrics);
+      await adminDb.collection('prompt_metrics').add(metrics);
       
       // Update effectiveness score
       await this.updateEffectivenessScore(userId, promptType, userSatisfaction);
@@ -335,6 +345,20 @@ class SmartPromptOptimizer {
    */
   private isCacheValid(lastUpdated: Date): boolean {
     return Date.now() - lastUpdated.getTime() < this.CACHE_TTL;
+  }
+
+  /**
+   * Get default behavior pattern when userId is invalid
+   */
+  private getDefaultBehaviorPattern(): UserBehaviorPattern {
+    return {
+      userId: 'unknown',
+      preferredCategories: ['general'],
+      completionRates: { 'general': 0.8 },
+      averageResponseTime: 2.5,
+      preferredPromptStyle: 'balanced',
+      lastUpdated: new Date()
+    };
   }
 
   /**

@@ -159,7 +159,6 @@ const ToDoPanel = ({
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   // Debug move functionality
-  console.log('🎯 ToDoPanel render - onMoveTodoItem:', !!onMoveTodoItem, 'draggedTodoId:', draggedTodoId);
   
   // Debug highlight state
   useEffect(() => {
@@ -482,17 +481,15 @@ const ToDoPanel = ({
 
         {/* Pinned Lists Tabs */}
         <div className="flex gap-2 pt-3 flex-nowrap overflow-x-auto scrollbar-thin scrollbar-thumb-[#AB9C95] scrollbar-track-[#F3F2F0]" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {visibleLists.map(list => {
-            const isAll = list.id === 'all';
-            console.log('🎯 Rendering list tab:', { listId: list.id, listName: list.name, isAll });
-            return (
+            {visibleLists.map(list => {
+              const isAll = list.id === 'all';
+              return (
               <div
                 key={list.id}
                 onClick={() => setSelectedListId(isAll ? null : list.id)}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🎯 Drag over list:', list.name, 'draggedTodoId:', draggedTodoId, 'isAll:', isAll);
                   // Don't allow dropping into the currently selected list
                   if (draggedTodoId && !isAll && onMoveTodoItem && selectedListId !== list.id) {
                     e.currentTarget.classList.add('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
@@ -514,7 +511,6 @@ const ToDoPanel = ({
                   e.stopPropagation();
                   e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
                   
-                  console.log('🎯 Drop on list:', list.name, 'draggedTodoId:', draggedTodoId, 'isAll:', isAll, 'onMoveTodoItem:', !!onMoveTodoItem);
                   
                   // Clear the move indicator
                   setHoveredListForMove(null);
@@ -535,7 +531,6 @@ const ToDoPanel = ({
                       console.log('🎯 No move needed - same list or todo not found');
                     }
                   } else {
-                    console.log('🎯 Drop conditions not met:', { draggedTodoId, isAll, hasOnMoveTodoItem: !!onMoveTodoItem, isCurrentList: selectedListId === list.id });
                   }
                 }}
                 className={`flex items-center px-4 py-1 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out group relative cursor-pointer

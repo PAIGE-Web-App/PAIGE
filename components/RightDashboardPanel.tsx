@@ -88,7 +88,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
   
   // Debug draggedTodoId changes
   useEffect(() => {
-    console.log('🎯 draggedTodoId changed to:', draggedTodoId);
+    // Track draggedTodoId changes
   }, [draggedTodoId]);
   const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
   const [dropIndicatorPosition, setDropIndicatorPosition] = useState<{ id: string | null, position: 'top' | 'bottom' | null }>({ id: null, position: null });
@@ -200,11 +200,9 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       }, 500);
     };
 
-    console.log('🎯 Setting up highlight event listener');
     window.addEventListener('highlight-todo-item', handleHighlight as EventListener);
     
     return () => {
-      console.log('🎯 Cleaning up highlight event listener');
       window.removeEventListener('highlight-todo-item', handleHighlight as EventListener);
     };
   }, []);
@@ -264,7 +262,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         // Set default to show "All To-Do" if no list is currently selected
         if (selectedListId === null && fetchedLists.length > 0) {
           // Keep selectedListId as null to show "All To-Do" view
-          console.log('🎯 Defaulting to "All To-Do" view');
         }
         // Only set selectedListId if there are no lists at all
         if (fetchedLists.length === 0 && selectedListId !== null) {

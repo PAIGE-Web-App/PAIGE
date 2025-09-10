@@ -35,30 +35,35 @@ export function withCreditValidation(
       let userId: string | undefined;
       
       let requestBody: any = {};
-      if (options.userIdField) {
-        // Try to get userId from request body
+      
+      // Always parse the request body if it's JSON, regardless of userIdField
+      const contentType = request.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
         try {
-          // Check if it's FormData
-          const contentType = request.headers.get('content-type') || '';
-          if (contentType.includes('multipart/form-data')) {
-            // Handle FormData
-            const formData = await request.formData();
-            userId = formData.get(options.userIdField) as string;
-            // Clone the FormData so it can be read again by the handler
-            const clonedFormData = new FormData();
-            for (const [key, value] of formData.entries()) {
-              clonedFormData.append(key, value);
-            }
-            // Store cloned FormData for later use
-            requestBody = { formData: clonedFormData };
-          } else {
-            // Handle JSON
-            requestBody = await request.json().catch(() => ({}));
-            userId = requestBody[options.userIdField];
-          }
+          requestBody = await request.json();
         } catch (error) {
-          console.error('Error parsing request body for credit validation:', error);
+          console.error('Credit middleware: Failed to parse JSON body:', error);
+          requestBody = {};
         }
+      } else if (contentType.includes('multipart/form-data')) {
+        // Handle FormData
+        try {
+          const formData = await request.formData();
+          // Clone the FormData so it can be read again by the handler
+          const clonedFormData = new FormData();
+          for (const [key, value] of formData.entries()) {
+            clonedFormData.append(key, value);
+          }
+          // Store cloned FormData for later use
+          requestBody = { formData: clonedFormData };
+        } catch (error) {
+          console.error('Error parsing FormData:', error);
+        }
+      }
+      
+      // Get userId from body or headers
+      if (options.userIdField && requestBody[options.userIdField]) {
+        userId = requestBody[options.userIdField];
       } else {
         // Try to get userId from headers (for authenticated requests)
         userId = request.headers.get('x-user-id') || undefined;

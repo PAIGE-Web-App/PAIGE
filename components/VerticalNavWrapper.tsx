@@ -56,7 +56,6 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
 
   // Don't render anything while loading to avoid flashing
   if (loading || onboardingLoading) {
-    console.log('⏳ [VerticalNavWrapper] Loading state, not rendering');
     return <div className="min-h-screen">{children}</div>;
   }
 
@@ -66,7 +65,6 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
     return <div className="min-h-screen">{children}</div>;
   }
 
-  console.log('✅ [VerticalNavWrapper] Rendering VerticalNav for user:', user.email);
   
   return (
     <div className="flex min-h-screen">
