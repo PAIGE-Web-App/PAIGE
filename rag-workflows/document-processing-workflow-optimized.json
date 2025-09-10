@@ -1,0 +1,263 @@
+{
+  "name": "PAIGE Document Processing Workflow - Optimized",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "paige-rag/process-document",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-document",
+      "name": "Document Processing Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "paige-rag-process-document-optimized"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validate-input",
+              "leftValue": "={{ $json.document_content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced chunking with sentence boundary awareness\nconst document = $input.first().json;\nconst content = document.document_content;\nconst documentType = document.document_type || 'user_document';\n\n// Preprocess content\nfunction preprocessContent(content, docType) {\n  let processed = content;\n  \n  // Remove excessive whitespace\n  processed = processed.replace(/\\s+/g, ' ');\n  \n  // Preserve important structure markers for contracts\n  if (docType === 'vendor_contract') {\n    processed = processed.replace(/\\n\\s*([A-Z][^.]*:)\\s*\\n/g, '\\n\\nSECTION: $1\\n\\n');\n  }\n  \n  // Remove page numbers and headers/footers\n  processed = processed.replace(/Page \\d+ of \\d+/gi, '');\n  processed = processed.replace(/^\\d+\\s*$/gm, ''); // Remove standalone numbers\n  \n  return processed.trim();\n}\n\n// Get chunking strategy based on document type\nfunction getChunkingStrategy(docType) {\n  switch (docType) {\n    case 'vendor_contract':\n      return { chunkSize: 800, overlap: 150 }; // Smaller chunks for contracts\n    case 'wedding_guide':\n      return { chunkSize: 1200, overlap: 250 }; // Larger chunks for guides\n    case 'user_document':\n    default:\n      return { chunkSize: 1000, overlap: 200 }; // Default\n  }\n}\n\n// Create smart chunks with sentence boundary awareness\nfunction createSmartChunks(content, chunkSize, overlap) {\n  const chunks = [];\n  \n  // Split content into sentences\n  const sentences = content.split(/[.!?]+\\s+/);\n  \n  let currentChunk = '';\n  let chunkIndex = 1;\n  \n  for (let i = 0; i < sentences.length; i++) {\n    const sentence = sentences[i];\n    \n    // Check if adding this sentence would exceed chunk size\n    if (currentChunk.length + sentence.length > chunkSize && currentChunk.length > 0) {\n      // Save current chunk\n      chunks.push({\n        id: `${document.document_id}_chunk_${chunkIndex}`,\n        content: currentChunk.trim(),\n        chunk_index: chunkIndex,\n        document_id: document.document_id,\n        source: document.source || 'unknown',\n        user_id: document.user_id,\n        document_type: documentType,\n        created_at: new Date().toISOString(),\n        word_count: currentChunk.split(' ').length,\n        sentence_count: currentChunk.split(/[.!?]+/).length - 1,\n        chunk_size: currentChunk.length\n      });\n      \n      // Start new chunk with overlap\n      const overlapText = currentChunk.slice(-overlap);\n      currentChunk = overlapText + ' ' + sentence;\n      chunkIndex++;\n    } else {\n      currentChunk += (currentChunk ? ' ' : '') + sentence;\n    }\n  }\n  \n  // Add final chunk\n  if (currentChunk.trim()) {\n    chunks.push({\n      id: `${document.document_id}_chunk_${chunkIndex}`,\n      content: currentChunk.trim(),\n      chunk_index: chunkIndex,\n      document_id: document.document_id,\n      source: document.source || 'unknown',\n      user_id: document.user_id,\n      document_type: documentType,\n      created_at: new Date().toISOString(),\n      word_count: currentChunk.split(' ').length,\n      sentence_count: currentChunk.split(/[.!?]+/).length - 1,\n      chunk_size: currentChunk.length\n    });\n  }\n  \n  return chunks;\n}\n\n// Main execution\ntry {\n  // Preprocess content\n  const processedContent = preprocessContent(content, documentType);\n  \n  // Get chunking strategy\n  const strategy = getChunkingStrategy(documentType);\n  \n  // Create smart chunks\n  const chunks = createSmartChunks(processedContent, strategy.chunkSize, strategy.overlap);\n  \n  // Log chunking info for debugging\n  console.log(`Document ${document.document_id} chunked into ${chunks.length} chunks using ${documentType} strategy`);\n  \n  return chunks.map(chunk => ({ json: chunk }));\n  \n} catch (error) {\n  console.error('Chunking error:', error);\n  \n  // Fallback to simple chunking if smart chunking fails\n  const chunkSize = 1000;\n  const overlap = 200;\n  const chunks = [];\n  let start = 0;\n  \n  while (start < content.length) {\n    const end = Math.min(start + chunkSize, content.length);\n    const chunk = content.slice(start, end);\n    \n    chunks.push({\n      id: `${document.document_id}_chunk_${chunks.length + 1}`,\n      content: chunk,\n      chunk_index: chunks.length + 1,\n      document_id: document.document_id,\n      source: document.source || 'unknown',\n      user_id: document.user_id,\n      document_type: documentType,\n      created_at: new Date().toISOString()\n    });\n    \n    start = end - overlap;\n    if (start >= content.length) break;\n  }\n  \n  return chunks.map(chunk => ({ json: chunk }));\n}"
+      },
+      "id": "chunk-document-optimized",
+      "name": "Smart Chunk Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-embeddings",
+      "name": "Create Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api-key",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for Pinecone upsert\nconst chunk = $input.first().json;\nconst embedding = $input.first().json.embedding;\n\nconst pineconeData = {\n  id: chunk.id,\n  values: embedding,\n  metadata: {\n    content: chunk.content,\n    document_id: chunk.document_id,\n    chunk_index: chunk.chunk_index,\n    source: chunk.source,\n    user_id: chunk.user_id,\n    document_type: chunk.document_type,\n    created_at: chunk.created_at,\n    word_count: chunk.word_count || 0,\n    sentence_count: chunk.sentence_count || 0,\n    chunk_size: chunk.chunk_size || chunk.content.length\n  }\n};\n\nreturn [{ json: pineconeData }];"
+      },
+      "id": "prepare-pinecone-data",
+      "name": "Prepare Pinecone Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RAG_VECTOR_DB_URL }}/vectors/upsert",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Api-Key",
+              "value": "={{ $env.RAG_VECTOR_DB_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vectors",
+              "value": "=[{{ $json }}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upsert-to-pinecone",
+      "name": "Upsert to Pinecone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pinecone-api-key",
+          "name": "Pinecone API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Document processed successfully\",\n  \"chunks_created\": {{ $json.upsertedCount || 1 }},\n  \"document_id\": \"{{ $('Smart Chunk Document').first().json.document_id }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"Invalid input: document_content is required\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 500]
+    }
+  ],
+  "connections": {
+    "Document Processing Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Smart Chunk Document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Chunk Document": {
+      "main": [
+        [
+          {
+            "node": "Create Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Prepare Pinecone Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Pinecone Data": {
+      "main": [
+        [
+          {
+            "node": "Upsert to Pinecone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert to Pinecone": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "paige-rag-optimized",
+      "name": "PAIGE RAG Optimized"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
