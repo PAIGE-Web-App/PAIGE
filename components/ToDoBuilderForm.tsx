@@ -14,6 +14,7 @@ import { useCredits } from '../hooks/useCredits';
 import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import CreditToast from './CreditToast';
 import { useRouter } from 'next/navigation';
+import { useRAGTodoGeneration } from '../hooks/useRAGTodoGeneration';
 
 interface ToDoBuilderFormProps {
   mode?: 'list' | 'todo';
@@ -51,6 +52,7 @@ const ToDoBuilderForm: React.FC<ToDoBuilderFormProps> = ({ mode = 'list', onSubm
   const { user } = useAuth();
   const { credits, loadCredits } = useCredits();
   const router = useRouter();
+  const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [listName, setListName] = useState('');
   const [tasks, setTasks] = useState([{ _id: getStableId(), name: '', note: '', category: '', deadline: '', endDate: '' }]);
@@ -443,6 +445,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   const [description, setDescription] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
   const [listNameError, setListNameError] = React.useState<string | null>(null);
@@ -571,37 +574,56 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     }, 5000);
 
     try {
-      // Pass allCategories and weddingDate to the API
-      const res = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          description, 
-          categories: allCategories, 
-          weddingDate,
-          userId: user?.uid 
-        }),
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description,
+        weddingDate: weddingDate || new Date().toISOString(),
+        todoType: 'comprehensive',
+        focusCategories: allCategories,
+        existingTodos: [],
+        vendorData: []
       });
-      if (!res.ok) throw new Error('Failed to generate list');
-      const data = await res.json();
-      // Normalize AI tasks to assign id and _id
-      if (Array.isArray(data.tasks)) {
-        data.tasks = data.tasks.map((task: any) => {
-          const id = task.id || task._id || getStableId();
-          let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
-          if (!deadline || isBeforeToday(deadline)) {
-            deadline = formatDateForInputWithTime(getTodayAtFivePM());
+
+      if (ragResponse.success && ragResponse.todos) {
+        // Transform RAG response to match expected format
+        const transformedData = {
+          listName: ragResponse.todos.listName,
+          tasks: ragResponse.todos.todos.map((task: any) => {
+            const id = getStableId();
+            let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
+            if (!deadline || isBeforeToday(deadline)) {
+              deadline = formatDateForInputWithTime(getTodayAtFivePM());
+            }
+            return {
+              ...task,
+              id,
+              _id: id,
+              deadline,
+              category: task.category || 'Planning',
+              note: task.note || '',
+              priority: task.priority || 'Medium'
+            };
+          })
+        };
+        
+        setAiListResult(transformedData);
+        
+        // Trigger credit refresh for useCredits hook
+        if (ragResponse.credits && ragResponse.credits.required > 0) {
+          console.log('🎯 Todo generation complete, triggering credit refresh:', ragResponse.credits);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            setTimeout(async () => {
+              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+              creditEventEmitter.emit();
+            }, 1000);
           }
-          // Don't replace categories unless they're actually IDs
-          let category = task.category;
-          if (looksLikeId(category)) {
-            category = 'Uncategorized (New)';
-          }
-          return { ...task, id, _id: id, deadline, category };
-        });
+        }
+      } else {
+        throw new Error('Failed to generate todo list');
       }
-      setAiListResult(data);
     } catch (e: any) {
+      console.error('Error generating todo list:', e);
       setError(e.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
@@ -736,14 +758,14 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         <button
           className="btn-gradient-purple flex items-center gap-2"
           onClick={handleGenerate}
-          disabled={!description.trim() || isLoading}
+          disabled={!description.trim() || isLoading || ragLoading}
         >
           <Sparkles className="w-4 h-4" />
           <span>Generate with Paige (2 Credits)</span>
         </button>
       
       </div>
-      {isLoading && showSlowGenerationBanner && (
+      {(isLoading || ragLoading) && showSlowGenerationBanner && (
         <div className="w-full my-4 -mx-6">
           <Banner
             message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
@@ -751,7 +773,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           />
         </div>
       )}
-      {isLoading && !aiListResult && (
+      {(isLoading || ragLoading) && !aiListResult && (
         <div className="w-full mt-4 space-y-2">
           {[...Array(5)].map((_, i) => (
             <TodoItemSkeleton key={i} />

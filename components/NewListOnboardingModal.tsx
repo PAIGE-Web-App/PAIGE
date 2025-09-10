@@ -18,6 +18,7 @@ import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import CreditToast from './CreditToast';
 import { useRouter } from 'next/navigation';
 import NotEnoughCreditsModal from './NotEnoughCreditsModal';
+import { useRAGTodoGeneration } from '../hooks/useRAGTodoGeneration';
 import { COUPLE_SUBSCRIPTION_CREDITS } from '../types/credits';
 
 interface NewListOnboardingModalProps {
@@ -63,6 +64,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const { user } = useAuth();
   const { credits, loadCredits } = useCredits();
   const router = useRouter();
+  const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
@@ -715,6 +717,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
   const [listNameError, setListNameError] = React.useState<string | null>(null);
@@ -722,7 +725,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
 
   // Auto-generate if description is pre-filled from budget page
   React.useEffect(() => {
-    if (aiGenerationData?.description && !aiListResult && !isLoading) {
+    if (aiGenerationData?.description && !aiListResult && !isLoading && !ragLoading) {
       handleGenerate();
     }
   }, [aiGenerationData]);
@@ -882,77 +885,57 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     }, 5000);
 
     try {
-      // Pass allCategories and weddingDate to the API
-      const res = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          description, 
-          categories: allCategories, 
-          weddingDate,
-          userId: user.uid 
-        }),
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description,
+        weddingDate: weddingDate || new Date().toISOString(),
+        todoType: 'comprehensive',
+        focusCategories: allCategories,
+        existingTodos: [],
+        vendorData: []
       });
-      
-      console.log('Response status:', res.status); // Debug log
-      console.log('Response ok:', res.ok); // Debug log
-      
-      if (!res.ok) {
-        // Check if it's a credit-related error based on status code first
-        if (res.status === 402) {
-          console.log('402 status detected, throwing insufficient credits error'); // Debug log
-          throw new Error('Insufficient credits');
+
+      if (ragResponse.success && ragResponse.todos) {
+        // Transform RAG response to match expected format
+        const transformedData = {
+          listName: ragResponse.todos.listName,
+          tasks: ragResponse.todos.todos.map((task: any) => {
+            const id = getStableId();
+            let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
+            if (!deadline || isBeforeToday(deadline)) {
+              deadline = formatDateForInputWithTime(getTodayAtFivePM());
+            }
+            return {
+              ...task,
+              id,
+              _id: id,
+              deadline,
+              category: task.category || 'Planning',
+              note: task.note || '',
+              priority: task.priority || 'Medium'
+            };
+          })
+        };
+        
+        setAiListResult(transformedData);
+        // Also update the local tasks state with the AI-generated tasks
+        if (setTasks && Array.isArray(transformedData.tasks)) {
+          setTasks(transformedData.tasks);
         }
         
-        // Try to get the error message from the response for other errors
-        let errorMessage = 'Failed to generate list';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          // If we can't parse the error response, use the status text
-          errorMessage = res.statusText || errorMessage;
+        // Trigger credit refresh for useCredits hook
+        if (ragResponse.credits && ragResponse.credits.required > 0) {
+          console.log('🎯 Todo generation complete, triggering credit refresh:', ragResponse.credits);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            setTimeout(async () => {
+              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+              creditEventEmitter.emit();
+            }, 1000);
+          }
         }
-        
-        throw new Error(errorMessage);
-      }
-      const data = await res.json();
-      // Normalize AI tasks to assign id and _id
-      if (Array.isArray(data.tasks)) {
-        data.tasks = data.tasks.map((task: any) => {
-          const id = task.id || task._id || getStableId();
-          let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
-          if (!deadline || isBeforeToday(deadline)) {
-            deadline = formatDateForInputWithTime(getTodayAtFivePM());
-          }
-          // Don't replace categories unless they're actually IDs
-          let category = task.category;
-          if (looksLikeId(category)) {
-            category = 'Uncategorized (New)';
-          }
-          // Remove [NEW] tags from categories
-          if (category && category.includes('[NEW]')) {
-            category = category.replace('[NEW]', '').trim();
-          }
-          return { ...task, id, _id: id, deadline, category };
-        });
-      }
-      setAiListResult(data);
-      // Also update the local tasks state with the AI-generated tasks
-      if (setTasks && Array.isArray(data.tasks)) {
-        setTasks(data.tasks);
-      }
-      
-      // Refresh credits after successful generation to trigger dynamic updates
-      try {
-        // Add a small delay to ensure server-side credit deduction is committed
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await loadCredits();
-        
-        // Manually trigger credit event emitter to notify other components
-        creditEventEmitter.emit();
-      } catch (error) {
-        console.error('[handleGenerate] Failed to refresh credits after generation:', error);
+      } else {
+        throw new Error('Failed to generate todo list');
       }
     } catch (e: any) {
       console.log('Error caught in outer catch block:', e.message); // Debug log
@@ -1101,15 +1084,15 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         <button
           className="btn-gradient-purple flex items-center gap-2"
           onClick={handleGenerate}
-          disabled={!description.trim() || isLoading}
-          style={{ cursor: (!description.trim() || isLoading) ? 'not-allowed' : 'pointer' }}
+          disabled={!description.trim() || isLoading || ragLoading}
+          style={{ cursor: (!description.trim() || isLoading || ragLoading) ? 'not-allowed' : 'pointer' }}
         >
           <Sparkles className="w-4 h-4" />
           <span>Generate with Paige (2 Credits)</span>
         </button>
       
       </div>
-      {isLoading && showSlowGenerationBanner && (
+      {(isLoading || ragLoading) && showSlowGenerationBanner && (
         <div className="w-full my-4 -mx-6">
           <Banner
             message="Looks like this is taking a little longer than usual... Don't worry! Your list is being generated. Please don't refresh."
@@ -1117,7 +1100,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           />
         </div>
       )}
-      {isLoading && !aiListResult && (
+      {(isLoading || ragLoading) && !aiListResult && (
         <div className="w-full mt-4 space-y-2">
           {[...Array(5)].map((_, i) => (
             <TodoItemSkeleton key={i} />

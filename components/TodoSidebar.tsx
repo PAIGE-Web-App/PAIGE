@@ -3,6 +3,7 @@ import TaskSideCard from './TaskSideCard';
 import BadgeCount from './BadgeCount';
 import NewListOnboardingModal from './NewListOnboardingModal';
 import SectionHeader from './SectionHeader';
+import { useRAGTodoGeneration } from '../hooks/useRAGTodoGeneration';
 
 interface TodoSidebarProps {
   todoLists: any[];
@@ -59,10 +60,11 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   const [creationStep, setCreationStep] = useState<'choose' | 'manual' | 'import' | 'ai'>('choose');
   const [isGenerating, setIsGenerating] = useState(false);
   const [listName, setListName] = useState('');
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   
   // State for tracking which list is being hovered over during drag
   const [hoveredListForMove, setHoveredListForMove] = useState<any>(null);
+  const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const STARTER_TIER_MAX_LISTS = 3;
   const listLimitReached = todoLists.length >= STARTER_TIER_MAX_LISTS;
 
@@ -94,19 +96,34 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   const handleBuildWithAI = async (template: string) => {
     setIsGenerating(true);
     try {
-
-      const response = await fetch('/api/generate-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          weddingDate: '2023-12-31', 
-          template,
-          userId 
-        }),
+      // Use RAG system for todo generation
+      const ragResponse = await generateTodos({
+        description: template,
+        weddingDate: '2023-12-31',
+        todoType: 'comprehensive',
+        focusCategories: [],
+        existingTodos: [],
+        vendorData: []
       });
-      const data = await response.json();
-      setListName(data.listName);
-      setTasks(data.tasks);
+
+      if (ragResponse.success && ragResponse.todos) {
+        setListName(ragResponse.todos.listName);
+        setTasks(ragResponse.todos.todos);
+        
+        // Trigger credit refresh for useCredits hook
+        if (ragResponse.credits && ragResponse.credits.required > 0) {
+          console.log('🎯 Todo generation complete, triggering credit refresh:', ragResponse.credits);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('creditUpdateEvent', Date.now().toString());
+            setTimeout(async () => {
+              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+              creditEventEmitter.emit();
+            }, 1000);
+          }
+        }
+      } else {
+        throw new Error('Failed to generate todo list');
+      }
     } catch (error) {
       console.error('Error generating list:', error);
     } finally {
