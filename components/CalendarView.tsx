@@ -165,7 +165,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // Detect mobile for calendar popup behavior
   React.useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      console.log('📱 Mobile detection:', mobile, 'Width:', window.innerWidth);
     };
 
     checkMobile();
@@ -586,6 +588,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onSelectEvent={onEventClick}
             view={view}
             date={date}
+            doShowMoreDrillDown={false}
+            max={1}
           />
         </div>
         {/* Context menu for right-clicked event */}

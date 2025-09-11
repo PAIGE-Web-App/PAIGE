@@ -71,6 +71,7 @@ import { useTodoItems } from "../../hooks/useTodoItems";
 import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
 import { saveCategoryIfNew, deleteCategoryByName, defaultCategories } from "@/lib/firebaseCategories";
 import { useCustomToast } from "../../hooks/useCustomToast";
+import { useMobileTodoState } from "../../hooks/useMobileTodoState";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
@@ -97,21 +98,40 @@ export default function TodoPage() {
     selectedCategories
   );
 
-  // Mobile view mode state - similar to dashboard contacts/messages pattern
+  // Mobile persistent state
+  const mobileState = useMobileTodoState();
   const [mobileViewMode, setMobileViewMode] = React.useState<'lists' | 'items'>('lists');
   const [mobileInitialized, setMobileInitialized] = React.useState(false);
 
-  // Mobile initialization - only run once
+  // Mobile initialization - restore persistent state
   React.useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024 && !mobileInitialized) {
-      // On mobile, clear any pre-selected list and start with lists view
-      console.log('📱 Mobile initialization: clearing selected list');
-      todoLists.setSelectedList(null);
-      todoLists.setExplicitAllSelected(false);
-      setMobileViewMode('lists');
+      console.log('📱 Mobile initialization: restoring state', mobileState);
+      
+      // Restore view mode
+      setMobileViewMode(mobileState.viewMode === 'calendar' ? 'items' : 'lists');
+      
+      // Restore list selection
+      if (mobileState.isAllSelected) {
+        todoLists.setSelectedList(null);
+        todoLists.setExplicitAllSelected(true);
+        setMobileViewMode('items');
+      } else if (mobileState.isCompletedSelected) {
+        todoLists.setSelectedList(null);
+        todoLists.setExplicitAllSelected(false);
+        setMobileViewMode('items');
+      } else if (mobileState.selectedListId) {
+        const list = todoLists.todoLists.find(l => l.id === mobileState.selectedListId);
+        if (list) {
+          todoLists.setSelectedList(list);
+          todoLists.setExplicitAllSelected(false);
+          setMobileViewMode('items');
+        }
+      }
+      
       setMobileInitialized(true);
     }
-  }, [mobileInitialized, todoLists]);
+  }, [mobileInitialized, mobileState, todoLists]);
 
   // Desktop view mode logic - only for desktop
   React.useEffect(() => {
@@ -135,11 +155,13 @@ export default function TodoPage() {
       todoLists.setSelectedList(null);
       todoLists.setExplicitAllSelected(true);
       setMobileViewMode('items');
+      mobileState.selectList(null, true, false);
     } else if (listId === 'completed-items') {
       // Handle "Completed To-Do Items" selection
       todoLists.setSelectedList(null);
       todoLists.setExplicitAllSelected(false);
       setMobileViewMode('items');
+      mobileState.selectList(null, false, true);
     } else {
       // Handle regular list selection
       const list = todoLists.todoLists.find(l => l.id === listId);
@@ -148,13 +170,23 @@ export default function TodoPage() {
         todoLists.setSelectedList(list);
         todoLists.setExplicitAllSelected(false);
         setMobileViewMode('items');
+        mobileState.selectList(listId, false, false);
       }
     }
-  }, [todoLists]);
+  }, [todoLists, mobileState]);
 
   const handleMobileBackToLists = React.useCallback(() => {
     setMobileViewMode('lists');
-  }, []);
+    mobileState.clearSelection();
+  }, [mobileState]);
+
+  // Wrapper for view mode changes that also saves to mobile state
+  const handleViewModeChange = React.useCallback((mode: 'list' | 'calendar') => {
+    viewOptions.setViewMode(mode);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      mobileState.setViewMode(mode);
+    }
+  }, [viewOptions, mobileState]);
 
   // Mobile navigation is now handled by VerticalNavWrapper
 
@@ -380,7 +412,7 @@ export default function TodoPage() {
                   showCompletedItems={viewOptions.showCompletedItems}
                   handleOpenAddTodo={() => todoItems.handleOpenAddTodo(todoLists.todoLists.length > 0)}
                   viewMode={viewOptions.viewMode}
-                  setViewMode={viewOptions.setViewMode}
+                  setViewMode={handleViewModeChange}
                   calendarViewMode={viewOptions.calendarViewMode}
                   setCalendarViewMode={viewOptions.setCalendarViewMode}
                   handleCloneList={todoLists.handleCloneList}
