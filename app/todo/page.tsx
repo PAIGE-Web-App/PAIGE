@@ -101,87 +101,52 @@ export default function TodoPage() {
   const [mobileViewMode, setMobileViewMode] = React.useState<'lists' | 'items'>('lists');
   const [mobileInitialized, setMobileInitialized] = React.useState(false);
 
-  // Initialize mobile view mode based on selected list
+  // Mobile initialization - only run once
   React.useEffect(() => {
-    // On mobile, always start with lists view unless explicitly switched to items
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      // Mobile: only switch to items view when explicitly selected via mobile handlers
-      if (todoLists.explicitAllSelected) {
-        setMobileViewMode('items');
-      } else {
-        setMobileViewMode('lists');
-      }
-    } else {
-      // Desktop: normal behavior
-      if (todoLists.selectedList) {
-        setMobileViewMode('items');
-      } else {
-        if (todoLists.explicitAllSelected) {
-          setMobileViewMode('items');
-        } else {
-          setMobileViewMode('lists');
-        }
-      }
-    }
-  }, [todoLists.selectedList, todoLists.explicitAllSelected]);
-
-  // Clear any pre-selected list on mobile initialization
-  React.useEffect(() => {
-    if (!mobileInitialized && typeof window !== 'undefined' && window.innerWidth < 1024) {
-      // On mobile, clear any pre-selected list to start fresh
+    if (typeof window !== 'undefined' && window.innerWidth < 1024 && !mobileInitialized) {
+      // On mobile, clear any pre-selected list and start with lists view
       console.log('📱 Mobile initialization: clearing selected list');
       todoLists.setSelectedList(null);
       todoLists.setExplicitAllSelected(false);
+      setMobileViewMode('lists');
       setMobileInitialized(true);
     }
   }, [mobileInitialized, todoLists]);
 
-  // Force clear selected list on mobile whenever it gets set
+  // Desktop view mode logic - only for desktop
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024 && todoLists.selectedList && !mobileInitialized) {
-      console.log('📱 Mobile: forcing clear of selected list:', todoLists.selectedList.name);
-      todoLists.setSelectedList(null);
-      todoLists.setExplicitAllSelected(false);
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      if (todoLists.selectedList) {
+        setMobileViewMode('items');
+      } else if (todoLists.explicitAllSelected) {
+        setMobileViewMode('items');
+      } else {
+        setMobileViewMode('lists');
+      }
     }
-  }, [todoLists.selectedList, mobileInitialized, todoLists]);
-
-  // Force mobile lists view on initial load
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      // On mobile, always start with lists view regardless of selected list
-      setMobileViewMode('lists');
-      
-      // Also clear any selected list after a short delay to ensure it happens after initial load
-      setTimeout(() => {
-        if (todoLists.selectedList) {
-          console.log('📱 Mobile timeout: clearing selected list:', todoLists.selectedList.name);
-          todoLists.setSelectedList(null);
-          todoLists.setExplicitAllSelected(false);
-        }
-      }, 100);
-    }
-  }, []);
-
-  // Debug mobile view mode
-  React.useEffect(() => {
-    console.log('📱 Mobile view mode:', mobileViewMode, 'Selected list:', todoLists.selectedList?.name);
-  }, [mobileViewMode, todoLists.selectedList]);
+  }, [todoLists.selectedList, todoLists.explicitAllSelected]);
 
   // Mobile handlers
   const handleMobileListSelect = React.useCallback((listId: string) => {
+    console.log('📱 Mobile list select:', listId);
+    
     if (listId === 'all-items') {
       // Handle "All To-Do Items" selection
       todoLists.setSelectedList(null);
+      todoLists.setExplicitAllSelected(true);
       setMobileViewMode('items');
     } else if (listId === 'completed-items') {
       // Handle "Completed To-Do Items" selection
       todoLists.setSelectedList(null);
+      todoLists.setExplicitAllSelected(false);
       setMobileViewMode('items');
     } else {
       // Handle regular list selection
       const list = todoLists.todoLists.find(l => l.id === listId);
       if (list) {
+        console.log('📱 Selecting list:', list.name);
         todoLists.setSelectedList(list);
+        todoLists.setExplicitAllSelected(false);
         setMobileViewMode('items');
       }
     }
