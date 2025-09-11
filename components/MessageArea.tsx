@@ -11,7 +11,7 @@ const devLog = (...args: any[]) => {
 import { v4 as uuidv4 } from "uuid";
 import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, deleteDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { Mail, Phone, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, X } from "lucide-react";
+import { Mail, Phone, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, X, MoreHorizontal } from "lucide-react";
 import CategoryPill from "./CategoryPill";
 import { db, getUserCollectionRef } from "../lib/firebase";
 import { useCustomToast } from "../hooks/useCustomToast"; // Make sure this path is correct relative to MessageArea.tsx
@@ -217,6 +217,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [animatedDraft, setAnimatedDraft] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const prevContactIdRef = useRef<string | null>(null);
@@ -229,6 +231,23 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       isGeneratingRef.current = false;
     };
   }, []);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setShowMobileMenu(false);
+      }
+    };
+
+    if (showMobileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMobileMenu]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1234,68 +1253,137 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 {mobileViewMode === 'messages' && onMobileBackToContacts && (
                   <button
                     onClick={onMobileBackToContacts}
-                    className="lg:hidden mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                    className="lg:hidden p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
                     aria-label="Back to contacts"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4" />
                   </button>
                 )}
-                <h4 className="text-[16px] font-medium text-[#332B42] leading-tight font-playfair mr-1">
-                  {selectedContact.name}
-                </h4>
-                <CategoryPill category={selectedContact.category} />
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <h4 className="text-[16px] font-medium text-[#332B42] leading-none font-playfair truncate">
+                    {selectedContact.name}
+                  </h4>
+                  {vendorDetails?.name && (
+                    <>
+                      <span className="text-[#AB9C95] text-[12px] flex-shrink-0">•</span>
+                      <span className="text-[12px] text-[#364257] truncate max-w-[150px] lg:max-w-[250px] leading-none">
+                        {vendorDetails.name}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Desktop: Show category pill next to name */}
+                <div className="hidden lg:block">
+                  <CategoryPill category={selectedContact.category} />
+                </div>
               </div>
               
               {/* Actions on the right */}
               <div className="flex items-center gap-2 flex-nowrap">
-                {(showGmailImport || importedOnce) && selectedContact?.email && (
-                  <DropdownMenu
-                    trigger={
-                      <button
-                        className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
-                        disabled={isImportingGmail || isCheckingGmail}
-                      >
-                        <svg className="w-4 h-4 flex-shrink-0" viewBox="52 42 88 66" xmlns="http://www.w3.org/2000/svg">
-                          <path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/>
-                          <path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/>
-                          <path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/>
-                          <path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/>
-                          <path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/>
-                        </svg>
-                        <span className="truncate">Gmail Actions</span>
-                        <svg className="w-3 h-3 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    }
-                    items={[
-                      {
-                        label: 'Check for New Emails',
-                        icon: <WandSparkles className="w-4 h-4" />,
-                        onClick: () => handleCheckNewGmail(true)
-                      },
-                      {
-                        label: importedOnce ? 'Re-import Emails' : 'Import Emails',
-                        icon: <FileUp className="w-4 h-4" />,
-                        onClick: handleImportGmail
+                {/* Desktop: Show Gmail Actions and Edit button */}
+                <div className="hidden lg:flex items-center gap-2">
+                  {(showGmailImport || importedOnce) && selectedContact?.email && (
+                    <DropdownMenu
+                      trigger={
+                        <button
+                          className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
+                          disabled={isImportingGmail || isCheckingGmail}
+                        >
+                          <svg className="w-4 h-4 flex-shrink-0" viewBox="52 42 88 66" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/>
+                            <path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/>
+                            <path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/>
+                            <path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/>
+                            <path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/>
+                          </svg>
+                          <span className="truncate">Gmail Actions</span>
+                          <svg className="w-3 h-3 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       }
-                    ]}
-                    width={220}
-                    zIndex={50}
-                    align="right"
-                  />
-                )}
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
-                >
-                  Edit
-                </button>
+                      items={[
+                        {
+                          label: 'Check for New Emails',
+                          icon: <WandSparkles className="w-4 h-4" />,
+                          onClick: () => handleCheckNewGmail(true)
+                        },
+                        {
+                          label: importedOnce ? 'Re-import Emails' : 'Import Emails',
+                          icon: <FileUp className="w-4 h-4" />,
+                          onClick: handleImportGmail
+                        }
+                      ]}
+                      width={220}
+                      zIndex={50}
+                      align="right"
+                    />
+                  )}
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex-shrink-0 whitespace-nowrap"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {/* Mobile: Show three dot menu */}
+                <div className="lg:hidden relative" ref={mobileMenuRef}>
+                  <button
+                    onClick={() => setShowMobileMenu(!showMobileMenu)}
+                    className="p-1 hover:bg-gray-100 rounded-full"
+                    title="More options"
+                  >
+                    <MoreHorizontal size={16} className="text-gray-500" />
+                  </button>
+                  {showMobileMenu && (
+                    <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      <button
+                        onClick={() => {
+                          setIsEditing(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                      {(showGmailImport || importedOnce) && selectedContact?.email && (
+                        <>
+                          <button
+                            onClick={() => {
+                              handleCheckNewGmail(true);
+                              setShowMobileMenu(false);
+                            }}
+                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                          >
+                            <WandSparkles className="w-4 h-4 mr-2" />
+                            Check for New Emails
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleImportGmail();
+                              setShowMobileMenu(false);
+                            }}
+                            className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                          >
+                            <FileUp className="w-4 h-4 mr-2" />
+                            {importedOnce ? 'Re-Import Emails' : 'Import Emails'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
             {/* Bottom row: Contact metadata */}
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Desktop: Show full text with icons */}
+              <div className="hidden lg:flex items-center gap-2 flex-wrap">
               {useMemo(() => {
                 devLog('🔍 Header contact info debug:', {
                   contactEmail: selectedContact.email,
@@ -1360,21 +1448,84 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                   return null;
                 })();
                 
-                return realWebsite ? (
-                  <a
-                    href={realWebsite}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 flex-shrink-0"
-                  >
-                    <span>🌐</span>
-                    <span className="truncate max-w-[200px] md:max-w-[300px]">
-                      {realWebsite}
-                    </span>
-                  </a>
-                ) : null;
+                  return realWebsite ? (
+                    <a
+                      href={realWebsite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 flex-shrink-0 no-underline"
+                    >
+                      <span>🌐</span>
+                      <span className="truncate max-w-[200px] md:max-w-[300px]">
+                        {realWebsite}
+                      </span>
+                    </a>
+                  ) : null;
               }, [vendorDetails?.website, selectedContact?.website])}
+              </div>
 
+              {/* Mobile: Show just icons with tooltips */}
+              <div className="lg:hidden flex items-center gap-2">
+                {/* Category pill - first item on mobile */}
+                <CategoryPill category={selectedContact.category} />
+                {selectedContact.email ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title={selectedContact.email}
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[#364257]" />
+                  </button>
+                ) : (selectedContact.phone || vendorDetails?.formatted_phone_number) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(true);
+                      setJiggleEmailField?.(true);
+                      setTimeout(() => setJiggleEmailField?.(false), 1000);
+                    }}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Add email address"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[#AB9C95]" />
+                  </button>
+                )}
+                {(selectedContact.phone || vendorDetails?.formatted_phone_number) && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                    className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title={selectedContact.phone || vendorDetails?.formatted_phone_number}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-[#364257]" />
+                  </button>
+                )}
+                {useMemo(() => {
+                  // Get the real website (not Google Maps)
+                  const realWebsite = (() => {
+                    if (vendorDetails?.website && !vendorDetails.website.includes('maps.google.com')) {
+                      return vendorDetails.website;
+                    }
+                    if (selectedContact?.website && !selectedContact.website.includes('maps.google.com')) {
+                      return selectedContact.website;
+                    }
+                    return null;
+                  })();
+                  
+                  return realWebsite ? (
+                    <a
+                      href={realWebsite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 hover:bg-gray-100 rounded-full transition-colors no-underline"
+                      title={realWebsite.replace(/^https?:\/\//, '')}
+                    >
+                      <span className="text-base">🌐</span>
+                    </a>
+                  ) : null;
+                }, [selectedContact?.website, vendorDetails?.website])}
+              </div>
             </div>
           </div>
           {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
@@ -1395,20 +1546,43 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             <div className="mt-0">
               <Banner
                 message={
-                  <div className="flex justify-between items-center w-full">
-                    <span className="flex items-center">
-                      <WandSparkles className="w-5 h-5 text-purple-500 mr-2" />
-                      <span>Looks like you've been emailing with this contact! Do you want to import the emails here?</span>
-                    </span>
+                  <>
+                    {/* Mobile Layout */}
+                    <div className="lg:hidden">
+                      <div className="flex items-start gap-3">
+                        <WandSparkles className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm leading-relaxed">
+                            Looks like you've been emailing with this contact! Do you want to import the emails here?
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end mt-3">
                         <button
-                      onClick={handleImportGmail}
-                      className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 whitespace-nowrap"
-                      style={{ marginRight: 12 }}
-                      disabled={checkingGmail}
+                          onClick={handleImportGmail}
+                          className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 whitespace-nowrap"
+                          disabled={checkingGmail}
                         >
-                      <FileUp className="w-4 h-4 mr-1" /> Import Emails
+                          <FileUp className="w-4 h-4 mr-1" /> Import Emails
                         </button>
-                  </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden lg:flex justify-between items-center w-full">
+                      <span className="flex items-center">
+                        <WandSparkles className="w-4 h-4 text-purple-500 mr-2" />
+                        <span>Looks like you've been emailing with this contact! Do you want to import the emails here?</span>
+                      </span>
+                      <button
+                        onClick={handleImportGmail}
+                        className="ml-3 text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-3 py-1 hover:bg-[#F3F2F0] flex items-center gap-1 whitespace-nowrap"
+                        disabled={checkingGmail}
+                      >
+                        <FileUp className="w-4 h-4 mr-1" /> Import Emails
+                      </button>
+                    </div>
+                  </>
                 }
                 type="info"
                 onDismiss={handleDismissBanner}

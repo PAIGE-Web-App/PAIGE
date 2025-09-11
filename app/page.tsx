@@ -545,7 +545,9 @@ export default function Home() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node)) {
+      // Check if click is outside filter popover AND not on filter button
+      const isFilterButton = (event.target as Element)?.closest('button[aria-label="Toggle Filters"]');
+      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node) && !isFilterButton) {
         setShowFilters(false);
       }
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {

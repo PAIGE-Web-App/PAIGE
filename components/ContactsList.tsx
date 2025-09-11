@@ -102,13 +102,59 @@ const ContactsList = ({
     ) : (
       <>
         <div className="flex items-center gap-4 p-4 border-b border-[#AB9C95] bg-[#F3F2F0] sticky top-0 z-10">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-20"
-            aria-label="Toggle Filters"
-          >
-            <ListFilter className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowFilters(!showFilters);
+              }}
+              className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1 z-40"
+              aria-label="Toggle Filters"
+            >
+              <ListFilter className="w-4 h-4" />
+            </button>
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  ref={filterPopoverRef}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
+                >
+                  <div>
+                    <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
+                    <div className="flex flex-wrap gap-2">
+                      {allCategories.map((category) => (
+                        <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            value={category}
+                            checked={selectedCategoryFilter.includes(category)}
+                            onChange={() => handleCategoryChange(category)}
+                            className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
+                          />
+                          {category}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <SelectField
+                    label="Sort by"
+                    name="sortOption"
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    options={[
+                      { value: 'name-asc', label: 'Name (A-Z)' },
+                      { value: 'name-desc', label: 'Name (Z-A)' },
+                      { value: 'recent-desc', label: 'Most recent conversations' },
+                    ]}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div className="relative flex-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -140,51 +186,10 @@ const ContactsList = ({
               + Add Contact
             </button>
           )}
-          <AnimatePresence>
-            {showFilters && (
-              <motion.div
-                ref={filterPopoverRef}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                className="absolute top-full left-0 mt-2 p-4 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-30 min-w-[250px] space-y-3"
-              >
-                <div>
-                  <span className="text-xs font-medium text-[#332B42] block mb-2">Filter by Category</span>
-                  <div className="flex flex-wrap gap-2">
-                    {allCategories.map((category) => (
-                      <label key={category} className="flex items-center text-xs text-[#332B42] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          value={category}
-                          checked={selectedCategoryFilter.includes(category)}
-                          onChange={() => handleCategoryChange(category)}
-                          className="mr-1 rounded text-[#A85C36] focus:ring-[#A85C36]"
-                        />
-                        {category}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <SelectField
-                  label="Sort by"
-                  name="sortOption"
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
-                  options={[
-                    { value: 'name-asc', label: 'Name (A-Z)' },
-                    { value: 'name-desc', label: 'Name (Z-A)' },
-                    { value: 'recent-desc', label: 'Most recent conversations' },
-                  ]}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
         <div className="flex-1 overflow-y-auto p-0 lg:p-4">
           {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-0 lg:mb-4 p-4 lg:p-0">
               {selectedCategoryFilter.map((category) => (
                 <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
                   Category: {category}
@@ -264,9 +269,9 @@ const ContactsList = ({
                           {highlightText(name, searchQuery)}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {/* Mobile: Show timestamp */}
+                          {/* Show timestamp on both mobile and desktop */}
                           {messageData.lastMessageTime && (
-                            <span className="lg:hidden text-xs text-[#AB9C95]">
+                            <span className="text-xs text-[#AB9C95]">
                               {formatMessageTime(messageData.lastMessageTime)}
                             </span>
                           )}
@@ -278,14 +283,14 @@ const ContactsList = ({
                           )}
                         </div>
                       </div>
-                      {/* Mobile: Show message snippet */}
+                      {/* Show message snippet on both mobile and desktop */}
                       {messageData.lastMessageSnippet && (
-                        <div className="lg:hidden text-xs text-[#332B42] truncate mt-1">
+                        <div className="text-xs text-[#332B42] truncate mt-1">
                           {messageData.lastMessageSnippet}
                         </div>
                       )}
-                      {/* Mobile: Show category pill under message snippet */}
-                      <div className="lg:hidden mt-2">
+                      {/* Show category pill on both mobile and desktop */}
+                      <div className="mt-2">
                         <CategoryPill category={contact.category} />
                       </div>
                     </div>

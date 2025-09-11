@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { File, Reply, Trash2, ExternalLink, MessageSquareText, Sparkles } from "lucide-react";
 import DOMPurify from "dompurify";
@@ -495,16 +495,45 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     return <div className="whitespace-pre-wrap">{cleanedText}</div>;
   };
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
+  // Scroll to bottom function (instant, works on mobile and desktop)
+  const scrollToBottom = useCallback(() => {
+    if (lastMessageRef.current) {
+      // Use ref to last message for reliable scrolling
+      lastMessageRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+    } else if (messagesEndRef.current) {
+      // Fallback to scrollTop
       messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, []);
+
+  // Scroll to bottom when contact changes (instant, no flash)
+  useEffect(() => {
+    if (selectedContact?.id && messagesEndRef.current) {
+      // Immediate scroll when contact changes
+      scrollToBottom();
+    }
+  }, [selectedContact?.id, scrollToBottom]);
+
+  // Scroll to bottom when messages are loaded and rendered
+  useEffect(() => {
+    if (!loading && messages.length > 0 && messagesEndRef.current) {
+      // Wait for DOM to be fully updated
+      setTimeout(() => {
+        scrollToBottom();
+      }, 300);
+    }
+  }, [loading, messages.length, scrollToBottom]);
+
+
+  // Combined scroll handler
+  const handleCombinedScroll = useCallback(() => {
+    handleScroll(); // Call the prop function
+  }, [handleScroll]);
 
   // Map of messageId to ref for scrolling
   const messageRefs = useRef<{ [id: string]: HTMLDivElement | null }>({});
   const [bouncingId, setBouncingId] = useState<string | null>(null);
+  const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const [analysisResults, setAnalysisResults] = useState<{
     newTodos: any[];
     todoUpdates: any[];
@@ -737,7 +766,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     <div 
       ref={messagesEndRef}
       className="flex-1 w-full overflow-y-auto p-3 text-sm text-gray-400 relative"
-      onScroll={handleScroll}
+      onScroll={handleCombinedScroll}
     >
       {loading && messages.length > 0 ? (
         <AnimatePresence mode="wait">
@@ -872,9 +901,14 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                     // Determine alignment
                     const isSent = msg.direction === 'sent';
                     const alignmentClass = isSent ? 'justify-end' : 'justify-start';
+                    // Check if this is the last message in the last group
+                    const isLastMessage = group === messageGroups[messageGroups.length - 1] && 
+                                        msgIdx === group.messages.length - 1;
                     return (
                       <motion.div
                         key={msg.id}
+                        ref={isLastMessage ? lastMessageRef : null}
+                        data-message-id={msg.id}
                         className={`flex ${alignmentClass}${msgIdx < group.messages.length - 1 ? ' mb-[12px]' : ''} group`}
                         initial={{ opacity: 1, x: 0, scale: 1 }}
                         exit={{ opacity: 0, x: isSent ? 50 : -50, scale: 0.95 }}
@@ -1087,6 +1121,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
         onTodoComplete={handleTodoComplete}
         onGenerateAITodoList={handleGenerateAITodoList}
       />
+
     </div>
   );
 };

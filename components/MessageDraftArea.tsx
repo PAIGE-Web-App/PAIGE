@@ -68,7 +68,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
 
   useLayoutEffect(() => {
     if (subjectInputRef.current && subjectMeasureRef.current) {
-      const minWidth = 120;
+      const minWidth = 200; // Increased from 120 to accommodate placeholder text
       const measured = subjectMeasureRef.current.offsetWidth;
       subjectInputRef.current.style.width = Math.max(minWidth, measured + 8) + "px";
     }
@@ -173,8 +173,8 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
               value={subject}
               onChange={e => setSubject(e.target.value)}
               placeholder="Enter email subject"
-              className="border-0 border-b border-[#AB9C95] px-0 py-2 text-sm bg-transparent text-[#332B42] focus:outline-none focus:ring-0 focus:border-[#A85C36]"
-              style={{ borderRadius: 0, minWidth: 120, width: 120, display: 'inline-block', transition: 'width 0.2s' }}
+              className="border-0 border-b border-[#AB9C95] px-0 py-2 text-sm bg-transparent text-[#332B42] focus:outline-none focus:ring-0 focus:border-[#A85C36] font-work"
+              style={{ borderRadius: 0, minWidth: 200, width: 200, display: 'inline-block', transition: 'width 0.2s' }}
             />
             {/* Hidden span for measuring text width */}
             <span
@@ -194,7 +194,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={isGenerating ? "Generating draft..." : `Hey ${selectedContact?.name}...`}
-            className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none"
+            className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none font-work"
             rows={1}
             style={{ minHeight: "3rem", maxHeight: "260px", overflowY: "auto" }}
           />
@@ -240,7 +240,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
             ) : (
               <>
                 <WandSparkles className="w-4 h-4" />
-                {replyingToMessage ? 'Draft Response with Paige (1 Credit)' : 'Draft Message with Paige (1 Credit)'}
+                {replyingToMessage ? 'Draft Response (1 Credit)' : 'Draft Message (1 Credit)'}
               </>
             )}
           </button>
@@ -262,7 +262,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           />
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="icon-button"
+            className="icon-button hidden lg:flex"
             aria-label="Add Emoji"
             title="Add an emoji to your message"
             disabled={isAnimatingOrGenerating}

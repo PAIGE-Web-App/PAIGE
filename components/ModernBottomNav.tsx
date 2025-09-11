@@ -30,8 +30,9 @@ interface ModernBottomNavProps {
 export default function ModernBottomNav({ className = '' }: ModernBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, profileImageUrl } = useAuth();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Primary navigation items (always visible)
   const primaryNavItems: NavItem[] = [
@@ -39,13 +40,14 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
     { name: 'To-do', href: '/todo', icon: ClipboardList },
     { name: 'Budget', href: '/budget', icon: DollarSign },
     { name: 'Vendors', href: '/vendors', icon: Users },
+    { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
   ];
 
-  // Secondary navigation items (in "More" menu)
-  const secondaryNavItems: NavItem[] = [
-    { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
-    { name: 'Files', href: '/files', icon: FileText },
+  // User profile menu items
+  const userProfileItems: NavItem[] = [
     { name: 'Mood Boards', href: '/moodboards', icon: Heart },
+    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Files', href: '/files', icon: FileText },
   ];
 
   const isActive = (href: string) => {
@@ -58,6 +60,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
   const handleNavigation = (href: string) => {
     router.push(href);
     setShowMoreMenu(false);
+    setShowUserMenu(false);
   };
 
   const handleLogout = async () => {
@@ -73,7 +76,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
     <>
       {/* Bottom Navigation */}
       <nav className={`bg-white border-t border-[#AB9C95]/30 safe-bottom ${className}`}>
-        <div className="flex items-center px-2 py-1">
+        <div className="flex items-center justify-between px-4 py-3">
           {/* Primary Navigation Items */}
           {primaryNavItems.map((item) => {
             const Icon = item.icon;
@@ -83,44 +86,63 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
               <button
                 key={item.href}
                 onClick={() => handleNavigation(item.href)}
-                className={`flex flex-col items-center justify-center px-1 py-2 rounded-lg transition-all duration-200 w-full ${
+                className={`flex-1 flex items-center justify-center transition-all duration-200 relative ${
                   active
-                    ? 'text-[#A85C36] bg-[#EBE3DD]'
-                    : 'text-[#332B42] hover:bg-[#E0DBD7] hover:text-[#A85C36]'
+                    ? 'text-[#A85C36]'
+                    : 'text-[#364257] hover:text-[#A85C36]'
                 }`}
+                title={item.name}
               >
                 <div className="relative">
-                  <Icon className="w-5 h-5 mb-1" />
+                  <Icon className="w-5 h-5" />
                   {item.badge && item.badge > 0 && (
                     <span className="absolute -top-1 -right-1 bg-[#A85C36] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
                       {item.badge > 99 ? '99+' : item.badge}
                     </span>
                   )}
                 </div>
-                <span className="text-xs font-medium truncate w-full text-center">
-                  {item.name}
-                </span>
               </button>
             );
           })}
 
-          {/* More Menu Button */}
-          <div className="relative w-full">
+          {/* User Profile Button */}
+          <div className="relative flex-1 flex justify-center">
             <button
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className={`flex flex-col items-center justify-center px-1 py-2 rounded-lg transition-all duration-200 w-full ${
-                showMoreMenu
-                  ? 'text-[#A85C36] bg-[#EBE3DD]'
-                  : 'text-[#332B42] hover:bg-[#E0DBD7] hover:text-[#A85C36]'
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 overflow-hidden ${
+                showUserMenu
+                  ? 'text-[#A85C36]'
+                  : 'text-[#364257] hover:text-[#A85C36]'
               }`}
+              style={{
+                border: showUserMenu ? '0.5px solid #A85C36' : '0.5px solid #AB9C95'
+              }}
+              onMouseEnter={(e) => {
+                if (!showUserMenu) {
+                  e.currentTarget.style.borderColor = '#A85C36';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showUserMenu) {
+                  e.currentTarget.style.borderColor = '#AB9C95';
+                }
+              }}
+              title="Profile"
             >
-              <MoreHorizontal className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">More</span>
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </button>
 
-            {/* More Menu Dropdown */}
+            {/* User Profile Menu Dropdown */}
             <AnimatePresence>
-              {showMoreMenu && (
+              {showUserMenu && (
                 <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -129,8 +151,8 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
                   className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-lg shadow-lg border border-[#AB9C95] z-60"
                 >
                   <div className="py-2">
-                    {/* Secondary Navigation Items */}
-                    {secondaryNavItems.map((item) => {
+                    {/* User Profile Items */}
+                    {userProfileItems.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.href);
                       
@@ -153,19 +175,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
                     {/* Divider */}
                     <div className="border-t border-[#AB9C95] my-2"></div>
                     
-                    {/* Settings and Logout */}
-                    <button
-                      onClick={() => handleNavigation('/settings')}
-                      className={`w-full flex items-center px-4 py-3 text-left transition-colors duration-200 ${
-                        isActive('/settings')
-                          ? 'text-[#A85C36] bg-[#EBE3DD]'
-                          : 'text-[#332B42] hover:bg-[#E0DBD7] hover:text-[#A85C36]'
-                      }`}
-                    >
-                      <Settings className="w-4 h-4 mr-3" />
-                      <span className="text-sm font-medium">Settings</span>
-                    </button>
-                    
+                    {/* Logout */}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center px-4 py-3 text-left text-[#332B42] hover:bg-[#E0DBD7] hover:text-[#A85C36] transition-colors duration-200"
@@ -181,16 +191,19 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
         </div>
       </nav>
 
-      {/* Backdrop for More Menu */}
+      {/* Backdrop for Menus */}
       <AnimatePresence>
-        {showMoreMenu && (
+        {(showMoreMenu || showUserMenu) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-40 bg-black bg-opacity-25"
-            onClick={() => setShowMoreMenu(false)}
+            onClick={() => {
+              setShowMoreMenu(false);
+              setShowUserMenu(false);
+            }}
           />
         )}
       </AnimatePresence>

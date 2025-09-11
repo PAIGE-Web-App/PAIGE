@@ -544,7 +544,7 @@ h6 {
 /* Mobile-first responsive container */
 @media (max-width: 639px) {
   .app-content-container {
-    padding: 0.5rem;
+    padding: 0;
   }
 }
 
@@ -571,6 +571,14 @@ h6 {
   @apply flex-col;
   /* Desktop: Side by side */
   @apply lg:flex-row;
+}
+
+/* Mobile: Remove border and border radius for edge-to-edge design */
+@media (max-width: 639px) {
+  .dashboard-main {
+    border: none;
+    border-radius: 0;
+  }
 }
 
 /* Unified container pattern for sidebar + main content */

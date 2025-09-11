@@ -560,27 +560,25 @@ const ToDoPanel = ({
       {/* Banner for list limit */}
       <AnimatePresence>
         {willReachListLimit && showListLimitBanner && (
-          <div className="px-2">
-            <Banner
-              message={
-                <>
-                  Your plan allows for a maximum of {STARTER_TIER_MAX_LISTS} lists.{' '}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowUpgradeModal(true);
-                    }}
-                    className="underline text-blue-700 hover:text-blue-900"
-                  >
-                    Upgrade to create more!
-                  </a>
-                </>
-              }
-              type="info"
-              onDismiss={() => setShowListLimitBanner(false)}
-            />
-          </div>
+          <Banner
+            message={
+              <>
+                Your plan allows for a maximum of {STARTER_TIER_MAX_LISTS} lists.{' '}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowUpgradeModal(true);
+                  }}
+                  className="underline text-blue-700 hover:text-blue-900"
+                >
+                  Upgrade to create more!
+                </a>
+              </>
+            }
+            type="info"
+            onDismiss={() => setShowListLimitBanner(false)}
+          />
         )}
       </AnimatePresence>
 
