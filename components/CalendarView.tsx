@@ -162,6 +162,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return () => window.removeEventListener('resize', checkLegendHeight);
   }, [categories]);
 
+  // Detect mobile for calendar popup behavior
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Format header text based on view and date
   let headerText = '';
   if (date) {
@@ -201,6 +212,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; event: TaskEvent | null } | null>(null);
   const [isLegendExpanded, setIsLegendExpanded] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(false);
 
   // Memoized event component to prevent unnecessary re-renders
   const EventComponent = React.useMemo(() => {
@@ -570,7 +582,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             endAccessor="end"
             style={{ height: '100%', minWidth: '100%' }}
             components={{ toolbar: () => null, event: EventComponent }}
-            popup
+            popup={!isMobile}
             onSelectEvent={onEventClick}
             view={view}
             date={date}
