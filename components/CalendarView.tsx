@@ -385,11 +385,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             width: calc(100% / 7) !important;
             min-width: calc(100% / 7) !important;
             max-width: calc(100% / 7) !important;
+            padding: 2px !important;
           }
           
           .rbc-month-view .rbc-row {
             width: 100% !important;
             max-width: 100vw !important;
+          }
+          
+          /* Ensure calendar events have proper width */
+          .rbc-event {
+            min-width: 60px !important;
+            max-width: calc(100% - 4px) !important;
+          }
+          
+          /* Better event text handling */
+          .rbc-event-content {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            padding: 2px 4px !important;
           }
         }
         
@@ -481,7 +495,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       `}</style>
       {/* Google Calendar Sync Bar */}
       {googleCalendarSyncComponent && (
-        <div className="px-4 pt-2 pb-1 mb-2">{googleCalendarSyncComponent}</div>
+        <div className="px-2 lg:px-4 pt-1 pb-1 mb-1 lg:mb-2">{googleCalendarSyncComponent}</div>
       )}
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-4 py-2 lg:border-b">
