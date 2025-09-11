@@ -534,7 +534,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       `}</style>
       {/* Google Calendar Sync Bar */}
       {googleCalendarSyncComponent && (
-        <div className="mb-2">{googleCalendarSyncComponent}</div>
+        <div className="px-2 lg:px-4 pt-1 pb-1 mb-1 lg:mb-2">{googleCalendarSyncComponent}</div>
       )}
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-4 py-2 lg:border-b">

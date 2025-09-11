@@ -215,53 +215,55 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   };
 
   if (compact) {
-    // Compact single-line UI - no padding/borders, right-aligned actions
+    // Compact single-line UI with background and padding, right-aligned actions
     return (
-      <div className="flex items-center justify-between w-full">
-        {/* Left: Google Calendar status */}
-        <div className="flex items-center gap-2">
-          <img src="/Google__G__logo.svg" alt="Google" className="w-4 h-4 flex-shrink-0" />
-          {calendarStatus.isLinked ? (
-            <span className="text-xs text-[#332B42]">
-              Synced with GCal {formatLastSync(calendarStatus.lastSyncAt)}
-            </span>
-          ) : (
-            <span className="text-xs text-gray-500">Not linked to GCal</span>
+      <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded px-3 py-2">
+        <div className="flex items-center justify-between w-full">
+          {/* Left: Google Calendar status */}
+          <div className="flex items-center gap-2">
+            <img src="/Google__G__logo.svg" alt="Google" className="w-3 h-3 flex-shrink-0" />
+            {calendarStatus.isLinked ? (
+              <span className="text-xs text-[#332B42]">
+                Synced with GCal
+              </span>
+            ) : (
+              <span className="text-xs text-gray-500">Not linked to GCal</span>
+            )}
+          </div>
+          
+          {/* Right: Action links (only show if linked) */}
+          {calendarStatus.isLinked && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  if (todoItems.length === 0) {
+                    showErrorToast('Add to-do items to sync with Google Calendar.');
+                    return;
+                  }
+                  await handleUnifiedSync();
+                }}
+                disabled={isSyncing}
+                className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1 disabled:opacity-50"
+              >
+                {isSyncing ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                Resync
+              </button>
+              <div className="w-1 h-1 bg-[#A85C36] rounded-full"></div>
+              <button
+                onClick={openGoogleCalendar}
+                className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
+                title="Open in Google Calendar"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open
+              </button>
+            </div>
           )}
         </div>
-        
-        {/* Right: Action links (only show if linked) */}
-        {calendarStatus.isLinked && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={async () => {
-                if (todoItems.length === 0) {
-                  showErrorToast('Add to-do items to sync with Google Calendar.');
-                  return;
-                }
-                await handleUnifiedSync();
-              }}
-              disabled={isSyncing}
-              className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1 disabled:opacity-50"
-            >
-              {isSyncing ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3 h-3" />
-              )}
-              Resync
-            </button>
-            <div className="w-1 h-1 bg-[#A85C36] rounded-full"></div>
-            <button
-              onClick={openGoogleCalendar}
-              className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
-              title="Open in Google Calendar"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Open
-            </button>
-          </div>
-        )}
       </div>
     );
   }
