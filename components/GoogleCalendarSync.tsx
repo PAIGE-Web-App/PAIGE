@@ -215,21 +215,22 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   };
 
   if (compact) {
-    // Compact bar UI - optimized for mobile with buttons on separate row
+    // Compact single-line UI - no padding/borders, right-aligned actions
     return (
-      <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded px-3 py-2">
-        {/* First row: Google Calendar info */}
-        <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center justify-between w-full">
+        {/* Left: Google Calendar status */}
+        <div className="flex items-center gap-2">
           <img src="/Google__G__logo.svg" alt="Google" className="w-4 h-4 flex-shrink-0" />
-          <span className="text-xs font-medium text-[#332B42]">Google Calendar:</span>
           {calendarStatus.isLinked ? (
-            <span className="text-xs text-green-700">Synced {formatLastSync(calendarStatus.lastSyncAt)}</span>
+            <span className="text-xs text-[#332B42]">
+              Synced with GCal {formatLastSync(calendarStatus.lastSyncAt)}
+            </span>
           ) : (
-            <span className="text-xs text-gray-500">Not linked</span>
+            <span className="text-xs text-gray-500">Not linked to GCal</span>
           )}
         </div>
         
-        {/* Second row: Action links (only show if linked) */}
+        {/* Right: Action links (only show if linked) */}
         {calendarStatus.isLinked && (
           <div className="flex items-center gap-2">
             <button
@@ -248,7 +249,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
               ) : (
                 <RefreshCw className="w-3 h-3" />
               )}
-              Re-sync with GCal
+              Resync
             </button>
             <div className="w-1 h-1 bg-[#A85C36] rounded-full"></div>
             <button
