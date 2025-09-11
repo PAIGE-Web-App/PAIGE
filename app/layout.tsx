@@ -5,6 +5,7 @@ import { Playfair_Display, Work_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
+import { CreditProvider } from "../contexts/CreditContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import VerticalNavWrapper from "../components/VerticalNavWrapper";
@@ -39,21 +40,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>
           <SWRProvider>
-
-            
-            {/* New Vertical Navigation */}
-            {!hideNav && (
-              <VerticalNavWrapper>
+            <CreditProvider>
+              {/* New Vertical Navigation */}
+              {!hideNav && (
+                <VerticalNavWrapper>
+                  <GlobalErrorBoundary>
+                    {children}
+                  </GlobalErrorBoundary>
+                </VerticalNavWrapper>
+              )}
+              {hideNav && (
                 <GlobalErrorBoundary>
                   {children}
                 </GlobalErrorBoundary>
-              </VerticalNavWrapper>
-            )}
-            {hideNav && (
-              <GlobalErrorBoundary>
-                {children}
-              </GlobalErrorBoundary>
-            )}
+              )}
+            </CreditProvider>
             
             <IdleTimeoutManager />
             <Toaster

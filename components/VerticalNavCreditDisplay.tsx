@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
-import { useCredits } from '@/hooks/useCredits';
+import { useCredits } from '@/contexts/CreditContext';
 import { useRouter } from 'next/navigation';
-import { creditEventEmitter, CreditEventData } from '@/utils/creditEventEmitter';
 import CreditToast from './CreditToast';
 
 export default function VerticalNavCreditDisplay() {
@@ -45,18 +44,8 @@ export default function VerticalNavCreditDisplay() {
 
   // Removed aggressive polling to prevent infinite loops
 
-  // Listen for credit refresh events to trigger useCredits reload
-  useEffect(() => {
-    const handleCreditRefresh = () => {
-      loadCredits();
-    };
-
-    const unsubscribe = creditEventEmitter.subscribe(handleCreditRefresh);
-    
-    return () => {
-      unsubscribe();
-    };
-  }, [loadCredits]);
+  // Credit refresh is now handled centrally in CreditProvider
+  // No need for individual event listeners
 
   if (loading) {
     return (

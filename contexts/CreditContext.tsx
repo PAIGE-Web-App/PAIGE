@@ -1,0 +1,310 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from './AuthContext';
+import { creditServiceClient } from '@/lib/creditServiceClient';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import {
+  UserCredits,
+  CreditTransaction,
+  AIFeature,
+  CreditValidationResult
+} from '@/types/credits';
+import { logger } from '@/utils/logger';
+
+interface CreditContextType {
+  // State
+  credits: UserCredits | null;
+  loading: boolean;
+  error: string | null;
+  creditHistory: CreditTransaction[];
+  
+  // Computed values
+  getRemainingCredits: () => number;
+  
+  // Actions
+  loadCredits: () => Promise<void>;
+  loadCreditHistory: () => Promise<void>;
+  validateCredits: (feature: AIFeature) => Promise<CreditValidationResult>;
+  useCredits: (feature: AIFeature, metadata?: Record<string, any>) => Promise<boolean>;
+  hasAccessToFeature: (feature: AIFeature) => boolean;
+  refreshCredits: () => Promise<void>;
+  
+  // Credit change detection for UI
+  getPreviousCredits: () => number;
+  setPreviousCredits: (credits: number) => void;
+}
+
+const CreditContext = createContext<CreditContextType | undefined>(undefined);
+
+// Cache for credit data to reduce Firestore reads
+const creditCache = {
+  data: null as UserCredits | null,
+  timestamp: 0,
+  duration: 30000, // 30 seconds
+};
+
+export function CreditProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const [credits, setCredits] = useState<UserCredits | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creditHistory, setCreditHistory] = useState<CreditTransaction[]>([]);
+  const [previousCredits, setPreviousCredits] = useState(0);
+  
+  // Track if we've initialized to prevent duplicate loads
+  const initializedRef = useRef(false);
+  const eventListenerRef = useRef<(() => void) | null>(null);
+
+  // Load user credits with caching
+  const loadCredits = useCallback(async () => {
+    if (!user?.uid) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    // Check cache first
+    const now = Date.now();
+    if (creditCache.data && (now - creditCache.timestamp) < creditCache.duration) {
+      setCredits(creditCache.data);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      
+      logger.perf('Loading credits from API', { userId: user.uid });
+      const userCredits = await creditServiceClient.getUserCredits(user.uid);
+      
+      if (userCredits) {
+        setCredits(userCredits);
+        // Update cache
+        creditCache.data = userCredits;
+        creditCache.timestamp = now;
+      } else {
+        // Initialize credits for new user
+        try {
+          const newCredits = await creditServiceClient.initializeUserCredits(
+            user.uid,
+            'couple', // Default to couple for now
+            'free'    // Default to free tier
+          );
+          setCredits(newCredits);
+          // Update cache
+          creditCache.data = newCredits;
+          creditCache.timestamp = now;
+        } catch (initError) {
+          logger.error('Failed to initialize credits', initError);
+          setError('Failed to initialize credits');
+        }
+      }
+    } catch (err) {
+      logger.error('Error loading credits:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load credits');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.uid]);
+
+  // Load credit history
+  const loadCreditHistory = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const history = await creditServiceClient.getCreditHistory(user.uid, 20);
+      setCreditHistory(history);
+    } catch (err) {
+      logger.error('Failed to load credit history:', err);
+    }
+  }, [user?.uid]);
+
+  // Validate credits for a feature
+  const validateCredits = useCallback(async (
+    feature: AIFeature
+  ): Promise<CreditValidationResult> => {
+    if (!user?.uid) {
+      return {
+        hasEnoughCredits: false,
+        requiredCredits: 0,
+        currentCredits: 0,
+        remainingCredits: 0,
+        canProceed: false,
+        message: 'User not authenticated'
+      };
+    }
+
+    try {
+      return await creditServiceClient.validateCredits(user.uid, feature);
+    } catch (err) {
+      logger.error('Error validating credits:', err);
+      return {
+        hasEnoughCredits: false,
+        requiredCredits: 0,
+        currentCredits: 0,
+        remainingCredits: 0,
+        canProceed: false,
+        message: 'Error validating credits'
+      };
+    }
+  }, [user?.uid]);
+
+  // Use credits for a feature
+  const useCredits = useCallback(async (
+    feature: AIFeature,
+    metadata?: Record<string, any>
+  ): Promise<boolean> => {
+    if (!user?.uid) return false;
+
+    try {
+      const success = await creditServiceClient.deductCredits(user.uid, feature, metadata);
+      
+      if (success) {
+        // Invalidate cache and reload credits
+        creditCache.data = null;
+        creditCache.timestamp = 0;
+        await loadCredits();
+        await loadCreditHistory();
+        
+        // Emit credit event for UI updates
+        creditEventEmitter.emit();
+      }
+      
+      return success;
+    } catch (err) {
+      logger.error('Failed to use credits:', err);
+      return false;
+    }
+  }, [user?.uid, loadCredits, loadCreditHistory]);
+
+  // Check if user has access to a feature
+  const hasAccessToFeature = useCallback((feature: AIFeature): boolean => {
+    if (!credits) return false;
+    
+    const remainingCredits = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+    
+    // Define credit requirements for each feature
+    const creditRequirements: Record<AIFeature, number> = {
+      'draft_message': 1,
+      'draft_response': 1,
+      'todo_generation': 2,
+      'file_analysis': 3,
+      'message_analysis': 2,
+      'integrated_planning': 5,
+      'budget_generation': 3,
+      'vibe_generation': 2,
+      'vendor_suggestions': 2,
+      'follow_up_questions': 1,
+    };
+    
+    const requiredCredits = creditRequirements[feature] || 1;
+    return remainingCredits >= requiredCredits;
+  }, [credits]);
+
+  // Get remaining credits
+  const getRemainingCredits = useCallback((): number => {
+    if (!credits) return 0;
+    return (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
+  }, [credits]);
+
+  // Initialize credits on mount
+  useEffect(() => {
+    if (user?.uid && !initializedRef.current) {
+      initializedRef.current = true;
+      loadCredits();
+    }
+  }, [user?.uid, loadCredits]);
+
+  // Set up credit event listener (only once)
+  useEffect(() => {
+    if (!eventListenerRef.current) {
+      const handleCreditEvent = (data?: any) => {
+        // Invalidate cache immediately to force fresh data
+        creditCache.data = null;
+        creditCache.timestamp = 0;
+        // Load credits immediately to get fresh data
+        loadCredits();
+      };
+
+      const unsubscribe = creditEventEmitter.subscribe(handleCreditEvent);
+      eventListenerRef.current = unsubscribe;
+    }
+
+    return () => {
+      if (eventListenerRef.current) {
+        eventListenerRef.current();
+        eventListenerRef.current = null;
+      }
+    };
+  }, [loadCredits]);
+
+  // Polling mechanism to check for credit updates
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const pollInterval = setInterval(() => {
+      // Only poll if we have credits and it's been more than 5 seconds since last update
+      const now = Date.now();
+      if (credits && (now - creditCache.timestamp) > 5000) {
+        // Check if credits might have changed by doing a quick validation
+        // This is a lightweight check that doesn't invalidate cache
+        loadCredits();
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [user?.uid, credits, loadCredits]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (eventListenerRef.current) {
+        eventListenerRef.current();
+      }
+    };
+  }, []);
+
+  // Force refresh credits (bypasses cache)
+  const refreshCredits = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    // Invalidate cache to force fresh data
+    creditCache.data = null;
+    creditCache.timestamp = 0;
+    
+    // Load fresh credits
+    await loadCredits();
+  }, [user?.uid, loadCredits]);
+
+  const value: CreditContextType = {
+    credits,
+    loading,
+    error,
+    creditHistory,
+    getRemainingCredits,
+    loadCredits,
+    loadCreditHistory,
+    validateCredits,
+    useCredits,
+    hasAccessToFeature,
+    refreshCredits,
+    getPreviousCredits: () => previousCredits,
+    setPreviousCredits,
+  };
+
+  return (
+    <CreditContext.Provider value={value}>
+      {children}
+    </CreditContext.Provider>
+  );
+}
+
+export function useCredits() {
+  const context = useContext(CreditContext);
+  if (context === undefined) {
+    throw new Error('useCredits must be used within a CreditProvider');
+  }
+  return context;
+}

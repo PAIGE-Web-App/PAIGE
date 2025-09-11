@@ -187,13 +187,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
         // Trigger credit refresh for useCredits hook
         if (budgetResponse.credits && budgetResponse.credits.required > 0) {
           console.log('🎯 Budget generation complete, triggering credit refresh:', budgetResponse.credits);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('creditUpdateEvent', Date.now().toString());
-            setTimeout(async () => {
-              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-              creditEventEmitter.emit();
-            }, 1000);
-          }
+          // Credit refresh is now handled by the useBudget hook
         }
         } else {
           throw new Error('Failed to generate budget');

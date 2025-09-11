@@ -13,7 +13,7 @@ import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
-import { useCredits } from "../../hooks/useCredits";
+import { useCredits } from "../../contexts/CreditContext";
 
 // Import new components
 import PinterestBanner from "../../components/inspiration/PinterestBanner";
@@ -50,7 +50,7 @@ export default function MoodBoardsPage() {
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
-  const { credits } = useCredits();
+  const { credits, refreshCredits } = useCredits();
   
   // User plan (for now, default to free - you can integrate with your billing system)
   const userPlan = PLAN_LIMITS.free;
@@ -467,8 +467,12 @@ export default function MoodBoardsPage() {
         
         setMoodBoards(updatedMoodBoards);
         
-        // Emit credit update event to refresh credit display
-        creditEventEmitter.emit();
+        // Refresh credits after successful completion
+        try {
+          await refreshCredits();
+        } catch (refreshError) {
+          console.warn('Failed to refresh credits after vibe generation:', refreshError);
+        }
         
         const vibeText = newVibes.length === 1 ? 'vibe' : 'vibes';
         showSuccessToast(`Generated ${newVibes.length} new ${vibeText} from your image!`);
@@ -585,8 +589,12 @@ export default function MoodBoardsPage() {
         
         setMoodBoards(updatedMoodBoards);
         
-        // Emit credit update event to refresh credit display
-        creditEventEmitter.emit();
+        // Refresh credits after successful completion
+        try {
+          await refreshCredits();
+        } catch (refreshError) {
+          console.warn('Failed to refresh credits after bulk vibe generation:', refreshError);
+        }
         
         const vibeText = uniqueNewVibes.length === 1 ? 'vibe' : 'vibes';
         showSuccessToast(`Generated ${uniqueNewVibes.length} new ${vibeText} from all images!`);

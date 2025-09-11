@@ -64,10 +64,10 @@ export class CreditService {
         updatedAt: new Date()
       };
 
-      // Update the user document with credits field
-      await userRef.update({
+      // Create or update the user document with credits field
+      await userRef.set({
         credits: newUserCredits
-      });
+      }, { merge: true });
       
       return newUserCredits;
     } catch (error) {
@@ -221,6 +221,14 @@ export class CreditService {
           'credits.creditHistory': updatedCreditHistory,
           'credits.updatedAt': new Date()
         });
+      });
+
+      // Emit credit update event to notify clients
+      const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
+      creditEventEmitter.emit({
+        creditsBeforeDeduction: totalAvailable,
+        feature,
+        requiredCredits: cost
       });
 
       return true;

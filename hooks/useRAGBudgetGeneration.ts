@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCredits } from '@/contexts/CreditContext';
 import { creditEventEmitter } from '@/utils/creditEventEmitter';
 import { getCreditCosts } from '@/types/credits';
 
@@ -43,6 +44,7 @@ interface RAGBudgetResponse {
 
 export function useRAGBudgetGeneration() {
   const { user } = useAuth();
+  const { refreshCredits } = useCredits();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,8 +110,12 @@ export function useRAGBudgetGeneration() {
         throw new Error(data.error || 'Budget generation failed');
       }
 
-      // Credit event emission moved to AIBudgetAssistantRAG component 
-      // after budget generation is complete and credits are confirmed deducted
+      // Refresh credits after successful completion
+      try {
+        await refreshCredits();
+      } catch (refreshError) {
+        console.warn('Failed to refresh credits after budget generation:', refreshError);
+      }
 
       return data;
     } catch (err) {
@@ -119,7 +125,7 @@ export function useRAGBudgetGeneration() {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, refreshCredits]);
 
   return {
     generateBudget,

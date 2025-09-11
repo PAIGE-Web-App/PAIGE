@@ -13,8 +13,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import Banner from './Banner';
 import TodoItemSkeleton from './TodoItemSkeleton';
 import UnsavedChangesModal from './UnsavedChangesModal';
-import { useCredits } from '../hooks/useCredits';
-import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import { useCredits } from '../contexts/CreditContext';
 import CreditToast from './CreditToast';
 import { useRouter } from 'next/navigation';
 import NotEnoughCreditsModal from './NotEnoughCreditsModal';
@@ -398,19 +397,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     }
   }, [credits]);
 
-  // Listen for credit updates
-  React.useEffect(() => {
-    const handleCreditUpdate = () => {
-      setTimeout(async () => {
-        await loadCredits();
-      }, 500);
-    };
-
-    // Temporarily disable to test for duplicates
-    // const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
-    
-    // return () => unsubscribe();
-  }, [loadCredits]);
+  // Credit updates are now handled centrally in CreditProvider
+  // No need for individual event listeners
 
   return (
     <>
@@ -1006,15 +994,8 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         setLoadingStage('complete');
         
         // Trigger credit refresh for useCredits hook
-        if (ragResponse.credits && ragResponse.credits.required > 0) {
-          console.log('🎯 Todo generation complete, triggering credit refresh:', ragResponse.credits);
-          if (typeof window !== 'undefined') {
-            setTimeout(async () => {
-              const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-              creditEventEmitter.emit();
-            }, 300);
-          }
-        }
+        // Credit refresh is now handled centrally in CreditProvider
+        // No need for manual event emission
       } else {
         throw new Error('Failed to generate todo list');
       }

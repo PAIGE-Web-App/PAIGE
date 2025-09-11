@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCredits } from '@/hooks/useCredits';
+import { useCredits } from '@/contexts/CreditContext';
 import { useRouter } from 'next/navigation';
-import { creditEventEmitter } from '@/utils/creditEventEmitter';
 
 export default function MobileCreditBar() {
   const { getRemainingCredits, loading, credits, loadCredits } = useCredits();
@@ -45,21 +44,8 @@ export default function MobileCreditBar() {
     }
   }, [credits, hasInitialized, previousCredits]);
 
-  // Listen for credit events
-  useEffect(() => {
-    const handleCreditEvent = () => {
-      // Reload credits to get updated values
-      loadCredits();
-    };
-
-    const unsubscribe = creditEventEmitter.subscribe(handleCreditEvent);
-    return () => unsubscribe();
-  }, [loadCredits]);
-
-  // Load credits on mount
-  useEffect(() => {
-    loadCredits();
-  }, [loadCredits]);
+  // Credit loading and event handling is now managed centrally in CreditProvider
+  // No need for individual loadCredits calls or event listeners
 
   // Click outside handler for info popover
   useEffect(() => {

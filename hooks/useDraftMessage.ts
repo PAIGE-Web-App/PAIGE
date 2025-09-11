@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useCredits } from "@/contexts/CreditContext";
 
 export function useDraftMessage() {
+  const { refreshCredits } = useCredits();
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -80,6 +82,14 @@ export function useDraftMessage() {
       // Handle successful response
       if (data.draft && typeof data.draft === "string") {
         setDraft(data.draft);
+        
+        // Refresh credits after successful completion
+        try {
+          await refreshCredits();
+        } catch (refreshError) {
+          console.warn('Failed to refresh credits after draft generation:', refreshError);
+        }
+        
         return data.draft;
       } else {
         console.warn("Unexpected draft response:", data);

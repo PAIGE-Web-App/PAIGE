@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCustomToast } from './useCustomToast';
 import { useAuth } from './useAuth';
+import { useCredits } from '@/contexts/CreditContext';
 import { getCategoryColor } from '@/utils/categoryIcons';
 import { useRAGTodoGeneration } from './useRAGTodoGeneration';
 import {
@@ -40,6 +41,7 @@ const DEFAULT_CATEGORIES = [
 
 export function useBudget() {
   const { user } = useAuth();
+  const { refreshCredits } = useCredits();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { generateTodos } = useRAGTodoGeneration();
 
@@ -739,6 +741,13 @@ export function useBudget() {
       
       // Create the budget from AI response
       await createBudgetFromAI(data);
+      
+      // Refresh credits after successful completion
+      try {
+        await refreshCredits();
+      } catch (refreshError) {
+        console.warn('Failed to refresh credits after budget generation:', refreshError);
+      }
       
       showSuccessToast('AI budget generated successfully!');
     } catch (error: any) {

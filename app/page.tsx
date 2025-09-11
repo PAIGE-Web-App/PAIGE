@@ -43,7 +43,35 @@ import GmailReauthBanner from "../components/GmailReauthBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import type { TodoItem } from '../types/todo';
 import { COUPLE_SUBSCRIPTION_CREDITS } from "../types/credits";
-import { useCredits } from "../hooks/useCredits";
+import { useCredits } from "../contexts/CreditContext";
+
+// Component that uses credits for the modal
+function NotEnoughCreditsModalWrapper({ 
+  isOpen, 
+  onClose, 
+  requiredCredits, 
+  feature, 
+  accountInfo 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  requiredCredits: number;
+  feature: string;
+  accountInfo: any;
+}) {
+  const { credits } = useCredits();
+  
+  return (
+    <NotEnoughCreditsModal
+      isOpen={isOpen}
+      onClose={onClose}
+      requiredCredits={requiredCredits}
+      currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
+      feature={feature}
+      accountInfo={accountInfo}
+    />
+  );
+}
 
 import { Contact } from "../types/contact";
 import { SimpleMessage } from "../types/message";
@@ -182,7 +210,6 @@ export default function Home() {
   // Hooks
   const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
-  const { credits } = useCredits();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -880,15 +907,15 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      {/* Show loading spinner during onboarding check */}
-      {onboardingCheckLoading && (
-        <div className="flex items-center justify-center min-h-screen">
-          <LoadingSpinner size="lg" text="Checking your account..." />
-        </div>
-      )}
+        {/* Show loading spinner during onboarding check */}
+        {onboardingCheckLoading && (
+          <div className="flex items-center justify-center min-h-screen">
+            <LoadingSpinner size="lg" text="Checking your account..." />
+          </div>
+        )}
 
-      {/* Only render dashboard content if not checking onboarding */}
-      {!onboardingCheckLoading && (
+        {/* Only render dashboard content if not checking onboarding */}
+        {!onboardingCheckLoading && (
         <>
           <WeddingBanner
             daysLeft={daysLeft}
@@ -1044,11 +1071,10 @@ export default function Home() {
           
           {/* Not Enough Credits Modal */}
           <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading credits modal...</div></div></div>}>
-            <NotEnoughCreditsModal
+            <NotEnoughCreditsModalWrapper
               isOpen={showNotEnoughCreditsModal}
               onClose={() => setShowNotEnoughCreditsModal(false)}
               requiredCredits={creditModalData.requiredCredits}
-              currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
               feature={creditModalData.feature}
               accountInfo={{
                 tier: 'Free',
@@ -1060,6 +1086,6 @@ export default function Home() {
         </>
       )}
 
-    </div>
+      </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles, Zap, FileText, MessageSquare, Calendar, DollarSign, Heart, Users, HelpCircle } from 'lucide-react';
-import { useCredits } from '../../../hooks/useCredits';
+import { useCredits } from '../../../contexts/CreditContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserType } from '../../../types/credits';
 

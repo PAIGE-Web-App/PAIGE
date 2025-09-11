@@ -24,8 +24,7 @@ import GmailReauthBanner from './GmailReauthBanner';
 import DropdownMenu, { DropdownItem } from './DropdownMenu';
 import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 import { useUserProfileData } from "../hooks/useUserProfileData";
-import { useCredits } from "../hooks/useCredits";
-import { creditEventEmitter } from '@/utils/creditEventEmitter';
+import { useCredits } from "../contexts/CreditContext";
 
 
 // Define interfaces for types needed in this component
@@ -739,7 +738,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           // Notify other components about credit update
           if (typeof window !== 'undefined') {
             localStorage.setItem('creditUpdateEvent', Date.now().toString());
-            creditEventEmitter.emit();
+            // Credit event emission is now handled centrally in CreditProvider
           }
         } catch (error) {
           console.error('[handleGenerateDraft] Failed to refresh credits after reply:', error);
@@ -768,7 +767,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           // Notify other components about credit update
           if (typeof window !== 'undefined') {
             localStorage.setItem('creditUpdateEvent', Date.now().toString());
-            creditEventEmitter.emit();
+            // Credit event emission is now handled centrally in CreditProvider
           }
         } catch (error) {
           console.error('[handleGenerateDraft] Failed to refresh credits after new draft:', error);

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCredits } from '@/contexts/CreditContext';
 
 interface RAGTodoRequest {
   description: string;
@@ -44,6 +45,7 @@ interface RAGTodoResponse {
 
 export function useRAGTodoGeneration() {
   const { user } = useAuth();
+  const { refreshCredits } = useCredits();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,6 +151,13 @@ export function useRAGTodoGeneration() {
         throw new Error(data.error || 'Todo generation failed');
       }
 
+      // Refresh credits after successful completion
+      try {
+        await refreshCredits();
+      } catch (refreshError) {
+        console.warn('Failed to refresh credits after todo generation:', refreshError);
+      }
+
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Todo generation failed';
@@ -157,7 +166,7 @@ export function useRAGTodoGeneration() {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, refreshCredits]);
 
   return {
     generateTodos,
