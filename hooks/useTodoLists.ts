@@ -164,7 +164,7 @@ export function useTodoLists() {
     });
 
     return () => unsubscribeLists();
-  }, [user, explicitAllSelected, selectedList]);
+  }, [user]);
 
   // Add new list
   const handleAddList = async (nameOrEvent: string | React.MouseEvent, tasks?: any[]) => {
@@ -491,6 +491,7 @@ export function useTodoLists() {
 
     // Setters
     setSelectedList,
+    setExplicitAllSelected,
     setNewListName,
     setShowNewListInput,
     setEditingListNameId,

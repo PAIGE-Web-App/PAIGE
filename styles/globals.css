@@ -586,6 +586,14 @@ h6 {
   @apply flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden;
 }
 
+/* Mobile: Remove border and border-radius for unified container */
+@media (max-width: 1023px) {
+  .unified-container {
+    border: none !important;
+    border-radius: 0 !important;
+  }
+}
+
 /* Sidebar styling within unified container */
 .unified-sidebar {
   @apply w-full lg:w-[320px] bg-[#F3F2F0] border-r border-[#AB9C95] relative flex-shrink-0 min-h-full flex flex-col;
@@ -626,6 +634,33 @@ h6 {
 }
 
 .messages-panel.mobile-messages-view {
+  @apply flex;
+}
+
+/* Mobile view modes for todo sidebar */
+.unified-sidebar.mobile-lists-view {
+  @apply block;
+}
+
+.unified-sidebar.mobile-items-view {
+  @apply hidden lg:block;
+}
+
+/* Mobile view modes for todo list view */
+.unified-main-content.mobile-lists-view {
+  @apply hidden lg:flex;
+}
+
+.unified-main-content.mobile-items-view {
+  @apply flex;
+}
+
+/* Mobile view modes for todo list view content */
+.mobile-lists-view {
+  @apply hidden lg:flex;
+}
+
+.mobile-items-view {
   @apply flex;
 }
 

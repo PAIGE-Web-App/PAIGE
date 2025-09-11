@@ -30,6 +30,10 @@ interface TodoSidebarProps {
   // Props for moving to-do items between lists
   draggedTodoId?: string | null;
   onMoveTodoItem?: (taskId: string, currentListId: string, targetListId: string) => Promise<void>;
+  
+  // Mobile view mode props
+  mobileViewMode?: 'lists' | 'items';
+  onMobileListSelect?: (listId: string) => void;
 }
 
 const TodoSidebar: React.FC<TodoSidebarProps> = ({
@@ -55,6 +59,8 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   showUpgradeModal,
   draggedTodoId,
   onMoveTodoItem,
+  mobileViewMode = 'lists',
+  onMobileListSelect,
 }) => {
   const [showAddListModal, setShowAddListModal] = React.useState(false);
   const [creationStep, setCreationStep] = useState<'choose' | 'manual' | 'import' | 'ai'>('choose');
@@ -135,10 +141,15 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
     setSelectedList(list);
     setTodoSearchQuery('');
     setShowCompletedItems(false);
+    
+    // Handle mobile view mode
+    if (onMobileListSelect) {
+      onMobileListSelect(list.id);
+    }
   };
 
   return (
-    <aside className="unified-sidebar">
+    <aside className={`unified-sidebar mobile-${mobileViewMode}-view`}>
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between p-6 pb-2 border-b border-[#E0DBD7]">
           <h4 className="text-lg font-playfair font-medium text-[#332B42] flex items-center">To-do Lists</h4>
@@ -155,8 +166,16 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
         <div className="p-6 pt-0">
           <div className="space-y-1">
             <div
-              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && !showCompletedItems ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
-              onClick={() => { selectAllItems(); setShowCompletedItems(false); setTodoSearchQuery(''); }}
+              className={`flex items-center px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && !showCompletedItems && mobileViewMode !== 'lists' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mt-4 mb-2`}
+              onClick={() => { 
+                selectAllItems(); 
+                setShowCompletedItems(false); 
+                setTodoSearchQuery(''); 
+                // Handle mobile view mode
+                if (onMobileListSelect) {
+                  onMobileListSelect('all-items');
+                }
+              }}
             >
               <span className="mr-2" title="All To-Do Items">
                 {/* ListChecks icon should be imported where this component is used */}
@@ -168,8 +187,16 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
               </span>
             </div>
             <div
-              className={`flex items-center px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && showCompletedItems ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mb-8`}
-              onClick={() => { selectAllItems(); setShowCompletedItems(true); setTodoSearchQuery(''); }}
+              className={`flex items-center px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${!selectedList && showCompletedItems && mobileViewMode !== 'lists' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} mb-12`}
+              onClick={() => { 
+                selectAllItems(); 
+                setShowCompletedItems(true); 
+                setTodoSearchQuery(''); 
+                // Handle mobile view mode
+                if (onMobileListSelect) {
+                  onMobileListSelect('completed-items');
+                }
+              }}
             >
               <span className="mr-2" title="Completed To-Do Items">
                 {/* CircleCheck icon should be imported where this component is used */}
@@ -180,7 +207,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                 <BadgeCount count={allTodoItems.filter(item => item.isCompleted).length} />
               </span>
             </div>
-            <SectionHeader title="Your Lists" />
+            <SectionHeader title="Your Lists" className="pt-3" />
             {todoLists.map((list) => (
               <div
                 key={list.id}
@@ -212,7 +239,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                     onMoveTodoItem(draggedTodoId, selectedListId || '', list.id);
                   }
                 }}
-                className={`px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${draggedTodoId && onMoveTodoItem && selectedListId !== list.id ? 'cursor-copy' : ''}`}
+                className={`px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id && mobileViewMode !== 'lists' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${draggedTodoId && onMoveTodoItem && selectedListId !== list.id ? 'cursor-copy' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate flex-1 min-w-0" title={draggedTodoId && onMoveTodoItem ? `Drop to-do item here to move it to "${list.name}"` : list.name}>{list.name}</span>

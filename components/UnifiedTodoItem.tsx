@@ -381,6 +381,17 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   }, [editingNoteValue, todo.id, todo.note, handleUpdateNote]);
 
   const handleUpdateEndDate = async (todoId: string, endDate: string) => {
+    // Check if the end date has actually changed
+    const currentEndDate = todo.endDate ? 
+      (todo.endDate instanceof Date ? formatDateForInputWithTime(todo.endDate) : formatDateForInputWithTime(new Date(todo.endDate))) : 
+      '';
+    
+    if (currentEndDate === endDate) {
+      // No change, just close the editing mode
+      setIsEditingEndDate(false);
+      return;
+    }
+
     let deadlineStr = '';
     if (todo.deadline) {
       if (todo.deadline instanceof Date) {
@@ -752,7 +763,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
               />
             </span>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="w-full">
               <input
                 ref={deadlineInputRef}
                 type="datetime-local"
@@ -760,10 +771,16 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 onChange={handleDeadlineChange}
                 onBlur={handleDeadlineBlur}
                 onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                style={{ 
+                  position: 'relative',
+                  zIndex: 1000
+                }}
                 autoFocus
               />
-              <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+              <div className="flex gap-2 mt-1">
+                <button onClick={handleDeadlineCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+              </div>
             </div>
           )
         ) : (
@@ -787,53 +804,32 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                     ? todo.deadline.toLocaleString()
                     : new Date(todo.deadline).toLocaleString()}
                 </button>
-                {/* End Date logic: always show if deadline is set */}
-                {isEditingEndDate ? (
-                  <div className="flex items-center gap-2 ml-2">
-                    <input
-                      type="datetime-local"
-                      value={editingEndDateValue}
-                      onChange={e => setEditingEndDateValue(e.target.value)}
-                      onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
-                      className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
-                      autoFocus
-                      min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
-                    />
-                    <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
-                    {(todo.deadline || todo.endDate) && (
+                {/* End Date display - show arrow and end date or add button */}
+                {!isEditingEndDate && (
+                  <>
+                    {todo.endDate ? (
+                      <>
+                        <span className="mx-1">→</span>
+                        <button
+                          type="button"
+                          className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
+                          onClick={handleStartEditEndDate}
+                          disabled={todo.isCompleted}
+                          style={{ outline: 'none' }}
+                        >
+                          {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={async () => {
-                          await handleUpdateDeadline(todo.id, null, '');
-                          setIsEditingEndDate(false);
-                          setIsEditingDeadline(false);
-                        }}
-                        className="btn-primaryinverse text-xs px-2 py-1"
+                        type="button"
+                        className="ml-2 text-xs text-[#A85C36] hover:underline"
+                        onClick={handleStartEditEndDate}
                       >
-                        Remove
+                        + Add End Date
                       </button>
                     )}
-                  </div>
-                ) : todo.endDate ? (
-                  <>
-                    <span className="mx-1">→</span>
-                    <button
-                      type="button"
-                      className={`underline bg-transparent border-none p-0 text-xs text-[#364257] ${todo.isCompleted ? 'text-gray-400 cursor-not-allowed' : 'cursor-pointer hover:text-[#A85C36]'}`}
-                      onClick={handleStartEditEndDate}
-                      disabled={todo.isCompleted}
-                      style={{ outline: 'none' }}
-                    >
-                      {todo.endDate instanceof Date ? todo.endDate.toLocaleString() : new Date(todo.endDate).toLocaleString()}
-                    </button>
                   </>
-                ) : (
-                  <button
-                    type="button"
-                    className="ml-2 text-xs text-[#A85C36] hover:underline"
-                    onClick={handleStartEditEndDate}
-                  >
-                    + Add End Date
-                  </button>
                 )}
               </>
             ) : (
@@ -848,6 +844,40 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 + Add Deadline
               </button>
             )}
+          </div>
+        )}
+
+        {/* End Date editing - separate row when editing */}
+        {isEditingEndDate && (
+          <div className="w-full mt-2">
+            <input
+              type="datetime-local"
+              value={editingEndDateValue}
+              onChange={e => setEditingEndDateValue(e.target.value)}
+              onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
+              className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+              style={{ 
+                position: 'relative',
+                zIndex: 1000
+              }}
+              autoFocus
+              min={todo.deadline ? (todo.deadline instanceof Date ? formatDateForInputWithTime(todo.deadline) : formatDateForInputWithTime(new Date(todo.deadline))) : undefined}
+            />
+            <div className="flex gap-2 mt-1">
+              <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
+              {(todo.deadline || todo.endDate) && (
+                <button
+                  onClick={async () => {
+                    await handleUpdateDeadline(todo.id, null, '');
+                    setIsEditingEndDate(false);
+                    setIsEditingDeadline(false);
+                  }}
+                  className="btn-primaryinverse text-xs px-2 py-1"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
         )}
 

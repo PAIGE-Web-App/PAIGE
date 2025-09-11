@@ -10,7 +10,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // UI component imports
 import Banner from '@/components/Banner';
-import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Breadcrumb from '@/components/Breadcrumb';
@@ -209,14 +208,7 @@ export default function BudgetPage() {
     }
   }, [budget.budgetCategories, selectedCategory]);
 
-  // Handle mobile tab change
-  const handleMobileTabChange = useCallback((tab: string) => {
-    if (tab === 'dashboard') {
-      router.push('/');
-    } else if (tab === 'todo') {
-      router.push('/todo');
-    }
-  }, [router]);
+  // Mobile navigation is now handled by VerticalNavWrapper
 
   // Handle linking vendor to budget item
   const handleLinkVendor = useCallback(async (vendor: any) => {
@@ -714,11 +706,7 @@ export default function BudgetPage() {
         />
       )}
 
-      {/* Mobile Navigation */}
-      <BottomNavBar
-        activeTab="budget"
-        onTabChange={handleMobileTabChange}
-      />
+      {/* Mobile Navigation is handled by VerticalNavWrapper */}
     </div>
   );
 } 

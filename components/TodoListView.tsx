@@ -40,6 +40,10 @@ interface TodoListViewProps {
   setShowCompletedTasks: (val: boolean) => void;
   justMovedItemId: string | null;
   onMoveTodoItem?: (taskId: string, currentListId: string, targetListId: string) => Promise<void>;
+  
+  // Mobile view mode props
+  mobileViewMode?: 'lists' | 'items';
+  onMobileBackToLists?: () => void;
 }
 
 const TodoListView: React.FC<TodoListViewProps> = ({
@@ -78,6 +82,8 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   setShowCompletedTasks,
   justMovedItemId,
   onMoveTodoItem,
+  mobileViewMode = 'items',
+  onMobileBackToLists,
 }) => {
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);
@@ -91,8 +97,8 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   };
 
   return (
-    <main className="flex flex-col h-full min-h-0 bg-white p-4 pb-0">
-      <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className={`flex flex-col h-full min-h-0 bg-white mobile-${mobileViewMode}-view`}>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 pb-0">
         {todoSearchQuery.trim() ? (
           filteredTodoItems.length === 0 ? (
             <div className="text-sm text-gray-500 text-center py-4">No matching tasks found.</div>
@@ -188,7 +194,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
               return (
                 <div key={group} className="mb-6">
                   <button
-                    className="flex items-center w-full text-left text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
+                    className="flex items-center w-full text-left text-base lg:text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
                     onClick={() => toggleGroup(group)}
                   >
                     <ChevronRight
@@ -196,7 +202,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                       strokeWidth={2}
                     />
                     <span>{group}</span>
-                    <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-2.5 py-0.5 rounded-full font-work">
+                    <span className="text-xs lg:text-xs text-[10px] text-[#7A7A7A] bg-[#EBE3DD] px-2 lg:px-2.5 py-0 lg:py-0.5 rounded-full font-work">
                       {incompleteItems.length}
                     </span>
                   </button>
@@ -325,7 +331,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
 

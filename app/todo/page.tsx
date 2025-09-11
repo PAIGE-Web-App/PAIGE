@@ -10,7 +10,6 @@ import { useAuth } from '@/hooks/useAuth';
 
 // UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
-import BottomNavBar from '@/components/BottomNavBar';
 import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
@@ -98,12 +97,101 @@ export default function TodoPage() {
     selectedCategories
   );
 
-  // Handle mobile tab change
-  const handleMobileTabChange = (tab: string) => {
-    if (tab === 'dashboard') {
-      router.push('/');
+  // Mobile view mode state - similar to dashboard contacts/messages pattern
+  const [mobileViewMode, setMobileViewMode] = React.useState<'lists' | 'items'>('lists');
+  const [mobileInitialized, setMobileInitialized] = React.useState(false);
+
+  // Initialize mobile view mode based on selected list
+  React.useEffect(() => {
+    // On mobile, always start with lists view unless explicitly switched to items
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      // Mobile: only switch to items view when explicitly selected via mobile handlers
+      if (todoLists.explicitAllSelected) {
+        setMobileViewMode('items');
+      } else {
+        setMobileViewMode('lists');
+      }
+    } else {
+      // Desktop: normal behavior
+      if (todoLists.selectedList) {
+        setMobileViewMode('items');
+      } else {
+        if (todoLists.explicitAllSelected) {
+          setMobileViewMode('items');
+        } else {
+          setMobileViewMode('lists');
+        }
+      }
     }
-  };
+  }, [todoLists.selectedList, todoLists.explicitAllSelected]);
+
+  // Clear any pre-selected list on mobile initialization
+  React.useEffect(() => {
+    if (!mobileInitialized && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      // On mobile, clear any pre-selected list to start fresh
+      console.log('📱 Mobile initialization: clearing selected list');
+      todoLists.setSelectedList(null);
+      todoLists.setExplicitAllSelected(false);
+      setMobileInitialized(true);
+    }
+  }, [mobileInitialized, todoLists]);
+
+  // Force clear selected list on mobile whenever it gets set
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024 && todoLists.selectedList && !mobileInitialized) {
+      console.log('📱 Mobile: forcing clear of selected list:', todoLists.selectedList.name);
+      todoLists.setSelectedList(null);
+      todoLists.setExplicitAllSelected(false);
+    }
+  }, [todoLists.selectedList, mobileInitialized, todoLists]);
+
+  // Force mobile lists view on initial load
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      // On mobile, always start with lists view regardless of selected list
+      setMobileViewMode('lists');
+      
+      // Also clear any selected list after a short delay to ensure it happens after initial load
+      setTimeout(() => {
+        if (todoLists.selectedList) {
+          console.log('📱 Mobile timeout: clearing selected list:', todoLists.selectedList.name);
+          todoLists.setSelectedList(null);
+          todoLists.setExplicitAllSelected(false);
+        }
+      }, 100);
+    }
+  }, []);
+
+  // Debug mobile view mode
+  React.useEffect(() => {
+    console.log('📱 Mobile view mode:', mobileViewMode, 'Selected list:', todoLists.selectedList?.name);
+  }, [mobileViewMode, todoLists.selectedList]);
+
+  // Mobile handlers
+  const handleMobileListSelect = React.useCallback((listId: string) => {
+    if (listId === 'all-items') {
+      // Handle "All To-Do Items" selection
+      todoLists.setSelectedList(null);
+      setMobileViewMode('items');
+    } else if (listId === 'completed-items') {
+      // Handle "Completed To-Do Items" selection
+      todoLists.setSelectedList(null);
+      setMobileViewMode('items');
+    } else {
+      // Handle regular list selection
+      const list = todoLists.todoLists.find(l => l.id === listId);
+      if (list) {
+        todoLists.setSelectedList(list);
+        setMobileViewMode('items');
+      }
+    }
+  }, [todoLists]);
+
+  const handleMobileBackToLists = React.useCallback(() => {
+    setMobileViewMode('lists');
+  }, []);
+
+  // Mobile navigation is now handled by VerticalNavWrapper
 
   // Only show content when profile loading is complete
   const isLoading = profileLoading || loading || todoLists.todoLists === undefined;
@@ -303,9 +391,11 @@ export default function TodoPage() {
               showUpgradeModal={() => todoLists.setShowUpgradeModal(true)}
               draggedTodoId={viewOptions.draggedTodoId}
               onMoveTodoItem={todoItems.handleMoveTodoItem}
+              mobileViewMode={mobileViewMode}
+              onMobileListSelect={handleMobileListSelect}
             />
 
-            <div className="unified-main-content">
+            <div className={`unified-main-content mobile-${mobileViewMode}-view`}>
             {/* Conditional rendering for loading state */}
             {loading && !user ? (
               <div className="flex-1 flex items-center justify-center">
@@ -334,6 +424,8 @@ export default function TodoPage() {
                   selectedCategories={selectedCategories}
                   setSelectedCategories={setSelectedCategories}
                   onSyncCategories={onSyncCategories}
+                  mobileViewMode={mobileViewMode}
+                  onMobileBackToLists={handleMobileBackToLists}
             />
 
                 <AnimatePresence>
@@ -402,6 +494,8 @@ export default function TodoPage() {
                       setShowCompletedTasks={viewOptions.setShowCompletedTasks}
                       justMovedItemId={todoItems.justMovedItemId}
                       onMoveTodoItem={todoItems.handleMoveTodoItem}
+                      mobileViewMode={mobileViewMode}
+                      onMobileBackToLists={handleMobileBackToLists}
                               />
                   ) : (
                     <CalendarView
@@ -567,11 +661,7 @@ export default function TodoPage() {
         />
       )}
 
-      {/* Mobile Navigation */}
-      <BottomNavBar
-        activeTab="todo"
-        onTabChange={handleMobileTabChange}
-      />
+      {/* Mobile Navigation is handled by VerticalNavWrapper */}
     </div>
   );
 }
