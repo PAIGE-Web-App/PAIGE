@@ -3,6 +3,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import VerticalNav from './VerticalNav';
 import ModernBottomNav from './ModernBottomNav';
+import MobileCreditBar from './MobileCreditBar';
 import { useMobileDetection } from '../hooks/useMobileDetection';
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -75,6 +76,7 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
         <div className="flex-1 overflow-hidden">
           {children}
         </div>
+        <MobileCreditBar />
         <ModernBottomNav />
       </div>
     );

@@ -914,7 +914,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                         exit={{ opacity: 0, x: isSent ? 50 : -50, scale: 0.95 }}
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       >
-                      <div className="flex flex-col items-end w-full max-w-[90%]">
+                      <div className="flex flex-col items-end w-full max-w-[95%]">
                         {/* Faded parent message bubble above reply */}
                         {parentMsg && (
                           <div

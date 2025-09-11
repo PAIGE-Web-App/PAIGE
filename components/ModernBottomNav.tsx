@@ -75,7 +75,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
   return (
     <>
       {/* Bottom Navigation */}
-      <nav className={`bg-white border-t border-[#AB9C95]/30 safe-bottom ${className}`}>
+      <nav className={`bg-white border-t border-[#AB9C95]/10 safe-bottom ${className}`}>
         <div className="flex items-center justify-between px-4 py-3">
           {/* Primary Navigation Items */}
           {primaryNavItems.map((item) => {
