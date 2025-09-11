@@ -138,6 +138,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return Array.from(uniqueCategories);
   }, [visibleEvents]);
 
+  // Check if legend needs to wrap (for mobile accordion)
+  const [needsLegendAccordion, setNeedsLegendAccordion] = React.useState(false);
+  const legendRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const checkLegendHeight = () => {
+      if (legendRef.current && window.innerWidth < 1024) {
+        const legend = legendRef.current;
+        const singleRowHeight = 32; // 32px as requested
+        const actualHeight = legend.scrollHeight;
+        setNeedsLegendAccordion(actualHeight > singleRowHeight);
+      }
+    };
+
+    // Check after categories change
+    if (categories.length > 0) {
+      setTimeout(checkLegendHeight, 100);
+    }
+
+    // Check on window resize
+    window.addEventListener('resize', checkLegendHeight);
+    return () => window.removeEventListener('resize', checkLegendHeight);
+  }, [categories]);
+
   // Format header text based on view and date
   let headerText = '';
   if (date) {
@@ -176,6 +200,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; event: TaskEvent | null } | null>(null);
+  const [isLegendExpanded, setIsLegendExpanded] = React.useState(false);
 
   // Memoized event component to prevent unnecessary re-renders
   const EventComponent = React.useMemo(() => {
@@ -575,7 +600,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       {/* Legend */}
       {categories.length > 0 && (
         <div className="px-4 py-2 border-t">
-          <div className="flex flex-wrap gap-2">
+          <div 
+            ref={legendRef}
+            className={`flex flex-wrap gap-2 transition-all duration-300 ${
+              needsLegendAccordion && !isLegendExpanded 
+                ? 'h-8 overflow-hidden' 
+                : ''
+            }`}
+            style={{ 
+              maxHeight: needsLegendAccordion && !isLegendExpanded ? '32px' : 'none'
+            }}
+          >
             {categories.map(category => (
               <div key={category} className="flex items-center gap-1">
                 <div
@@ -586,6 +621,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
             ))}
           </div>
+          
+          {/* Mobile accordion toggle */}
+          {needsLegendAccordion && (
+            <button
+              onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+              className="mt-2 text-xs text-[#A85C36] hover:text-[#8B4513] flex items-center gap-1 lg:hidden"
+            >
+              {isLegendExpanded ? (
+                <>
+                  <span>Show less</span>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  <span>Show all categories</span>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>

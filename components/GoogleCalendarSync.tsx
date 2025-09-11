@@ -229,7 +229,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
           )}
         </div>
         
-        {/* Second row: Action buttons (only show if linked) */}
+        {/* Second row: Action links (only show if linked) */}
         {calendarStatus.isLinked && (
           <div className="flex items-center gap-2">
             <button
@@ -241,15 +241,16 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
                 await handleUnifiedSync();
               }}
               disabled={isSyncing}
-              className="btn-primaryinverse text-xs flex items-center gap-1"
+              className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1 disabled:opacity-50"
             >
               {isSyncing ? (
                 <RefreshCw className="w-3 h-3 animate-spin" />
               ) : (
                 <RefreshCw className="w-3 h-3" />
               )}
-              Sync with Google
+              Re-sync with GCal
             </button>
+            <div className="w-1 h-1 bg-[#A85C36] rounded-full"></div>
             <button
               onClick={openGoogleCalendar}
               className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
