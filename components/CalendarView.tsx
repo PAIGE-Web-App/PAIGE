@@ -61,8 +61,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   if (!todoItems) return null;
 
-  const events = useMemo(() => {
-    return todoItems.map(item => {
+  // Memoized event processing function
+  const processEvent = useMemo(() => {
+    return (item: TodoItem) => {
       let start: Date;
       let end: Date;
       let allDay = false;
@@ -92,7 +93,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         allDay = false; // Set to 9 AM, not all-day
       }
 
-      const event = {
+      return {
         id: item.id,
         title: item.name,
         start,
@@ -101,39 +102,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         allDay,
         category: item.category || 'Uncategorized',
       };
+    };
+  }, []);
 
-      // Debug logging for event times
-      if (item.deadline && String(item.deadline).includes('5:00 PM')) {
-        console.log('Event with 5PM deadline:', {
-          name: item.name,
-          deadline: item.deadline,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          processedStart: start,
-          processedEnd: end,
-          allDay
-        });
-      }
+  const events = useMemo(() => {
+    return todoItems.map(processEvent);
+  }, [todoItems, processEvent]);
 
-      return event;
-    });
-  }, [todoItems]);
-
-  // Filter events to only those visible in the current view
-  let visibleEvents: TaskEvent[] = [];
-  if (date) {
+  // Filter events to only those visible in the current view - with lazy loading optimization
+  const visibleEvents = useMemo(() => {
+    if (!date || !events.length) return [];
+    
+    let filtered: TaskEvent[] = [];
+    
     if (view === 'month') {
-      visibleEvents = events.filter(e => isSameMonth(e.start, date) && isSameYear(e.start, date));
+      filtered = events.filter(e => isSameMonth(e.start, date) && isSameYear(e.start, date));
     } else if (view === 'week') {
       const weekStart = startOfWeek(date, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
-      visibleEvents = events.filter(e => isWithinInterval(e.start, { start: weekStart, end: weekEnd }));
+      filtered = events.filter(e => isWithinInterval(e.start, { start: weekStart, end: weekEnd }));
     } else if (view === 'day') {
-      visibleEvents = events.filter(e => isSameDay(e.start, date));
+      filtered = events.filter(e => isSameDay(e.start, date));
     } else if (view === 'year') {
-      visibleEvents = events.filter(e => isSameYear(e.start, date));
+      filtered = events.filter(e => isSameYear(e.start, date));
     }
-  }
+    
+    // Limit events for better performance on mobile
+    const maxEvents = window.innerWidth < 768 ? 50 : 100;
+    return filtered.slice(0, maxEvents);
+  }, [events, date, view]);
 
   // Get unique categories from visible events
   const categories = useMemo(() => {
@@ -180,42 +177,73 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; event: TaskEvent | null } | null>(null);
 
-  // Custom event component
-  const EventComponent = ({ event }: { event: TaskEvent }) => {
-    // Debug logging for event styling
-    console.log('EventComponent render:', {
-      title: event.title,
-      category: event.category,
-      color: getCategoryHexColor(event.category),
-      view: view
-    });
+  // Memoized event component to prevent unnecessary re-renders
+  const EventComponent = React.useMemo(() => {
+    return React.memo(({ event }: { event: TaskEvent }) => {
+      // For week and day views, use a simpler component that works better with react-big-calendar
+      if (view === 'week' || view === 'day') {
+        const backgroundColor = event.id === 'wedding-date-event' 
+          ? 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)' 
+          : getCategoryHexColor(event.category);
+        
+        return (
+          <div
+            className="text-xs font-work flex items-center h-full w-full"
+            style={{
+              background: backgroundColor,
+              color: '#fff',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              fontWeight: event.id === 'wedding-date-event' ? 'bold' : 'normal',
+              border: event.id === 'wedding-date-event' ? '2px solid #ff7eb3' : 'none',
+              boxShadow: event.id === 'wedding-date-event' ? '0 2px 8px rgba(239,183,197,0.25)' : 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              height: '100%',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '4px 8px',
+              boxSizing: 'border-box',
+            }}
+            title={event.id === 'wedding-date-event' ? 'Click to Update Wedding Date' : event.title}
+            onContextMenu={e => {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY, event });
+            }}
+          >
+            {event.id === 'wedding-date-event' ? (
+              <span role="img" aria-label="wedding" className="mr-1 flex-shrink-0">💍</span>
+            ) : event.resource.isCompleted && (
+              <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80 flex-shrink-0" />
+            )}
+            <span 
+              className={`${event.resource.isCompleted ? 'line-through opacity-70' : ''} truncate`}
+              style={{ minWidth: 0 }}
+            >
+              {event.title}
+            </span>
+          </div>
+        );
+      }
 
-    // For week and day views, use a simpler component that works better with react-big-calendar
-    if (view === 'week' || view === 'day') {
-      const backgroundColor = event.id === 'wedding-date-event' 
-        ? 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)' 
-        : getCategoryHexColor(event.category);
-      
+      // For month and year views, use the original component
       return (
         <div
-          className="text-xs font-work flex items-center h-full w-full"
+          className="p-1 text-xs font-work flex items-center"
           style={{
-            background: backgroundColor,
-            color: '#fff',
+            background: event.id === 'wedding-date-event' ? 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)' : undefined,
+            backgroundColor: event.id === 'wedding-date-event' ? undefined : getCategoryHexColor(event.category),
+            color: event.id === 'wedding-date-event' ? '#fff' : '#fff',
             borderRadius: '4px',
             overflow: 'hidden',
-            fontWeight: event.id === 'wedding-date-event' ? 'bold' : 'normal',
-            border: event.id === 'wedding-date-event' ? '2px solid #ff7eb3' : 'none',
-            boxShadow: event.id === 'wedding-date-event' ? '0 2px 8px rgba(239,183,197,0.25)' : 'none',
-            cursor: 'pointer',
+            fontWeight: event.id === 'wedding-date-event' ? 'bold' : undefined,
+            border: event.id === 'wedding-date-event' ? '2px solid #ff7eb3' : undefined,
+            boxShadow: event.id === 'wedding-date-event' ? '0 2px 8px rgba(239,183,197,0.25)' : undefined,
+            cursor: event.id === 'wedding-date-event' ? 'pointer' : undefined,
             whiteSpace: 'nowrap',
             textOverflow: 'ellipsis',
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 8px',
-            boxSizing: 'border-box',
           }}
           title={event.id === 'wedding-date-event' ? 'Click to Update Wedding Date' : event.title}
           onContextMenu={e => {
@@ -224,54 +252,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           }}
         >
           {event.id === 'wedding-date-event' ? (
-            <span role="img" aria-label="wedding" className="mr-1 flex-shrink-0">💍</span>
+            <span role="img" aria-label="wedding" className="mr-1">💍</span>
           ) : event.resource.isCompleted && (
-            <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80 flex-shrink-0" />
+            <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80" />
           )}
-          <span 
-            className={`${event.resource.isCompleted ? 'line-through opacity-70' : ''} truncate`}
-            style={{ minWidth: 0 }}
-          >
+          <span className={event.resource.isCompleted ? 'line-through opacity-70' : ''}>
             {event.title}
           </span>
         </div>
       );
-    }
-
-    // For month and year views, use the original component
-    return (
-      <div
-        className="p-1 text-xs font-work flex items-center"
-        style={{
-          background: event.id === 'wedding-date-event' ? 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)' : undefined,
-          backgroundColor: event.id === 'wedding-date-event' ? undefined : getCategoryHexColor(event.category),
-          color: event.id === 'wedding-date-event' ? '#fff' : '#fff',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          fontWeight: event.id === 'wedding-date-event' ? 'bold' : undefined,
-          border: event.id === 'wedding-date-event' ? '2px solid #ff7eb3' : undefined,
-          boxShadow: event.id === 'wedding-date-event' ? '0 2px 8px rgba(239,183,197,0.25)' : undefined,
-          cursor: event.id === 'wedding-date-event' ? 'pointer' : undefined,
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
-        }}
-        title={event.id === 'wedding-date-event' ? 'Click to Update Wedding Date' : event.title}
-        onContextMenu={e => {
-          e.preventDefault();
-          setContextMenu({ x: e.clientX, y: e.clientY, event });
-        }}
-      >
-        {event.id === 'wedding-date-event' ? (
-          <span role="img" aria-label="wedding" className="mr-1">💍</span>
-        ) : event.resource.isCompleted && (
-          <CheckCircle className="w-3 h-3 mr-1 text-white opacity-80" />
-        )}
-        <span className={event.resource.isCompleted ? 'line-through opacity-70' : ''}>
-          {event.title}
-        </span>
-      </div>
-    );
-  };
+    });
+  }, [view, setContextMenu]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-white" style={{ position: 'relative' }}>

@@ -299,6 +299,57 @@ export class TodoQueryOptimizer {
 
     return lists;
   }
+
+  static async getAllTodoItemsByUser(
+    userId: string,
+    options: OptimizedQueryOptions & PaginationOptions = {}
+  ): Promise<DocumentData[]> {
+    const cacheKey = `all_todo_items_${userId}_${options.pageSize || 'all'}`;
+    
+    if (options.cache !== false) {
+      const cached = queryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < (options.cacheTTL || this.CACHE_TTL)) {
+        return cached.data;
+      }
+    }
+
+    const constraints: QueryConstraint[] = [
+      where('userId', '==', userId),
+      orderBy('orderIndex', 'asc'),
+      orderBy('createdAt', 'asc')
+    ];
+
+    if (options.pageSize) {
+      constraints.push(limit(options.pageSize));
+    }
+
+    if (options.startAfter) {
+      constraints.push(startAfter(options.startAfter));
+    }
+
+    if (options.endBefore) {
+      constraints.push(endBefore(options.endBefore));
+    }
+
+    const q = query(collection(db, 'todoItems'), ...constraints);
+    const snapshot = await getDocs(q);
+    
+    const items = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Cache the result
+    if (options.cache !== false) {
+      queryCache.set(cacheKey, {
+        data: items,
+        timestamp: Date.now(),
+        ttl: options.cacheTTL || this.CACHE_TTL
+      });
+    }
+
+    return items;
+  }
 }
 
 // Optimized comment queries

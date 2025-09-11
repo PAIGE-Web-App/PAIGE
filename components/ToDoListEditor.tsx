@@ -21,7 +21,6 @@ function getStableId() {
 }
 
 const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, customCategoryValue, setCustomCategoryValue, allCategories, contacts = [], currentUser = null, onAssign }) => {
-  console.log('[ToDoListEditor] tasks prop on render:', tasks);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
   const [dropIndicatorPosition, setDropIndicatorPosition] = useState<{ id: string | null; position: 'top' | 'bottom' | null }>({ id: null, position: null });
@@ -170,9 +169,6 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
     return undefined;
   };
   
-  // Debug: Log the original tasks and converted todoItems
-  console.log('[ToDoListEditor] Original tasks:', tasks);
-  
   const todoItems: TodoItem[] = tasks.map((task, idx) => ({
     id: (task._id ?? idx).toString(),
     name: task.name,
@@ -191,12 +187,8 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
     listId: 'temp-list',
     _id: task._id ?? idx,
   }));
-  
-  console.log('[ToDoListEditor] Converted todoItems:', todoItems);
-  console.log('[ToDoListEditor] todoItems deadlines:', todoItems.map(t => ({ id: t.id, deadline: t.deadline, deadlineType: typeof t.deadline })));
 
   const groupedTasks = groupTasks(todoItems);
-  console.log('[ToDoListEditor] Grouped tasks:', groupedTasks);
 
   return (
     <>

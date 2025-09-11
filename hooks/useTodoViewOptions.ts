@@ -72,67 +72,97 @@ export function useTodoViewOptions(
   const [dragOverTodoId, setDragOverTodoId] = useState<string | null>(null);
   const [dropIndicatorPosition, setDropIndicatorPosition] = useState<{ id: string | null, position: 'top' | 'bottom' | null }>({ id: null, position: null });
 
-  // Fuse.js search setup
+  // Fuse.js search setup - only recreate when todoItems change significantly
   const fuse = useMemo(() => {
-    return todoItems.length
-      ? new Fuse(todoItems, {
-          keys: ["name", "note", "category"],
-          threshold: 0.3,
-          ignoreLocation: true,
-        })
-      : null;
-  }, [todoItems]);
+    if (!todoItems.length) return null;
+    
+    return new Fuse(todoItems, {
+      keys: ["name", "note", "category"],
+      threshold: 0.3,
+      ignoreLocation: true,
+      includeScore: false, // Disable scoring for better performance
+      minMatchCharLength: 2, // Minimum character length for matches
+    });
+  }, [todoItems.length, todoItems.map(item => `${item.name}-${item.note}-${item.category}`).join('|')]);
 
-  // Filtered items (search, category, etc)
+  // Filtered items (search, category, etc) - optimized with early returns
   const filteredTodoItems = useMemo(() => {
+    // Early return if no filters applied
+    if (selectedCategoryFilters.length === 0 && !todoSearchQuery.trim()) {
+      return todoItems;
+    }
+
     let items = todoItems;
+    
+    // Apply category filter first (usually more selective)
     if (selectedCategoryFilters.length > 0) {
       items = items.filter((item) => selectedCategoryFilters.includes(item.category ?? ''));
     }
+    
+    // Apply search filter
     if (todoSearchQuery.trim()) {
-      items = items.filter((item) =>
-        item.name?.toLowerCase().includes(todoSearchQuery.trim().toLowerCase()) ||
-        item.note?.toLowerCase().includes(todoSearchQuery.trim().toLowerCase())
-      );
+      const searchTerm = todoSearchQuery.trim().toLowerCase();
+      
+      // Use Fuse.js for better search if available and search term is long enough
+      if (fuse && searchTerm.length >= 2) {
+        const searchResults = fuse.search(searchTerm);
+        items = searchResults.map(result => result.item);
+      } else {
+        // Fallback to simple string matching for short queries
+        items = items.filter((item) =>
+          item.name?.toLowerCase().includes(searchTerm) ||
+          item.note?.toLowerCase().includes(searchTerm)
+        );
+      }
     }
+    
     return items;
-  }, [todoItems, todoSearchQuery, selectedCategoryFilters]);
+  }, [todoItems, todoSearchQuery, selectedCategoryFilters, fuse]);
 
-  // Group tasks by deadline
+  // Group tasks by deadline - optimized with pre-allocated arrays and lazy loading
   const groupedTasks = useMemo(() => {
-    const groups: { [key: string]: TodoItem[] } = {};
-    filteredTodoItems.forEach((item: TodoItem) => {
+    if (!filteredTodoItems.length) return {};
+
+    // Limit items for better performance on mobile
+    const maxItemsPerGroup = window.innerWidth < 768 ? 20 : 50;
+    const limitedItems = filteredTodoItems.slice(0, maxItemsPerGroup * 9); // 9 groups max
+
+    // Pre-allocate groups for better performance
+    const groups: { [key: string]: TodoItem[] } = {
+      'Overdue': [],
+      'Today': [],
+      'Tomorrow': [],
+      'This Week': [],
+      'Next Week': [],
+      'This Month': [],
+      'Next Month': [],
+      'Later': [],
+      'No date yet': []
+    };
+
+    // Single pass grouping with sorting
+    limitedItems.forEach((item: TodoItem) => {
       const group = getTaskGroup(item.deadline);
-      if (!groups[group]) groups[group] = [];
-      groups[group].push(item);
-    });
-
-    // Sort tasks within each group by deadline
-    Object.keys(groups).forEach(group => {
-      groups[group].sort((a: TodoItem, b: TodoItem) => {
-        if (!a.deadline) return 1; // Move items without deadline to the end
-        if (!b.deadline) return -1;
-        return a.deadline.getTime() - b.deadline.getTime();
-      });
-    });
-
-    // Define the order of groups
-    const groupOrder = [
-      'Overdue',
-      'Today',
-      'Tomorrow',
-      'This Week',
-      'Next Week',
-      'This Month',
-      'Next Month',
-      'Later',
-      'No date yet'
-    ];
-
-    // Create a new object with ordered groups
-    const orderedGroups: { [key: string]: TodoItem[] } = {};
-    groupOrder.forEach(group => {
       if (groups[group]) {
+        groups[group].push(item);
+      }
+    });
+
+    // Sort tasks within each group by deadline (only non-empty groups)
+    Object.keys(groups).forEach(group => {
+      if (groups[group].length > 0) {
+        groups[group].sort((a: TodoItem, b: TodoItem) => {
+          if (!a.deadline) return 1; // Move items without deadline to the end
+          if (!b.deadline) return -1;
+          return a.deadline.getTime() - b.deadline.getTime();
+        });
+      }
+    });
+
+    // Return only non-empty groups
+    const orderedGroups: { [key: string]: TodoItem[] } = {};
+    Object.keys(groups).forEach(group => {
+      if (groups[group].length > 0) {
         orderedGroups[group] = groups[group];
       }
     });
