@@ -3,18 +3,21 @@
 import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import Fuse from "fuse.js";
-import MessageArea from "../components/MessageArea";
-
-import AddContactModal from "../components/AddContactModal";
-import { getAllContacts } from "../lib/getContacts";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import { useDraftMessage } from "../hooks/useDraftMessage";
-import EditContactModal from "../components/EditContactModal";
 import { getCategoryStyle } from "../utils/categoryStyle";
 import { db, getUserCollectionRef } from "../lib/firebase";
 import { useCustomToast } from "../hooks/useCustomToast";
+
+// Lazy load heavy components for better initial bundle size
+const MessageArea = lazy(() => import("../components/MessageArea"));
+const AddContactModal = lazy(() => import("../components/AddContactModal"));
+const EditContactModal = lazy(() => import("../components/EditContactModal"));
+const OnboardingModal = lazy(() => import("../components/OnboardingModal"));
+const RightDashboardPanel = lazy(() => import("../components/RightDashboardPanel"));
+const NotEnoughCreditsModal = lazy(() => import("../components/NotEnoughCreditsModal"));
 import {
   collection,
   query,
@@ -30,8 +33,6 @@ import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, Fil
 import CategoryPill from "../components/CategoryPill";
 import SelectField from "../components/SelectField";
 import { AnimatePresence, motion } from "framer-motion";
-import OnboardingModal from "../components/OnboardingModal";
-import RightDashboardPanel from "../components/RightDashboardPanel";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
@@ -41,7 +42,6 @@ import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import GmailReauthBanner from "../components/GmailReauthBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import type { TodoItem } from '../types/todo';
-import NotEnoughCreditsModal from "../components/NotEnoughCreditsModal";
 import { COUPLE_SUBSCRIPTION_CREDITS } from "../types/credits";
 import { useCredits } from "../hooks/useCredits";
 
@@ -135,7 +135,7 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
       throw new Error(data.message || 'Failed to start Gmail import');
     }
 
-    console.log('Gmail import started successfully:', data);
+    // Gmail import started successfully - no need to log in production
     return data;
   } catch (error) {
     console.error('Error starting Gmail import:', error);
@@ -147,16 +147,17 @@ export default function Home() {
   const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
   
+  // Core state - frequently updated
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [input, setInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // UI state - less frequently updated
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [jiggleEmailField, setJiggleEmailField] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
-  const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
-  const [input, setInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [weddingDate, setWeddingDate] = useState<Date | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -168,15 +169,20 @@ export default function Home() {
   const [sortOption, setSortOption] = useState('name-asc');
   const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
   const [showFilters, setShowFilters] = useState(false);
-  const filterPopoverRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
-  const { credits } = useCredits();
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
   const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
+  
+  // Refs for DOM elements
+  const filterPopoverRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  
+  // Hooks
+  const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
+  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+  const { credits } = useCredits();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -210,14 +216,17 @@ export default function Home() {
     }
   };
 
-  const fuse = contacts.length
-    ? new Fuse(contacts, {
-        keys: ["name"],
-        threshold: 0.4,
-        ignoreLocation: true,
-        isCaseSensitive: false,
-      })
-    : null;
+  // Optimized Fuse search initialization with memoization
+  const fuse = useMemo(() => {
+    if (contacts.length === 0) return null;
+    
+    return new Fuse(contacts, {
+      keys: ["name"],
+      threshold: 0.4,
+      ignoreLocation: true,
+      isCaseSensitive: false,
+    });
+  }, [contacts]);
 
   const [messages, setMessages] = useState<SimpleMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
@@ -325,7 +334,7 @@ export default function Home() {
         });
       } else if (onboardingStatus === 'not-onboarded') {
         // User is not onboarded, redirect to onboarding
-        console.log('🚫 [Onboarding Check] User is not onboarded, redirecting to /signup?onboarding=1');
+        // User is not onboarded, redirecting to onboarding
         router.push('/signup?onboarding=1');
       } else {
         // User is onboarded, no loading needed
@@ -469,79 +478,15 @@ export default function Home() {
     }
   }, [input]);
 
-  // Optimized Messages Listener - Single query instead of N individual listeners
+  // Optimized Messages Listener - Removed redundant listener since useContactMessageData handles this
+  // This was causing duplicate reads and unnecessary complexity
   useEffect(() => {
-    let isSubscribed = true;
-    
-    if (user && user.uid) {
-      const userId = user.uid;
-      
-      // Instead of N individual listeners, use a single query to get latest message timestamps
-      // This will be much more efficient and reduce Firebase reads significantly
-      const contactsRef = collection(db, `users/${userId}/contacts`);
-      
-      const unsubscribe = onSnapshot(contactsRef, async (contactsSnapshot) => {
-        if (!isSubscribed) return;
-        
-        try {
-          const newContactLastMessageMap = new Map<string, Date>();
-          
-          // Process contacts in batches to avoid overwhelming the database
-          const contactDocs = contactsSnapshot.docs.slice(0, 20); // Limit to first 20 contacts for now
-          
-          for (const contactDoc of contactDocs) {
-            if (!isSubscribed) return;
-            
-            const contactId = contactDoc.id;
-            const contactMessagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
-            
-            // Get just the latest message for this contact (no listener, just one-time fetch)
-            const latestMessageQuery = query(
-              contactMessagesRef,
-              orderBy("createdAt", "desc"),
-              limit(1)
-            );
-            
-            try {
-              const messageSnapshot = await getDocs(latestMessageQuery);
-              if (!isSubscribed) return;
-              
-              if (!messageSnapshot.empty) {
-                const latestMessage = messageSnapshot.docs[0];
-                const createdAt = latestMessage.data().createdAt?.toDate();
-                if (createdAt) {
-                  newContactLastMessageMap.set(contactId, createdAt);
-                }
-              }
-            } catch (error) {
-              console.error(`Error fetching latest message for contact ${contactId}:`, error);
-            }
-          }
-          
-          if (isSubscribed) {
-            setContactLastMessageMap(newContactLastMessageMap);
-          }
-        } catch (error) {
-          if (isSubscribed) {
-            console.error('Error processing contacts for latest messages:', error);
-          }
-        }
-      }, (error) => {
-        if (isSubscribed) {
-          console.error('Error fetching contacts:', error);
-        }
-      });
-      
-      return () => {
-        isSubscribed = false;
-        unsubscribe();
-      };
-    } else {
-      if (isSubscribed) {
-        setContactLastMessageMap(new Map());
-      }
+    // The useContactMessageData hook now handles all message data fetching efficiently
+    // This effect is kept for any future contact-level optimizations
+    if (!user?.uid) {
+      setContactLastMessageMap(new Map());
     }
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -645,17 +590,26 @@ export default function Home() {
     setInput((prevInput) => prevInput + emoji);
   };
 
+  // Optimized contact filtering and sorting with better memoization
   const displayContacts = useMemo(() => {
-      let currentContacts = searchQuery.trim() && fuse
-          ? fuse.search(searchQuery).map((result) => result.item)
-          : contacts;
+      // Early return if no contacts
+      if (contacts.length === 0) return [];
+      
+      let currentContacts = contacts;
 
+      // Apply search filter
+      if (searchQuery.trim() && fuse) {
+          currentContacts = fuse.search(searchQuery).map((result) => result.item);
+      }
+
+      // Apply category filter
       if (selectedCategoryFilter.length > 0) {
           currentContacts = currentContacts.filter(contact =>
               selectedCategoryFilter.includes(contact.category)
           );
       }
 
+      // Apply sorting
       if (sortOption === 'name-asc') {
           return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
       } else if (sortOption === 'name-desc') {
@@ -672,14 +626,19 @@ export default function Home() {
               return (bTime?.getTime() || 0) - (aTime?.getTime() || 0);
           });
       }
+      
+      // Default sort
       return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
   }, [contacts, searchQuery, fuse, selectedCategoryFilter, sortOption, contactLastMessageMap]);
 
+  // Optimized categories computation
   const allCategories = useMemo(() => {
+      if (contacts.length === 0) return [];
+      
       const categories = new Set<string>();
-      contacts.forEach(contact => {
+      for (const contact of contacts) {
           categories.add(contact.category);
-      });
+      }
       return Array.from(categories).sort();
   }, [contacts]);
 
@@ -848,7 +807,7 @@ export default function Home() {
       }
       if (Object.keys(updateObj).length === 0) return;
       updateObj.userId = user.uid;
-      console.log('Updating todo:', todoId, 'with:', updateObj);
+      // Updating todo with new deadline/endDate
       const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
       await updateDoc(itemRef, updateObj);
       showSuccessToast('Deadline updated!');
@@ -978,41 +937,45 @@ export default function Home() {
                   onMobileBackToContacts={handleMobileBackToContacts}
                   currentUserId={user?.uid || null}
                 />
-                <MessagesPanel
-                  contactsLoading={messagesLoading}
-                  contacts={contacts}
-                  selectedContact={selectedContact}
-                  currentUser={user}
-                  isAuthReady={true}
-                  input={input}
-                  setInput={setInput}
-                  draftLoading={draftLoading}
-                  generateDraftMessage={handleGenerateDraftMessage}
-                  selectedFiles={selectedFiles}
-                  setSelectedFiles={setSelectedFiles}
-                  setIsEditing={setIsEditing}
-                  onContactSelect={setSelectedContact}
-                  setShowOnboardingModal={setShowOnboardingModal}
-                  userName={userName}
-                  showOnboardingModal={showOnboardingModal}
-                  jiggleEmailField={jiggleEmailField}
-                  setJiggleEmailField={setJiggleEmailField}
-                  mobileViewMode={mobileViewMode}
-                  onMobileBackToContacts={handleMobileBackToContacts}
-                />
+                <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="text-sm text-gray-500">Loading messages...</div></div>}>
+                  <MessagesPanel
+                    contactsLoading={messagesLoading}
+                    contacts={contacts}
+                    selectedContact={selectedContact}
+                    currentUser={user}
+                    isAuthReady={true}
+                    input={input}
+                    setInput={setInput}
+                    draftLoading={draftLoading}
+                    generateDraftMessage={handleGenerateDraftMessage}
+                    selectedFiles={selectedFiles}
+                    setSelectedFiles={setSelectedFiles}
+                    setIsEditing={setIsEditing}
+                    onContactSelect={setSelectedContact}
+                    setShowOnboardingModal={setShowOnboardingModal}
+                    userName={userName}
+                    showOnboardingModal={showOnboardingModal}
+                    jiggleEmailField={jiggleEmailField}
+                    setJiggleEmailField={setJiggleEmailField}
+                    mobileViewMode={mobileViewMode}
+                    onMobileBackToContacts={handleMobileBackToContacts}
+                  />
+                </Suspense>
               </main>
 
             {(user && !authLoading) ? (
               <div className="hidden lg:block lg:w-[420px]">
-                <RightDashboardPanel
-                   currentUser={user}
-                    contacts={contacts}
-                    rightPanelSelection={rightPanelSelection}
-                    setRightPanelSelection={setRightPanelSelection}
-                  onUpdateTodoDeadline={handleUpdateTodoDeadline}
-                  onUpdateTodoNotes={handleUpdateTodoNotes}
-                  onUpdateTodoCategory={handleUpdateTodoCategory}
-                />
+                <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="text-sm text-gray-500">Loading dashboard...</div></div>}>
+                  <RightDashboardPanel
+                     currentUser={user}
+                      contacts={contacts}
+                      rightPanelSelection={rightPanelSelection}
+                      setRightPanelSelection={setRightPanelSelection}
+                    onUpdateTodoDeadline={handleUpdateTodoDeadline}
+                    onUpdateTodoNotes={handleUpdateTodoNotes}
+                    onUpdateTodoCategory={handleUpdateTodoCategory}
+                  />
+                </Suspense>
               </div>
             ) : (
               <div className="hidden lg:block lg:w-[420px] min-h-full">
@@ -1025,67 +988,75 @@ export default function Home() {
 
           {isEditing && selectedContact && user && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <EditContactModal
-                contact={selectedContact}
-                userId={user.uid}
-                onClose={() => setIsEditing(false)}
-                onSave={(updated) => {
-                  setContacts((prev) =>
-                    prev.map((c) => (c.id === updated.id ? updated : c))
-                  );
-                  setSelectedContact(updated);
-                  setIsEditing(false);
-                }}
-                onDelete={(deletedId: string) => {
-                  setDeletingContactId(deletedId);
-                  setTimeout(() => {
-                    const remainingContacts = contacts.filter((c) => c.id !== deletedId);
-                    setContacts(remainingContacts);
-                    if (remainingContacts.length > 0) {
-                      setSelectedContact(remainingContacts[0]);
-                    } else {
-                      setSelectedContact(null);
-                    }
-                    setDeletingContactId(null);
+              <Suspense fallback={<div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading edit modal...</div></div>}>
+                <EditContactModal
+                  contact={selectedContact}
+                  userId={user.uid}
+                  onClose={() => setIsEditing(false)}
+                  onSave={(updated) => {
+                    setContacts((prev) =>
+                      prev.map((c) => (c.id === updated.id ? updated : c))
+                    );
+                    setSelectedContact(updated);
                     setIsEditing(false);
-                  }, 300);
-                }}
-                jiggleEmailField={jiggleEmailField}
-              />
+                  }}
+                  onDelete={(deletedId: string) => {
+                    setDeletingContactId(deletedId);
+                    setTimeout(() => {
+                      const remainingContacts = contacts.filter((c) => c.id !== deletedId);
+                      setContacts(remainingContacts);
+                      if (remainingContacts.length > 0) {
+                        setSelectedContact(remainingContacts[0]);
+                      } else {
+                        setSelectedContact(null);
+                      }
+                      setDeletingContactId(null);
+                      setIsEditing(false);
+                    }, 300);
+                  }}
+                  jiggleEmailField={jiggleEmailField}
+                />
+              </Suspense>
             </div>
           )}
           {isAdding && user && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <AddContactModal
-                userId={user.uid}
-                onClose={() => setIsAdding(false)}
-                onSave={(newContact) => {
-                  setSelectedContact(newContact);
-                }}
-              />
+              <Suspense fallback={<div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading add modal...</div></div>}>
+                <AddContactModal
+                  userId={user.uid}
+                  onClose={() => setIsAdding(false)}
+                  onSave={(newContact) => {
+                    setSelectedContact(newContact);
+                  }}
+                />
+              </Suspense>
             </div>
           )}
             {showOnboardingModal && user && (
-            <OnboardingModal
-              userId={user.uid}
-              onClose={() => setShowOnboardingModal(false)}
-              onComplete={handleOnboardingComplete}
-            />
+            <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading onboarding...</div></div></div>}>
+              <OnboardingModal
+                userId={user.uid}
+                onClose={() => setShowOnboardingModal(false)}
+                onComplete={handleOnboardingComplete}
+              />
+            </Suspense>
           )}
           
           {/* Not Enough Credits Modal */}
-          <NotEnoughCreditsModal
-            isOpen={showNotEnoughCreditsModal}
-            onClose={() => setShowNotEnoughCreditsModal(false)}
-            requiredCredits={creditModalData.requiredCredits}
-            currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
-            feature={creditModalData.feature}
-            accountInfo={{
-              tier: 'Free',
-              dailyCredits: userCredits.monthlyCredits,
-              refreshTime: 'Daily at midnight'
-            }}
-          />
+          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading credits modal...</div></div></div>}>
+            <NotEnoughCreditsModal
+              isOpen={showNotEnoughCreditsModal}
+              onClose={() => setShowNotEnoughCreditsModal(false)}
+              requiredCredits={creditModalData.requiredCredits}
+              currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
+              feature={creditModalData.feature}
+              accountInfo={{
+                tier: 'Free',
+                dailyCredits: userCredits.monthlyCredits,
+                refreshTime: 'Daily at midnight'
+              }}
+            />
+          </Suspense>
         </>
       )}
 

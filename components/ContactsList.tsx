@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ListFilter, X } from 'lucide-react';
 import CategoryPill from './CategoryPill';
@@ -57,7 +57,132 @@ const ContactsSkeleton = () => (
   </div>
 );
 
-const ContactsList = ({
+// Interface for ContactCard props
+interface ContactCardProps {
+  contact: Contact;
+  isSelected: boolean;
+  isDeleting: boolean;
+  searchQuery: string;
+  messageData: {
+    lastMessageTime?: Date;
+    lastMessageSnippet?: string;
+    unreadCount: number;
+  };
+  unreadCount: number;
+  onSelect: () => void;
+}
+
+// Memoized contact card component to prevent unnecessary re-renders
+const ContactCard = memo(({ 
+  contact, 
+  isSelected, 
+  isDeleting, 
+  searchQuery, 
+  messageData, 
+  unreadCount, 
+  onSelect 
+}: ContactCardProps) => {
+  const name = contact.name;
+  const matchIndex = name.toLowerCase().indexOf(searchQuery.toLowerCase());
+  const before = name.slice(0, matchIndex);
+  const match = name.slice(matchIndex, matchIndex + searchQuery.length);
+  const after = name.slice(matchIndex + searchQuery.length);
+
+  return (
+    <div
+      className={`p-0 lg:p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${
+        isDeleting ? "opacity-0" : "opacity-100"
+      } ${
+        isSelected
+          ? "lg:bg-[#EBE3DD] lg:border-[#A85C36] hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
+          : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
+      }`}
+      onClick={onSelect}
+    >
+      <div className="flex items-center gap-3 p-3 lg:p-1">
+        <div className="relative">
+          <div
+            className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
+            style={{ backgroundColor: contact.avatarColor || "#364257" }}
+          >
+            {contact.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+          </div>
+          {/* Unread message indicator */}
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-[#332B42] truncate">
+              {highlightText(name, searchQuery)}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Show timestamp on both mobile and desktop */}
+              {messageData.lastMessageTime && (
+                <span className="text-xs text-[#AB9C95]">
+                  {formatMessageTime(messageData.lastMessageTime)}
+                </span>
+              )}
+              {/* Unread count badge */}
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
+          </div>
+          {/* Show message snippet on both mobile and desktop */}
+          {messageData.lastMessageSnippet && (
+            <div className="text-xs text-[#332B42] truncate mt-1">
+              {messageData.lastMessageSnippet}
+            </div>
+          )}
+          {/* Show category pill on both mobile and desktop */}
+          <div className="mt-2">
+            <CategoryPill category={contact.category} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+ContactCard.displayName = 'ContactCard';
+
+// Interface for ContactsList props
+interface ContactsListProps {
+  contacts: Contact[];
+  contactsLoading: boolean;
+  selectedContact: Contact | null;
+  setSelectedContact: (contact: Contact) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  showFilters: boolean;
+  setShowFilters: (show: boolean) => void;
+  filterPopoverRef: React.RefObject<HTMLDivElement | null>;
+  allCategories: string[];
+  selectedCategoryFilter: string[];
+  handleCategoryChange: (category: string) => void;
+  handleClearCategoryFilter: (category: string) => void;
+  handleClearSortOption: () => void;
+  sortOption: string;
+  setSortOption: (option: string) => void;
+  displayContacts: Contact[];
+  deletingContactId: string | null;
+  setIsAdding: (adding: boolean) => void;
+  unreadCounts?: { [contactId: string]: number };
+  mobileViewMode?: 'contacts' | 'messages';
+  onMobileBackToContacts?: () => void;
+  currentUserId: string | null;
+}
+
+const ContactsList = memo(({
   contacts,
   contactsLoading,
   selectedContact,
@@ -81,9 +206,14 @@ const ContactsList = ({
   mobileViewMode = 'contacts',
   onMobileBackToContacts,
   currentUserId, // Add currentUserId prop
-}) => {
+}: ContactsListProps) => {
   // Use the custom hook to get real message data
   const { contactMessageData, loading: messageDataLoading } = useContactMessageData(contacts, currentUserId);
+
+  // Memoized contact selection handler
+  const handleContactSelect = useCallback((contact) => {
+    setSelectedContact(contact);
+  }, [setSelectedContact]);
 
   return (
   <aside className={`contacts-sidebar mobile-${mobileViewMode}-view`}>
@@ -218,84 +348,24 @@ const ContactsList = ({
             </div>
           ) : (
             <div className="space-y-2">
-            {displayContacts.map((contact, index) => {
-              const name = contact.name;
-              const matchIndex = name.toLowerCase().indexOf(
-                searchQuery.toLowerCase()
-              );
-              const before = name.slice(0, matchIndex);
-              const match = name.slice(matchIndex, matchIndex + searchQuery.length);
-              const after = name.slice(matchIndex + searchQuery.length);
-              
+            {displayContacts.map((contact) => {
               // Get real message data for this contact
               const messageData = contactMessageData.get(contact.id) || {
                 unreadCount: 0
               };
+              const unreadCount = unreadCounts[contact.id] || messageData.unreadCount || 0;
+              
               return (
-                <div
+                <ContactCard
                   key={contact.id}
-                  className={`p-0 lg:p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
-                    ? "opacity-0"
-                    : "opacity-100"
-                    } ${selectedContact?.id === contact.id
-                      ? "lg:bg-[#EBE3DD] lg:border-[#A85C36] hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
-                      : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
-                    }`}
-                  onClick={() => {
-                    setSelectedContact(contact);
-                  }}
-                >
-                  <div className="flex items-center gap-3 p-3 lg:p-1">
-                    <div className="relative">
-                      <div
-                        className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
-                        style={{ backgroundColor: contact.avatarColor || "#364257" }}
-                      >
-                        {contact.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </div>
-                      {/* Unread message indicator */}
-                      {unreadCounts[contact.id] > 0 && (
-                        <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-[#332B42] truncate">
-                          {highlightText(name, searchQuery)}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {/* Show timestamp on both mobile and desktop */}
-                          {messageData.lastMessageTime && (
-                            <span className="text-xs text-[#AB9C95]">
-                              {formatMessageTime(messageData.lastMessageTime)}
-                            </span>
-                          )}
-                          {/* Unread count badge */}
-                          {(unreadCounts[contact.id] > 0 || messageData.unreadCount > 0) && (
-                            <span className="bg-red-500 text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center">
-                              {(unreadCounts[contact.id] || messageData.unreadCount) > 9 ? '9+' : (unreadCounts[contact.id] || messageData.unreadCount)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {/* Show message snippet on both mobile and desktop */}
-                      {messageData.lastMessageSnippet && (
-                        <div className="text-xs text-[#332B42] truncate mt-1">
-                          {messageData.lastMessageSnippet}
-                        </div>
-                      )}
-                      {/* Show category pill on both mobile and desktop */}
-                      <div className="mt-2">
-                        <CategoryPill category={contact.category} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  contact={contact}
+                  isSelected={selectedContact?.id === contact.id}
+                  isDeleting={deletingContactId === contact.id}
+                  searchQuery={searchQuery}
+                  messageData={messageData}
+                  unreadCount={unreadCount}
+                  onSelect={() => handleContactSelect(contact)}
+                />
               );
             })}
             </div>
@@ -305,6 +375,8 @@ const ContactsList = ({
     )}
   </aside>
   );
-};
+});
+
+ContactsList.displayName = 'ContactsList';
 
 export default ContactsList; 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { collection, query, orderBy, limit, onSnapshot, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Contact } from '@/types/contact';
 import { Message } from '@/types/message';
@@ -16,6 +16,38 @@ interface UseContactMessageDataReturn {
   error: string | null;
 }
 
+// Cache for contact message data to prevent unnecessary re-fetches
+const messageDataCache = new Map<string, { data: ContactMessageData; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 100; // Prevent memory leaks by limiting cache size
+
+// Cleanup function to prevent memory leaks
+const cleanupCache = () => {
+  if (messageDataCache.size > MAX_CACHE_SIZE) {
+    const now = Date.now();
+    const entries = Array.from(messageDataCache.entries());
+    
+    // Remove expired entries first
+    entries.forEach(([key, value]) => {
+      if (now - value.timestamp > CACHE_DURATION) {
+        messageDataCache.delete(key);
+      }
+    });
+    
+    // If still too large, remove oldest entries
+    if (messageDataCache.size > MAX_CACHE_SIZE) {
+      const sortedEntries = entries
+        .filter(([key]) => messageDataCache.has(key))
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+      
+      const toRemove = sortedEntries.slice(0, messageDataCache.size - MAX_CACHE_SIZE);
+      toRemove.forEach(([key]) => messageDataCache.delete(key));
+    }
+  }
+};
+
+import { logger } from '@/utils/logger';
+
 export const useContactMessageData = (
   contacts: Contact[],
   userId: string | null
@@ -23,6 +55,8 @@ export const useContactMessageData = (
   const [contactMessageData, setContactMessageData] = useState<Map<string, ContactMessageData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unsubscribesRef = useRef<(() => void)[]>([]);
+  const isMountedRef = useRef(true);
 
   const formatMessageSnippet = useCallback((message: any, currentUserId: string): string => {
     if (!message) return 'No messages yet';
@@ -57,6 +91,74 @@ export const useContactMessageData = (
     return new Date();
   }, []);
 
+  // Optimized batch fetching for contact message data
+  const fetchContactMessageData = useCallback(async (contactIds: string[]) => {
+    if (!userId || contactIds.length === 0) return new Map();
+
+    const contactDataMap = new Map<string, ContactMessageData>();
+    const now = Date.now();
+
+    // Check cache first
+    const uncachedIds: string[] = [];
+    contactIds.forEach(contactId => {
+      const cached = messageDataCache.get(contactId);
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        contactDataMap.set(contactId, cached.data);
+      } else {
+        uncachedIds.push(contactId);
+      }
+    });
+
+    // Only fetch uncached data
+    if (uncachedIds.length > 0) {
+      try {
+        // Batch fetch latest messages for all uncached contacts
+        const promises = uncachedIds.map(async (contactId) => {
+          try {
+            const messagesRef = collection(db, `users/${userId}/contacts/${contactId}/messages`);
+            const messagesQuery = query(
+              messagesRef,
+              orderBy("timestamp", "desc"),
+              limit(1)
+            );
+            
+            const snapshot = await getDocs(messagesQuery);
+            
+            if (snapshot.empty) {
+              const data = { unreadCount: 0 };
+              contactDataMap.set(contactId, data);
+              messageDataCache.set(contactId, { data, timestamp: now });
+                cleanupCache(); // Prevent memory leaks
+              return;
+            }
+
+            const latestMessage = snapshot.docs[0].data() as Message;
+            const data = {
+              lastMessageTime: formatMessageTime(latestMessage.timestamp),
+              lastMessageSnippet: formatMessageSnippet(latestMessage, userId),
+              unreadCount: latestMessage.isRead === false ? 1 : 0
+            };
+            
+            contactDataMap.set(contactId, data);
+            messageDataCache.set(contactId, { data, timestamp: now });
+                cleanupCache(); // Prevent memory leaks
+            cleanupCache(); // Prevent memory leaks
+          } catch (err) {
+            logger.debug(`Error fetching messages for contact ${contactId}:`, err);
+            const data = { unreadCount: 0 };
+            contactDataMap.set(contactId, data);
+          }
+        });
+
+        await Promise.all(promises);
+      } catch (err) {
+        logger.error('Error in batch fetch:', err);
+      }
+    }
+
+    return contactDataMap;
+  }, [userId, formatMessageSnippet, formatMessageTime]);
+
   useEffect(() => {
     if (!userId || contacts.length === 0) {
       setContactMessageData(new Map());
@@ -67,70 +169,101 @@ export const useContactMessageData = (
     setLoading(true);
     setError(null);
 
-    const unsubscribes: (() => void)[] = [];
-    const contactDataMap = new Map<string, ContactMessageData>();
+    // Clean up previous listeners
+    unsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+    unsubscribesRef.current = [];
 
-    // Set up listeners for each contact's messages
+    const contactIds = contacts.map(contact => contact.id);
+    
+    // Initial batch fetch
+    fetchContactMessageData(contactIds).then(dataMap => {
+      if (isMountedRef.current) {
+        setContactMessageData(dataMap);
+        setLoading(false);
+      }
+    });
+
+    // Set up real-time listeners only for contacts with recent activity
+    // This reduces the number of active listeners significantly
+    const now = Date.now();
+    const recentActivityThreshold = 24 * 60 * 60 * 1000; // 24 hours
+
     contacts.forEach((contact) => {
-      try {
-        const messagesRef = collection(db, `users/${userId}/contacts/${contact.id}/messages`);
-        
-        // Query for the most recent message (limit 1, ordered by timestamp desc)
-        const messagesQuery = query(
-          messagesRef,
-          orderBy("timestamp", "desc"),
-          limit(1)
-        );
+      const cached = messageDataCache.get(contact.id);
+      const hasRecentActivity = cached && 
+        cached.data.lastMessageTime && 
+        (now - cached.data.lastMessageTime.getTime()) < recentActivityThreshold;
 
-        const unsubscribe = onSnapshot(
-          messagesQuery,
-          (snapshot) => {
-            if (snapshot.empty) {
-              // No messages for this contact
-              console.log(`No messages found for contact ${contact.name}`);
-              contactDataMap.set(contact.id, {
-                unreadCount: 0
-              });
-            } else {
-              const latestMessage = snapshot.docs[0].data() as Message;
-              const timestamp = latestMessage.timestamp;
-              
-              console.log(`Latest message for ${contact.name}:`, {
-                direction: latestMessage.direction,
-                timestamp: timestamp,
-                body: latestMessage.body?.substring(0, 50),
-                isRead: latestMessage.isRead
-              });
-              
-              contactDataMap.set(contact.id, {
-                lastMessageTime: formatMessageTime(timestamp),
-                lastMessageSnippet: formatMessageSnippet(latestMessage, userId),
-                unreadCount: latestMessage.isRead === false ? 1 : 0 // Simple unread count - only count if latest message is unread
-              });
+      // Only set up real-time listener for contacts with recent activity
+      if (hasRecentActivity) {
+        try {
+          const messagesRef = collection(db, `users/${userId}/contacts/${contact.id}/messages`);
+          const messagesQuery = query(
+            messagesRef,
+            orderBy("timestamp", "desc"),
+            limit(1)
+          );
+
+          const unsubscribe = onSnapshot(
+            messagesQuery,
+            (snapshot) => {
+              if (!isMountedRef.current) return;
+
+              if (snapshot.empty) {
+                const data = { unreadCount: 0 };
+                setContactMessageData(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(contact.id, data);
+                  return newMap;
+                });
+                messageDataCache.set(contact.id, { data, timestamp: Date.now() });
+                cleanupCache(); // Prevent memory leaks
+              } else {
+                const latestMessage = snapshot.docs[0].data() as Message;
+                const data = {
+                  lastMessageTime: formatMessageTime(latestMessage.timestamp),
+                  lastMessageSnippet: formatMessageSnippet(latestMessage, userId),
+                  unreadCount: latestMessage.isRead === false ? 1 : 0
+                };
+                
+                setContactMessageData(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(contact.id, data);
+                  return newMap;
+                });
+                messageDataCache.set(contact.id, { data, timestamp: Date.now() });
+                cleanupCache(); // Prevent memory leaks
+              }
+            },
+            (err) => {
+              if (isMountedRef.current) {
+                logger.error(`Error fetching messages for contact ${contact.id}:`, err);
+                setError(`Failed to load messages for ${contact.name}`);
+              }
             }
+          );
 
-            // Update the map with all contact data
-            setContactMessageData(new Map(contactDataMap));
-            setLoading(false);
-          },
-          (err) => {
-            console.error(`Error fetching messages for contact ${contact.id}:`, err);
-            setError(`Failed to load messages for ${contact.name}`);
-            setLoading(false);
-          }
-        );
-
-        unsubscribes.push(unsubscribe);
-      } catch (err) {
-        console.error(`Error setting up listener for contact ${contact.id}:`, err);
+          unsubscribesRef.current.push(unsubscribe);
+        } catch (err) {
+          logger.error(`Error setting up listener for contact ${contact.id}:`, err);
+        }
       }
     });
 
     // Cleanup function
     return () => {
-      unsubscribes.forEach(unsubscribe => unsubscribe());
+      isMountedRef.current = false;
+      unsubscribesRef.current.forEach(unsubscribe => unsubscribe());
     };
-  }, [contacts, userId, formatMessageSnippet, formatMessageTime]);
+  }, [contacts, userId, fetchContactMessageData, formatMessageSnippet, formatMessageTime]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      unsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+    };
+  }, []);
 
   return {
     contactMessageData,
