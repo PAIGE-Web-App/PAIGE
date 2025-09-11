@@ -72,11 +72,11 @@ export default function VibeEditModal({
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -50, opacity: 0 }}
-            className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-[#E0D6D0]">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-6 border-b border-[#E0D6D0] flex-shrink-0">
               <div>
                 <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
                   Edit {boardName} Vibes
@@ -93,12 +93,12 @@ export default function VibeEditModal({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6">
+            {/* Content - Scrollable */}
+            <div className="p-6 overflow-y-auto flex-1">
               {/* Selected Vibes */}
               {editingVibes.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="text-md font-medium text-[#332B42] mb-3">Selected Vibes:</h4>
+                  <h6 className="mb-3">Selected Vibes:</h6>
                   <div className="flex flex-wrap gap-2">
                     {editingVibes.map((vibe, index) => (
                       <VibePill
@@ -115,20 +115,16 @@ export default function VibeEditModal({
 
               {/* Popular Vibes */}
               <div className="mb-6">
-                <h4 className="text-md font-medium text-[#332B42] mb-3">Popular Vibes:</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {vibeOptions.map((vibe) => (
-                    <button
+                <h6 className="mb-3">Popular Vibes:</h6>
+                <div className="flex flex-wrap gap-2">
+                  {vibeOptions.map((vibe, index) => (
+                    <VibePill
                       key={vibe}
+                      vibe={vibe}
+                      index={index}
                       onClick={() => handleVibeToggle(vibe)}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                        editingVibes.includes(vibe)
-                          ? 'bg-[#A85C36] text-white border-[#A85C36]'
-                          : 'bg-white text-[#332B42] border-[#AB9C95] hover:border-[#A85C36] hover:bg-[#F3F2F0]'
-                      }`}
-                    >
-                      {vibe}
-                    </button>
+                      isSelected={editingVibes.includes(vibe)}
+                    />
                   ))}
                 </div>
               </div>
@@ -136,7 +132,7 @@ export default function VibeEditModal({
               {/* Custom Vibe Input */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
-                  <h4 className="text-md font-medium text-[#332B42]">Custom Vibe:</h4>
+                  <h6>Custom Vibe:</h6>
                   {!showVibeInput && (
                     <button
                       onClick={() => setShowVibeInput(true)}
@@ -149,42 +145,38 @@ export default function VibeEditModal({
                 </div>
                 
                 {showVibeInput && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newVibe}
-                      onChange={(e) => setNewVibe(e.target.value)}
-                      placeholder="Enter a custom vibe..."
-                      className="flex-1 px-3 py-2 border border-[#AB9C95] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          onAddVibe();
-                        }
-                      }}
-                    />
+                  <div className="space-y-3">
+                    <p className="text-sm text-[#364257]">
+                      💡 Tip: You can add multiple vibes at once by separating them with commas (e.g., "romantic, elegant, timeless")
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newVibe}
+                        onChange={(e) => setNewVibe(e.target.value)}
+                        placeholder="Enter a custom vibe or multiple vibes separated by commas..."
+                        className="flex-1 px-3 py-2 border border-[#AB9C95] rounded-[5px] focus:outline-none focus:border-[#A85C36]"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            onAddVibe();
+                          }
+                        }}
+                      />
                     <button
                       onClick={onAddVibe}
                       disabled={!newVibe.trim()}
-                      className="px-4 py-2 bg-[#A85C36] text-white rounded-[5px] font-medium hover:bg-[#A85C36]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-primaryinverse px-4 py-2 rounded-[5px] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Add
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowVibeInput(false);
-                        setNewVibe('');
-                      }}
-                      className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-[5px] font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end gap-3 p-6 border-t border-[#E0D6D0]">
+            {/* Footer - Fixed */}
+            <div className="flex justify-end gap-3 p-6 border-t border-[#E0D6D0] flex-shrink-0">
               <button
                 onClick={onClose}
                 className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-[5px] font-medium hover:bg-gray-50 transition-colors"

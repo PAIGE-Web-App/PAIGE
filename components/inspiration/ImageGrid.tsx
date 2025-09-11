@@ -47,7 +47,7 @@ export default function ImageGrid({
   return (
     <>
       {/* Pinterest-Style Image Grid */}
-      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-4 mb-6">
+      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-3 xl:columns-4 2xl:columns-4 gap-4 mb-6 w-full max-w-full">
         {board.images.map((image, index) => {
           // Handle both old string format and new object format
           const imageUrl = typeof image === 'string' ? image : image.url;
@@ -62,9 +62,9 @@ export default function ImageGrid({
               transition={{ duration: 0.3, delay: index * 0.1 }}
               className="break-inside-avoid mb-4 group"
             >
-              <div className="bg-white border border-[#AB9C95] rounded-[5px] overflow-hidden hover:shadow-lg transition-shadow relative">
+              <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative">
                 {/* Micro Menu - Top Right (Only on Hover) */}
-                <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <MicroMenu
                     items={[
                       {
@@ -82,12 +82,12 @@ export default function ImageGrid({
                       }
                     ]}
                     buttonClassName="p-1.5 hover:bg-white/80 rounded-full transition-colors bg-white/60 backdrop-blur-sm"
-                    menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-10"
+                    menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-50"
                   />
                 </div>
 
               {/* Image */}
-              <div className="relative">
+              <div className="relative overflow-hidden rounded-t-[5px]">
                 <img
                   src={imageUrl}
                   alt={imageName}

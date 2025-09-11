@@ -506,7 +506,8 @@ export default function MoodBoardsPage() {
       let allNewVibes: string[] = [];
       
       // Process each image in the board
-      for (const image of board.images) {
+      for (let index = 0; index < board.images.length; index++) {
+        const image = board.images[index];
         try {
           const imageUrl = image.url;
           if (!imageUrl) continue;
@@ -515,8 +516,10 @@ export default function MoodBoardsPage() {
           
           const formData = new FormData();
           
-          // Add user ID for credit validation
+          // Add required fields for bulk vibe generation
           formData.append('userId', user.uid);
+          formData.append('moodBoardId', activeMoodBoard);
+          formData.append('imageId', `image-${index}`);
           
           // Convert image URL to blob for API
           console.log('Fetching image from URL:', imageUrl);
@@ -732,9 +735,14 @@ export default function MoodBoardsPage() {
 
   const addVibe = () => {
     if (newVibe.trim()) {
-      setEditingVibes([...editingVibes, newVibe.trim()]);
-      setNewVibe('');
-      setShowVibeInput(false);
+      // Split by commas and trim each vibe
+      const vibesToAdd = newVibe.split(',').map(vibe => vibe.trim()).filter(vibe => vibe.length > 0);
+      
+      if (vibesToAdd.length > 0) {
+        setEditingVibes([...editingVibes, ...vibesToAdd]);
+        setNewVibe('');
+        // Don't close the input section - keep it open for more vibes
+      }
     }
   };
 

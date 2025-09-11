@@ -7,6 +7,7 @@ interface VibePillProps {
   onClick?: () => void;
   isEditing?: boolean;
   onRemove?: () => void;
+  isSelected?: boolean;
 }
 
 export default function VibePill({ 
@@ -14,14 +15,21 @@ export default function VibePill({
   index, 
   onClick, 
   isEditing = false, 
-  onRemove 
+  onRemove,
+  isSelected = false
 }: VibePillProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      className={`px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#332B42] text-[#332B42] ${
+      transition={{ duration: 0.2 }}
+      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+        onClick ? 'cursor-pointer' : ''
+      } ${
+        isSelected 
+          ? 'bg-[#A85C36] text-white border-[#A85C36]' 
+          : 'bg-white text-[#332B42] border-[#332B42] hover:border-[#A85C36] hover:bg-[#F3F2F0]'
+      } ${
         isEditing ? 'hover:border-red-300 hover:bg-red-50' : ''
       }`}
       onClick={onClick}

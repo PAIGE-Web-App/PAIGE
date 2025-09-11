@@ -45,8 +45,8 @@ export function withCreditValidation(
           console.error('Credit middleware: Failed to parse JSON body:', error);
           requestBody = {};
         }
-      } else if (contentType.includes('multipart/form-data')) {
-        // Handle FormData
+      } else if (contentType.includes('multipart/form-data') && options.userIdField) {
+        // Only parse FormData if we need to extract userId from it
         try {
           const formData = await request.formData();
           // Clone the FormData so it can be read again by the handler
@@ -127,7 +127,7 @@ export function withCreditValidation(
         
         // Reconstruct the request with the parsed body if we read it
         let requestToPass = request;
-        if (requestBody && !requestBody.formData) {
+        if (requestBody && !requestBody.formData && Object.keys(requestBody).length > 0) {
           // For JSON requests, we need to reconstruct the request with the parsed body
           const reconstructedRequest = new NextRequest(request.url, {
             method: request.method,
@@ -144,6 +144,7 @@ export function withCreditValidation(
           });
           requestToPass = reconstructedRequest;
         }
+        // If requestBody is empty (FormData not parsed), pass through original request
         
         // Call the handler with the reconstructed request
         const response = await handler(requestToPass);

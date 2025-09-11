@@ -34,11 +34,6 @@ export default function VerticalNavCreditDisplay() {
       // Check if credits decreased (indicating AI function was used)
       if (previousCredits > 0 && currentTotal < previousCredits) {
         const creditsSpent = previousCredits - currentTotal;
-        console.log('🎯 Credits decreased, showing popover:', { 
-          previousCredits, 
-          currentTotal, 
-          creditsSpent 
-        });
         setToastData({ creditsSpent, creditsRemaining: currentTotal });
         setShowToast(true);
       }
@@ -58,17 +53,8 @@ export default function VerticalNavCreditDisplay() {
 
     const unsubscribe = creditEventEmitter.subscribe(handleCreditRefresh);
     
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'creditUpdateEvent' && e.newValue) {
-        handleCreditRefresh();
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
     return () => {
       unsubscribe();
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, [loadCredits]);
 

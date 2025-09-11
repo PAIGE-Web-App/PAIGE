@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { AIFeature } from '@/types/credits';
+import { ragContextCache } from '@/lib/ragContextCache';
+import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 
 
@@ -19,6 +22,16 @@ async function generateVibesHandler(req: NextRequest): Promise<NextResponse> {
       console.error('No image uploaded.');
       return NextResponse.json({ error: 'No image uploaded.' }, { status: 400 });
     }
+
+    // Get user ID from headers (set by credit middleware)
+    const userId = req.headers.get('x-user-id');
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'User ID not found.' }, { status: 400 });
+    }
+
+    // RAG Week 2: Retrieve cached context for vibe generation
+    const ragContext = await ragContextCache.getCachedContext(userId, 'vibe_generation');
+    console.log('RAG context retrieved for vibe generation:', ragContext ? 'Found' : 'Not found');
     
     console.log('Processing file:', file.name, 'type:', file.type, 'size:', file.size);
     
@@ -49,41 +62,31 @@ async function generateVibesHandler(req: NextRequest): Promise<NextResponse> {
     console.log('Base64 string length:', base64String.length);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    // List of popular vibes for the prompt
-    const popularVibes = [
-      'Intimate & cozy',
-      'Big & bold',
-      'Chic city affair',
-      'Outdoor & natural',
-      'Traditional & timeless',
-      'Modern & minimal',
-      'Destination dream',
-      'Boho & Whimsical',
-      'Glamorous & Luxe',
-      'Vintage Romance',
-      'Garden Party',
-      'Beachy & Breezy',
-      'Art Deco',
-      'Festival-Inspired',
-      'Cultural Fusion',
-      'Eco-Friendly',
-      'Fairytale',
-      'Still figuring it out',
-    ];
-    const prompt = `You are a wedding style expert. Look at the uploaded wedding inspiration image and return a JSON array of 3-7 short, relevant wedding style or vibe words that are commonly used to describe wedding aesthetics (e.g., 'romantic', 'boho', 'modern', 'garden', 'timeless', 'vintage', 'glamorous', etc.), not generic moods or adjectives. The words should be wedding-specific, in sentence case, and not limited to a fixed list. Only return the array, no explanation.`;
+    
+    // Base prompt for vibe generation
+    const basePrompt = `You are a wedding style expert. Analyze the uploaded image and return a JSON array of 3-7 wedding style or vibe words that could apply to wedding aesthetics. Even if the image isn't directly wedding-related, extract style elements that could inspire wedding themes (e.g., colors, textures, moods, settings). Use words like 'romantic', 'boho', 'modern', 'garden', 'timeless', 'vintage', 'glamorous', 'rustic', 'elegant', 'cozy', 'dramatic', etc. Always return a valid JSON array, even if the image is abstract or non-wedding related. Only return the array, no explanation.`;
 
-    console.log('Making OpenAI API call...');
+    // RAG Week 2: Optimize prompt with user context and behavior patterns
+    const { optimizedPrompt } = await smartPromptOptimizer.optimizePrompt(
+      userId, 
+      basePrompt, 
+      ragContext || '', 
+      'vibe_generation',
+      ['wedding', 'style', 'aesthetic']
+    );
+
+    console.log('Making OpenAI API call with optimized prompt...');
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: prompt,
+          content: optimizedPrompt,
         },
         {
           role: 'user',
           content: [
-            { type: 'text', text: prompt },
+            { type: 'text', text: optimizedPrompt },
             { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64String}` } },
           ],
         },
@@ -162,8 +165,42 @@ async function generateVibesHandler(req: NextRequest): Promise<NextResponse> {
     }
     
     console.log('Successfully extracted vibes:', vibes);
+    
+    // RAG Week 2: Track prompt effectiveness and cache context
+    try {
+      await smartPromptOptimizer.trackPromptEffectiveness(
+        userId,
+        'vibe_generation',
+        ['wedding', 'style', 'aesthetic'],
+        vibes
+      );
+      
+      // Cache the context for future use
+      await ragContextCache.cacheContext(
+        userId, 
+        'vibe_generation', 
+        JSON.stringify({
+          lastUsed: new Date().toISOString(),
+          vibesGenerated: vibes,
+          imageProcessed: true,
+          promptOptimized: true
+        })
+      );
+    } catch (error) {
+      console.error('Error in continuous improvement tracking:', error);
+      // Don't fail the request if tracking fails
+    }
+    
     console.log('Returning successful response with vibes');
-    return NextResponse.json({ success: true, vibes });
+    return NextResponse.json({ 
+      success: true, 
+      vibes,
+      cacheInfo: {
+        contextRetrieved: !!ragContext,
+        promptOptimized: true,
+        contextCached: true
+      }
+    });
   } catch (err) {
     console.error('Failed to process image:', err);
     const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';

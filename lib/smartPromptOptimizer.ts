@@ -57,11 +57,10 @@ class SmartPromptOptimizer {
     }
 
     try {
-      // Get user's todo history
+      // Get user's todo history (simplified query to avoid index requirements)
       const todosSnapshot = await adminDb.collection('todos')
         .where('userId', '==', userId)
-        .orderBy('createdAt', 'desc')
-        .limit(100)
+        .limit(50)
         .get();
 
       const todos = todosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

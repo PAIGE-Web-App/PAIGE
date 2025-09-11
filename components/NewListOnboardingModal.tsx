@@ -385,12 +385,13 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     if (credits) {
       const currentTotal = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
       
-      // Check if credits decreased (indicating usage) and we have a valid previous value
-      if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
-        const creditsSpent = previousCredits - currentTotal;
-        setCreditToastData({ creditsSpent, creditsRemaining: currentTotal });
-        setShowCreditToast(true);
-      }
+       // Check if credits decreased (indicating usage) and we have a valid previous value
+       // Disabled to prevent duplicate notifications - handled by VerticalNavCreditDisplay
+       // if (previousCredits > 0 && currentTotal > 0 && currentTotal < previousCredits) {
+       //   const creditsSpent = previousCredits - currentTotal;
+       //   setCreditToastData({ creditsSpent, creditsRemaining: currentTotal });
+       //   setShowCreditToast(true);
+       // }
       
       // Always update previous credits when we get new data
       setPreviousCredits(currentTotal);
@@ -405,9 +406,10 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       }, 500);
     };
 
-    const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
+    // Temporarily disable to test for duplicates
+    // const unsubscribe = creditEventEmitter.subscribe(handleCreditUpdate);
     
-    return () => unsubscribe();
+    // return () => unsubscribe();
   }, [loadCredits]);
 
   return (
@@ -1007,11 +1009,10 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         if (ragResponse.credits && ragResponse.credits.required > 0) {
           console.log('🎯 Todo generation complete, triggering credit refresh:', ragResponse.credits);
           if (typeof window !== 'undefined') {
-            localStorage.setItem('creditUpdateEvent', Date.now().toString());
             setTimeout(async () => {
               const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
               creditEventEmitter.emit();
-            }, 1000);
+            }, 300);
           }
         }
       } else {

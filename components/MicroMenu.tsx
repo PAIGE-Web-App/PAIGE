@@ -22,7 +22,7 @@ const MicroMenu: React.FC<MicroMenuProps> = ({
   items,
   className = "",
   buttonClassName = "p-1 hover:bg-gray-100 rounded-full",
-  menuClassName = "absolute right-0 mt-1 w-max bg-white border border-gray-200 rounded-md shadow-lg z-10",
+  menuClassName = "absolute right-0 mt-1 w-max bg-white border border-gray-200 rounded-md shadow-lg z-50",
   title = "More options"
 }) => {
   const [isOpen, setIsOpen] = useState(false);

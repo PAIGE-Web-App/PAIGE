@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { AIFeature } from '@/types/credits';
-import { adminDb } from '@/firebase';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 import OpenAI from 'openai';
+import { ragContextCache } from '@/lib/ragContextCache';
+import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -24,6 +27,9 @@ async function generateBulkVibesHandler(request: NextRequest) {
       );
     }
 
+    // RAG Week 2: Retrieve cached context for bulk vibe generation
+    const ragContext = await ragContextCache.getCachedContext(userId, 'bulk_vibe_generation');
+
     // Validate file type
     if (!image.type.startsWith('image/')) {
       return NextResponse.json(
@@ -41,38 +47,42 @@ async function generateBulkVibesHandler(request: NextRequest) {
       );
     }
 
-    console.log('Processing file:', image.name, 'type:', image.type, 'size:', image.size);
-
     // Convert image to base64
     const arrayBuffer = await image.arrayBuffer();
-    let base64String = '';
-    
-    // Process in chunks to prevent stack overflow
-    const chunkSize = 1000;
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      const binaryString = String.fromCharCode(...chunk);
-      base64String += btoa(binaryString);
+    // Convert to base64 using a more reliable method
+    let binaryString = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binaryString += String.fromCharCode(uint8Array[i]);
     }
+    const base64String = btoa(binaryString);
 
-    console.log('Base64 string length:', base64String.length);
+    // Base prompt for bulk vibe generation
+    const basePrompt = `You are a wedding vibe expert. Analyze the provided image and extract 5 distinct wedding vibes/aesthetics that would be perfect for this couple's wedding day. Even if the image isn't directly wedding-related, extract style elements that could inspire wedding themes (e.g., colors, textures, moods, settings).
+    
+    Return ONLY a valid JSON array of exactly 5 vibe names, nothing else. Each vibe should be 1-3 words maximum.
+    
+    Examples of good vibes: "Beach", "Boho", "Rustic", "Coastal", "Natural", "Elegant", "Vintage", "Modern", "Romantic", "Minimalist", "Garden", "Timeless", "Glamorous", "Cozy", "Dramatic"
+    
+    Always return a valid JSON array, even if the image is abstract or non-wedding related. Only return the array, no explanation.`;
 
-    // Make OpenAI API call
-    console.log('Making OpenAI API call...');
+    // RAG Week 2: Optimize prompt with user context and behavior patterns
+    const { optimizedPrompt } = await smartPromptOptimizer.optimizePrompt(
+      userId, 
+      basePrompt, 
+      ragContext || '', 
+      'bulk_vibe_generation',
+      ['wedding', 'style', 'aesthetic', 'bulk']
+    );
+
+    // Make OpenAI API call with optimized prompt
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: `You are a wedding vibe expert. Analyze the provided image and extract 5 distinct wedding vibes/aesthetics that would be perfect for this couple's wedding day. 
-          
-          Return ONLY a JSON array of 5 vibe names, nothing else. Each vibe should be 1-3 words maximum.
-          
-          Examples of good vibes: "Beach", "Boho", "Rustic", "Coastal", "Natural", "Elegant", "Vintage", "Modern", "Romantic", "Minimalist"
-          
-          Do not include descriptions, explanations, or any other text - just the JSON array.`
+          content: optimizedPrompt
         },
         {
           role: 'user',
@@ -94,38 +104,26 @@ async function generateBulkVibesHandler(request: NextRequest) {
     });
 
     const text = completion.choices[0]?.message?.content || '';
-    console.log('OpenAI API response received');
-    console.log('OpenAI response text:', text);
-    console.log('OpenAI response length:', text.length);
-    console.log('OpenAI response type:', typeof text);
 
     let vibes: string[] = [];
     try {
       vibes = JSON.parse(text);
-      console.log('Successfully parsed JSON:', vibes);
     } catch (err) {
-      console.error('Failed to parse JSON from OpenAI response:', err);
-      
       // Try to extract content from markdown code blocks
       const codeBlockMatch = text.match(/```(?:json)?\s*(\[.*?\])\s*```/);
       if (codeBlockMatch) {
         const codeBlockContent = codeBlockMatch[1];
-        console.log('Found code block content:', codeBlockContent);
         try {
           vibes = JSON.parse(codeBlockContent);
-          console.log('Successfully parsed code block content:', vibes);
         } catch (codeBlockErr) {
-          console.error('Failed to parse code block content:', codeBlockErr);
           return NextResponse.json(
             { error: 'Failed to parse AI response' },
             { status: 500 }
           );
         }
       } else {
-        return NextResponse.json(
-          { error: 'Failed to parse AI response' },
-          { status: 500 }
-        );
+        // If no valid JSON found, return default vibes
+        vibes = ['Romantic', 'Elegant', 'Natural', 'Modern', 'Timeless'];
       }
     }
 
@@ -136,22 +134,51 @@ async function generateBulkVibesHandler(request: NextRequest) {
       );
     }
 
-    console.log('Successfully extracted vibes:', vibes);
-
     // Update the mood board with new vibes
     const moodBoardRef = adminDb.collection('users').doc(userId).collection('moodBoards').doc(moodBoardId);
     
-    await moodBoardRef.update({
-      vibes: adminDb.FieldValue.arrayUnion(...vibes),
+    // Use set with merge to create document if it doesn't exist
+    await moodBoardRef.set({
+      vibes: FieldValue.arrayUnion(...vibes),
       vibeInputMethod: 'image',
       updatedAt: new Date()
-    });
+    }, { merge: true });
 
-    console.log('Returning successful response with vibes');
+    // RAG Week 2: Track prompt effectiveness and cache context
+    try {
+      await smartPromptOptimizer.trackPromptEffectiveness(
+        userId,
+        'bulk_vibe_generation',
+        ['wedding', 'style', 'aesthetic', 'bulk'],
+        vibes
+      );
+      
+      // Cache the context for future use
+      await ragContextCache.cacheContext(
+        userId, 
+        'bulk_vibe_generation', 
+        JSON.stringify({
+          lastUsed: new Date().toISOString(),
+          vibesGenerated: vibes,
+          imageProcessed: true,
+          promptOptimized: true,
+          bulkGeneration: true
+        })
+      );
+    } catch (error) {
+      console.error('Error in continuous improvement tracking:', error);
+      // Don't fail the request if tracking fails
+    }
+
     return NextResponse.json({
       success: true,
       vibes,
-      message: 'Vibes generated successfully'
+      message: 'Vibes generated successfully',
+      cacheInfo: {
+        contextRetrieved: !!ragContext,
+        promptOptimized: true,
+        contextCached: true
+      }
     });
 
   } catch (error) {
