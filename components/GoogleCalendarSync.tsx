@@ -217,7 +217,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   if (compact) {
     // Compact single-line UI with background and padding, right-aligned actions
     return (
-      <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded px-3 py-2">
+      <div className="bg-[#F8F6F4] rounded px-3 py-2">
         <div className="flex items-center justify-between w-full">
           {/* Left: Google Calendar status */}
           <div className="flex items-center gap-2">
