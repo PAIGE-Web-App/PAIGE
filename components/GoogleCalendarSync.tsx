@@ -215,40 +215,42 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   };
 
   if (compact) {
-    // Compact bar UI
+    // Compact bar UI - optimized for mobile
     return (
-      <div className="flex items-center gap-3 bg-[#F8F6F4] border border-[#E0DBD7] rounded px-3 py-2">
-        <img src="/Google__G__logo.svg" alt="Google" className="w-5 h-5" />
-        <span className="text-sm font-medium text-[#332B42]">Google Calendar:</span>
+      <div className="flex items-center gap-2 bg-[#F8F6F4] border border-[#E0DBD7] rounded px-3 py-2">
+        <img src="/Google__G__logo.svg" alt="Google" className="w-4 h-4 flex-shrink-0" />
+        <span className="text-xs font-medium text-[#332B42] flex-shrink-0">Google Calendar:</span>
         {calendarStatus.isLinked ? (
           <>
-            <span className="text-xs text-green-700">Synced {formatLastSync(calendarStatus.lastSyncAt)}</span>
-            <button
-              onClick={async () => {
-                if (todoItems.length === 0) {
-                  showErrorToast('Add to-do items to sync with Google Calendar.');
-                  return;
-                }
-                await handleUnifiedSync();
-              }}
-              disabled={isSyncing}
-              className="ml-2 px-2 py-1 text-xs rounded bg-[#A85C36] text-white hover:bg-[#8B4513] flex items-center gap-1"
-            >
-              {isSyncing ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3 h-3" />
-              )}
-              Sync with Google
-            </button>
-            <button
-              onClick={openGoogleCalendar}
-              className="ml-2 text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
-              title="Open in Google Calendar"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Open
-            </button>
+            <span className="text-xs text-green-700 flex-shrink-0">Synced {formatLastSync(calendarStatus.lastSyncAt)}</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={async () => {
+                  if (todoItems.length === 0) {
+                    showErrorToast('Add to-do items to sync with Google Calendar.');
+                    return;
+                  }
+                  await handleUnifiedSync();
+                }}
+                disabled={isSyncing}
+                className="btn-primaryinverse text-xs flex items-center gap-1"
+              >
+                {isSyncing ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                Sync with Google
+              </button>
+              <button
+                onClick={openGoogleCalendar}
+                className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
+                title="Open in Google Calendar"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open
+              </button>
+            </div>
           </>
         ) : (
           <span className="text-xs text-gray-500">Not linked</span>
