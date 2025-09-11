@@ -97,7 +97,7 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0 relative">
-            <h2 className={`text-base lg:text-lg font-playfair font-medium text-[#332B42] truncate transition-opacity duration-300 ${
+            <h2 className={`text-sm lg:text-base font-playfair font-medium text-[#332B42] truncate transition-opacity duration-300 ${
               editingListNameId ? 'opacity-0' : 'opacity-100'
             }`}>
               {showCompletedItems && !selectedList
