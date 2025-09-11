@@ -94,12 +94,12 @@ export async function POST(request: NextRequest) {
     const errors: string[] = [];
 
     for (let i = 0; i < users.length; i += batchSize) {
-      const batch = writeBatch(adminDb);
+      const batch = writeBatch(adminDb as any);
       const userBatch = users.slice(i, i + batchSize);
 
       userBatch.forEach(userDoc => {
         const userData = userDoc.data();
-        const jobRef = doc(adminDb, 'credit_refresh_jobs', userDoc.id);
+        const jobRef = doc(adminDb as any, 'credit_refresh_jobs', userDoc.id);
         
         // Calculate staggered refresh time based on user ID hash
         const hash = simpleHash(userDoc.id);

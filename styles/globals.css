@@ -14,6 +14,22 @@ html, body {
 body {
   @apply font-work tracking-normal;
   background-color: #F3F2F0;
+  /* Mobile-first responsive typography */
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Responsive typography scale */
+@media (min-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
 }
 
 a {
@@ -520,10 +536,41 @@ h6 {
   margin-left: auto;
   margin-right: auto;
   padding: 1rem;
-  min-height: calc(100vh - 2rem);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+
+/* Mobile-first responsive container */
+@media (max-width: 639px) {
+  .app-content-container {
+    padding: 0.5rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .app-content-container {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-content-container {
+    padding: 1.5rem;
+  }
+}
+
+/* Dashboard Layout - CSS-driven responsive design */
+.dashboard-layout {
+  @apply flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden min-h-0;
+}
+
+.dashboard-main {
+  @apply flex flex-1 border border-[#AB9C95] rounded-[5px] overflow-hidden min-h-0;
+  /* Mobile: Stack vertically */
+  @apply flex-col;
+  /* Desktop: Side by side */
+  @apply lg:flex-row;
 }
 
 /* Unified container pattern for sidebar + main content */
@@ -533,12 +580,45 @@ h6 {
 
 /* Sidebar styling within unified container */
 .unified-sidebar {
-  @apply w-[320px] bg-[#F3F2F0] border-r border-[#AB9C95] relative flex-shrink-0 min-h-full flex flex-col;
+  @apply w-full lg:w-[320px] bg-[#F3F2F0] border-r border-[#AB9C95] relative flex-shrink-0 min-h-full flex flex-col;
 }
 
 /* Main content area within unified container */
 .unified-main-content {
   @apply flex-1 flex flex-col min-h-0 bg-white;
+}
+
+/* Contacts sidebar - responsive design */
+.contacts-sidebar {
+  @apply w-full lg:w-[320px] bg-[#F3F2F0] relative flex-shrink-0 min-h-full flex flex-col;
+  /* Mobile: Full width, no border */
+  /* Desktop: Right border to separate from messages */
+  @apply lg:border-r lg:border-[#AB9C95];
+}
+
+/* Mobile view modes for contacts sidebar */
+.contacts-sidebar.mobile-contacts-view {
+  @apply block;
+}
+
+.contacts-sidebar.mobile-messages-view {
+  @apply hidden lg:block;
+}
+
+/* Messages panel - responsive design */
+.messages-panel {
+  @apply flex flex-col flex-1 bg-white relative w-full min-h-full;
+  /* Mobile: Full width, no border */
+  /* Desktop: No border needed (contacts has right border) */
+}
+
+/* Mobile view modes for messages panel */
+.messages-panel.mobile-contacts-view {
+  @apply hidden lg:flex;
+}
+
+.messages-panel.mobile-messages-view {
+  @apply flex;
 }
 
 .btn-small-inverse {
@@ -1344,4 +1424,67 @@ input::placeholder {
 /* Hide contact assignment display in modal to-do items */
 .modal-todo-item .text-xs.text-\[#364257\] {
   display: none !important;
+}
+
+/* Mobile-first responsive utilities */
+@layer utilities {
+  /* Safe area utilities for mobile devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Mobile-specific spacing */
+  .mobile-px {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  .mobile-py {
+    @apply py-4 sm:py-6 lg:py-8;
+  }
+  
+  .mobile-p {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  /* Mobile-first grid utilities */
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+  }
+  
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+  
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
 }

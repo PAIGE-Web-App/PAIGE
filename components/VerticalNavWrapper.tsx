@@ -2,6 +2,8 @@
 
 import { useAuth } from '../contexts/AuthContext';
 import VerticalNav from './VerticalNav';
+import ModernBottomNav from './ModernBottomNav';
+import { useMobileDetection } from '../hooks/useMobileDetection';
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -12,6 +14,7 @@ interface VerticalNavWrapperProps {
 
 export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps) {
   const { user, loading } = useAuth();
+  const { isMobile, isDesktop } = useMobileDetection();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
 
@@ -59,17 +62,29 @@ export default function VerticalNavWrapper({ children }: VerticalNavWrapperProps
     return <div className="min-h-screen">{children}</div>;
   }
 
-  // Only render VerticalNav for authenticated AND onboarded users
+  // Only render navigation for authenticated AND onboarded users
   if (!user || !onboarded) {
     console.log('🚫 [VerticalNavWrapper] Not rendering nav - user:', !!user, 'onboarded:', onboarded);
     return <div className="min-h-screen">{children}</div>;
   }
 
-  
+  // Mobile Layout: Bottom Navigation Inside Container (Scalable)
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="flex-1 overflow-hidden">
+          {children}
+        </div>
+        <ModernBottomNav />
+      </div>
+    );
+  }
+
+  // Desktop Layout: Vertical Sidebar
   return (
     <div className="flex min-h-screen">
       <VerticalNav />
-      <main className="flex-1 md:ml-[72px]">
+      <main className="flex-1 lg:ml-[72px]">
         {children}
       </main>
     </div>

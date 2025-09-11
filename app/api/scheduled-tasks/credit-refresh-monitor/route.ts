@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     
     for (const status of statuses) {
       const statusQuery = query(
-        adminDb.collection('credit_refresh_jobs'),
+        adminDb.collection('credit_refresh_jobs') as any,
         where('status', '==', status)
       );
       
@@ -128,14 +128,14 @@ export async function GET(request: NextRequest) {
 
     // Get recent activity (last 20 jobs)
     const recentQuery = query(
-      adminDb.collection('credit_refresh_jobs'),
+      adminDb.collection('credit_refresh_jobs') as any,
       orderBy('createdAt', 'desc'),
       limit(20)
     );
     
     const recentSnapshot = await getDocs(recentQuery);
     stats.recentActivity = recentSnapshot.docs.map(doc => {
-      const data = doc.data();
+      const data = doc.data() as any;
       return {
         jobId: doc.id,
         userId: data.userId,
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     // Get recent errors (last 10 failed jobs)
     const errorsQuery = query(
-      adminDb.collection('credit_refresh_jobs'),
+      adminDb.collection('credit_refresh_jobs') as any,
       where('status', '==', 'failed'),
       orderBy('createdAt', 'desc'),
       limit(10)
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     
     const errorsSnapshot = await getDocs(errorsQuery);
     stats.errors = errorsSnapshot.docs.map(doc => {
-      const data = doc.data();
+      const data = doc.data() as any;
       return {
         jobId: doc.id,
         error: data.error || 'Unknown error',
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate average processing time from completed jobs
     const completedQuery = query(
-      adminDb.collection('credit_refresh_jobs'),
+      adminDb.collection('credit_refresh_jobs') as any,
       where('status', '==', 'completed'),
       orderBy('createdAt', 'desc'),
       limit(100) // Sample last 100 completed jobs
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     let processingTimeCount = 0;
     
     completedSnapshot.docs.forEach(doc => {
-      const data = doc.data();
+      const data = doc.data() as any;
       if (data.createdAt && data.result?.timestamp) {
         const created = data.createdAt.toDate();
         const completed = new Date(data.result.timestamp);

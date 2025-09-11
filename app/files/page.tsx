@@ -629,7 +629,7 @@ export default function FilesPage() {
           />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
-            <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
+            <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">
               {/* Empty State */}
               <FilesEmptyState
                 onCreateFolder={handleCreateFolder}
@@ -679,7 +679,7 @@ export default function FilesPage() {
         />
 
         <div className="app-content-container flex-1 overflow-hidden flex flex-col">
-        <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
+        <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">
           {/* Main Content Area */}
           <main className="unified-container">
             {/* Files Sidebar */}

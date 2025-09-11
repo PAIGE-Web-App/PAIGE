@@ -47,10 +47,8 @@ import { parseLocalDateTime, nullToUndefined } from '@/utils/dateUtils';
 interface RightDashboardPanelProps {
   currentUser: User;
   contacts: Contact[];
-  isMobile: boolean;
   rightPanelSelection: 'todo' | 'messages' | 'favorites'; // Now a prop
   setRightPanelSelection: React.Dispatch<React.SetStateAction<'todo' | 'messages' | 'favorites'>>; // Add setter prop
-  activeMobileTab: 'contacts' | 'messages' | 'todo'; // This prop is used for internal logic related to mobile layout
   onUpdateTodoDeadline: (todoId: string, deadline: string | null) => Promise<void>;
   onUpdateTodoNotes: (todoId: string, notes: string) => Promise<void>;
   onUpdateTodoCategory: (todoId: string, category: string) => Promise<void>;
@@ -69,10 +67,9 @@ const calendarStyles = `
   }
 `;
 
-const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, isMobile, activeMobileTab, onUpdateTodoDeadline, onUpdateTodoNotes, onUpdateTodoCategory }) => {
+const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, rightPanelSelection, setRightPanelSelection, onUpdateTodoDeadline, onUpdateTodoNotes, onUpdateTodoCategory }) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   // State declarations
-  const [rightPanelSelection, setRightPanelSelection] = useState<'todo' | 'messages' | 'favorites'>('todo');
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null); // null = "All To-Do" view
@@ -1334,7 +1331,6 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
       {/* Content Area for Right Panel - Right Column of Right Panel */}
       {
-  (!isMobile || activeMobileTab === 'todo') && (
       <aside
         className="flex-1 bg-white overflow-y-auto w-full"
         style={{ maxHeight: '100%' }}
@@ -1425,8 +1421,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           </div>
         )}
       </aside>
-      )
-}
+      }
 
       {showMoveTaskModal && taskToMove && (
         <MoveTaskModal

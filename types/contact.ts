@@ -13,6 +13,9 @@ export interface Contact {
   placeId?: string | null; // Google Places ID for vendor association
   vendorEmails?: VendorEmail[]; // Multiple verified emails for this vendor
   isVendorContact?: boolean; // Flag to identify vendor contacts
+  // New fields for mobile messaging UX
+  lastMessageTime?: Date | string; // Timestamp of last message
+  lastMessageSnippet?: string; // Snippet of last message with "You:" prefix if sent by user
 }
 
 export interface VendorEmail {

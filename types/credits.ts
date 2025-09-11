@@ -21,6 +21,8 @@ export type CoupleAIFeature =
   | 'bulk_vibe_generation'
   | 'vendor_suggestions'
   | 'follow_up_questions'
+  | 'guest_notes_generation'
+  | 'seating_layout_generation'
   | 'rag_document_processing'
   | 'rag_query_processing';
 
@@ -180,6 +182,8 @@ export const COUPLE_AI_CREDIT_COSTS: Record<CoupleAIFeature, number> = {
   bulk_vibe_generation: 5,
   vendor_suggestions: 2,
   follow_up_questions: 1,
+  guest_notes_generation: 3,
+  seating_layout_generation: 4,
   rag_document_processing: 2,
   rag_query_processing: 3
 };

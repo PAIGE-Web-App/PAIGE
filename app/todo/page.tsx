@@ -275,7 +275,7 @@ export default function TodoPage() {
       />
       
       <div className="app-content-container flex-1 overflow-hidden">
-        <div className="flex h-full gap-4 md:flex-row flex-col">
+        <div className="flex h-full gap-4 lg:flex-row flex-col">
           <main className="unified-container">
             <TodoSidebar
               todoLists={todoLists.todoLists}

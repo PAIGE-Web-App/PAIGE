@@ -32,9 +32,6 @@ const MessagesPanel = ({
   selectedContact,
   currentUser,
   isAuthReady,
-  isMobile,
-  activeMobileTab,
-  setActiveMobileTab,
   input,
   setInput,
   draftLoading,
@@ -48,6 +45,8 @@ const MessagesPanel = ({
   showOnboardingModal,
   jiggleEmailField,
   setJiggleEmailField,
+  mobileViewMode = 'contacts',
+  onMobileBackToContacts,
 }) => {
   // Get user profile data for AI draft personalization
   const { 
@@ -69,11 +68,7 @@ const MessagesPanel = ({
         </div>
       </div>
     ) : (
-      <section
-        className={`flex flex-col flex-1 bg-white relative w-full min-h-full
-          ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
-        `}
-      >
+      <section className={`messages-panel mobile-${mobileViewMode}-view`}>
         {contacts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <img 
@@ -99,8 +94,6 @@ const MessagesPanel = ({
             currentUser={currentUser}
             isAuthReady={isAuthReady}
             contacts={contacts}
-            isMobile={isMobile}
-            setActiveMobileTab={setActiveMobileTab}
             input={input}
             setInput={setInput}
             draftLoading={draftLoading}
@@ -128,6 +121,8 @@ const MessagesPanel = ({
             userName={userName || ''}
             jiggleEmailField={jiggleEmailField}
             setJiggleEmailField={setJiggleEmailField}
+            mobileViewMode={mobileViewMode as 'contacts' | 'messages'}
+            onMobileBackToContacts={onMobileBackToContacts}
           />
         )}
       </section>

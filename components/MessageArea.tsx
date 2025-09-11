@@ -39,8 +39,6 @@ interface MessageAreaProps {
   currentUser: User | null;
   isAuthReady: boolean;
   contacts: Contact[];
-  isMobile: boolean;
-  setActiveMobileTab: (tab: "contacts" | "messages" | "todo") => void;
   input: string;
   setInput: (input: string) => void;
   draftLoading: boolean;
@@ -54,6 +52,8 @@ interface MessageAreaProps {
   userName?: string;
   jiggleEmailField?: boolean;
   setJiggleEmailField?: (jiggle: boolean) => void;
+  mobileViewMode?: 'contacts' | 'messages';
+  onMobileBackToContacts?: () => void;
 }
 
 const getRelativeDate = (dateInput: Date | string): string => {
@@ -188,8 +188,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   currentUser,
   isAuthReady,
   contacts,
-  isMobile,
-  setActiveMobileTab,
   input,
   setInput,
   draftLoading,
@@ -203,6 +201,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   userName,
   jiggleEmailField,
   setJiggleEmailField,
+  mobileViewMode = 'contacts',
+  onMobileBackToContacts,
 }) => {
   const router = useRouter();
   const [state, dispatch] = useReducer(messageReducer, { 
@@ -664,9 +664,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
-  const handleTabChange = (tab: "contacts" | "messages" | "todo") => {
-    setActiveMobileTab(tab);
-  };
 
   const handleEmojiSelect = (emoji: string) => {
     setInput(input + emoji);
@@ -1233,10 +1230,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             {/* Top row: Back button (mobile) and name/category */}
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                {isMobile && (
+                {/* Mobile back button */}
+                {mobileViewMode === 'messages' && onMobileBackToContacts && (
                   <button
-                    onClick={() => setActiveMobileTab('contacts')}
-                    className="mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                    onClick={onMobileBackToContacts}
+                    className="lg:hidden mr-2 p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
                     aria-label="Back to contacts"
                   >
                     <ArrowLeft className="w-5 h-5" />

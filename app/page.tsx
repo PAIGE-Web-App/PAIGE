@@ -32,7 +32,6 @@ import SelectField from "../components/SelectField";
 import { AnimatePresence, motion } from "framer-motion";
 import OnboardingModal from "../components/OnboardingModal";
 import RightDashboardPanel from "../components/RightDashboardPanel";
-import BottomNavBar from "../components/BottomNavBar";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
@@ -61,8 +60,6 @@ declare const __initial_auth_token: string | undefined;
 
 interface RightDashboardPanelProps {
   currentUser: User;
-  isMobile: boolean;
-  activeMobileTab: "contacts" | "messages" | "todo";
   contacts: Contact[];
   rightPanelSelection: string | null;
   setRightPanelSelection: (selection: string | null) => void;
@@ -227,10 +224,9 @@ export default function Home() {
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [contactsLoading, setContactsLoading] = useState(true);
 
-  const [isMobile, setIsMobile] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<'contacts' | 'messages' | 'todo'>("contacts");
   const [rightPanelSelection, setRightPanelSelection] = useState<"todo" | "messages" | "favorites">("todo");
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [mobileViewMode, setMobileViewMode] = useState<'contacts' | 'messages'>('contacts');
 
   const [userData, setUserData] = useState<any>(null);
 
@@ -297,15 +293,6 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Check Gmail authentication status when user is available
   useEffect(() => {
@@ -716,10 +703,16 @@ export default function Home() {
     setSortOption('name-asc');
   }, []);
 
-  // Function to handle tab changes from BottomNavBar
-  const handleMobileTabChange = useCallback((tab: 'contacts' | 'todo') => {
-  setActiveMobileTab(tab);
+  // Mobile view mode handlers
+  const handleMobileContactSelect = useCallback((contact: Contact) => {
+    setSelectedContact(contact);
+    setMobileViewMode('messages');
   }, []);
+
+  const handleMobileBackToContacts = useCallback(() => {
+    setMobileViewMode('contacts');
+  }, []);
+
 
   // Only show content when both loading is complete AND minimum time has passed
   const isLoading = authLoading || !minLoadTimeReached;
@@ -943,7 +936,7 @@ export default function Home() {
             onSetWeddingDate={handleSetWeddingDate}
           />
 
-          <div className="app-content-container flex-1 overflow-hidden flex flex-col">
+          <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
             {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
             {showGmailReauthBanner && (
               <div className="flex-shrink-0">
@@ -956,65 +949,61 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex flex-1 gap-4 md:flex-row flex-col overflow-hidden">
-
-          <main className="unified-container">
-            <ContactsList
-              contacts={contacts}
-              contactsLoading={contactsLoading}
-              selectedContact={selectedContact}
-              setSelectedContact={setSelectedContact}
-              isMobile={isMobile}
-              activeMobileTab={activeMobileTab}
-              setActiveMobileTab={setActiveMobileTab}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              showFilters={showFilters}
-              setShowFilters={setShowFilters}
-              filterPopoverRef={filterPopoverRef}
-              allCategories={allCategories}
-              selectedCategoryFilter={selectedCategoryFilter}
-              handleCategoryChange={handleCategoryChange}
-              handleClearCategoryFilter={handleClearCategoryFilter}
-              handleClearSortOption={handleClearSortOption}
-              sortOption={sortOption}
-              setSortOption={setSortOption}
-              displayContacts={displayContacts}
-              deletingContactId={deletingContactId}
-              setIsAdding={setIsAdding}
-              unreadCounts={contactUnreadCounts}
-            />
-            <MessagesPanel
-              contactsLoading={messagesLoading}
-              contacts={contacts}
-              selectedContact={selectedContact}
-              currentUser={user}
-              isAuthReady={true}
-              isMobile={isMobile}
-              activeMobileTab={activeMobileTab}
-              setActiveMobileTab={setActiveMobileTab}
-              input={input}
-              setInput={setInput}
-              draftLoading={draftLoading}
-              generateDraftMessage={handleGenerateDraftMessage}
-              selectedFiles={selectedFiles}
-              setSelectedFiles={setSelectedFiles}
-              setIsEditing={setIsEditing}
-              onContactSelect={setSelectedContact}
-              setShowOnboardingModal={setShowOnboardingModal}
-              userName={userName}
-              showOnboardingModal={showOnboardingModal}
-              jiggleEmailField={jiggleEmailField}
-              setJiggleEmailField={setJiggleEmailField}
-            />
-          </main>
+            <div className="dashboard-layout">
+              <main className="dashboard-main">
+                <ContactsList
+                  contacts={contacts}
+                  contactsLoading={contactsLoading}
+                  selectedContact={selectedContact}
+                  setSelectedContact={handleMobileContactSelect}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  showFilters={showFilters}
+                  setShowFilters={setShowFilters}
+                  filterPopoverRef={filterPopoverRef}
+                  allCategories={allCategories}
+                  selectedCategoryFilter={selectedCategoryFilter}
+                  handleCategoryChange={handleCategoryChange}
+                  handleClearCategoryFilter={handleClearCategoryFilter}
+                  handleClearSortOption={handleClearSortOption}
+                  sortOption={sortOption}
+                  setSortOption={setSortOption}
+                  displayContacts={displayContacts}
+                  deletingContactId={deletingContactId}
+                  setIsAdding={setIsAdding}
+                  unreadCounts={contactUnreadCounts}
+                  mobileViewMode={mobileViewMode}
+                  onMobileBackToContacts={handleMobileBackToContacts}
+                  currentUserId={user?.uid || null}
+                />
+                <MessagesPanel
+                  contactsLoading={messagesLoading}
+                  contacts={contacts}
+                  selectedContact={selectedContact}
+                  currentUser={user}
+                  isAuthReady={true}
+                  input={input}
+                  setInput={setInput}
+                  draftLoading={draftLoading}
+                  generateDraftMessage={handleGenerateDraftMessage}
+                  selectedFiles={selectedFiles}
+                  setSelectedFiles={setSelectedFiles}
+                  setIsEditing={setIsEditing}
+                  onContactSelect={setSelectedContact}
+                  setShowOnboardingModal={setShowOnboardingModal}
+                  userName={userName}
+                  showOnboardingModal={showOnboardingModal}
+                  jiggleEmailField={jiggleEmailField}
+                  setJiggleEmailField={setJiggleEmailField}
+                  mobileViewMode={mobileViewMode}
+                  onMobileBackToContacts={handleMobileBackToContacts}
+                />
+              </main>
 
             {(user && !authLoading) ? (
-              <div className={`md:w-[420px] w-full  ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+              <div className="hidden lg:block lg:w-[420px]">
                 <RightDashboardPanel
                    currentUser={user}
-                    isMobile={isMobile}
-                    activeMobileTab={activeMobileTab}
                     contacts={contacts}
                     rightPanelSelection={rightPanelSelection}
                     setRightPanelSelection={setRightPanelSelection}
@@ -1024,7 +1013,7 @@ export default function Home() {
                 />
               </div>
             ) : (
-              <div className={`md:w-[420px] w-full min-h-full ${isMobile && activeMobileTab !== 'todo' ? 'hidden' : 'block'}`}>
+              <div className="hidden lg:block lg:w-[420px] min-h-full">
               </div>
             )}
             </div>
@@ -1080,9 +1069,6 @@ export default function Home() {
               onClose={() => setShowOnboardingModal(false)}
               onComplete={handleOnboardingComplete}
             />
-          )}
-          {isMobile && user && (
-            <BottomNavBar activeTab={activeMobileTab} onTabChange={handleMobileTabChange} />
           )}
           
           {/* Not Enough Credits Modal */}

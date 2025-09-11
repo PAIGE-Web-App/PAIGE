@@ -49,12 +49,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       userId,
       userData: {
-        email: userData.email,
+        email: userData?.email || 'Unknown',
         role: userRole,
         userType,
         subscriptionTier,
-        createdAt: userData.createdAt,
-        lastActive: userData.lastActive
+        createdAt: userData?.createdAt,
+        lastActive: userData?.lastActive
       },
       credits: userCredits ? {
         dailyCredits: userCredits.dailyCredits,

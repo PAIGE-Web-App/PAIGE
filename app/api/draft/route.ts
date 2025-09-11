@@ -186,19 +186,22 @@ async function handleDraftGeneration(req: NextRequest) {
     
     try {
       // Try to get cached RAG context
-      const cachedContext = ragContextCache.getCachedContext(userId, 'draft_messaging');
+      const cachedContext = await ragContextCache.getCachedContext(userId, 'draft_messaging');
       if (cachedContext) {
-        ragContext = cachedContext.context;
+        ragContext = cachedContext;
         contextSource = 'cache';
       } else {
         // Generate new RAG context if needed
         const ragQuery = `Generate context for drafting a message to ${contact.name} (${contact.category})`;
-        const ragResult = await ragService.processQuery(ragQuery, userId);
-        if (ragResult.context) {
-          ragContext = ragResult.context;
+        const ragResult = await ragService.processQuery({
+          query: ragQuery,
+          user_id: userId
+        });
+        if (ragResult.answer) {
+          ragContext = ragResult.answer;
           contextSource = 'rag';
           // Cache the context for future use
-          ragContextCache.cacheContext(userId, 'draft_messaging', ragResult.context);
+          ragContextCache.cacheContext(userId, 'draft_messaging', ragResult.answer);
         }
       }
       
@@ -235,9 +238,9 @@ async function handleDraftGeneration(req: NextRequest) {
       await smartPromptOptimizer.trackPromptEffectiveness(
         userId,
         'draft_messaging',
-        prompt,
-        draft,
-        optimizationApplied
+        [prompt],
+        [draft || ''],
+        optimizationApplied ? 1 : 0
       );
     } catch (trackingError) {
       console.error('Failed to track prompt effectiveness:', trackingError);

@@ -5,6 +5,40 @@ import CategoryPill from './CategoryPill';
 import SelectField from './SelectField';
 import { Contact } from '../types/contact';
 import { highlightText } from '@/utils/searchHighlight';
+import { useContactMessageData } from '../hooks/useContactMessageData';
+
+// Utility function to format message time
+const formatMessageTime = (timestamp: Date | string): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInDays === 0) {
+    // Today - show time
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (diffInDays < 7) {
+    // This week - show day
+    return date.toLocaleDateString([], { weekday: 'short' });
+  } else {
+    // More than a week - show date
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+};
+
+// Utility function to format message snippet
+const formatMessageSnippet = (message: any, currentUserId: string): string => {
+  if (!message) return 'No messages yet';
+  
+  const isFromUser = message.from === currentUserId || message.senderId === currentUserId;
+  const prefix = isFromUser ? 'You: ' : '';
+  const content = message.body || message.content || message.text || '';
+  
+  // Truncate to 50 characters
+  const truncated = content.length > 50 ? content.substring(0, 50) + '...' : content;
+  
+  return prefix + truncated;
+};
 
 // Skeleton component for contacts list
 const ContactsSkeleton = () => (
@@ -28,9 +62,6 @@ const ContactsList = ({
   contactsLoading,
   selectedContact,
   setSelectedContact,
-  isMobile,
-  activeMobileTab,
-  setActiveMobileTab,
   searchQuery,
   setSearchQuery,
   showFilters,
@@ -47,12 +78,15 @@ const ContactsList = ({
   deletingContactId,
   setIsAdding,
   unreadCounts = {}, // New prop for unread message counts per contact
-}) => (
-  <aside
-    className={`unified-sidebar
-      ${isMobile ? (activeMobileTab === 'contacts' ? 'block' : 'hidden') : 'block'}
-    `}
-  >
+  mobileViewMode = 'contacts',
+  onMobileBackToContacts,
+  currentUserId, // Add currentUserId prop
+}) => {
+  // Use the custom hook to get real message data
+  const { contactMessageData, loading: messageDataLoading } = useContactMessageData(contacts, currentUserId);
+
+  return (
+  <aside className={`contacts-sidebar mobile-${mobileViewMode}-view`}>
     {contactsLoading ? (
       <AnimatePresence mode="wait">
         <motion.div
@@ -148,7 +182,7 @@ const ContactsList = ({
             )}
           </AnimatePresence>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-0 lg:p-4">
           {(selectedCategoryFilter.length > 0 || sortOption !== 'name-asc') && (
             <div className="flex flex-wrap gap-2 mb-4">
               {selectedCategoryFilter.map((category) => (
@@ -187,22 +221,26 @@ const ContactsList = ({
               const before = name.slice(0, matchIndex);
               const match = name.slice(matchIndex, matchIndex + searchQuery.length);
               const after = name.slice(matchIndex + searchQuery.length);
+              
+              // Get real message data for this contact
+              const messageData = contactMessageData.get(contact.id) || {
+                unreadCount: 0
+              };
               return (
                 <div
                   key={contact.id}
-                  className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
+                  className={`p-0 lg:p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${deletingContactId === contact.id
                     ? "opacity-0"
                     : "opacity-100"
                     } ${selectedContact?.id === contact.id
-                      ? "bg-[#EBE3DD] border-[#A85C36]"
+                      ? "lg:bg-[#EBE3DD] lg:border-[#A85C36] hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
                       : "hover:bg-[#F8F6F4] border-transparent hover:border-[#AB9C95]"
                     }`}
                   onClick={() => {
                     setSelectedContact(contact);
-                    if (isMobile) setActiveMobileTab('messages');
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 p-3 lg:p-1">
                     <div className="relative">
                       <div
                         className="h-8 w-8 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
@@ -220,19 +258,36 @@ const ContactsList = ({
                         <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-[#332B42]">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium text-[#332B42] truncate">
                           {highlightText(name, searchQuery)}
                         </div>
-                        {/* Unread count badge */}
-                        {unreadCounts[contact.id] > 0 && (
-                          <span className="bg-red-500 text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center">
-                            {unreadCounts[contact.id] > 9 ? '9+' : unreadCounts[contact.id]}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Mobile: Show timestamp */}
+                          {messageData.lastMessageTime && (
+                            <span className="lg:hidden text-xs text-[#AB9C95]">
+                              {formatMessageTime(messageData.lastMessageTime)}
+                            </span>
+                          )}
+                          {/* Unread count badge */}
+                          {(unreadCounts[contact.id] > 0 || messageData.unreadCount > 0) && (
+                            <span className="bg-red-500 text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center">
+                              {(unreadCounts[contact.id] || messageData.unreadCount) > 9 ? '9+' : (unreadCounts[contact.id] || messageData.unreadCount)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <CategoryPill category={contact.category} />
+                      {/* Mobile: Show message snippet */}
+                      {messageData.lastMessageSnippet && (
+                        <div className="lg:hidden text-xs text-[#332B42] truncate mt-1">
+                          {messageData.lastMessageSnippet}
+                        </div>
+                      )}
+                      {/* Mobile: Show category pill under message snippet */}
+                      <div className="lg:hidden mt-2">
+                        <CategoryPill category={contact.category} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -244,6 +299,7 @@ const ContactsList = ({
       </>
     )}
   </aside>
-);
+  );
+};
 
 export default ContactsList; 
