@@ -58,7 +58,7 @@ export default function MoodBoardContent({
     <div className="space-y-6">
       {/* Board Name Section - Show for all boards including Wedding Day */}
                         <div className="mb-4">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
           {board.type !== 'wedding-day' && onEditBoardName && isEditingName ? (
             // Inline editing mode for custom boards
             <input
@@ -156,7 +156,7 @@ export default function MoodBoardContent({
         />
 
         {/* Upload Button */}
-        <div className="mt-6 flex gap-3 justify-center">
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
           <div>
             <input
               type="file"

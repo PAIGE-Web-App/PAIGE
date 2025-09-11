@@ -778,17 +778,17 @@ export default function MoodBoardsPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="app-content-container flex flex-col gap-6 py-8">
-        {/* Page Header - Always show immediately */}
+      <div className="app-content-container flex flex-col gap-6 py-4 sm:py-8 overflow-x-hidden">
+        {/* Page Header - Responsive layout */}
         <div className="mb-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               {/* Left side: Header and Description */}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
-                  <Heart className="w-5 h-5 text-[#A85C36]" />
-                  <h5>Mood Boards</h5>
+                  <Heart className="w-5 h-5 text-[#A85C36] flex-shrink-0" />
+                  <h5 className="text-lg sm:text-xl">Mood Boards</h5>
                 </div>
-                <p className="text-sm text-[#364257]">
+                <p className="text-sm text-[#364257] leading-relaxed">
                   Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.{' '}
                   <Sparkles className="w-4 h-4 text-[#A85C36] inline" />
                   <button 
@@ -800,8 +800,8 @@ export default function MoodBoardsPage() {
                 </p>
               </div>
               
-              {/* Right side: Storage Usage with 40px gap */}
-              <div className="w-64 ml-10">
+              {/* Right side: Storage Usage - Responsive width */}
+              <div className="w-full sm:w-80 lg:w-64 lg:ml-6 flex-shrink-0">
                 <StorageProgressBar
                   usedStorage={storageStats.usedStorage}
                   totalStorage={storageStats.totalStorage}
@@ -821,26 +821,28 @@ export default function MoodBoardsPage() {
           {/* Mood Board Section */}
           <div>
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 {/* Mood Board Tabs */}
-                <MoodBoardTabs
-                  moodBoards={moodBoards}
-                  activeMoodBoard={activeMoodBoard}
-                  onTabChange={setActiveMoodBoard}
-                  onNewBoard={() => setShowNewBoardModal(true)}
-                  onEditBoard={editMoodBoard}
-                  onDeleteBoard={deleteMoodBoard}
-                  inlineEditingBoardId={inlineEditingBoardId}
-                  inlineEditingName={inlineEditingName}
-                  onInlineEditChange={setInlineEditingName}
-                  onSaveInlineEdit={saveInlineEdit}
-                  onCancelInlineEdit={cancelInlineEdit}
-                  userPlan={userPlan}
-                  isLoading={moodBoardsLoading}
-                />
+                <div className="flex-1 min-w-0">
+                  <MoodBoardTabs
+                    moodBoards={moodBoards}
+                    activeMoodBoard={activeMoodBoard}
+                    onTabChange={setActiveMoodBoard}
+                    onNewBoard={() => setShowNewBoardModal(true)}
+                    onEditBoard={editMoodBoard}
+                    onDeleteBoard={deleteMoodBoard}
+                    inlineEditingBoardId={inlineEditingBoardId}
+                    inlineEditingName={inlineEditingName}
+                    onInlineEditChange={setInlineEditingName}
+                    onSaveInlineEdit={saveInlineEdit}
+                    onCancelInlineEdit={cancelInlineEdit}
+                    userPlan={userPlan}
+                    isLoading={moodBoardsLoading}
+                  />
+                </div>
                 
                 {/* Right side actions */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                   {/* Pinterest Integration Button */}
                   <PinterestBanner 
                     isExpanded={pinterestBannerExpanded}

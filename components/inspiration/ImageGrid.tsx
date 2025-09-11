@@ -46,8 +46,8 @@ export default function ImageGrid({
 
   return (
     <>
-      {/* Pinterest-Style Image Grid */}
-      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-3 xl:columns-4 2xl:columns-4 gap-4 mb-6 w-full max-w-full">
+      {/* Responsive Grid Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-6 w-full max-w-full overflow-hidden">
         {board.images.map((image, index) => {
           // Handle both old string format and new object format
           const imageUrl = typeof image === 'string' ? image : image.url;
@@ -60,9 +60,9 @@ export default function ImageGrid({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="break-inside-avoid mb-4 group"
+              className="group"
             >
-              <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative">
+              <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative w-full max-w-full overflow-hidden">
                 {/* Micro Menu - Top Right (Only on Hover) */}
                 <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <MicroMenu
@@ -91,7 +91,7 @@ export default function ImageGrid({
                 <img
                   src={imageUrl}
                   alt={imageName}
-                  className="w-full h-auto object-cover"
+                  className="w-full h-auto object-cover max-w-full"
                   loading="lazy"
                 />
                 
@@ -116,11 +116,11 @@ export default function ImageGrid({
               
               {/* Content below image */}
               <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-[#332B42] text-sm truncate">
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <h3 className="font-semibold text-[#332B42] text-sm truncate flex-1 min-w-0">
                     {imageName}
                   </h3>
-                  <div className="flex items-center gap-1 text-xs text-[#AB9C95]">
+                  <div className="flex items-center gap-1 text-xs text-[#AB9C95] flex-shrink-0">
                     <Camera size={12} />
                     <span>Uploaded</span>
                   </div>
@@ -128,7 +128,7 @@ export default function ImageGrid({
                 
                 {/* Description */}
                 {imageDescription && (
-                  <p className="text-xs text-[#364257] mb-2 line-clamp-2">
+                  <p className="text-xs text-[#364257] mb-2 line-clamp-2 break-words">
                     {imageDescription}
                   </p>
                 )}
