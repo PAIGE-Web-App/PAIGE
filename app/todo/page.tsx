@@ -13,25 +13,32 @@ import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+// Import standardized skeleton components
+import TodoSidebarSkeleton from '../../components/skeletons/TodoSidebarSkeleton';
+import TodoTopBarSkeleton from '../../components/skeletons/TodoTopBarSkeleton';
+import TodoListViewSkeleton from '../../components/skeletons/TodoListViewSkeleton';
+import CalendarViewSkeleton from '../../components/skeletons/CalendarViewSkeleton';
+import TaskSideCardSkeleton from '../../components/skeletons/TaskSideCardSkeleton';
+
 // Lazy load heavy components
 const TodoSidebar = dynamic(() => import('../../components/TodoSidebar'), {
-  loading: () => <div className="w-64 bg-[#F3F2F0] animate-pulse" />
+  loading: () => <TodoSidebarSkeleton />
 });
 
 const TodoTopBar = dynamic(() => import('../../components/TodoTopBar'), {
-  loading: () => <div className="h-16 bg-white border-b border-[#AB9C95] animate-pulse" />
+  loading: () => <TodoTopBarSkeleton />
 });
 
 const TodoListView = dynamic(() => import('../../components/TodoListView'), {
-  loading: () => <div className="flex-1 bg-white animate-pulse" />
+  loading: () => <TodoListViewSkeleton />
 });
 
 const CalendarView = dynamic(() => import('../../components/CalendarView'), {
-  loading: () => <div className="flex-1 bg-white animate-pulse" />
+  loading: () => <CalendarViewSkeleton />
 });
 
 const TaskSideCard = dynamic(() => import('../../components/TaskSideCard'), {
-  loading: () => <div className="w-80 bg-white border-l border-[#AB9C95] animate-pulse" />
+  loading: () => <TaskSideCardSkeleton />
 });
 
 // Lazy load modals - only load when needed

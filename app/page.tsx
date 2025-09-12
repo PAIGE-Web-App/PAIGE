@@ -98,47 +98,9 @@ import { getRelativeDate } from '@/utils/dateUtils';
 import EmojiPicker from '@/components/EmojiPicker';
 
 
-// Skeleton component for contacts list
-const ContactsSkeleton = () => (
-  <div className="space-y-2 animate-pulse p-4">
-    {[...Array(5)].map((_, i) => (
-      <div key={i} className="p-3 mb-3 rounded-[5px] border border-[#AB9C95] bg-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 min-w-[32px] min-h-[32px] rounded-full bg-gray-300"></div>
-          <div>
-            <div className="h-4 bg-gray-300 rounded w-24 mb-1"></div>
-            <div className="h-3 bg-gray-200 rounded w-16"></div>
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-// Skeleton component for messages
-const MessagesSkeleton = () => (
-  <div className="space-y-4 p-3 animate-pulse">
-    {/* Received Message Skeleton */}
-    <div
-      key="received-skeleton"
-      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_15px_0] mr-auto bg-gray-50"
-    >
-      <div className="h-3 rounded mb-1 bg-gray-200 w-1/2"></div>
-      <div className="h-4 rounded bg-gray-200 w-full"></div>
-      <div className="h-4 rounded mt-1 bg-gray-200 w-4/5"></div>
-    </div>
-
-    {/* Sent Message Skeleton */}
-    <div
-      key="sent-skeleton"
-      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_0_15px] ml-auto bg-gray-100"
-    >
-      <div className="h-3 rounded mb-1 bg-gray-200 w-2/3 ml-auto"></div>
-      <div className="h-4 rounded bg-gray-200 w-full"></div>
-      <div className="h-4 rounded mt-1 bg-gray-200 w-3/4 ml-auto"></div>
-    </div>
-  </div>
-);
+// Import standardized skeleton components
+import ContactsListSkeleton from '../components/skeletons/ContactsListSkeleton';
+import MessagesSkeleton from '../components/skeletons/MessagesSkeleton';
 
 import { removeUndefinedFields } from '@/utils/arrayUtils';
 import { parseLocalDateTime } from '@/utils/dateUtils';

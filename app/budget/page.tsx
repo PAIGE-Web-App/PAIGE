@@ -16,25 +16,19 @@ import Breadcrumb from '@/components/Breadcrumb';
 import SearchBar from '@/components/SearchBar';
 import ConfirmationModal from '@/components/ConfirmationModal';
 
+// Import skeleton components
+import BudgetSidebarSkeleton from '@/components/skeletons/BudgetSidebarSkeleton';
+import BudgetItemsListSkeleton from '@/components/skeletons/BudgetItemsListSkeleton';
+import MobileBudgetHeaderSkeleton from '@/components/skeletons/MobileBudgetHeaderSkeleton';
+import BudgetMetricsSkeleton from '@/components/skeletons/BudgetMetricsSkeleton';
+
 // Lazy load heavy components
 const BudgetSidebar = dynamic(() => import('@/components/BudgetSidebar'), {
-  loading: () => <div className="w-[320px] bg-[#F3F2F0] animate-pulse rounded-lg" />
+  loading: () => <BudgetSidebarSkeleton />
 });
 
 const BudgetItemsList = dynamic(() => import('@/components/BudgetItemsList'), {
-  loading: () => (
-    <div className="flex-1 bg-white animate-pulse">
-      <div className="p-4 border-b border-[#E0DBD7]">
-        <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
-        <div className="h-3 bg-gray-200 rounded w-48" />
-      </div>
-      <div className="p-4 space-y-3">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-12 bg-gray-100 rounded" />
-        ))}
-      </div>
-    </div>
-  )
+  loading: () => <BudgetItemsListSkeleton />
 });
 
 
@@ -49,31 +43,11 @@ const BudgetTopBar = dynamic(() => import('@/components/BudgetTopBar'), {
 });
 
 const MobileBudgetHeader = dynamic(() => import('@/components/budget/MobileBudgetHeader'), {
-  loading: () => (
-    <div className="lg:hidden sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
-      <div className="flex items-center w-full gap-4 px-4 py-3">
-        <div className="h-6 bg-gray-300 rounded w-24 animate-pulse" />
-        <div className="flex-1" />
-        <div className="h-8 w-8 bg-gray-300 rounded animate-pulse" />
-      </div>
-    </div>
-  )
+  loading: () => <MobileBudgetHeaderSkeleton />
 });
 
 const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
-  loading: () => (
-    <div className="bg-white border-b border-[#AB9C95] animate-pulse">
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 min-h-32">
-            <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
-            <div className="h-6 bg-gray-300 rounded w-16 mb-2" />
-            <div className="h-3 bg-gray-200 rounded w-48" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  loading: () => <BudgetMetricsSkeleton />
 });
 
 const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'), {

@@ -40,22 +40,8 @@ const formatMessageSnippet = (message: any, currentUserId: string): string => {
   return prefix + truncated;
 };
 
-// Skeleton component for contacts list
-const ContactsSkeleton = () => (
-  <div className="space-y-2 animate-pulse">
-    {[...Array(5)].map((_, i) => (
-      <div key={i} className="p-3 mb-3 rounded-[5px] border border-[#AB9C95] bg-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 min-w-[32px] min-h-[32px] rounded-full bg-gray-300"></div>
-          <div>
-            <div className="h-4 bg-gray-300 rounded w-24 mb-1"></div>
-            <div className="h-3 bg-gray-200 rounded w-16"></div>
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-);
+// Import standardized skeleton component
+import ContactsListSkeleton from './skeletons/ContactsListSkeleton';
 
 // Interface for ContactCard props
 interface ContactCardProps {
@@ -226,7 +212,7 @@ const ContactsList = memo(({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <ContactsSkeleton />
+          <ContactsListSkeleton />
         </motion.div>
       </AnimatePresence>
     ) : (

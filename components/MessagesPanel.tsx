@@ -2,29 +2,8 @@ import React from 'react';
 import MessageArea from './MessageArea';
 import { useUserProfileData } from '../hooks/useUserProfileData';
 
-// Skeleton component for messages
-const MessagesSkeleton = () => (
-  <div className="space-y-4 p-3 animate-pulse">
-    {/* Received Message Skeleton */}
-    <div
-      key="received-skeleton"
-      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_15px_0] mr-auto bg-gray-50"
-    >
-      <div className="h-3 rounded mb-1 bg-gray-200 w-1/2"></div>
-      <div className="h-4 rounded bg-gray-200 w-full"></div>
-      <div className="h-4 rounded mt-1 bg-gray-200 w-4/5"></div>
-    </div>
-    {/* Sent Message Skeleton */}
-    <div
-      key="sent-skeleton"
-      className="max-w-[80%] px-3 py-2 rounded-[15px_15px_0_15px] ml-auto bg-gray-100"
-    >
-      <div className="h-3 rounded mb-1 bg-gray-200 w-2/3 ml-auto"></div>
-      <div className="h-4 rounded bg-gray-200 w-full"></div>
-      <div className="h-4 rounded mt-1 bg-gray-200 w-3/4 ml-auto"></div>
-    </div>
-  </div>
-);
+// Import standardized skeleton component
+import MessagesSkeleton from './skeletons/MessagesSkeleton';
 
 const MessagesPanel = ({
   contactsLoading,
