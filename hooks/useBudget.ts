@@ -513,12 +513,18 @@ export function useBudget() {
     if (!user) return;
 
     try {
-      // Query all budget items to ensure we get everything
-      const itemsQuery = query(getUserCollectionRef('budgetItems', user.uid));
+      // Query all budget items to ensure we get everything (with reasonable limit)
+      const itemsQuery = query(
+        getUserCollectionRef('budgetItems', user.uid),
+        limit(1000) // Reasonable limit for delete all operation
+      );
       const itemsSnapshot = await getDocs(itemsQuery);
       
-      // Query all budget categories
-      const categoriesQuery = query(getUserCollectionRef('budgetCategories', user.uid));
+      // Query all budget categories (with reasonable limit)
+      const categoriesQuery = query(
+        getUserCollectionRef('budgetCategories', user.uid),
+        limit(100) // Reasonable limit for delete all operation
+      );
       const categoriesSnapshot = await getDocs(categoriesQuery);
 
       // Delete all budget items first
@@ -557,12 +563,18 @@ export function useBudget() {
     if (!user) return;
 
     try {
-      // Query all budget items
-      const itemsQuery = query(getUserCollectionRef('budgetItems', user.uid));
+      // Query all budget items (with reasonable limit)
+      const itemsQuery = query(
+        getUserCollectionRef('budgetItems', user.uid),
+        limit(1000) // Reasonable limit for clear all operation
+      );
       const itemsSnapshot = await getDocs(itemsQuery);
       
-      // Query all budget categories
-      const categoriesQuery = query(getUserCollectionRef('budgetCategories', user.uid));
+      // Query all budget categories (with reasonable limit)
+      const categoriesQuery = query(
+        getUserCollectionRef('budgetCategories', user.uid),
+        limit(100) // Reasonable limit for clear all operation
+      );
       const categoriesSnapshot = await getDocs(categoriesQuery);
 
       // Delete everything in batches

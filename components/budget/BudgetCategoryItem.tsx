@@ -25,7 +25,8 @@ const BudgetCategoryItem: React.FC<BudgetCategoryItemProps> = memo(({
 
   const getCategoryProgress = () => {
     const allocated = category.allocatedAmount;
-    return allocated > 0 ? (spentAmount / allocated) * 100 : 0;
+    if (allocated <= 0) return 0;
+    return (spentAmount / allocated) * 100;
   };
 
   const progress = getCategoryProgress();

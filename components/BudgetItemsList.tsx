@@ -22,7 +22,7 @@ interface BudgetItemsListProps {
   isLoading?: boolean;
 }
 
-const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
+const BudgetItemsList: React.FC<BudgetItemsListProps> = React.memo(({
   selectedCategory,
   budgetItems,
   searchQuery = '',
@@ -175,6 +175,8 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
       )}
     </div>
   );
-};
+});
+
+BudgetItemsList.displayName = 'BudgetItemsList';
 
 export default BudgetItemsList; 

@@ -9,7 +9,7 @@ interface MobileBudgetHeaderProps {
   onDeleteCategory?: (category: any) => void;
 }
 
-const MobileBudgetHeader: React.FC<MobileBudgetHeaderProps> = ({
+const MobileBudgetHeader: React.FC<MobileBudgetHeaderProps> = React.memo(({
   selectedCategory,
   onMobileBackToCategories,
   onEditCategory,
@@ -63,6 +63,8 @@ const MobileBudgetHeader: React.FC<MobileBudgetHeaderProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MobileBudgetHeader.displayName = 'MobileBudgetHeader';
 
 export default MobileBudgetHeader;

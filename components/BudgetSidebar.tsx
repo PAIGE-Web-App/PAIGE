@@ -24,7 +24,7 @@ interface BudgetSidebarProps {
   onCreateBudgetWithAI?: () => void;
 }
 
-const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
+const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
   budgetCategories,
   selectedCategory,
   setSelectedCategory,
@@ -277,6 +277,8 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
 
     </aside>
   );
-};
+});
+
+BudgetSidebar.displayName = 'BudgetSidebar';
 
 export default BudgetSidebar; 

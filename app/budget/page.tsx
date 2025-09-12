@@ -15,15 +15,26 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import Breadcrumb from '@/components/Breadcrumb';
 import SearchBar from '@/components/SearchBar';
 import ConfirmationModal from '@/components/ConfirmationModal';
-import { Search } from 'lucide-react';
 
 // Lazy load heavy components
 const BudgetSidebar = dynamic(() => import('@/components/BudgetSidebar'), {
-  loading: () => <div className="w-[320px] bg-[#F3F2F0] animate-pulse" />
+  loading: () => <div className="w-[320px] bg-[#F3F2F0] animate-pulse rounded-lg" />
 });
 
 const BudgetItemsList = dynamic(() => import('@/components/BudgetItemsList'), {
-  loading: () => <div className="flex-1 bg-white animate-pulse" />
+  loading: () => (
+    <div className="flex-1 bg-white animate-pulse">
+      <div className="p-4 border-b border-[#E0DBD7]">
+        <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
+        <div className="h-3 bg-gray-200 rounded w-48" />
+      </div>
+      <div className="p-4 space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-12 bg-gray-100 rounded" />
+        ))}
+      </div>
+    </div>
+  )
 });
 
 
@@ -38,11 +49,31 @@ const BudgetTopBar = dynamic(() => import('@/components/BudgetTopBar'), {
 });
 
 const MobileBudgetHeader = dynamic(() => import('@/components/budget/MobileBudgetHeader'), {
-  loading: () => <div className="h-16 bg-[#F3F2F0] animate-pulse" />
+  loading: () => (
+    <div className="lg:hidden sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
+      <div className="flex items-center w-full gap-4 px-4 py-3">
+        <div className="h-6 bg-gray-300 rounded w-24 animate-pulse" />
+        <div className="flex-1" />
+        <div className="h-8 w-8 bg-gray-300 rounded animate-pulse" />
+      </div>
+    </div>
+  )
 });
 
 const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
-  loading: () => <div className="h-32 bg-white border-b border-[#AB9C95] animate-pulse" />
+  loading: () => (
+    <div className="bg-white border-b border-[#AB9C95] animate-pulse">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-4 min-h-32">
+            <div className="h-4 bg-gray-300 rounded w-32 mb-2" />
+            <div className="h-6 bg-gray-300 rounded w-16 mb-2" />
+            <div className="h-3 bg-gray-200 rounded w-48" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 });
 
 const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'), {
@@ -60,8 +91,6 @@ const BudgetCategoryViewSkeleton = dynamic(() => import('@/components/budget/Bud
 const BudgetOverBudgetBanner = dynamic(() => import('@/components/budget/BudgetOverBudgetBanner'), {
   loading: () => <div className="h-20 bg-red-50 animate-pulse" />
 });
-
-
 
 // Lazy load modals
 const BudgetItemModal = dynamic(() => import('@/components/BudgetItemModal'), {
@@ -136,14 +165,12 @@ export default function BudgetPage() {
 
   // Mobile handlers - following main dashboard pattern
   const handleMobileCategorySelect = React.useCallback((category: BudgetCategory | null) => {
-    console.log('📱 Mobile category select:', category?.name || 'overview');
     setSelectedCategory(category);
     setIsBudgetOverviewSelected(!category);
     setMobileViewMode('category');
   }, []);
 
   const handleMobileBackToCategories = React.useCallback(() => {
-    console.log('📱 Mobile back to categories');
     setSelectedCategory(null);
     setIsBudgetOverviewSelected(true);
     setMobileViewMode('categories');
@@ -164,10 +191,22 @@ export default function BudgetPage() {
     [profileLoading, loading, budget.budgetCategories]);
   
   const selectedCategoryId = useMemo(() => selectedCategory?.id, [selectedCategory]);
+  
+  // Memoized filtered budget items for selected category
+  const filteredBudgetItems = useMemo(() => {
+    if (!selectedCategory) return [];
+    return budget.budgetItems.filter((item: any) => item.categoryId === selectedCategory.id);
+  }, [budget.budgetItems, selectedCategory]);
+  
+  // Memoized mobile detection to avoid repeated window.innerWidth checks
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+  }, []);
 
   // Category persistence and auto-selection - Desktop only
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024 && budget.budgetCategories && budget.budgetCategories.length > 0 && !hasInitializedSelection.current) {
+    if (!isMobile && budget.budgetCategories && budget.budgetCategories.length > 0 && !hasInitializedSelection.current) {
       hasInitializedSelection.current = true;
       
       // Try to restore the previously selected view from localStorage
@@ -244,7 +283,6 @@ export default function BudgetPage() {
       setLinkingBudgetItem(null);
       
     } catch (error) {
-      console.error('Error linking vendor:', error);
       throw error;
     }
   }, [linkingBudgetItem, user?.uid, budget]);
@@ -266,7 +304,6 @@ export default function BudgetPage() {
       setLinkingBudgetItem(null);
       
     } catch (error) {
-      console.error('Error unlinking vendor:', error);
       throw error;
     }
   }, [linkingBudgetItem, user?.uid, budget]);
@@ -393,22 +430,22 @@ export default function BudgetPage() {
             <BudgetSidebar
               budgetCategories={budget.budgetCategories}
               selectedCategory={selectedCategory}
-              setSelectedCategory={typeof window !== 'undefined' && window.innerWidth < 1024 ? handleMobileCategorySelect : handleSelectCategory}
+              setSelectedCategory={isMobile ? handleMobileCategorySelect : handleSelectCategory}
               onAddCategory={handleAddCategory}
               budgetItems={budget.budgetItems}
               totalSpent={budget.totalSpent}
               totalBudget={budget.userTotalBudget}
               maxBudget={budget.userMaxBudget || 0}
-              onSelectBudgetOverview={typeof window !== 'undefined' && window.innerWidth < 1024 ? () => handleMobileCategorySelect(null) : handleSelectBudgetOverview}
+              onSelectBudgetOverview={isMobile ? () => handleMobileCategorySelect(null) : handleSelectBudgetOverview}
               isBudgetOverviewSelected={isBudgetOverviewSelected}
-              mobileViewMode={typeof window !== 'undefined' && window.innerWidth < 1024 ? mobileViewMode : undefined}
-              onMobileBackToCategories={typeof window !== 'undefined' && window.innerWidth < 1024 ? handleMobileBackToCategories : undefined}
+              mobileViewMode={isMobile ? mobileViewMode : undefined}
+              onMobileBackToCategories={isMobile ? handleMobileBackToCategories : undefined}
               onRemoveAllCategories={budget.handleDeleteAllCategories}
               onCreateBudgetWithAI={handleCreateBudgetWithAI}
             />
 
             {/* Main Content Area */}
-            <div className={`unified-main-content ${typeof window !== 'undefined' && window.innerWidth < 1024 ? `mobile-${mobileViewMode}-view` : ''}`}>
+            <div className={`unified-main-content ${isMobile ? `mobile-${mobileViewMode}-view` : ''}`}>
               {/* Show Budget Overview or Category-specific content */}
               {!selectedCategory ? (
                 <BudgetOverview
@@ -477,9 +514,7 @@ export default function BudgetPage() {
                     totalBudget={budget.userTotalBudget}
                     totalSpent={budget.totalSpent}
                     maxBudget={budget.userMaxBudget}
-                    budgetItems={selectedCategory ? budget.budgetItems.filter((item: any) => 
-                      item.categoryId === selectedCategory.id
-                    ) : []}
+                    budgetItems={filteredBudgetItems}
                     onEditCategory={(category) => {
                       setEditingCategory(category);
                       setJiggleAllocatedAmount(true);
@@ -736,9 +771,16 @@ export default function BudgetPage() {
             handleCloseDeleteCategoryModal();
             setDeletingCategory(null);
             
-            // If the deleted category was the currently selected one, go back to overview
+            // If the deleted category was the currently selected one, navigate appropriately
             if (selectedCategory && selectedCategory.id === categoryId) {
-              handleSelectBudgetOverview();
+              // Check if we're on mobile
+              if (isMobile) {
+                // On mobile, go back to categories list
+                handleMobileBackToCategories();
+              } else {
+                // On desktop, go to budget overview
+                handleSelectBudgetOverview();
+              }
             }
           }}
         />
