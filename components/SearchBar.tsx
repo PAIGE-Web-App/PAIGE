@@ -62,7 +62,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, placeholder = ''
             ref={inputRef}
             type="text"
             placeholder={placeholder}
-            className="pl-12 pr-9 w-full h-8 border border-[#A85C36] rounded-[5px] bg-white text-base focus:outline-none focus:border-[#A85C36] transition-all duration-300"
+            className="pl-12 pr-9 w-full h-8 border border-[#E0DBD7] rounded-[5px] bg-white text-base focus:outline-none focus:border-[#A85C36] transition-all duration-300"
             value={value}
             onChange={e => onChange(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') setIsOpen(false); }}

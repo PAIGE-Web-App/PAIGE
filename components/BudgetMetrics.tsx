@@ -147,10 +147,20 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
     }
   }, [selectedCategory?.allocatedAmount, totalBudget, maxBudget]);
 
+  // Format currency helper
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
-    <div className="bg-white border-b border-[#AB9C95]">
-      {/* Budget Overview Cards - {visibleCardCount} cards visible */}
-      <div className={`grid gap-3 ${gridClasses} p-4`}>
+    <div className="bg-white lg:border-b lg:border-[#AB9C95]">
+      {/* Desktop: Full metrics */}
+      <div className={`hidden lg:grid gap-3 ${gridClasses} p-4`}>
         {/* Category Budget Card */}
         {selectedCategory && (
           <CategoryBudgetCard
@@ -191,6 +201,64 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
             maxBudget={maxBudget}
             onEdit={handleMaxBudgetEdit}
           />
+        )}
+      </div>
+
+      {/* Mobile: Compact metrics */}
+      <div className="lg:hidden p-4 space-y-3">
+        {/* Category Budget Card - Match Sidebar List Item Style */}
+        {selectedCategory && (
+          <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-3 w-full relative">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-normal text-[#332B42] font-work">
+                {selectedCategory.name} Budget
+              </span>
+              <button
+                onClick={handleCategoryEdit}
+                className="text-[#A85C36] hover:text-[#8B4513] transition-colors p-1"
+                title="Edit category"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-[#AB9C95]">
+                {formatCurrency(selectedCategory.spentAmount || 0)} / {formatCurrency(selectedCategory.allocatedAmount)}
+              </span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-[#E0DBD7] rounded-full h-1 mb-1">
+              <div
+                className={`h-1 rounded-full transition-all ${
+                  (selectedCategory.spentAmount || 0) > selectedCategory.allocatedAmount ? 'bg-red-500' : 'bg-[#A85C36]'
+                }`}
+                style={{ width: `${Math.min(((selectedCategory.spentAmount || 0) / selectedCategory.allocatedAmount) * 100, 100)}%` }}
+              />
+            </div>
+            
+            <div className="text-xs text-[#AB9C95]">
+              {(((selectedCategory.spentAmount || 0) / selectedCategory.allocatedAmount) * 100).toFixed(1)}% used
+            </div>
+          </div>
+        )}
+
+        {/* Budget Breakdown Doughnut Chart - Mobile Compact */}
+        {selectedCategory && budgetItems.length > 0 && (
+          <div className="bg-[#F8F6F4] border border-[#E0DBD7] rounded-[5px] p-3">
+            <div className="text-xs font-normal text-[#332B42] mb-3 font-work">Budget Breakdown</div>
+            <div className="flex items-center justify-center pt-2 pb-6">
+              <div className="w-16 h-16">
+                <BudgetDoughnutChart
+                  budgetItems={budgetItems}
+                  allocatedAmount={selectedCategory.allocatedAmount}
+                />
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

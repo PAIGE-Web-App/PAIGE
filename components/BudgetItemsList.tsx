@@ -39,9 +39,9 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   const { newlyAddedItems, addNewItem, isNewlyAdded } = useNewlyAddedItems();
   const hasHandledTrigger = React.useRef(false);
   
-  // Handle trigger add item from top bar (Desktop only)
+  // Handle trigger add item from top bar
   React.useEffect(() => {
-    if (triggerAddItem && selectedCategory && !hasHandledTrigger.current && typeof window !== 'undefined' && window.innerWidth >= 1024) {
+    if (triggerAddItem && selectedCategory && !hasHandledTrigger.current) {
       hasHandledTrigger.current = true;
       handleAddItem();
       onTriggerAddItemComplete?.();

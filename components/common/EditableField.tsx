@@ -118,7 +118,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
       } ${className}`}
       title={disabled ? 'Cannot edit' : 'Click to edit'}
     >
-      <span className="flex-1 truncate">{value || placeholder}</span>
+      <span className="flex-1 break-words">{value || placeholder}</span>
       {showEditIcon && !disabled && (
         <Edit2 className="w-3 h-3 text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
       )}

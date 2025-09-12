@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Search, MoreHorizontal, Plus, Trash2, ArrowLeft, Edit } from 'lucide-react';
-import SearchBar from '@/components/SearchBar';
+import { MoreHorizontal, Plus, Trash2, Edit, Search } from 'lucide-react';
 import DropdownMenu from '@/components/DropdownMenu';
+import SearchBar from '@/components/SearchBar';
 
 interface BudgetTopBarProps {
   selectedCategory: any;
@@ -10,7 +10,6 @@ interface BudgetTopBarProps {
   onAddItem: () => void;
   onEditCategory?: (category: any) => void;
   onDeleteCategory?: (category: any) => void;
-  onMobileBackToCategories?: () => void;
 }
 
 const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
@@ -20,7 +19,6 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
   onAddItem,
   onEditCategory,
   onDeleteCategory,
-  onMobileBackToCategories,
 }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -32,6 +30,7 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
   }, [searchOpen]);
 
   React.useEffect(() => {
+    if (!searchOpen) return;
     function handleClickOutside(event: MouseEvent) {
       if (
         searchOpen &&
@@ -46,45 +45,33 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
   }, [searchOpen]);
 
   return (
-    <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
+    <div className="hidden lg:block sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full">
       <div className="flex items-center w-full gap-4 px-4 py-3">
-        {/* Left: Mobile Back Button + Category Name and Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Mobile Back Button */}
-          {onMobileBackToCategories && (
-            <button
-              onClick={onMobileBackToCategories}
-              className="lg:hidden p-1 hover:bg-[#EBE3DD] rounded-[5px] mr-1"
-              aria-label="Back to categories"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-          )}
-          
-          <div className="flex items-center">
-            <h6 className="text-base font-playfair font-semibold text-[#332B42]">
-              {selectedCategory ? selectedCategory.name : 'Wedding Budget'}
+        {/* Left: Category Name and Search */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Category Name */}
+          <div className="flex-1 min-w-0">
+            <h6 className="text-lg font-medium text-[#332B42] truncate">
+              {selectedCategory?.name || 'Budget'}
             </h6>
           </div>
           
+          {/* Search - Only show when category is selected */}
+          {selectedCategory && (
+            <div className={`flex items-center transition-all duration-300 gap-3 ${searchOpen ? 'flex-grow min-w-0' : 'w-[32px] min-w-[32px]'}`} style={{ height: '32px' }}>
+              <SearchBar
+                value={budgetSearchQuery}
+                onChange={setBudgetSearchQuery}
+                placeholder="Search budget items..."
+                isOpen={searchOpen}
+                setIsOpen={setSearchOpen}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Center: Search and Filter - Only show when category is selected */}
-        {selectedCategory && (
-          <div className={`flex items-center transition-all duration-300 gap-3 ${searchOpen ? 'flex-grow min-w-0' : 'w-[32px] min-w-[32px]'}`} style={{ height: '32px' }}>
-            <SearchBar
-              value={budgetSearchQuery}
-              onChange={setBudgetSearchQuery}
-              placeholder="Search budget items..."
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-            />
-          </div>
-        )}
-
-        {/* Right: Action Buttons - Consolidated */}
-        <div className="flex-shrink-0 flex justify-end items-center gap-3 ml-auto">
-
+        {/* Right: Action Buttons */}
+        <div className="flex-shrink-0 flex justify-end items-center gap-3">
           {/* Primary Action - Add Item when category selected */}
           {selectedCategory && (
             <button className="btn-primary flex items-center gap-2" onClick={onAddItem}>
@@ -102,25 +89,20 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
             }
             items={[
               {
-                label: 'Add Budget Item',
-                icon: <Plus className="w-4 h-4" />,
-                onClick: onAddItem,
-                show: selectedCategory, // Only show in dropdown when category selected
-              },
-              {
                 label: 'Edit Category',
                 icon: <Edit className="w-4 h-4" />,
                 onClick: () => onEditCategory?.(selectedCategory),
-                show: selectedCategory, // Only show when category selected
+                show: onEditCategory && selectedCategory,
               },
               {
                 label: 'Delete Category',
-                icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                icon: <Trash2 className="w-4 h-4" />,
                 onClick: () => onDeleteCategory?.(selectedCategory),
-                show: selectedCategory, // Only show when category selected
-                className: 'text-red-500 hover:text-red-600',
+                show: onDeleteCategory && selectedCategory,
+                className: 'text-red-600 hover:text-red-700',
               },
             ].filter(item => item.show !== false)}
+            align="right"
           />
         </div>
       </div>
@@ -128,4 +110,4 @@ const BudgetTopBar: React.FC<BudgetTopBarProps> = ({
   );
 };
 
-export default BudgetTopBar; 
+export default BudgetTopBar;

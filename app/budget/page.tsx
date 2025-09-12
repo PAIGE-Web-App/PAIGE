@@ -13,6 +13,9 @@ import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Breadcrumb from '@/components/Breadcrumb';
+import SearchBar from '@/components/SearchBar';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import { Search } from 'lucide-react';
 
 // Lazy load heavy components
 const BudgetSidebar = dynamic(() => import('@/components/BudgetSidebar'), {
@@ -32,6 +35,10 @@ const BudgetItemSideCard = dynamic(() => import('@/components/BudgetItemSideCard
 
 const BudgetTopBar = dynamic(() => import('@/components/BudgetTopBar'), {
   loading: () => <div className="h-16 bg-white border-b border-[#AB9C95] animate-pulse" />
+});
+
+const MobileBudgetHeader = dynamic(() => import('@/components/budget/MobileBudgetHeader'), {
+  loading: () => <div className="h-16 bg-[#F3F2F0] animate-pulse" />
 });
 
 const BudgetMetrics = dynamic(() => import('@/components/BudgetMetrics'), {
@@ -118,6 +125,9 @@ export default function BudgetPage() {
   const [triggerAddItem, setTriggerAddItem] = React.useState(false);
   const [isBudgetOverviewSelected, setIsBudgetOverviewSelected] = React.useState(false);
   
+  // Confirmation modal state for AI budget creation
+  const [showCreateBudgetModal, setShowCreateBudgetModal] = React.useState(false);
+  
   // Track if we've initialized the category selection
   const hasInitializedSelection = React.useRef(false);
   
@@ -139,16 +149,21 @@ export default function BudgetPage() {
     setMobileViewMode('categories');
   }, []);
 
+  // AI Budget Creation handlers
+  const handleCreateBudgetWithAI = React.useCallback(() => {
+    setShowCreateBudgetModal(true);
+  }, []);
+
+  const handleConfirmCreateBudget = React.useCallback(() => {
+    budget.setShowAIAssistant(true);
+    setShowCreateBudgetModal(false);
+  }, [budget]);
+
   // Memoized values for performance
   const isLoading = useMemo(() => profileLoading || loading || budget.budgetCategories === undefined, 
     [profileLoading, loading, budget.budgetCategories]);
   
   const selectedCategoryId = useMemo(() => selectedCategory?.id, [selectedCategory]);
-  
-  const filteredBudgetItems = useMemo(() => {
-    if (!selectedCategory || !budget.budgetItems) return [];
-    return budget.budgetItems.filter(item => item.categoryId === selectedCategory.id);
-  }, [selectedCategory, budget.budgetItems]);
 
   // Category persistence and auto-selection - Desktop only
   React.useEffect(() => {
@@ -388,6 +403,8 @@ export default function BudgetPage() {
               isBudgetOverviewSelected={isBudgetOverviewSelected}
               mobileViewMode={typeof window !== 'undefined' && window.innerWidth < 1024 ? mobileViewMode : undefined}
               onMobileBackToCategories={typeof window !== 'undefined' && window.innerWidth < 1024 ? handleMobileBackToCategories : undefined}
+              onRemoveAllCategories={budget.handleDeleteAllCategories}
+              onCreateBudgetWithAI={handleCreateBudgetWithAI}
             />
 
             {/* Main Content Area */}
@@ -400,7 +417,7 @@ export default function BudgetPage() {
                   totalSpent={budget.totalSpent}
                   totalBudget={budget.userTotalBudget || 0}
                   maxBudget={budget.userMaxBudget || 0}
-                  onShowAIAssistant={() => budget.setShowAIAssistant(true)}
+                  onShowAIAssistant={handleCreateBudgetWithAI}
                   onAddCategory={handleAddCategory}
                   onSelectCategory={handleSelectCategory}
                   onClearAllBudgetData={budget.handleClearAllBudgetData}
@@ -411,22 +428,27 @@ export default function BudgetPage() {
               ) : (
                 <>
                   
-                  {/* Budget Top Bar - Category Title and Actions */}
-                  <div className="lg:block">
-                    <BudgetTopBar
-                      selectedCategory={selectedCategory}
-                      budgetSearchQuery={budgetSearchQuery}
-                      setBudgetSearchQuery={handleSearchQueryChange}
-                      onAddItem={handleTriggerAddItem}
-                      onEditCategory={handleEditCategory}
-                      onDeleteCategory={handleDeleteCategory}
-                      onMobileBackToCategories={typeof window !== 'undefined' && window.innerWidth < 1024 ? handleMobileBackToCategories : undefined}
-                    />
-                  </div>
+                  {/* Mobile Header */}
+                  <MobileBudgetHeader
+                    selectedCategory={selectedCategory}
+                    onMobileBackToCategories={handleMobileBackToCategories}
+                    onEditCategory={handleEditCategory}
+                    onDeleteCategory={handleDeleteCategory}
+                  />
 
-                  {/* Breadcrumb Navigation */}
+                  {/* Desktop Top Bar - Category Title and Actions */}
+                  <BudgetTopBar
+                    selectedCategory={selectedCategory}
+                    budgetSearchQuery={budgetSearchQuery}
+                    setBudgetSearchQuery={handleSearchQueryChange}
+                    onAddItem={handleTriggerAddItem}
+                    onEditCategory={handleEditCategory}
+                    onDeleteCategory={handleDeleteCategory}
+                  />
+
+                  {/* Breadcrumb Navigation - Desktop only */}
                   {selectedCategory && (
-                    <div className="px-6 py-3 border-b border-[#E0DBD7] bg-white">
+                    <div className="hidden lg:block px-6 py-3 border-b border-[#E0DBD7] bg-white">
                       <Breadcrumb
                         items={[
                           {
@@ -469,38 +491,54 @@ export default function BudgetPage() {
                   />
 
 
-                  {/* Mobile Budget Items Table - Show after metrics */}
-                  <div className="lg:hidden mb-4">
-                    <div className="bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden">
-                      <div className="bg-[#F8F6F4] border-b border-[#E0DBD7] p-3">
-                        <h3 className="text-sm font-medium text-[#AB9C95]">Budget Items</h3>
-                      </div>
-                      <div className="p-4">
-                        <BudgetItemsList
-                          selectedCategory={selectedCategory}
-                          budgetItems={budget.budgetItems}
-                          searchQuery={budgetSearchQuery}
-                          triggerAddItem={triggerAddItem}
-                          onTriggerAddItemComplete={() => setTriggerAddItem(false)}
-                          onEditItem={(item) => {
-                            // Editing is now handled inline in BudgetItemComponent
-                          }}
-                          onDeleteItem={budget.handleDeleteBudgetItem}
-                          onLinkVendor={(item) => {
-                            openLinkVendorModal(item);
-                          }}
-                          onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
-                            // Pass the itemId to the budget handler
-                            await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
-                          }}
-                          isLoading={!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                   {/* Mobile Budget Items Table - Show after metrics */}
+                   <div className="lg:hidden flex-1 flex flex-col min-h-0 px-4 pb-4">
+                     <div className="bg-white overflow-hidden flex-1 flex flex-col">
+                        {/* Mobile Header with Search and Add Button */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex-1">
+                            <SearchBar
+                              value={budgetSearchQuery}
+                              onChange={setBudgetSearchQuery}
+                              placeholder="Search budget items..."
+                              isOpen={true}
+                              setIsOpen={() => {}}
+                            />
+                          </div>
+                         <button
+                           onClick={() => setTriggerAddItem(true)}
+                           className="btn-primary"
+                         >
+                           <span>+</span>
+                           <span>Add Item</span>
+                         </button>
+                       </div>
+                       <div className="flex-1 flex flex-col min-h-0">
+                         <BudgetItemsList
+                           selectedCategory={selectedCategory}
+                           budgetItems={budget.budgetItems}
+                           searchQuery={budgetSearchQuery}
+                           triggerAddItem={false}
+                           onTriggerAddItemComplete={() => setTriggerAddItem(false)}
+                           onEditItem={(item) => {
+                             // Editing is now handled inline in BudgetItemComponent
+                           }}
+                           onDeleteItem={budget.handleDeleteBudgetItem}
+                           onLinkVendor={(item) => {
+                             openLinkVendorModal(item);
+                           }}
+                           onAssign={async (assigneeIds, assigneeNames, assigneeTypes, itemId) => {
+                             // Pass the itemId to the budget handler
+                             await budget.handleAssignBudgetItem(assigneeIds, assigneeNames, assigneeTypes, itemId);
+                           }}
+                           isLoading={!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems}
+                         />
+                       </div>
+                     </div>
+                   </div>
 
-                  {/* Budget Items List */}
-              <div className="flex-1 flex gap-4 min-h-0">
+                  {/* Budget Items List - Desktop Only */}
+              <div className="hidden lg:flex flex-1 flex gap-4 min-h-0">
                 <div className="flex-1 flex flex-col">
                   {/* Over Budget Warning Banner */}
                   {selectedCategory && budget.budgetStats?.categoryBreakdown && (() => {
@@ -615,6 +653,18 @@ export default function BudgetPage() {
           userId={user?.uid || ''}
         />
       )}
+
+      {/* Create Budget with AI Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCreateBudgetModal}
+        onClose={() => setShowCreateBudgetModal(false)}
+        onConfirm={handleConfirmCreateBudget}
+        title="Create Budget with Paige"
+        message="Are you sure? Clicking generate will add new budget categories to your existing ones."
+        warningMessage="This will create additional categories alongside your current budget. Your existing categories will remain unchanged."
+        confirmButtonText="Generate Budget"
+        confirmButtonVariant="warning"
+      />
 
       {budget.showAIAssistant && (
         <AIBudgetAssistant

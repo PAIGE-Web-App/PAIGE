@@ -32,7 +32,7 @@ export const BudgetDoughnutChart: React.FC<BudgetDoughnutChartProps> = ({
   return (
     <div className={`relative w-full h-full flex flex-col items-center justify-center group ${className}`}>
       {/* SVG Chart - now fills most of the container */}
-      <div className="relative w-20 h-20 mt-2">
+      <div className="relative w-20 h-20">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
           <circle
             cx="50"
@@ -123,12 +123,12 @@ export const BudgetDoughnutChart: React.FC<BudgetDoughnutChartProps> = ({
 
         {/* Hover tooltip - now properly triggered by the group */}
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-30">
-          <div className="bg-[#332B42] text-white text-xs rounded-lg p-3 max-w-56 shadow-lg">
+          <div className="bg-[#332B42] text-white text-xs rounded-lg p-3 w-80 min-w-80 shadow-lg">
             <div className="max-h-32 overflow-y-auto">
               {budgetItems.map((item, index) => (
                 <div key={item.id} className="flex items-center gap-2 mb-1 last:mb-0">
                   <div 
-                    className="w-3 h-3 rounded-full" 
+                    className="w-2 h-2 rounded-full" 
                     style={{ backgroundColor: colors[index % colors.length] }}
                   />
                   <span className="truncate">{item.name}</span>

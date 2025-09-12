@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
@@ -66,8 +66,21 @@ export default function WeddingTab({
   onSave
 }: WeddingTabProps) {
   const weddingDateRef = useRef<HTMLDivElement>(null);
+  const maxBudgetRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const highlightWeddingLocation = searchParams?.get('highlight') === 'weddingLocation';
+
+  // Scroll to Max budget input when jiggle animation is triggered
+  React.useEffect(() => {
+    if (jiggleMaxBudget && maxBudgetRef.current) {
+      setTimeout(() => {
+        maxBudgetRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 100); // Small delay to ensure the element is rendered
+    }
+  }, [jiggleMaxBudget]);
 
   return (
     <div className="space-y-6 pb-8">
@@ -197,7 +210,7 @@ export default function WeddingTab({
           </div>
           
 
-          <div className={jiggleMaxBudget}>
+          <div ref={maxBudgetRef} className={jiggleMaxBudget}>
             <label className="block text-xs font-work-sans text-[#332B42] mb-1">What's your maximum budget?</label>
             <MaxBudgetInput
               value={maxBudget}
