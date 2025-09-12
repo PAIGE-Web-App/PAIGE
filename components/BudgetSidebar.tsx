@@ -13,6 +13,8 @@ interface BudgetSidebarProps {
   maxBudget?: number;
   onSelectBudgetOverview: () => void;
   isBudgetOverviewSelected: boolean;
+  mobileViewMode?: 'categories' | 'category';
+  onMobileBackToCategories?: () => void;
 }
 
 const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
@@ -26,6 +28,8 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
   maxBudget = 0,
   onSelectBudgetOverview,
   isBudgetOverviewSelected,
+  mobileViewMode = 'categories',
+  onMobileBackToCategories,
 }) => {
   // Calculate budget statistics
   const totalRemaining = maxBudget - totalSpent;
@@ -42,11 +46,12 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = ({
   };
 
   return (
-    <aside className="unified-sidebar hidden lg:flex flex-col">
+    <aside className={`unified-sidebar flex flex-col ${mobileViewMode ? `mobile-${mobileViewMode}-view` : ''}`}>
       {/* Fixed Header */}
       <div className="flex items-center gap-4 p-4 border-b border-[#AB9C95] bg-[#F3F2F0] flex-shrink-0">
         <h6 className="flex items-center">
-          Budget Categories
+          <span className="hidden lg:inline">Budget Categories</span>
+          <span className="lg:hidden">Budget</span>
         </h6>
         <button
           onClick={onAddCategory}

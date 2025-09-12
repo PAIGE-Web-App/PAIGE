@@ -270,11 +270,11 @@ const TodoListView: React.FC<TodoListViewProps> = ({
       </div>
       {/* COMPLETED TASKS SECTION - Always visible at the bottom of the todo area */}
       {todoItems.some(item => item.isCompleted) && !showCompletedItems && (
-        <div className="bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-4 flex-shrink-0">
+        <div className="bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 flex-shrink-0 w-full">
           <div className="pb-3">
             <button
               onClick={() => setShowCompletedTasks(!showCompletedTasks)}
-              className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-3 md:px-4 hover:bg-[#F3F2F0] rounded-[5px]"
+              className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-4 hover:bg-[#F3F2F0] rounded-[5px]"
             >
               <div className="flex items-center gap-2">
                 <CircleCheck size={16} />
@@ -289,7 +289,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, ease: 'easeOut' }}
-                  className="overflow-hidden max-h-[40vh] overflow-y-auto p-4 pb-3"
+                  className="overflow-hidden max-h-[40vh] overflow-y-auto px-4 py-4 pb-3"
                 >
                   <div className="space-y-0">
                     {todoItems.filter(item => item.isCompleted).map((item) => (

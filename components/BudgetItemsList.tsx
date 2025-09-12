@@ -19,7 +19,6 @@ interface BudgetItemsListProps {
   onDeleteItem: (itemId: string) => void;
   onLinkVendor: (item: BudgetItem) => void;
   onAssign?: (assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[], itemId: string) => Promise<void>;
-  viewMode: 'cards' | 'table';
   isLoading?: boolean;
 }
 
@@ -33,7 +32,6 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
   onDeleteItem,
   onLinkVendor,
   onAssign,
-  viewMode,
   isLoading = false,
 }) => {
   const { user } = useAuth();
@@ -165,7 +163,7 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
             <p className="text-xs">Click "Add Item" to get started</p>
           </div>
         </div>
-      ) : viewMode === 'table' ? (
+      ) : (
         <BudgetItemsTable
           budgetItems={categoryItems}
           onDeleteItem={onDeleteItem}
@@ -174,19 +172,6 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = ({
           onAddItem={handleAddItem}
           newlyAddedItems={newlyAddedItems}
         />
-      ) : (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {categoryItems.map((item) => (
-            <BudgetItemComponent
-              key={item.id}
-              budgetItem={item}
-              onDeleteItem={onDeleteItem}
-              onLinkVendor={onLinkVendor}
-              onAssign={onAssign}
-              isNewlyAdded={isNewlyAdded(item.id!)}
-            />
-          ))}
-        </div>
       )}
     </div>
   );

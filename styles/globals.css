@@ -664,6 +664,24 @@ h6 {
   @apply flex;
 }
 
+/* Mobile view modes for budget sidebar */
+.unified-sidebar.mobile-categories-view {
+  @apply flex flex-col;
+}
+
+.unified-sidebar.mobile-category-view {
+  @apply hidden lg:flex lg:flex-col;
+}
+
+/* Mobile view modes for budget main content */
+.unified-main-content.mobile-categories-view {
+  @apply hidden lg:flex lg:flex-col;
+}
+
+.unified-main-content.mobile-category-view {
+  @apply flex flex-col;
+}
+
 .btn-small-inverse {
   font-size: 0.75rem; /* text-xs */
   color: #332B42;

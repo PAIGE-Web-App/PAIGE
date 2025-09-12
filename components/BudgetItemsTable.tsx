@@ -135,7 +135,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
   // totalAmount is now memoized above
 
   return (
-    <div className="flex flex-col bg-white h-full min-h-0 border border-[#E0DBD7] rounded-[5px] overflow-hidden">
+    <div className="flex flex-col bg-white h-full min-h-[400px] border border-[#E0DBD7] rounded-[5px] overflow-hidden">
       {/* Table Header - Fixed */}
       <div className="bg-[#F8F6F4] border-b border-[#E0DBD7] rounded-t-[5px] p-3 flex-shrink-0">
         <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[#AB9C95]">
