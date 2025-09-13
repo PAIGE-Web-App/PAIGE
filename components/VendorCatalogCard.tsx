@@ -6,23 +6,10 @@ import { Heart, Star } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
+import SelectedVendorPill from './SelectedVendorPill';
 
 // Removed custom heart icons - now using Lucide React Heart component for consistency
 
-// Helper function to get category icon
-const getCategoryIcon = (category: string): string => {
-  const categoryIcons: { [key: string]: string } = {
-    'Photographer': '📸',
-    'Florist': '🌸',
-    'Caterer': '🍽️',
-    'DJ': '🎵',
-    'Band': '🎵',
-    'DJ/Band': '🎵',
-    'Officiant': '👰',
-    'Venue': '🏛️'
-  };
-  return categoryIcons[category] || '⭐';
-};
 
 interface VendorCatalogCardProps {
   vendor: {
@@ -248,20 +235,13 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
         <div>
           <h6 className="h6 mb-1">{vendor.name}</h6>
           
-          {/* Selected Venue Tag */}
+          {/* Selected Vendor Pills */}
           {isSelectedVenue && (
-            <div className="inline-flex items-center gap-1 bg-[#A85C36] text-white px-2 py-1 rounded-full text-xs font-medium mb-2">
-              <span>🏛️</span>
-              <span>Selected Venue</span>
-            </div>
+            <SelectedVendorPill category="Venue" isSelectedVenue={true} />
           )}
           
-          {/* Selected Vendor Tag */}
           {isSelectedVendor && !isSelectedVenue && selectedCategory && (
-            <div className="inline-flex items-center gap-1 bg-[#805d93] text-white px-2 py-1 rounded-full text-xs font-medium mb-2">
-              <span>{getCategoryIcon(selectedCategory)}</span>
-              <span>Selected {selectedCategory}</span>
-            </div>
+            <SelectedVendorPill category={selectedCategory} isSelectedVenue={false} />
           )}
           
           <div className="flex items-center gap-1 text-xs mb-1">
