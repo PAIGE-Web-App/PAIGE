@@ -406,7 +406,7 @@ export default function VendorsPage() {
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-linen">
+    <div className="min-h-screen bg-linen">
       <WeddingBanner
         daysLeft={daysLeft}
         userName={userName}
@@ -414,7 +414,7 @@ export default function VendorsPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" style={{ width: '100%', maxWidth: '1152px' }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}
         {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
           /* Empty State - No header, no tabs, just warm welcome */
@@ -435,10 +435,10 @@ export default function VendorsPage() {
             </div>
             
             {/* Main Content - Mobile responsive layout */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="py-6">
               {/* Mobile view mode content */}
               {mobileViewMode === 'vendors' ? (
-                <div className="px-0 lg:px-4 py-6 space-y-6">
+                <div className="space-y-6">
                   {/* Official Vendors Section */}
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
@@ -501,7 +501,7 @@ export default function VendorsPage() {
                 </div>
               ) : (
                 /* Mobile Vendor Details View */
-                <div className="h-full flex flex-col">
+                <div className="space-y-4">
                   {/* Mobile Vendor Details Header */}
                   <div className="flex items-center gap-4 p-4 bg-white border-b border-[#AB9C95] sticky top-0 z-20">
                     <button
@@ -516,7 +516,7 @@ export default function VendorsPage() {
                   </div>
                   
                   {/* Mobile Vendor Details Content */}
-                  <div className="flex-1 overflow-y-auto p-4">
+                  <div className="p-4">
                     {selectedVendor && (
                       <div className="space-y-4">
                         {/* Vendor Image */}
