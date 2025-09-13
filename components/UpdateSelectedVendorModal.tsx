@@ -59,20 +59,32 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
     setLocalSelectedVendors(prev => {
       const updated = { ...prev };
       
-      // Remove vendor from all categories first
-      Object.keys(updated).forEach(category => {
-        updated[category] = updated[category].filter(vendor => vendor.id !== vendorId);
-      });
+      // Find the vendor in any category
+      let vendorToMove = null;
+      let currentCategory = '';
+      
+      for (const [category, vendors] of Object.entries(prev)) {
+        const foundVendor = vendors.find(v => v.id === vendorId || v.placeId === vendorId);
+        if (foundVendor) {
+          vendorToMove = foundVendor;
+          currentCategory = category;
+          break;
+        }
+      }
+      
+      if (!vendorToMove) return prev;
+      
+      // Remove vendor from current category
+      if (currentCategory && updated[currentCategory]) {
+        updated[currentCategory] = updated[currentCategory].filter(v => v.id !== vendorId && v.placeId !== vendorId);
+      }
       
       // Add vendor to new category if category is not empty
       if (newCategory) {
-        const vendor = Object.values(prev).flat().find(v => v.id === vendorId);
-        if (vendor) {
-          if (!updated[newCategory]) {
-            updated[newCategory] = [];
-          }
-          updated[newCategory].push({ ...vendor, category: newCategory });
+        if (!updated[newCategory]) {
+          updated[newCategory] = [];
         }
+        updated[newCategory].push({ ...vendorToMove, category: newCategory });
       }
       
       return updated;
@@ -110,7 +122,7 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
 
   const getVendorCategory = (vendorId: string): string => {
     for (const [category, vendors] of Object.entries(localSelectedVendors)) {
-      if (vendors.some(vendor => vendor.id === vendorId)) {
+      if (vendors.some(vendor => vendor.id === vendorId || vendor.placeId === vendorId)) {
         return category;
       }
     }
@@ -118,7 +130,15 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
   };
 
   const getAllSelectedVendors = () => {
-    return Object.values(localSelectedVendors).flat();
+    const allVendors = Object.values(localSelectedVendors).flat();
+    // Remove duplicates based on id or placeId
+    const uniqueVendors = allVendors.filter((vendor, index, self) => 
+      index === self.findIndex(v => 
+        (v.id && vendor.id && v.id === vendor.id) || 
+        (v.placeId && vendor.placeId && v.placeId === vendor.placeId)
+      )
+    );
+    return uniqueVendors;
   };
 
   if (!isOpen) return null;
@@ -139,19 +159,14 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
           className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
           onClick={e => e.stopPropagation()}
         >
-          {/* Header */}
+          {/* Header row with title and close button */}
           <div className="flex items-center justify-between p-6 border-b border-[#AB9C95]">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#A85C36] rounded-full flex items-center justify-center">
-                <Tag className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-xl font-playfair font-semibold text-[#332B42]">
-                Update Selected Vendor Tags
-              </h3>
-            </div>
+            <div className="flex-1"></div>
+            <h5 className="h5 text-center flex-1">Update Selected Vendor Tags</h5>
             <button
               onClick={onClose}
-              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full hover:bg-gray-100"
+              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full flex-1 flex justify-end"
+              title="Close"
             >
               <X size={20} />
             </button>
@@ -175,7 +190,7 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
                   <div key={vendor.id} className="flex items-center gap-4 p-4 border border-[#F3F2F0] rounded-lg">
                     {/* Vendor Info */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-[#332B42] truncate">{vendor.name}</h4>
+                      <h6 className="h6 truncate">{vendor.name}</h6>
                       <p className="text-sm text-[#5A4A42] truncate">{vendor.address}</p>
                     </div>
 
