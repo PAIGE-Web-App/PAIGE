@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck } from 'lucide-react';
+import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles } from 'lucide-react';
 import VendorContactModal from '@/components/VendorContactModal';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -14,6 +14,7 @@ import RelatedVendorsSection from '@/components/RelatedVendorsSection';
 import VendorComments from '@/components/VendorComments';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 
 import { 
   isLikelyWeddingVenue, 
@@ -27,8 +28,10 @@ import {
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useVendorDetails } from '@/hooks/useVendorCache';
 import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
-import { fetchVendorPhotos, fetchCommunityVendor, checkVendorExists } from '@/utils/apiService';
+import { fetchVendorPhotos, checkVendorExists } from '@/utils/apiService';
 import { getVendorImages } from '@/utils/vendorImageUtils';
+import ConfirmVenueUnmarkModal from '@/components/ConfirmVenueUnmarkModal';
+import { isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
 
 interface VendorDetails {
   id: string;
@@ -75,9 +78,11 @@ export default function VendorDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isOfficialVendor, setIsOfficialVendor] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [communityData, setCommunityData] = useState<any>(null);
   const [isUpdatingOfficial, setIsUpdatingOfficial] = useState(false);
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
+  const [showVenueUnmarkModal, setShowVenueUnmarkModal] = useState(false);
+  const [isSelectedVenueState, setIsSelectedVenueState] = useState(false);
+  const [isSelectedVendorState, setIsSelectedVendorState] = useState(false);
   
   // Optimistic state management for instant UI updates
   const [optimisticStates, setOptimisticStates] = useState({
@@ -85,8 +90,11 @@ export default function VendorDetailPage() {
     official: null as boolean | null
   });
   
+  // Use the simplified favorites hook
+  const { isFavorite: isVendorFavorited, toggleFavorite: toggleVendorFavorite } = useFavoritesSimple();
+
   // Get the current display state (optimistic or actual)
-  const displayFavorite = optimisticStates.favorite !== null ? optimisticStates.favorite : isFavorite;
+  const displayFavorite = optimisticStates.favorite !== null ? optimisticStates.favorite : isVendorFavorited(vendor?.id || '');
   const displayOfficial = optimisticStates.official !== null ? optimisticStates.official : isOfficialVendor;
 
   // Check if vendor is an official vendor (in user's vendors list)
@@ -121,6 +129,41 @@ export default function VendorDetailPage() {
     }
   };
 
+  // Check if vendor is the selected venue
+  const checkIfSelectedVenue = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      const isVenue = await isSelectedVenue(user.uid, vendor.id);
+      setIsSelectedVenueState(isVenue);
+    } catch (error) {
+      console.error('Error checking if vendor is selected venue:', error);
+    }
+  };
+
+  // Check if vendor is selected for their category
+  const checkIfSelectedVendor = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      if (userData?.selectedVendors) {
+        const categoryKey = vendor.category.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const categoryVendors = userData.selectedVendors[categoryKey] || [];
+        const isSelected = categoryVendors.some((v: any) => v.place_id === vendor.id);
+        setIsSelectedVendorState(isSelected);
+      }
+    } catch (error) {
+      console.error('Error checking if vendor is selected:', error);
+    }
+  };
+
   // Check if vendor is in user's favorites on mount
   useEffect(() => {
     if (!vendor || !user?.uid) return;
@@ -132,6 +175,12 @@ export default function VendorDetailPage() {
     
     // Check if vendor is an official vendor
     checkIfOfficialVendor();
+    
+    // Check if vendor is the selected venue
+    checkIfSelectedVenue();
+    
+    // Check if vendor is selected for their category
+    checkIfSelectedVendor();
   }, [vendor, user]);
 
   // Listen for favorites changes from other components
@@ -358,15 +407,6 @@ export default function VendorDetailPage() {
           }));
         }
         
-        // Fetch community data separately
-        try {
-          const communityData = await fetchCommunityVendor(placeId);
-          if ((communityData as any).vendor) {
-            setCommunityData((communityData as any).vendor);
-          }
-        } catch (error) {
-          console.error('❌ Error fetching community data:', error);
-        }
       } catch (error) {
         console.error('❌ Error fetching vendor images:', error);
         // Keep default images if photo fetch fails
@@ -411,84 +451,21 @@ export default function VendorDetailPage() {
   const toggleFavorite = async () => {
     if (!vendor || isUpdatingFavorite) return;
     
-    const newFavoriteState = !displayFavorite;
-    
-    // INSTANT OPTIMISTIC UPDATE
-    setOptimisticStates(prev => ({ ...prev, favorite: newFavoriteState }));
     setIsUpdatingFavorite(true);
     
-    // Show immediate feedback
-    if (newFavoriteState) {
-      showSuccessToast(`Added ${vendor.name} to favorites!`);
-    } else {
-      showSuccessToast(`Removed ${vendor.name} from favorites`);
-    }
-    
-    // Update localStorage immediately
-    const currentFavorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
-    const updatedFavorites = newFavoriteState 
-      ? [...currentFavorites, vendor.id].filter(Boolean)
-      : currentFavorites.filter((id: string) => id !== vendor.id);
-    localStorage.setItem('vendorFavorites', JSON.stringify(updatedFavorites));
-    
-    // Notify other components
-    window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
-      detail: { favorites: updatedFavorites }
-    }));
-    
-    // Update community data optimistically
-    if (user?.uid && communityData) {
-      const currentFavorites = communityData.totalFavorites || 0;
-      const newFavorites = newFavoriteState ? currentFavorites + 1 : Math.max(0, currentFavorites - 1);
-      setCommunityData(prev => ({
-        ...prev,
-        totalFavorites: newFavorites
-      }));
-    }
-    
     try {
-      // Background API call
-      const response = await fetch('/api/community-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          placeId: vendor.id,
-          vendorName: vendor.name,
-          vendorAddress: vendor.address || '',
-          vendorCategory: vendor.category,
-          userId: user?.uid,
-          selectedAsVenue: false,
-          selectedAsVendor: false,
-          isFavorite: newFavoriteState
-        })
+      await toggleVendorFavorite({
+        placeId: vendor.id,
+        name: vendor.name,
+        address: vendor.address,
+        category: vendor.category || 'Vendor',
+        rating: vendor.rating,
+        reviewCount: vendor.reviewCount,
+        image: vendor.images?.[0]
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update community data');
-      }
-      
-      // Success - commit the optimistic update
-      setIsFavorite(newFavoriteState);
-      setOptimisticStates(prev => ({ ...prev, favorite: null }));
       
     } catch (error) {
       console.error('Error updating favorites:', error);
-      
-      // Revert optimistic update on failure
-      setOptimisticStates(prev => ({ ...prev, favorite: null }));
-      setIsFavorite(!newFavoriteState);
-      
-      // Revert community data
-      if (communityData) {
-        const currentFavorites = communityData.totalFavorites || 0;
-        const revertedFavorites = newFavoriteState ? Math.max(0, currentFavorites - 1) : currentFavorites + 1;
-        setCommunityData(prev => ({
-          ...prev,
-          totalFavorites: revertedFavorites
-        }));
-      }
-      
-              showErrorToast('Failed to update favorites');
     } finally {
       setIsUpdatingFavorite(false);
     }
@@ -498,6 +475,12 @@ export default function VendorDetailPage() {
     if (!vendor || !user?.uid || isUpdatingOfficial) return;
 
     const newOfficialState = !displayOfficial;
+    
+    // Check if trying to unmark a selected venue
+    if (!newOfficialState && isSelectedVenueState) {
+      setShowVenueUnmarkModal(true);
+      return;
+    }
     
     // INSTANT OPTIMISTIC UPDATE
     setOptimisticStates(prev => ({ ...prev, official: newOfficialState }));
@@ -592,6 +575,226 @@ export default function VendorDetailPage() {
     setShowFlagModal(true);
   };
 
+  // Venue unmark modal handlers
+  const handleConfirmVenueUnmark = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    // Clear the selected venue from wedding settings
+    const success = await clearSelectedVenue(user.uid);
+    if (success) {
+      showSuccessToast('Selected venue cleared and unmarked as official');
+      // Update local state immediately
+      setIsSelectedVenueState(false);
+    }
+    
+    // Proceed with unmarking as official vendor
+    setShowVenueUnmarkModal(false);
+    
+    // Reset optimistic state and proceed with normal unmarking
+    setOptimisticStates(prev => ({ ...prev, official: null }));
+    setIsUpdatingOfficial(false);
+    
+    // Call the toggle function again to proceed with unmarking
+    const newOfficialState = false;
+    setOptimisticStates(prev => ({ ...prev, official: newOfficialState }));
+    setIsUpdatingOfficial(true);
+    
+    // Continue with the unmarking logic...
+    try {
+      // Remove vendor from My Vendors
+      const { collection, query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      const vendorsRef = collection(db, `users/${user.uid}/vendors`);
+      const q = query(vendorsRef, where("placeId", "==", vendor.id));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const vendorDoc = querySnapshot.docs[0];
+        await deleteDoc(vendorDoc.ref);
+        console.log('Removed vendor from user collection:', vendor.id);
+      }
+      
+      // Update community database
+      const response = await fetch('/api/community-vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placeId: vendor.id,
+          vendorName: vendor.name,
+          vendorAddress: vendor.address || '',
+          vendorCategory: vendor.category,
+          userId: user.uid,
+          selectedAsVenue: false,
+          selectedAsVendor: false,
+          removeFromSelected: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update community status');
+      }
+
+      // Success - commit the optimistic update
+      setIsOfficialVendor(false);
+      setOptimisticStates(prev => ({ ...prev, official: null }));
+      showSuccessToast('Removed as Official Vendor and Removed from My Vendors!');
+      
+    } catch (error) {
+      console.error('Error updating official vendor status:', error);
+      
+      // Revert optimistic update on failure
+      setOptimisticStates(prev => ({ ...prev, official: null }));
+      setIsOfficialVendor(true);
+      showErrorToast('Failed to update official vendor status');
+    } finally {
+      setIsUpdatingOfficial(false);
+    }
+  };
+
+  const handleGoToSettings = () => {
+    setShowVenueUnmarkModal(false);
+    router.push('/settings?tab=wedding');
+  };
+
+  // Handle setting vendor as selected venue
+  const handleSetAsSelectedVenue = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      const { updateSelectedVenue } = await import('@/utils/venueUtils');
+      
+      // Create venue metadata from vendor data
+      const venueMetadata = {
+        place_id: vendor.id,
+        name: vendor.name,
+        formatted_address: vendor.address || '',
+        website: vendor.website || null,
+        formatted_phone_number: null,
+        rating: vendor.rating || null,
+        user_ratings_total: vendor.reviewCount || null,
+        vicinity: null,
+        types: vendor.amenities || [],
+        photos: []
+      };
+      
+      const success = await updateSelectedVenue(user.uid, venueMetadata);
+      if (success) {
+        showSuccessToast(`${vendor.name} set as your selected venue!`);
+        setIsSelectedVenueState(true);
+      } else {
+        showErrorToast('Failed to set venue');
+      }
+    } catch (error) {
+      console.error('Error setting selected venue:', error);
+      showErrorToast('Failed to set venue');
+    }
+  };
+
+  // Handle setting vendor as selected for their category
+  const handleSetAsSelected = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      // First, mark as official using the existing working function
+      await toggleOfficialVendor();
+      
+      // Then, set as selected vendor for their category
+      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      // Get current user data
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      // Create vendor metadata
+      const vendorMetadata = {
+        place_id: vendor.id,
+        name: vendor.name,
+        formatted_address: vendor.address || '',
+        website: vendor.website || null,
+        formatted_phone_number: null,
+        rating: vendor.rating || null,
+        user_ratings_total: vendor.reviewCount || null,
+        vicinity: null,
+        types: vendor.amenities || [],
+        photos: [],
+        category: vendor.category
+      };
+      
+      // Get current selected vendors or initialize
+      const currentSelectedVendors = userData?.selectedVendors || {};
+      
+      // Add to selected vendors for this category
+      const categoryKey = vendor.category.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const currentCategoryVendors = currentSelectedVendors[categoryKey] || [];
+      
+      // Check if already selected
+      const isAlreadySelected = currentCategoryVendors.some((v: any) => v.place_id === vendor.id);
+      
+      if (!isAlreadySelected) {
+        // Add to selected vendors
+        const updatedSelectedVendors = {
+          ...currentSelectedVendors,
+          [categoryKey]: [...currentCategoryVendors, vendorMetadata]
+        };
+        
+        await updateDoc(userRef, {
+          selectedVendors: updatedSelectedVendors
+        });
+        
+        setIsSelectedVendorState(true);
+        showSuccessToast(`${vendor.name} added as selected ${vendor.category}!`);
+      } else {
+        showSuccessToast(`${vendor.name} is already selected as ${vendor.category}!`);
+      }
+      
+    } catch (error) {
+      console.error('Error setting selected vendor:', error);
+      showErrorToast('Failed to set as selected vendor');
+    }
+  };
+
+  // Handle unselecting vendor from their category
+  const handleUnselectVendor = async () => {
+    if (!vendor || !user?.uid) return;
+    
+    try {
+      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      // Get current user data
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      if (userData?.selectedVendors) {
+        const categoryKey = vendor.category.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const currentCategoryVendors = userData.selectedVendors[categoryKey] || [];
+        
+        // Remove this vendor from the category
+        const updatedCategoryVendors = currentCategoryVendors.filter((v: any) => v.place_id !== vendor.id);
+        
+        const updatedSelectedVendors = {
+          ...userData.selectedVendors,
+          [categoryKey]: updatedCategoryVendors
+        };
+        
+        await updateDoc(userRef, {
+          selectedVendors: updatedSelectedVendors
+        });
+        
+        setIsSelectedVendorState(false);
+        showSuccessToast(`${vendor.name} removed from selected ${vendor.category}!`);
+      }
+      
+    } catch (error) {
+      console.error('Error unselecting vendor:', error);
+      showErrorToast('Failed to unselect vendor');
+    }
+  };
+
   const handleFlagVendor = async (reason: string, customReason?: string) => {
     if (!selectedVendorForFlag) return;
     
@@ -684,17 +887,15 @@ export default function VendorDetailPage() {
                   
                   {/* Action Buttons */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Official Vendor Toggle */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        {displayOfficial && dataLoaded && (
+                    {/* Selected Venue Toggle - Only show when venue is selected */}
+                    {dataLoaded && isSelectedVenueState && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
-                        )}
-                      <span className="text-xs text-[#364257]">Official Vendor</span>
-                      </div>
-                      {dataLoaded ? (
+                          <span className="text-xs text-[#364257]">Selected Venue</span>
+                        </div>
                         <button
-                          onClick={toggleOfficialVendor}
+                          onClick={handleConfirmVenueUnmark}
                           disabled={isUpdatingOfficial}
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
                             displayOfficial ? 'bg-[#A85C36]' : 'bg-gray-200'
@@ -706,32 +907,75 @@ export default function VendorDetailPage() {
                             }`}
                           />
                         </button>
-                      ) : (
-                        <div className="h-6 w-11 bg-gray-200 rounded-full animate-pulse" />
-                      )}
-                    </div>
-
-                    {dataLoaded ? (
-                      <button
-                        onClick={toggleFavorite}
-                        disabled={isUpdatingFavorite}
-                        className={`btn-primaryinverse ${
-                          displayFavorite ? 'bg-[#A85C36] text-white border-[#A85C36]' : ''
-                        } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <Heart className={`w-3 h-3 ${displayFavorite ? 'fill-white' : ''}`} />
-                        {displayFavorite ? 'Favorited' : 'Favorite'}
-                      </button>
-                    ) : (
-                      <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+                      </div>
                     )}
 
-                    <button
-                      onClick={() => setShowContactModal(true)}
-                      className="btn-primary"
-                    >
-                      Contact
-                    </button>
+                    {/* Selected Vendor Toggle - Only show when vendor is selected for their category */}
+                    {dataLoaded && isSelectedVendorState && !isSelectedVenueState && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
+                          <span className="text-xs text-[#364257]">Selected {vendor.category}</span>
+                        </div>
+                        <button
+                          onClick={handleUnselectVendor}
+                          disabled={isUpdatingOfficial}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
+                            isSelectedVendorState ? 'bg-[#A85C36]' : 'bg-gray-200'
+                          } ${isUpdatingOfficial ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                              isSelectedVendorState ? 'translate-x-5' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Actions Row */}
+                    <div className="flex items-center gap-2">
+                      {/* Favorite Toggle - Icon only to save space */}
+                      {dataLoaded ? (
+                        <button
+                          onClick={toggleFavorite}
+                          disabled={isUpdatingFavorite}
+                          className={`p-2 rounded-full transition-colors ${
+                            displayFavorite 
+                              ? 'bg-[#A85C36] text-white' 
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current' : ''}`} />
+                        </button>
+                      ) : (
+                        <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+                      )}
+
+                      {/* Select as [Category] Button - For all vendor types that aren't currently selected */}
+                      {dataLoaded && !isSelectedVendorState && (
+                        <button
+                          onClick={handleSetAsSelected}
+                          className="btn-primaryinverse"
+                        >
+                          Select as {vendor.category}
+                        </button>
+                      )}
+
+                      {/* Loading state for Select button */}
+                      {!dataLoaded && (
+                        <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                      )}
+
+                      {/* Primary Action - Contact */}
+                      <button
+                        onClick={() => setShowContactModal(true)}
+                        className="btn-primary"
+                      >
+                        Contact
+                      </button>
+                    </div>
                   </div>
                 </div>
                 
@@ -743,12 +987,6 @@ export default function VendorDetailPage() {
                     </div>
                   )}
                   <CategoryPill category={vendor.category} />
-                  {communityData?.totalFavorites > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Heart className="w-3 h-3 text-[#A85C36]" />
-                      <span className="text-sm text-[#364257]">{communityData.totalFavorites} favorited</span>
-                    </div>
-                  )}
                   {location && (
                     <div className="flex items-center gap-1 text-sm text-[#364257]">
                       <span>in</span>
@@ -758,6 +996,24 @@ export default function VendorDetailPage() {
                   )}
                 </div>
 
+                {/* Selected Venue AI Banner */}
+                {isSelectedVenueState && (
+                  <div className="mt-4 bg-[#805d93] text-white p-4 rounded-lg shadow-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <WandSparkles className="w-5 h-5 text-white" strokeWidth={1} />
+                      </div>
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-sm mb-1 text-white">
+                          This vendor has been marked as your official {vendor.category}
+                        </h5>
+                        <p className="text-sm opacity-90 text-white">
+                          Their details will be used to generate your personalized content when relevant!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               </div>
 
@@ -901,6 +1157,15 @@ export default function VendorDetailPage() {
           isSubmitting={false}
         />
       )}
+
+      {/* Venue Unmark Modal */}
+      <ConfirmVenueUnmarkModal
+        open={showVenueUnmarkModal}
+        onClose={() => setShowVenueUnmarkModal(false)}
+        onConfirm={handleConfirmVenueUnmark}
+        onGoToSettings={handleGoToSettings}
+        vendorName={vendor?.name || ''}
+      />
 
       {/* Image Gallery Modal */}
       <AnimatePresence>

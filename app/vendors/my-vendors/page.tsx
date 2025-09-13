@@ -26,6 +26,7 @@ import { useUserProfileData } from '@/hooks/useUserProfileData';
 import Breadcrumb from '@/components/Breadcrumb';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import { useVendorSectionImageValidation } from '@/hooks/useVendorImageValidation';
+import { isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
   if (!open) return null;
@@ -262,6 +263,18 @@ export default function MyVendorsPage() {
   const handleUnsetOfficial = async (vendor: any) => {
     setIsSaving(true);
     try {
+      // Check if this vendor is the selected venue
+      if (user?.uid) {
+        const isVenue = await isSelectedVenue(user.uid, vendor.placeId || vendor.id);
+        if (isVenue) {
+          // Clear the selected venue from wedding settings
+          const success = await clearSelectedVenue(user.uid);
+          if (success) {
+            showSuccessToast('Selected venue cleared from wedding settings');
+          }
+        }
+      }
+      
       await saveVendorToFirestore({ ...vendor, isOfficial: false });
       // Update local state
       setVendors((prev) => 

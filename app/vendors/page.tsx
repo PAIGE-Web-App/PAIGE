@@ -5,7 +5,7 @@ import { getAllVendors } from '@/lib/getContacts';
 import { saveVendorToFirestore } from '@/lib/saveContactToFirestore';
 import type { Contact } from '@/types/contact';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ListFilter, Search, ArrowUpDown } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import CategoryPill from '@/components/CategoryPill';
 import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
@@ -17,9 +17,6 @@ import BadgeCount from '@/components/BadgeCount';
 import Banner from '@/components/Banner';
 import VendorSkeleton from '@/components/VendorSkeleton';
 import { Mail, Phone } from 'lucide-react';
-import SearchBar from '@/components/SearchBar';
-import FilterButtonPopover from '@/components/FilterButtonPopover';
-import { highlightText } from '@/utils/searchHighlight';
 import AddContactModal from '@/components/AddContactModal';
 import DropdownMenu from '@/components/DropdownMenu';
 import { MoreHorizontal } from 'lucide-react';
@@ -33,12 +30,13 @@ import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection'
 import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
 import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
-import { useFavorites } from '@/hooks/useFavorites';
-import VendorTabs from '@/components/VendorTabs';
+import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import VendorContactModal from '@/components/VendorContactModal';
-import { AdminNavigation } from '@/components/AdminNavigation';
 import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
+import { getSelectedVenueMetadata, isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
+import AdminFavoritesDropdown from '@/components/AdminFavoritesDropdown';
+import { usePermissions } from '@/hooks/usePermissions';
 
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
@@ -113,34 +111,35 @@ export default function VendorsPage() {
   const defaultLocation = weddingLocation || 'Dallas, TX';
   
   const [vendors, setVendors] = useState<any[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; vendor: any | null; action: 'star' | 'unstar' }>({ open: false, vendor: null, action: 'star' });
   const [isSaving, setIsSaving] = useState(false);
   const [editModal, setEditModal] = useState<{ open: boolean; vendor: any | null }>({ open: false, vendor: null });
   const [isLoading, setIsLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const [vendorSearch, setVendorSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [addContactModal, setAddContactModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [selectedVendorForContact, setSelectedVendorForContact] = useState<any>(null);
   const [selectedVendorForFlag, setSelectedVendorForFlag] = useState<any>(null);
-  const [enhancedFavorites, setEnhancedFavorites] = useState<any[]>([]);
   const [recentlyViewedCount, setRecentlyViewedCount] = useState<number>(0);
+  const [selectedVenuePlaceId, setSelectedVenuePlaceId] = useState<string | null>(null);
+  const [selectedVendors, setSelectedVendors] = useState<{ [key: string]: any[] }>({});
 
-  // Temporary: Use localStorage directly until we fix the SSR issue
-    // Use the proper useFavorites hook for persistent favorites
+  // Use the simplified favorites hook
   const { 
     favorites, 
     isLoading: favoritesLoading, 
     addFavorite, 
     removeFavorite, 
     toggleFavorite, 
-    isFavorite,
-    refreshFavorites 
-  } = useFavorites();
+    isFavorite
+  } = useFavoritesSimple();
+
+  // The simplified favorites hook already returns full vendor data
+  const enhancedFavorites = favorites;
+
+  // Check if user is super admin
+  const { isSuperAdmin } = usePermissions();
 
   // Flag modal handlers
   const handleShowFlagModal = (vendor: any) => {
@@ -182,12 +181,6 @@ export default function VendorsPage() {
     setShowContactModal(true);
   };
   
-  // Load favorites from Firestore on component mount
-  useEffect(() => {
-    if (user?.uid) {
-      refreshFavorites();
-    }
-  }, [user?.uid, refreshFavorites]);
 
   // Watch for changes in recently viewed vendors
   useEffect(() => {
@@ -219,231 +212,57 @@ export default function VendorsPage() {
     };
   }, []);
 
-  // Fetch missing favorites data from Firestore
+  
+  // Fetch selected venue metadata
   useEffect(() => {
-    const fetchMissingFavorites = async () => {
-      if (!user?.uid || favorites.length === 0) return;
+    const fetchSelectedVenue = async () => {
+      if (!user?.uid) return;
       
       try {
-        const response = await fetch(`/api/user-favorites?userId=${user.uid}`);
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Process Firestore favorites data
-          let favsFromFirestore = data.favorites
-            .filter((f: any) => favorites.includes(f.placeId || f.id))
-            .map((f: any) => {
-              // Try multiple possible field names for each property
-              const vendorName = f.name || f.vendorName || f.vendor?.name || 'Unknown Vendor';
-              const vendorAddress = f.address || f.vendorAddress || f.vendor?.address || '';
-              const vendorCategory = f.category || f.vendorCategory || f.vendor?.category || 'Vendor';
-              const vendorRating = f.rating || f.vendor?.rating || 0;
-              const vendorReviewCount = f.reviewCount || f.vendor?.reviewCount || f.user_ratings_total || 0;
-              const vendorImage = f.image || f.vendor?.image || '';
-              
-              return {
-                id: f.placeId || f.id,
-                place_id: f.placeId || f.id,
-                name: vendorName,
-                address: vendorAddress,
-                rating: vendorRating,
-                user_ratings_total: vendorReviewCount,
-                image: vendorImage,
-                mainTypeLabel: vendorCategory
-              };
-            });
-          
-          // For favorites without vendor data, try to fetch from Google Places API
-          const incompleteFavorites = favsFromFirestore.filter(f => f.name === 'Unknown Vendor');
-          if (incompleteFavorites.length > 0) {
-            try {
-              const placeDetailsPromises = incompleteFavorites.map(async (favorite) => {
-                try {
-                  const response = await fetch(`/api/google-place-details?placeId=${favorite.place_id}`);
-                  if (response.ok) {
-                    const placeData = await response.json();
-                    
-                    if (placeData.result) {
-                      // Get the best available image
-                      let bestImage = favorite.image;
-                      if (placeData.result.photos && placeData.result.photos.length > 0) {
-                        const photo = placeData.result.photos[0];
-                        bestImage = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
-                      }
-                      
-                      return {
-                        ...favorite,
-                        name: placeData.result.name || favorite.name,
-                        address: placeData.result.formatted_address || favorite.address,
-                        rating: placeData.result.rating || favorite.rating,
-                        user_ratings_total: placeData.result.user_ratings_total || favorite.user_ratings_total,
-                        image: bestImage
-                      };
-                    }
-                  }
-                } catch (error) {
-                  console.error('Error fetching place details for', favorite.place_id, ':', error);
-                }
-                return favorite;
-              });
-              
-              const enhancedFavorites = await Promise.all(placeDetailsPromises);
-              
-              // Replace incomplete favorites with enhanced ones
-              favsFromFirestore = favsFromFirestore.map(f => {
-                const enhanced = enhancedFavorites.find(ef => ef.place_id === f.place_id);
-                return enhanced || f;
-              });
-            } catch (error) {
-              console.error('Error enhancing incomplete favorites:', error);
-            }
-          }
-          
-          setEnhancedFavorites(favsFromFirestore);
+        const venueMetadata = await getSelectedVenueMetadata(user.uid);
+        if (venueMetadata) {
+          setSelectedVenuePlaceId(venueMetadata.place_id);
+        } else {
+          setSelectedVenuePlaceId(null);
         }
       } catch (error) {
-        console.error('Error fetching favorites from Firestore:', error);
+        console.error('Error fetching selected venue:', error);
+        setSelectedVenuePlaceId(null);
       }
     };
 
-    fetchMissingFavorites();
-  }, [user?.uid, favorites]);
-  
-  const [sortOption, setSortOption] = useState<string>('recent-desc'); // Default to most recently added
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const sortMenuRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState('my-vendors');
+    fetchSelectedVenue();
+  }, [user?.uid]);
 
-  // Filtered, searched, and sorted vendors
-  const filteredVendors = useMemo(() => {
-    let filtered = vendors.filter((v) => {
-      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
-      const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
+  // Load selected vendors on mount
+  useEffect(() => {
+    if (!user?.uid) return;
 
-    // Apply sorting
-    switch (sortOption) {
-      case 'name-asc':
-        return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-      case 'name-desc':
-        return [...filtered].sort((a, b) => b.name.localeCompare(a.name));
-      case 'recent-desc':
-        return [...filtered].sort((a, b) => {
-          // Use orderIndex if available (negative timestamp for recent first)
-          if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
-            return a.orderIndex - b.orderIndex;
-          }
-          
-          // Fallback to addedAt timestamp
-          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
-          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
-          return bTime - aTime; // Most recent first
-        });
-      case 'category-asc':
-        return [...filtered].sort((a, b) => {
-          const categoryA = a.category || '';
-          const categoryB = b.category || '';
-          return categoryA.localeCompare(categoryB);
-        });
-      case 'rating-desc':
-        return [...filtered].sort((a, b) => {
-          const ratingA = a.rating || 0;
-          const ratingB = b.rating || 0;
-          return ratingB - ratingA;
-        });
-      default:
-        return filtered;
-    }
-  }, [vendors, selectedCategories, vendorSearch, sortOption]);
-
-  // Filtered, searched, and sorted favorites
-  const filteredFavorites = useMemo(() => {
-    // Get recently viewed vendors from localStorage
-    const getRecentlyViewedVendors = () => {
-      if (typeof window === 'undefined') return [];
+    const loadSelectedVendors = async () => {
       try {
-        return JSON.parse(localStorage.getItem('paige_recently_viewed_vendors') || '[]');
-      } catch {
-        return [];
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+        
+        if (userData?.selectedVendors) {
+          setSelectedVendors(userData.selectedVendors);
+        }
+      } catch (error) {
+        console.error('Error loading selected vendors:', error);
       }
     };
-    
-    const recentlyViewedVendors = getRecentlyViewedVendors();
-    
-    // Get favorite vendors from both the main vendors list and recently viewed vendors
-    const favoriteVendorsFromMain = vendors.filter(v => isFavorite(v.id) || isFavorite(v.placeId));
-    const favoriteVendorsFromRecent = recentlyViewedVendors.filter(v => isFavorite(v.id) || isFavorite(v.placeId));
-    
-    // Create a map to track unique vendors by placeId (preferred) or id
-    const uniqueVendorsMap = new Map();
-    
-    // Add vendors from main list first (these are more complete)
-    favoriteVendorsFromMain.forEach(vendor => {
-      const key = vendor.placeId || vendor.id;
-      if (key && !uniqueVendorsMap.has(key)) {
-        uniqueVendorsMap.set(key, vendor);
-      }
-    });
-    
-    // Add vendors from recently viewed only if not already present
-    favoriteVendorsFromRecent.forEach(vendor => {
-      const key = vendor.placeId || vendor.id;
-      if (key && !uniqueVendorsMap.has(key)) {
-        uniqueVendorsMap.set(key, vendor);
-      }
-    });
-    
-    // Add enhanced favorites from Firestore (Google Places vendors)
-    enhancedFavorites.forEach(vendor => {
-      const key = vendor.place_id || vendor.id;
-      if (key && !uniqueVendorsMap.has(key)) {
-        uniqueVendorsMap.set(key, vendor);
-      }
-    });
-    
-    const allFavoriteVendors = Array.from(uniqueVendorsMap.values());
-    
-    let filtered = allFavoriteVendors.filter((v) => {
-      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(v.category);
-      const matchesSearch = vendorSearch.trim() === '' || v.name.toLowerCase().includes(vendorSearch.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
 
-    // Apply sorting
-    switch (sortOption) {
-      case 'name-asc':
-        return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-      case 'name-desc':
-        return [...filtered].sort((a, b) => b.name.localeCompare(a.name));
-      case 'recent-desc':
-        return [...filtered].sort((a, b) => {
-          // Use orderIndex if available (negative timestamp for recent first)
-          if (a.orderIndex !== undefined && b.orderIndex !== undefined) {
-            return a.orderIndex - b.orderIndex;
-          }
-          
-          // Fallback to addedAt timestamp
-          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
-          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
-          return bTime - aTime; // Most recent first
-        });
-      case 'category-asc':
-        return [...filtered].sort((a, b) => {
-          const categoryA = a.category || '';
-          const categoryB = b.category || '';
-          return categoryA.localeCompare(categoryB);
-        });
-      case 'rating-desc':
-        return [...filtered].sort((a, b) => {
-          const ratingA = a.rating || 0;
-          const ratingB = b.rating || 0;
-          return ratingB - ratingA;
-        });
-      default:
-        return filtered;
-    }
-  }, [vendors, favorites, isFavorite, selectedCategories, vendorSearch, sortOption, user?.uid, enhancedFavorites]);
+    loadSelectedVendors();
+  }, [user?.uid]);
+  
+  // Mobile view mode state - similar to dashboard and todo pages
+  const [mobileViewMode, setMobileViewMode] = useState<'vendors' | 'vendor-details'>('vendors');
+  const [selectedVendor, setSelectedVendor] = useState<any>(null);
+
+
 
   useEffect(() => {
     if (user?.uid) {
@@ -541,6 +360,20 @@ export default function VendorsPage() {
   const handleUnsetOfficial = async (vendor: any) => {
     setIsSaving(true);
     try {
+      // Check if this vendor is the selected venue
+      if (user?.uid) {
+        const isVenue = await isSelectedVenue(user.uid, vendor.placeId || vendor.id);
+        if (isVenue) {
+          // Clear the selected venue from wedding settings
+          const success = await clearSelectedVenue(user.uid);
+          if (success) {
+            showSuccessToast('Selected venue cleared from wedding settings');
+            // Update local state
+            setSelectedVenuePlaceId(null);
+          }
+        }
+      }
+      
       await saveVendorToFirestore({ ...vendor, isOfficial: false });
       // Update local state
       setVendors((prev) => 
@@ -555,33 +388,22 @@ export default function VendorsPage() {
     setConfirmModal({ open: false, vendor: null, action: 'unstar' });
   };
 
-  // Function to handle sort option selection
-  const handleSortOptionSelect = (option: string) => {
-    setSortOption(option);
-    setShowSortMenu(false);
-  };
-
-  // Close sort menu on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
-        setShowSortMenu(false);
-      }
-    }
-
-    if (showSortMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showSortMenu]);
 
   const handleContactAdded = () => {
     setAddContactModal(false);
     showSuccessToast('Contact added successfully!');
   };
+
+  // Mobile view mode handlers
+  const handleMobileVendorSelect = useCallback((vendor: any) => {
+    setSelectedVendor(vendor);
+    setMobileViewMode('vendor-details');
+  }, []);
+
+  const handleMobileBackToVendors = useCallback(() => {
+    setMobileViewMode('vendors');
+    setSelectedVendor(null);
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-linen">
@@ -592,189 +414,165 @@ export default function VendorsPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      {/* Admin Navigation - Only shows for admin users */}
-      <AdminNavigation />
-      
-      <div className="max-w-6xl mx-auto w-full bg-[#F3F2F0] relative h-screen">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}
-                  {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
-            /* Empty State - No header, no tabs, just warm welcome */
-            <VendorHubEmptyState 
-              variant="main"
-              className="h-full px-4"
-            />
+        {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
+          /* Empty State - No header, no tabs, just warm welcome */
+          <VendorHubEmptyState 
+            variant="main"
+            className="h-full px-4"
+          />
         ) : (
           /* Normal State - Show header and content */
           <>
             {/* Vendor Hub Header */}
-            <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80 }}>
-              <h4 className="text-lg font-playfair font-medium text-[#332B42]">My Vendors</h4>
+            <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
+              <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
               <div className="flex items-center gap-4">
+                <AdminFavoritesDropdown isVisible={isSuperAdmin} />
                 <button className="btn-primary" onClick={() => router.push('/vendors/catalog/search')}>Browse Vendors</button>
               </div>
             </div>
-            {/* Main Content */}
-            <div className="app-content-container flex-1 pt-24">
-          {/* Recently Viewed Section - Now at the top */}
-          <RecentlyViewedSection
-            defaultLocation={defaultLocation}
-            onContact={(vendor) => {
-              // Handle contact action
-            }}
-            onFlagged={(vendorId) => {
-              // Handle flagged action
-            }}
-            onShowContactModal={handleShowContactModal}
-            onShowFlagModal={handleShowFlagModal}
-          />
+            
+            {/* Main Content - Mobile responsive layout */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Mobile view mode content */}
+              {mobileViewMode === 'vendors' ? (
+                <div className="px-0 lg:px-4 py-6 space-y-6">
+                  {/* Official Vendors Section */}
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-playfair font-medium text-[#332B42]">Official Vendors</h3>
+                      <BadgeCount count={vendors.length} />
+                    </div>
+                    <p className="text-sm text-[#5A4A42] mb-4">Vendors you've officially added to your wedding team from the catalog</p>
+                    <MyVendorsSection
+                      vendors={vendors}
+                      defaultLocation={defaultLocation}
+                      isLoading={isLoading}
+                      onContact={(vendor) => {
+                        // Handle contact action
+                      }}
+                      onFlagged={(vendorId) => {
+                        // Handle flagged action
+                      }}
+                      onShowContactModal={handleShowContactModal}
+                      onShowFlagModal={handleShowFlagModal}
+                      onMobileSelect={handleMobileVendorSelect}
+                      selectedVenuePlaceId={selectedVenuePlaceId}
+                      selectedVendors={selectedVendors}
+                    />
+                  </div>
 
-          {/* Vendor Tabs and Action Buttons Row */}
-          <div className="flex items-center justify-between mb-2">
-            {/* Vendor Tabs */}
-            <VendorTabs 
-              activeTab={activeTab} 
-              onTabChange={setActiveTab}
-              myVendorsCount={filteredVendors.length}
-              favoritesCount={filteredFavorites.length}
-            />
+                  {/* My Favorites Section */}
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-playfair font-medium text-[#332B42]">My Favorites</h3>
+                      <BadgeCount count={enhancedFavorites.length} />
+                    </div>
+                    <p className="text-sm text-[#5A4A42] mb-4">Vendors you've marked as favorites while browsing the catalog</p>
+                    <MyFavoritesSection
+                      vendors={enhancedFavorites}
+                      defaultLocation={defaultLocation}
+                      onContact={(vendor) => {
+                        // Handle contact action
+                      }}
+                      onFlagged={(vendorId) => {
+                        // Handle flagged action
+                      }}
+                      onShowContactModal={handleShowContactModal}
+                      onShowFlagModal={handleShowFlagModal}
+                      onMobileSelect={handleMobileVendorSelect}
+                    />
+                  </div>
 
-            {/* Action Buttons - Show for both My Vendors and Favorites tabs */}
-            {(activeTab === 'my-vendors' || activeTab === 'favorites') && (
-              <div className="flex items-center gap-3">
-                {/* Sort Button */}
-                <div className="relative" ref={sortMenuRef}>
-                  <button
-                    onClick={() => setShowSortMenu(!showSortMenu)}
-                    className="flex items-center justify-center border border-[#AB9C95] rounded-[5px] text-[#332B42] hover:text-[#A85C36] px-3 py-1"
-                    title="Sort vendors"
-                  >
-                    <ArrowUpDown className="w-4 h-4" />
-                  </button>
-                  <AnimatePresence>
-                    {showSortMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full right-0 mt-2 p-2 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 flex flex-col min-w-[200px]"
-                      >
-                        <button
-                          onClick={() => handleSortOptionSelect('recent-desc')}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'recent-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                        >
-                          Most recently added
-                        </button>
-                        <button
-                          onClick={() => handleSortOptionSelect('name-asc')}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                        >
-                          Name (A-Z)
-                        </button>
-                        <button
-                          onClick={() => handleSortOptionSelect('name-desc')}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'name-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                        >
-                          Name (Z-A)
-                        </button>
-                        <button
-                          onClick={() => handleSortOptionSelect('category-asc')}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'category-asc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                        >
-                          Category (A-Z)
-                        </button>
-                        <button
-                          onClick={() => handleSortOptionSelect('rating-desc')}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-[3px] ${sortOption === 'rating-desc' ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42] hover:bg-[#F3F2F0]'}`}
-                        >
-                          Highest rated
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Recently Viewed Section */}
+                  <RecentlyViewedSection
+                    defaultLocation={defaultLocation}
+                    onContact={(vendor) => {
+                      // Handle contact action
+                    }}
+                    onFlagged={(vendorId) => {
+                      // Handle flagged action
+                    }}
+                    onShowContactModal={handleShowContactModal}
+                    onShowFlagModal={handleShowFlagModal}
+                  />
                 </div>
-                <FilterButtonPopover
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectCategories={setSelectedCategories}
-                  showFilters={showFilters}
-                  setShowFilters={setShowFilters}
-                />
-                <SearchBar
-                  value={vendorSearch}
-                  onChange={setVendorSearch}
-                  placeholder="Search vendors by name"
-                  isOpen={searchOpen}
-                  setIsOpen={setSearchOpen}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Applied filter pills above vendor sections */}
-          {(activeTab === 'my-vendors' || activeTab === 'favorites') && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {/* Sort filter pill */}
-              {sortOption && sortOption !== 'recent-desc' && (
-                <span className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                  Sort: {
-                    sortOption === 'name-asc' ? 'Name (A-Z)' :
-                    sortOption === 'name-desc' ? 'Name (Z-A)' :
-                    sortOption === 'category-asc' ? 'Category (A-Z)' :
-                    sortOption === 'rating-desc' ? 'Highest rated' : ''
-                  }
-                  <button onClick={() => handleSortOptionSelect('recent-desc')} className="ml-1 text-[#A85C36] hover:text-[#784528]">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
+              ) : (
+                /* Mobile Vendor Details View */
+                <div className="h-full flex flex-col">
+                  {/* Mobile Vendor Details Header */}
+                  <div className="flex items-center gap-4 p-4 bg-white border-b border-[#AB9C95] sticky top-0 z-20">
+                    <button
+                      onClick={handleMobileBackToVendors}
+                      className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-[#332B42]" />
+                    </button>
+                    <h3 className="text-lg font-medium text-[#332B42] truncate">
+                      {selectedVendor?.name || 'Vendor Details'}
+                    </h3>
+                  </div>
+                  
+                  {/* Mobile Vendor Details Content */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {selectedVendor && (
+                      <div className="space-y-4">
+                        {/* Vendor Image */}
+                        {selectedVendor.image && (
+                          <div className="aspect-video w-full rounded-lg overflow-hidden">
+                            <img
+                              src={selectedVendor.image}
+                              alt={selectedVendor.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Vendor Info */}
+                        <div className="space-y-3">
+                          <h2 className="text-xl font-semibold text-[#332B42]">{selectedVendor.name}</h2>
+                          {selectedVendor.address && (
+                            <p className="text-sm text-gray-600">{selectedVendor.address}</p>
+                          )}
+                          {selectedVendor.rating && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-[#332B42]">
+                                ⭐ {selectedVendor.rating} ({selectedVendor.user_ratings_total || 0} reviews)
+                              </span>
+                            </div>
+                          )}
+                          {selectedVendor.category && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">Category:</span>
+                              <span className="px-2 py-1 bg-[#EBE3DD] text-[#A85C36] rounded-full text-xs">
+                                {selectedVendor.category}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-4">
+                          <button
+                            onClick={() => handleShowContactModal(selectedVendor)}
+                            className="flex-1 btn-primary py-2"
+                          >
+                            Contact Vendor
+                          </button>
+                          <button
+                            onClick={() => handleShowFlagModal(selectedVendor)}
+                            className="px-4 py-2 border border-[#AB9C95] text-[#332B42] rounded-[5px] hover:bg-gray-50"
+                          >
+                            Flag
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-              
-              {/* Category filter pills */}
-              {selectedCategories.map((category) => (
-                <span key={category} className="flex items-center gap-1 bg-[#EBE3DD] border border-[#A85C36] rounded-full px-2 py-0.5 text-xs text-[#332B42]">
-                  {category}
-                  <button 
-                    onClick={() => setSelectedCategories(prev => prev.filter(cat => cat !== category))} 
-                    className="ml-1 text-[#A85C36] hover:text-[#784528]"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Tab Content */}
-          {activeTab === 'my-vendors' && (
-            <MyVendorsSection
-              vendors={filteredVendors}
-              defaultLocation={defaultLocation}
-              isLoading={isLoading}
-              onContact={(vendor) => {
-                // Handle contact action
-              }}
-              onFlagged={(vendorId) => {
-                // Handle flagged action
-              }}
-              onShowContactModal={handleShowContactModal}
-              onShowFlagModal={handleShowFlagModal}
-            />
-          )}
-
-          {activeTab === 'favorites' && (
-            <MyFavoritesSection
-              vendors={filteredFavorites}
-              defaultLocation={defaultLocation}
-              onContact={(vendor) => {
-                // Handle contact action
-              }}
-              onFlagged={(vendorId) => {
-                // Handle flagged action
-              }}
-              onShowContactModal={handleShowContactModal}
-              onShowFlagModal={handleShowFlagModal}
-            />
-          )}
             </div>
           </>
         )}

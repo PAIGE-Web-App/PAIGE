@@ -14,6 +14,9 @@ interface MyVendorsSectionProps {
   onFlagged?: (vendorId: string) => void;
   onShowContactModal?: (vendor: any) => void;
   onShowFlagModal?: (vendor: any) => void;
+  onMobileSelect?: (vendor: any) => void;
+  selectedVenuePlaceId?: string | null;
+  selectedVendors?: { [key: string]: any[] };
 }
 
 export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
@@ -23,25 +26,44 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
   onContact,
   onFlagged,
   onShowContactModal,
-  onShowFlagModal
+  onShowFlagModal,
+  onMobileSelect,
+  selectedVenuePlaceId,
+  selectedVendors = {}
 }) => {
   const router = useRouter();
 
+  // Helper function to check if vendor is selected for their category
+  const isVendorSelected = (vendor: any): { isSelected: boolean; category: string } => {
+    if (!selectedVendors || !vendor.placeId) {
+      return { isSelected: false, category: '' };
+    }
+
+    const category = mapGoogleTypesToCategory(vendor.types, vendor.name);
+    const categoryKey = category.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const categoryVendors = selectedVendors[categoryKey] || [];
+    
+    const isSelected = categoryVendors.some((v: any) => v.place_id === vendor.placeId);
+    return { isSelected, category };
+  };
+
   return (
-    <section className="mb-8">
+    <section className="mb-8 w-full">
       
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-[960px]">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-80 animate-pulse">
-              <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+        <div className="w-full min-w-0" style={{ width: '100%', maxWidth: 'none' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full" style={{ width: '100%', maxWidth: 'none' }}>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-full animate-pulse min-w-0" style={{ width: '100%', maxWidth: 'none' }}>
+                <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
               ) : vendors.length === 0 ? (
           <VendorHubEmptyState 
@@ -53,20 +75,33 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
         <>
           {/* 2x4 Grid Layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {vendors.slice(0, 8).map((vendor) => (
-              <div key={vendor.id} className="w-full">
-                <VendorCatalogCard
-                  vendor={convertVendorToCatalogFormat(vendor)}
-                  onContact={() => onContact?.(vendor)}
-                  onFlagged={(vendorId) => onFlagged?.(vendorId)}
-                  onSelectionChange={() => {}}
-                  location={defaultLocation}
-                  category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-                  onShowContactModal={onShowContactModal}
-                  onShowFlagModal={onShowFlagModal}
-                />
-              </div>
-            ))}
+            {vendors.slice(0, 8)
+              .map((vendor, index) => ({ vendor, index }))
+              .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))
+              .map(({ vendor, index }) => {
+                const convertedVendor = convertVendorToCatalogFormat(vendor);
+                if (!convertedVendor) return null;
+                
+                const { isSelected, category } = isVendorSelected(vendor);
+                return (
+                  <div key={`${vendor.placeId || vendor.id || 'vendor'}-${index}`} className="w-full">
+                    <VendorCatalogCard
+                      vendor={convertedVendor}
+                      onContact={() => onContact?.(vendor)}
+                      onFlagged={(vendorId) => onFlagged?.(vendorId)}
+                      onSelectionChange={() => {}}
+                      location={defaultLocation}
+                      category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                      onShowContactModal={onShowContactModal}
+                      onShowFlagModal={onShowFlagModal}
+                      onMobileSelect={() => onMobileSelect?.(vendor)}
+                      isSelectedVenue={selectedVenuePlaceId === vendor.placeId}
+                      isSelectedVendor={isSelected}
+                      selectedCategory={category}
+                    />
+                  </div>
+                );
+              })}
           </div>
           
           {/* View All Link */}

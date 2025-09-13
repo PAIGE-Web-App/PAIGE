@@ -473,6 +473,11 @@ export const addRecentlyViewedVendor = (vendor: any) => {
 
 // Vendor data conversion utility
 export const convertVendorToCatalogFormat = (vendor: any, recentlyViewed?: any[]) => {
+  // Check if vendor is null or undefined
+  if (!vendor) {
+    return null;
+  }
+  
   // Try to get the Google Places image from recently viewed data
   const recent = recentlyViewed || getRecentlyViewedVendors();
   const recentlyViewedVendor = recent.find(rv => 

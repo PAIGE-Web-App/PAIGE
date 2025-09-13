@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Star, Heart, MapPin, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { useFavorites } from '@/hooks/useFavorites';
+import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import VendorContactModal from '@/components/VendorContactModal';
 import { mapGoogleTypesToCategory } from '@/utils/vendorUtils';
@@ -72,8 +72,8 @@ export default function RelatedVendorsSection({
   
   const [relatedVendors, setRelatedVendors] = useState<RelatedVendor[]>([]);
   const [loading, setLoading] = useState(true);
-  // Use the proper useFavorites hook for persistent favorites
-  const { isFavorite, toggleFavorite } = useFavorites();
+  // Use the simplified favorites hook
+  const { isFavorite, toggleFavorite } = useFavoritesSimple();
 
 
   // Fetch related vendors
@@ -158,11 +158,18 @@ export default function RelatedVendorsSection({
   // Handle favorite toggle with proper vendor data
   const handleToggleFavorite = async (vendorId: string) => {
     try {
-      await toggleFavorite(vendorId, {
-        name: relatedVendors.find(v => v.id === vendorId)?.name || 'Vendor',
-        address: relatedVendors.find(v => v.id === vendorId)?.address || '',
-        category: relatedVendors.find(v => v.id === vendorId)?.category || ''
-      });
+      const vendor = relatedVendors.find(v => v.id === vendorId);
+      if (vendor) {
+        await toggleFavorite({
+          placeId: vendorId,
+          name: vendor.name || 'Vendor',
+          address: vendor.address || '',
+          category: vendor.category || '',
+          rating: vendor.rating,
+          reviewCount: vendor.reviewCount,
+          image: vendor.image
+        });
+      }
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }

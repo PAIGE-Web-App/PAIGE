@@ -49,6 +49,7 @@ export function usePermissions() {
   const isAdmin = canAccessAdmin(currentUserRole);
   const isUserManager = canManageUsers(currentUserRole);
   const isRoleManager = canManageRoles(currentUserRole);
+  const isSuperAdmin = currentUserRole === 'super_admin';
   
   // Convenience methods
   const canAccessAdminPanel = isAdmin;
@@ -95,6 +96,7 @@ export function usePermissions() {
     isAdmin,
     isUserManager,
     isRoleManager,
+    isSuperAdmin,
     
     // Convenience methods
     canAccessAdminPanel,

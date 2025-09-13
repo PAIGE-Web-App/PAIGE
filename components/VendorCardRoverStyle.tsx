@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star, MapPin, Phone, Mail, Globe, Flag, MessageSquare } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 
-import { useFavorites } from '@/hooks/useFavorites';
+import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 
 
 
@@ -30,7 +30,6 @@ interface VendorCardRoverStyleProps {
   onFlag?: () => void;
   onShowContactModal?: (vendor: any) => void;
   onShowFlagModal?: (vendor: any) => void;
-  communityData?: any; // Added for community vendor data
   isHighlighted?: boolean; // Added for highlighting when map marker is hovered/clicked
 }
 
@@ -40,25 +39,21 @@ const VendorCardRoverStyle = React.memo(({
   onFlag, 
   onShowContactModal, 
   onShowFlagModal,
-  communityData,
   isHighlighted = false
 }: VendorCardRoverStyleProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isFlagged, setIsFlagged] = useState(false);
-  const [communityDataState, setCommunityDataState] = useState<any>(null);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [imgSrc, setImgSrc] = useState<string>('');
   
-  // Use the proper useFavorites hook for persistent favorites
-  const { isFavorite, toggleFavorite } = useFavorites();
+  // Use the simplified favorites hook
+  const { isFavorite, toggleFavorite } = useFavoritesSimple();
 
 
 
-  // Use communityData prop if provided, otherwise fall back to local state
-  const effectiveCommunityData = useMemo(() => communityData || communityDataState, [communityData, communityDataState]);
 
 
 
@@ -99,39 +94,22 @@ const VendorCardRoverStyle = React.memo(({
   }, [vendor.place_id, vendor.image, imgSrc]);
 
   useEffect(() => {
-    // Only fetch data if communityData prop is not provided
-    if (!communityData) {
-      // Batch API calls
-      const fetchData = async () => {
-        try {
-          const [flagResponse, communityResponse] = await Promise.all([
-            fetch('/api/flag-vendor'),
-            fetch(`/api/community-vendors?placeId=${vendor.place_id}`)
-          ]);
+    // Fetch flag data only
+    const fetchData = async () => {
+      try {
+        const flagResponse = await fetch('/api/flag-vendor');
+        const flagData = await flagResponse.json();
 
-          const [flagData, communityData] = await Promise.all([
-            flagResponse.json(),
-            communityResponse.json()
-          ]);
-
-          if (flagData.flagged && flagData.flagged.some(f => f.vendorId === vendor.place_id)) {
-            setIsFlagged(true);
-          }
-
-          if (communityData.vendor) {
-            setCommunityDataState(communityData.vendor);
-          }
-        } catch (error) {
-          console.error('Error fetching vendor data:', error);
+        if (flagData.flagged && flagData.flagged.some(f => f.vendorId === vendor.place_id)) {
+          setIsFlagged(true);
         }
-      };
+      } catch (error) {
+        console.error('Error fetching vendor data:', error);
+      }
+    };
 
-      fetchData();
-    } else {
-      // Use the provided communityData
-      setCommunityDataState(communityData);
-    }
-  }, [vendor.place_id, communityData]);
+    fetchData();
+  }, [vendor.place_id]);
 
   // Listen for vendor flagged/unflagged events to update UI immediately
   useEffect(() => {
@@ -163,24 +141,16 @@ const VendorCardRoverStyle = React.memo(({
     }
 
     try {
-      await toggleFavorite(vendor.place_id, {
+      await toggleFavorite({
+        placeId: vendor.place_id,
         name: vendor.name,
         address: vendor.vicinity || vendor.formatted_address,
-        category: 'Vendor'
+        category: 'Vendor',
+        rating: vendor.rating,
+        reviewCount: vendor.user_ratings_total,
+        image: vendor.image
       });
       
-      // Refresh community data to get updated counts
-      try {
-        const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.place_id}`);
-        if (communityResponse.ok) {
-          const data = await communityResponse.json();
-          if (data.vendor) {
-            setCommunityDataState(data.vendor);
-          }
-        }
-      } catch (error) {
-        console.error('Error refreshing community data:', error);
-      }
       
       // Don't show additional toast - the hook handles this
     } catch (error) {
@@ -343,34 +313,11 @@ const VendorCardRoverStyle = React.memo(({
             </div>
           )}
 
-          {/* Smart Favorites Badge */}
-          {(isFavorite(vendor.place_id) || (communityDataState && communityDataState.totalFavorites > 0)) && (
+          {/* Personal Favorites Badge */}
+          {isFavorite(vendor.place_id) && (
             <div className="flex items-center gap-1 text-xs text-[#364257] mb-2">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
-              <span>
-                {(() => {
-                  if (isFavorite(vendor.place_id) && communityDataState && communityDataState.totalFavorites > 1) {
-                    // You + others have favorited it
-                    const othersCount = communityDataState.totalFavorites - 1;
-                    if (othersCount === 1) {
-                      return 'Favorited by you and 1 other';
-                    } else {
-                      return `Favorited by you and ${othersCount} others`;
-                    }
-                  } else if (isFavorite(vendor.place_id)) {
-                    // Only you have favorited it
-                    return 'Favorited by you';
-                  } else if (communityDataState && communityDataState.totalFavorites > 0) {
-                    // Others have favorited it but you haven't
-                    if (communityDataState.totalFavorites === 1) {
-                      return 'Favorited by 1 user';
-                    } else {
-                      return `Favorited by ${communityDataState.totalFavorites} users`;
-                    }
-                  }
-                  return '';
-                })()}
-              </span>
+              <span>Favorited by you</span>
             </div>
           )}
 
@@ -382,12 +329,10 @@ const VendorCardRoverStyle = React.memo(({
             </div>
           )}
 
-          {/* Community Badge */}
-          {effectiveCommunityData && (
-            <div className="mt-2 mb-2">
-              <VendorEmailBadge placeId={vendor.place_id} />
-            </div>
-          )}
+          {/* Vendor Email Badge */}
+          <div className="mt-2 mb-2">
+            <VendorEmailBadge placeId={vendor.place_id} />
+          </div>
 
           {/* Contact Actions - Hidden by default, shown on hover */}
           <div className="flex gap-2 mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200">

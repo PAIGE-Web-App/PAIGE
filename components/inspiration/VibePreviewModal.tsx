@@ -5,7 +5,7 @@ import { MoodBoard } from '../../types/inspiration';
 import VibePill from '../VibePill';
 import { useUserProfileData } from '../../hooks/useUserProfileData';
 import { useTodoItems } from '../../hooks/useTodoItems';
-import { useFavorites } from '../../hooks/useFavorites';
+import { useFavoritesSimple } from '../../hooks/useFavoritesSimple';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface VibePreviewModalProps {
@@ -45,7 +45,7 @@ export default function VibePreviewModal({
     vibe 
   } = useUserProfileData();
   const { todoItems: todos } = useTodoItems(null); // Pass null for selectedList to get all todos
-  const { favorites } = useFavorites();
+  const { favorites } = useFavoritesSimple();
   
   const activeBoard = moodBoards.find(board => board.id === selectedBoardId);
 

@@ -13,6 +13,7 @@ interface MyFavoritesSectionProps {
   onFlagged?: (vendorId: string) => void;
   onShowContactModal?: (vendor: any) => void;
   onShowFlagModal?: (vendor: any) => void;
+  onMobileSelect?: (vendor: any) => void;
 }
 
 export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
@@ -21,13 +22,14 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
   onContact,
   onFlagged,
   onShowContactModal,
-  onShowFlagModal
+  onShowFlagModal,
+  onMobileSelect
 }) => {
   const router = useRouter();
 
   if (vendors.length === 0) {
     return (
-      <section className="mb-8">
+      <section className="mb-8 w-full">
         <VendorHubEmptyState 
           variant="favorites"
           imageSize="w-56"
@@ -38,25 +40,34 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
   }
 
   return (
-    <section className="mb-8">
+    <section className="mb-8 w-full">
       {/* 2x4 Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {vendors.slice(0, 8).map((vendor) => (
-          <div key={vendor.id} className="w-full">
-            <VendorCatalogCard
-              vendor={convertVendorToCatalogFormat(vendor)}
-              onContact={() => onContact?.(vendor)}
-              onFlagged={(vendorId) => onFlagged?.(vendorId)}
-              onSelectionChange={() => {}}
-              // Force heart filled
-              isFavoriteOverride={true}
-              location={defaultLocation}
-              category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-              onShowContactModal={onShowContactModal}
-              onShowFlagModal={onShowFlagModal}
-            />
-          </div>
-        ))}
+        {vendors.slice(0, 8)
+          .map((vendor, index) => ({ vendor, index }))
+          .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))
+          .map(({ vendor, index }) => {
+            const convertedVendor = convertVendorToCatalogFormat(vendor);
+            if (!convertedVendor) return null;
+            
+            return (
+              <div key={`${vendor.placeId || vendor.id || 'vendor'}-${index}`} className="w-full">
+                <VendorCatalogCard
+                  vendor={convertedVendor}
+                  onContact={() => onContact?.(vendor)}
+                  onFlagged={(vendorId) => onFlagged?.(vendorId)}
+                  onSelectionChange={() => {}}
+                  // Force heart filled
+                  isFavoriteOverride={true}
+                  location={defaultLocation}
+                  category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                  onShowContactModal={onShowContactModal}
+                  onShowFlagModal={onShowFlagModal}
+                  onMobileSelect={() => onMobileSelect?.(vendor)}
+                />
+              </div>
+            );
+          })}
       </div>
       
       {/* View All Link */}

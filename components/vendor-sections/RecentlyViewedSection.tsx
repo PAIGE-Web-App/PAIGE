@@ -5,6 +5,7 @@ import { getRecentlyViewedVendors, mapGoogleTypesToCategory } from '@/utils/vend
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import VendorCatalogCard from '@/components/VendorCatalogCard';
 import { convertVendorToCatalogFormat } from '@/utils/vendorUtils';
+import BadgeCount from '@/components/BadgeCount';
 
 interface RecentlyViewedSectionProps {
   defaultLocation: string;
@@ -85,6 +86,7 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-[#A85C36]" />
               <h5>Recently Viewed</h5>
+              <BadgeCount count={cappedVendors.length} />
             </div>
           </div>
         </div>
@@ -119,6 +121,7 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-[#A85C36]" />
             <h5>Recently Viewed</h5>
+            <BadgeCount count={cappedVendors.length} />
           </div>
         </div>
         <button 
@@ -132,20 +135,28 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
       {/* Horizontal Scroll Container with VendorCatalogCard */}
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
-          {cappedVendors.map((vendor) => (
-            <div key={vendor.id} className="w-64 flex-shrink-0">
-              <VendorCatalogCard
-                vendor={convertVendorToCatalogFormat(vendor)}
-                onContact={() => onContact?.(vendor)}
-                onFlagged={(vendorId) => onFlagged?.(vendorId)}
-                onSelectionChange={() => {}}
-                location={defaultLocation}
-                category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
-                onShowContactModal={() => onShowContactModal?.(vendor)}
-                onShowFlagModal={() => onShowFlagModal?.(vendor)}
-              />
-            </div>
-          ))}
+          {cappedVendors
+            .map((vendor, index) => ({ vendor, index }))
+            .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))
+            .map(({ vendor, index }) => {
+              const convertedVendor = convertVendorToCatalogFormat(vendor);
+              if (!convertedVendor) return null;
+              
+              return (
+                <div key={`${vendor.placeId || vendor.id || 'vendor'}-${index}`} className="w-64 flex-shrink-0">
+                  <VendorCatalogCard
+                    vendor={convertedVendor}
+                    onContact={() => onContact?.(vendor)}
+                    onFlagged={(vendorId) => onFlagged?.(vendorId)}
+                    onSelectionChange={() => {}}
+                    location={defaultLocation}
+                    category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                    onShowContactModal={() => onShowContactModal?.(vendor)}
+                    onShowFlagModal={() => onShowFlagModal?.(vendor)}
+                  />
+                </div>
+              );
+            })}
         </div>
       </div>
     </section>

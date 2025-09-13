@@ -4,10 +4,25 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import { useFavorites } from '@/hooks/useFavorites';
+import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
 
 // Removed custom heart icons - now using Lucide React Heart component for consistency
+
+// Helper function to get category icon
+const getCategoryIcon = (category: string): string => {
+  const categoryIcons: { [key: string]: string } = {
+    'Photographer': '📸',
+    'Florist': '🌸',
+    'Caterer': '🍽️',
+    'DJ': '🎵',
+    'Band': '🎵',
+    'DJ/Band': '🎵',
+    'Officiant': '👰',
+    'Venue': '🏛️'
+  };
+  return categoryIcons[category] || '⭐';
+};
 
 interface VendorCatalogCardProps {
   vendor: {
@@ -35,9 +50,13 @@ interface VendorCatalogCardProps {
   isFavoriteOverride?: boolean;
   onShowContactModal?: (vendor: any) => void;
   onShowFlagModal?: (vendor: any) => void;
+  onMobileSelect?: () => void;
+  isSelectedVenue?: boolean;
+  isSelectedVendor?: boolean;
+  selectedCategory?: string;
 }
 
-const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal }: VendorCatalogCardProps) => {
+const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal, onMobileSelect, isSelectedVenue = false, isSelectedVendor = false, selectedCategory = '' }: VendorCatalogCardProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
@@ -45,36 +64,27 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   const [isFlagged, setIsFlagged] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [communityData, setCommunityData] = useState<any>(null);
 
-  // Use the proper useFavorites hook for persistent favorites
-  const { isFavorite, toggleFavorite } = useFavorites();
+  // Use the simplified favorites hook
+  const { isFavorite, toggleFavorite } = useFavoritesSimple();
   
   // Handle favorite toggle with proper vendor data
   const handleToggleFavorite = useCallback(async () => {
     try {
-      await toggleFavorite(vendor.id, {
+      await toggleFavorite({
+        placeId: vendor.id,
         name: vendor.name,
         address: vendor.address || vendor.location,
-        category: vendor.mainTypeLabel || 'Vendor'
+        category: vendor.mainTypeLabel || 'Vendor',
+        rating: vendor.rating,
+        reviewCount: vendor.reviewCount,
+        image: vendor.image
       });
       
-      // Refresh community data to get updated counts
-      try {
-        const communityResponse = await fetch(`/api/community-vendors?placeId=${vendor.id}`);
-        if (communityResponse.ok) {
-          const data = await communityResponse.json();
-          if (data.vendor) {
-            setCommunityData(data.vendor);
-          }
-        }
-      } catch (error) {
-        console.error('Error refreshing community data:', error);
-      }
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }
-  }, [toggleFavorite, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel]);
+  }, [toggleFavorite, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel, vendor.rating, vendor.reviewCount, vendor.image]);
 
   const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
@@ -87,25 +97,14 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   }), [vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel]);
 
   useEffect(() => {
-    // Fetch both flag data and community data
+    // Fetch flag data only
     const fetchData = async () => {
       try {
-        const [flagResponse, communityResponse] = await Promise.all([
-          fetch('/api/flag-vendor'),
-          fetch(`/api/community-vendors?placeId=${vendor.id}`)
-        ]);
-
-        const [flagData, communityData] = await Promise.all([
-          flagResponse.json(),
-          communityResponse.json()
-        ]);
+        const flagResponse = await fetch('/api/flag-vendor');
+        const flagData = await flagResponse.json();
 
         if (flagData.flagged && flagData.flagged.some(f => f.vendorId === vendor.id)) {
           setIsFlagged(true);
-        }
-
-        if (communityData.vendor) {
-          setCommunityData(communityData.vendor);
         }
       } catch (error) {
         console.error('Error fetching vendor data:', error);
@@ -156,10 +155,16 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       return;
     }
     
+    // Check if we're on mobile and should use mobile selection
+    if (typeof window !== 'undefined' && window.innerWidth < 1024 && onMobileSelect) {
+      onMobileSelect();
+      return;
+    }
+    
     // In normal mode, navigate to vendor detail page
     const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
     router.push(baseUrl);
-  }, [bulkContactMode, onSelectionChange, vendor.id, location, router, category]);
+  }, [bulkContactMode, onSelectionChange, vendor.id, location, router, category, onMobileSelect]);
 
   const handleImageError = useCallback(() => {
     setImgSrc('/Venue.png');
@@ -184,7 +189,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
 
   return (
     <div 
-      className={`group bg-white border rounded-[5px] p-4 flex flex-col items-start relative h-full min-h-[320px] cursor-pointer hover:shadow-lg hover:shadow-gray-300/50 transition-all duration-200 hover:-translate-y-1${isFlagged ? ' border-red-500' : ''}${isSelected ? ' border-[#A85C36] border-2' : ''}`}
+      className={`group bg-white border rounded-[5px] flex flex-col items-start relative h-full min-h-[320px] cursor-pointer hover:shadow-lg hover:shadow-gray-300/50 transition-all duration-200 hover:-translate-y-1${isFlagged ? ' border-red-500' : ''}${isSelected ? ' border-[#A85C36] border-2' : ''}`}
       onClick={handleCardClick}
     >
       {/* Bulk selection checkbox */}
@@ -229,7 +234,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
         <span className="absolute top-3 left-3 z-10 bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-semibold border border-red-200">Flagged</span>
       )}
       
-      <div className="w-full min-h-[128px] h-32 bg-[#F3F2F0] rounded mb-2 flex items-center justify-center overflow-hidden">
+      <div className="w-full min-h-[128px] h-32 bg-[#F3F2F0] rounded-t-[5px] flex items-center justify-center overflow-hidden">
         <img
           src={imgSrc}
           alt={vendor.name}
@@ -239,9 +244,26 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
         />
       </div>
       
-      <div className="flex-1 w-full flex flex-col justify-between">
+      <div className="flex-1 w-full flex flex-col justify-between p-4">
         <div>
           <h6 className="h6 mb-1">{vendor.name}</h6>
+          
+          {/* Selected Venue Tag */}
+          {isSelectedVenue && (
+            <div className="inline-flex items-center gap-1 bg-[#A85C36] text-white px-2 py-1 rounded-full text-xs font-medium mb-2">
+              <span>🏛️</span>
+              <span>Selected Venue</span>
+            </div>
+          )}
+          
+          {/* Selected Vendor Tag */}
+          {isSelectedVendor && !isSelectedVenue && selectedCategory && (
+            <div className="inline-flex items-center gap-1 bg-[#805d93] text-white px-2 py-1 rounded-full text-xs font-medium mb-2">
+              <span>{getCategoryIcon(selectedCategory)}</span>
+              <span>Selected {selectedCategory}</span>
+            </div>
+          )}
+          
           <div className="flex items-center gap-1 text-xs mb-1">
             <Star className="w-3 h-3 text-yellow-500 fill-current" />
             <span className="text-[#A85C36]">{vendor.rating}</span>
@@ -262,34 +284,11 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
             <a href={vendor.source.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#A85C36] underline mb-2 block">{vendor.source.name}</a>
           )}
           
-          {/* Smart Favorites Badge */}
-          {(isFavorite(vendor.id) || (communityData && communityData.totalFavorites > 0)) && (
+          {/* Personal Favorites Badge */}
+          {isFavorite(vendor.id) && (
             <div className="flex items-center gap-1 text-xs text-[#364257] mb-1">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
-              <span>
-                {(() => {
-                  if (isFavorite(vendor.id) && communityData && communityData.totalFavorites > 1) {
-                    // You + others have favorited it
-                    const othersCount = communityData.totalFavorites - 1;
-                    if (othersCount === 1) {
-                      return 'Favorited by you and 1 other';
-                    } else {
-                      return `Favorited by you and ${othersCount} others`;
-                    }
-                  } else if (isFavorite(vendor.id)) {
-                    // Only you have favorited it
-                    return 'Favorited by you';
-                  } else if (communityData && communityData.totalFavorites > 0) {
-                    // Others have favorited it but you haven't
-                    if (communityData.totalFavorites === 1) {
-                      return 'Favorited by 1 user';
-                    } else {
-                      return `Favorited by ${communityData.totalFavorites} users`;
-                    }
-                  }
-                  return '';
-                })()}
-              </span>
+              <span>Favorited by you</span>
             </div>
           )}
           
@@ -305,7 +304,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
         </div>
       </div>
       
-      <div className="flex gap-2 w-full mt-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+      <div className="flex gap-2 w-full mt-auto p-4 pt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
         <button 
           className="btn-primaryinverse flex-1" 
           onClick={handleContactClick}

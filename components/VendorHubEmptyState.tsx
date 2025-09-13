@@ -27,14 +27,14 @@ export const VendorHubEmptyState: React.FC<VendorHubEmptyStateProps> = ({
       case 'my-vendors':
         return {
           title: '',
-          description: 'Browse the catalog to add Official vendors to grow your dream vendor team',
+          description: 'You don\'t have any official vendors yet!',
           buttonText: 'Browse Vendor Catalog',
           buttonAction: () => router.push('/vendors/catalog')
         };
       case 'favorites':
         return {
           title: '',
-          description: 'Vendors you Favorite ❤️ from the catalog will show up here!',
+          description: 'No Favorites yet!',
           buttonText: 'Browse Vendor Catalog',
           buttonAction: () => router.push('/vendors/catalog')
         };
@@ -44,7 +44,7 @@ export const VendorHubEmptyState: React.FC<VendorHubEmptyStateProps> = ({
   const content = getContent();
   
   return (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
+    <div className={`flex flex-col items-center justify-center w-full ${className}`}>
       {/* Image */}
       <motion.div 
         className="mb-6"
@@ -62,24 +62,24 @@ export const VendorHubEmptyState: React.FC<VendorHubEmptyStateProps> = ({
       {/* Content */}
       {content.title ? (
         <motion.div 
-          className="text-center max-w-2xl mb-6"
+          className="text-center w-full mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
         >
           <h4 className="mb-4">{content.title}</h4>
-          <p className="text-base text-[#5A4A42] leading-relaxed">
+          <p className="text-base text-[#5A4A42] leading-relaxed max-w-2xl mx-auto">
             {content.description}
           </p>
         </motion.div>
       ) : (
         <motion.div 
-          className="text-center max-w-2xl mb-6"
+          className="text-center w-full mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
         >
-          <p className="text-base text-[#5A4A42] leading-relaxed">
+          <p className="text-base text-[#5A4A42] leading-relaxed max-w-2xl mx-auto">
             {content.description}
           </p>
         </motion.div>
