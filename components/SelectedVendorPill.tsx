@@ -4,6 +4,8 @@ import { getCategoryHexColor } from '@/utils/categoryStyle';
 interface SelectedVendorPillProps {
   category: string;
   isSelectedVenue?: boolean;
+  onClick?: () => void;
+  clickable?: boolean;
 }
 
 // Use your existing category color system
@@ -70,7 +72,9 @@ const getCategoryIcon = (category: string, isSelectedVenue: boolean = false): st
 
 const SelectedVendorPill: React.FC<SelectedVendorPillProps> = ({ 
   category, 
-  isSelectedVenue = false 
+  isSelectedVenue = false,
+  onClick,
+  clickable = false
 }) => {
   const backgroundColor = getCategoryColor(category, isSelectedVenue);
   const icon = getCategoryIcon(category, isSelectedVenue);
@@ -78,8 +82,12 @@ const SelectedVendorPill: React.FC<SelectedVendorPillProps> = ({
 
   return (
     <div
-      className="inline-flex items-center gap-1 text-white px-2 py-1 rounded-full text-xs font-medium mb-2"
+      className={`inline-flex items-center gap-1 text-white px-2 py-1 rounded-full text-xs font-medium mb-2 ${
+        clickable ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+      }`}
       style={{ backgroundColor }}
+      onClick={clickable ? onClick : undefined}
+      title={clickable ? 'Click to update category' : undefined}
     >
       <span className="text-xs">{icon}</span>
       <span>{displayText}</span>

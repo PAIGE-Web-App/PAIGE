@@ -17,6 +17,7 @@ interface MyVendorsSectionProps {
   onMobileSelect?: (vendor: any) => void;
   selectedVenuePlaceId?: string | null;
   selectedVendors?: { [key: string]: any[] };
+  onUpdateSelectedVendor?: (vendor: any) => void;
 }
 
 export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
@@ -29,7 +30,8 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
   onShowFlagModal,
   onMobileSelect,
   selectedVenuePlaceId,
-  selectedVendors = {}
+  selectedVendors = {},
+  onUpdateSelectedVendor
 }) => {
   const router = useRouter();
 
@@ -98,6 +100,7 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
                       isSelectedVenue={selectedVenuePlaceId === vendor.placeId}
                       isSelectedVendor={isSelected}
                       selectedCategory={category}
+                      onUpdateSelectedVendor={onUpdateSelectedVendor}
                     />
                   </div>
                 );

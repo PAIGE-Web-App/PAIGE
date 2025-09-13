@@ -41,9 +41,10 @@ interface VendorCatalogCardProps {
   isSelectedVenue?: boolean;
   isSelectedVendor?: boolean;
   selectedCategory?: string;
+  onUpdateSelectedVendor?: (vendor: any) => void;
 }
 
-const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal, onMobileSelect, isSelectedVenue = false, isSelectedVendor = false, selectedCategory = '' }: VendorCatalogCardProps) => {
+const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal, onMobileSelect, isSelectedVenue = false, isSelectedVendor = false, selectedCategory = '', onUpdateSelectedVendor }: VendorCatalogCardProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
@@ -237,11 +238,21 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           
           {/* Selected Vendor Pills */}
           {isSelectedVenue && (
-            <SelectedVendorPill category="Venue" isSelectedVenue={true} />
+            <SelectedVendorPill 
+              category="Venue" 
+              isSelectedVenue={true} 
+              clickable={!!onUpdateSelectedVendor}
+              onClick={() => onUpdateSelectedVendor?.(vendor)}
+            />
           )}
           
           {isSelectedVendor && !isSelectedVenue && selectedCategory && (
-            <SelectedVendorPill category={selectedCategory} isSelectedVenue={false} />
+            <SelectedVendorPill 
+              category={selectedCategory} 
+              isSelectedVenue={false} 
+              clickable={!!onUpdateSelectedVendor}
+              onClick={() => onUpdateSelectedVendor?.(vendor)}
+            />
           )}
           
           <div className="flex items-center gap-1 text-xs mb-1">

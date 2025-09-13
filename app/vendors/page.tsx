@@ -37,6 +37,7 @@ import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
 import { getSelectedVenueMetadata, isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
 import AdminFavoritesDropdown from '@/components/AdminFavoritesDropdown';
 import { usePermissions } from '@/hooks/usePermissions';
+import UpdateSelectedVendorModal from '@/components/UpdateSelectedVendorModal';
 
 
 function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, action }: { open: boolean; onClose: () => void; onConfirm: () => void; vendorName: string; category: string; action: 'star' | 'unstar'; }) {
@@ -124,6 +125,7 @@ export default function VendorsPage() {
   const [recentlyViewedCount, setRecentlyViewedCount] = useState<number>(0);
   const [selectedVenuePlaceId, setSelectedVenuePlaceId] = useState<string | null>(null);
   const [selectedVendors, setSelectedVendors] = useState<{ [key: string]: any[] }>({});
+  const [showUpdateTagsModal, setShowUpdateTagsModal] = useState(false);
 
   // Use the simplified favorites hook
   const { 
@@ -430,6 +432,13 @@ export default function VendorsPage() {
               <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
               <div className="flex items-center gap-4">
                 <AdminFavoritesDropdown isVisible={isSuperAdmin} />
+                <button 
+                  className="btn-primaryinverse" 
+                  onClick={() => setShowUpdateTagsModal(true)}
+                  disabled={Object.values(selectedVendors).flat().length === 0}
+                >
+                  Update Tags
+                </button>
                 <button className="btn-primary" onClick={() => router.push('/vendors/catalog/search')}>Browse Vendors</button>
               </div>
             </div>
@@ -461,6 +470,7 @@ export default function VendorsPage() {
                       onMobileSelect={handleMobileVendorSelect}
                       selectedVenuePlaceId={selectedVenuePlaceId}
                       selectedVendors={selectedVendors}
+                      onUpdateSelectedVendor={() => setShowUpdateTagsModal(true)}
                     />
                   </div>
 
@@ -648,6 +658,14 @@ export default function VendorsPage() {
           }}
         />
       )}
+
+      {/* Update Selected Vendor Tags Modal */}
+      <UpdateSelectedVendorModal
+        isOpen={showUpdateTagsModal}
+        onClose={() => setShowUpdateTagsModal(false)}
+        selectedVendors={selectedVendors}
+        onUpdate={setSelectedVendors}
+      />
     </div>
   );
 } 
