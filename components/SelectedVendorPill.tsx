@@ -1,61 +1,20 @@
 import React from 'react';
+import { getCategoryHexColor } from '@/utils/categoryStyle';
 
 interface SelectedVendorPillProps {
   category: string;
   isSelectedVenue?: boolean;
 }
 
-// Category-specific colors for selected vendor pills
+// Use your existing category color system
 const getCategoryColor = (category: string, isSelectedVenue: boolean = false): string => {
-  // Special color for selected venue
+  // Special color for selected venue - use your accent color
   if (isSelectedVenue) {
-    return '#A85C36'; // Brown/terracotta for venue
+    return '#A85C36'; // Your accent color
   }
 
-  // Category-specific colors
-  const colorMap: { [key: string]: string } = {
-    'Photographer': '#2F4F4F',      // Dark slate gray
-    'Florist': '#FF69B4',           // Hot pink
-    'Caterer': '#8B4513',           // Saddle brown
-    'DJ/Band': '#32CD32',           // Lime green
-    'Officiant': '#8A2BE2',         // Blue violet
-    'Beauty Salon': '#FF1493',      // Deep pink
-    'Jeweler': '#FFD700',           // Gold
-    'Venue': '#A85C36',             // Brown/terracotta
-    'Transportation': '#4169E1',    // Royal blue
-    'Wedding Planner': '#00CED1',   // Dark turquoise
-    'Stationery': '#DC143C',        // Crimson
-    'Music': '#32CD32',             // Lime green
-    'Entertainment': '#32CD32',     // Lime green
-    'Photography': '#2F4F4F',       // Dark slate gray
-    'Videography': '#2F4F4F',       // Dark slate gray
-    'Attire': '#8A2BE2',            // Blue violet
-    'Beauty': '#FF1493',            // Deep pink
-    'Flowers': '#FF69B4',           // Hot pink
-    'Decor': '#FF69B4',             // Hot pink
-    'Food': '#8B4513',              // Saddle brown
-    'Catering': '#8B4513',          // Saddle brown
-    'Rings': '#FFD700',             // Gold
-    'Jewelry': '#FFD700',           // Gold
-    'Health': '#FF1493',            // Deep pink
-    'Miscellaneous': '#696969'      // Dim gray
-  };
-
-  // Try exact match first
-  if (colorMap[category]) {
-    return colorMap[category];
-  }
-
-  // Try partial matches for common variations
-  for (const [key, color] of Object.entries(colorMap)) {
-    if (category.toLowerCase().includes(key.toLowerCase()) || 
-        key.toLowerCase().includes(category.toLowerCase())) {
-      return color;
-    }
-  }
-
-  // Default color
-  return '#696969';
+  // Use your existing deterministic color system
+  return getCategoryHexColor(category);
 };
 
 // Category-specific icons
