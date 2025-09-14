@@ -29,12 +29,12 @@ import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import { MyVendorsSection } from '@/components/vendor-sections/MyVendorsSection';
 import { RecentlyViewedSection } from '@/components/vendor-sections/RecentlyViewedSection';
 import { MyFavoritesSection } from '@/components/vendor-sections/MyFavoritesSection';
-import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useVendorsPageData } from '@/hooks/useVendorsPageData';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import VendorContactModal from '@/components/VendorContactModal';
 import { VendorHubEmptyState } from '@/components/VendorHubEmptyState';
-import { getSelectedVenueMetadata, isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
+import { isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
 import AdminFavoritesDropdown from '@/components/AdminFavoritesDropdown';
 import { usePermissions } from '@/hooks/usePermissions';
 import UpdateSelectedVendorModal from '@/components/UpdateSelectedVendorModal';
@@ -105,8 +105,13 @@ export default function VendorsPage() {
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
-  // Get user's wedding location from profile data
-  const { weddingLocation, profileLoading } = useUserProfileData();
+  // Get all user data in a single optimized hook
+  const { 
+    weddingLocation, 
+    selectedVenueMetadata, 
+    selectedVendors: initialSelectedVendors,
+    isLoading: userDataLoading 
+  } = useVendorsPageData();
   
   // Use user's wedding location or fallback to default
   const defaultLocation = weddingLocation || 'Dallas, TX';
@@ -215,50 +220,16 @@ export default function VendorsPage() {
   }, []);
 
   
-  // Fetch selected venue metadata
+  // Initialize data from the optimized hook
   useEffect(() => {
-    const fetchSelectedVenue = async () => {
-      if (!user?.uid) return;
-      
-      try {
-        const venueMetadata = await getSelectedVenueMetadata(user.uid);
-        if (venueMetadata) {
-          setSelectedVenuePlaceId(venueMetadata.place_id);
-        } else {
-          setSelectedVenuePlaceId(null);
-        }
-      } catch (error) {
-        console.error('Error fetching selected venue:', error);
-        setSelectedVenuePlaceId(null);
-      }
-    };
-
-    fetchSelectedVenue();
-  }, [user?.uid]);
-
-  // Load selected vendors on mount
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const loadSelectedVendors = async () => {
-      try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
-        const userData = userDoc.data();
-        
-        if (userData?.selectedVendors) {
-          setSelectedVendors(userData.selectedVendors);
-        }
-      } catch (error) {
-        console.error('Error loading selected vendors:', error);
-      }
-    };
-
-    loadSelectedVendors();
-  }, [user?.uid]);
+    if (selectedVenueMetadata) {
+      setSelectedVenuePlaceId(selectedVenueMetadata.place_id);
+    } else {
+      setSelectedVenuePlaceId(null);
+    }
+    
+    setSelectedVendors(initialSelectedVendors);
+  }, [selectedVenueMetadata, initialSelectedVendors]);
   
   // Mobile view mode state - similar to dashboard and todo pages
   const [mobileViewMode, setMobileViewMode] = useState<'vendors' | 'vendor-details'>('vendors');
@@ -267,7 +238,7 @@ export default function VendorsPage() {
 
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && !userDataLoading) {
       setIsLoading(true);
       getAllVendors(user.uid).then(async (data) => {
 
@@ -311,7 +282,7 @@ export default function VendorsPage() {
         setIsLoading(false);
       });
     }
-  }, [user, isSaving]);
+  }, [user, isSaving, userDataLoading]);
 
 
 
@@ -469,6 +440,18 @@ export default function VendorsPage() {
     return vendorsWithPills;
   }, [vendors, selectedVenuePlaceId, selectedVendors]);
 
+  // Show loading state while user data is loading
+  if (userDataLoading) {
+    return (
+      <div className="min-h-screen bg-linen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
+          <p className="text-[#332B42]">Loading vendors...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-linen">
       <WeddingBanner
@@ -509,11 +492,7 @@ export default function VendorsPage() {
             <div className="py-6">
               {/* Mobile view mode content */}
               {mobileViewMode === 'vendors' ? (
-                <div className="space-y-6 lg:space-y-6">
-                  {/* Mobile-specific wrapper for scrolling */}
-                  <div className="lg:hidden flex flex-col min-h-0">
-                    <div className="flex-1 overflow-y-auto">
-                      <div className="space-y-6">
+                <div className="space-y-6">
                   {/* Official Vendors Section */}
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
@@ -574,9 +553,6 @@ export default function VendorsPage() {
                     onShowContactModal={handleShowContactModal}
                     onShowFlagModal={handleShowFlagModal}
                   />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 /* Mobile Vendor Details View */
