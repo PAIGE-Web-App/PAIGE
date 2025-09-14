@@ -74,7 +74,7 @@ const SelectedVendorPill: React.FC<SelectedVendorPillProps> = ({
   const backgroundColor = getCategoryColor(category, isSelectedVenue);
   const icon = getCategoryIcon(category, isMainSelectedVenue || category === 'main-venue');
   const categoryDisplayName = getCategoryDisplayName(category);
-  const displayText = category === 'main-venue' ? 'Selected Main Venue' : (isSelectedVenue ? 'Selected Venue' : `Selected ${categoryDisplayName}`);
+  const displayText = category === 'main-venue' ? 'Main Venue' : (isSelectedVenue ? 'Venue' : categoryDisplayName);
 
   return (
     <div
