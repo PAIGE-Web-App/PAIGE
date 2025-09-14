@@ -509,7 +509,11 @@ export default function VendorsPage() {
             <div className="py-6">
               {/* Mobile view mode content */}
               {mobileViewMode === 'vendors' ? (
-                <div className="space-y-6">
+                <div className="space-y-6 lg:space-y-6">
+                  {/* Mobile-specific wrapper for scrolling */}
+                  <div className="lg:hidden flex flex-col min-h-0">
+                    <div className="flex-1 overflow-y-auto">
+                      <div className="space-y-6">
                   {/* Official Vendors Section */}
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
@@ -570,6 +574,9 @@ export default function VendorsPage() {
                     onShowContactModal={handleShowContactModal}
                     onShowFlagModal={handleShowFlagModal}
                   />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 /* Mobile Vendor Details View */
