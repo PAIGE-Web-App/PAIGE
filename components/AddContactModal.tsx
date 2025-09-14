@@ -239,8 +239,56 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
 
     try {
       await saveContactToFirestore(newContact);
+      
+      // Create verified email if vendor is associated and contact has email
+      if (selectedVendor && formData.email) {
+        console.log('🔗 Creating verified email for vendor:', selectedVendor.name, 'with email:', formData.email);
+        try {
+          const emailResponse = await fetch('/api/vendor-emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              placeId: selectedVendor.place_id,
+              vendorName: selectedVendor.name,
+              vendorAddress: selectedVendor.formatted_address,
+              vendorCategory: finalCategory || 'Vendor',
+              email: formData.email,
+              contactName: formData.name,
+              role: finalCategory || 'Contact',
+              userId
+            })
+          });
+
+          const emailData = await emailResponse.json();
+          console.log('🔗 Email API response:', emailData);
+
+          if (emailResponse.ok) {
+            console.log('✅ Successfully created verified email for vendor');
+            
+            // Clear the vendor email cache so new emails show up immediately
+            try {
+              const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
+              const queue = VendorEmailQueue.getInstance();
+              queue.clearCache();
+              console.log('🔄 Cleared vendor email cache');
+            } catch (error) {
+              console.error('Failed to clear vendor email cache:', error);
+            }
+            
+            showSuccessToast('Contact added and verified email created!');
+          } else {
+            console.error('❌ Failed to create verified email for vendor:', emailData);
+            showSuccessToast('Contact added successfully! (Note: Verified email creation failed)');
+          }
+        } catch (error) {
+          console.error('❌ Error creating verified email for vendor:', error);
+          showSuccessToast('Contact added successfully! (Note: Verified email creation failed)');
+        }
+      } else {
+        showSuccessToast("Contact added successfully!");
+      }
+      
       onSave(newContact);
-      showSuccessToast("Contact added successfully!");
       onClose();
     } catch (error) {
       console.error("Error adding contact:", error);
