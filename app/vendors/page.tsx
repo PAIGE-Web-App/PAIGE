@@ -453,15 +453,47 @@ export default function VendorsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+    <>
+      <style jsx global>{`
+        html, body {
+          overflow-x: hidden;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          position: relative;
+        }
+        /* Mobile: Full height with fixed nav at bottom */
+        @media (max-width: 768px) {
+          html, body {
+            height: 100vh;
+            overflow: hidden;
+          }
+          .mobile-scroll-container {
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+        /* Desktop: Normal scrolling */
+        @media (min-width: 769px) {
+          html, body {
+            height: auto;
+            min-height: 100vh;
+            overflow-y: auto;
+          }
+        }
+      `}</style>
+      <div className="min-h-screen bg-linen mobile-scroll-container">
+        <WeddingBanner
+          daysLeft={daysLeft}
+          userName={userName}
+          isLoading={bannerLoading}
+          onSetWeddingDate={handleSetWeddingDate}
+        />
       
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" style={{ width: '100%', maxWidth: '1152px' }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}
         {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
           /* Empty State - No header, no tabs, just warm welcome */
@@ -777,6 +809,7 @@ export default function VendorsPage() {
             }
           }}
         />
-    </div>
+      </div>
+    </>
   );
 } 
