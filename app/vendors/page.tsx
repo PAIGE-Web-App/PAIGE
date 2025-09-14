@@ -407,6 +407,39 @@ export default function VendorsPage() {
     setSelectedVendor(null);
   }, []);
 
+  // Get all vendors that currently have selected vendor pills
+  const getVendorsWithSelectedPills = () => {
+    const vendorsWithPills: any[] = [];
+    
+    // Check official vendors for selected venue
+    vendors.forEach(vendor => {
+      if (selectedVenuePlaceId === vendor.placeId) {
+        vendorsWithPills.push({
+          ...vendor,
+          id: vendor.placeId || vendor.id,
+          placeId: vendor.placeId,
+          category: 'venue'
+        });
+      }
+    });
+    
+    // Check selected vendors from the new system
+    Object.entries(selectedVendors).forEach(([category, categoryVendors]) => {
+      categoryVendors.forEach(vendor => {
+        if (!vendorsWithPills.some(v => v.placeId === vendor.placeId)) {
+          vendorsWithPills.push({
+            ...vendor,
+            id: vendor.placeId || vendor.id,
+            placeId: vendor.placeId,
+            category: category
+          });
+        }
+      });
+    });
+    
+    return vendorsWithPills;
+  };
+
   return (
     <div className="min-h-screen bg-linen">
       <WeddingBanner
@@ -663,8 +696,11 @@ export default function VendorsPage() {
       <UpdateSelectedVendorModal
         isOpen={showUpdateTagsModal}
         onClose={() => setShowUpdateTagsModal(false)}
-        selectedVendors={selectedVendors}
-        onUpdate={setSelectedVendors}
+        selectedVendors={getVendorsWithSelectedPills()}
+        onUpdate={(updatedVendors) => {
+          // Handle the update - for now just refresh the page
+          window.location.reload();
+        }}
       />
     </div>
   );

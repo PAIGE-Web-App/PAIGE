@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 interface UpdateSelectedVendorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedVendors: { [key: string]: any[] };
-  onUpdate: (updatedSelectedVendors: { [key: string]: any[] }) => void;
+  selectedVendors: any[]; // Changed to array of vendors with pills
+  onUpdate: (updatedVendors: any[]) => void;
 }
 
 const CATEGORY_OPTIONS = [
@@ -43,7 +43,7 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
   selectedVendors,
   onUpdate
 }) => {
-  const [localSelectedVendors, setLocalSelectedVendors] = useState<{ [key: string]: any[] }>({});
+  const [localVendors, setLocalVendors] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { user } = useAuth();
@@ -51,65 +51,25 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
   // Initialize local state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setLocalSelectedVendors(selectedVendors);
+      setLocalVendors(selectedVendors);
     }
   }, [isOpen, selectedVendors]);
 
   const handleCategoryChange = (vendorId: string, newCategory: string) => {
-    setLocalSelectedVendors(prev => {
-      const updated = { ...prev };
-      
-      // Find the vendor in any category
-      let vendorToMove = null;
-      let currentCategory = '';
-      
-      for (const [category, vendors] of Object.entries(prev)) {
-        const foundVendor = vendors.find(v => v.id === vendorId || v.placeId === vendorId);
-        if (foundVendor) {
-          vendorToMove = foundVendor;
-          currentCategory = category;
-          break;
-        }
-      }
-      
-      if (!vendorToMove) return prev;
-      
-      // Remove vendor from current category
-      if (currentCategory && updated[currentCategory]) {
-        updated[currentCategory] = updated[currentCategory].filter(v => v.id !== vendorId && v.placeId !== vendorId);
-      }
-      
-      // Add vendor to new category if category is not empty
-      if (newCategory) {
-        if (!updated[newCategory]) {
-          updated[newCategory] = [];
-        }
-        updated[newCategory].push({ ...vendorToMove, category: newCategory });
-      }
-      
-      return updated;
-    });
+    setLocalVendors(prev => 
+      prev.map(vendor => 
+        (vendor.id === vendorId || vendor.placeId === vendorId) 
+          ? { ...vendor, category: newCategory }
+          : vendor
+      )
+    );
   };
 
   const handleSave = async () => {
-    if (!user?.uid) {
-      showErrorToast('User not authenticated');
-      return;
-    }
-
     setIsSaving(true);
     try {
-      // Update Firestore
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        selectedVendors: localSelectedVendors
-      });
-
       // Update parent component
-      onUpdate(localSelectedVendors);
+      onUpdate(localVendors);
       showSuccessToast('Selected vendor tags updated successfully!');
       onClose();
     } catch (error) {
@@ -121,24 +81,8 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
   };
 
   const getVendorCategory = (vendorId: string): string => {
-    for (const [category, vendors] of Object.entries(localSelectedVendors)) {
-      if (vendors.some(vendor => vendor.id === vendorId || vendor.placeId === vendorId)) {
-        return category;
-      }
-    }
-    return '';
-  };
-
-  const getAllSelectedVendors = () => {
-    const allVendors = Object.values(localSelectedVendors).flat();
-    // Remove duplicates based on id or placeId
-    const uniqueVendors = allVendors.filter((vendor, index, self) => 
-      index === self.findIndex(v => 
-        (v.id && vendor.id && v.id === vendor.id) || 
-        (v.placeId && vendor.placeId && v.placeId === vendor.placeId)
-      )
-    );
-    return uniqueVendors;
+    const vendor = localVendors.find(v => v.id === vendorId || v.placeId === vendorId);
+    return vendor?.category || '';
   };
 
   if (!isOpen) return null;
@@ -161,11 +105,10 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
         >
           {/* Header row with title and close button */}
           <div className="flex items-center justify-between p-6 border-b border-[#AB9C95]">
-            <div className="flex-1"></div>
-            <h5 className="h5 text-center flex-1">Update Selected Vendor Tags</h5>
+            <h5 className="h5 text-left flex-1">Update Selected Vendor Tags</h5>
             <button
               onClick={onClose}
-              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full flex-1 flex justify-end"
+              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
               title="Close"
             >
               <X size={20} />
@@ -178,7 +121,7 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
               Update the category tags for your selected vendors. This helps ensure accurate categorization for AI content generation.
             </p>
 
-            {getAllSelectedVendors().length === 0 ? (
+            {localVendors.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">🏷️</div>
                 <h4 className="text-lg font-medium text-[#332B42] mb-2">No Selected Vendors</h4>
@@ -186,7 +129,7 @@ const UpdateSelectedVendorModal: React.FC<UpdateSelectedVendorModalProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                {getAllSelectedVendors().map((vendor) => (
+                {localVendors.map((vendor) => (
                   <div key={vendor.id} className="flex items-center gap-4 p-4 border border-[#F3F2F0] rounded-lg">
                     {/* Vendor Info */}
                     <div className="flex-1 min-w-0">
