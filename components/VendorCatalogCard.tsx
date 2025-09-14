@@ -239,8 +239,9 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           {/* Selected Vendor Pills */}
           {isSelectedVenue && (
             <SelectedVendorPill 
-              category="Venue" 
+              category="main-venue" 
               isSelectedVenue={true} 
+              isMainSelectedVenue={true}
               clickable={!!onUpdateSelectedVendor}
               onClick={() => onUpdateSelectedVendor?.(vendor)}
             />

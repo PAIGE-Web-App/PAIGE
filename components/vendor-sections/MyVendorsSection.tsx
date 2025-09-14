@@ -41,12 +41,30 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
       return { isSelected: false, category: '' };
     }
 
+    // Look up the vendor in selectedVendors to get the actual category it's stored under
+    let foundCategory = '';
+    let foundVendor = null;
+    
+    Object.keys(selectedVendors).forEach(key => {
+      const categoryVendors = selectedVendors[key] || [];
+      const vendorInCategory = categoryVendors.find((v: any) => v.place_id === vendor.placeId);
+      if (vendorInCategory) {
+        foundCategory = key;
+        foundVendor = vendorInCategory;
+      }
+    });
+    
+    if (foundVendor) {
+      return { isSelected: true, category: foundCategory };
+    }
+    
+    // Fallback to original logic for backwards compatibility
     const category = mapGoogleTypesToCategory(vendor.types, vendor.name);
     const categoryKey = category.toLowerCase().replace(/[^a-z0-9]/g, '');
     const categoryVendors = selectedVendors[categoryKey] || [];
     
     const isSelected = categoryVendors.some((v: any) => v.place_id === vendor.placeId);
-    return { isSelected, category };
+    return { isSelected, category: categoryKey };
   };
 
   return (

@@ -408,37 +408,66 @@ export default function VendorsPage() {
   }, []);
 
   // Get all vendors that currently have selected vendor pills
-  const getVendorsWithSelectedPills = () => {
+  const vendorsWithSelectedPills = useMemo(() => {
     const vendorsWithPills: any[] = [];
     
-    // Check official vendors for selected venue
+    // Import the mapping function
+    const { mapGoogleTypesToCategory } = require('@/utils/vendorUtils');
+    
     vendors.forEach(vendor => {
+      let hasPill = false;
+      let category = '';
+      
+      // Check if vendor is main selected venue (from Wedding Details)
       if (selectedVenuePlaceId === vendor.placeId) {
+        hasPill = true;
+        category = 'main-venue';
+      }
+      
+      // Check if vendor is in selected vendors system
+      if (!hasPill && selectedVendors) {
+        // First try to find the vendor in any category
+        let foundCategory = '';
+        let foundVendor = null;
+        
+        Object.keys(selectedVendors).forEach(key => {
+          const categoryVendors = selectedVendors[key] || [];
+          const vendorInCategory = categoryVendors.find((v: any) => v.place_id === vendor.placeId);
+          if (vendorInCategory) {
+            foundCategory = key;
+            foundVendor = vendorInCategory;
+          }
+        });
+        
+        if (foundVendor) {
+          hasPill = true;
+          category = foundCategory;
+        } else {
+          // Fallback to the original logic for backwards compatibility
+          const vendorCategory = mapGoogleTypesToCategory(vendor.types, vendor.name);
+          const categoryKey = vendorCategory.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const categoryVendors = selectedVendors[categoryKey] || [];
+          
+          const isSelected = categoryVendors.some((v: any) => v.place_id === vendor.placeId);
+          if (isSelected) {
+            hasPill = true;
+            category = categoryKey;
+          }
+        }
+      }
+      
+      if (hasPill) {
         vendorsWithPills.push({
           ...vendor,
           id: vendor.placeId || vendor.id,
           placeId: vendor.placeId,
-          category: 'venue'
+          category: category
         });
       }
     });
     
-    // Check selected vendors from the new system
-    Object.entries(selectedVendors).forEach(([category, categoryVendors]) => {
-      categoryVendors.forEach(vendor => {
-        if (!vendorsWithPills.some(v => v.placeId === vendor.placeId)) {
-          vendorsWithPills.push({
-            ...vendor,
-            id: vendor.placeId || vendor.id,
-            placeId: vendor.placeId,
-            category: category
-          });
-        }
-      });
-    });
-    
     return vendorsWithPills;
-  };
+  }, [vendors, selectedVenuePlaceId, selectedVendors]);
 
   return (
     <div className="min-h-screen bg-linen">
@@ -693,15 +722,78 @@ export default function VendorsPage() {
       )}
 
       {/* Update Selected Vendor Tags Modal */}
-      <UpdateSelectedVendorModal
-        isOpen={showUpdateTagsModal}
-        onClose={() => setShowUpdateTagsModal(false)}
-        selectedVendors={getVendorsWithSelectedPills()}
-        onUpdate={(updatedVendors) => {
-          // Handle the update - for now just refresh the page
-          window.location.reload();
-        }}
-      />
+        <UpdateSelectedVendorModal
+          isOpen={showUpdateTagsModal}
+          onClose={() => setShowUpdateTagsModal(false)}
+          selectedVendors={vendorsWithSelectedPills}
+          selectedVenuePlaceId={selectedVenuePlaceId}
+          onUpdate={async (updatedVendors) => {
+            try {
+              // Update the selectedVendors state with the new categories
+              const updatedSelectedVendors = { ...selectedVendors };
+              
+              // Process each updated vendor
+              updatedVendors.forEach(vendor => {
+                if (vendor.category) {
+                  // Use the category key as-is (it's already in the correct format from the modal)
+                  const categoryKey = vendor.category;
+                  
+                  // Remove from old categories
+                  Object.keys(updatedSelectedVendors).forEach(key => {
+                    if (key !== categoryKey) {
+                      updatedSelectedVendors[key] = updatedSelectedVendors[key].filter(
+                        (v: any) => v.place_id !== vendor.placeId
+                      );
+                    }
+                  });
+                  
+                  // Add to new category
+                  if (!updatedSelectedVendors[categoryKey]) {
+                    updatedSelectedVendors[categoryKey] = [];
+                  }
+                  
+                  // Check if vendor already exists in this category
+                  const existingIndex = updatedSelectedVendors[categoryKey].findIndex(
+                    (v: any) => v.place_id === vendor.placeId
+                  );
+                  
+                  if (existingIndex >= 0) {
+                    // Update existing vendor
+                    updatedSelectedVendors[categoryKey][existingIndex] = {
+                      ...updatedSelectedVendors[categoryKey][existingIndex],
+                      category: vendor.category
+                    };
+                  } else {
+                    // Add new vendor
+                    updatedSelectedVendors[categoryKey].push({
+                      place_id: vendor.placeId,
+                      name: vendor.name,
+                      formatted_address: vendor.address,
+                      category: vendor.category
+                    });
+                  }
+                }
+              });
+              
+              // Update state
+              setSelectedVendors(updatedSelectedVendors);
+              
+              // Save to Firestore
+              if (user?.uid) {
+                const { doc, updateDoc } = await import('firebase/firestore');
+                const { db } = await import('@/lib/firebase');
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                  selectedVendors: updatedSelectedVendors
+                });
+              }
+              
+              setShowUpdateTagsModal(false);
+            } catch (error) {
+              console.error('Error updating selected vendors:', error);
+            }
+          }}
+        />
     </div>
   );
 } 

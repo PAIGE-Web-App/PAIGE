@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -23,27 +23,68 @@ interface SelectedVendors {
 }
 
 const CATEGORY_LABELS: { [key: string]: string } = {
-  venue: 'Venue',
+  'main-venue': 'Main Venue',
+  venue: 'Venues',
   photographer: 'Photographer',
   florist: 'Florist',
   caterer: 'Caterer',
-  dj: 'DJ/Band',
-  officiant: 'Officiant'
+  dj: 'DJ',
+  band: 'Band',
+  officiant: 'Officiant',
+  beautysalon: 'Beauty Salon',
+  jeweler: 'Jeweler',
+  weddingplanner: 'Wedding Planner',
+  stationery: 'Stationery',
+  spa: 'Spa',
+  makeupartist: 'Makeup Artist',
+  dressshop: 'Dress Shop',
+  baker: 'Baker',
+  eventrental: 'Event Rental',
+  carrental: 'Car Rental',
+  travelagency: 'Travel Agency',
+  weddingfavor: 'Wedding Favor',
+  suitandtuxrental: 'Suit & Tux Rental',
+  hairstylist: 'Hair Stylist',
+  receptionvenue: 'Reception Venue',
+  church: 'Church',
+  miscellaneous: 'Miscellaneous',
+  other: 'Other'
 };
 
 const CATEGORY_ICONS: { [key: string]: string } = {
-  venue: '🏛️',
-  photographer: '📸',
-  florist: '🌸',
-  caterer: '🍽️',
-  dj: '🎵',
-  officiant: '👰'
+  'main-venue': '⭐',
+  venue: '',
+  photographer: '',
+  florist: '',
+  caterer: '',
+  dj: '',
+  band: '',
+  officiant: '',
+  beautysalon: '',
+  jeweler: '',
+  weddingplanner: '',
+  stationery: '',
+  spa: '',
+  makeupartist: '',
+  dressshop: '',
+  baker: '',
+  eventrental: '',
+  carrental: '',
+  travelagency: '',
+  weddingfavor: '',
+  suitandtuxrental: '',
+  hairstylist: '',
+  receptionvenue: '',
+  church: '',
+  miscellaneous: '',
+  other: ''
 };
 
 export default function SelectedVendorsTab() {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [selectedVendors, setSelectedVendors] = useState<SelectedVendors>({});
+  const [selectedVenueMetadata, setSelectedVenueMetadata] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Load selected vendors on mount
@@ -58,6 +99,10 @@ export default function SelectedVendorsTab() {
         
         if (userData?.selectedVendors) {
           setSelectedVendors(userData.selectedVendors);
+        }
+        
+        if (userData?.selectedVenueMetadata) {
+          setSelectedVenueMetadata(userData.selectedVenueMetadata);
         }
       } catch (error) {
         console.error('Error loading selected vendors:', error);
@@ -116,6 +161,28 @@ export default function SelectedVendorsTab() {
     }
   };
 
+  // Create a combined vendors object that includes the main venue
+  const allVendors = useMemo(() => {
+    const combined = { ...selectedVendors };
+    
+    // Add main venue if it exists
+    if (selectedVenueMetadata) {
+      combined['main-venue'] = [{
+        place_id: selectedVenueMetadata.place_id,
+        name: selectedVenueMetadata.name,
+        formatted_address: selectedVenueMetadata.formatted_address,
+        website: selectedVenueMetadata.url,
+        rating: selectedVenueMetadata.rating,
+        user_ratings_total: selectedVenueMetadata.user_ratings_total,
+        category: 'main-venue'
+      }];
+    }
+    
+    return combined;
+  }, [selectedVendors, selectedVenueMetadata]);
+
+  const totalSelectedVendors = Object.values(allVendors).reduce((sum, vendors) => sum + vendors.length, 0);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -128,8 +195,6 @@ export default function SelectedVendorsTab() {
       </div>
     );
   }
-
-  const totalSelectedVendors = Object.values(selectedVendors).reduce((sum, vendors) => sum + vendors.length, 0);
 
   return (
     <div className="space-y-6">
@@ -152,7 +217,7 @@ export default function SelectedVendorsTab() {
       {/* Categories */}
       <div className="space-y-6">
         {Object.entries(CATEGORY_LABELS).map(([categoryKey, categoryLabel]) => {
-          const vendors = selectedVendors[categoryKey] || [];
+          const vendors = allVendors[categoryKey] || [];
           const icon = CATEGORY_ICONS[categoryKey];
 
           return (
@@ -165,7 +230,7 @@ export default function SelectedVendorsTab() {
               {/* Category Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{icon}</span>
+                  {icon && <span className="text-2xl">{icon}</span>}
                   <div>
                     <h3 className="text-lg font-semibold text-[#332B42]">
                       {categoryLabel}
@@ -190,7 +255,6 @@ export default function SelectedVendorsTab() {
               <AnimatePresence>
                 {vendors.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    <span className="text-4xl mb-2 block">{icon}</span>
                     <p>No {categoryLabel.toLowerCase()} selected yet</p>
                     <p className="text-sm">Visit the vendor catalog to select your favorites</p>
                   </div>

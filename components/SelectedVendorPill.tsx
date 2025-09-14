@@ -4,6 +4,7 @@ import { getCategoryHexColor } from '@/utils/categoryStyle';
 interface SelectedVendorPillProps {
   category: string;
   isSelectedVenue?: boolean;
+  isMainSelectedVenue?: boolean; // New prop to identify the main selected venue from Wedding Details
   onClick?: () => void;
   clickable?: boolean;
 }
@@ -19,66 +20,61 @@ const getCategoryColor = (category: string, isSelectedVenue: boolean = false): s
   return getCategoryHexColor(category);
 };
 
-// Category-specific icons
-const getCategoryIcon = (category: string, isSelectedVenue: boolean = false): string => {
-  if (isSelectedVenue) {
-    return '🏛️';
+// Category-specific icons - only show star emoji for main selected venue
+const getCategoryIcon = (category: string, isMainSelectedVenue: boolean = false): string => {
+  if (isMainSelectedVenue) {
+    return '⭐';
   }
 
-  const iconMap: { [key: string]: string } = {
-    'Photographer': '📸',
-    'Florist': '🌸',
-    'Caterer': '🍽️',
-    'DJ/Band': '🎵',
-    'Officiant': '💒',
-    'Beauty Salon': '💄',
-    'Jeweler': '💍',
-    'Venue': '🏛️',
-    'Transportation': '🚗',
-    'Wedding Planner': '📋',
-    'Stationery': '📝',
-    'Music': '🎵',
-    'Entertainment': '🎭',
-    'Photography': '📸',
-    'Videography': '🎥',
-    'Attire': '👗',
-    'Beauty': '💄',
-    'Flowers': '🌸',
-    'Decor': '🎨',
-    'Food': '🍽️',
-    'Catering': '🍽️',
-    'Rings': '💍',
-    'Jewelry': '💍',
-    'Health': '💄',
-    'Miscellaneous': '⭐'
+  // No emojis for other categories
+  return '';
+};
+
+// Convert category key to proper display name
+const getCategoryDisplayName = (category: string): string => {
+  const categoryMap: { [key: string]: string } = {
+    'main-venue': 'Main Venue',
+    'venue': 'Venue',
+    'photographer': 'Photographer',
+    'florist': 'Florist',
+    'caterer': 'Caterer',
+    'dj': 'DJ',
+    'band': 'Band',
+    'officiant': 'Officiant',
+    'beautysalon': 'Beauty Salon',
+    'jeweler': 'Jeweler',
+    'weddingplanner': 'Wedding Planner',
+    'stationery': 'Stationery',
+    'spa': 'Spa',
+    'makeupartist': 'Makeup Artist',
+    'dressshop': 'Dress Shop',
+    'baker': 'Baker',
+    'eventrental': 'Event Rental',
+    'carrental': 'Car Rental',
+    'travelagency': 'Travel Agency',
+    'weddingfavor': 'Wedding Favor',
+    'suitandtuxrental': 'Suit & Tux Rental',
+    'hairstylist': 'Hair Stylist',
+    'receptionvenue': 'Reception Venue',
+    'church': 'Church',
+    'miscellaneous': 'Miscellaneous',
+    'other': 'Other'
   };
-
-  // Try exact match first
-  if (iconMap[category]) {
-    return iconMap[category];
-  }
-
-  // Try partial matches
-  for (const [key, icon] of Object.entries(iconMap)) {
-    if (category.toLowerCase().includes(key.toLowerCase()) || 
-        key.toLowerCase().includes(category.toLowerCase())) {
-      return icon;
-    }
-  }
-
-  // Default icon
-  return '⭐';
+  
+  return categoryMap[category] || category;
 };
 
 const SelectedVendorPill: React.FC<SelectedVendorPillProps> = ({ 
   category, 
   isSelectedVenue = false,
+  isMainSelectedVenue = false,
   onClick,
   clickable = false
 }) => {
   const backgroundColor = getCategoryColor(category, isSelectedVenue);
-  const icon = getCategoryIcon(category, isSelectedVenue);
-  const displayText = isSelectedVenue ? 'Selected Venue' : `Selected ${category}`;
+  const icon = getCategoryIcon(category, isMainSelectedVenue || category === 'main-venue');
+  const categoryDisplayName = getCategoryDisplayName(category);
+  const displayText = category === 'main-venue' ? 'Selected Main Venue' : (isSelectedVenue ? 'Selected Venue' : `Selected ${categoryDisplayName}`);
 
   return (
     <div
@@ -89,7 +85,7 @@ const SelectedVendorPill: React.FC<SelectedVendorPillProps> = ({
       onClick={clickable ? onClick : undefined}
       title={clickable ? 'Click to update category' : undefined}
     >
-      <span className="text-xs">{icon}</span>
+      {icon && <span className="text-xs">{icon}</span>}
       <span>{displayText}</span>
     </div>
   );
