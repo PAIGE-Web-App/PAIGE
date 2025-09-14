@@ -146,7 +146,7 @@ const RAGEnhancedSearchBar: React.FC<RAGEnhancedSearchBarProps> = ({
           />
           {value && (
             <button
-              className="absolute right-3 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 opacity-100"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 opacity-100"
               onClick={() => {
                 onChange('');
                 setShowRAGResults(false);

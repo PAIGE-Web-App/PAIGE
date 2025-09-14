@@ -1548,4 +1548,29 @@ input::placeholder {
   .grid-responsive-3 {
     @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
   }
+  
+  /* Mobile filter category pill */
+  .mobile-filter-category-pill {
+    @apply inline-flex items-center justify-center px-4 py-2 bg-white text-[#364257] text-sm font-medium rounded-full cursor-pointer transition-all duration-200 gap-2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: none;
+  }
+  
+  .mobile-filter-category-pill:hover {
+    @apply bg-gray-50;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+  }
+  
+  .mobile-filter-category-pill:active {
+    @apply bg-gray-100;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(0);
+  }
+  
+  /* Force modal above everything */
+  .modal-above-all {
+    z-index: 99999 !important;
+    position: fixed !important;
+  }
 }

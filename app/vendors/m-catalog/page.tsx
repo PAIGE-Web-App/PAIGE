@@ -30,7 +30,6 @@ import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import SelectField from '@/components/SelectField';
 import FormField from '@/components/FormField';
-import Breadcrumb from '@/components/Breadcrumb';
 
 const CATEGORIES = [
   { value: 'venue', label: 'Venues', singular: 'Venue', icon: Building2 },
@@ -68,14 +67,14 @@ export default function VendorCatalogPage() {
 
   // Handler for category card click
   const handleCategoryClick = (catValue: string) => {
-    const url = `/vendors/catalog/search?category=${encodeURIComponent(catValue)}&location=${encodeURIComponent(location)}`;
+    const url = `/vendors/catalog/${catValue}`;
     router.push(url);
   };
 
   // Handler for search button
   const handleSearch = () => {
     if (category) {
-      const url = `/vendors/catalog/search?category=${encodeURIComponent(category)}&location=${encodeURIComponent(location)}`;
+      const url = `/vendors/catalog/${category}`;
       router.push(url);
     }
   };
@@ -93,6 +92,12 @@ export default function VendorCatalogPage() {
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
           }
+          .mobile-catalog-content {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
         }
       `}</style>
       <WeddingBanner
@@ -101,30 +106,14 @@ export default function VendorCatalogPage() {
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
-      <div className="max-w-6xl mx-auto">
-        <div className="app-content-container flex flex-col gap-6 py-8">
-          <Breadcrumb
-            items={[
-              { label: 'Vendor Hub', href: '/vendors' },
-              { label: 'Vendor Search', isCurrent: true }
-            ]}
-          />
-          
-
-          
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="app-content-container flex flex-col gap-6 py-8 mobile-catalog-content">
           <div className="mt-12 mb-12">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-playfair font-medium text-[#332B42]">Find top-rated vendors for every vibe</h2>
-              <a
-                href="/vendors/catalog/search"
-                className="btn-primary flex items-center gap-2"
-              >
-                <Map className="w-4 h-4" />
-                Search Vendors
-              </a>
+            <div className="mb-8">
+              <h2 className="text-xl md:text-2xl font-playfair font-medium text-[#332B42]">Find top-rated vendors for every vibe</h2>
             </div>
-            <div className="flex gap-4 items-start mb-4">
-              <div className="min-w-[220px]">
+            <div className="flex flex-col md:flex-row gap-4 items-start mb-4">
+              <div className="w-full md:min-w-[220px]">
                 <SelectField
                   label="Category"
                   name="category"
@@ -133,7 +122,7 @@ export default function VendorCatalogPage() {
                   options={CATEGORIES}
                 />
               </div>
-              <div className="min-w-[220px]">
+              <div className="w-full md:min-w-[220px]">
                 <FormField
                   label="City, State"
                   name="location"
@@ -148,7 +137,7 @@ export default function VendorCatalogPage() {
                   Update Default Value
                 </a>
               </div>
-              <button className="btn-search-match mt-6" onClick={handleSearch}>Search</button>
+              <button className="btn-search-match mt-6 w-full md:w-auto" onClick={handleSearch}>Search</button>
             </div>
           </div>
           <div>

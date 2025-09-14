@@ -72,9 +72,28 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
       
       {isLoading ? (
         <div className="w-full min-w-0" style={{ width: '100%', maxWidth: 'none' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full" style={{ width: '100%', maxWidth: 'none' }}>
+          {/* Mobile: Horizontal scroll, Desktop: Grid */}
+          <div className="block md:hidden">
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-4 pb-6" style={{ minWidth: 'max-content' }}>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="w-64 flex-shrink-0">
+                    <div className="bg-white border rounded-[5px] p-4 h-[320px] animate-pulse">
+                      <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] w-full animate-pulse min-w-0" style={{ width: '100%', maxWidth: 'none' }}>
+              <div key={index} className="bg-white border rounded-[5px] p-4 h-[320px] animate-pulse">
                 <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -93,8 +112,42 @@ export const MyVendorsSection: React.FC<MyVendorsSectionProps> = ({
           />
       ) : (
         <>
-          {/* 2x4 Grid Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Mobile: Horizontal scroll, Desktop: Grid */}
+          <div className="block md:hidden">
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex gap-4 pb-6" style={{ minWidth: 'max-content' }}>
+                {vendors.slice(0, 8)
+                  .map((vendor, index) => ({ vendor, index }))
+                  .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))
+                  .map(({ vendor, index }) => {
+                    const convertedVendor = convertVendorToCatalogFormat(vendor);
+                    if (!convertedVendor) return null;
+                    
+                    const { isSelected, category } = isVendorSelected(vendor);
+                    return (
+                      <div key={`${vendor.placeId || vendor.id || 'vendor'}-${index}`} className="w-64 flex-shrink-0">
+                        <VendorCatalogCard
+                          vendor={convertedVendor}
+                          onContact={() => onContact?.(vendor)}
+                          onFlagged={(vendorId) => onFlagged?.(vendorId)}
+                          onSelectionChange={() => {}}
+                          location={defaultLocation}
+                          category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                          onShowContactModal={onShowContactModal}
+                          onShowFlagModal={onShowFlagModal}
+                          onMobileSelect={() => onMobileSelect?.(vendor)}
+                          isSelectedVenue={selectedVenuePlaceId === vendor.placeId}
+                          isSelectedVendor={isSelected}
+                          selectedCategory={category}
+                          onUpdateSelectedVendor={onUpdateSelectedVendor}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {vendors.slice(0, 8)
               .map((vendor, index) => ({ vendor, index }))
               .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))

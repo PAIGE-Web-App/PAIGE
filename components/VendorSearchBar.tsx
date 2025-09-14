@@ -9,6 +9,8 @@ interface VendorSearchBarProps {
   searchResults: any[];
   categorySingular: string;
   categoryLabel: string;
+  onSuggestVendor: () => void;
+  filteredResultsCount?: number;
 }
 
 export default function VendorSearchBar({
@@ -18,41 +20,45 @@ export default function VendorSearchBar({
   isSearching,
   searchResults,
   categorySingular,
-  categoryLabel
+  categoryLabel,
+  onSuggestVendor,
+  filteredResultsCount = 0
 }: VendorSearchBarProps) {
   return (
-    <div className={`relative flex-1 max-w-md ${searchResults.length > 0 ? 'bg-blue-50 p-2 rounded-lg border border-blue-200' : ''}`}>
+    <div className="w-full">
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-400" />
-        </div>
+        <Search className="w-4 h-4 text-[#364257] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
           value={searchTerm}
           onChange={onSearchChange}
           placeholder={`Search for specific ${categorySingular}...`}
-          className="w-full border border-[#AB9C95] px-4 py-1 text-sm rounded-[5px] focus:outline-none focus:ring-2 focus:ring-[#A85C36] pl-10 pr-10 h-8"
+          className="pl-12 pr-9 w-full h-8 border border-[#E0DBD7] rounded-[5px] bg-white text-base focus:outline-none focus:border-[#A85C36] transition-all duration-300"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+            }
+          }}
         />
         {searchTerm && (
           <button
             onClick={onClearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#364257] hover:text-[#A85C36] transition-opacity duration-200 opacity-100"
+            type="button"
           >
-            <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
       {searchTerm && (
         <div className="flex items-center justify-between mt-2">
           <p className="text-xs text-gray-600">
-            {isSearching 
-              ? 'Searching...' 
-              : searchResults.length > 0 
-                ? `Found ${searchResults.length} results` 
-                : 'No results found. Try a different search term.'
+            {filteredResultsCount > 0 
+              ? `Found ${filteredResultsCount} results` 
+              : 'No results found. Try a different search term.'
             }
           </p>
-          {searchResults.length > 0 && (
+          {filteredResultsCount > 0 && (
             <button 
               onClick={onClearSearch}
               className="text-xs text-[#A85C36] hover:underline"
@@ -62,6 +68,14 @@ export default function VendorSearchBar({
           )}
         </div>
       )}
+      <div className="mt-2">
+        <button 
+          onClick={onSuggestVendor}
+          className="text-xs text-[#A85C36] hover:underline"
+        >
+          Unable to find {categorySingular}? Suggest a new one
+        </button>
+      </div>
     </div>
   );
 } 

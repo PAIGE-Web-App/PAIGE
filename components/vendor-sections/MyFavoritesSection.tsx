@@ -41,8 +41,37 @@ export const MyFavoritesSection: React.FC<MyFavoritesSectionProps> = ({
 
   return (
     <section className="mb-8 w-full">
-      {/* 2x4 Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Mobile: Horizontal scroll, Desktop: Grid */}
+      <div className="block md:hidden">
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex gap-4 pb-6" style={{ minWidth: 'max-content' }}>
+            {vendors.slice(0, 8)
+              .map((vendor, index) => ({ vendor, index }))
+              .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))
+              .map(({ vendor, index }) => {
+                const convertedVendor = convertVendorToCatalogFormat(vendor);
+                if (!convertedVendor) return null;
+                
+                return (
+                  <div key={`${vendor.placeId || vendor.id || 'vendor'}-${index}`} className="w-64 flex-shrink-0">
+                    <VendorCatalogCard
+                      vendor={convertedVendor}
+                      onContact={() => onContact?.(vendor)}
+                      onFlagged={(vendorId) => onFlagged?.(vendorId)}
+                      onSelectionChange={() => {}}
+                      location={defaultLocation}
+                      category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
+                      onShowContactModal={onShowContactModal}
+                      onShowFlagModal={onShowFlagModal}
+                      onMobileSelect={() => onMobileSelect?.(vendor)}
+                    />
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      </div>
+      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {vendors.slice(0, 8)
           .map((vendor, index) => ({ vendor, index }))
           .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))

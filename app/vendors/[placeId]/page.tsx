@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles } from 'lucide-react';
+import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft } from 'lucide-react';
 import VendorContactModal from '@/components/VendorContactModal';
 import FlagVendorModal from '@/components/FlagVendorModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
-import Breadcrumb from '@/components/Breadcrumb';
 import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
 import RelatedVendorsSection from '@/components/RelatedVendorsSection';
@@ -27,7 +26,6 @@ import {
 } from '@/utils/vendorUtils';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useVendorDetails } from '@/hooks/useVendorCache';
-import { generateVendorDetailBreadcrumbs } from '@/utils/breadcrumbUtils';
 import { fetchVendorPhotos, checkVendorExists } from '@/utils/apiService';
 import { getVendorImages } from '@/utils/vendorImageUtils';
 import ConfirmVenueUnmarkModal from '@/components/ConfirmVenueUnmarkModal';
@@ -825,9 +823,47 @@ export default function VendorDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linen">
+      <div className="min-h-screen bg-linen mobile-scroll-container">
+        <style jsx global>{`
+          @media (max-width: 768px) {
+            html, body {
+              height: 100vh;
+              overflow: hidden;
+            }
+            .mobile-scroll-container {
+              height: 100vh;
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+            .mobile-vendor-content {
+              padding-left: 1rem;
+              padding-right: 1rem;
+              max-width: 100%;
+              overflow-x: hidden;
+            }
+          }
+        `}</style>
         <div className="max-w-6xl mx-auto">
-          <div className="app-content-container py-8">
+          <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
+            {/* Back Button and Loading State - Same Row */}
+            <div className="flex items-start justify-between gap-4 mb-4 mt-2">
+              {/* Back Button */}
+              <button
+                onClick={() => router.back()}
+                className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors flex-shrink-0 mt-1"
+                aria-label="Back to previous page"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
+              </button>
+              
+              {/* Loading Placeholder - Centered */}
+              <div className="flex-1 flex justify-center min-w-0">
+                <div className="h-8 bg-gray-200 rounded w-1/4 max-w-[calc(100vw-8rem)]"></div>
+              </div>
+              
+              {/* Right Spacer for Balance */}
+              <div className="w-7 flex-shrink-0"></div>
+            </div>
             <div className="animate-pulse">
               <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
               <div className="h-96 bg-gray-200 rounded mb-6"></div>
@@ -842,11 +878,48 @@ export default function VendorDetailPage() {
 
   if (!vendor) {
     return (
-      <div className="min-h-screen bg-linen">
+      <div className="min-h-screen bg-linen mobile-scroll-container">
+        <style jsx global>{`
+          @media (max-width: 768px) {
+            html, body {
+              height: 100vh;
+              overflow: hidden;
+            }
+            .mobile-scroll-container {
+              height: 100vh;
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+            .mobile-vendor-content {
+              padding-left: 1rem;
+              padding-right: 1rem;
+              max-width: 100%;
+              overflow-x: hidden;
+            }
+          }
+        `}</style>
         <div className="max-w-6xl mx-auto">
-          <div className="app-content-container py-8">
+          <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
+            {/* Back Button and Error Title - Same Row */}
+            <div className="flex items-start justify-between gap-4 mb-4 mt-2">
+              {/* Back Button */}
+              <button
+                onClick={() => router.back()}
+                className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors flex-shrink-0 mt-1"
+                aria-label="Back to previous page"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
+              </button>
+              
+              {/* Error Title - Centered with wrapping */}
+              <div className="flex-1 flex justify-center min-w-0">
+                <h1 className="text-2xl font-playfair text-[#332B42] text-center break-words hyphens-auto max-w-[calc(100vw-8rem)]">Vendor Not Found</h1>
+              </div>
+              
+              {/* Right Spacer for Balance */}
+              <div className="w-7 flex-shrink-0"></div>
+            </div>
             <div className="text-center">
-              <h1 className="text-2xl font-playfair text-[#332B42] mb-4">Vendor Not Found</h1>
               <p className="text-[#364257] mb-4">The vendor you're looking for doesn't exist or has been removed.</p>
               <button 
                 onClick={() => router.back()}
@@ -862,7 +935,26 @@ export default function VendorDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linen">
+    <div className="min-h-screen bg-linen mobile-scroll-container">
+      <style jsx global>{`
+        @media (max-width: 768px) {
+          html, body {
+            height: 100vh;
+            overflow: hidden;
+          }
+          .mobile-scroll-container {
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          .mobile-vendor-content {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+        }
+      `}</style>
       <WeddingBanner
         daysLeft={daysLeft}
         userName={userName}
@@ -870,23 +962,60 @@ export default function VendorDetailPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       <div className="max-w-6xl mx-auto">
-        <div className="app-content-container py-8">
-          {/* Breadcrumb */}
-          <Breadcrumb
-            items={generateVendorDetailBreadcrumbs()}
-          />
+        <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
+          {/* Sticky Header */}
+          <div className="sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4">
+            <div className="flex items-start justify-between gap-4">
+              {/* Back Button */}
+              <button
+                onClick={() => router.back()}
+                className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors flex-shrink-0 mt-1"
+                aria-label="Back to previous page"
+              >
+                <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
+              </button>
+              
+              {/* Vendor Name - Centered with wrapping */}
+              <div className="flex-1 flex justify-center min-w-0">
+                <h5 className="h5 text-center break-words hyphens-auto max-w-[calc(100vw-8rem)]">
+                  {vendor.name}
+                </h5>
+              </div>
+              
+              {/* Right Spacer for Balance */}
+              <div className="w-7 flex-shrink-0"></div>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Vendor Details */}
             <div className="lg:col-span-2">
-              {/* Vendor Name and Overview */}
+              {/* Vendor Overview */}
               <div className="mb-6">
-                <div className="flex items-center justify-between gap-6 mb-4">
-                  <h4 className="flex-1 min-w-0">
-                    {vendor.name}
-                  </h4>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                
+                {/* Metadata - Centered */}
+                <div className="flex justify-center mb-4">
+                  <div className="flex items-center gap-4">
+                  {vendor.rating && (
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                      <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                    </div>
+                  )}
+                  <CategoryPill category={vendor.category} />
+                  {location && (
+                    <div className="flex items-center gap-1 text-sm text-[#364257]">
+                      <span>in</span>
+                      <MapPin className="w-3 h-3" />
+                      <span>{location}</span>
+                    </div>
+                  )}
+                  </div>
+                </div>
+                
+                {/* Action Buttons - Centered */}
+                <div className="flex justify-center mb-4">
+                  <div className="flex items-center gap-3">
                     {/* Selected Venue Toggle - Only show when venue is selected */}
                     {dataLoaded && isSelectedVenueState && (
                       <div className="flex items-center gap-2">
@@ -935,26 +1064,8 @@ export default function VendorDetailPage() {
 
                     {/* Actions Row */}
                     <div className="flex items-center gap-2">
-                      {/* Favorite Toggle - Icon only to save space */}
-                      {dataLoaded ? (
-                        <button
-                          onClick={toggleFavorite}
-                          disabled={isUpdatingFavorite}
-                          className={`p-2 rounded-full transition-colors ${
-                            displayFavorite 
-                              ? 'bg-[#A85C36] text-white' 
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current' : ''}`} />
-                        </button>
-                      ) : (
-                        <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
-                      )}
-
                       {/* Select as [Category] Button - For all vendor types that aren't currently selected */}
-                      {dataLoaded && !isSelectedVendorState && (
+                      {dataLoaded && !isSelectedVendorState && !isSelectedVenueState && (
                         <button
                           onClick={handleSetAsSelected}
                           className="btn-primaryinverse"
@@ -968,6 +1079,24 @@ export default function VendorDetailPage() {
                         <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
                       )}
 
+                      {/* Favorite Toggle - Icon only to save space */}
+                      {dataLoaded ? (
+                        <button
+                          onClick={toggleFavorite}
+                          disabled={isUpdatingFavorite}
+                          className={`p-2 transition-colors ${
+                            displayFavorite 
+                              ? 'text-pink-500 hover:text-pink-600' 
+                              : 'text-gray-600 hover:text-gray-700'
+                          } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current text-pink-500' : ''}`} />
+                        </button>
+                      ) : (
+                        <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+                      )}
+
                       {/* Primary Action - Contact */}
                       <button
                         onClick={() => setShowContactModal(true)}
@@ -977,23 +1106,6 @@ export default function VendorDetailPage() {
                       </button>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-4 mb-4">
-                  {vendor.rating && (
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
-                    </div>
-                  )}
-                  <CategoryPill category={vendor.category} />
-                  {location && (
-                    <div className="flex items-center gap-1 text-sm text-[#364257]">
-                      <span>in</span>
-                      <MapPin className="w-3 h-3" />
-                      <span>{location}</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Selected Venue AI Banner */}
@@ -1107,6 +1219,16 @@ export default function VendorDetailPage() {
                 </div>
               )}
 
+              {/* Comments - Mobile only, between vendor details and related vendors */}
+              <div className="lg:hidden mb-8">
+                {vendor && (
+                  <VendorComments 
+                    vendorId={vendor.id} 
+                    vendorName={vendor.name} 
+                  />
+                )}
+              </div>
+
               {/* Related Vendors */}
               <RelatedVendorsSection
                 currentVendorId={vendor.id}
@@ -1120,8 +1242,8 @@ export default function VendorDetailPage() {
               />
                 </div>
 
-            {/* Right Column - Comments */}
-            <div className="lg:col-span-1 sticky top-4 h-[calc(100vh-14rem)]">
+            {/* Right Column - Comments (Desktop only) */}
+            <div className="hidden lg:block lg:col-span-1 sticky top-4 h-[calc(100vh-14rem)]">
               {vendor && (
                 <VendorComments 
                   vendorId={vendor.id} 

@@ -93,7 +93,7 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
         
         {/* Horizontal Scroll Container with Skeletons */}
         <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+          <div className="flex gap-4 pb-6" style={{ minWidth: 'max-content' }}>
             {Array.from({ length: 5 }).map((_, index) => (
               <div key={index} className="w-64 flex-shrink-0">
                 <div className="bg-white rounded-lg p-4 shadow-sm animate-pulse">
@@ -134,7 +134,7 @@ export const RecentlyViewedSection: React.FC<RecentlyViewedSectionProps> = ({
       
       {/* Horizontal Scroll Container with VendorCatalogCard */}
       <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-4 pb-2" style={{ minWidth: 'max-content' }}>
+        <div className="flex gap-4 pb-6" style={{ minWidth: 'max-content' }}>
           {cappedVendors
             .map((vendor, index) => ({ vendor, index }))
             .filter(({ vendor }) => vendor && convertVendorToCatalogFormat(vendor))

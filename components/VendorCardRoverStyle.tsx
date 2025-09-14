@@ -260,11 +260,11 @@ const VendorCardRoverStyle = React.memo(({
                 }}
                 className={`p-2 rounded-full transition-colors ${
                   isFavorite(vendor.place_id)
-                    ? 'text-[#A85C36] bg-[#F3F2F0]' 
-                    : 'text-[#AB9C95] hover:text-[#A85C36] hover:bg-[#F3F2F0]'
+                    ? 'text-pink-500 hover:text-pink-600' 
+                    : 'text-[#AB9C95] hover:text-pink-500'
                 }`}
               >
-                <Heart size={16} className={isFavorite(vendor.place_id) ? 'fill-current' : ''} />
+                <Heart size={16} className={isFavorite(vendor.place_id) ? 'fill-current text-pink-500' : ''} />
               </button>
               <button
                 onClick={(e) => {

@@ -7,6 +7,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
 import SelectedVendorPill from './SelectedVendorPill';
+import { highlightText } from '@/utils/searchHighlight';
 
 // Removed custom heart icons - now using Lucide React Heart component for consistency
 
@@ -42,9 +43,10 @@ interface VendorCatalogCardProps {
   isSelectedVendor?: boolean;
   selectedCategory?: string;
   onUpdateSelectedVendor?: (vendor: any) => void;
+  searchTerm?: string;
 }
 
-const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal, onMobileSelect, isSelectedVenue = false, isSelectedVendor = false, selectedCategory = '', onUpdateSelectedVendor }: VendorCatalogCardProps) => {
+const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContactMode = false, isSelected = false, onSelectionChange, location = '', category = '', isFavoriteOverride = false, onShowContactModal, onShowFlagModal, onMobileSelect, isSelectedVenue = false, isSelectedVendor = false, selectedCategory = '', onUpdateSelectedVendor, searchTerm = '' }: VendorCatalogCardProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
@@ -198,12 +200,12 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           onClick={handleToggleFavorite}
           className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
             (isFavorite(vendor.id) || isFavoriteOverride)
-              ? 'bg-[#A85C36] text-white'
+              ? 'bg-white/90 text-pink-500 hover:text-pink-600'
               : 'bg-white/80 text-gray-600 hover:bg-white'
           }`}
           aria-label={isFavorite(vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className={`w-3 h-3 ${(isFavorite(vendor.id) || isFavoriteOverride) ? 'fill-current' : ''}`} />
+          <Heart className={`w-3 h-3 ${(isFavorite(vendor.id) || isFavoriteOverride) ? 'fill-current text-pink-500' : ''}`} />
         </button>
       )}
       
@@ -234,7 +236,9 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       
       <div className="flex-1 w-full flex flex-col justify-between p-4">
         <div>
-          <h6 className="h6 mb-1">{vendor.name}</h6>
+          <h6 className="h6 mb-1">
+            {searchTerm ? highlightText(vendor.name, searchTerm) : vendor.name}
+          </h6>
           
           {/* Selected Vendor Pills */}
           {isSelectedVenue && (

@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import debounce from 'lodash.debounce';
 import { useCustomToast } from '@/hooks/useCustomToast';
 
-import Breadcrumb from '@/components/Breadcrumb';
 import VendorSearchBar from '@/components/VendorSearchBar';
 import VendorCatalogHeader from '@/components/VendorCatalogHeader';
 import VendorCatalogToolbar from '@/components/VendorCatalogToolbar';
@@ -19,7 +18,6 @@ import BulkContactBanner from '@/components/BulkContactBanner';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
-import { generateCatalogBreadcrumbs } from '@/utils/breadcrumbUtils';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -518,7 +516,7 @@ const VendorCategoryPage: React.FC = () => {
         ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${vendor.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
         : '/Venue.png',
       price: vendor.price_level !== undefined ? '$'.repeat(vendor.price_level) : '',
-      guestCapacity: '', // Google Places does not provide this
+      // Removed non-functional fields
       amenities: [], // Not used for now
       source: vendor.website ? { name: vendor.name, url: vendor.website } : null,
       mainTypeLabel,
@@ -531,56 +529,89 @@ const VendorCategoryPage: React.FC = () => {
   const clientFilteredVendors = useMemo(() => {
     let filtered = mappedVendors;
     filtered = filterByCuisine(filtered, clientFilterValues.cuisine);
+    
+    // Apply search term filtering
+    if (searchTerm && searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(vendor => 
+        vendor.name.toLowerCase().includes(searchLower) ||
+        (vendor.address && vendor.address.toLowerCase().includes(searchLower)) ||
+        (vendor.mainTypeLabel && vendor.mainTypeLabel.toLowerCase().includes(searchLower))
+      );
+    }
+    
     // Add more client-side filters as needed
-    console.log('clientFilteredVendors:', { mappedVendorsLength: mappedVendors.length, filteredLength: filtered.length });
+    console.log('clientFilteredVendors:', { 
+      mappedVendorsLength: mappedVendors.length, 
+      filteredLength: filtered.length,
+      searchTerm,
+      hasSearchTerm: !!searchTerm
+    });
     return filtered;
-  }, [mappedVendors, clientFilterValues.cuisine]);
+  }, [mappedVendors, clientFilterValues.cuisine, searchTerm]);
 
 
   
   return (
-    <div className="min-h-screen bg-linen">
+    <div className="min-h-screen bg-linen mobile-scroll-container">
+      <style jsx global>{`
+        @media (max-width: 768px) {
+          html, body {
+            height: 100vh;
+            overflow: hidden;
+          }
+          .mobile-scroll-container {
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          .mobile-catalog-content {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            max-width: 100%;
+            overflow-x: hidden;
+          }
+        }
+      `}</style>
       <WeddingBanner
         daysLeft={daysLeft}
         userName={userName}
         isLoading={bannerLoading}
         onSetWeddingDate={handleSetWeddingDate}
       />
-      <div className="max-w-6xl mx-auto">
-        <div className={`app-content-container flex flex-col gap-4 py-8 ${bulkContactMode ? 'pb-24' : ''}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
-          <Breadcrumb
-            items={generateCatalogBreadcrumbs({
-              category: category,
-              location: location
-            })}
-          />
-          <VendorCatalogHeader
-            isSearching={isSearching}
-            searchTerm={searchTerm}
-            searchResults={searchResults}
-            loading={loading}
-            vendors={vendors}
-            nextPageToken={nextPageToken}
-            error={error}
-            categoryLabel={categoryLabel}
-            location={location}
-          />
-          
-          <VendorCatalogToolbar
-            category={category}
-            filterValues={{...apiFilterValues, ...clientFilterValues}}
-            onFilterChange={handleFilterChange}
-            vendors={vendors}
-            searchTerm={searchTerm}
-            onSearchChange={handleSearchChange}
-            onClearSearch={clearSearch}
-            isSearching={isSearching}
-            searchResults={searchResults}
-            categorySingular={categorySingular}
-            bulkContactMode={bulkContactMode}
-            onBulkContactToggle={handleBulkContactToggle}
-            onSuggestVendor={() => setShowSuggestModal(true)}
-          />
+      <div className="max-w-6xl mx-auto w-full">
+        <div className={`app-content-container flex flex-col gap-4 py-8 mobile-catalog-content ${bulkContactMode ? 'pb-24' : 'pb-6'}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
+          {/* Sticky Header and Search Area */}
+          <div className="sticky top-0 z-10 bg-linen pt-6 pb-6 -mx-4 px-4">
+            <VendorCatalogHeader
+              isSearching={isSearching}
+              searchTerm={searchTerm}
+              searchResults={searchResults}
+              loading={loading}
+              vendors={vendors}
+              nextPageToken={nextPageToken}
+              error={error}
+              categoryLabel={categoryLabel}
+              location={location}
+            />
+            
+            <VendorCatalogToolbar
+              category={category}
+              filterValues={{...apiFilterValues, ...clientFilterValues}}
+              onFilterChange={handleFilterChange}
+              vendors={vendors}
+              searchTerm={searchTerm}
+              onSearchChange={handleSearchChange}
+              onClearSearch={clearSearch}
+              isSearching={isSearching}
+              searchResults={searchResults}
+              categorySingular={categorySingular}
+              bulkContactMode={bulkContactMode}
+              onBulkContactToggle={handleBulkContactToggle}
+              onSuggestVendor={() => setShowSuggestModal(true)}
+              filteredResultsCount={clientFilteredVendors.length}
+            />
+          </div>
           <SuggestVenueModal open={showSuggestModal} onClose={() => setShowSuggestModal(false)} categoryLabel={categorySingular} />
           {error && <div className="text-center text-red-500 py-8">{error}</div>}
           
@@ -598,9 +629,7 @@ const VendorCategoryPage: React.FC = () => {
             searchTerm
           });
           
-          if (isSearching) {
-            return Array.from({ length: 4 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />);
-          } else if (loading) {
+          if (loading) {
             return Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />);
           } else if (clientFilteredVendors.length > 0) {
             return clientFilteredVendors
@@ -638,6 +667,7 @@ const VendorCategoryPage: React.FC = () => {
                     category={category}
                     onShowContactModal={handleShowContactModal}
                     onShowFlagModal={handleShowFlagModal}
+                    searchTerm={searchTerm}
                   />
                 );
               });

@@ -7,32 +7,19 @@ const DISTANCE_OPTIONS = [
   { label: 'Within 50 miles', value: 50 }
 ];
 
-const PRICE_CATEGORIES = ['restaurant', 'bar', 'cafe', 'lodging'];
-
 const DEFAULT_FILTERS = [
-  { key: 'distance', label: 'Distance', type: 'dropdown', options: DISTANCE_OPTIONS },
-  { key: 'rating', label: 'Rating', type: 'dropdown', options: ['Any', '4+', '4.5+', '5'] }
+  // Distance and rating filters temporarily hidden
+  // { key: 'distance', label: 'Distance', type: 'dropdown', options: DISTANCE_OPTIONS },
+  // { key: 'rating', label: 'Rating', type: 'dropdown', options: ['Any', '4+', '4.5+', '5'] }
 ];
 
-const PRICE_FILTER = { key: 'price', label: 'Price', type: 'dropdown', options: ['$', '$$', '$$$', '$$$$'] };
+// Price filter removed - not functional
 
 const CATEGORY_FILTERS = {
-  florist: [
-    { key: 'bouquetType', label: 'Bouquet Type', type: 'dropdown', options: ['Hand-tied', 'Cascade', 'Posy', 'Round', 'Other'] }
-  ],
   restaurant: [
-    { key: 'guestCapacity', label: 'Guest Capacity', type: 'slider', min: 10, max: 500, step: 10, unit: 'guests' },
-    { key: 'outdoorSpace', label: 'Outdoor Space', type: 'toggle' },
     { key: 'cuisine', label: 'Cuisine', type: 'dropdown', options: ['American', 'Italian', 'French', 'Asian', 'Mexican', 'Other'] }
   ],
-  clothing_store: [
-    { key: 'dressSize', label: 'Dress Size', type: 'dropdown', options: ['0-4', '6-8', '10-12', '14-16', '18+'] },
-    { key: 'designer', label: 'Designer', type: 'dropdown', options: ['Vera Wang', 'Pronovias', 'Maggie Sottero', 'Other'] }
-  ],
-  dj: [
-    { key: 'musicGenre', label: 'Music Genre', type: 'multi-select', options: ['Pop', 'Rock', 'EDM', 'Hip-Hop', 'Jazz', 'Other'] }
-  ],
-  // ...add more as needed
+  // Only include filters that actually work
 };
 
 function DropdownFilter({ filter, value, onChange }) {
@@ -118,18 +105,9 @@ function MultiSelectFilter({ filter, value, onChange }) {
 
 export default function VendorCatalogFilters({ category, filterValues, onChange, vendors }) {
   const dynamicFilters = CATEGORY_FILTERS[category] || [];
-  const showPrice = PRICE_CATEGORIES.includes(category);
-  let allFilters = showPrice
-    ? [PRICE_FILTER, ...DEFAULT_FILTERS, ...dynamicFilters]
-    : [...DEFAULT_FILTERS, ...dynamicFilters];
+  let allFilters = [...DEFAULT_FILTERS, ...dynamicFilters];
 
-  // Hide Music Genre filter for DJs if no vendor has genre info
-  if (category === 'dj' && vendors) {
-    const hasGenre = vendors.some(v => v.musicGenres && v.musicGenres.length > 0);
-    if (!hasGenre) {
-      allFilters = allFilters.filter(f => f.key !== 'musicGenre');
-    }
-  }
+  // Only show filters that actually work
 
   return (
     <div className="flex gap-4 flex-wrap mb-4">

@@ -508,7 +508,9 @@ export default function VendorsPage() {
             <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
               <h4 className="text-lg font-playfair font-medium text-[#332B42]">Vendors</h4>
               <div className="flex items-center gap-4">
-                <AdminFavoritesDropdown isVisible={isSuperAdmin} />
+                <div className="hidden md:block">
+                  <AdminFavoritesDropdown isVisible={isSuperAdmin} />
+                </div>
                 <button 
                   className="btn-primaryinverse" 
                   onClick={() => setShowUpdateTagsModal(true)}
@@ -516,7 +518,14 @@ export default function VendorsPage() {
                 >
                   Update Tags
                 </button>
-                <button className="btn-primary" onClick={() => router.push('/vendors/catalog/search')}>Browse Vendors</button>
+                <button className="btn-primary" onClick={() => {
+                  // On mobile, redirect to mobile catalog page for better mobile experience
+                  if (window.innerWidth < 768) {
+                    router.push('/vendors/m-catalog');
+                  } else {
+                    router.push('/vendors/catalog/search');
+                  }
+                }}>Browse Vendors</button>
               </div>
             </div>
             
