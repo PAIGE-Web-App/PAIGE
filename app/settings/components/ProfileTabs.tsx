@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 export const TABS = [
   { key: "account", label: "Account" },
   { key: "wedding", label: "Wedding Details" },
-  { key: "selected-vendors", label: "Selected Vendors" },
   { key: "plan", label: "Plan & Billing" },
   { key: "credits", label: "Credits" },
   { key: "integrations", label: "Integrations" },

@@ -43,9 +43,6 @@ const CreditsTab = dynamic(() => import("./components/CreditsTab"), {
   loading: () => <SettingsTabSkeleton />
 });
 
-const SelectedVendorsTab = dynamic(() => import("./components/SelectedVendorsTab"), {
-  loading: () => <SettingsTabSkeleton />
-});
 
 export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();
@@ -264,7 +261,6 @@ export default function ProfilePage() {
               onSave={handleWeddingSave}
             />
           )}
-          {activeTab === "selected-vendors" && <SelectedVendorsTab />}
           {activeTab === "plan" && <PlanTab />}
           {activeTab === "credits" && <CreditsTab />}
           {activeTab === "integrations" && (
