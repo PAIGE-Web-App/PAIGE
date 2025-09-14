@@ -470,7 +470,7 @@ export default function VendorsPage() {
   }, [vendors, selectedVenuePlaceId, selectedVendors]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-linen">
+    <div className="min-h-screen bg-linen">
       <WeddingBanner
         daysLeft={daysLeft}
         userName={userName}
@@ -478,7 +478,7 @@ export default function VendorsPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="app-content-container flex-1 overflow-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}
         {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
           /* Empty State - No header, no tabs, just warm welcome */
@@ -506,12 +506,10 @@ export default function VendorsPage() {
             </div>
             
             {/* Main Content - Mobile responsive layout */}
-            <div className="flex h-full gap-4 lg:flex-row flex-col">
+            <div className="py-6">
               {/* Mobile view mode content */}
               {mobileViewMode === 'vendors' ? (
-                <div className="flex-1 flex flex-col min-h-0 px-4 pb-4">
-                  <div className="bg-white overflow-hidden flex-1 flex flex-col">
-                    <div className="space-y-6 p-4">
+                <div className="space-y-6">
                   {/* Official Vendors Section */}
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
@@ -572,8 +570,6 @@ export default function VendorsPage() {
                     onShowContactModal={handleShowContactModal}
                     onShowFlagModal={handleShowFlagModal}
                   />
-                    </div>
-                  </div>
                 </div>
               ) : (
                 /* Mobile Vendor Details View */
