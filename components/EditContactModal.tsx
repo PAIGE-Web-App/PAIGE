@@ -114,6 +114,7 @@ export default function EditContactModal({
       console.error('Error adding vendor to community database:', error);
       // Don't fail the operation if this fails
     }
+
   };
  
 
@@ -324,8 +325,56 @@ export default function EditContactModal({
       await updateDoc(contactRef, updateData);
       console.log('EditContactModal: Contact saved with placeId:', updatedContact.placeId);
       console.log('EditContactModal: Updated contact data:', updatedContact);
+      
+      // Create verified email if vendor is associated and contact has email
+      if (selectedVendor && formData.email) {
+        console.log('🔗 Creating verified email for vendor:', selectedVendor.name, 'with email:', formData.email);
+        try {
+          const emailResponse = await fetch('/api/vendor-emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              placeId: selectedVendor.place_id,
+              vendorName: selectedVendor.name,
+              vendorAddress: selectedVendor.formatted_address,
+              vendorCategory: formData.category || 'Vendor',
+              email: formData.email,
+              contactName: formData.name,
+              role: formData.category || 'Contact',
+              userId
+            })
+          });
+
+          const emailData = await emailResponse.json();
+          console.log('🔗 Email API response:', emailData);
+
+          if (emailResponse.ok) {
+            console.log('✅ Successfully created verified email for vendor');
+            
+            // Clear the vendor email cache so new emails show up immediately
+            try {
+              const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
+              const queue = VendorEmailQueue.getInstance();
+              queue.clearCache();
+              console.log('🔄 Cleared vendor email cache');
+            } catch (error) {
+              console.error('Failed to clear vendor email cache:', error);
+            }
+            
+            showSuccessToast('Contact associated with vendor and verified email added!');
+          } else {
+            console.error('❌ Failed to create verified email for vendor:', emailData);
+            showSuccessToast('Contact updated successfully! (Note: Verified email creation failed)');
+          }
+        } catch (error) {
+          console.error('❌ Error creating verified email for vendor:', error);
+          showSuccessToast('Contact updated successfully! (Note: Verified email creation failed)');
+        }
+      } else {
+        showSuccessToast("Contact updated successfully!");
+      }
+      
       onSave(updatedContact);
-      showSuccessToast("Contact updated successfully!"); // USE CUSTOM TOAST
       onClose();
     } catch (error) {
       console.error("Error updating contact:", error);
@@ -359,7 +408,8 @@ export default function EditContactModal({
   };
 
   return (
-    <ContactModalBase
+    <>
+      <ContactModalBase
       isOpen={true}
       onClose={onClose}
       title="Edit Contact"
@@ -526,5 +576,7 @@ export default function EditContactModal({
         />
       </div>
     </ContactModalBase>
+
+    </>
   );
 }

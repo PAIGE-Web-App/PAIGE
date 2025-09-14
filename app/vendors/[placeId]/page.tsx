@@ -4,13 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft } from 'lucide-react';
-import VendorContactModal from '@/components/VendorContactModal';
-import FlagVendorModal from '@/components/FlagVendorModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
-import RelatedVendorsSection from '@/components/RelatedVendorsSection';
-import VendorComments from '@/components/VendorComments';
+import ProgressiveImage from '@/components/ProgressiveImage';
+import { Suspense, lazy } from 'react';
+
+// Lazy load non-critical components
+const VendorContactModal = lazy(() => import('@/components/VendorContactModal'));
+const FlagVendorModal = lazy(() => import('@/components/FlagVendorModal'));
+const RelatedVendorsSection = lazy(() => import('@/components/RelatedVendorsSection'));
+const VendorComments = lazy(() => import('@/components/VendorComments'));
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
@@ -24,8 +28,9 @@ import {
   getCategoryFromSlug,
   addRecentlyViewedVendor 
 } from '@/utils/vendorUtils';
-import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { useVendorDetails } from '@/hooks/useVendorCache';
+import { usePrefetch } from '@/utils/prefetchManager';
 import { fetchVendorPhotos, checkVendorExists } from '@/utils/apiService';
 import { getVendorImages } from '@/utils/vendorImageUtils';
 import ConfirmVenueUnmarkModal from '@/components/ConfirmVenueUnmarkModal';
@@ -56,8 +61,11 @@ export default function VendorDetailPage() {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   
-  // Get user's wedding location from profile data
-  const { weddingLocation: userWeddingLocation } = useUserProfileData();
+  // Get user's wedding location from consolidated user data
+  const { weddingLocation: userWeddingLocation } = useConsolidatedUserData();
+  
+  // Initialize prefetch tracking
+  const { trackVendorView } = usePrefetch();
   
   const placeId = params?.placeId as string;
   const location = searchParams?.get('location') || '';
@@ -424,6 +432,9 @@ export default function VendorDetailPage() {
       source: { name: 'Google Places', url: '' }
     });
 
+    // Track vendor view for prefetching
+    trackVendorView(placeId, vendorDetails.category);
+
     // Fetch additional data in background
     fetchAdditionalData().catch((error) => {
       console.error('❌ Additional data fetch failed:', error);
@@ -530,25 +541,20 @@ export default function VendorDetailPage() {
           console.log('Removed vendor from user collection:', vendor.id);
         }
 
-        // Update community status
-        const response = await fetch('/api/community-vendors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            placeId: vendor.id,
-            vendorName: vendor.name,
-            vendorAddress: vendor.address || '',
-            vendorCategory: vendor.category,
-            userId: user.uid,
-            selectedAsVenue: false,
-            selectedAsVendor: false,
-            removeFromSelected: true
-          })
+        // Update community status with request deduplication
+        const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
+        const response = await deduplicatedRequest.post('/api/community-vendors', {
+          placeId: vendor.id,
+          vendorName: vendor.name,
+          vendorAddress: vendor.address || '',
+          vendorCategory: vendor.category,
+          userId: user.uid,
+          selectedAsVenue: false,
+          selectedAsVendor: false,
+          removeFromSelected: true
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to update community status');
-        }
+        // Response is already processed by deduplicatedRequest
       }
 
       // Success - commit the optimistic update
@@ -613,25 +619,18 @@ export default function VendorDetailPage() {
         console.log('Removed vendor from user collection:', vendor.id);
       }
       
-      // Update community database
-      const response = await fetch('/api/community-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          placeId: vendor.id,
-          vendorName: vendor.name,
-          vendorAddress: vendor.address || '',
-          vendorCategory: vendor.category,
-          userId: user.uid,
-          selectedAsVenue: false,
-          selectedAsVendor: false,
-          removeFromSelected: true
-        })
+      // Update community database with request deduplication
+      const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
+      await deduplicatedRequest.post('/api/community-vendors', {
+        placeId: vendor.id,
+        vendorName: vendor.name,
+        vendorAddress: vendor.address || '',
+        vendorCategory: vendor.category,
+        userId: user.uid,
+        selectedAsVenue: false,
+        selectedAsVendor: false,
+        removeFromSelected: true
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update community status');
-      }
 
       // Success - commit the optimistic update
       setIsOfficialVendor(false);
@@ -797,24 +796,17 @@ export default function VendorDetailPage() {
     if (!selectedVendorForFlag) return;
     
     try {
-      const response = await fetch('/api/flag-vendor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vendorId: selectedVendorForFlag.id,
-          vendorName: selectedVendorForFlag.name,
-          reason,
-          customReason
-        })
+      const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
+      await deduplicatedRequest.post('/api/flag-vendor', {
+        vendorId: selectedVendorForFlag.id,
+        vendorName: selectedVendorForFlag.name,
+        reason,
+        customReason
       });
 
-      if (response.ok) {
-        showSuccessToast('Vendor flagged successfully');
-        setShowFlagModal(false);
-        setSelectedVendorForFlag(null);
-      } else {
-        showErrorToast('Failed to flag vendor');
-      }
+      showSuccessToast('Vendor flagged successfully');
+      setShowFlagModal(false);
+      setSelectedVendorForFlag(null);
     } catch (error) {
       console.error('Error flagging vendor:', error);
       showErrorToast('Failed to flag vendor');
@@ -1134,10 +1126,12 @@ export default function VendorDetailPage() {
                 <div className="relative h-96 bg-[#F3F2F0] rounded-lg overflow-hidden mb-4">
                   {vendor.images && vendor.images.length > 0 && (
                     <>
-                      <img
+                      <ProgressiveImage
                         src={vendor.images[currentImageIndex]}
                         alt={`${vendor.name} - Image ${currentImageIndex + 1}`}
                         className="w-full h-full object-cover"
+                        priority={true}
+                        threshold={0.1}
                       />
                       
                       {/* Navigation Arrows */}
@@ -1222,33 +1216,39 @@ export default function VendorDetailPage() {
               {/* Comments - Mobile only, between vendor details and related vendors */}
               <div className="lg:hidden mb-8">
                 {vendor && (
-                  <VendorComments 
-                    vendorId={vendor.id} 
-                    vendorName={vendor.name} 
-                  />
+                  <Suspense fallback={<div className="animate-pulse bg-gray-200 h-32 rounded-lg"></div>}>
+                    <VendorComments 
+                      vendorId={vendor.id} 
+                      vendorName={vendor.name} 
+                    />
+                  </Suspense>
                 )}
               </div>
 
               {/* Related Vendors */}
-              <RelatedVendorsSection
-                currentVendorId={vendor.id}
-                category={vendor.category}
-                location={userWeddingLocation || location}
-                onShowFlagModal={handleShowFlagModal}
-                onShowContactModal={(vendor) => {
-                  setSelectedVendorForContact(vendor);
-                  setShowContactModal(true);
-                }}
-              />
+              <Suspense fallback={<div className="animate-pulse bg-gray-200 h-64 rounded-lg"></div>}>
+                <RelatedVendorsSection
+                  currentVendorId={vendor.id}
+                  category={vendor.category}
+                  location={userWeddingLocation || location}
+                  onShowFlagModal={handleShowFlagModal}
+                  onShowContactModal={(vendor) => {
+                    setSelectedVendorForContact(vendor);
+                    setShowContactModal(true);
+                  }}
+                />
+              </Suspense>
                 </div>
 
             {/* Right Column - Comments (Desktop only) */}
             <div className="hidden lg:block lg:col-span-1 sticky top-4 h-[calc(100vh-14rem)]">
               {vendor && (
-                <VendorComments 
-                  vendorId={vendor.id} 
-                  vendorName={vendor.name} 
-                />
+                <Suspense fallback={<div className="animate-pulse bg-gray-200 h-32 rounded-lg"></div>}>
+                  <VendorComments 
+                    vendorId={vendor.id} 
+                    vendorName={vendor.name} 
+                  />
+                </Suspense>
               )}
             </div>
           </div>
@@ -1257,27 +1257,31 @@ export default function VendorDetailPage() {
 
       {/* Contact Modal */}
       {showContactModal && selectedVendorForContact && (
-        <VendorContactModal
-          vendor={selectedVendorForContact}
-          isOpen={showContactModal}
-          onClose={() => {
-            setShowContactModal(false);
-            setSelectedVendorForContact(null);
-          }}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="animate-pulse bg-white h-96 w-96 rounded-lg"></div></div>}>
+          <VendorContactModal
+            vendor={selectedVendorForContact}
+            isOpen={showContactModal}
+            onClose={() => {
+              setShowContactModal(false);
+              setSelectedVendorForContact(null);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Flag Modal */}
       {showFlagModal && selectedVendorForFlag && (
-        <FlagVendorModal
-          vendor={selectedVendorForFlag}
-          onClose={() => {
-            setShowFlagModal(false);
-            setSelectedVendorForFlag(null);
-          }}
-          onSubmit={handleFlagVendor}
-          isSubmitting={false}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="animate-pulse bg-white h-64 w-96 rounded-lg"></div></div>}>
+          <FlagVendorModal
+            vendor={selectedVendorForFlag}
+            onClose={() => {
+              setShowFlagModal(false);
+              setSelectedVendorForFlag(null);
+            }}
+            onSubmit={handleFlagVendor}
+            isSubmitting={false}
+          />
+        </Suspense>
       )}
 
       {/* Venue Unmark Modal */}
@@ -1332,10 +1336,12 @@ export default function VendorDetailPage() {
                         setShowImageGallery(false);
                       }}
                     >
-                      <img
+                      <ProgressiveImage
                         src={image}
                         alt={`${vendor.name} - Image ${index + 1}`}
                         className="w-full h-full object-cover"
+                        priority={index < 3} // Load first 3 images with priority
+                        threshold={0.1}
                       />
                     </div>
                   ))}

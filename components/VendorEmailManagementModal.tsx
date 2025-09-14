@@ -44,8 +44,9 @@ export default function VendorEmailManagementModal({
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/vendor-emails?placeId=${vendor.place_id}`);
-      const data = await response.json();
+      const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
+      const queue = VendorEmailQueue.getInstance();
+      const data = await queue.queueRequest(vendor.place_id);
       
       if (data.emails) {
         setVendorEmails(data.emails);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +48,9 @@ const VendorCardRoverStyle = React.memo(({
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [imgSrc, setImgSrc] = useState<string>('');
+  
+  // Ref for email badge to trigger email fetch
+  const emailBadgeRef = useRef<{ fetchEmails: () => Promise<void> }>(null);
   
   // Use the simplified favorites hook
   const { isFavorite, toggleFavorite } = useFavoritesSimple();
@@ -329,16 +332,30 @@ const VendorCardRoverStyle = React.memo(({
             </div>
           )}
 
-          {/* Vendor Email Badge */}
+          {/* Vendor Email Badge - Only fetch when needed */}
           <div className="mt-2 mb-2">
-            <VendorEmailBadge placeId={vendor.place_id} />
+            <VendorEmailBadge 
+              ref={emailBadgeRef}
+              placeId={vendor.place_id} 
+              autoFetch={false}
+            />
           </div>
 
           {/* Contact Actions - Hidden by default, shown on hover */}
           <div className="flex gap-2 mt-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
+                
+                // Fetch vendor emails before showing contact modal
+                if (emailBadgeRef.current) {
+                  try {
+                    await emailBadgeRef.current.fetchEmails();
+                  } catch (error) {
+                    console.error('Failed to fetch vendor emails:', error);
+                  }
+                }
+                
                 onContact?.();
               }}
               className="btn-primaryinverse flex items-center gap-2"

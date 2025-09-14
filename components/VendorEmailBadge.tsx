@@ -2,24 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Users, Star } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import type { VendorEmail } from '@/types/contact';
-
-// Global rate limiter to prevent too many simultaneous requests
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+import VendorEmailQueue from '@/utils/vendorEmailQueue';
 
 interface VendorEmailBadgeProps {
   placeId: string;
   className?: string;
+  autoFetch?: boolean; // Only fetch automatically if true
+  onEmailsLoaded?: (emails: VendorEmail[]) => void; // Callback when emails are loaded
 }
 
-export default function VendorEmailBadge({ placeId, className = '' }: VendorEmailBadgeProps) {
-  const [vendorEmails, setVendorEmails] = useState<VendorEmail[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+const VendorEmailBadge = React.forwardRef<{ fetchEmails: () => Promise<void> }, VendorEmailBadgeProps>(
+  ({ placeId, className = '', autoFetch = false, onEmailsLoaded }, ref) => {
+    const [vendorEmails, setVendorEmails] = useState<VendorEmail[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(false);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (placeId) {
+    if (placeId && autoFetch) {
       // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -37,41 +37,19 @@ export default function VendorEmailBadge({ placeId, className = '' }: VendorEmai
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [placeId]);
+  }, [placeId, autoFetch]);
 
   const fetchVendorEmails = async () => {
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
-    
-    // If too soon since last request, skip this one
-    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-      console.log('Skipping vendor email request due to rate limiting');
-      setError(true);
-      return;
-    }
-    
-    lastRequestTime = now;
     setLoading(true);
     setError(false);
     
     try {
-      const response = await fetch(`/api/vendor-emails?placeId=${placeId}`);
-      
-      if (response.status === 429) {
-        // Rate limited - don't retry immediately
-        console.warn('Rate limited for vendor emails, skipping');
-        setError(true);
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const queue = VendorEmailQueue.getInstance();
+      const data = await queue.queueRequest(placeId);
       
       if (data.emails) {
         setVendorEmails(data.emails);
+        onEmailsLoaded?.(data.emails);
       }
     } catch (error) {
       console.error('Error fetching vendor emails:', error);
@@ -80,6 +58,11 @@ export default function VendorEmailBadge({ placeId, className = '' }: VendorEmai
       setLoading(false);
     }
   };
+
+  // Expose fetch method for manual triggering
+  React.useImperativeHandle(ref, () => ({
+    fetchEmails: fetchVendorEmails
+  }));
 
   if (loading) {
     return (
@@ -94,21 +77,18 @@ export default function VendorEmailBadge({ placeId, className = '' }: VendorEmai
     return null; // Don't show anything if error or no emails
   }
 
-  const primaryEmail = vendorEmails.find(email => email.isPrimary);
   const totalEmails = vendorEmails.length;
 
   return (
     <div className={`inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full ${className}`}>
       <Mail className="w-3 h-3" />
       <span className="font-medium">
-        {primaryEmail ? primaryEmail.email : `${totalEmails} emails`}
+        Verified Email Address +{totalEmails}
       </span>
-      {primaryEmail && totalEmails > 1 && (
-        <span className="text-green-600">
-          +{totalEmails - 1}
-        </span>
-      )}
-      <Star className="w-3 h-3 text-yellow-500" />
     </div>
   );
-} 
+});
+
+VendorEmailBadge.displayName = 'VendorEmailBadge';
+
+export default VendorEmailBadge; 

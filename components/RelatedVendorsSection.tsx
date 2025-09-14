@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Star, Heart, MapPin, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,7 +59,7 @@ interface RelatedVendorsSectionProps {
   onShowContactModal?: (vendor: any) => void;
 }
 
-export default function RelatedVendorsSection({ 
+const RelatedVendorsSection = React.memo(function RelatedVendorsSection({ 
   currentVendorId, 
   category, 
   location,
@@ -94,17 +94,13 @@ export default function RelatedVendorsSection({
         
 
         
-        const response = await fetch('/api/google-places', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: apiCategory,
-            location,
-            maxResults: 10 // Fetch more to filter out current vendor and get best 3
-          })
+        // Use request deduplication to prevent duplicate API calls
+        const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
+        const data = await deduplicatedRequest.post('/api/google-places', {
+          category: apiCategory,
+          location,
+          maxResults: 10 // Fetch more to filter out current vendor and get best 3
         });
-
-        const data = await response.json();
         
         if (data.results && Array.isArray(data.results)) {
           // Filter out current vendor and map to our format
@@ -155,8 +151,8 @@ export default function RelatedVendorsSection({
     fetchRelatedVendors();
   }, [category, location, currentVendorId]);
 
-  // Handle favorite toggle with proper vendor data
-  const handleToggleFavorite = async (vendorId: string) => {
+  // Handle favorite toggle with proper vendor data and memoization
+  const handleToggleFavorite = useCallback(async (vendorId: string) => {
     try {
       const vendor = relatedVendors.find(v => v.id === vendorId);
       if (vendor) {
@@ -173,17 +169,17 @@ export default function RelatedVendorsSection({
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }
-  };
+  }, [relatedVendors, toggleFavorite]);
 
-  // Handle vendor click
-  const handleVendorClick = (vendor: RelatedVendor) => {
+  // Handle vendor click with memoization
+  const handleVendorClick = useCallback((vendor: RelatedVendor) => {
     router.push(`/vendors/${vendor.id}?category=${category}&location=${location}`);
-  };
+  }, [router, category, location]);
 
-  // Handle contact modal
-  const handleShowContactModal = (vendor: any) => {
+  // Handle contact modal with memoization
+  const handleShowContactModal = useCallback((vendor: any) => {
     onShowContactModal?.(vendor);
-  };
+  }, [onShowContactModal]);
 
   // Don't render if no related vendors
   if (!loading && relatedVendors.length === 0) {
@@ -306,4 +302,6 @@ export default function RelatedVendorsSection({
 
     </div>
   );
-} 
+});
+
+export default RelatedVendorsSection; 

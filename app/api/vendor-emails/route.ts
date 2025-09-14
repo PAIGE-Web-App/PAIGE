@@ -8,17 +8,25 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const placeId = searchParams.get('placeId');
 
+    console.log('API: Fetching vendor emails for placeId:', placeId);
+
     if (!placeId) {
       return NextResponse.json({ error: 'Place ID is required' }, { status: 400 });
     }
 
     const vendorEmailDoc = await adminDb.collection('vendorEmails').doc(placeId).get();
     
+    console.log('API: Document exists:', vendorEmailDoc.exists);
+    
     if (!vendorEmailDoc.exists) {
+      console.log('API: No document found for placeId:', placeId);
       return NextResponse.json({ emails: [], placeId });
     }
 
     const data = vendorEmailDoc.data() as GlobalVendorEmail;
+    console.log('API: Document data:', data);
+    console.log('API: Emails array:', data.emails);
+    
     return NextResponse.json({ emails: data.emails || [], placeId, vendorData: data });
 
   } catch (error) {

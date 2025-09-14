@@ -17,7 +17,8 @@ import VendorCatalogToolbar from '@/components/VendorCatalogToolbar';
 import BulkContactBanner from '@/components/BulkContactBanner';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
-import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
+import { usePrefetch } from '@/utils/prefetchManager';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -141,7 +142,10 @@ const VendorCategoryPage: React.FC = () => {
   const categorySingular = categoryObj ? categoryObj.singular : category;
   
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
-  const { weddingLocation } = useUserProfileData();
+  const { weddingLocation } = useConsolidatedUserData();
+  
+  // Initialize prefetch tracking
+  const { trackSearch } = usePrefetch();
 
   // Use URL location or fallback to user's wedding location
   const location = urlLocation || weddingLocation || 'Dallas, TX';
@@ -419,6 +423,9 @@ const VendorCategoryPage: React.FC = () => {
     if (term.trim() && term.length >= 2) {
       console.log('Triggering search for:', term);
       debouncedSearch(term);
+      
+      // Track search for prefetching
+      trackSearch(term);
     } else if (!term.trim()) {
       console.log('Clearing search results');
       setSearchResults([]);

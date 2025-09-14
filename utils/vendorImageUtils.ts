@@ -119,11 +119,23 @@ export async function enhanceVendorWithImages(vendor: any): Promise<any> {
 }
 
 /**
- * Batch enhances multiple vendors with images
+ * Batch enhances multiple vendors with images using intelligent batching
  */
 export async function enhanceVendorsWithImages(vendors: any[]): Promise<any[]> {
-  const enhanced = await Promise.all(
-    vendors.map(async (vendor) => {
+  if (vendors.length === 0) return [];
+  
+  // Process vendors in batches to avoid overwhelming the API
+  const BATCH_SIZE = 5;
+  const batches: any[][] = [];
+  
+  for (let i = 0; i < vendors.length; i += BATCH_SIZE) {
+    batches.push(vendors.slice(i, i + BATCH_SIZE));
+  }
+  
+  const enhanced: any[] = [];
+  
+  for (const batch of batches) {
+    const batchPromises = batch.map(async (vendor) => {
       try {
         return await enhanceVendorWithImages(vendor);
       } catch (error) {
@@ -134,8 +146,100 @@ export async function enhanceVendorsWithImages(vendors: any[]): Promise<any[]> {
           hasRealImages: false
         };
       }
-    })
-  );
-
+    });
+    
+    const batchResults = await Promise.allSettled(batchPromises);
+    const batchEnhanced = batchResults.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        console.error(`Failed to enhance vendor ${batch[index].id}:`, result.reason);
+        return batch[index]; // Return original vendor if enhancement fails
+      }
+    });
+    
+    enhanced.push(...batchEnhanced);
+    
+    // Add small delay between batches to prevent rate limiting
+    if (batches.indexOf(batch) < batches.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
   return enhanced;
+}
+
+/**
+ * Batch loads images for multiple vendors with caching
+ */
+export async function batchLoadVendorImages(vendors: any[]): Promise<Map<string, VendorImageData>> {
+  const results = new Map<string, VendorImageData>();
+  
+  if (vendors.length === 0) return results;
+  
+  // Group vendors by their image needs
+  const vendorsNeedingImages = vendors.filter(vendor => {
+    const placeId = vendor.placeId || vendor.id;
+    return placeId && (!vendor.image || vendor.image === '/Venue.png');
+  });
+  
+  if (vendorsNeedingImages.length === 0) {
+    // All vendors already have images, return immediate results
+    vendors.forEach(vendor => {
+      const placeId = vendor.placeId || vendor.id;
+      results.set(placeId, {
+        primaryImage: vendor.image || '/Venue.png',
+        allImages: vendor.images || [vendor.image || '/Venue.png'],
+        hasRealImages: vendor.image && !vendor.image.includes('Venue.png')
+      });
+    });
+    return results;
+  }
+  
+  // Process in smaller batches to avoid rate limiting
+  const BATCH_SIZE = 3;
+  const batches: any[][] = [];
+  
+  for (let i = 0; i < vendorsNeedingImages.length; i += BATCH_SIZE) {
+    batches.push(vendorsNeedingImages.slice(i, i + BATCH_SIZE));
+  }
+  
+  for (const batch of batches) {
+    const batchPromises = batch.map(async (vendor) => {
+      const placeId = vendor.placeId || vendor.id;
+      try {
+        const imageData = await getVendorImages(vendor);
+        results.set(placeId, imageData);
+      } catch (error) {
+        console.error(`Error loading images for vendor ${placeId}:`, error);
+        // Fallback to placeholder
+        results.set(placeId, {
+          primaryImage: '/Venue.png',
+          allImages: ['/Venue.png'],
+          hasRealImages: false
+        });
+      }
+    });
+    
+    await Promise.allSettled(batchPromises);
+    
+    // Add delay between batches
+    if (batches.indexOf(batch) < batches.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  
+  // Add vendors that already have images
+  vendors.forEach(vendor => {
+    const placeId = vendor.placeId || vendor.id;
+    if (!results.has(placeId)) {
+      results.set(placeId, {
+        primaryImage: vendor.image || '/Venue.png',
+        allImages: vendor.images || [vendor.image || '/Venue.png'],
+        hasRealImages: vendor.image && !vendor.image.includes('Venue.png')
+      });
+    }
+  });
+  
+  return results;
 } 

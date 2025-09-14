@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,7 @@ import { Heart, Star } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { getVendorImageImmediate, isPlaceholderImage } from '@/utils/vendorImageUtils';
+import ProgressiveImage from './ProgressiveImage';
 import SelectedVendorPill from './SelectedVendorPill';
 import { highlightText } from '@/utils/searchHighlight';
 
@@ -52,8 +53,10 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   const { showSuccessToast } = useCustomToast();
   const [imgSrc, setImgSrc] = useState(getVendorImageImmediate(vendor));
   const [isFlagged, setIsFlagged] = useState(false);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Ref for email badge to trigger email fetch
+  const emailBadgeRef = useRef<{ fetchEmails: () => Promise<void> }>(null);
 
   // Use the simplified favorites hook
   const { isFavorite, toggleFavorite } = useFavoritesSimple();
@@ -160,7 +163,16 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     setImgSrc('/Venue.png');
   }, []);
 
-  const handleContactClick = useCallback(() => {
+  const handleContactClick = useCallback(async () => {
+    // Fetch vendor emails before showing contact modal
+    if (emailBadgeRef.current) {
+      try {
+        await emailBadgeRef.current.fetchEmails();
+      } catch (error) {
+        console.error('Failed to fetch vendor emails:', error);
+      }
+    }
+    
     if (onShowContactModal) {
       onShowContactModal(vendor);
     }
@@ -225,12 +237,14 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       )}
       
       <div className="w-full min-h-[128px] h-32 bg-[#F3F2F0] rounded-t-[5px] flex items-center justify-center overflow-hidden">
-        <img
+        <ProgressiveImage
           src={imgSrc}
           alt={vendor.name}
+          placeholder="/Venue.png"
           className={`w-full h-full ${isPlaceholder ? 'object-contain' : 'object-cover'}`}
           onError={handleImageError}
-          loading="lazy"
+          priority={false}
+          threshold={0.1}
         />
       </div>
       
@@ -288,8 +302,13 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
             </div>
           )}
           
-          {/* Vendor Email Badge */}
-          <VendorEmailBadge placeId={vendor.id} className="mb-2" />
+          {/* Vendor Email Badge - Only show if emails are available */}
+          <VendorEmailBadge 
+            ref={emailBadgeRef}
+            placeId={vendor.id} 
+            className="mb-2" 
+            autoFetch={false}
+          />
           
           {/* Price estimate badge */}
           {vendor.estimate && (

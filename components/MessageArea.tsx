@@ -1166,8 +1166,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         let hasVerifiedEmails = false;
         if (!hasMessagingContactInfo) {
           try {
-            const verifiedEmailsResponse = await fetch(`/api/vendor-emails?placeId=${selectedContact.placeId}`);
-            const verifiedEmailsData = await verifiedEmailsResponse.json();
+            const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
+            const queue = VendorEmailQueue.getInstance();
+            const verifiedEmailsData = await queue.queueRequest(selectedContact.placeId);
             hasVerifiedEmails = verifiedEmailsData.emails && 
                                verifiedEmailsData.emails.length > 0 && 
                                verifiedEmailsData.emails.some((email: any) => email.email && email.email.trim() !== '');

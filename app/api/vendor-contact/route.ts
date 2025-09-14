@@ -288,7 +288,7 @@ const verifyVendorEmail = async (vendor: any): Promise<string | null> => {
 
 export async function POST(req: NextRequest) {
   try {
-    const { vendorDetails, message, userId } = await req.json();
+    const { vendorDetails, message, userId, toEmail } = await req.json();
 
     if (!vendorDetails || !message || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -365,19 +365,27 @@ export async function POST(req: NextRequest) {
           console.error('Error adding vendor to management system:', error);
         }
 
-        // First, check for verified emails in global database
-        const verifiedEmails = await getVendorEmails(vendor.place_id);
+        // Use the provided toEmail if available, otherwise check for verified emails
         let vendorEmail: string | null = null;
         let emailSource = '';
 
-        if (verifiedEmails.length > 0) {
-          // Use verified email from global database
-          vendorEmail = verifiedEmails[0]; // Use primary email
-          emailSource = 'crowdsourced';
+        if (toEmail) {
+          // Use the selected email from the modal
+          vendorEmail = toEmail;
+          emailSource = 'selected';
         } else {
-          // Fallback to SMTP verification
-          vendorEmail = await verifyVendorEmail(vendor);
-          emailSource = 'smtp';
+          // First, check for verified emails in global database
+          const verifiedEmails = await getVendorEmails(vendor.place_id);
+          
+          if (verifiedEmails.length > 0) {
+            // Use verified email from global database
+            vendorEmail = verifiedEmails[0]; // Use primary email
+            emailSource = 'crowdsourced';
+          } else {
+            // Fallback to SMTP verification
+            vendorEmail = await verifyVendorEmail(vendor);
+            emailSource = 'smtp';
+          }
         }
         
         if (vendorEmail) {

@@ -21,6 +21,9 @@ interface UseFavoritesSimpleReturn {
   toggleFavorite: (vendorData: VendorData) => Promise<void>;
   addFavorite: (vendorData: VendorData) => Promise<void>;
   removeFavorite: (placeId: string) => Promise<void>;
+  batchToggleFavorites: (vendors: VendorData[], isFavoriting: boolean) => Promise<void>;
+  syncWithServer: () => Promise<void>;
+  clearFavorites: () => Promise<void>;
 }
 
 export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
@@ -187,12 +190,137 @@ export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
     }
   }, [isFavorite, addFavorite, removeFavorite]);
 
+  // Batch toggle favorites for multiple vendors
+  const batchToggleFavorites = useCallback(async (vendors: VendorData[], isFavoriting: boolean) => {
+    if (!isClient) return;
+
+    try {
+      let newFavorites: VendorData[];
+      
+      if (isFavoriting) {
+        // Add all vendors to favorites
+        const existingPlaceIds = new Set(favorites.map(fav => fav.placeId));
+        const newVendors = vendors.filter(vendor => !existingPlaceIds.has(vendor.placeId));
+        newFavorites = [...favorites, ...newVendors];
+      } else {
+        // Remove all vendors from favorites
+        const placeIdsToRemove = new Set(vendors.map(vendor => vendor.placeId));
+        newFavorites = favorites.filter(fav => !placeIdsToRemove.has(fav.placeId));
+      }
+
+      setFavorites(newFavorites);
+      localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
+      
+      // Notify other components
+      window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
+        detail: { favorites: newFavorites }
+      }));
+
+      const action = isFavoriting ? 'Added' : 'Removed';
+      const count = vendors.length;
+      showSuccessToast(`${action} ${count} vendor${count > 1 ? 's' : ''} ${isFavoriting ? 'to' : 'from'} favorites`);
+
+      // Background sync to server
+      if (user?.uid) {
+        const syncPromises = vendors.map(vendor => 
+          fetch('/api/user-favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.uid,
+              placeId: vendor.placeId,
+              vendorData: vendor,
+              isFavorite
+            })
+          }).catch(error => {
+            console.error(`Background sync failed for ${vendor.placeId}:`, error);
+          })
+        );
+        
+        Promise.allSettled(syncPromises);
+      }
+    } catch (error) {
+      console.error('Error batch toggling favorites:', error);
+      showErrorToast('Failed to update favorites');
+    }
+  }, [favorites, isClient, user?.uid, showSuccessToast, showErrorToast]);
+
+  // Sync all favorites with server
+  const syncWithServer = useCallback(async () => {
+    if (!isClient || !user?.uid || favorites.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      const syncPromises = favorites.map(favorite =>
+        fetch('/api/user-favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            placeId: favorite.placeId,
+            vendorData: favorite,
+            isFavorite: true
+          })
+        })
+      );
+
+      const results = await Promise.allSettled(syncPromises);
+      const failed = results.filter(result => result.status === 'rejected').length;
+      
+      if (failed > 0) {
+        console.warn(`${failed} favorites failed to sync with server`);
+      }
+    } catch (error) {
+      console.error('Error syncing favorites with server:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [favorites, isClient, user?.uid]);
+
+  // Clear all favorites
+  const clearFavorites = useCallback(async () => {
+    if (!isClient) return;
+
+    try {
+      setFavorites([]);
+      localStorage.removeItem('vendorFavorites');
+      
+      // Notify other components
+      window.dispatchEvent(new CustomEvent('vendorFavoritesChanged', {
+        detail: { favorites: [] }
+      }));
+
+      showSuccessToast('Cleared all favorites');
+
+      // Background sync to server
+      if (user?.uid) {
+        fetch('/api/user-favorites', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            clearAll: true
+          })
+        }).catch(error => {
+          console.error('Background sync failed:', error);
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing favorites:', error);
+      showErrorToast('Failed to clear favorites');
+    }
+  }, [isClient, user?.uid, showSuccessToast, showErrorToast]);
+
   return {
     favorites,
     isLoading,
     isFavorite,
     toggleFavorite,
     addFavorite,
-    removeFavorite
+    removeFavorite,
+    batchToggleFavorites,
+    syncWithServer,
+    clearFavorites
   };
 };
