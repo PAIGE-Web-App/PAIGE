@@ -22,7 +22,7 @@ export const VendorHubEmptyState: React.FC<VendorHubEmptyStateProps> = ({
           title: 'Welcome to your Vendor Hub',
           description: 'This is where you can discover and build your perfect vendor team. Browse our curated selection of venues, photographers, caterers, and more. Save your favorites, add personal notes for you and your partner, and track vendor details all in one place.',
           buttonText: 'Browse Vendors',
-          buttonAction: () => router.push('/vendors/catalog/search')
+          buttonAction: () => router.push('/vendors/catalog')
         };
       case 'my-vendors':
         return {

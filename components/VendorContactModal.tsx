@@ -40,6 +40,7 @@ interface VendorContactModalProps {
 export default function VendorContactModal({ vendor, isOpen, onClose }: VendorContactModalProps) {
   const [vendorDetails, setVendorDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [verifiedEmails, setVerifiedEmails] = useState<VendorEmail[]>([]);
@@ -49,6 +50,7 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
   const [isWarningExpanded, setIsWarningExpanded] = useState(false);
   const [toEmail, setToEmail] = useState('');
   const [showEmailDropdown, setShowEmailDropdown] = useState(false);
+  const [showAddEmailInput, setShowAddEmailInput] = useState(false);
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
 
@@ -78,17 +80,15 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
 
   // Set default "To:" email when emails are loaded
   useEffect(() => {
-    
     if (verifiedEmails && verifiedEmails.length > 0) {
       setToEmail(verifiedEmails[0].email);
     } else if (linkedContactEmails && linkedContactEmails.length > 0) {
       setToEmail(linkedContactEmails[0].email);
-    } else if (vendorDetails?.name) {
-      const fallbackEmail = `info@${vendorDetails.name.toLowerCase().replace(/\s+/g, '')}.com`;
-      setToEmail(fallbackEmail);
     } else {
+      // Don't set a fallback email - let user choose to add one
+      setToEmail('');
     }
-  }, [verifiedEmails, linkedContactEmails, vendorDetails?.name]);
+  }, [verifiedEmails, linkedContactEmails]);
 
   const fetchVerifiedEmails = async () => {
     if (!vendor?.id) return;
@@ -202,55 +202,23 @@ Best regards,
       return;
     }
 
-    if (!toEmail.trim()) {
-      showErrorToast('Please select an email address');
-      return;
-    }
+    // Allow sending without toEmail - system will try common emails
 
     setLoading(true);
+    // Set the appropriate loading message based on whether we have a specific email
+    if (!toEmail) {
+      console.log('Setting loading message: Trying common email addresses...');
+      setLoadingMessage('Trying common email addresses (info@, hello@, contact@, etc.)...');
+    } else {
+      console.log('Setting loading message: Sending email...');
+      setLoadingMessage('Sending email...');
+    }
+    
+    // Force a small delay to ensure state updates are visible
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
-      // Find the verified email data for the selected email to get the original metadata
-      const selectedEmailData = verifiedEmails?.find(email => email.email === toEmail);
       
-      // First, create a contact in the dashboard
-      const contactData = {
-        name: selectedEmailData?.contactName || vendorDetails?.name || vendor.name,
-        email: toEmail,
-        phone: vendorDetails?.formatted_phone_number || '',
-        website: vendorDetails?.website || '',
-        category: selectedEmailData?.role || getVendorCategory(vendorDetails || vendor), // Use the role from verified email or vendor category
-        address: vendorDetails?.formatted_address || vendor.address || '',
-        placeId: vendor.place_id || vendor.id,
-        userId: user.uid,
-        avatarColor: '#364257', // Default avatar color
-        orderIndex: -new Date().getTime(), // Negative timestamp to sort to top
-        isVendorContact: true, // Mark as vendor contact
-        createdAt: new Date().toISOString() // Add timestamp
-      };
-
-      // Create contact
-      const contactResponse = await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(contactData),
-      });
-
-      const contactResult = await contactResponse.json();
-      
-      if (!contactResponse.ok) {
-        console.error('❌ Contact creation failed:', contactResult);
-        showErrorToast(`Failed to create contact: ${contactResult.error || 'Unknown error'}`);
-        return;
-      }
-      
-      if (!contactResult.success) {
-        console.error('❌ Contact creation returned success: false:', contactResult);
-        showErrorToast('Failed to create contact in dashboard');
-        return;
-      }
-      
-
-      // Then send the email using the selected email address
       const response = await fetch('/api/vendor-contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -258,7 +226,7 @@ Best regards,
           vendorDetails: [vendorDetails],
           message: emailMessage,
           userId: user.uid,
-          toEmail: toEmail // Use the selected email address
+          toEmail: toEmail || undefined // Only send toEmail if it exists
         }),
       });
 
@@ -266,13 +234,46 @@ Best regards,
       
       if (data.success) {
         const result = data.results[0];
-        if (result.method === 'email') {
-          const contactMessage = contactResult.success ? ' and added to your contacts!' : '';
-          const emailSource = result.emailSource === 'crowdsourced' ? ' (Community verified)' : ' (SMTP verified)';
-          showSuccessToast(`✅ Email sent successfully to ${toEmail}!${emailSource}${contactMessage}`);
+        
+        // Only create contact if email was successfully sent
+        if (result.method === 'email' && result.vendorEmail) {
+          // Find the verified email data for the selected email to get the original metadata
+          const selectedEmailData = verifiedEmails?.find(email => email.email === toEmail);
+          
+          // Create contact with the email that actually worked
+          const contactData = {
+            name: selectedEmailData?.contactName || vendorDetails?.name || vendor.name,
+            email: result.vendorEmail, // Use the email that actually worked
+            phone: vendorDetails?.formatted_phone_number || '',
+            website: vendorDetails?.website || '',
+            category: selectedEmailData?.role || getVendorCategory(vendorDetails || vendor),
+            address: vendorDetails?.formatted_address || vendor.address || '',
+            placeId: vendor.place_id || vendor.id,
+            userId: user.uid,
+            avatarColor: '#364257',
+            orderIndex: -new Date().getTime(),
+            isVendorContact: true,
+            createdAt: new Date().toISOString()
+          };
+
+          // Create contact
+          const contactResponse = await fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(contactData),
+          });
+
+          const contactResult = await contactResponse.json();
+          
+          if (contactResponse.ok && contactResult.success) {
+            const emailSource = result.emailSource === 'crowdsourced' ? ' (Community verified)' : ' (SMTP verified)';
+            showSuccessToast(`✅ Email sent successfully to ${result.vendorEmail}!${emailSource} and added to your contacts!`);
+          } else {
+            const emailSource = result.emailSource === 'crowdsourced' ? ' (Community verified)' : ' (SMTP verified)';
+            showSuccessToast(`✅ Email sent successfully to ${result.vendorEmail}!${emailSource}`);
+          }
         } else if (result.method === 'website') {
-          const contactMessage = contactResult.success ? ' and added to your contacts!' : '';
-          showSuccessToast(`🌐 No verified email found - opening website for manual contact${contactMessage}`);
+          showSuccessToast(`🌐 No verified email found - opening website for manual contact`);
           if (vendorDetails?.website) {
             window.open(vendorDetails.website, '_blank');
           }
@@ -286,6 +287,7 @@ Best regards,
       showErrorToast('Failed to send email. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -582,10 +584,21 @@ Best regards,
 
                   {/* To: Field */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#332B42]">To:</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-[#332B42]">To:</label>
+                      {(!verifiedEmails || verifiedEmails.length === 0) && !showAddEmailInput && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddEmailInput(true)}
+                          className="text-blue-600 hover:text-blue-800 underline text-sm font-medium"
+                        >
+                          + Add Email
+                        </button>
+                      )}
+                    </div>
                     
-                    {/* Show dropdown if there are multiple verified emails */}
-                    {verifiedEmails && verifiedEmails.length > 1 ? (
+                    {/* Show verified emails dropdown if available */}
+                    {verifiedEmails && verifiedEmails.length > 0 ? (
                       <div className="relative email-dropdown-container">
                         <button
                           type="button"
@@ -624,26 +637,49 @@ Best regards,
                         )}
                       </div>
                     ) : (
-                      <input
-                        type="email"
-                        value={toEmail}
-                        onChange={(e) => setToEmail(e.target.value)}
-                        placeholder="Enter email address"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#805d93] focus:border-transparent"
-                      />
+                      /* No verified emails - show system message or input */
+                      <div className="space-y-2">
+                        {!showAddEmailInput ? (
+                          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                            <p className="text-sm text-gray-600">
+                              If you know a verified contact email for this vendor, click "Add Email" above. Otherwise, we'll try common emails (info@, hello@, etc.).
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <input
+                              type="email"
+                              value={toEmail}
+                              onChange={(e) => setToEmail(e.target.value)}
+                              placeholder="Enter email address to verify"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#805d93] focus:border-transparent"
+                            />
+                            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                              ⚠️ This email will be verified before sending. If valid, it will be added to verified emails.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
                   {/* Email Template Section */}
                   <div className="border border-gray-200 rounded-lg mb-6">
-                    <textarea
-                      value={emailMessage}
-                      onChange={(e) => setEmailMessage(e.target.value)}
-                      placeholder="Your email message..."
-                      className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none font-work p-4"
-                      rows={12}
-                      style={{ minHeight: "12rem", maxHeight: "500px", overflowY: "auto", paddingTop: "16px", paddingBottom: "24px" }}
-                    />
+                    {loading && loadingMessage ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <LoadingSpinner size="lg" />
+                        <p className="mt-4 text-sm text-gray-600">{loadingMessage}</p>
+                      </div>
+                    ) : (
+                      <textarea
+                        value={emailMessage}
+                        onChange={(e) => setEmailMessage(e.target.value)}
+                        placeholder="Your email message..."
+                        className="w-full text-sm resize-none text-[#332B42] bg-transparent border-none focus:outline-none font-work p-4"
+                        rows={16}
+                        style={{ minHeight: "16rem", maxHeight: "500px", overflowY: "auto", paddingTop: "16px", paddingBottom: "24px" }}
+                      />
+                    )}
                   </div>
 
 
@@ -662,25 +698,20 @@ Best regards,
                 >
                   Close
                 </button>
-                {!loading && (
-                  <button
-                    onClick={handleEmailClick}
-                    disabled={loading || !emailMessage.trim()}
-                    className="btn-primary flex items-center gap-1 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Send Email"
-                  >
-                    {loading ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        Send <Mail className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                )}
+                <button
+                  onClick={handleEmailClick}
+                  disabled={loading || !emailMessage.trim()}
+                  className="btn-primary flex items-center gap-1 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Send Email"
+                >
+                  {loading ? (
+                    'Sending...'
+                  ) : (
+                    <>
+                      Send <Mail className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </motion.div>

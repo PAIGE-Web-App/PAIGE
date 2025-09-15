@@ -521,7 +521,7 @@ const VendorCategoryPage: React.FC = () => {
 
   
   return (
-    <div className="min-h-screen bg-linen mobile-scroll-container">
+    <div className="min-h-screen bg-[#F3F2F0] mobile-scroll-container">
       <style jsx global>{`
         @media (max-width: 768px) {
           html, body {
@@ -550,7 +550,7 @@ const VendorCategoryPage: React.FC = () => {
       <div className="max-w-6xl mx-auto w-full">
         <div className={`app-content-container flex flex-col gap-4 py-8 mobile-catalog-content ${bulkContactMode ? 'pb-24' : 'pb-6'}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
           {/* Sticky Header and Search Area */}
-          <div className="sticky top-0 z-10 bg-linen pt-6 pb-6 -mx-4 px-4">
+          <div className="sticky top-0 z-30 bg-[#F3F2F0] pt-6 pb-6 -mx-4 px-4">
             <VendorCatalogHeader
               isSearching={isSearching}
               searchTerm={searchTerm}

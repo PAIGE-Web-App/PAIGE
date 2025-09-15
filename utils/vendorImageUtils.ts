@@ -45,11 +45,18 @@ export async function getVendorImages(vendor: any): Promise<VendorImageData> {
       const data = await response.json();
       
       if (data.images && data.images.length > 0) {
-        return {
-          primaryImage: data.images[0],
-          allImages: data.images,
-          hasRealImages: true
-        };
+        // Validate that the URLs are valid
+        const validImages = data.images.filter((url: string) => 
+          url && typeof url === 'string' && url.startsWith('http')
+        );
+        
+        if (validImages.length > 0) {
+          return {
+            primaryImage: validImages[0],
+            allImages: validImages,
+            hasRealImages: true
+          };
+        }
       }
     } catch (error) {
       console.error('Error fetching vendor photos:', error);
@@ -77,7 +84,7 @@ export function getVendorImageImmediate(vendor: any): string {
   // If vendor has multiple images, use the first non-placeholder
   if (vendor.images && vendor.images.length > 0) {
     const realImages = vendor.images.filter((img: string) => 
-      img && img !== '/Venue.png' && !img.includes('Venue.png')
+      img && img !== '/Venue.png' && !img.includes('Venue.png') && img.startsWith('http')
     );
     
     if (realImages.length > 0) {
@@ -86,7 +93,7 @@ export function getVendorImageImmediate(vendor: any): string {
   }
 
   // Return the vendor's image if it exists and isn't a placeholder
-  if (vendor.image && vendor.image !== '/Venue.png' && !vendor.image.includes('Venue.png')) {
+  if (vendor.image && vendor.image !== '/Venue.png' && !vendor.image.includes('Venue.png') && vendor.image.startsWith('http')) {
     return vendor.image;
   }
 

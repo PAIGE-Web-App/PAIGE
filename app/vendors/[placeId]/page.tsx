@@ -961,6 +961,12 @@ export default function VendorDetailPage() {
             }
           }
         `}</style>
+        <WeddingBanner
+          daysLeft={daysLeft}
+          userName={userName}
+          isLoading={bannerLoading}
+          onSetWeddingDate={handleSetWeddingDate}
+        />
         <div className="max-w-6xl mx-auto">
           <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
             {/* Back Button and Error Title - Same Row */}
@@ -976,14 +982,14 @@ export default function VendorDetailPage() {
               
               {/* Error Title - Centered with wrapping */}
               <div className="flex-1 flex justify-center min-w-0">
-                <h1 className="text-2xl font-playfair text-[#332B42] text-center break-words hyphens-auto max-w-[calc(100vw-8rem)]">Vendor Not Found</h1>
+                <h1 className="h5 text-center break-words hyphens-auto max-w-[calc(100vw-8rem)]">Vendor Not Found</h1>
               </div>
               
               {/* Right Spacer for Balance */}
               <div className="w-7 flex-shrink-0"></div>
             </div>
-            <div className="text-center">
-              <p className="text-[#364257] mb-4">The vendor you're looking for doesn't exist or has been removed.</p>
+            <div className="flex flex-col items-center">
+              <p className="text-[#364257] mb-4 text-center">The vendor you're looking for doesn't exist or has been removed.</p>
               <button 
                 onClick={() => router.back()}
                 className="btn-primary"

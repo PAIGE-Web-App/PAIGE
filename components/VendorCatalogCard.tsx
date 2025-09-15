@@ -17,6 +17,7 @@ interface VendorCatalogCardProps {
   vendor: {
     id: string;
     placeId?: string;
+    place_id?: string;
     name: string;
     image: string;
     rating?: number;
@@ -156,13 +157,16 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     }
     
     // In normal mode, navigate to vendor detail page
-    const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    // Use place_id (or placeId) for the route, not id
+    const vendorId = vendor.place_id || vendor.placeId || vendor.id;
+    const baseUrl = location ? `/vendors/${vendorId}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendorId}?category=${encodeURIComponent(category)}`;
     router.push(baseUrl);
-  }, [bulkContactMode, onSelectionChange, vendor.id, location, router, category, onMobileSelect]);
+  }, [bulkContactMode, onSelectionChange, vendor.place_id, vendor.placeId, vendor.id, location, router, category, onMobileSelect]);
 
   const handleImageError = useCallback(() => {
+    console.warn('VendorCatalogCard image error for vendor:', vendor.name, 'current src:', imgSrc);
     setImgSrc('/Venue.png');
-  }, []);
+  }, [vendor.name, imgSrc]);
 
   const handleContactClick = useCallback(async () => {
     // Fetch vendor emails before showing contact modal
@@ -180,9 +184,11 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   }, [onShowContactModal, vendor]);
 
   const handleViewDetailsClick = useCallback(() => {
-    const baseUrl = location ? `/vendors/${vendor.id}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendor.id}?category=${encodeURIComponent(category)}`;
+    // Use place_id (or placeId) for the route, not id
+    const vendorId = vendor.place_id || vendor.placeId || vendor.id;
+    const baseUrl = location ? `/vendors/${vendorId}?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}` : `/vendors/${vendorId}?category=${encodeURIComponent(category)}`;
     router.push(baseUrl);
-  }, [vendor.id, location, router, category]);
+  }, [vendor.place_id, vendor.placeId, vendor.id, location, router, category]);
 
   const handleSelectionChange = useCallback(() => {
     if (onSelectionChange) {
@@ -210,7 +216,10 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       {/* Heart icon - hidden in bulk mode */}
       {!bulkContactMode && (
         <button
-          onClick={handleToggleFavorite}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleFavorite();
+          }}
           className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors z-20 shadow-md ${
             (isFavorite(vendor.placeId || vendor.id) || isFavoriteOverride)
               ? 'bg-white/90 text-pink-500 hover:text-pink-600'
@@ -226,7 +235,10 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       {!bulkContactMode && !isFlagged && (
         <button
           className="absolute top-3 left-3 z-10 bg-white/80 rounded-full p-1 shadow hover:bg-red-100 text-xs text-red-600 border border-red-200"
-          onClick={() => onShowFlagModal?.(vendor)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowFlagModal?.(vendor);
+          }}
           aria-label="Flag vendor"
           style={{ border: 'none' }}
         >
@@ -257,22 +269,26 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           
           {/* Selected Vendor Pills */}
           {isSelectedVenue && (
-            <SelectedVendorPill 
-              category="main-venue" 
-              isSelectedVenue={true} 
-              isMainSelectedVenue={true}
-              clickable={!!onUpdateSelectedVendor}
-              onClick={() => onUpdateSelectedVendor?.(vendor)}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <SelectedVendorPill 
+                category="main-venue" 
+                isSelectedVenue={true} 
+                isMainSelectedVenue={true}
+                clickable={!!onUpdateSelectedVendor}
+                onClick={() => onUpdateSelectedVendor?.(vendor)}
+              />
+            </div>
           )}
           
           {isSelectedVendor && !isSelectedVenue && selectedCategory && (
-            <SelectedVendorPill 
-              category={selectedCategory} 
-              isSelectedVenue={false} 
-              clickable={!!onUpdateSelectedVendor}
-              onClick={() => onUpdateSelectedVendor?.(vendor)}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <SelectedVendorPill 
+                category={selectedCategory} 
+                isSelectedVenue={false} 
+                clickable={!!onUpdateSelectedVendor}
+                onClick={() => onUpdateSelectedVendor?.(vendor)}
+              />
+            </div>
           )}
           
           <div className="flex items-center gap-1 text-xs mb-1">
@@ -323,14 +339,20 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       <div className="flex gap-2 w-full mt-auto p-4 pt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
         <button 
           className="btn-primaryinverse flex-1" 
-          onClick={handleContactClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleContactClick();
+          }}
           disabled={bulkContactMode}
         >
           Contact
         </button>
         <button 
           className="btn-primary flex-1" 
-          onClick={handleViewDetailsClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleViewDetailsClick();
+          }}
           disabled={bulkContactMode}
         >
           View Details

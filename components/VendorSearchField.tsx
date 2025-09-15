@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, MapPin, X, Star } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import ReactDOM from 'react-dom';
@@ -24,6 +24,7 @@ export default function VendorSearchField({
   location = 'United States',
 }: VendorSearchFieldProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [allVendors, setAllVendors] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -32,54 +33,96 @@ export default function VendorSearchField({
   const resultsRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const [vendorSelected, setVendorSelected] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(false);
 
-  // Debounced search function
-  const debouncedSearch = useRef(
-    debounce(async (term: string, currentCategories: string[], currentLocation: string) => {
-      if (!term.trim() || term.length < 2) {
-        setResults([]);
-        setLoading(false);
-        return;
+  // Load vendors initially (like catalog does)
+  const loadVendors = useCallback(async () => {
+    if (initialLoad) {
+      console.log('VendorSearchField: Skipping load - already loaded');
+      return;
+    }
+    
+    console.log('VendorSearchField: Loading vendors for category:', categories[0], 'location:', location);
+    setLoading(true);
+    try {
+      const requestBody = {
+        category: categories[0] || 'restaurant',
+        location: location,
+        maxResults: 50 // Load more vendors for better filtering
+      };
+      
+      const response = await fetch('/api/google-places-optimized', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      console.log('VendorSearchField: Loaded vendors:', data.results?.length || 0);
+      if (data.results) {
+        setAllVendors(data.results);
+        setInitialLoad(true);
+        console.log('VendorSearchField: Set allVendors to:', data.results.length);
       }
+    } catch (error) {
+      console.error('Error loading vendors:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [categories, location, initialLoad]);
 
-      setLoading(true);
-      try {
-        const requestBody = {
-          category: currentCategories[0] || 'restaurant',
-          location: currentLocation,
-          searchTerm: term,
-          maxResults: 5
-        };
-        
-        const response = await fetch('/api/google-places', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
+  // Client-side filtering function (like catalog)
+  const filterVendors = useCallback((term: string) => {
+    console.log('VendorSearchField: Filtering with term:', term, 'allVendors:', allVendors.length, 'allVendors array:', allVendors);
+    if (!term.trim() || term.length < 2) {
+      setResults([]);
+      return;
+    }
 
-        const data = await response.json();
-        if (data.results) {
-          setResults(data.results);
-        } else {
-          setResults([]);
-        }
-      } catch (error) {
-        console.error('Error searching vendors:', error);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300)
-  ).current;
+    if (allVendors.length === 0) {
+      console.log('VendorSearchField: No vendors to filter, skipping');
+      setResults([]);
+      return;
+    }
 
-  // Single useEffect to handle all search triggers
+    const searchLower = term.toLowerCase().trim();
+    const filtered = allVendors.filter(vendor => 
+      vendor.name.toLowerCase().includes(searchLower) ||
+      (vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower)) ||
+      (getVendorCategory(vendor).toLowerCase().includes(searchLower))
+    );
+    
+    console.log('VendorSearchField: Filtered results:', filtered.length);
+    setResults(filtered.slice(0, 10)); // Limit to 10 results for dropdown
+  }, [allVendors]);
+
+  // Create a new debounced function whenever allVendors changes
+  const debouncedSearch = useMemo(() => {
+    return debounce((term: string) => {
+      console.log('VendorSearchField: debouncedSearch called with term:', term, 'allVendors at call time:', allVendors.length);
+      filterVendors(term);
+    }, 150);
+  }, [allVendors, filterVendors]);
+
+  // Load vendors on mount
   useEffect(() => {
-    if (searchTerm && searchTerm.length >= 2) {
-      debouncedSearch(searchTerm, categories, location);
+    console.log('VendorSearchField: useEffect triggered - categories:', categories, 'location:', location, 'initialLoad:', initialLoad);
+    loadVendors();
+  }, [categories, location, loadVendors]);
+
+  // Debug allVendors changes
+  useEffect(() => {
+    console.log('VendorSearchField: allVendors state changed to:', allVendors.length);
+  }, [allVendors]);
+
+  // Handle search input changes
+  useEffect(() => {
+    if (searchTerm && searchTerm.length >= 2 && allVendors.length > 0) {
+      debouncedSearch(searchTerm);
     } else {
       setResults([]);
     }
-  }, [searchTerm, categories, location]);
+  }, [searchTerm, allVendors, debouncedSearch, filterVendors]);
 
   useEffect(() => {
     // Set initial search term if value is provided
@@ -130,6 +173,7 @@ export default function VendorSearchField({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
+    console.log('VendorSearchField: Input changed to:', term);
     setSearchTerm(term);
     setShowResults(true);
     setSelectedIndex(-1);
@@ -205,6 +249,22 @@ export default function VendorSearchField({
     if (inputRef.current) {
       inputRef.current.focus();
     }
+  };
+
+  // Highlight matching text in search results
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 px-0.5 rounded">
+          {part}
+        </mark>
+      ) : part
+    );
   };
 
   const getVendorCategory = (vendor: any): string => {
@@ -296,7 +356,7 @@ export default function VendorSearchField({
       </div>
 
       {/* Results Dropdown */}
-      {showResults && (results.length > 0 || loading) && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {showResults && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div
           ref={resultsRef}
           style={dropdownStyle}
@@ -304,7 +364,7 @@ export default function VendorSearchField({
         >
           {loading ? (
             <div className="p-4 text-center">
-              <LoadingSpinner size="sm" text="Searching vendors..." />
+              <LoadingSpinner size="sm" text={allVendors.length === 0 ? "Loading vendors..." : "Searching vendors..."} />
             </div>
           ) : results.length > 0 ? (
             <div className="py-2">
@@ -317,21 +377,18 @@ export default function VendorSearchField({
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">
-                      {vendor.name}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                      <MapPin className="w-3 h-3 flex-shrink-0" />
-                      <span className="truncate">{vendor.formatted_address}</span>
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {highlightText(vendor.name, searchTerm)}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                       <span className="bg-gray-100 px-2 py-0.5 rounded">
                         {getVendorCategory(vendor)}
                       </span>
                       {vendor.rating && (
-                        <span className="text-yellow-600">
-                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> {vendor.rating}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                          <span className="text-yellow-600 font-medium">{vendor.rating}</span>
+                        </div>
                       )}
                     </div>
                   </div>

@@ -50,9 +50,11 @@ export async function GET(
     console.log(`Found ${detailsData.result.photos.length} photos for placeId:`, placeId);
 
     // Generate photo URLs for the first 16 photos
-    const photoUrls = detailsData.result.photos.slice(0, 16).map((photo: any) => 
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${apiKey}`
-    );
+    const photoUrls = detailsData.result.photos.slice(0, 16).map((photo: any) => {
+      const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${apiKey}`;
+      console.log('Generated photo URL:', url);
+      return url;
+    });
 
     console.log(`Generated ${photoUrls.length} photo URLs for placeId:`, placeId);
     return NextResponse.json({ images: photoUrls });

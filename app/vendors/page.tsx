@@ -376,9 +376,12 @@ export default function VendorsPage() {
 
   // Mobile view mode handlers
   const handleMobileVendorSelect = useCallback((vendor: any) => {
-    setSelectedVendor(vendor);
-    setMobileViewMode('vendor-details');
-  }, []);
+    // Navigate to the actual vendor detail page instead of showing mobile view
+    // Use place_id (or placeId) for the route, not id
+    const vendorId = vendor.place_id || vendor.placeId || vendor.id;
+    const baseUrl = defaultLocation ? `/vendors/${vendorId}?location=${encodeURIComponent(defaultLocation)}` : `/vendors/${vendorId}`;
+    router.push(baseUrl);
+  }, [router, defaultLocation]);
 
   const handleMobileBackToVendors = useCallback(() => {
     setMobileViewMode('vendors');
@@ -526,12 +529,9 @@ export default function VendorsPage() {
                   Update Tags
                 </button>
                 <button className="btn-primary" onClick={() => {
-                  // On mobile, redirect to mobile catalog page for better mobile experience
-                  if (window.innerWidth < 768) {
-                    router.push('/vendors/m-catalog');
-                  } else {
-                    router.push('/vendors/catalog/search');
-                  }
+                  // Use the efficient mobile catalog route for both mobile and desktop
+                  // This avoids loading the expensive map component
+                  router.push('/vendors/catalog');
                 }}>Browse Vendors</button>
               </div>
             </div>

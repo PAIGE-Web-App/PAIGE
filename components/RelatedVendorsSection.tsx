@@ -96,7 +96,7 @@ const RelatedVendorsSection = React.memo(function RelatedVendorsSection({
         
         // Use request deduplication to prevent duplicate API calls
         const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
-        const data = await deduplicatedRequest.post('/api/google-places', {
+        const data = await deduplicatedRequest.post('/api/google-places-optimized', {
           category: apiCategory,
           location,
           maxResults: 10 // Fetch more to filter out current vendor and get best 3

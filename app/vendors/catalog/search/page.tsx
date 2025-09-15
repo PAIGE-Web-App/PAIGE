@@ -25,16 +25,7 @@ export default function VendorSearchPage() {
   // Get user's wedding location from profile data
   const { weddingLocation } = useUserProfileData();
   
-  // Redirect mobile users to appropriate category page
-  useEffect(() => {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      // Get category from URL params or default to 'venue'
-      const urlParams = new URLSearchParams(window.location.search);
-      const category = urlParams.get('category') || 'venue';
-      router.replace(`/vendors/catalog/${category}`);
-    }
-  }, [router]);
+  // No redirects - this is the main search page for both mobile and desktop
   
   // Use the custom hook for vendor search
   const {

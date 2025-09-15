@@ -44,10 +44,11 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
 
   // Handle image error
   const handleError = useCallback(() => {
+    console.warn('Image failed to load:', src, 'falling back to placeholder:', placeholder);
     setHasError(true);
     setCurrentSrc(placeholder);
     onError?.();
-  }, [placeholder, onError]);
+  }, [src, placeholder, onError]);
 
   // Set up intersection observer
   useEffect(() => {
@@ -110,10 +111,14 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error state - show placeholder instead of "Failed to load" */}
       {hasError && (
         <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-          <div className="text-gray-400 text-sm">Failed to load</div>
+          <img
+            src={placeholder}
+            alt={alt}
+            className="w-full h-full object-cover"
+          />
         </div>
       )}
 

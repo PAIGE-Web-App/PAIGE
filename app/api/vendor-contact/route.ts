@@ -370,9 +370,51 @@ export async function POST(req: NextRequest) {
         let emailSource = '';
 
         if (toEmail) {
-          // Use the selected email from the modal
-          vendorEmail = toEmail;
-          emailSource = 'selected';
+          // Verify the user-provided email before using it
+          console.log(`Verifying user-provided email: ${toEmail}`);
+          
+          // Basic format validation
+          if (!isValidEmailFormat(toEmail)) {
+            console.log(`❌ Invalid email format: ${toEmail}`);
+            vendorEmail = null;
+            emailSource = 'invalid';
+          } else {
+            // SMTP verification for user-provided email
+            const emailValid = await Promise.race([
+              verifyEmailWithSMTP(toEmail),
+              new Promise<boolean>((resolve) => 
+                setTimeout(() => resolve(false), 5000) // 5 second timeout
+              )
+            ]);
+            
+            if (emailValid) {
+              console.log(`✅ User-provided email verified: ${toEmail}`);
+              vendorEmail = toEmail;
+              emailSource = 'user-verified';
+              
+              // Add this email to verified emails if it's valid
+              try {
+                const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+                const vendorEmailRef = adminDb.collection('vendorEmails').doc(vendor.place_id);
+                await vendorEmailRef.set({
+                  emails: [{
+                    email: toEmail,
+                    isPrimary: true,
+                    addedBy: userId,
+                    addedAt: new Date().toISOString(),
+                    verified: true
+                  }]
+                }, { merge: true });
+                console.log(`✅ Added verified email to database: ${toEmail}`);
+              } catch (error) {
+                console.error('Error adding verified email to database:', error);
+              }
+            } else {
+              console.log(`❌ User-provided email invalid: ${toEmail}`);
+              vendorEmail = null;
+              emailSource = 'user-invalid';
+            }
+          }
         } else {
           // First, check for verified emails in global database
           const verifiedEmails = await getVendorEmails(vendor.place_id);
