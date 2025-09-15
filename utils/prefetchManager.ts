@@ -4,9 +4,12 @@
  */
 
 import React from 'react';
+import { deduplicatedRequest } from './requestDeduplicator';
 
 interface PrefetchTarget {
   url: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: any;
   priority: number;
   type: 'vendor' | 'category' | 'image' | 'api';
   metadata?: any;
@@ -31,8 +34,12 @@ class PrefetchManager {
   };
   private prefetchQueue: PrefetchTarget[] = [];
   private isPrefetching = false;
+  private prefetchCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private rateLimited = false;
+  private rateLimitResetTime = 0;
   private readonly MAX_PREFETCH_ITEMS = 5;
   private readonly PREFETCH_DELAY = 1000; // 1 second delay
+  private readonly RATE_LIMIT_COOLDOWN = 5 * 60 * 1000; // 5 minutes
 
   static getInstance(): PrefetchManager {
     if (!PrefetchManager.instance) {
@@ -88,7 +95,13 @@ class PrefetchManager {
     const recentCategories = [...new Set(this.behavior.viewedCategories.slice(0, 3))];
     recentCategories.forEach(category => {
       suggestions.push({
-        url: `/api/google-places?category=${category}&location=Dallas, TX&maxResults=5`,
+        url: `/api/google-places-optimized`,
+        method: 'POST',
+        body: {
+          category,
+          location: 'Dallas, TX',
+          maxResults: 5
+        },
         priority: 0.8,
         type: 'api',
         metadata: { category }
@@ -147,6 +160,11 @@ class PrefetchManager {
   private async executePrefetch(): Promise<void> {
     if (this.isPrefetching) return;
 
+    // Check if we're rate limited
+    if (this.rateLimited && Date.now() < this.rateLimitResetTime) {
+      return;
+    }
+
     this.isPrefetching = true;
     const suggestions = this.getPrefetchSuggestions();
     const topSuggestions = suggestions.slice(0, this.MAX_PREFETCH_ITEMS);
@@ -167,32 +185,59 @@ class PrefetchManager {
    */
   private async prefetchItem(target: PrefetchTarget): Promise<void> {
     try {
-      const response = await fetch(target.url, {
-        method: 'GET',
-        headers: {
-          'X-Prefetch': 'true' // Mark as prefetch request
-        }
-      });
-
-      if (response.ok) {
-        // Store in cache for future use
-        await this.cachePrefetchedData(target, await response.clone());
-        console.log(`Prefetched: ${target.url}`);
+      let response: any;
+      
+      if (target.method === 'POST' && target.body) {
+        // Use deduplicated request for POST calls
+        response = await deduplicatedRequest.post(target.url, target.body, {
+          cache: true,
+          cacheTTL: 5 * 60 * 1000, // 5 minutes cache
+          headers: {
+            'X-Prefetch': 'true' // Mark as prefetch request
+          }
+        });
+      } else {
+        // Use deduplicated request for GET calls
+        response = await deduplicatedRequest.get(target.url, {
+          cache: true,
+          cacheTTL: 5 * 60 * 1000, // 5 minutes cache
+          headers: {
+            'X-Prefetch': 'true' // Mark as prefetch request
+          }
+        });
       }
+
+      // Store in cache for future use
+      await this.cachePrefetchedData(target, response);
+      
     } catch (error) {
-      console.warn(`Prefetch failed for ${target.url}:`, error);
+      if (error.message?.includes('429')) {
+        console.warn(`Prefetch skipped for ${target.url}: Rate limited (429)`);
+        // Set rate limit flag to prevent further attempts
+        this.rateLimited = true;
+        this.rateLimitResetTime = Date.now() + this.RATE_LIMIT_COOLDOWN;
+      } else if (error.message?.includes('405')) {
+        console.warn(`Prefetch skipped for ${target.url}: Method not allowed (405)`);
+      } else {
+        console.warn(`Prefetch failed for ${target.url}:`, error);
+      }
     }
   }
 
   /**
    * Cache prefetched data
    */
-  private async cachePrefetchedData(target: PrefetchTarget, response: Response): Promise<void> {
+  private async cachePrefetchedData(target: PrefetchTarget, data: any): Promise<void> {
     if (typeof window === 'undefined') return;
 
     try {
-      const cache = await caches.open('paige-prefetch-cache');
-      await cache.put(target.url, response);
+      // Store in memory cache for now since we have the parsed data
+      const cacheKey = `${target.url}_${JSON.stringify(target.body || {})}`;
+      this.prefetchCache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+        ttl: 5 * 60 * 1000 // 5 minutes
+      });
     } catch (error) {
       console.error('Failed to cache prefetched data:', error);
     }

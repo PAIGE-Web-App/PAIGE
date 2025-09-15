@@ -53,6 +53,11 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   useEffect(() => {
     if (priority || !imgRef.current) return;
 
+    // Disconnect existing observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -77,7 +82,7 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         observerRef.current.disconnect();
       }
     };
-  }, [priority, threshold, rootMargin]);
+  }, [priority, threshold, rootMargin, src]);
 
   // Load image when in view
   useEffect(() => {
@@ -91,9 +96,10 @@ const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
     if (src !== currentSrc) {
       setIsLoaded(false);
       setHasError(false);
-      setCurrentSrc(placeholder);
+      setIsInView(priority); // Reset isInView based on priority
+      // Don't reset currentSrc to placeholder, let the "Load image when in view" effect handle it
     }
-  }, [src, placeholder, currentSrc]);
+  }, [src, placeholder, currentSrc, priority]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>

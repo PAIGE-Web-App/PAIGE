@@ -40,7 +40,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, email, phone, website, category, address, placeId, userId } = body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      website, 
+      category, 
+      address, 
+      placeId, 
+      userId, 
+      avatarColor, 
+      orderIndex, 
+      isVendorContact 
+    } = body;
 
     if (!name || !email || !userId) {
       return NextResponse.json({ 
@@ -48,7 +60,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create contact document
+    // Create contact document with all fields
     const contactData = {
       name,
       email,
@@ -57,6 +69,10 @@ export async function POST(req: NextRequest) {
       category: category || 'Vendor',
       address: address || '',
       placeId: placeId || '',
+      userId, // Add userId to the document
+      avatarColor: avatarColor || '#364257',
+      orderIndex: orderIndex || -new Date().getTime(),
+      isVendorContact: isVendorContact || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

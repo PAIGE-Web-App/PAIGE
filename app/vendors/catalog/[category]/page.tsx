@@ -19,6 +19,7 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { usePrefetch } from '@/utils/prefetchManager';
+import { deduplicatedRequest } from '@/utils/requestDeduplicator';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -178,10 +179,8 @@ const VendorCategoryPage: React.FC = () => {
     fetch('/api/flag-vendor')
       .then(res => res.json())
       .then(data => {
-        console.log('Loaded flagged vendors:', data);
         if (data.flagged && Array.isArray(data.flagged)) {
           const flaggedIds = data.flagged.map(f => f.vendorId);
-          console.log('Setting flagged vendor IDs:', flaggedIds);
           setFlaggedVendorIds(flaggedIds);
         }
       })
@@ -199,19 +198,15 @@ const VendorCategoryPage: React.FC = () => {
 
   // Handle filter change
   const handleFilterChange = (key, value) => {
-    console.log('Filter change:', key, value);
     // Define which filters are API-backed
     const apiKeys = ['price', 'distance', 'rating', 'openNow'];
     if (apiKeys.includes(key)) {
-      console.log('API filter changed:', key, value);
       setApiFilterValues(prev => {
         const next = { ...prev, [key]: value };
-        console.log('New API filter values:', next);
         debouncedFetchVendors(next);
         return next;
       });
     } else {
-      console.log('Client filter changed:', key, value);
       setClientFilterValues(prev => ({ ...prev, [key]: value }));
     }
   };
@@ -240,9 +235,7 @@ const VendorCategoryPage: React.FC = () => {
 
   // Fetch vendors (API filters only)
   const fetchVendors = useCallback(async (isNextPage = false, filterValuesArg = apiFilterValues) => {
-    console.log('fetchVendors called:', { isNextPage, filterValuesArg });
     if (!category || !location) {
-      console.log('Missing category or location');
       setVendors([]);
       return;
     }
@@ -252,17 +245,13 @@ const VendorCategoryPage: React.FC = () => {
     setError(null);
     try {
       const apiFilters = getApiFilters(filterValuesArg);
-      console.log('API filters:', apiFilters);
       const body = isNextPage
         ? { category, location, nextPageToken, ...apiFilters }
         : { category, location, ...apiFilters };
-      console.log('Fetch request body:', body);
-      const res = await fetch('/api/google-places-optimized', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
+        cache: true,
+        cacheTTL: 5 * 60 * 1000 // 5 minutes cache
       });
-      const data = await res.json();
       if (data.error) {
         setError(data.error);
         if (!isNextPage) setVendors([]);
@@ -364,15 +353,12 @@ const VendorCategoryPage: React.FC = () => {
 
   // Search function
   const handleSearch = useCallback(async (term: string) => {
-    console.log('handleSearch called with term:', term);
     if (!term.trim() || term.length < 2) {
-      console.log('Search term too short, clearing results');
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
 
-    console.log('Starting search for:', term);
     setIsSearching(true);
     try {
       const requestBody = {
@@ -381,22 +367,14 @@ const VendorCategoryPage: React.FC = () => {
         searchTerm: term,
         maxResults: 10
       };
-      console.log('Search request body:', requestBody);
       
-              const response = await fetch('/api/google-places-optimized', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+              const data = await deduplicatedRequest.post('/api/google-places-optimized', requestBody, {
+        cache: true,
+        cacheTTL: 2 * 60 * 1000 // 2 minutes cache for search results
       });
-
-      const data = await response.json();
-      console.log('Search response:', data);
       if (data.results) {
-        console.log('Setting search results:', data.results.length, 'items');
-        console.log('First few search results:', data.results.slice(0, 3).map(r => r.name));
         setSearchResults(data.results);
       } else {
-        console.log('No search results found');
         setSearchResults([]);
       }
     } catch (error) {
@@ -417,17 +395,14 @@ const VendorCategoryPage: React.FC = () => {
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
-    console.log('Search term changed:', term);
     setSearchTerm(term);
     
     if (term.trim() && term.length >= 2) {
-      console.log('Triggering search for:', term);
       debouncedSearch(term);
       
       // Track search for prefetching
       trackSearch(term);
     } else if (!term.trim()) {
-      console.log('Clearing search results');
       setSearchResults([]);
     }
   };
@@ -496,13 +471,6 @@ const VendorCategoryPage: React.FC = () => {
 
   // Use search results when searching, otherwise use regular vendors
   const allVendors = searchResults.length > 0 ? searchResults : vendors;
-  console.log('allVendors:', { 
-    searchResultsLength: searchResults.length, 
-    vendorsLength: vendors.length, 
-    allVendorsLength: allVendors.length,
-    firstFewVendors: vendors.slice(0, 3).map(v => v.name),
-    firstFewSearchResults: searchResults.slice(0, 3).map(v => v.name)
-  });
   
   const mappedVendors = allVendors.length > 0 ? allVendors.map((vendor: any) => {
     const mainType = vendor.types?.find((type: string) => typeLabels[type]);
@@ -510,7 +478,6 @@ const VendorCategoryPage: React.FC = () => {
     
     // Debug: Log price_level data
     if (vendor.price_level !== undefined) {
-      console.log(`Vendor ${vendor.name} has price_level:`, vendor.price_level);
     }
     
     return {
@@ -548,12 +515,6 @@ const VendorCategoryPage: React.FC = () => {
     }
     
     // Add more client-side filters as needed
-    console.log('clientFilteredVendors:', { 
-      mappedVendorsLength: mappedVendors.length, 
-      filteredLength: filtered.length,
-      searchTerm,
-      hasSearchTerm: !!searchTerm
-    });
     return filtered;
   }, [mappedVendors, clientFilterValues.cuisine, searchTerm]);
 
@@ -628,14 +589,6 @@ const VendorCategoryPage: React.FC = () => {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
         {(() => {
-          console.log('Rendering state:', { 
-            isSearching, 
-            loading, 
-            clientFilteredVendorsLength: clientFilteredVendors.length,
-            searchResultsLength: searchResults.length,
-            searchTerm
-          });
-          
           if (loading) {
             return Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />);
           } else if (clientFilteredVendors.length > 0) {
@@ -647,7 +600,6 @@ const VendorCategoryPage: React.FC = () => {
                 const shouldShow = vendorId && (!isFlagged || isRemoving);
                 
                 if (isFlagged && !isRemoving) {
-                  console.log('Filtering out flagged vendor:', vendorId);
                 }
                 
                 return shouldShow;

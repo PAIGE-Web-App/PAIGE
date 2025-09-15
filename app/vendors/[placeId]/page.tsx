@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft } from 'lucide-react';
@@ -89,6 +89,9 @@ export default function VendorDetailPage() {
   const [showVenueUnmarkModal, setShowVenueUnmarkModal] = useState(false);
   const [isSelectedVenueState, setIsSelectedVenueState] = useState(false);
   const [isSelectedVendorState, setIsSelectedVendorState] = useState(false);
+  
+  // Track if vendor has been processed to prevent multiple processing
+  const processedVendorRef = useRef<string | null>(null);
   
   // Optimistic state management for instant UI updates
   const [optimisticStates, setOptimisticStates] = useState({
@@ -234,28 +237,71 @@ export default function VendorDetailPage() {
   // Use optimized vendor details hook
   const { vendorDetails: googleData, error: vendorError, isLoading: vendorLoading } = useVendorDetails(placeId);
 
+  // Debug logging (only when there are issues)
+  if (vendorError || (vendorLoading && !googleData)) {
+    console.log('🔍 Vendor Details Debug:', {
+      placeId,
+      googleData: googleData ? 'present' : 'null',
+      googleDataStatus: googleData?.status,
+      vendorError,
+      vendorLoading,
+      loading,
+      error
+    });
+  }
+
   // Process vendor data from the hook
   useEffect(() => {
     if (!placeId) return;
+    
+    // Reset processed vendor ref when placeId changes
+    if (processedVendorRef.current !== placeId) {
+      processedVendorRef.current = null;
+    }
 
 
 
 
 
     // Use cached vendor details from hook
-    if (!googleData || googleData.status !== 'OK' || !googleData.result) {
+    // Only log when there are issues
+    if (vendorError || (vendorLoading && !googleData)) {
+      console.log('🔄 Processing vendor data:', {
+        googleData: googleData ? 'present' : 'null',
+        googleDataStatus: googleData?.status,
+        hasResult: !!googleData?.result,
+        vendorError,
+        vendorLoading
+      });
+    }
 
-      
+    if (!googleData || googleData.status !== 'OK' || !googleData.result) {
       if (vendorError) {
         console.error('Vendor details error:', vendorError);
-      }
-      if (vendorLoading) {
-
-        setLoading(true);
+        setError('Failed to load vendor details');
+        setLoading(false);
         return;
       }
-      // Show error state if we're not loading and have an error
+      if (vendorLoading) {
+        // Only set loading to true if we don't have a vendor yet
+        if (!vendor) {
+          setLoading(true);
+        }
+        return;
+      }
+      // If not loading and no data, show error
       setError('Failed to load vendor details');
+      setLoading(false);
+      return;
+    }
+
+    // Prevent multiple processing of the same data
+    if (processedVendorRef.current === googleData.result.place_id) {
+      return;
+    }
+
+    // If we already have a vendor and it's the same one, don't process again
+    if (vendor && vendor.id === googleData.result.place_id) {
       setLoading(false);
       return;
     }
@@ -423,6 +469,7 @@ export default function VendorDetailPage() {
     
     setVendor(vendorDetails);
     setLoading(false);
+    processedVendorRef.current = googleData.result.place_id;
     
     // Add to recently viewed vendors
     addRecentlyViewedVendor({
@@ -758,7 +805,7 @@ export default function VendorDetailPage() {
     if (!vendor || !user?.uid) return;
     
     try {
-      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+      const { doc, updateDoc, getDoc, deleteDoc, collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('@/lib/firebase');
       
       // Get current user data
@@ -781,6 +828,17 @@ export default function VendorDetailPage() {
         await updateDoc(userRef, {
           selectedVendors: updatedSelectedVendors
         });
+        
+        // Also remove the vendor from the vendor management collection
+        const vendorsRef = collection(db, `users/${user.uid}/vendors`);
+        const vendorQuery = query(vendorsRef, where("placeId", "==", vendor.id));
+        const vendorSnapshot = await getDocs(vendorQuery);
+        
+        if (!vendorSnapshot.empty) {
+          // Delete the vendor document from the vendors collection
+          const vendorDoc = vendorSnapshot.docs[0];
+          await deleteDoc(vendorDoc.ref);
+        }
         
         setIsSelectedVendorState(false);
         showSuccessToast(`${vendor.name} removed from selected ${vendor.category}!`);
@@ -812,6 +870,19 @@ export default function VendorDetailPage() {
       showErrorToast('Failed to flag vendor');
     }
   };
+
+  // Debug loading state (only when there are issues)
+  if (vendorError || (vendorLoading && !googleData)) {
+    console.log('🔍 Loading state check:', { 
+      loading, 
+      vendor: !!vendor, 
+      placeId, 
+      showContactModal, 
+      selectedVendorForContact: !!selectedVendorForContact,
+      vendorImages: vendor?.images?.length || 0,
+      firstImage: vendor?.images?.[0] || 'none'
+    });
+  }
 
   if (loading) {
     return (
@@ -955,8 +1026,8 @@ export default function VendorDetailPage() {
       />
       <div className="max-w-6xl mx-auto">
         <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
-          {/* Sticky Header */}
-          <div className="sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4">
+          {/* Mobile Header - Full width */}
+          <div className="lg:hidden sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4">
             <div className="flex items-start justify-between gap-4">
               {/* Back Button */}
               <button
@@ -977,37 +1048,168 @@ export default function VendorDetailPage() {
               {/* Right Spacer for Balance */}
               <div className="w-7 flex-shrink-0"></div>
             </div>
+            
+            {/* Mobile Metadata - Centered */}
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center gap-4">
+              {vendor.rating && (
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                  <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                </div>
+              )}
+              <CategoryPill category={vendor.category} />
+              {location && (
+                <div className="flex items-center gap-1 text-sm text-[#364257]">
+                  <span>in</span>
+                  <MapPin className="w-3 h-3" />
+                  <span>{location}</span>
+                </div>
+              )}
+              </div>
+            </div>
+            
+            {/* Mobile Action Buttons - Centered */}
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center gap-3">
+                {/* Selected Venue Toggle - Only show when venue is selected */}
+                {dataLoaded && isSelectedVenueState && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
+                      <span className="text-xs text-[#364257]">Selected Venue</span>
+                    </div>
+                    <button
+                      onClick={handleConfirmVenueUnmark}
+                      disabled={isUpdatingOfficial}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
+                        displayOfficial ? 'bg-[#A85C36]' : 'bg-gray-200'
+                      } ${isUpdatingOfficial ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                          displayOfficial ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
+
+                {/* Selected Vendor Toggle - Only show when vendor is selected for their category */}
+                {dataLoaded && isSelectedVendorState && !isSelectedVenueState && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <BadgeCheck className="w-3 h-3 text-[#A85C36]" />
+                      <span className="text-xs text-[#364257]">Selected {vendor.category}</span>
+                    </div>
+                    <button
+                      onClick={handleUnselectVendor}
+                      disabled={isUpdatingOfficial}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:ring-offset-2 ${
+                        isSelectedVendorState ? 'bg-[#A85C36]' : 'bg-gray-200'
+                      } ${isUpdatingOfficial ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                          isSelectedVendorState ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
+
+                {/* Actions Row */}
+                <div className="flex items-center gap-2">
+                  {/* Select as [Category] Button - For all vendor types that aren't currently selected */}
+                  {dataLoaded && !isSelectedVendorState && !isSelectedVenueState && (
+                    <button
+                      onClick={handleSetAsSelected}
+                      className="btn-primaryinverse"
+                    >
+                      Select as {vendor.category}
+                    </button>
+                  )}
+
+                  {/* Loading state for Select button */}
+                  {!dataLoaded && (
+                    <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                  )}
+
+                  {/* Favorite Toggle - Icon only to save space */}
+                  {dataLoaded ? (
+                    <button
+                      onClick={toggleFavorite}
+                      disabled={isUpdatingFavorite}
+                      className={`p-2 transition-colors ${
+                        displayFavorite 
+                          ? 'text-pink-500 hover:text-pink-600' 
+                          : 'text-gray-600 hover:text-gray-700'
+                      } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current text-pink-500' : ''}`} />
+                    </button>
+                  ) : (
+                    <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+                  )}
+
+                  {/* Primary Action - Contact */}
+                  <button
+                    onClick={() => {
+                      setSelectedVendorForContact(vendor);
+                      setShowContactModal(true);
+                    }}
+                    className="btn-primary"
+                  >
+                    Contact
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Vendor Details */}
             <div className="lg:col-span-2">
-              {/* Vendor Overview */}
-              <div className="mb-6">
-                
-                {/* Metadata - Centered */}
-                <div className="flex justify-center mb-4">
-                  <div className="flex items-center gap-4">
-                  {vendor.rating && (
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
-                    </div>
-                  )}
-                  <CategoryPill category={vendor.category} />
-                  {location && (
-                    <div className="flex items-center gap-1 text-sm text-[#364257]">
-                      <span>in</span>
-                      <MapPin className="w-3 h-3" />
-                      <span>{location}</span>
-                    </div>
-                  )}
+              {/* Desktop Header - Only spans left column */}
+              <div className="hidden lg:block sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4 mb-2">
+                <div className="flex items-center justify-between gap-4">
+                  {/* Back Button */}
+                  <button
+                    onClick={() => router.back()}
+                    className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors flex-shrink-0"
+                    aria-label="Back to previous page"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
+                  </button>
+                  
+                  {/* Vendor Name - Left aligned */}
+                  <div className="flex-1 min-w-0">
+                    <h5 className="h5 text-left truncate">
+                      {vendor.name}
+                    </h5>
                   </div>
-                </div>
-                
-                {/* Action Buttons - Centered */}
-                <div className="flex justify-center mb-4">
-                  <div className="flex items-center gap-3">
+                  
+                  {/* Action Buttons - Right aligned */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Favorite Toggle - Icon only to save space */}
+                    {dataLoaded ? (
+                      <button
+                        onClick={toggleFavorite}
+                        disabled={isUpdatingFavorite}
+                        className={`p-2 transition-colors ${
+                          displayFavorite 
+                            ? 'text-pink-500 hover:text-pink-600' 
+                            : 'text-gray-600 hover:text-gray-700'
+                        } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current text-pink-500' : ''}`} />
+                      </button>
+                    ) : (
+                      <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+                    )}
+
                     {/* Selected Venue Toggle - Only show when venue is selected */}
                     {dataLoaded && isSelectedVenueState && (
                       <div className="flex items-center gap-2">
@@ -1054,51 +1256,57 @@ export default function VendorDetailPage() {
                       </div>
                     )}
 
-                    {/* Actions Row */}
-                    <div className="flex items-center gap-2">
-                      {/* Select as [Category] Button - For all vendor types that aren't currently selected */}
-                      {dataLoaded && !isSelectedVendorState && !isSelectedVenueState && (
-                        <button
-                          onClick={handleSetAsSelected}
-                          className="btn-primaryinverse"
-                        >
-                          Select as {vendor.category}
-                        </button>
-                      )}
-
-                      {/* Loading state for Select button */}
-                      {!dataLoaded && (
-                        <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
-                      )}
-
-                      {/* Favorite Toggle - Icon only to save space */}
-                      {dataLoaded ? (
-                        <button
-                          onClick={toggleFavorite}
-                          disabled={isUpdatingFavorite}
-                          className={`p-2 transition-colors ${
-                            displayFavorite 
-                              ? 'text-pink-500 hover:text-pink-600' 
-                              : 'text-gray-600 hover:text-gray-700'
-                          } ${isUpdatingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={displayFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          <Heart className={`w-4 h-4 ${displayFavorite ? 'fill-current text-pink-500' : ''}`} />
-                        </button>
-                      ) : (
-                        <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
-                      )}
-
-                      {/* Primary Action - Contact */}
+                    {/* Select as [Category] Button - For all vendor types that aren't currently selected */}
+                    {dataLoaded && !isSelectedVendorState && !isSelectedVenueState && (
                       <button
-                        onClick={() => setShowContactModal(true)}
-                        className="btn-primary"
+                        onClick={handleSetAsSelected}
+                        className="btn-primaryinverse"
                       >
-                        Contact
+                        Select as {vendor.category}
                       </button>
-                    </div>
+                    )}
+
+                    {/* Loading state for Select button */}
+                    {!dataLoaded && (
+                      <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                    )}
+
+                    {/* Primary Action - Contact */}
+                    <button
+                      onClick={() => {
+                        setSelectedVendorForContact(vendor);
+                        setShowContactModal(true);
+                      }}
+                      className="btn-primary"
+                    >
+                      Contact
+                    </button>
                   </div>
                 </div>
+              </div>
+              {/* Vendor Overview */}
+              <div className="mb-6">
+                
+                {/* Desktop Metadata - Left aligned (hidden on mobile) */}
+                <div className="hidden lg:flex justify-start mb-4">
+                  <div className="flex items-center gap-4">
+                  {vendor.rating && (
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                      <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                    </div>
+                  )}
+                  <CategoryPill category={vendor.category} />
+                  {location && (
+                    <div className="flex items-center gap-1 text-sm text-[#364257]">
+                      <span>in</span>
+                      <MapPin className="w-3 h-3" />
+                      <span>{location}</span>
+                    </div>
+                  )}
+                  </div>
+                </div>
+                
 
                 {/* Selected Venue AI Banner */}
                 {isSelectedVenueState && (
@@ -1127,6 +1335,7 @@ export default function VendorDetailPage() {
                   {vendor.images && vendor.images.length > 0 && (
                     <>
                       <ProgressiveImage
+                        key={`main-${vendor.images[currentImageIndex]}-${currentImageIndex}`}
                         src={vendor.images[currentImageIndex]}
                         alt={`${vendor.name} - Image ${currentImageIndex + 1}`}
                         className="w-full h-full object-cover"
@@ -1337,6 +1546,7 @@ export default function VendorDetailPage() {
                       }}
                     >
                       <ProgressiveImage
+                        key={`thumb-${image}-${index}`}
                         src={image}
                         alt={`${vendor.name} - Image ${index + 1}`}
                         className="w-full h-full object-cover"

@@ -2,6 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useCustomToast } from '@/hooks/useCustomToast';
+
+// Function to get vendor category from types
+const getVendorCategory = (vendor: any): string => {
+  if (vendor.types && Array.isArray(vendor.types)) {
+    const typeToCategory: Record<string, string> = {
+      'florist': 'Florist',
+      'jewelry_store': 'Jewelry',
+      'bakery': 'Bakery',
+      'restaurant': 'Reception Venue',
+      'hair_care': 'Hair & Beauty',
+      'photographer': 'Photographer',
+      'videographer': 'Videographer',
+      'clothing_store': 'Bridal Salon',
+      'car_rental': 'Car Rental',
+      'travel_agency': 'Travel Agency',
+      // ...add more as needed
+    };
+    
+    // Find the first type that has a mapping
+    const mainType = vendor.types.find((type: string) => typeToCategory[type]);
+    return mainType ? typeToCategory[mainType] : 'Vendor';
+  }
+  return 'Vendor';
+};
 import { Mail, Star, User, CheckCircle, Phone, Settings, X, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { VendorEmail } from '@/types/contact';
 import VendorEmailManagementModal from './VendorEmailManagementModal';
@@ -54,22 +78,15 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
 
   // Set default "To:" email when emails are loaded
   useEffect(() => {
-    console.log('🔍 Setting To email - verifiedEmails:', verifiedEmails?.length, 'linkedContactEmails:', linkedContactEmails?.length, 'vendorDetails:', vendorDetails?.name);
-    console.log('🔍 verifiedEmails array:', verifiedEmails);
-    console.log('🔍 linkedContactEmails array:', linkedContactEmails);
     
     if (verifiedEmails && verifiedEmails.length > 0) {
-      console.log('✅ Using verified email:', verifiedEmails[0].email);
       setToEmail(verifiedEmails[0].email);
     } else if (linkedContactEmails && linkedContactEmails.length > 0) {
-      console.log('✅ Using linked contact email:', linkedContactEmails[0].email);
       setToEmail(linkedContactEmails[0].email);
     } else if (vendorDetails?.name) {
       const fallbackEmail = `info@${vendorDetails.name.toLowerCase().replace(/\s+/g, '')}.com`;
-      console.log('✅ Using fallback email:', fallbackEmail);
       setToEmail(fallbackEmail);
     } else {
-      console.log('❌ No email source available yet');
     }
   }, [verifiedEmails, linkedContactEmails, vendorDetails?.name]);
 
@@ -78,25 +95,18 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
     
     setLoadingEmails(true);
     try {
-      console.log('Fetching verified emails for vendor:', vendor.place_id || vendor.id);
       
       // Use the vendor email queue to prevent rate limiting
       const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
       const queue = VendorEmailQueue.getInstance();
       const data = await queue.queueRequest(vendor.place_id || vendor.id);
       
-      console.log('Verified emails response:', data);
       
       if (data.emails) {
-        console.log('📧 Raw verified emails data:', data.emails);
         // Filter out any emails with empty email addresses
         const validEmails = data.emails.filter(email => email && email.email && email.email.trim() !== '');
-        console.log('📧 Filtered verified emails:', validEmails);
-        console.log('📧 Setting verifiedEmails state to:', validEmails);
         setVerifiedEmails(validEmails);
-        console.log('📧 verifiedEmails state should now be:', validEmails);
       } else {
-        console.log('📧 No verified emails found for this vendor');
         setVerifiedEmails([]);
       }
 
@@ -106,7 +116,6 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
         const contactsData = await contactsResponse.json();
         
         if (contactsData.contacts) {
-          console.log('Raw linked contacts data:', contactsData.contacts);
           const linkedContacts = contactsData.contacts.filter((contact: any) => {
             const isValid = contact && 
               contact.placeId === (vendor.place_id || vendor.id) && 
@@ -114,14 +123,10 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
               (contact.id || contact.name); // Ensure we have a valid identifier
             
             if (!isValid) {
-              console.log('Filtered out contact:', contact, 'reason: missing required fields');
             }
             return isValid;
           });
-          console.log('🔗 Filtered linked contacts:', linkedContacts);
-          console.log('🔗 Setting linkedContactEmails state to:', linkedContacts);
           setLinkedContactEmails(linkedContacts);
-          console.log('🔗 linkedContactEmails state should now be:', linkedContacts);
         }
       }
     } catch (error) {
@@ -142,7 +147,6 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
       }
       
       // Then fetch verified emails - this is the final step
-      console.log('About to fetch verified emails for vendor:', vendor.place_id || vendor.id);
       await fetchVerifiedEmails();
       
       // Only set loading to false after everything is complete
@@ -205,20 +209,26 @@ Best regards,
 
     setLoading(true);
     try {
+      // Find the verified email data for the selected email to get the original metadata
+      const selectedEmailData = verifiedEmails?.find(email => email.email === toEmail);
+      
       // First, create a contact in the dashboard
       const contactData = {
-        name: vendorDetails?.name || vendor.name,
+        name: selectedEmailData?.contactName || vendorDetails?.name || vendor.name,
         email: toEmail,
         phone: vendorDetails?.formatted_phone_number || '',
         website: vendorDetails?.website || '',
-        category: vendorDetails?.types?.[0] || 'Vendor',
+        category: selectedEmailData?.role || getVendorCategory(vendorDetails || vendor), // Use the role from verified email or vendor category
         address: vendorDetails?.formatted_address || vendor.address || '',
         placeId: vendor.place_id || vendor.id,
-        userId: user.uid
+        userId: user.uid,
+        avatarColor: '#364257', // Default avatar color
+        orderIndex: -new Date().getTime(), // Negative timestamp to sort to top
+        isVendorContact: true, // Mark as vendor contact
+        createdAt: new Date().toISOString() // Add timestamp
       };
 
       // Create contact
-      console.log('💾 Creating contact with data:', contactData);
       const contactResponse = await fetch('/api/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,7 +236,6 @@ Best regards,
       });
 
       const contactResult = await contactResponse.json();
-      console.log('📞 Contact creation result:', contactResult);
       
       if (!contactResponse.ok) {
         console.error('❌ Contact creation failed:', contactResult);
@@ -240,7 +249,6 @@ Best regards,
         return;
       }
       
-      console.log('✅ Contact created successfully:', contactResult.contact);
 
       // Then send the email using the selected email address
       const response = await fetch('/api/vendor-contact', {
