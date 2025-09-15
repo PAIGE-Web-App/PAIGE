@@ -3,6 +3,7 @@ import { Search, MapPin, X, Star } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import ReactDOM from 'react-dom';
 import LoadingSpinner from './LoadingSpinner';
+import { vendorCacheService } from '@/utils/vendorCacheService';
 
 interface VendorSearchFieldProps {
   value?: any;
@@ -14,7 +15,7 @@ interface VendorSearchFieldProps {
   location?: string;
 }
 
-export default function VendorSearchField({ 
+const VendorSearchField = React.memo(function VendorSearchField({ 
   value, 
   onChange, 
   onClear, 
@@ -35,34 +36,22 @@ export default function VendorSearchField({
   const [vendorSelected, setVendorSelected] = useState(false);
   const [initialLoad, setInitialLoad] = useState(false);
 
-  // Load vendors initially (like catalog does)
+  // Load vendors using shared cache service
   const loadVendors = useCallback(async () => {
     if (initialLoad) {
-      console.log('VendorSearchField: Skipping load - already loaded');
       return;
     }
     
-    console.log('VendorSearchField: Loading vendors for category:', categories[0], 'location:', location);
     setLoading(true);
     try {
-      const requestBody = {
-        category: categories[0] || 'restaurant',
-        location: location,
-        maxResults: 50 // Load more vendors for better filtering
-      };
+      const vendors = await vendorCacheService.getVendors(
+        categories[0] || 'restaurant',
+        location
+      );
       
-      const response = await fetch('/api/google-places-optimized', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-      console.log('VendorSearchField: Loaded vendors:', data.results?.length || 0);
-      if (data.results) {
-        setAllVendors(data.results);
+      if (vendors && vendors.length > 0) {
+        setAllVendors(vendors);
         setInitialLoad(true);
-        console.log('VendorSearchField: Set allVendors to:', data.results.length);
       }
     } catch (error) {
       console.error('Error loading vendors:', error);
@@ -73,14 +62,12 @@ export default function VendorSearchField({
 
   // Client-side filtering function (like catalog)
   const filterVendors = useCallback((term: string) => {
-    console.log('VendorSearchField: Filtering with term:', term, 'allVendors:', allVendors.length, 'allVendors array:', allVendors);
     if (!term.trim() || term.length < 2) {
       setResults([]);
       return;
     }
 
     if (allVendors.length === 0) {
-      console.log('VendorSearchField: No vendors to filter, skipping');
       setResults([]);
       return;
     }
@@ -92,37 +79,28 @@ export default function VendorSearchField({
       (getVendorCategory(vendor).toLowerCase().includes(searchLower))
     );
     
-    console.log('VendorSearchField: Filtered results:', filtered.length);
     setResults(filtered.slice(0, 10)); // Limit to 10 results for dropdown
   }, [allVendors]);
 
   // Create a new debounced function whenever allVendors changes
   const debouncedSearch = useMemo(() => {
     return debounce((term: string) => {
-      console.log('VendorSearchField: debouncedSearch called with term:', term, 'allVendors at call time:', allVendors.length);
       filterVendors(term);
     }, 150);
   }, [allVendors, filterVendors]);
 
-  // Load vendors on mount
+  // Load vendors when user starts typing (lazy loading) and handle search
   useEffect(() => {
-    console.log('VendorSearchField: useEffect triggered - categories:', categories, 'location:', location, 'initialLoad:', initialLoad);
-    loadVendors();
-  }, [categories, location, loadVendors]);
-
-  // Debug allVendors changes
-  useEffect(() => {
-    console.log('VendorSearchField: allVendors state changed to:', allVendors.length);
-  }, [allVendors]);
-
-  // Handle search input changes
-  useEffect(() => {
-    if (searchTerm && searchTerm.length >= 2 && allVendors.length > 0) {
-      debouncedSearch(searchTerm);
+    if (searchTerm && searchTerm.length >= 2) {
+      if (!initialLoad) {
+        loadVendors();
+      } else if (allVendors.length > 0) {
+        debouncedSearch(searchTerm);
+      }
     } else {
       setResults([]);
     }
-  }, [searchTerm, allVendors, debouncedSearch, filterVendors]);
+  }, [searchTerm, initialLoad, allVendors.length, loadVendors, debouncedSearch]);
 
   useEffect(() => {
     // Set initial search term if value is provided
@@ -463,4 +441,6 @@ export default function VendorSearchField({
       )}
     </div>
   );
-} 
+});
+
+export default VendorSearchField; 
