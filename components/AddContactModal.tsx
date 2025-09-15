@@ -223,7 +223,7 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
     const randomAvatarColor = adaColors[Math.floor(Math.random() * adaColors.length)];
 
     const newContact = {
-      id: uuidv4(),
+      id: `${uuidv4()}-${Date.now()}`, // More unique ID to avoid conflicts
       name: formData.name.trim(),
       email: formData.email.trim() || null,
       phone: formData.phone.trim() || null,
@@ -235,10 +235,13 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
       // Vendor association fields
       placeId: selectedVendor?.place_id || null,
       isVendorContact: !!selectedVendor,
+      createdAt: new Date().toISOString(), // Add timestamp for debugging
     };
 
     try {
+      console.log('💾 Saving contact to Firestore:', newContact);
       await saveContactToFirestore(newContact);
+      console.log('✅ Contact saved successfully to Firestore');
       
       // Create verified email if vendor is associated and contact has email
       if (selectedVendor && formData.email) {
@@ -288,11 +291,14 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
         showSuccessToast("Contact added successfully!");
       }
       
+      console.log('📞 Calling onSave callback with contact:', newContact);
       onSave(newContact);
+      console.log('✅ onSave callback completed');
       onClose();
     } catch (error) {
-      console.error("Error adding contact:", error);
-      showErrorToast("Failed to add contact. Please try again.");
+      console.error("❌ Error adding contact:", error);
+      console.error("❌ Contact data that failed:", newContact);
+      showErrorToast(`Failed to add contact: ${error.message || 'Unknown error'}`);
     }
   };
 
