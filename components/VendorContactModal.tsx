@@ -218,6 +218,7 @@ Best regards,
       };
 
       // Create contact
+      console.log('💾 Creating contact with data:', contactData);
       const contactResponse = await fetch('/api/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -225,7 +226,21 @@ Best regards,
       });
 
       const contactResult = await contactResponse.json();
-      console.log('Contact creation result:', contactResult);
+      console.log('📞 Contact creation result:', contactResult);
+      
+      if (!contactResponse.ok) {
+        console.error('❌ Contact creation failed:', contactResult);
+        showErrorToast(`Failed to create contact: ${contactResult.error || 'Unknown error'}`);
+        return;
+      }
+      
+      if (!contactResult.success) {
+        console.error('❌ Contact creation returned success: false:', contactResult);
+        showErrorToast('Failed to create contact in dashboard');
+        return;
+      }
+      
+      console.log('✅ Contact created successfully:', contactResult.contact);
 
       // Then send the email using the selected email address
       const response = await fetch('/api/vendor-contact', {
