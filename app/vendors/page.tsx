@@ -143,7 +143,14 @@ export default function VendorsPage() {
   } = useFavoritesSimple();
 
   // The simplified favorites hook already returns full vendor data
-  const enhancedFavorites = favorites;
+  // Sort favorites by most recently added first
+  const enhancedFavorites = useMemo(() => {
+    return [...favorites].sort((a, b) => {
+      const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+      const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+      return bTime - aTime; // Most recent first
+    });
+  }, [favorites]);
 
   // Check if user is super admin
   const { isSuperAdmin } = usePermissions();

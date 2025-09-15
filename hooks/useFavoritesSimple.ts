@@ -12,6 +12,7 @@ interface VendorData {
   rating?: number;
   reviewCount?: number;
   image?: string;
+  addedAt?: string; // ISO timestamp when added to favorites
 }
 
 interface UseFavoritesSimpleReturn {
@@ -38,24 +39,73 @@ export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
     setIsClient(true);
   }, []);
 
-  // Load favorites from localStorage on mount and when user changes
+  // Load favorites from Firestore and localStorage on mount and when user changes
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || !user?.uid) {
+      // If no user, load from localStorage only
+      if (isClient) {
+        const loadFavorites = () => {
+          try {
+            const stored = localStorage.getItem('vendorFavorites');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              setFavorites(Array.isArray(parsed) ? parsed : []);
+            }
+          } catch (error) {
+            console.error('Error loading favorites from localStorage:', error);
+            setFavorites([]);
+          }
+        };
+        loadFavorites();
+      }
+      return;
+    }
     
-    const loadFavorites = () => {
+    const loadFavoritesFromFirestore = async () => {
       try {
+        setIsLoading(true);
+        const response = await fetch(`/api/user-favorites?userId=${user.uid}`);
+        if (response.ok) {
+          const data = await response.json();
+          const firestoreFavorites = data.favorites || [];
+          
+          // Merge with localStorage favorites (localStorage takes precedence for conflicts)
+          const localFavorites = JSON.parse(localStorage.getItem('vendorFavorites') || '[]');
+          const mergedFavorites = [...firestoreFavorites];
+          
+          // Add any local favorites that aren't in Firestore
+          localFavorites.forEach((local: VendorData) => {
+            if (!mergedFavorites.some((fav: VendorData) => fav.placeId === local.placeId)) {
+              mergedFavorites.push(local);
+            }
+          });
+          
+          setFavorites(mergedFavorites);
+          
+          // Update localStorage with merged data
+          localStorage.setItem('vendorFavorites', JSON.stringify(mergedFavorites));
+        } else {
+          // Fallback to localStorage if Firestore fails
+          const stored = localStorage.getItem('vendorFavorites');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setFavorites(Array.isArray(parsed) ? parsed : []);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading favorites from Firestore:', error);
+        // Fallback to localStorage
         const stored = localStorage.getItem('vendorFavorites');
         if (stored) {
           const parsed = JSON.parse(stored);
           setFavorites(Array.isArray(parsed) ? parsed : []);
         }
-      } catch (error) {
-        console.error('Error loading favorites from localStorage:', error);
-        setFavorites([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadFavorites();
+    loadFavoritesFromFirestore();
   }, [isClient, user?.uid]);
 
   // Listen for storage changes (from other tabs)
@@ -112,7 +162,11 @@ export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
     const vendorName = vendorData.name || 'Unknown Vendor';
 
     try {
-      const newFavorites = [...favorites, vendorData];
+      const vendorWithTimestamp = {
+        ...vendorData,
+        addedAt: new Date().toISOString()
+      };
+      const newFavorites = [...favorites, vendorWithTimestamp];
       setFavorites(newFavorites);
       localStorage.setItem('vendorFavorites', JSON.stringify(newFavorites));
       
@@ -131,7 +185,7 @@ export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
           body: JSON.stringify({
             userId: user.uid,
             placeId: vendorData.placeId,
-            vendorData,
+            vendorData: vendorWithTimestamp,
             isFavorite: true
           })
         }).catch(error => {

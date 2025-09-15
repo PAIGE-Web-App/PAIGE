@@ -16,6 +16,7 @@ import { highlightText } from '@/utils/searchHighlight';
 interface VendorCatalogCardProps {
   vendor: {
     id: string;
+    placeId?: string;
     name: string;
     image: string;
     rating?: number;
@@ -65,7 +66,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
   const handleToggleFavorite = useCallback(async () => {
     try {
       await toggleFavorite({
-        placeId: vendor.id,
+        placeId: vendor.placeId || vendor.id,
         name: vendor.name,
         address: vendor.address || vendor.location,
         category: vendor.mainTypeLabel || 'Vendor',
@@ -77,7 +78,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }
-  }, [toggleFavorite, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel, vendor.rating, vendor.reviewCount, vendor.image]);
+  }, [toggleFavorite, vendor.placeId, vendor.id, vendor.name, vendor.address, vendor.location, vendor.mainTypeLabel, vendor.rating, vendor.reviewCount, vendor.image]);
 
   const isPlaceholder = useMemo(() => isPlaceholderImage(imgSrc), [imgSrc]);
 
@@ -210,14 +211,14 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
       {!bulkContactMode && (
         <button
           onClick={handleToggleFavorite}
-          className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors ${
-            (isFavorite(vendor.id) || isFavoriteOverride)
+          className={`absolute top-2 right-2 p-1.5 rounded-full transition-colors z-20 shadow-md ${
+            (isFavorite(vendor.placeId || vendor.id) || isFavoriteOverride)
               ? 'bg-white/90 text-pink-500 hover:text-pink-600'
               : 'bg-white/80 text-gray-600 hover:bg-white'
           }`}
-          aria-label={isFavorite(vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite(vendor.placeId || vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className={`w-3 h-3 ${(isFavorite(vendor.id) || isFavoriteOverride) ? 'fill-current text-pink-500' : ''}`} />
+          <Heart className={`w-3 h-3 ${(isFavorite(vendor.placeId || vendor.id) || isFavoriteOverride) ? 'fill-current text-pink-500' : ''}`} />
         </button>
       )}
       
@@ -295,7 +296,7 @@ const VendorCatalogCard = React.memo(({ vendor, onContact, onFlagged, bulkContac
           )}
           
           {/* Personal Favorites Badge */}
-          {isFavorite(vendor.id) && (
+          {isFavorite(vendor.placeId || vendor.id) && (
             <div className="flex items-center gap-1 text-xs text-[#364257] mb-1">
               <Heart className="w-3 h-3 text-pink-500 fill-current" />
               <span>Favorited by you</span>

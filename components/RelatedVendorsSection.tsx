@@ -231,15 +231,15 @@ const RelatedVendorsSection = React.memo(function RelatedVendorsSection({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleToggleFavorite(vendor.id);
+                    handleToggleFavorite(vendor.placeId || vendor.id);
                   }}
-                  className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-300 ${
-                    isFavorite(vendor.id)
+                  className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition-all duration-300 z-20 ${
+                    isFavorite(vendor.placeId || vendor.id)
                       ? 'bg-white/90 text-pink-500 hover:text-pink-600 scale-110'
                       : 'bg-white/90 text-gray-600 hover:bg-white hover:scale-110'
                   }`}
                 >
-                  <Heart className={`w-4 h-4 ${isFavorite(vendor.id) ? 'fill-current text-pink-500' : ''}`} />
+                  <Heart className={`w-4 h-4 ${isFavorite(vendor.placeId || vendor.id) ? 'fill-current text-pink-500' : ''}`} />
                 </button>
                 
                 {/* Flag Button - Unique floating design */}

@@ -76,7 +76,12 @@ export default function MyFavoritesPage() {
         break;
       case 'recent-desc':
       default:
-        // Keep original order (most recent first)
+        // Sort by most recently added first
+        filtered.sort((a, b) => {
+          const aTime = a.addedAt ? new Date(a.addedAt).getTime() : 0;
+          const bTime = b.addedAt ? new Date(b.addedAt).getTime() : 0;
+          return bTime - aTime; // Most recent first
+        });
         break;
     }
 
