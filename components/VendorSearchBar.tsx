@@ -53,9 +53,11 @@ export default function VendorSearchBar({
       {searchTerm && (
         <div className="flex items-center justify-between mt-2">
           <p className="text-xs text-gray-600">
-            {filteredResultsCount > 0 
-              ? `Found ${filteredResultsCount} results` 
-              : 'No results found. Try a different search term.'
+            {isSearching 
+              ? `Searching for "${searchTerm}"...`
+              : filteredResultsCount > 0 
+                ? `Found ${filteredResultsCount} results` 
+                : 'No results found. Try a different search term.'
             }
           </p>
           {filteredResultsCount > 0 && (

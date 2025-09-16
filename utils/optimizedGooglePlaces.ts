@@ -334,12 +334,39 @@ class OptimizedGooglePlaces {
   private async executeVenueSearch(params: SearchParams): Promise<SearchResult> {
     console.log(`🏗️ Executing optimized venue search for ${params.category}`);
     
-    // Instead of 6+ API calls, use 2-3 targeted calls
-    const primaryQueries = [
-      'wedding venue',
-      'banquet hall',
-      'event space'
-    ];
+    // If we have a specific search term, use it with venue-specific queries
+    // Otherwise, use generic venue queries
+    const searchTerm = params.searchTerm?.trim() || '';
+    const location = params.location || 'United States';
+    
+    let primaryQueries: string[];
+    
+    if (searchTerm) {
+      // Use the search term with venue-specific keywords (like venue-suggestions API)
+      primaryQueries = [
+        `${searchTerm} wedding venue ${location}`,
+        `${searchTerm} event venue ${location}`,
+        `${searchTerm} banquet hall ${location}`,
+        `${searchTerm} reception venue ${location}`,
+        `${searchTerm} wedding reception ${location}`,
+        `${searchTerm} event space ${location}`,
+        // Add more flexible queries to catch wineries, farms, etc.
+        `${searchTerm} winery ${location}`,
+        `${searchTerm} vineyard ${location}`,
+        `${searchTerm} farm ${location}`,
+        `${searchTerm} ranch ${location}`,
+        `${searchTerm} estate ${location}`,
+        `${searchTerm} ${location}`, // Direct search without venue keywords
+        `${searchTerm}` // Just the search term alone
+      ];
+    } else {
+      // Fallback to generic venue queries
+      primaryQueries = [
+        'wedding venue',
+        'banquet hall',
+        'event space'
+      ];
+    }
     
     let allResults: any[] = [];
     
@@ -558,7 +585,7 @@ class OptimizedGooglePlaces {
   private isVenueCategory(category: string): boolean {
     const venueCategories = [
       'reception_venue', 'wedding_venue', 'banquet_hall', 
-      'event_venue', 'reception', 'wedding', 'venue'
+      'event_venue', 'reception', 'wedding', 'venue', 'restaurant'
     ];
     return venueCategories.includes(category);
   }
@@ -599,6 +626,26 @@ class OptimizedGooglePlaces {
       // CRITICAL FIX: Be EXTREMELY strict about category filtering
       const placeName = place.name?.toLowerCase() || '';
       const placeTypes = place.types || [];
+      
+      // For venue searches, be more inclusive to catch wineries, farms, etc.
+      if (this.isVenueCategory(category)) {
+        // Allow wineries, vineyards, farms, ranches, estates for venue searches
+        const venueKeywords = ['venue', 'hall', 'center', 'theatre', 'theater', 'convention', 'conference', 'winery', 'vineyard', 'farm', 'ranch', 'estate', 'wedding', 'reception', 'event'];
+        const hasVenueName = venueKeywords.some(keyword => placeName.includes(keyword));
+        const hasVenueType = placeTypes.some(type => type.includes('establishment') || type.includes('food') || type.includes('store'));
+        
+        // Allow if it has venue-related keywords or is a general establishment
+        if (hasVenueName || hasVenueType) {
+          return true;
+        }
+        
+        // Also allow if it's clearly a business (not residential)
+        if (placeTypes.includes('establishment') || placeTypes.includes('point_of_interest')) {
+          return true;
+        }
+        
+        return false;
+      }
       
       // BLOCK ALL HOTELS AND VENUES unless specifically searching for venues
       if (this.isHotelOrVenue(placeName, placeTypes) && !this.isVenueCategory(category)) {
@@ -668,10 +715,18 @@ class OptimizedGooglePlaces {
   private isHotelOrVenue(placeName: string, placeTypes: string[]): boolean {
     const hotelKeywords = ['hotel', 'inn', 'resort', 'lodge', 'suites', 'marriott', 'hilton', 'hyatt', 'aloft', 'magnolia', 'adolphus', 'joule', 'indigo'];
     const venueKeywords = ['venue', 'hall', 'center', 'theatre', 'theater', 'convention', 'conference'];
+    // Don't block wineries, vineyards, farms, ranches, estates as they can be wedding venues
+    const allowedVenueKeywords = ['winery', 'vineyard', 'farm', 'ranch', 'estate'];
     
     const hasHotelName = hotelKeywords.some(keyword => placeName.includes(keyword));
     const hasVenueName = venueKeywords.some(keyword => placeName.includes(keyword));
+    const hasAllowedVenueName = allowedVenueKeywords.some(keyword => placeName.includes(keyword));
     const hasHotelType = placeTypes.some(type => type.includes('lodging') || type.includes('hotel'));
+    
+    // Don't block if it's an allowed venue type (winery, vineyard, etc.)
+    if (hasAllowedVenueName) {
+      return false;
+    }
     
     return hasHotelName || hasVenueName || hasHotelType;
   }

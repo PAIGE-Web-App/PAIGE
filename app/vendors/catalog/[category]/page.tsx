@@ -20,6 +20,7 @@ import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { usePrefetch } from '@/utils/prefetchManager';
 import { deduplicatedRequest } from '@/utils/requestDeduplicator';
+import { vendorCacheService } from '@/utils/vendorCacheService';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -244,28 +245,34 @@ const VendorCategoryPage: React.FC = () => {
     else setLoading(true);
     setError(null);
     try {
-      const apiFilters = getApiFilters(filterValuesArg);
-      const body = isNextPage
-        ? { category, location, nextPageToken, ...apiFilters }
-        : { category, location, ...apiFilters };
-      const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
-        cache: true,
-        cacheTTL: 5 * 60 * 1000 // 5 minutes cache
-      });
-      if (data.error) {
-        setError(data.error);
-        if (!isNextPage) setVendors([]);
-      } else if (Array.isArray(data.results) && data.results.length > 0) {
-        setVendors(prev => {
-          let newVendors = isNextPage
-            ? [...prev, ...data.results.filter(v => !prev.some(p => p.place_id === v.place_id))]
-            : data.results;
-          return newVendors;
+      // For pagination, still use the original API call
+      if (isNextPage) {
+        const apiFilters = getApiFilters(filterValuesArg);
+        const body = { category, location, nextPageToken, ...apiFilters };
+        const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
+          cache: true,
+          cacheTTL: 5 * 60 * 1000 // 5 minutes cache
         });
-        setNextPageToken(data.next_page_token || null);
-      } else if (!isNextPage) {
-        setVendors([]);
-        setNextPageToken(null);
+        if (data.error) {
+          setError(data.error);
+          setVendors([]);
+        } else if (Array.isArray(data.results) && data.results.length > 0) {
+          setVendors(prev => {
+            let newVendors = [...prev, ...data.results.filter(v => !prev.some(p => p.place_id === v.place_id))];
+            return newVendors;
+          });
+          setNextPageToken(data.next_page_token || null);
+        }
+      } else {
+        // For initial load, use vendor cache service to prevent rate limiting
+        const vendors = await vendorCacheService.getVendors(category, location);
+        if (vendors && vendors.length > 0) {
+          setVendors(vendors);
+          setNextPageToken(null); // Reset pagination for cached results
+        } else {
+          setVendors([]);
+          setNextPageToken(null);
+        }
       }
     } catch (err) {
       setError('Failed to load vendors');
@@ -279,6 +286,8 @@ const VendorCategoryPage: React.FC = () => {
   // Refetch vendors when API filters change
   useEffect(() => {
     setNextPageToken(null);
+    // Clear cache when category or location changes to ensure fresh data
+    vendorCacheService.clearCache();
     debouncedFetchVendors(apiFilterValues);
     // eslint-disable-next-line
   }, [category, location, apiFilterValues]);
@@ -351,7 +360,7 @@ const VendorCategoryPage: React.FC = () => {
     showSuccessToast('Vendors have been added to your contacts! You can view them in the Vendors section.');
   };
 
-  // Search function
+  // Search function - uses smart search strategy to avoid rate limits
   const handleSearch = useCallback(async (term: string) => {
     if (!term.trim() || term.length < 2) {
       setSearchResults([]);
@@ -361,48 +370,101 @@ const VendorCategoryPage: React.FC = () => {
 
     setIsSearching(true);
     try {
-      const requestBody = {
-        category,
-        location,
+      console.log(`🔍 Searching for "${term}"...`);
+      
+      // First, try searching within the cached vendors (fast, no API call)
+      const cachedVendors = await vendorCacheService.getVendors(category, location);
+      const searchLower = term.toLowerCase().trim();
+      
+      const cachedResults = cachedVendors.filter(vendor => {
+        const nameMatch = vendor.name.toLowerCase().includes(searchLower);
+        const addressMatch = vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower);
+        const typeMatch = vendor.types && vendor.types.some((type: string) => type.toLowerCase().includes(searchLower));
+        return nameMatch || addressMatch || typeMatch;
+      });
+      
+      console.log(`🔍 Found ${cachedResults.length} matches in cached vendors`);
+      
+      // If we found good results in cache, use them
+      if (cachedResults.length >= 3) {
+        console.log(`✅ Using cached results (${cachedResults.length} matches)`);
+        setSearchResults(cachedResults);
+        return;
+      }
+      
+      // If cache results are insufficient, try API search with longer debounce
+      console.log(`🔍 Cache results insufficient, trying API search...`);
+      
+      // Use a longer delay for API calls to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const apiFilters = getApiFilters(apiFilterValues);
+      const body = { 
+        category, 
+        location, 
         searchTerm: term,
-        maxResults: 10
+        ...apiFilters 
       };
       
-              const data = await deduplicatedRequest.post('/api/google-places-optimized', requestBody, {
+      const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
         cache: true,
-        cacheTTL: 2 * 60 * 1000 // 2 minutes cache for search results
+        cacheTTL: 5 * 60 * 1000 // 5 minutes cache for search results
       });
-      if (data.results) {
+      
+      if (data.error) {
+        console.error('API search error:', data.error);
+        // Fall back to cached results even if fewer
+        setSearchResults(cachedResults);
+      } else if (Array.isArray(data.results) && data.results.length > 0) {
+        console.log(`🎯 API search found ${data.results.length} vendors for "${term}"`);
         setSearchResults(data.results);
       } else {
-        setSearchResults([]);
+        console.log(`🎯 No API results, using cached results`);
+        setSearchResults(cachedResults);
       }
     } catch (error) {
       console.error('Error searching vendors:', error);
-      setSearchResults([]);
+      // Fall back to cached search
+      try {
+        const cachedVendors = await vendorCacheService.getVendors(category, location);
+        const searchLower = term.toLowerCase().trim();
+        const cachedResults = cachedVendors.filter(vendor => {
+          const nameMatch = vendor.name.toLowerCase().includes(searchLower);
+          const addressMatch = vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower);
+          const typeMatch = vendor.types && vendor.types.some((type: string) => type.toLowerCase().includes(searchLower));
+          return nameMatch || addressMatch || typeMatch;
+        });
+        setSearchResults(cachedResults);
+      } catch (fallbackError) {
+        console.error('Fallback search failed:', fallbackError);
+        setSearchResults([]);
+      }
     } finally {
       setIsSearching(false);
     }
-  }, [category, location]);
+  }, [category, location, apiFilterValues]);
 
-  // Debounced search
+  // Debounced search with longer delay to prevent rate limiting
   const debouncedSearch = useRef(
     debounce((term: string) => {
       handleSearch(term);
-    }, 300)
+    }, 800) // Increased from 300ms to 800ms
   ).current;
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
+    console.log(`🔍 Search input changed to: "${term}"`);
     setSearchTerm(term);
     
     if (term.trim() && term.length >= 2) {
+      console.log(`🔍 Triggering debounced search for: "${term}"`);
       debouncedSearch(term);
       
       // Track search for prefetching
       trackSearch(term);
     } else if (!term.trim()) {
+      console.log(`🔍 Clearing search results`);
       setSearchResults([]);
     }
   };
@@ -411,6 +473,9 @@ const VendorCategoryPage: React.FC = () => {
   const clearSearch = () => {
     setSearchTerm('');
     setSearchResults([]);
+    // Clear search cache to ensure fresh results when searching again
+    vendorCacheService.clearCache();
+    console.log('🧹 Search cleared, cache cleared');
   };
 
   // Modal handlers
@@ -471,6 +536,7 @@ const VendorCategoryPage: React.FC = () => {
 
   // Use search results when searching, otherwise use regular vendors
   const allVendors = searchResults.length > 0 ? searchResults : vendors;
+  console.log(`📊 allVendors: ${allVendors.length} (searchResults: ${searchResults.length}, vendors: ${vendors.length})`);
   
   const mappedVendors = allVendors.length > 0 ? allVendors.map((vendor: any) => {
     const mainType = vendor.types?.find((type: string) => typeLabels[type]);
@@ -502,21 +568,18 @@ const VendorCategoryPage: React.FC = () => {
   // Memoized client-side filtering (applied to mapped vendors)
   const clientFilteredVendors = useMemo(() => {
     let filtered = mappedVendors;
-    filtered = filterByCuisine(filtered, clientFilterValues.cuisine);
+    console.log(`🔧 clientFilteredVendors: Starting with ${mappedVendors.length} mapped vendors`);
     
-    // Apply search term filtering
-    if (searchTerm && searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim();
-      filtered = filtered.filter(vendor => 
-        vendor.name.toLowerCase().includes(searchLower) ||
-        (vendor.address && vendor.address.toLowerCase().includes(searchLower)) ||
-        (vendor.mainTypeLabel && vendor.mainTypeLabel.toLowerCase().includes(searchLower))
-      );
-    }
+    filtered = filterByCuisine(filtered, clientFilterValues.cuisine);
+    console.log(`🔧 After cuisine filter: ${filtered.length} vendors`);
+    
+    // Don't apply search term filtering here since it's already handled in handleSearch
+    // The searchResults are already filtered, so we just use them directly
     
     // Add more client-side filters as needed
+    console.log(`🔧 Final clientFilteredVendors: ${filtered.length} vendors`);
     return filtered;
-  }, [mappedVendors, clientFilterValues.cuisine, searchTerm]);
+  }, [mappedVendors, clientFilterValues.cuisine]);
 
 
   
@@ -591,6 +654,17 @@ const VendorCategoryPage: React.FC = () => {
         {(() => {
           if (loading) {
             return Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`loading-skeleton-${i}`} />);
+          } else if (isSearching && searchTerm.trim()) {
+            // Show loading state specifically for search using skeleton cards
+            return (
+              <>
+                <div className="col-span-full text-center py-4">
+                  <p className="text-gray-600">Searching for "{searchTerm}"...</p>
+                  <p className="text-sm text-gray-500 mt-1">This may take a moment to find all available venues</p>
+                </div>
+                {Array.from({ length: 6 }).map((_, i) => <VendorCatalogCardSkeleton key={`search-skeleton-${i}`} />)}
+              </>
+            );
           } else if (clientFilteredVendors.length > 0) {
             return clientFilteredVendors
               .filter(vendor => {

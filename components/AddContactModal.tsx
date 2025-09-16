@@ -90,40 +90,36 @@ export default function AddContactModal({ onClose, onSave, userId }: any) {
   const handleVendorSelect = async (vendor: any) => {
     setSelectedVendor(vendor);
     
-    // Auto-populate website if available and not already filled
-    if (vendor.website && !formData.website) {
+    // Auto-populate website if available (always update with vendor data)
+    if (vendor.website) {
       setFormData(prev => ({ ...prev, website: vendor.website }));
     }
     
-    // Auto-populate phone if available and not already filled
-    if (vendor.formatted_phone_number && !formData.phone) {
+    // Auto-populate phone if available (always update with vendor data)
+    if (vendor.formatted_phone_number) {
       setFormData(prev => ({ ...prev, phone: vendor.formatted_phone_number }));
     }
 
-    // Add vendor to community database
+    // Add vendor to user's personal vendor collection and community database
     try {
-      const response = await fetch('/api/community-vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          placeId: vendor.place_id,
-          vendorName: vendor.name,
-          vendorAddress: vendor.formatted_address,
-          vendorCategory: formData.category || 'Vendor',
-          userId,
-          selectedAsVenue: false,
-          selectedAsVendor: true
-        })
+      const { addVendorToUserAndCommunity } = await import('@/lib/addVendorToUserAndCommunity');
+      
+      // Add to user's personal vendor collection
+      const result = await addVendorToUserAndCommunity({
+        userId,
+        vendorMetadata: vendor,
+        category: formData.category || 'Vendor',
+        selectedAsVenue: false,
+        selectedAsVendor: true
       });
 
-      if (!response.ok) {
-        console.error('Failed to add vendor to community database');
-        // Don't fail the operation if this fails
+      if (result.success) {
+        console.log('Successfully added vendor to personal collection and community database');
       } else {
-        console.log('Successfully added vendor to community database');
+        console.error('Failed to add vendor to personal collection:', result.error);
       }
     } catch (error) {
-      console.error('Error adding vendor to community database:', error);
+      console.error('Error adding vendor to personal collection and community database:', error);
       // Don't fail the operation if this fails
     }
   };

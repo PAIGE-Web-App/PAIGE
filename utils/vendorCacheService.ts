@@ -33,8 +33,9 @@ class VendorCacheService {
   /**
    * Generate cache key for vendor request
    */
-  private generateKey(category: string, location: string): string {
-    return `${category}-${location}`.toLowerCase();
+  private generateKey(category: string, location: string, searchTerm?: string): string {
+    const baseKey = `${category}-${location}`.toLowerCase();
+    return searchTerm ? `${baseKey}-${searchTerm.toLowerCase()}` : baseKey;
   }
 
   /**
@@ -73,11 +74,12 @@ class VendorCacheService {
   /**
    * Load vendors from API
    */
-  private async loadVendorsFromAPI(category: string, location: string): Promise<any[]> {
+  private async loadVendorsFromAPI(category: string, location: string, searchTerm?: string): Promise<any[]> {
     try {
       const requestBody = {
         category: category || 'restaurant',
         location: location || 'United States',
+        searchTerm: searchTerm, // Pass search term to API
         maxResults: 50 // Load more vendors for better filtering
       };
       
@@ -103,8 +105,8 @@ class VendorCacheService {
   /**
    * Get vendors from cache or load from API
    */
-  async getVendors(category: string, location: string): Promise<any[]> {
-    const key = this.generateKey(category, location);
+  async getVendors(category: string, location: string, searchTerm?: string): Promise<any[]> {
+    const key = this.generateKey(category, location, searchTerm);
     
     // Clean up expired cache entries
     this.cleanupCache();
@@ -128,7 +130,7 @@ class VendorCacheService {
     }
 
     // Create new loading promise
-    const loadingPromise = this.loadVendorsFromAPI(category, location);
+    const loadingPromise = this.loadVendorsFromAPI(category, location, searchTerm);
     this.loadingPromises.set(key, {
       promise: loadingPromise,
       timestamp: Date.now()

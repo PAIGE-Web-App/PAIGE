@@ -37,28 +37,37 @@ const VendorSearchField = React.memo(function VendorSearchField({
   const [initialLoad, setInitialLoad] = useState(false);
 
   // Load vendors using shared cache service
-  const loadVendors = useCallback(async () => {
-    if (initialLoad) {
-      return;
-    }
+  const loadVendors = useCallback(async (forceReload = false) => {
+    const searchCategory = categories[0] || 'restaurant';
     
-    setLoading(true);
-    try {
-      const vendors = await vendorCacheService.getVendors(
-        categories[0] || 'restaurant',
-        location
-      );
-      
-      if (vendors && vendors.length > 0) {
-        setAllVendors(vendors);
-        setInitialLoad(true);
+    // For venue searches, always reload when search term changes
+    // For other categories, only load once unless forced
+    if (searchCategory === 'restaurant' || !initialLoad || forceReload) {
+      setLoading(true);
+      try {
+        // For venue searches, pass the search term to get server-side search
+        // For other categories, load all vendors for client-side filtering
+        const searchTermForAPI = searchCategory === 'restaurant' ? searchTerm : undefined;
+        
+        const vendors = await vendorCacheService.getVendors(
+          searchCategory,
+          location,
+          searchTermForAPI
+        );
+        
+        if (vendors && vendors.length > 0) {
+          setAllVendors(vendors);
+          if (searchCategory !== 'restaurant') {
+            setInitialLoad(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading vendors:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading vendors:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [categories, location, initialLoad]);
+  }, [categories, location, initialLoad, searchTerm]);
 
   // Client-side filtering function (like catalog)
   const filterVendors = useCallback((term: string) => {
@@ -92,15 +101,23 @@ const VendorSearchField = React.memo(function VendorSearchField({
   // Load vendors when user starts typing (lazy loading) and handle search
   useEffect(() => {
     if (searchTerm && searchTerm.length >= 2) {
-      if (!initialLoad) {
-        loadVendors();
-      } else if (allVendors.length > 0) {
-        debouncedSearch(searchTerm);
+      const searchCategory = categories[0] || 'restaurant';
+      
+      if (searchCategory === 'restaurant') {
+        // For venues, reload with search term (server-side search)
+        loadVendors(true);
+      } else {
+        // For other categories, use client-side filtering
+        if (!initialLoad) {
+          loadVendors();
+        } else if (allVendors.length > 0) {
+          debouncedSearch(searchTerm);
+        }
       }
     } else {
       setResults([]);
     }
-  }, [searchTerm, initialLoad, allVendors.length, loadVendors, debouncedSearch]);
+  }, [searchTerm, initialLoad, allVendors.length, loadVendors, debouncedSearch, categories]);
 
   useEffect(() => {
     // Set initial search term if value is provided
@@ -344,9 +361,18 @@ const VendorSearchField = React.memo(function VendorSearchField({
             <div className="p-4 text-center">
               <LoadingSpinner size="sm" text={allVendors.length === 0 ? "Loading vendors..." : "Searching vendors..."} />
             </div>
-          ) : results.length > 0 ? (
+          ) : (() => {
+            // For venue searches, use allVendors directly (server-side search results)
+            // For other categories, use client-side filtered results
+            const searchCategory = categories[0] || 'restaurant';
+            const displayVendors = searchCategory === 'restaurant' ? allVendors : results;
+            return displayVendors.length > 0;
+          })() ? (
             <div className="py-2">
-              {results.map((vendor, index) => (
+              {(() => {
+                const searchCategory = categories[0] || 'restaurant';
+                const displayVendors = searchCategory === 'restaurant' ? allVendors : results;
+                return displayVendors.map((vendor, index) => (
                 <button
                   key={vendor.place_id}
                   onClick={() => handleVendorSelect(vendor)}
@@ -371,7 +397,8 @@ const VendorSearchField = React.memo(function VendorSearchField({
                     </div>
                   </div>
                 </button>
-              ))}
+                ));
+              })()}
             </div>
           ) : searchTerm.length >= 2 ? (
             <div className="p-4 text-center text-gray-500">
