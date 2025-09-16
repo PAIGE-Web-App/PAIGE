@@ -76,6 +76,7 @@ export default function MoodBoardContent({
           onChooseVibe={onChooseVibe}
           onEditImage={onEditImage}
           onDownloadImage={onDownloadImage}
+          onImageUpload={onImageUpload}
         />
 
       </DragDropZone>

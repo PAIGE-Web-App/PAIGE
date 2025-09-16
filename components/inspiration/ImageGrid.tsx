@@ -14,6 +14,7 @@ interface ImageGridProps {
   onChooseVibe?: () => void;
   onEditImage?: (imageIndex: number) => void;
   onDownloadImage?: (imageUrl: string, imageName: string) => void;
+  onImageUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export default function ImageGrid({
@@ -24,7 +25,8 @@ export default function ImageGrid({
   generatingVibes,
   onChooseVibe,
   onEditImage,
-  onDownloadImage
+  onDownloadImage,
+  onImageUpload
 }: ImageGridProps) {
   const hasImages = board.images.length > 0;
   const canAddMore = canAddMoreImages(board, userPlan);
@@ -40,6 +42,24 @@ export default function ImageGrid({
         <h5 className="text-lg font-medium text-[#332B42] mb-2">No {board.name.toLowerCase()} images yet</h5>
         <p className="text-[#364257] mb-4">Start building your {board.name.toLowerCase()} mood board by uploading some wedding inspiration images</p>
         <p className="text-sm text-[#A85C36] mb-4">💡 Tip: Upload images that capture your dream {board.name.toLowerCase()} aesthetic</p>
+        {onImageUpload && (
+          <div className="flex justify-center">
+            <input
+              type="file"
+              id="empty-state-upload"
+              accept="image/*"
+              multiple
+              onChange={onImageUpload}
+              className="hidden"
+            />
+            <label
+              htmlFor="empty-state-upload"
+              className="btn-primaryinverse cursor-pointer"
+            >
+              Upload Images
+            </label>
+          </div>
+        )}
       </div>
     );
   }
@@ -47,7 +67,7 @@ export default function ImageGrid({
   return (
     <>
       {/* Responsive Grid Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-6 w-full max-w-full overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 mb-6 w-full max-w-full overflow-hidden">
         {board.images.slice().reverse().map((image, displayIndex) => {
           // Calculate the actual index in the original array
           const actualIndex = board.images.length - 1 - displayIndex;
@@ -65,7 +85,7 @@ export default function ImageGrid({
               transition={{ duration: 0.3, delay: displayIndex * 0.1 }}
               className="group"
             >
-              <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative w-full max-w-full overflow-hidden">
+              <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative w-full max-w-full">
                 {/* Micro Menu - Top Right (Only on Hover) */}
                 <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <MicroMenu
@@ -85,7 +105,7 @@ export default function ImageGrid({
                       }
                     ]}
                     buttonClassName="p-1.5 hover:bg-white/80 rounded-full transition-colors bg-white/60 backdrop-blur-sm"
-                    menuClassName="absolute right-0 mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-50"
+                    menuClassName="absolute right-0 top-full mt-1 w-32 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-[100]"
                   />
                 </div>
 
@@ -104,12 +124,12 @@ export default function ImageGrid({
                     <button
                       onClick={() => onGenerateVibes(imageUrl)}
                       disabled={generatingVibes}
-                      className="flex items-center gap-2 px-3 py-2 bg-white text-[#332B42] text-sm font-medium rounded-lg shadow-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1 px-2 py-1 bg-white text-[#332B42] text-xs font-medium rounded shadow-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {generatingVibes ? (
-                        <div className="w-4 h-4 border-2 border-[#332B42] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border-2 border-[#332B42] border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        <Sparkles className="w-4 h-4" />
+                        <Sparkles className="w-3 h-3" />
                       )}
                       Generate Vibes (2 Credits)
                     </button>
@@ -118,26 +138,26 @@ export default function ImageGrid({
               </div>
               
               {/* Content below image */}
-              <div className="p-3">
-                <div className="flex items-start justify-between mb-2 gap-2">
-                  <h3 className="font-semibold text-[#332B42] text-sm truncate flex-1 min-w-0 text-left">
+              <div className="p-2">
+                <div className="flex items-start justify-between mb-1 gap-1">
+                  <h3 className="font-semibold text-[#332B42] text-xs truncate flex-1 min-w-0 text-left">
                     {imageName}
                   </h3>
                   <div className="flex items-center gap-1 text-xs text-[#AB9C95] flex-shrink-0">
-                    <Camera size={12} />
-                    <span>Uploaded</span>
+                    <Camera size={10} />
+                    <span className="text-xs">Uploaded</span>
                   </div>
                 </div>
                 
                 {/* Description */}
                 {imageDescription && (
-                  <p className="text-xs text-[#364257] mb-2 line-clamp-2 break-words">
+                  <p className="text-xs text-[#364257] mb-1 line-clamp-1 break-words">
                     {imageDescription}
                   </p>
                 )}
                 
                 {/* Category Tag */}
-                <span className="inline-block px-2 py-1 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">
+                <span className="inline-block px-1.5 py-0.5 bg-[#F3F2F0] text-[#332B42] text-xs font-medium rounded">
                   {board.name} Inspiration
                 </span>
               </div>

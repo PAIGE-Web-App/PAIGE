@@ -853,7 +853,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                   className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                 >
                                   <Upload className="w-4 h-4 mr-2 text-[#364257]" />
-                                  Upload Image
+                                  Upload Images
                                 </button>
                                 {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
                                   <button
@@ -1010,7 +1010,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                         className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                       >
                                         <Upload className="w-4 h-4 mr-2 text-[#364257]" />
-                                        Upload Image
+                                        Upload Images
                                       </button>
                                     </div>
                                   </motion.div>
@@ -1136,7 +1136,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                               className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                             >
                               <Upload className="w-4 h-4 mr-2 text-[#364257]" />
-                              Upload Image
+                              Upload Images
                             </button>
                             {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
                               <button
@@ -1281,7 +1281,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                       className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
                                     >
                                       <Upload className="w-4 h-4 mr-2 text-[#364257]" />
-                                      Upload Image
+                                      Upload Images
                                     </button>
                                   </div>
                                 </motion.div>
