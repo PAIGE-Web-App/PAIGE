@@ -48,18 +48,21 @@ export default function ImageGrid({
     <>
       {/* Responsive Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-6 w-full max-w-full overflow-hidden">
-        {board.images.slice().reverse().map((image, index) => {
+        {board.images.slice().reverse().map((image, displayIndex) => {
+          // Calculate the actual index in the original array
+          const actualIndex = board.images.length - 1 - displayIndex;
+          
           // Handle both old string format and new object format
           const imageUrl = typeof image === 'string' ? image : image.url;
-          const imageName = typeof image === 'string' ? `Image ${index + 1}` : image.fileName;
+          const imageName = typeof image === 'string' ? `Image ${displayIndex + 1}` : image.fileName;
           const imageDescription = typeof image === 'string' ? '' : image.description;
           
           return (
             <motion.div
-              key={index}
+              key={actualIndex}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
+              transition={{ duration: 0.3, delay: displayIndex * 0.1 }}
               className="group"
             >
               <div className="bg-white border border-[#AB9C95] rounded-[5px] hover:shadow-lg transition-shadow relative w-full max-w-full overflow-hidden">
@@ -69,7 +72,7 @@ export default function ImageGrid({
                     items={[
                       {
                         label: 'Edit',
-                        onClick: () => onEditImage?.(index)
+                        onClick: () => onEditImage?.(actualIndex)
                       },
                       {
                         label: 'Download',
@@ -77,7 +80,7 @@ export default function ImageGrid({
                       },
                       {
                         label: 'Delete',
-                        onClick: () => onRemoveImage(index),
+                        onClick: () => onRemoveImage(actualIndex),
                         className: 'text-red-600 hover:bg-red-50'
                       }
                     ]}

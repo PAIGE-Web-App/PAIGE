@@ -2,18 +2,21 @@
 
 import { useAuth } from "../../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, use, useRef } from "react";
+import { useEffect, useState, use, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag, MoreHorizontal, Trash2, ArrowLeft } from "lucide-react";
 import WeddingBanner from "../../../components/WeddingBanner";
 import { useWeddingBanner } from "../../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../../hooks/useUserProfileData";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { useCustomToast } from "../../../hooks/useCustomToast";
 import { useMoodBoardStorage } from "../../../hooks/useMoodBoardStorage";
 import VibePill from "../../../components/VibePill";
 import { useCredits } from "../../../contexts/CreditContext";
+import { useMoodBoards } from "../../../contexts/MoodBoardsContext";
+import { useImageUpload } from "../../../hooks/useImageUpload";
+import ImageUploadProgress from "../../../components/inspiration/ImageUploadProgress";
 
 // Import new components
 import PinterestBanner from "../../../components/inspiration/PinterestBanner";
@@ -23,11 +26,11 @@ import VibeEditModal from "../../../components/inspiration/VibeEditModal";
 import ImageEditModal from "../../../components/inspiration/ImageEditModal";
 import UpgradePlanModal from "../../../components/UpgradePlanModal";
 import Banner from "../../../components/Banner";
+import BadgeCount from "../../../components/BadgeCount";
 import MoodBoardSkeleton from "../../../components/inspiration/MoodBoardSkeleton";
 import VibePreviewModal from "../../../components/inspiration/VibePreviewModal";
 import VibeSection from "../../../components/inspiration/VibeSection";
 import LoadingBar from "../../../components/LoadingBar";
-import BadgeCount from "../../../components/BadgeCount";
 import MoodBoardSidebar from "../../../components/inspiration/MoodBoardSidebar";
 
 // Import types and utilities
@@ -46,9 +49,9 @@ import NotEnoughCreditsModal from "../../../components/NotEnoughCreditsModal";
 import { COUPLE_SUBSCRIPTION_CREDITS } from "../../../types/credits";
 
 interface MoodBoardPageProps {
-  params: {
+  params: Promise<{
     boardId: string;
-  };
+  }>;
 }
 
 export default function MoodBoardPage({ params }: MoodBoardPageProps) {
@@ -76,7 +79,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // uploadingImage is now managed by useImageUpload hook
   const [generatingVibes, setGeneratingVibes] = useState(false);
 
   const [showPinterestSearch, setShowPinterestSearch] = useState(false);
@@ -86,13 +89,23 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   
-  // Mood board state
-  const [moodBoards, setMoodBoards] = useState<MoodBoard[]>([]);
+  // Use shared mood boards context
+  const { moodBoards, setMoodBoards, moodBoardsLoading, saveMoodBoards } = useMoodBoards();
+
+  // Image upload optimization
+  const { uploading: uploadingImage, uploadProgress, uploadImages, cancelUpload } = useImageUpload({
+    onBoardsUpdate: setMoodBoards,
+    onFirstImageUpload: (imageUrl, file) => {
+      setImagePreviewUrl(imageUrl);
+      setUploadedImage(file);
+    }
+  });
+  
+  // Local state
   const [activeMoodBoard, setActiveMoodBoard] = useState<string>(boardId);
   const [showNewBoardModal, setShowNewBoardModal] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardType, setNewBoardType] = useState<'custom' | 'wedding-day' | 'reception' | 'engagement'>('custom');
-  const [moodBoardsLoading, setMoodBoardsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showBoardLimitBanner, setShowBoardLimitBanner] = useState(true);
   const [editingBoard, setEditingBoard] = useState<MoodBoard | null>(null);
@@ -125,12 +138,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   useEffect(() => {
     const checkMobile = () => {
       const isMobileWidth = window.innerWidth < 1024;
-      console.log('Mobile detection debug:', { 
-        width: window.innerWidth, 
-        isMobileWidth, 
-        currentIsMobile: isMobile,
-        mobileViewMode: isMobile ? 'boards' : undefined
-      });
       setIsMobile(isMobileWidth);
     };
     
@@ -140,10 +147,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle mobile board selection
-  const handleMobileBoardSelect = (boardId: string) => {
-    router.push(`/moodboards/${boardId}`);
-  };
+  // handleMobileBoardSelect is now defined as useCallback below
 
   // Close actions menu when clicking outside
   useEffect(() => {
@@ -182,132 +186,54 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
 
-  // Load mood boards from Firestore
-  useEffect(() => {
-    const loadMoodBoards = async () => {
-      if (!user) return;
-      
-      setMoodBoardsLoading(true);
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          let savedMoodBoards = data.moodBoards || [];
-          
-          // Migration: Check if we need to migrate existing vibes to wedding-day board (only once)
-          const existingVibes = [...(data.vibe || []), ...(data.generatedVibes || [])];
-          const existingVibeInputMethod = data.vibeInputMethod || 'pills';
-          const hasMigratedVibes = data.hasMigratedVibesToMoodBoard; // Check if migration already happened
-          
-          if (savedMoodBoards.length === 0) {
-            // No mood boards exist, create default with migrated vibes
-            const defaultBoard: MoodBoard = {
-              id: 'wedding-day',
-              name: 'Wedding Day',
-              type: 'wedding-day',
-              images: [], // TODO: Add onboarding image if available
-              vibes: existingVibes,
-              createdAt: new Date(),
-              vibeInputMethod: existingVibeInputMethod
-            };
-            
-            savedMoodBoards = [defaultBoard];
-          } else if (!hasMigratedVibes) {
-            // Mood boards exist, but check if wedding-day board needs vibes migrated (only once)
-            const weddingDayBoard = savedMoodBoards.find(board => board.id === 'wedding-day');
-            if (weddingDayBoard && existingVibes.length > 0 && weddingDayBoard.vibes.length === 0) {
-              // Migrate vibes to existing wedding-day board
-              weddingDayBoard.vibes = existingVibes;
-              weddingDayBoard.vibeInputMethod = existingVibeInputMethod;
-              console.log('Migrated existing vibes to Wedding Day board');
-            }
-          }
-          
-          // Save the migrated data to Firestore if we made changes and mark migration as complete
-          if (existingVibes.length > 0 && !hasMigratedVibes) {
-            try {
-              await updateDoc(doc(db, "users", user.uid), {
-                moodBoards: savedMoodBoards,
-                hasMigratedVibesToMoodBoard: true // Mark migration as complete
-              });
-              console.log('Successfully saved migrated mood boards');
-            } catch (migrationError) {
-              console.error('Error saving migrated mood boards:', migrationError);
-            }
-          }
-          
-          // Clean up any existing base64 images to prevent document size issues
-          try {
-            const cleanedBoards = await cleanupBase64Images(savedMoodBoards, user.uid);
-            if (JSON.stringify(cleanedBoards) !== JSON.stringify(savedMoodBoards)) {
-              // Save cleaned boards if changes were made
-              await updateDoc(doc(db, "users", user.uid), {
-                moodBoards: cleanedBoards
-              });
-              console.log('Successfully cleaned up base64 images');
-              setMoodBoards(cleanedBoards);
-            } else {
-              setMoodBoards(savedMoodBoards);
-            }
-          } catch (cleanupError) {
-            console.error('Error cleaning up base64 images:', cleanupError);
-            // Continue with original boards if cleanup fails
-            setMoodBoards(savedMoodBoards);
-          }
-          
-          // Check if the requested board exists
-          const requestedBoard = savedMoodBoards.find(board => board.id === boardId);
-          if (requestedBoard) {
-            setActiveMoodBoard(boardId);
-          } else {
-            // Board not found, redirect to main mood boards page
-            router.push('/moodboards');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Error loading mood boards:', error);
-        // Fallback to default board
-        const defaultBoard: MoodBoard = {
-          id: 'wedding-day',
-          name: 'Wedding Day',
-          type: 'wedding-day',
-          images: [],
-          vibes: [],
-          createdAt: new Date()
-        };
-        setMoodBoards([defaultBoard]);
-        setActiveMoodBoard('wedding-day');
-      } finally {
-        setMoodBoardsLoading(false);
-      }
-    };
+  // Memoized expensive calculations
+  const canCreateNewBoard = useMemo(() => {
+    return moodBoards.length < userPlan.maxBoards;
+  }, [moodBoards.length, userPlan.maxBoards]);
 
-    loadMoodBoards();
-  }, [user, boardId, router]);
+  const activeBoard = useMemo(() => {
+    return getActiveBoard(moodBoards, activeMoodBoard);
+  }, [moodBoards, activeMoodBoard]);
+
+  // Memoized event handlers
+  const handleNewBoard = useCallback(() => {
+    if (!canCreateNewBoard) {
+      setShowUpgradeModal(true);
+    } else {
+      setShowNewBoardModal(true);
+    }
+  }, [canCreateNewBoard]);
+
+  const handleDismissUpgradeBanner = useCallback(() => {
+    setShowBoardLimitBanner(false);
+  }, []);
+
+  const handleMobileBoardSelect = useCallback((boardId: string) => {
+    router.push(`/moodboards/${boardId}`);
+  }, [router]);
+
+  // Data is now loaded by the shared context - no need for local loading
+  // Set the active board to the one from the URL when data is loaded
+  useEffect(() => {
+    if (moodBoards.length > 0) {
+      setActiveMoodBoard(boardId);
+      
+      // Check if the requested board exists
+      const requestedBoard = moodBoards.find(board => board.id === boardId);
+      if (!requestedBoard) {
+        // Board not found, redirect to main mood boards page
+        router.push('/moodboards');
+      }
+    }
+  }, [moodBoards, boardId, router]);
 
   // Save mood boards to Firestore whenever they change
   useEffect(() => {
-    const saveMoodBoards = async () => {
+    const saveMoodBoardsToFirestore = async () => {
       if (!user || moodBoardsLoading || moodBoards.length === 0) return;
       
       try {
-        // Sync vibes with user profile settings for Wedding Day board
-        const weddingDayBoard = moodBoards.find(board => board.id === 'wedding-day');
-        if (weddingDayBoard) {
-          // Update user profile with current vibes from Wedding Day board
-          await updateDoc(doc(db, "users", user.uid), {
-            moodBoards: moodBoards,
-            vibe: weddingDayBoard.vibes, // Sync vibes with profile
-            generatedVibes: [], // Clear generated vibes since they're now in mood board
-            vibeInputMethod: weddingDayBoard.vibeInputMethod || 'pills'
-          });
-        } else {
-          // No wedding day board, just save mood boards
-          await updateDoc(doc(db, "users", user.uid), {
-            moodBoards: moodBoards
-          });
-        }
+        await saveMoodBoards(moodBoards);
       } catch (error) {
         console.error('Error saving mood boards:', error);
         showErrorToast('Failed to save mood boards');
@@ -315,19 +241,18 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     };
 
     // Debounce saves to avoid excessive Firestore writes
-    const timeoutId = setTimeout(saveMoodBoards, 1000);
+    const timeoutId = setTimeout(saveMoodBoardsToFirestore, 1000);
     return () => clearTimeout(timeoutId);
-  }, [moodBoards, user, moodBoardsLoading]);
+  }, [moodBoards, user, moodBoardsLoading, saveMoodBoards, showErrorToast]);
 
   // Initialize editing vibes when active board changes
   useEffect(() => {
-    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
     if (activeBoard && activeBoard.vibes) {
       setEditingVibes([...activeBoard.vibes]);
     } else {
       setEditingVibes([]);
     }
-  }, [activeMoodBoard, moodBoards]);
+  }, [activeBoard]);
 
   // Image management functions
   const handleEditImage = (imageIndex: number) => {
@@ -355,17 +280,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   };
 
   const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
-    console.log('handleUpdateImage called with:', { imageIndex, fileName, description });
-    
     const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
     if (!activeBoard) {
-      console.log('No active board found');
       return;
     }
-    
-    console.log('Active board:', activeBoard);
-    console.log('Current images:', activeBoard.images);
-    console.log('Image at index:', activeBoard.images[imageIndex]);
     
     const updatedBoards = moodBoards.map(board => {
       if (board.id === activeBoard.id) {
@@ -379,7 +297,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
             description,
             uploadedAt: new Date()
           };
-          console.log('Converted string image to object:', updatedImages[imageIndex]);
         } else {
           // Update existing object format
           updatedImages[imageIndex] = {
@@ -387,14 +304,11 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
             fileName,
             description
           };
-          console.log('Updated existing object image:', updatedImages[imageIndex]);
         }
         return { ...board, images: updatedImages };
       }
       return board;
     });
-    
-    console.log('Updated boards:', updatedBoards);
     setMoodBoards(updatedBoards);
     showSuccessToast('Image updated successfully!');
   };
@@ -415,13 +329,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     // router.push('/');
   };
 
-  // Helper functions
-  const canCreateNewBoard = () => {
-    return moodBoards.length < userPlan.maxBoards;
-  };
+  // Helper functions (canCreateNewBoard is now memoized above)
 
   const handleSave = async () => {
-    if (!user || !getActiveBoard(moodBoards, activeMoodBoard)) return;
+    if (!user || !activeBoard) return;
     
     setSaving(true);
     try {
@@ -447,35 +358,8 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   };
 
   const handleFilesDrop = async (files: File[]) => {
-    if (!user) return;
-    
-    setUploadingImage(true);
-    
-    try {
-      for (const file of files) {
-        if (file.type.startsWith('image/')) {
-          // Upload to Firebase Storage instead of base64
-          const imageUrl = await uploadImageToStorage(file, user.uid, activeMoodBoard);
-          
-          // Add the Storage URL to the mood board
-          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl, file.name);
-          setMoodBoards(updatedBoards);
-          
-          // Set the first image as the main preview for vibe generation
-          if (!imagePreviewUrl) {
-            setImagePreviewUrl(imageUrl);
-            setUploadedImage(file);
-          }
-          
-          showSuccessToast(`Uploaded ${file.name} successfully!`);
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      showErrorToast('Failed to upload images. Please try again.');
-    } finally {
-      setUploadingImage(false);
-    }
+    if (!user || !activeMoodBoard) return;
+    await uploadImages(files, user.uid, activeMoodBoard, moodBoards);
   };
 
   const generateVibesFromImage = async (imageUrl?: string) => {
@@ -494,10 +378,8 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       
       // Handle both File objects and image URLs
       if (imageToUse instanceof File) {
-        console.log('Processing File object:', imageToUse.name, imageToUse.type, imageToUse.size);
         formData.append('image', imageToUse);
       } else if (typeof imageToUse === 'string') {
-        console.log('Processing image URL:', imageToUse);
         // Check if it's already a base64 string
         if (imageToUse.startsWith('data:image/')) {
           // It's already a base64 string, convert to blob
@@ -517,12 +399,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
         }
       }
       
-      console.log('Uploading image for vibe generation...');
-      console.log('FormData contents:');
-      for (const [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-      
       const response = await fetch('/api/generate-vibes-from-image', {
         method: 'POST',
         headers: {
@@ -531,9 +407,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
         body: formData,
       });
       
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', data);
       
       if (data.success && data.vibes && Array.isArray(data.vibes)) {
         // Add new vibes to the active board
@@ -601,7 +475,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
           const imageUrl = image.url;
           if (!imageUrl) continue;
           
-          console.log('Processing image in board:', imageUrl);
           
           const formData = new FormData();
           
@@ -611,7 +484,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
           formData.append('imageId', `image-${index}`);
           
           // Convert image URL to blob for API
-          console.log('Fetching image from URL:', imageUrl);
           const response = await fetch(imageUrl);
           
           if (!response.ok) {
@@ -620,10 +492,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
           }
           
           const blob = await response.blob();
-          console.log('Image blob size:', blob.size, 'type:', blob.type);
           formData.append('image', blob, 'image.jpg');
-          
-          console.log('Processing image for bulk vibe generation...');
           const apiResponse = await fetch('/api/generate-bulk-vibes', {
             method: 'POST',
             headers: {
@@ -725,7 +594,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     }
 
     // Creating new board
-    if (!canCreateNewBoard()) {
+    if (!canCreateNewBoard) {
       showErrorToast(`You've reached the limit of ${userPlan.maxBoards} mood boards for your plan. Upgrade to create more!`);
       return;
     }
@@ -898,18 +767,9 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                 setShowUpgradeModal(true);
               }}
               showUpgradeBanner={(() => {
-                const canCreate = canCreateNewBoard();
+                const canCreate = canCreateNewBoard;
                 const showBanner = showBoardLimitBanner;
-                const result = isMobile && !canCreate && showBanner;
-                console.log('Upgrade banner debug:', { 
-                  isMobile, 
-                  canCreate, 
-                  showBanner, 
-                  result,
-                  moodBoardsLength: moodBoards.length,
-                  maxBoards: userPlan.maxBoards
-                });
-                return result;
+                return isMobile && !canCreate && showBanner;
               })()}
               onDismissUpgradeBanner={() => setShowBoardLimitBanner(false)}
             />
@@ -995,16 +855,19 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                   <Upload className="w-4 h-4 mr-2 text-[#364257]" />
                                   Upload Image
                                 </button>
-                                {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length > 0 && (
+                                {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
                                   <button
                                     onClick={() => {
-                                      generateVibesFromAllImages();
+                                      const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+                                      if (activeBoard) {
+                                        generateVibesFromAllImages(activeBoard);
+                                      }
                                       setShowHeaderActionsMenu(false);
                                     }}
                                     className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   >
                                     <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
-                                    <span className="leading-tight">Extract Moods from All Images (3 Credits)</span>
+                                    <span className="leading-tight">Extract Moods from All Images (5 Credits)</span>
                                   </button>
                                 )}
                                 {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
@@ -1030,7 +893,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
 
                 {/* Plan Limit Warning - positioned like todo page upgrade banner */}
                 <AnimatePresence>
-                  {!canCreateNewBoard() && showBoardLimitBanner && (
+                  {!canCreateNewBoard && showBoardLimitBanner && (
                     <div className="px-4 pt-2">
                       <Banner
                         message={
@@ -1051,7 +914,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                   <div className="px-4 py-4">
                     {/* Moods Title with Edit Button */}
                     <div className="flex items-center justify-between mb-4">
-                      <h6 className="mb-0">Moods</h6>
+                      <div className="flex items-center gap-2">
+                        <h6 className="mb-0">Moods</h6>
+                        <BadgeCount count={getActiveBoard(moodBoards, activeMoodBoard)?.vibes?.length || 0} />
+                      </div>
                       <button
                         onClick={() => setIsEditing(true)}
                         className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7 gap-1"
@@ -1093,20 +959,30 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                   <MoodBoardSkeleton />
                 ) : (
                   getActiveBoard(moodBoards, activeMoodBoard) && (
-                    <div className="bg-white border border-gray-100 rounded-lg p-2 h-full overflow-y-auto">
+                    <div className="bg-white border border-gray-100 rounded-lg p-2">
                       {/* Images Title with Extract Button and Actions Menu */}
                       <div className="px-4">
                         <div className="flex items-center justify-between mb-2">
-                          <h6 className="mb-0">Images</h6>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={generateVibesFromAllImages}
-                              className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
-                              aria-label="Extract moods from all images"
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              Extract Moods from All (3 Credits)
-                            </button>
+                            <h6 className="mb-0">Images</h6>
+                            <BadgeCount count={getActiveBoard(moodBoards, activeMoodBoard)?.images?.length || 0} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
+                              <button
+                                onClick={() => {
+                                  const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+                                  if (activeBoard) {
+                                    generateVibesFromAllImages(activeBoard);
+                                  }
+                                }}
+                                className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
+                                aria-label="Extract moods from all images"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                Extract Moods from All (5 Credits)
+                              </button>
+                            )}
                             
                             {/* Three-dot actions menu */}
                             <div className="relative" ref={imagesDropdownRef}>
@@ -1146,11 +1022,12 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         
                         {/* Images Description */}
                         <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                          Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 3 credits.
+                          Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 5 credits.
                         </div>
                       </div>
                       
-                      <MoodBoardContent
+                      <div className="lg:overflow-y-auto lg:h-[420px]">
+                        <MoodBoardContent
                         board={getActiveBoard(moodBoards, activeMoodBoard)!}
                         userPlan={userPlan}
                         weddingLocation={weddingLocation || undefined}
@@ -1195,6 +1072,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         isLoading={moodBoardsLoading}
                         uploadingImage={uploadingImage}
                       />
+                      </div>
                     </div>
                   )
                 )}
@@ -1260,16 +1138,19 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                               <Upload className="w-4 h-4 mr-2 text-[#364257]" />
                               Upload Image
                             </button>
-                            {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length > 0 && (
+                            {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
                               <button
                                 onClick={() => {
-                                  generateVibesFromAllImages();
+                                  const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+                                  if (activeBoard) {
+                                    generateVibesFromAllImages(activeBoard);
+                                  }
                                   setShowHeaderActionsMenu(false);
                                 }}
                                 className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               >
                                 <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
-                                <span className="leading-tight">Extract Moods from All Images (3 Credits)</span>
+                                <span className="leading-tight">Extract Moods from All Images (5 Credits)</span>
                               </button>
                             )}
                             {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
@@ -1301,7 +1182,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                 <div className="px-4 py-4">
                   {/* Moods Title with Edit Button */}
                   <div className="flex items-center justify-between mb-4">
-                    <h6 className="mb-0">Moods</h6>
+                    <div className="flex items-center gap-2">
+                      <h6 className="mb-0">Moods</h6>
+                      <BadgeCount count={getActiveBoard(moodBoards, activeMoodBoard)?.vibes?.length || 0} />
+                    </div>
                     <button
                       onClick={() => setIsEditing(true)}
                       className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7 gap-1"
@@ -1350,16 +1234,26 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                     {/* Images Title with Extract Button and Actions Menu */}
                     <div className="px-4 pt-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h6 className="mb-0">Images</h6>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={generateVibesFromAllImages}
-                            className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
-                            aria-label="Extract moods from all images"
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            Extract Moods from All (3 Credits)
-                          </button>
+                          <h6 className="mb-0">Images</h6>
+                          <BadgeCount count={getActiveBoard(moodBoards, activeMoodBoard)?.images?.length || 0} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length >= 2 && (
+                            <button
+                              onClick={() => {
+                                const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+                                if (activeBoard) {
+                                  generateVibesFromAllImages(activeBoard);
+                                }
+                              }}
+                              className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
+                              aria-label="Extract moods from all images"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Extract Moods from All (5 Credits)
+                            </button>
+                          )}
                           
                           {/* Three-dot actions menu */}
                           <div className="relative" ref={imagesDropdownRef}>
@@ -1399,12 +1293,12 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                       
                       {/* Images Description */}
                       <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                        Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 3 credits.
+                        Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 5 credits.
                       </div>
                     </div>
                     
                     {/* Images Content - No padding for edge-to-edge images */}
-                    <div className="overflow-y-auto">
+                    <div>
                       <MoodBoardContent
                         board={getActiveBoard(moodBoards, activeMoodBoard)!}
                         userPlan={userPlan}
@@ -1541,7 +1435,6 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
             isVisible={generatingVibes}
             onComplete={() => {
               // Credit update event is already emitted in generateVibesFromImage
-              console.log('Vibe generation completed');
             }}
           />
 
@@ -1557,6 +1450,13 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
               dailyCredits: userCredits.monthlyCredits,
               refreshTime: 'Daily at midnight'
             }}
+          />
+
+          {/* Image upload progress */}
+          <ImageUploadProgress
+            uploadProgress={uploadProgress}
+            onCancel={cancelUpload}
+            isVisible={uploadingImage}
           />
     </div>
   );

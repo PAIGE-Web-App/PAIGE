@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Copy, Mail, Heart, Palette, Camera, Star, ChevronDown } from 'lucide-react';
 import { MoodBoard } from '../../types/inspiration';
@@ -16,7 +16,7 @@ interface VibePreviewModalProps {
   onUseInDraft: (vibes: string[], boardType: string) => void;
 }
 
-export default function VibePreviewModal({
+const VibePreviewModal = memo(function VibePreviewModal({
   isOpen,
   onClose,
   moodBoards,
@@ -47,7 +47,9 @@ export default function VibePreviewModal({
   const { todoItems: todos } = useTodoItems(null); // Pass null for selectedList to get all todos
   const { favorites } = useFavoritesSimple();
   
-  const activeBoard = moodBoards.find(board => board.id === selectedBoardId);
+  const activeBoard = useMemo(() => {
+    return moodBoards.find(board => board.id === selectedBoardId);
+  }, [moodBoards, selectedBoardId]);
 
   useEffect(() => {
     if (isOpen && activeBoard) {
@@ -89,7 +91,6 @@ export default function VibePreviewModal({
         vibe: vibe || []
       };
 
-      console.log('VibePreviewModal - User profile data being sent:', userProfileData);
 
       const response = await fetch('/api/draft', {
         method: 'POST',
@@ -358,4 +359,6 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
       </motion.div>
     </AnimatePresence>
   );
-}
+});
+
+export default VibePreviewModal;

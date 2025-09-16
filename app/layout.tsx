@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
 import { CreditProvider } from "../contexts/CreditContext";
+import { MoodBoardsProvider } from "../contexts/MoodBoardsContext";
 import Script from "next/script";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import VerticalNavWrapper from "../components/VerticalNavWrapper";
@@ -41,19 +42,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <SWRProvider>
             <CreditProvider>
-              {/* New Vertical Navigation */}
-              {!hideNav && (
-                <VerticalNavWrapper>
-                  <GlobalErrorBoundary>
-                    {children}
-                  </GlobalErrorBoundary>
-                </VerticalNavWrapper>
+              <MoodBoardsProvider>
+                {/* New Vertical Navigation */}
+                {!hideNav && (
+                  <VerticalNavWrapper>
+                    <GlobalErrorBoundary>
+                      {children}
+                    </GlobalErrorBoundary>
+                  </VerticalNavWrapper>
               )}
               {hideNav && (
                 <GlobalErrorBoundary>
                   {children}
                 </GlobalErrorBoundary>
               )}
+              </MoodBoardsProvider>
             </CreditProvider>
             
             <IdleTimeoutManager />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { MoodBoard } from '../../types/inspiration';
 
@@ -6,7 +6,7 @@ interface MoodBoardCardProps {
   board: MoodBoard;
 }
 
-const MoodBoardCard: React.FC<MoodBoardCardProps> = ({ board }) => {
+const MoodBoardCard: React.FC<MoodBoardCardProps> = memo(({ board }) => {
   const router = useRouter();
 
   return (
@@ -88,6 +88,8 @@ const MoodBoardCard: React.FC<MoodBoardCardProps> = ({ board }) => {
       </div>
     </div>
   );
-};
+});
+
+MoodBoardCard.displayName = 'MoodBoardCard';
 
 export default MoodBoardCard;

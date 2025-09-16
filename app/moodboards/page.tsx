@@ -2,18 +2,21 @@
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
 import WeddingBanner from "../../components/WeddingBanner";
 import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
 import { useCredits } from "../../contexts/CreditContext";
+import { useMoodBoards } from "../../contexts/MoodBoardsContext";
+import { useImageUpload } from "../../hooks/useImageUpload";
+import ImageUploadProgress from "../../components/inspiration/ImageUploadProgress";
 
 // Import new components
 import PinterestBanner from "../../components/inspiration/PinterestBanner";
@@ -66,7 +69,7 @@ export default function MoodBoardsPage() {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  // uploadingImage is now managed by useImageUpload hook
   const [generatingVibes, setGeneratingVibes] = useState(false);
 
   const [showPinterestSearch, setShowPinterestSearch] = useState(false);
@@ -76,13 +79,23 @@ export default function MoodBoardsPage() {
   const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   
-  // Mood board state
-  const [moodBoards, setMoodBoards] = useState<MoodBoard[]>([]);
+  // Use shared mood boards context
+  const { moodBoards, setMoodBoards, moodBoardsLoading, saveMoodBoards } = useMoodBoards();
+
+  // Image upload optimization
+  const { uploading: uploadingImage, uploadProgress, uploadImages, cancelUpload } = useImageUpload({
+    onBoardsUpdate: setMoodBoards,
+    onFirstImageUpload: (imageUrl, file) => {
+      setImagePreviewUrl(imageUrl);
+      setUploadedImage(file);
+    }
+  });
+  
+  // Local state
   const [activeMoodBoard, setActiveMoodBoard] = useState<string>('');
   const [showNewBoardModal, setShowNewBoardModal] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardType, setNewBoardType] = useState<'custom' | 'wedding-day' | 'reception' | 'engagement'>('custom');
-  const [moodBoardsLoading, setMoodBoardsLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showBoardLimitBanner, setShowBoardLimitBanner] = useState(true);
   const [editingBoard, setEditingBoard] = useState<MoodBoard | null>(null);
@@ -111,6 +124,19 @@ export default function MoodBoardsPage() {
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
 
+  // Memoized expensive calculations
+  const canCreateNewBoard = useMemo(() => {
+    return moodBoards.length < userPlan.maxBoards;
+  }, [moodBoards.length, userPlan.maxBoards]);
+
+  const activeBoard = useMemo(() => {
+    return getActiveBoard(moodBoards, activeMoodBoard);
+  }, [moodBoards, activeMoodBoard]);
+
+  const boardCount = useMemo(() => {
+    return moodBoards.length;
+  }, [moodBoards.length]);
+
   // Mobile detection and handlers
   useEffect(() => {
     const checkMobile = () => {
@@ -122,10 +148,7 @@ export default function MoodBoardsPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const handleMobileBoardSelect = (boardId: string) => {
-    // Navigate to individual board page instead of switching view mode
-    router.push(`/moodboards/${boardId}`);
-  };
+  // handleMobileBoardSelect is now defined as useCallback below
 
   // Image management functions
   const handleEditImage = (imageIndex: number) => {
@@ -153,17 +176,10 @@ export default function MoodBoardsPage() {
   };
 
   const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
-    console.log('handleUpdateImage called with:', { imageIndex, fileName, description });
-    
     const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
     if (!activeBoard) {
-      console.log('No active board found');
       return;
     }
-    
-    console.log('Active board:', activeBoard);
-    console.log('Current images:', activeBoard.images);
-    console.log('Image at index:', activeBoard.images[imageIndex]);
     
     const updatedBoards = moodBoards.map(board => {
       if (board.id === activeBoard.id) {
@@ -177,7 +193,6 @@ export default function MoodBoardsPage() {
             description,
             uploadedAt: new Date()
           };
-          console.log('Converted string image to object:', updatedImages[imageIndex]);
         } else {
           // Update existing object format
           updatedImages[imageIndex] = {
@@ -185,14 +200,11 @@ export default function MoodBoardsPage() {
             fileName,
             description
           };
-          console.log('Updated existing object image:', updatedImages[imageIndex]);
         }
         return { ...board, images: updatedImages };
       }
       return board;
     });
-    
-    console.log('Updated boards:', updatedBoards);
     setMoodBoards(updatedBoards);
     showSuccessToast('Image updated successfully!');
   };
@@ -215,131 +227,22 @@ export default function MoodBoardsPage() {
 
   // Initialize editing vibes when active board changes
   useEffect(() => {
-    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
     if (activeBoard && activeBoard.vibes) {
       setEditingVibes([...activeBoard.vibes]);
     } else {
       setEditingVibes([]);
     }
-  }, [activeMoodBoard, moodBoards]);
+  }, [activeBoard]);
 
-  // Load mood boards from Firestore with migration
-  useEffect(() => {
-    const loadMoodBoards = async () => {
-      if (!user) return;
-      
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          let savedMoodBoards = data.moodBoards || [];
-          
-          // Migration: Check if we need to migrate existing vibes to wedding-day board (only once)
-          const existingVibes = [...(data.vibe || []), ...(data.generatedVibes || [])];
-          const existingVibeInputMethod = data.vibeInputMethod || 'pills';
-          const hasMigratedVibes = data.hasMigratedVibesToMoodBoard; // Check if migration already happened
-          
-          if (savedMoodBoards.length === 0) {
-            // No mood boards exist, create default with migrated vibes
-            const defaultBoard: MoodBoard = {
-              id: 'wedding-day',
-              name: 'Wedding Day',
-              type: 'wedding-day',
-              images: [], // TODO: Add onboarding image if available
-              vibes: existingVibes,
-              createdAt: new Date(),
-              vibeInputMethod: existingVibeInputMethod
-            };
-            
-            savedMoodBoards = [defaultBoard];
-          } else if (!hasMigratedVibes) {
-            // Mood boards exist, but check if wedding-day board needs vibes migrated (only once)
-            const weddingDayBoard = savedMoodBoards.find(board => board.id === 'wedding-day');
-            if (weddingDayBoard && existingVibes.length > 0 && weddingDayBoard.vibes.length === 0) {
-              // Migrate vibes to existing wedding-day board
-              weddingDayBoard.vibes = existingVibes;
-              weddingDayBoard.vibeInputMethod = existingVibeInputMethod;
-              console.log('Migrated existing vibes to Wedding Day board');
-            }
-          }
-          
-          // Save the migrated data to Firestore if we made changes and mark migration as complete
-          if (existingVibes.length > 0 && !hasMigratedVibes) {
-            try {
-              await updateDoc(doc(db, "users", user.uid), {
-                moodBoards: savedMoodBoards,
-                hasMigratedVibesToMoodBoard: true // Mark migration as complete
-              });
-              console.log('Successfully saved migrated mood boards');
-            } catch (migrationError) {
-              console.error('Error saving migrated mood boards:', migrationError);
-            }
-          }
-          
-          // Clean up any existing base64 images to prevent document size issues
-          try {
-            const cleanedBoards = await cleanupBase64Images(savedMoodBoards, user.uid);
-            if (JSON.stringify(cleanedBoards) !== JSON.stringify(savedMoodBoards)) {
-              // Save cleaned boards if changes were made
-              await updateDoc(doc(db, "users", user.uid), {
-                moodBoards: cleanedBoards
-              });
-              console.log('Successfully cleaned up base64 images');
-              setMoodBoards(cleanedBoards);
-            } else {
-              setMoodBoards(savedMoodBoards);
-            }
-          } catch (cleanupError) {
-            console.error('Error cleaning up base64 images:', cleanupError);
-            // Continue with original boards if cleanup fails
-            setMoodBoards(savedMoodBoards);
-          }
-          
-          // No need to set active board for overview page
-        }
-      } catch (error) {
-        console.error('Error loading mood boards:', error);
-        // Fallback to default board
-        const defaultBoard: MoodBoard = {
-          id: 'wedding-day',
-          name: 'Wedding Day',
-          type: 'wedding-day',
-          images: [],
-          vibes: [],
-          createdAt: new Date()
-        };
-        setMoodBoards([defaultBoard]);
-        setActiveMoodBoard(defaultBoard.id);
-      } finally {
-        setMoodBoardsLoading(false);
-      }
-    };
-
-    loadMoodBoards();
-  }, [user]);
+  // Data is now loaded by the shared context - no need for local loading
 
   // Save mood boards to Firestore whenever they change
   useEffect(() => {
-    const saveMoodBoards = async () => {
+    const saveMoodBoardsToFirestore = async () => {
       if (!user || moodBoardsLoading || moodBoards.length === 0) return;
       
       try {
-        // Sync vibes with user profile settings for Wedding Day board
-        const weddingDayBoard = moodBoards.find(board => board.id === 'wedding-day');
-        if (weddingDayBoard) {
-          // Update user profile with current vibes from Wedding Day board
-          await updateDoc(doc(db, "users", user.uid), {
-            moodBoards: moodBoards,
-            vibe: weddingDayBoard.vibes, // Sync vibes with profile
-            generatedVibes: [], // Clear generated vibes since they're now in mood board
-            vibeInputMethod: weddingDayBoard.vibeInputMethod || 'pills'
-          });
-        } else {
-          // No wedding day board, just save mood boards
-          await updateDoc(doc(db, "users", user.uid), {
-            moodBoards: moodBoards
-          });
-        }
+        await saveMoodBoards(moodBoards);
       } catch (error) {
         console.error('Error saving mood boards:', error);
         showErrorToast('Failed to save mood boards');
@@ -347,17 +250,31 @@ export default function MoodBoardsPage() {
     };
 
     // Debounce saves to avoid excessive Firestore writes
-    const timeoutId = setTimeout(saveMoodBoards, 1000);
+    const timeoutId = setTimeout(saveMoodBoardsToFirestore, 1000);
     return () => clearTimeout(timeoutId);
-  }, [moodBoards, user, moodBoardsLoading]);
+  }, [moodBoards, user, moodBoardsLoading, saveMoodBoards, showErrorToast]);
 
-  // Helper functions
-  const canCreateNewBoard = () => {
-    return moodBoards.length < userPlan.maxBoards;
-  };
+  // Memoized event handlers
+  const handleNewBoard = useCallback(() => {
+    if (!canCreateNewBoard) {
+      setShowUpgradeModal(true);
+    } else {
+      setShowNewBoardModal(true);
+    }
+  }, [canCreateNewBoard]);
+
+  const handleDismissUpgradeBanner = useCallback(() => {
+    setShowBoardLimitBanner(false);
+  }, []);
+
+  const handleMobileBoardSelect = useCallback((boardId: string) => {
+    router.push(`/moodboards/${boardId}`);
+  }, [router]);
+
+  // Helper functions (canCreateNewBoard is now memoized above)
 
   const handleSave = async () => {
-    if (!user || !getActiveBoard(moodBoards, activeMoodBoard)) return;
+    if (!user || !activeBoard) return;
     
     setSaving(true);
     try {
@@ -383,35 +300,8 @@ export default function MoodBoardsPage() {
   };
 
   const handleFilesDrop = async (files: File[]) => {
-    if (!user) return;
-    
-    setUploadingImage(true);
-    
-    try {
-      for (const file of files) {
-        if (file.type.startsWith('image/')) {
-          // Upload to Firebase Storage instead of base64
-          const imageUrl = await uploadImageToStorage(file, user.uid, activeMoodBoard);
-          
-          // Add the Storage URL to the mood board
-          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl, file.name);
-          setMoodBoards(updatedBoards);
-          
-          // Set the first image as the main preview for vibe generation
-          if (!imagePreviewUrl) {
-            setImagePreviewUrl(imageUrl);
-            setUploadedImage(file);
-          }
-          
-          showSuccessToast(`Uploaded ${file.name} successfully!`);
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      showErrorToast('Failed to upload images. Please try again.');
-    } finally {
-      setUploadingImage(false);
-    }
+    if (!user || !activeMoodBoard) return;
+    await uploadImages(files, user.uid, activeMoodBoard, moodBoards);
   };
 
   const generateVibesFromImage = async (imageUrl?: string) => {
@@ -430,10 +320,8 @@ export default function MoodBoardsPage() {
       
       // Handle both File objects and image URLs
       if (imageToUse instanceof File) {
-        console.log('Processing File object:', imageToUse.name, imageToUse.type, imageToUse.size);
         formData.append('image', imageToUse);
       } else if (typeof imageToUse === 'string') {
-        console.log('Processing image URL:', imageToUse);
         // Check if it's already a base64 string
         if (imageToUse.startsWith('data:image/')) {
           // It's already a base64 string, convert to blob
@@ -453,12 +341,6 @@ export default function MoodBoardsPage() {
         }
       }
       
-      console.log('Uploading image for vibe generation...');
-      console.log('FormData contents:');
-      for (const [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-      
       const response = await fetch('/api/generate-vibes-from-image', {
         method: 'POST',
         headers: {
@@ -467,9 +349,7 @@ export default function MoodBoardsPage() {
         body: formData,
       });
       
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', data);
       
       if (data.success && data.vibes && Array.isArray(data.vibes)) {
         // Add new vibes to the active board
@@ -537,7 +417,6 @@ export default function MoodBoardsPage() {
           const imageUrl = image.url;
           if (!imageUrl) continue;
           
-          console.log('Processing image in board:', imageUrl);
           
           const formData = new FormData();
           
@@ -547,7 +426,6 @@ export default function MoodBoardsPage() {
           formData.append('imageId', `image-${index}`);
           
           // Convert image URL to blob for API
-          console.log('Fetching image from URL:', imageUrl);
           const response = await fetch(imageUrl);
           
           if (!response.ok) {
@@ -556,10 +434,7 @@ export default function MoodBoardsPage() {
           }
           
           const blob = await response.blob();
-          console.log('Image blob size:', blob.size, 'type:', blob.type);
           formData.append('image', blob, 'image.jpg');
-          
-          console.log('Processing image for bulk vibe generation...');
           const apiResponse = await fetch('/api/generate-bulk-vibes', {
             method: 'POST',
             headers: {
@@ -661,7 +536,7 @@ export default function MoodBoardsPage() {
     }
 
     // Creating new board
-    if (!canCreateNewBoard()) {
+    if (!canCreateNewBoard) {
       showErrorToast(`You've reached the limit of ${userPlan.maxBoards} mood boards for your plan. Upgrade to create more!`);
       return;
     }
@@ -816,8 +691,7 @@ export default function MoodBoardsPage() {
               selectedMoodBoard={activeMoodBoard}
               onSelectMoodBoard={setActiveMoodBoard}
               onNewBoard={() => {
-                console.log('New Board button clicked');
-                if (!canCreateNewBoard()) {
+                if (!canCreateNewBoard) {
                   setShowUpgradeModal(true);
                 } else {
                   setShowNewBoardModal(true);
@@ -841,7 +715,7 @@ export default function MoodBoardsPage() {
                 // TODO: Implement upgrade modal
                 showErrorToast('Upgrade your plan to get more storage!');
               }}
-              showUpgradeBanner={isMobile && !canCreateNewBoard() && showBoardLimitBanner}
+              showUpgradeBanner={isMobile && !canCreateNewBoard && showBoardLimitBanner}
               onDismissUpgradeBanner={() => setShowBoardLimitBanner(false)}
             />
 
@@ -860,8 +734,7 @@ export default function MoodBoardsPage() {
                     </p>
                     <button
                       onClick={() => {
-                        console.log('Mobile New Board button clicked');
-                        if (!canCreateNewBoard()) {
+                        if (!canCreateNewBoard) {
                           setShowUpgradeModal(true);
                         } else {
                           setShowNewBoardModal(true);
@@ -890,8 +763,7 @@ export default function MoodBoardsPage() {
                         <div className="flex-1"></div>
                         <button
                           onClick={() => {
-                            console.log('Desktop New Board button clicked');
-                            if (!canCreateNewBoard()) {
+                            if (!canCreateNewBoard) {
                               setShowUpgradeModal(true);
                             } else {
                               setShowNewBoardModal(true);
@@ -907,7 +779,7 @@ export default function MoodBoardsPage() {
 
                 {/* Plan Limit Warning - positioned like todo page upgrade banner */}
                 <AnimatePresence>
-                  {!canCreateNewBoard() && showBoardLimitBanner && (
+                  {!canCreateNewBoard && showBoardLimitBanner && (
                     <div className="px-4 pt-2">
                       <Banner
                         message={
@@ -937,8 +809,7 @@ export default function MoodBoardsPage() {
                           </p>
                           <button
                             onClick={() => {
-                              console.log('Empty state New Board button clicked');
-                              if (!canCreateNewBoard()) {
+                              if (!canCreateNewBoard) {
                                 setShowUpgradeModal(true);
                               } else {
                                 setShowNewBoardModal(true);
@@ -1058,7 +929,6 @@ export default function MoodBoardsPage() {
             isVisible={generatingVibes}
             onComplete={() => {
               // Credit update event is already emitted in generateVibesFromImage
-              console.log('Vibe generation completed');
             }}
           />
 
@@ -1074,6 +944,13 @@ export default function MoodBoardsPage() {
               dailyCredits: userCredits.monthlyCredits,
               refreshTime: 'Daily at midnight'
             }}
+          />
+
+          {/* Image upload progress */}
+          <ImageUploadProgress
+            uploadProgress={uploadProgress}
+            onCancel={cancelUpload}
+            isVisible={uploadingImage}
           />
     </div>
   );

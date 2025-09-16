@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Heart, Plus, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { MoodBoard } from '@/types/inspiration';
@@ -32,7 +32,7 @@ interface MoodBoardSidebarProps {
   onDismissUpgradeBanner?: () => void;
 }
 
-const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
+const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = memo(({
   moodBoards,
   selectedMoodBoard,
   onSelectMoodBoard,
@@ -163,15 +163,7 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
         </div>
         
         {/* Mobile Upgrade Banner - Only show on mobile */}
-        {(() => {
-          const shouldShow = mobileViewMode === 'boards' && showUpgradeBanner;
-          console.log('Sidebar upgrade banner debug:', { 
-            mobileViewMode, 
-            showUpgradeBanner, 
-            shouldShow 
-          });
-          return shouldShow;
-        })() && (
+        {mobileViewMode === 'boards' && showUpgradeBanner && (
           <div className="px-4 pt-2 flex-shrink-0">
             <Banner
               message={
@@ -193,15 +185,6 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
               // Force desktop detection - if screen width >= 1024, treat as desktop
               const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
               const isActive = selectedMoodBoard === board.id && (mobileViewMode === 'desktop' || isDesktop);
-              console.log('Desktop active state debug:', { 
-                boardName: board.name, 
-                boardId: board.id, 
-                selectedMoodBoard, 
-                mobileViewMode,
-                isDesktop,
-                isActive,
-                className: isActive ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'
-              });
               return (
               <div
                 key={board.id}
@@ -233,7 +216,7 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
                     )}
                   </div>
                   <span className="ml-auto">
-                    <BadgeCount count={board.images?.length || 0} />
+                    <BadgeCount count={board.vibes?.length || 0} />
                   </span>
                 </div>
                 
@@ -311,6 +294,8 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
       </div>
     </aside>
   );
-};
+});
+
+MoodBoardSidebar.displayName = 'MoodBoardSidebar';
 
 export default MoodBoardSidebar;
