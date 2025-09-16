@@ -466,98 +466,64 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     
     setGeneratingVibes(true);
     try {
-      let allNewVibes: string[] = [];
+      // Extract all image URLs
+      const imageUrls = board.images.map(image => image.url).filter(Boolean);
       
-      // Process each image in the board
-      for (let index = 0; index < board.images.length; index++) {
-        const image = board.images[index];
-        try {
-          const imageUrl = image.url;
-          if (!imageUrl) continue;
-          
-          
-          const formData = new FormData();
-          
-          // Add required fields for bulk vibe generation
-          formData.append('userId', user.uid);
-          formData.append('moodBoardId', activeMoodBoard);
-          formData.append('imageId', `image-${index}`);
-          
-          // Convert image URL to blob for API
-          const response = await fetch(imageUrl);
-          
-          if (!response.ok) {
-            console.error('Failed to fetch image:', response.status, response.statusText);
-            continue;
-          }
-          
-          const blob = await response.blob();
-          formData.append('image', blob, 'image.jpg');
-          const apiResponse = await fetch('/api/generate-bulk-vibes', {
-            method: 'POST',
-            headers: {
-              'x-user-id': user.uid, // Send userId in headers for credit validation
-            },
-            body: formData,
-          });
-          
-          const data = await apiResponse.json();
-          
-          if (data.success && data.vibes && Array.isArray(data.vibes)) {
-            // Filter out vibes that already exist in the board
-            const newVibes = data.vibes.filter((v: string) => !board.vibes.includes(v));
-            allNewVibes = [...allNewVibes, ...newVibes];
-          }
-        } catch (error) {
-          console.error('Error processing image:', error);
-          
-          // Check if it's a credit-related error
-          if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
-            setCreditModalData({
-              requiredCredits: 5, // Bulk vibe generation costs 5 credits
-              currentCredits: 0,
-              feature: 'bulk vibe generation'
-            });
-            setShowNotEnoughCreditsModal(true);
-            break; // Stop processing other images if credits are insufficient
-          }
-          
-          // Continue with other images even if one fails
-        }
+      if (imageUrls.length === 0) {
+        showErrorToast('No valid images found to process');
+        return;
       }
       
-      if (allNewVibes.length > 0) {
-        // Remove duplicates
-        const uniqueNewVibes = [...new Set(allNewVibes)];
+      // Use the optimized bulk API (5 credits total for all images)
+      const response = await fetch('/api/generate-bulk-vibes-optimized', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.uid,
+        },
+        body: JSON.stringify({
+          imageUrls: imageUrls,
+          moodBoardId: activeMoodBoard,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.vibes && Array.isArray(data.vibes)) {
+        // Filter out vibes that already exist in the board
+        const newVibes = data.vibes.filter((v: string) => !board.vibes.includes(v));
         
-        // Update the board with new vibes
-        const updatedMoodBoards = moodBoards.map(b => 
-          b.id === board.id 
-            ? { 
-                ...b, 
-                vibes: [...b.vibes, ...uniqueNewVibes],
-                vibeInputMethod: 'image'
-              }
-            : b
-        );
-        
-        setMoodBoards(updatedMoodBoards);
-        
-        // Refresh credits after successful completion
-        try {
-          await refreshCredits();
-        } catch (refreshError) {
-          console.warn('Failed to refresh credits after bulk vibe generation:', refreshError);
+        if (newVibes.length > 0) {
+          // Update the mood board with new vibes
+          const updatedBoards = moodBoards.map(board => 
+            board.id === activeMoodBoard 
+              ? { ...board, vibes: [...board.vibes, ...newVibes] }
+              : board
+          );
+          setMoodBoards(updatedBoards);
+          
+          showSuccessToast(`Generated ${newVibes.length} new vibes from ${data.imagesProcessed} images!`);
+        } else {
+          showInfoToast('No new vibes generated - all vibes already exist in this board');
         }
-        
-        const vibeText = uniqueNewVibes.length === 1 ? 'vibe' : 'vibes';
-        showSuccessToast(`Generated ${uniqueNewVibes.length} new ${vibeText} from all images!`);
       } else {
-        showErrorToast('No new vibes could be generated from the images');
+        showErrorToast(data.error || 'Failed to generate vibes from images');
       }
     } catch (error) {
       console.error('Error generating vibes from all images:', error);
-      showErrorToast('Failed to generate vibes from all images');
+      
+      // Check if it's a credit-related error
+      if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
+        setCreditModalData({
+          requiredCredits: 5, // Bulk vibe generation costs 5 credits total
+          currentCredits: userCredits.totalCredits,
+          feature: 'bulk_vibe_generation'
+        });
+        setShowNotEnoughCreditsModal(true);
+        return;
+      }
+      
+      showErrorToast('Failed to generate vibes from images. Please try again.');
     } finally {
       setGeneratingVibes(false);
     }
@@ -1022,7 +988,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         
                         {/* Images Description */}
                         <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                          Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 5 credits.
+                          Upload images below to build out your moods! You can generate vibes from individual images for 2 credits each or process all images at once for 5 credits total.
                         </div>
                       </div>
                       
@@ -1293,7 +1259,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                       
                       {/* Images Description */}
                       <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                        Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 5 credits.
+                        Upload images below to build out your moods! You can generate vibes from individual images for 2 credits each or process all images at once for 5 credits total.
                       </div>
                     </div>
                     
