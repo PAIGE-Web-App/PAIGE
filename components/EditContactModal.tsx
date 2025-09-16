@@ -1,6 +1,7 @@
 // components/EditContactModal.tsx
 import React, { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { doc, deleteDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { db, getUserCollectionRef } from "../lib/firebase"; // Import getUserCollectionRef
 import { getCategoryStyle } from "../utils/categoryStyle";
@@ -14,7 +15,6 @@ import { useCustomToast } from "../hooks/useCustomToast"; // ADD THIS LINE
 import { Contact } from "../types/contact";
 import CategoryPill from "./CategoryPill"; // ADD THIS LINE
 import VendorSearchField from "./VendorSearchField"; // ADD THIS LINE
-import ContactModalBase from "./ContactModalBase";
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { getRelevantCategories } from "../utils/vendorSearchUtils";
 
@@ -404,35 +404,29 @@ export default function EditContactModal({
   };
 
   return (
-    <>
-      <ContactModalBase
-      isOpen={true}
-      onClose={onClose}
-      title="Edit Contact"
-      footer={
-        <div className="flex justify-between items-center gap-2">
+    <AnimatePresence>
+      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+        <motion.div
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -50, opacity: 0 }}
+        className="bg-white rounded-[5px] shadow-xl max-w-xl w-full h-[90vh] max-h-[600px] flex flex-col relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 bg-white border-b border-[#AB9C95] px-6 py-4 flex items-center justify-between">
+          <h5 className="h5 text-left">Edit Contact</h5>
           <button
-            onClick={() => {
-              if (!confirmDelete) {
-                setConfirmDelete(true);
-              } else {
-                handleDelete();
-              }
-            }}
-            className={`btn-delete ${confirmDelete ? 'confirm' : ''}`}
+            onClick={onClose}
+            className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+            title="Close"
           >
-            {confirmDelete ? "Confirm Deletion" : "Delete"}
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            className="btn-primary"
-          >
-            Save
+            <X size={20} />
           </button>
         </div>
-      }
-    >
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="flex flex-col items-center mb-4">
         <div
           className="h-8 w-8 flex items-center justify-center rounded-full text-white text-[14px] font-normal font-work-sans"
@@ -570,9 +564,35 @@ export default function EditContactModal({
           onChange={handleChange}
           placeholder="Enter website"
         />
-      </div>
-    </ContactModalBase>
+        </div>
+        </div>
 
-    </>
+        {/* Fixed Footer */}
+        <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
+          <div className="flex justify-between items-center gap-2">
+          <button
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+              } else {
+                handleDelete();
+              }
+            }}
+            className={`btn-delete ${confirmDelete ? 'confirm' : ''}`}
+          >
+            {confirmDelete ? "Confirm Deletion" : "Delete"}
+          </button>
+
+          <button
+            onClick={handleSubmit}
+            className="btn-primary"
+          >
+            Save
+          </button>
+          </div>
+        </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
   );
 }

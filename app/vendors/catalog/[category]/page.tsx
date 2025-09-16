@@ -360,6 +360,17 @@ const VendorCategoryPage: React.FC = () => {
     showSuccessToast('Vendors have been added to your contacts! You can view them in the Vendors section.');
   };
 
+  // Memoized search filter function to avoid recreating on every search
+  const filterVendorsBySearch = useCallback((vendors: any[], searchTerm: string) => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    return vendors.filter(vendor => {
+      const nameMatch = vendor.name.toLowerCase().includes(searchLower);
+      const addressMatch = vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower);
+      const typeMatch = vendor.types && vendor.types.some((type: string) => type.toLowerCase().includes(searchLower));
+      return nameMatch || addressMatch || typeMatch;
+    });
+  }, []);
+
   // Search function - uses smart search strategy to avoid rate limits
   const handleSearch = useCallback(async (term: string) => {
     if (!term.trim() || term.length < 2) {
@@ -370,31 +381,17 @@ const VendorCategoryPage: React.FC = () => {
 
     setIsSearching(true);
     try {
-      console.log(`🔍 Searching for "${term}"...`);
-      
       // First, try searching within the cached vendors (fast, no API call)
       const cachedVendors = await vendorCacheService.getVendors(category, location);
-      const searchLower = term.toLowerCase().trim();
-      
-      const cachedResults = cachedVendors.filter(vendor => {
-        const nameMatch = vendor.name.toLowerCase().includes(searchLower);
-        const addressMatch = vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower);
-        const typeMatch = vendor.types && vendor.types.some((type: string) => type.toLowerCase().includes(searchLower));
-        return nameMatch || addressMatch || typeMatch;
-      });
-      
-      console.log(`🔍 Found ${cachedResults.length} matches in cached vendors`);
+      const cachedResults = filterVendorsBySearch(cachedVendors, term);
       
       // If we found good results in cache, use them
       if (cachedResults.length >= 3) {
-        console.log(`✅ Using cached results (${cachedResults.length} matches)`);
         setSearchResults(cachedResults);
         return;
       }
       
       // If cache results are insufficient, try API search with longer debounce
-      console.log(`🔍 Cache results insufficient, trying API search...`);
-      
       // Use a longer delay for API calls to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -416,10 +413,8 @@ const VendorCategoryPage: React.FC = () => {
         // Fall back to cached results even if fewer
         setSearchResults(cachedResults);
       } else if (Array.isArray(data.results) && data.results.length > 0) {
-        console.log(`🎯 API search found ${data.results.length} vendors for "${term}"`);
         setSearchResults(data.results);
       } else {
-        console.log(`🎯 No API results, using cached results`);
         setSearchResults(cachedResults);
       }
     } catch (error) {
@@ -427,13 +422,7 @@ const VendorCategoryPage: React.FC = () => {
       // Fall back to cached search
       try {
         const cachedVendors = await vendorCacheService.getVendors(category, location);
-        const searchLower = term.toLowerCase().trim();
-        const cachedResults = cachedVendors.filter(vendor => {
-          const nameMatch = vendor.name.toLowerCase().includes(searchLower);
-          const addressMatch = vendor.formatted_address && vendor.formatted_address.toLowerCase().includes(searchLower);
-          const typeMatch = vendor.types && vendor.types.some((type: string) => type.toLowerCase().includes(searchLower));
-          return nameMatch || addressMatch || typeMatch;
-        });
+        const cachedResults = filterVendorsBySearch(cachedVendors, term);
         setSearchResults(cachedResults);
       } catch (fallbackError) {
         console.error('Fallback search failed:', fallbackError);
@@ -442,7 +431,7 @@ const VendorCategoryPage: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [category, location, apiFilterValues]);
+  }, [category, location, apiFilterValues, filterVendorsBySearch]);
 
   // Debounced search with longer delay to prevent rate limiting
   const debouncedSearch = useRef(
@@ -451,32 +440,28 @@ const VendorCategoryPage: React.FC = () => {
     }, 800) // Increased from 300ms to 800ms
   ).current;
 
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Memoized search change handler to prevent recreating on every render
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
-    console.log(`🔍 Search input changed to: "${term}"`);
     setSearchTerm(term);
     
     if (term.trim() && term.length >= 2) {
-      console.log(`🔍 Triggering debounced search for: "${term}"`);
       debouncedSearch(term);
       
       // Track search for prefetching
       trackSearch(term);
     } else if (!term.trim()) {
-      console.log(`🔍 Clearing search results`);
       setSearchResults([]);
     }
-  };
+  }, [debouncedSearch, trackSearch]);
 
-  // Clear search
-  const clearSearch = () => {
+  // Memoized clear search function
+  const clearSearch = useCallback(() => {
     setSearchTerm('');
     setSearchResults([]);
     // Clear search cache to ensure fresh results when searching again
     vendorCacheService.clearCache();
-    console.log('🧹 Search cleared, cache cleared');
-  };
+  }, []);
 
   // Modal handlers
   const handleShowContactModal = (vendor: any) => {
@@ -534,17 +519,10 @@ const VendorCategoryPage: React.FC = () => {
     // ...add more as needed
   };
 
-  // Use search results when searching, otherwise use regular vendors
-  const allVendors = searchResults.length > 0 ? searchResults : vendors;
-  console.log(`📊 allVendors: ${allVendors.length} (searchResults: ${searchResults.length}, vendors: ${vendors.length})`);
-  
-  const mappedVendors = allVendors.length > 0 ? allVendors.map((vendor: any) => {
+  // Memoized vendor mapping function to avoid recreating on every render
+  const mapVendorToCardProps = useCallback((vendor: any) => {
     const mainType = vendor.types?.find((type: string) => typeLabels[type]);
     const mainTypeLabel = mainType ? typeLabels[mainType] : null;
-    
-    // Debug: Log price_level data
-    if (vendor.price_level !== undefined) {
-    }
     
     return {
       id: vendor.place_id,
@@ -563,21 +541,26 @@ const VendorCategoryPage: React.FC = () => {
       address: vendor.formatted_address,
       types: vendor.types, // Keep original types for filtering
     };
-  }) : [];
+  }, []);
+
+  // Use search results when searching, otherwise use regular vendors
+  const allVendors = searchResults.length > 0 ? searchResults : vendors;
+  
+  // Memoized vendor mapping to avoid recreating on every render
+  const mappedVendors = useMemo(() => {
+    return allVendors.length > 0 ? allVendors.map(mapVendorToCardProps) : [];
+  }, [allVendors, mapVendorToCardProps]);
 
   // Memoized client-side filtering (applied to mapped vendors)
   const clientFilteredVendors = useMemo(() => {
     let filtered = mappedVendors;
-    console.log(`🔧 clientFilteredVendors: Starting with ${mappedVendors.length} mapped vendors`);
     
     filtered = filterByCuisine(filtered, clientFilterValues.cuisine);
-    console.log(`🔧 After cuisine filter: ${filtered.length} vendors`);
     
     // Don't apply search term filtering here since it's already handled in handleSearch
     // The searchResults are already filtered, so we just use them directly
     
     // Add more client-side filters as needed
-    console.log(`🔧 Final clientFilteredVendors: ${filtered.length} vendors`);
     return filtered;
   }, [mappedVendors, clientFilterValues.cuisine]);
 

@@ -33,8 +33,20 @@ export const getAllContacts = async (userId: string) => {
   }) as Contact[];
 };
 
-// New function to get vendors from the vendor management collection
+// Cache for vendor data to reduce Firestore reads
+const vendorCache = new Map<string, { data: any[], timestamp: number, ttl: number }>();
+const VENDOR_CACHE_TTL = 2 * 60 * 1000; // 2 minutes cache
+
+// New function to get vendors from the vendor management collection with caching
 export const getAllVendors = async (userId: string) => {
+  const cacheKey = `vendors_${userId}`;
+  
+  // Check cache first
+  const cached = vendorCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < cached.ttl) {
+    return cached.data;
+  }
+  
   const vendorsCollection = getUserCollectionRef<any>("vendors", userId);
   const q = query(vendorsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
@@ -78,6 +90,21 @@ export const getAllVendors = async (userId: string) => {
     return bTime - aTime; // Most recent first
   });
   
-  console.log('Fetched vendors for user:', userId, sortedVendors);
+  // Cache the result
+  vendorCache.set(cacheKey, {
+    data: sortedVendors,
+    timestamp: Date.now(),
+    ttl: VENDOR_CACHE_TTL
+  });
+  
   return sortedVendors;
+};
+
+// Function to clear vendor cache when data is updated
+export const clearVendorCache = (userId?: string) => {
+  if (userId) {
+    vendorCache.delete(`vendors_${userId}`);
+  } else {
+    vendorCache.clear();
+  }
 };

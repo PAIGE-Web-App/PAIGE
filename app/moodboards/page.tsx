@@ -17,16 +17,16 @@ import { useCredits } from "../../contexts/CreditContext";
 
 // Import new components
 import PinterestBanner from "../../components/inspiration/PinterestBanner";
-import MoodBoardTabs from "../../components/inspiration/MoodBoardTabs";
 import MoodBoardContent from "../../components/inspiration/MoodBoardContent";
+import MoodBoardSidebar from "../../components/inspiration/MoodBoardSidebar";
 import NewBoardModal from "../../components/inspiration/NewBoardModal";
 import VibeEditModal from "../../components/inspiration/VibeEditModal";
 import ImageEditModal from "../../components/inspiration/ImageEditModal";
-import StorageProgressBar from "../../components/StorageProgressBar";
 import UpgradePlanModal from "../../components/UpgradePlanModal";
 import Banner from "../../components/Banner";
 import MoodBoardSkeleton from "../../components/inspiration/MoodBoardSkeleton";
 import VibePreviewModal from "../../components/inspiration/VibePreviewModal";
+import VibeSection from "../../components/inspiration/VibeSection";
 import LoadingBar from "../../components/LoadingBar";
 
 // Import types and utilities
@@ -102,9 +102,29 @@ export default function MoodBoardsPage() {
     currentCredits: 0,
     feature: 'this feature'
   });
+
+  // Mobile state management
+  const [mobileViewMode, setMobileViewMode] = useState<'boards' | 'content'>('boards');
+  const [isMobile, setIsMobile] = useState(false);
   
   // Storage tracking for mood board images
   const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
+
+  // Mobile detection and handlers
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleMobileBoardSelect = (boardId: string) => {
+    setActiveMoodBoard(boardId);
+    setMobileViewMode('content');
+  };
 
   // Image management functions
   const handleEditImage = (imageIndex: number) => {
@@ -778,7 +798,7 @@ export default function MoodBoardsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linen">
+    <div className="flex flex-col h-full bg-linen">
       <WeddingBanner 
         daysLeft={daysLeft}
         userName={userName}
@@ -786,166 +806,295 @@ export default function MoodBoardsPage() {
         onSetWeddingDate={handleSetWeddingDate}
       />
       
-      <div className="app-content-container flex flex-col gap-6 py-4 sm:py-8 overflow-x-hidden">
-        {/* Page Header - Responsive layout */}
-        <div className="mb-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              {/* Left side: Header and Description */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <Heart className="w-5 h-5 text-[#A85C36] flex-shrink-0" />
-                  <h5 className="text-lg sm:text-xl">Mood Boards</h5>
-                </div>
-                <p className="text-sm text-[#364257] leading-relaxed">
-                  Create mood boards with vibes that train Paige to write more curated content when reaching out to vendors.{' '}
-                  <Sparkles className="w-4 h-4 text-[#A85C36] inline" />
-                  <button 
-                    onClick={() => setShowVibePreviewModal(true)}
-                    className="text-[#A85C36] hover:text-[#8B4513] text-sm font-medium transition-colors"
+      <div className="app-content-container flex-1 overflow-hidden">
+        <div className="flex h-full gap-4 lg:flex-row flex-col">
+          <main className="unified-container">
+            {/* Mood Board Sidebar */}
+            <MoodBoardSidebar
+              moodBoards={moodBoards}
+              selectedMoodBoard={activeMoodBoard}
+              onSelectMoodBoard={setActiveMoodBoard}
+              onNewBoard={() => setShowNewBoardModal(true)}
+              onEditBoard={editMoodBoard}
+              onDeleteBoard={deleteMoodBoard}
+              inlineEditingBoardId={inlineEditingBoardId}
+              inlineEditingName={inlineEditingName}
+              onInlineEditChange={setInlineEditingName}
+              onSaveInlineEdit={saveInlineEdit}
+              onCancelInlineEdit={cancelInlineEdit}
+              userPlan={userPlan}
+              isLoading={moodBoardsLoading}
+              mobileViewMode={isMobile ? mobileViewMode : undefined}
+              onMobileBoardSelect={isMobile ? handleMobileBoardSelect : undefined}
+              usedStorage={storageStats.usedStorage}
+              totalStorage={storageStats.totalStorage}
+              plan={storageStats.plan}
+              onUpgrade={() => {
+                // TODO: Implement upgrade modal
+                showErrorToast('Upgrade your plan to get more storage!');
+              }}
+            />
+
+            {/* Main Content Area */}
+            <div className={`unified-main-content mobile-${mobileViewMode}-view`}>
+              {/* Mobile Back Button */}
+              {isMobile && mobileViewMode === 'content' && (
+                <div className="flex items-center gap-3 mb-4 p-4 bg-white border-b border-[#E0DBD7]">
+                  <button
+                    onClick={() => setMobileViewMode('boards')}
+                    className="flex items-center gap-2 text-[#A85C36] hover:text-[#8B4513] transition-colors"
                   >
-                    See it in action
+                    <X className="w-4 h-4" />
+                    Back to Boards
                   </button>
-                </p>
-              </div>
-              
-              {/* Right side: Storage Usage - Responsive width */}
-              <div className="w-full sm:w-80 lg:w-64 lg:ml-6 flex-shrink-0">
-                <StorageProgressBar
-                  usedStorage={storageStats.usedStorage}
-                  totalStorage={storageStats.totalStorage}
-                  plan={storageStats.plan.toUpperCase() as 'FREE' | 'PREMIUM' | 'ENTERPRISE'}
-                  showUpgradeModal={() => {
-                    // TODO: Implement upgrade modal
-                    showErrorToast('Upgrade your plan to get more storage!');
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Border line underneath header */}
-          <div className="border-b border-[#AB9C95] mb-2"></div>
-
-          {/* Mood Board Section */}
-          <div>
-            <div className="mb-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                {/* Mood Board Tabs */}
-                <div className="flex-1 min-w-0">
-                  <MoodBoardTabs
-                    moodBoards={moodBoards}
-                    activeMoodBoard={activeMoodBoard}
-                    onTabChange={setActiveMoodBoard}
-                    onNewBoard={() => setShowNewBoardModal(true)}
-                    onEditBoard={editMoodBoard}
-                    onDeleteBoard={deleteMoodBoard}
-                    inlineEditingBoardId={inlineEditingBoardId}
-                    inlineEditingName={inlineEditingName}
-                    onInlineEditChange={setInlineEditingName}
-                    onSaveInlineEdit={saveInlineEdit}
-                    onCancelInlineEdit={cancelInlineEdit}
-                    userPlan={userPlan}
-                    isLoading={moodBoardsLoading}
-                  />
-                </div>
-                
-                {/* Right side actions */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {/* Pinterest Integration Button */}
-                  <PinterestBanner 
-                    isExpanded={pinterestBannerExpanded}
-                    onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
-                  />
-                </div>
-              </div>
-
-              {/* Plan Limit Warning */}
-              {!canCreateNewBoard() && showBoardLimitBanner && (
-                <div className="mb-4">
-                  <div className="bg-blue-100 text-blue-800 p-2 text-sm rounded-[5px] mb-4 flex items-center justify-between">
-                    <div className="flex-1">
-                      You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.{' '}
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowUpgradeModal(true);
-                        }}
-                        className="underline text-blue-700 hover:text-blue-900"
-                      >
-                        Upgrade to create more!
-                      </a>
-                    </div>
-                    <button 
-                      onClick={() => setShowBoardLimitBanner(false)}
-                      className="ml-4 p-1 rounded-full hover:bg-opacity-75 transition-colors"
-                      aria-label="Dismiss banner"
-                    >
-                      <X size={16} />
-                    </button>
+                  <div className="flex-1 text-center">
+                    <h5 className="text-lg font-playfair font-medium text-[#332B42]">
+                      {getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Mood Board'}
+                    </h5>
                   </div>
                 </div>
               )}
-            </div>
-            
-            {/* Mood Board Content - Show skeleton only for dynamic content */}
-            {moodBoardsLoading ? (
-              <MoodBoardSkeleton />
-            ) : (
-              getActiveBoard(moodBoards, activeMoodBoard) && (
-                <div className="bg-white border border-gray-100 rounded-lg p-6">
-                  <MoodBoardContent
-                    board={getActiveBoard(moodBoards, activeMoodBoard)!}
-                    userPlan={userPlan}
-                    weddingLocation={weddingLocation || undefined}
-                    isEditing={isEditing}
-                    generatingVibes={generatingVibes}
-                    isDragOver={isDragOver}
-                    onRemoveImage={(index) => {
-                      const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
-                      setMoodBoards(updatedBoards);
-                    }}
-                    onGenerateVibes={generateVibesFromImage}
-                    onExtractVibesFromAll={generateVibesFromAllImages}
-                    onChooseVibe={() => setIsEditing(true)}
-                    onEditVibes={() => setIsEditing(true)}
-                    onEditBoardName={editMoodBoard}
-                    onDeleteBoard={deleteMoodBoard}
-                    onEditImage={handleEditImage}
-                    onDownloadImage={handleDownloadImage}
-                    onImageUpload={handleImageUpload}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(false);
-                      const files = Array.from(e.dataTransfer.files) as File[];
-                      const imageFiles = files.filter(file => file.type.startsWith('image/'));
-                      
-                      if (imageFiles.length !== files.length) {
-                        showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
-                      }
-                      
-                      if (imageFiles.length > 0) {
-                        handleFilesDrop(imageFiles);
-                      }
-                    }}
-                    isLoading={moodBoardsLoading}
-                    uploadingImage={uploadingImage}
-                  />
-                </div>
-              )
-            )}
-          </div>
 
-        {/* Modals */}
-          <NewBoardModal
+
+              {/* Mood Board Section */}
+              <div className="flex-1 overflow-hidden">
+                {/* Wedding Day Header - Desktop - styled like todo page */}
+                {!isMobile && (
+                  <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full mb-2">
+                    <div className="flex items-center w-full gap-4 px-4 py-3">
+                      {/* Left: Board Name */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <h6 className="truncate max-w-[300px] text-[#332B42] font-playfair font-medium">
+                          {getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Wedding Day'}
+                        </h6>
+                      </div>
+                      
+                      {/* Middle: Spacer */}
+                      <div className="flex-1 min-w-0"></div>
+                      
+                      {/* Right: Action Buttons */}
+                      <div className="flex-shrink-0 flex justify-end items-center gap-4 ml-auto">
+                        {/* Pinterest Integration Button */}
+                        <PinterestBanner 
+                          isExpanded={pinterestBannerExpanded}
+                          onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                        />
+                        
+                        {/* Upload and Train Paige Button */}
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="mood-board-upload"
+                            disabled={uploadingImage}
+                          />
+                          <label
+                            htmlFor={uploadingImage ? undefined : "mood-board-upload"}
+                            className={`btn-primaryinverse flex items-center gap-2 cursor-pointer ${
+                              uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            {uploadingImage ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4" />
+                                Upload and Train Paige
+                              </>
+                            )}
+                          </label>
+                        </div>
+                        
+                        {/* Extract Vibes from All Button */}
+                        {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length > 0 && (
+                          <button
+                            onClick={() => generateVibesFromAllImages(getActiveBoard(moodBoards, activeMoodBoard)!)}
+                            disabled={generatingVibes}
+                            className="btn-primary flex items-center gap-2"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            Extract Vibe from All ({getActiveBoard(moodBoards, activeMoodBoard)!.images.length} Credits)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* Mobile: Header with back button and board name - styled like todo page */}
+                {isMobile && mobileViewMode === 'content' && (
+                  <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full mb-4">
+                    <div className="flex items-center p-4 pb-2 border-b border-[#E0DBD7] lg:hidden">
+                      <button
+                        onClick={() => setMobileViewMode('boards')}
+                        className="lg:hidden p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                        aria-label="Back to boards"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-sm lg:text-base font-playfair font-medium text-[#332B42] truncate">
+                          {getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Wedding Day'}
+                        </h2>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PinterestBanner 
+                          isExpanded={pinterestBannerExpanded}
+                          onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                        />
+                        
+                        {/* Upload and Train Paige Button - Mobile */}
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="mood-board-upload-mobile"
+                            disabled={uploadingImage}
+                          />
+                          <label
+                            htmlFor={uploadingImage ? undefined : "mood-board-upload-mobile"}
+                            className={`btn-primaryinverse flex items-center gap-1 text-xs px-2 py-1 cursor-pointer ${
+                              uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            {uploadingImage ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+                                <span className="hidden sm:inline">Uploading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3 h-3" />
+                                <span className="hidden sm:inline">Upload</span>
+                              </>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Plan Limit Warning - positioned like todo page upgrade banner */}
+                <AnimatePresence>
+                  {!canCreateNewBoard() && showBoardLimitBanner && (
+                    <div className="px-4 pt-2">
+                      <Banner
+                        message={
+                          <>
+                            You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.
+                            <button onClick={() => setShowUpgradeModal(true)} className="ml-2 font-semibold underline">Upgrade to create more!</button>
+                          </>
+                        }
+                        type="info"
+                        onDismiss={() => setShowBoardLimitBanner(false)}
+                      />
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Vibes Section */}
+                {getActiveBoard(moodBoards, activeMoodBoard) && (
+                  <div className="px-4 py-4">
+                    {/* Vibes Title */}
+                    <h6 className="mb-4">Vibes</h6>
+                    
+                    {/* Description */}
+                    <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
+                      Here are the moods that you've added or extracted from images for this board. The moods below will be used to help personalize content{' '}
+                      <button
+                        onClick={() => setShowVibePreviewModal(true)}
+                        className="text-[#A85C36] hover:text-[#8B4513] underline font-medium transition-colors inline-flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        (see it in action)
+                      </button>
+                    </div>
+                    
+                    {/* Vibe Pills - Moved here with 0 left/right padding */}
+                    <div className="px-0">
+                      <VibeSection 
+                        board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                        weddingLocation={weddingLocation || undefined}
+                        isEditing={isEditing}
+                        onEdit={() => setIsEditing(true)}
+                      />
+                    </div>
+                  </div>
+                )}
+            
+                {/* Mood Board Content - Show skeleton only for dynamic content */}
+                {moodBoardsLoading ? (
+                  <MoodBoardSkeleton />
+                ) : (
+                  getActiveBoard(moodBoards, activeMoodBoard) && (
+                    <div className="bg-white border border-gray-100 rounded-lg p-2 h-full overflow-y-auto">
+                      <MoodBoardContent
+                        board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                        userPlan={userPlan}
+                        weddingLocation={weddingLocation || undefined}
+                        isEditing={isEditing}
+                        generatingVibes={generatingVibes}
+                        isDragOver={isDragOver}
+                        onRemoveImage={(index) => {
+                          const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
+                          setMoodBoards(updatedBoards);
+                        }}
+                        onGenerateVibes={generateVibesFromImage}
+                        onExtractVibesFromAll={generateVibesFromAllImages}
+                        onChooseVibe={() => setIsEditing(true)}
+                        onEditVibes={() => setIsEditing(true)}
+                        onEditBoardName={editMoodBoard}
+                        onDeleteBoard={deleteMoodBoard}
+                        onEditImage={handleEditImage}
+                        onDownloadImage={handleDownloadImage}
+                        onImageUpload={handleImageUpload}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                          const files = Array.from(e.dataTransfer.files) as File[];
+                          const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                          
+                          if (imageFiles.length !== files.length) {
+                            showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
+                          }
+                          
+                          if (imageFiles.length > 0) {
+                            handleFilesDrop(imageFiles);
+                          }
+                        }}
+                        isLoading={moodBoardsLoading}
+                        uploadingImage={uploadingImage}
+                      />
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <NewBoardModal
             isOpen={showNewBoardModal}
             onClose={() => {
               setShowNewBoardModal(false);
@@ -1044,7 +1193,6 @@ export default function MoodBoardsPage() {
             }}
             currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
           />
-        </div>
-      </div>
+    </div>
   );
 }
