@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Heart, Plus, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { MoodBoard } from '@/types/inspiration';
 import StorageProgressBar from '../StorageProgressBar';
 import BadgeCount from '../BadgeCount';
+import Banner from '../Banner';
 
 interface MoodBoardSidebarProps {
   moodBoards: MoodBoard[];
@@ -18,13 +20,16 @@ interface MoodBoardSidebarProps {
   onCancelInlineEdit: () => void;
   userPlan: any;
   isLoading: boolean;
-  mobileViewMode?: 'boards' | 'content';
+  mobileViewMode?: 'boards' | 'content' | 'desktop';
   onMobileBoardSelect?: (boardId: string) => void;
   // Storage props
   usedStorage: number;
   totalStorage: number;
   plan: string;
   onUpgrade: () => void;
+  // Upgrade banner props
+  showUpgradeBanner?: boolean;
+  onDismissUpgradeBanner?: () => void;
 }
 
 const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
@@ -41,13 +46,16 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
   onCancelInlineEdit,
   userPlan,
   isLoading,
-  mobileViewMode = 'boards',
+  mobileViewMode = 'desktop',
   onMobileBoardSelect,
   usedStorage,
   totalStorage,
   plan,
   onUpgrade,
+  showUpgradeBanner = false,
+  onDismissUpgradeBanner,
 }) => {
+  const router = useRouter();
   const [hoveredBoardId, setHoveredBoardId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
@@ -58,9 +66,12 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
   const handleBoardSelect = (boardId: string) => {
     onSelectMoodBoard(boardId);
     
-    // Handle mobile view mode
+    // Handle mobile view mode - navigate to individual board page
     if (onMobileBoardSelect) {
       onMobileBoardSelect(boardId);
+    } else {
+      // For desktop or when not in mobile mode, navigate to individual board page
+      router.push(`/moodboards/${boardId}`);
     }
   };
 
@@ -85,20 +96,49 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
   if (isLoading) {
     return (
       <aside className={`unified-sidebar mobile-${mobileViewMode}-view`}>
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between p-6 pb-2 border-b border-[#E0DBD7]">
-            <h4 className="text-lg font-playfair font-medium text-[#332B42] flex items-center">
-              <Heart className="w-5 h-5 text-[#A85C36] mr-2" />
-              Mood Boards
-            </h4>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Fixed Header - matches real sidebar exactly */}
+          <div className="flex items-center justify-between p-6 pb-2 border-b border-[#E0DBD7] flex-shrink-0">
+            <h4 className="text-lg font-playfair font-medium text-[#332B42] flex items-center">Mood Boards</h4>
+            <button
+              className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] ml-2 flex items-center h-7"
+              style={{ alignSelf: 'center' }}
+              disabled
+            >
+              + New Board
+            </button>
           </div>
-          <div className="p-6 pt-4">
-            <div className="space-y-3">
+          
+          {/* Scrollable Content Area - matches real sidebar exactly */}
+          <div className="p-6 pt-0 flex-1 overflow-y-auto">
+            <div className="space-y-1 mt-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded-[5px]"></div>
+                <div key={i} className="px-0 lg:px-3 py-2 rounded-[5px] animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    </div>
+                    <div className="w-6 h-6 bg-gray-200 rounded-full"></div>
+                  </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Fixed Footer - Storage Usage Display - matches real sidebar exactly */}
+          <div className="p-4 border-t border-[#E0DBD7] bg-[#F8F6F4] flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-[#AB9C95]">Storage Usage</div>
+              <span className="text-xs text-[#AB9C95]">25MB</span>
+            </div>
+            <div className="w-full bg-[#E0DBD7] rounded-full h-1 mb-1">
+              <div className="bg-[#A85C36] h-1 rounded-full w-1/3"></div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#AB9C95]">32% used</span>
+              <button className="text-xs text-[#A85C36] hover:underline font-medium">
+                Upgrade
+              </button>
             </div>
           </div>
         </div>
@@ -117,20 +157,62 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
             className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] ml-2 flex items-center h-7"
             title="Create a new mood board"
             style={{ alignSelf: 'center' }}
-            disabled={!canCreateNewBoard()}
           >
             + New Board
           </button>
         </div>
         
+        {/* Mobile Upgrade Banner - Only show on mobile */}
+        {(() => {
+          const shouldShow = mobileViewMode === 'boards' && showUpgradeBanner;
+          console.log('Sidebar upgrade banner debug:', { 
+            mobileViewMode, 
+            showUpgradeBanner, 
+            shouldShow 
+          });
+          return shouldShow;
+        })() && (
+          <div className="px-4 pt-2 flex-shrink-0">
+            <Banner
+              message={
+                <>
+                  You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.
+                  <button onClick={onUpgrade} className="ml-2 font-semibold underline">Upgrade to create more!</button>
+                </>
+              }
+              type="info"
+              onDismiss={onDismissUpgradeBanner}
+            />
+          </div>
+        )}
+        
         {/* Scrollable Content Area */}
         <div className="p-6 pt-0 flex-1 overflow-y-auto">
           <div className="space-y-1 mt-4">
-            {moodBoards.map((board) => (
+            {moodBoards.map((board) => {
+              // Force desktop detection - if screen width >= 1024, treat as desktop
+              const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+              const isActive = selectedMoodBoard === board.id && (mobileViewMode === 'desktop' || isDesktop);
+              console.log('Desktop active state debug:', { 
+                boardName: board.name, 
+                boardId: board.id, 
+                selectedMoodBoard, 
+                mobileViewMode,
+                isDesktop,
+                isActive,
+                className: isActive ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'
+              });
+              return (
               <div
                 key={board.id}
                 onClick={() => handleBoardSelect(board.id)}
-                className={`px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedMoodBoard === board.id && mobileViewMode !== 'boards' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'}`}
+                data-active={isActive}
+                className={`px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${
+                  isActive 
+                    ? 'bg-[#EBE3DD] border border-[#A85C36]' 
+                    : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'
+                }`}
+                style={isActive ? { backgroundColor: '#EBE3DD', borderColor: '#A85C36', borderWidth: '1px', borderStyle: 'solid' } : {}}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
@@ -184,7 +266,8 @@ const MoodBoardSidebar: React.FC<MoodBoardSidebarProps> = ({
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
             
             {/* Empty state */}
             {moodBoards.length === 0 && (

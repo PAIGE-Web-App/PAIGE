@@ -15,10 +15,10 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
   if (!board.vibes || board.vibes.length === 0) {
     return (
       <div className="mb-6">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 items-center text-center">
           <button 
             onClick={onEdit}
-            className="btn-primaryinverse px-4 py-2 text-sm font-medium rounded-lg border-2 border-[#A85C36] text-[#A85C36] hover:bg-[#A85C36] hover:text-white transition-colors w-fit"
+            className="btn-primary w-fit"
           >
             + Add your first vibe
           </button>
@@ -63,17 +63,6 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
             index={index}
           />
         ))}
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
-            title="Edit Vibes"
-          >
-            <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
-              ✏️
-            </span>
-          </button>
-        )}
       </div>
     </div>
   );

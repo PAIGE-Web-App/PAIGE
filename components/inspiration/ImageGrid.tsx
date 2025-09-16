@@ -48,7 +48,7 @@ export default function ImageGrid({
     <>
       {/* Responsive Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-6 w-full max-w-full overflow-hidden">
-        {board.images.map((image, index) => {
+        {board.images.slice().reverse().map((image, index) => {
           // Handle both old string format and new object format
           const imageUrl = typeof image === 'string' ? image : image.url;
           const imageName = typeof image === 'string' ? `Image ${index + 1}` : image.fileName;
@@ -117,7 +117,7 @@ export default function ImageGrid({
               {/* Content below image */}
               <div className="p-3">
                 <div className="flex items-start justify-between mb-2 gap-2">
-                  <h3 className="font-semibold text-[#332B42] text-sm truncate flex-1 min-w-0">
+                  <h3 className="font-semibold text-[#332B42] text-sm truncate flex-1 min-w-0 text-left">
                     {imageName}
                   </h3>
                   <div className="flex items-center gap-1 text-xs text-[#AB9C95] flex-shrink-0">

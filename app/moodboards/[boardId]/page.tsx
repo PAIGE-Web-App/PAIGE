@@ -1,0 +1,1563 @@
+"use client";
+
+import { useAuth } from "../../../contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, use, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag, MoreHorizontal, Trash2, ArrowLeft } from "lucide-react";
+import WeddingBanner from "../../../components/WeddingBanner";
+import { useWeddingBanner } from "../../../hooks/useWeddingBanner";
+import { useUserProfileData } from "../../../hooks/useUserProfileData";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db } from "../../../lib/firebase";
+import { useCustomToast } from "../../../hooks/useCustomToast";
+import { useMoodBoardStorage } from "../../../hooks/useMoodBoardStorage";
+import VibePill from "../../../components/VibePill";
+import { useCredits } from "../../../contexts/CreditContext";
+
+// Import new components
+import PinterestBanner from "../../../components/inspiration/PinterestBanner";
+import MoodBoardContent from "../../../components/inspiration/MoodBoardContent";
+import NewBoardModal from "../../../components/inspiration/NewBoardModal";
+import VibeEditModal from "../../../components/inspiration/VibeEditModal";
+import ImageEditModal from "../../../components/inspiration/ImageEditModal";
+import UpgradePlanModal from "../../../components/UpgradePlanModal";
+import Banner from "../../../components/Banner";
+import MoodBoardSkeleton from "../../../components/inspiration/MoodBoardSkeleton";
+import VibePreviewModal from "../../../components/inspiration/VibePreviewModal";
+import VibeSection from "../../../components/inspiration/VibeSection";
+import LoadingBar from "../../../components/LoadingBar";
+import BadgeCount from "../../../components/BadgeCount";
+import MoodBoardSidebar from "../../../components/inspiration/MoodBoardSidebar";
+
+// Import types and utilities
+import { MoodBoard, UserPlan, PLAN_LIMITS, BOARD_TEMPLATES } from "../../../types/inspiration";
+import { 
+  getActiveBoard, 
+  addImageToBoard, 
+  removeImageFromBoard,
+  updateBoardVibes,
+  createNewBoard,
+  uploadImageToStorage,
+  cleanupBase64Images
+} from "../../../utils/moodBoardUtils";
+import { creditEventEmitter } from "../../../utils/creditEventEmitter";
+import NotEnoughCreditsModal from "../../../components/NotEnoughCreditsModal";
+import { COUPLE_SUBSCRIPTION_CREDITS } from "../../../types/credits";
+
+interface MoodBoardPageProps {
+  params: {
+    boardId: string;
+  };
+}
+
+export default function MoodBoardPage({ params }: MoodBoardPageProps) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { credits, refreshCredits } = useCredits();
+  
+  // Unwrap params Promise
+  const resolvedParams = use(params);
+  const boardId = resolvedParams.boardId;
+  
+  // User plan (for now, default to free - you can integrate with your billing system)
+  const userPlan = PLAN_LIMITS.free;
+  const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free; // For credit information
+  
+  // State management
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingVibes, setEditingVibes] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [showVibeInput, setShowVibeInput] = useState(false);
+  const [newVibe, setNewVibe] = useState('');
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [generatingVibes, setGeneratingVibes] = useState(false);
+
+  const [showPinterestSearch, setShowPinterestSearch] = useState(false);
+  const [pinterestSearchQuery, setPinterestSearchQuery] = useState('');
+  const [pinterestResults, setPinterestResults] = useState<any[]>([]);
+  const [searchingPinterest, setSearchingPinterest] = useState(false);
+  const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Mood board state
+  const [moodBoards, setMoodBoards] = useState<MoodBoard[]>([]);
+  const [activeMoodBoard, setActiveMoodBoard] = useState<string>(boardId);
+  const [showNewBoardModal, setShowNewBoardModal] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+  const [newBoardType, setNewBoardType] = useState<'custom' | 'wedding-day' | 'reception' | 'engagement'>('custom');
+  const [moodBoardsLoading, setMoodBoardsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showBoardLimitBanner, setShowBoardLimitBanner] = useState(true);
+  const [editingBoard, setEditingBoard] = useState<MoodBoard | null>(null);
+  const [inlineEditingBoardId, setInlineEditingBoardId] = useState<string | null>(null);
+  const [inlineEditingName, setInlineEditingName] = useState('');
+  
+  // Image edit modal state
+  const [showImageEditModal, setShowImageEditModal] = useState(false);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  
+  // Vibe preview modal state
+  const [showVibePreviewModal, setShowVibePreviewModal] = useState(false);
+  
+  // Not enough credits modal state
+  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+  const [creditModalData, setCreditModalData] = useState({
+    requiredCredits: 2,
+    currentCredits: 0,
+    feature: 'this feature'
+  });
+  const [showImagesActionsMenu, setShowImagesActionsMenu] = useState(false);
+  const [showHeaderActionsMenu, setShowHeaderActionsMenu] = useState(false);
+  const headerDropdownRef = useRef<HTMLDivElement>(null);
+  const imagesDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Mobile state
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileWidth = window.innerWidth < 1024;
+      console.log('Mobile detection debug:', { 
+        width: window.innerWidth, 
+        isMobileWidth, 
+        currentIsMobile: isMobile,
+        mobileViewMode: isMobile ? 'boards' : undefined
+      });
+      setIsMobile(isMobileWidth);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle mobile board selection
+  const handleMobileBoardSelect = (boardId: string) => {
+    router.push(`/moodboards/${boardId}`);
+  };
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (imagesDropdownRef.current && !imagesDropdownRef.current.contains(event.target as Node)) {
+        setShowImagesActionsMenu(false);
+      }
+      if (headerDropdownRef.current && !headerDropdownRef.current.contains(event.target as Node)) {
+        setShowHeaderActionsMenu(false);
+      }
+    };
+
+    if (showImagesActionsMenu || showHeaderActionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showImagesActionsMenu, showHeaderActionsMenu]);
+
+  // Handle upload from actions menu
+  const handleUploadFromMenu = () => {
+    // Try desktop upload first, then mobile
+    const desktopInput = document.getElementById('mood-board-upload') as HTMLInputElement;
+    const mobileInput = document.getElementById('mood-board-upload-mobile') as HTMLInputElement;
+    
+    if (desktopInput) {
+      desktopInput.click();
+    } else if (mobileInput) {
+      mobileInput.click();
+    }
+    setShowImagesActionsMenu(false);
+  };
+
+  // Storage tracking for mood board images
+  const storageStats = useMoodBoardStorage(moodBoards, userPlan.tier);
+
+  // Load mood boards from Firestore
+  useEffect(() => {
+    const loadMoodBoards = async () => {
+      if (!user) return;
+      
+      setMoodBoardsLoading(true);
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          let savedMoodBoards = data.moodBoards || [];
+          
+          // Migration: Check if we need to migrate existing vibes to wedding-day board (only once)
+          const existingVibes = [...(data.vibe || []), ...(data.generatedVibes || [])];
+          const existingVibeInputMethod = data.vibeInputMethod || 'pills';
+          const hasMigratedVibes = data.hasMigratedVibesToMoodBoard; // Check if migration already happened
+          
+          if (savedMoodBoards.length === 0) {
+            // No mood boards exist, create default with migrated vibes
+            const defaultBoard: MoodBoard = {
+              id: 'wedding-day',
+              name: 'Wedding Day',
+              type: 'wedding-day',
+              images: [], // TODO: Add onboarding image if available
+              vibes: existingVibes,
+              createdAt: new Date(),
+              vibeInputMethod: existingVibeInputMethod
+            };
+            
+            savedMoodBoards = [defaultBoard];
+          } else if (!hasMigratedVibes) {
+            // Mood boards exist, but check if wedding-day board needs vibes migrated (only once)
+            const weddingDayBoard = savedMoodBoards.find(board => board.id === 'wedding-day');
+            if (weddingDayBoard && existingVibes.length > 0 && weddingDayBoard.vibes.length === 0) {
+              // Migrate vibes to existing wedding-day board
+              weddingDayBoard.vibes = existingVibes;
+              weddingDayBoard.vibeInputMethod = existingVibeInputMethod;
+              console.log('Migrated existing vibes to Wedding Day board');
+            }
+          }
+          
+          // Save the migrated data to Firestore if we made changes and mark migration as complete
+          if (existingVibes.length > 0 && !hasMigratedVibes) {
+            try {
+              await updateDoc(doc(db, "users", user.uid), {
+                moodBoards: savedMoodBoards,
+                hasMigratedVibesToMoodBoard: true // Mark migration as complete
+              });
+              console.log('Successfully saved migrated mood boards');
+            } catch (migrationError) {
+              console.error('Error saving migrated mood boards:', migrationError);
+            }
+          }
+          
+          // Clean up any existing base64 images to prevent document size issues
+          try {
+            const cleanedBoards = await cleanupBase64Images(savedMoodBoards, user.uid);
+            if (JSON.stringify(cleanedBoards) !== JSON.stringify(savedMoodBoards)) {
+              // Save cleaned boards if changes were made
+              await updateDoc(doc(db, "users", user.uid), {
+                moodBoards: cleanedBoards
+              });
+              console.log('Successfully cleaned up base64 images');
+              setMoodBoards(cleanedBoards);
+            } else {
+              setMoodBoards(savedMoodBoards);
+            }
+          } catch (cleanupError) {
+            console.error('Error cleaning up base64 images:', cleanupError);
+            // Continue with original boards if cleanup fails
+            setMoodBoards(savedMoodBoards);
+          }
+          
+          // Check if the requested board exists
+          const requestedBoard = savedMoodBoards.find(board => board.id === boardId);
+          if (requestedBoard) {
+            setActiveMoodBoard(boardId);
+          } else {
+            // Board not found, redirect to main mood boards page
+            router.push('/moodboards');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading mood boards:', error);
+        // Fallback to default board
+        const defaultBoard: MoodBoard = {
+          id: 'wedding-day',
+          name: 'Wedding Day',
+          type: 'wedding-day',
+          images: [],
+          vibes: [],
+          createdAt: new Date()
+        };
+        setMoodBoards([defaultBoard]);
+        setActiveMoodBoard('wedding-day');
+      } finally {
+        setMoodBoardsLoading(false);
+      }
+    };
+
+    loadMoodBoards();
+  }, [user, boardId, router]);
+
+  // Save mood boards to Firestore whenever they change
+  useEffect(() => {
+    const saveMoodBoards = async () => {
+      if (!user || moodBoardsLoading || moodBoards.length === 0) return;
+      
+      try {
+        // Sync vibes with user profile settings for Wedding Day board
+        const weddingDayBoard = moodBoards.find(board => board.id === 'wedding-day');
+        if (weddingDayBoard) {
+          // Update user profile with current vibes from Wedding Day board
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: moodBoards,
+            vibe: weddingDayBoard.vibes, // Sync vibes with profile
+            generatedVibes: [], // Clear generated vibes since they're now in mood board
+            vibeInputMethod: weddingDayBoard.vibeInputMethod || 'pills'
+          });
+        } else {
+          // No wedding day board, just save mood boards
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: moodBoards
+          });
+        }
+      } catch (error) {
+        console.error('Error saving mood boards:', error);
+        showErrorToast('Failed to save mood boards');
+      }
+    };
+
+    // Debounce saves to avoid excessive Firestore writes
+    const timeoutId = setTimeout(saveMoodBoards, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [moodBoards, user, moodBoardsLoading]);
+
+  // Initialize editing vibes when active board changes
+  useEffect(() => {
+    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+    if (activeBoard && activeBoard.vibes) {
+      setEditingVibes([...activeBoard.vibes]);
+    } else {
+      setEditingVibes([]);
+    }
+  }, [activeMoodBoard, moodBoards]);
+
+  // Image management functions
+  const handleEditImage = (imageIndex: number) => {
+    setEditingImageIndex(imageIndex);
+    setShowImageEditModal(true);
+  };
+
+  const handleDownloadImage = async (imageUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showSuccessToast('Image downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      showErrorToast('Failed to download image');
+    }
+  };
+
+  const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
+    console.log('handleUpdateImage called with:', { imageIndex, fileName, description });
+    
+    const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
+    if (!activeBoard) {
+      console.log('No active board found');
+      return;
+    }
+    
+    console.log('Active board:', activeBoard);
+    console.log('Current images:', activeBoard.images);
+    console.log('Image at index:', activeBoard.images[imageIndex]);
+    
+    const updatedBoards = moodBoards.map(board => {
+      if (board.id === activeBoard.id) {
+        const updatedImages = [...board.images];
+        // Handle both old string format and new object format
+        if (typeof updatedImages[imageIndex] === 'string') {
+          // Convert old string format to new object format
+          updatedImages[imageIndex] = {
+            url: updatedImages[imageIndex] as string,
+            fileName,
+            description,
+            uploadedAt: new Date()
+          };
+          console.log('Converted string image to object:', updatedImages[imageIndex]);
+        } else {
+          // Update existing object format
+          updatedImages[imageIndex] = {
+            ...updatedImages[imageIndex],
+            fileName,
+            description
+          };
+          console.log('Updated existing object image:', updatedImages[imageIndex]);
+        }
+        return { ...board, images: updatedImages };
+      }
+      return board;
+    });
+    
+    console.log('Updated boards:', updatedBoards);
+    setMoodBoards(updatedBoards);
+    showSuccessToast('Image updated successfully!');
+  };
+
+  const handleUseVibesInDraft = (vibes: string[], boardType: string) => {
+    // Store the selected vibes and board type for use in draft messages
+    // This will be accessible from the main dashboard draft message area
+    localStorage.setItem('selectedVibes', JSON.stringify(vibes));
+    localStorage.setItem('selectedBoardType', boardType);
+    localStorage.setItem('vibesLastUpdated', new Date().toISOString());
+    
+    // Dispatch custom event for same-tab updates
+    window.dispatchEvent(new CustomEvent('vibesUpdated'));
+    
+    showSuccessToast(`Vibes saved! They'll be available in your Draft Message area.`);
+    
+    // Optionally redirect to main dashboard or open draft message area
+    // router.push('/');
+  };
+
+  // Helper functions
+  const canCreateNewBoard = () => {
+    return moodBoards.length < userPlan.maxBoards;
+  };
+
+  const handleSave = async () => {
+    if (!user || !getActiveBoard(moodBoards, activeMoodBoard)) return;
+    
+    setSaving(true);
+    try {
+      // Update the active board's vibes
+      const updatedMoodBoards = updateBoardVibes(moodBoards, activeMoodBoard, editingVibes);
+      setMoodBoards(updatedMoodBoards);
+      
+      showSuccessToast('Wedding vibe updated successfully!');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving vibe:', error);
+      showErrorToast('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      handleFilesDrop(Array.from(files));
+    }
+  };
+
+  const handleFilesDrop = async (files: File[]) => {
+    if (!user) return;
+    
+    setUploadingImage(true);
+    
+    try {
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          // Upload to Firebase Storage instead of base64
+          const imageUrl = await uploadImageToStorage(file, user.uid, activeMoodBoard);
+          
+          // Add the Storage URL to the mood board
+          const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl, file.name);
+          setMoodBoards(updatedBoards);
+          
+          // Set the first image as the main preview for vibe generation
+          if (!imagePreviewUrl) {
+            setImagePreviewUrl(imageUrl);
+            setUploadedImage(file);
+          }
+          
+          showSuccessToast(`Uploaded ${file.name} successfully!`);
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      showErrorToast('Failed to upload images. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const generateVibesFromImage = async (imageUrl?: string) => {
+    if (!user) return;
+    
+    // If no imageUrl provided, use the uploadedImage
+    const imageToUse = imageUrl || uploadedImage;
+    if (!imageToUse) return;
+    
+    setGeneratingVibes(true);
+    try {
+      const formData = new FormData();
+      
+      // Add user ID for credit validation
+      formData.append('userId', user.uid);
+      
+      // Handle both File objects and image URLs
+      if (imageToUse instanceof File) {
+        console.log('Processing File object:', imageToUse.name, imageToUse.type, imageToUse.size);
+        formData.append('image', imageToUse);
+      } else if (typeof imageToUse === 'string') {
+        console.log('Processing image URL:', imageToUse);
+        // Check if it's already a base64 string
+        if (imageToUse.startsWith('data:image/')) {
+          // It's already a base64 string, convert to blob
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        } else if (imageToUse.startsWith('blob:')) {
+          // It's a blob URL, fetch it
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        } else {
+          // It's a regular URL, fetch it
+          const response = await fetch(imageToUse);
+          const blob = await response.blob();
+          formData.append('image', blob, 'image.jpg');
+        }
+      }
+      
+      console.log('Uploading image for vibe generation...');
+      console.log('FormData contents:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+      
+      const response = await fetch('/api/generate-vibes-from-image', {
+        method: 'POST',
+        headers: {
+          'x-user-id': user.uid, // Send userId in headers for credit validation
+        },
+        body: formData,
+      });
+      
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (data.success && data.vibes && Array.isArray(data.vibes)) {
+        // Add new vibes to the active board
+        const newVibes = data.vibes.filter((v: string) => !getActiveBoard(moodBoards, activeMoodBoard)?.vibes.includes(v));
+        
+        // Update the active board with new vibes
+        const updatedMoodBoards = moodBoards.map(board => 
+          board.id === activeMoodBoard 
+            ? { 
+                ...board, 
+                vibes: [...board.vibes, ...newVibes],
+                vibeInputMethod: 'image'
+              }
+            : board
+        );
+        
+        setMoodBoards(updatedMoodBoards);
+        
+        // Refresh credits after successful completion
+        try {
+          await refreshCredits();
+        } catch (refreshError) {
+          console.warn('Failed to refresh credits after vibe generation:', refreshError);
+        }
+        
+        const vibeText = newVibes.length === 1 ? 'vibe' : 'vibes';
+        showSuccessToast(`Generated ${newVibes.length} new ${vibeText} from your image!`);
+        setShowImageUpload(false);
+        setUploadedImage(null);
+        setImagePreviewUrl(null);
+      } else {
+        const errorMessage = data.error || 'Failed to generate vibes from image';
+        
+        // Check if it's a credit-related error
+        if (errorMessage.includes('Not enough credits') || errorMessage.includes('Insufficient credits')) {
+          setCreditModalData({
+            requiredCredits: 2, // Single vibe generation costs 2 credits
+            currentCredits: 0, // We'll get this from the error response if available
+            feature: 'vibe generation'
+          });
+          setShowNotEnoughCreditsModal(true);
+        } else {
+          showErrorToast(errorMessage);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating vibes:', error);
+      showErrorToast('Network error: Failed to generate vibes from image');
+    } finally {
+      setGeneratingVibes(false);
+    }
+  };
+
+  const generateVibesFromAllImages = async (board: MoodBoard) => {
+    if (!user || !board.images || board.images.length === 0) return;
+    
+    setGeneratingVibes(true);
+    try {
+      let allNewVibes: string[] = [];
+      
+      // Process each image in the board
+      for (let index = 0; index < board.images.length; index++) {
+        const image = board.images[index];
+        try {
+          const imageUrl = image.url;
+          if (!imageUrl) continue;
+          
+          console.log('Processing image in board:', imageUrl);
+          
+          const formData = new FormData();
+          
+          // Add required fields for bulk vibe generation
+          formData.append('userId', user.uid);
+          formData.append('moodBoardId', activeMoodBoard);
+          formData.append('imageId', `image-${index}`);
+          
+          // Convert image URL to blob for API
+          console.log('Fetching image from URL:', imageUrl);
+          const response = await fetch(imageUrl);
+          
+          if (!response.ok) {
+            console.error('Failed to fetch image:', response.status, response.statusText);
+            continue;
+          }
+          
+          const blob = await response.blob();
+          console.log('Image blob size:', blob.size, 'type:', blob.type);
+          formData.append('image', blob, 'image.jpg');
+          
+          console.log('Processing image for bulk vibe generation...');
+          const apiResponse = await fetch('/api/generate-bulk-vibes', {
+            method: 'POST',
+            headers: {
+              'x-user-id': user.uid, // Send userId in headers for credit validation
+            },
+            body: formData,
+          });
+          
+          const data = await apiResponse.json();
+          
+          if (data.success && data.vibes && Array.isArray(data.vibes)) {
+            // Filter out vibes that already exist in the board
+            const newVibes = data.vibes.filter((v: string) => !board.vibes.includes(v));
+            allNewVibes = [...allNewVibes, ...newVibes];
+          }
+        } catch (error) {
+          console.error('Error processing image:', error);
+          
+          // Check if it's a credit-related error
+          if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
+            setCreditModalData({
+              requiredCredits: 5, // Bulk vibe generation costs 5 credits
+              currentCredits: 0,
+              feature: 'bulk vibe generation'
+            });
+            setShowNotEnoughCreditsModal(true);
+            break; // Stop processing other images if credits are insufficient
+          }
+          
+          // Continue with other images even if one fails
+        }
+      }
+      
+      if (allNewVibes.length > 0) {
+        // Remove duplicates
+        const uniqueNewVibes = [...new Set(allNewVibes)];
+        
+        // Update the board with new vibes
+        const updatedMoodBoards = moodBoards.map(b => 
+          b.id === board.id 
+            ? { 
+                ...b, 
+                vibes: [...b.vibes, ...uniqueNewVibes],
+                vibeInputMethod: 'image'
+              }
+            : b
+        );
+        
+        setMoodBoards(updatedMoodBoards);
+        
+        // Refresh credits after successful completion
+        try {
+          await refreshCredits();
+        } catch (refreshError) {
+          console.warn('Failed to refresh credits after bulk vibe generation:', refreshError);
+        }
+        
+        const vibeText = uniqueNewVibes.length === 1 ? 'vibe' : 'vibes';
+        showSuccessToast(`Generated ${uniqueNewVibes.length} new ${vibeText} from all images!`);
+      } else {
+        showErrorToast('No new vibes could be generated from the images');
+      }
+    } catch (error) {
+      console.error('Error generating vibes from all images:', error);
+      showErrorToast('Failed to generate vibes from all images');
+    } finally {
+      setGeneratingVibes(false);
+    }
+  };
+
+  const addMoodBoard = async (name: string, type: 'custom' | 'wedding-day' | 'reception' | 'engagement') => {
+    // Check if we're editing an existing board
+    if (editingBoard) {
+      // Update existing board
+      try {
+        const updatedBoards = moodBoards.map(board => 
+          board.id === editingBoard.id 
+            ? { ...board, name, type }
+            : board
+        );
+        
+        setMoodBoards(updatedBoards);
+        setShowNewBoardModal(false);
+        setNewBoardName('');
+        setEditingBoard(null);
+        showSuccessToast(`Updated mood board: ${name}`);
+        
+        // Save to Firestore
+        if (user) {
+          await updateDoc(doc(db, "users", user.uid), {
+            moodBoards: updatedBoards
+          });
+        }
+      } catch (error) {
+        console.error('Error updating mood board:', error);
+        showErrorToast('Failed to update mood board');
+      }
+      return;
+    }
+
+    // Creating new board
+    if (!canCreateNewBoard()) {
+      showErrorToast(`You've reached the limit of ${userPlan.maxBoards} mood boards for your plan. Upgrade to create more!`);
+      return;
+    }
+
+    const newBoard = createNewBoard(name, type);
+
+    try {
+      // Update local state immediately for responsive UI
+      setMoodBoards(prev => [...prev, newBoard]);
+      setActiveMoodBoard(newBoard.id);
+      setShowNewBoardModal(false);
+      setNewBoardName('');
+      showSuccessToast(`Created new mood board: ${name}`);
+      
+      // Save to Firestore (will be handled by useEffect)
+    } catch (error) {
+      console.error('Error creating mood board:', error);
+      showErrorToast('Failed to create mood board');
+    }
+  };
+
+  const editMoodBoard = (board: MoodBoard) => {
+    // Update the board with new data (for inline editing)
+    try {
+      const updatedBoards = moodBoards.map(b => 
+        b.id === board.id ? board : b
+      );
+      
+      setMoodBoards(updatedBoards);
+      
+      // Save to Firestore
+      if (user) {
+        updateDoc(doc(db, "users", user.uid), {
+          moodBoards: updatedBoards
+        });
+      }
+      
+      showSuccessToast('Board updated successfully');
+    } catch (error) {
+      console.error('Error updating board:', error);
+      showErrorToast('Failed to update board');
+    }
+  };
+
+  const saveInlineEdit = async () => {
+    if (!inlineEditingBoardId || !inlineEditingName.trim()) return;
+    
+    try {
+      const updatedBoards = moodBoards.map(board => 
+        board.id === inlineEditingBoardId 
+          ? { ...board, name: inlineEditingName.trim() }
+          : board
+      );
+      
+      setMoodBoards(updatedBoards);
+      setInlineEditingBoardId(null);
+      setInlineEditingName('');
+      showSuccessToast('Board name updated successfully');
+      
+      // Save to Firestore
+      if (user) {
+        await updateDoc(doc(db, "users", user.uid), {
+          moodBoards: updatedBoards
+        });
+      }
+    } catch (error) {
+      console.error('Error updating board name:', error);
+      showErrorToast('Failed to update board name');
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditingBoardId(null);
+    setInlineEditingName('');
+  };
+
+  const deleteMoodBoard = async (boardId: string) => {
+    if (!user) return;
+    
+    try {
+      const updatedBoards = moodBoards.filter(board => board.id !== boardId);
+      setMoodBoards(updatedBoards);
+      
+      // If we deleted the active board, switch to the first available board
+      if (activeMoodBoard === boardId) {
+        setActiveMoodBoard(updatedBoards[0]?.id || 'wedding-day');
+      }
+      
+      // Save to Firestore
+      await updateDoc(doc(db, "users", user.uid), {
+        moodBoards: updatedBoards
+      });
+      
+      showSuccessToast('Mood board deleted successfully');
+    } catch (error) {
+      console.error('Error deleting mood board:', error);
+      showErrorToast('Failed to delete mood board');
+    }
+  };
+
+  const addVibe = () => {
+    if (newVibe.trim()) {
+      // Split by commas and trim each vibe
+      const vibesToAdd = newVibe.split(',').map(vibe => vibe.trim()).filter(vibe => vibe.length > 0);
+      
+      if (vibesToAdd.length > 0) {
+        setEditingVibes([...editingVibes, ...vibesToAdd]);
+        setNewVibe('');
+        // Don't close the input section - keep it open for more vibes
+      }
+    }
+  };
+
+  const removeVibe = (index: number) => {
+    setEditingVibes(editingVibes.filter((_, i) => i !== index));
+  };
+
+  // Auth check
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F3F2F0] flex items-center justify-center">
+        <div className="text-[#332B42]">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-linen">
+      <WeddingBanner 
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={isLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
+      
+      <div className="app-content-container flex-1 overflow-hidden">
+        <div className="flex h-full lg:gap-4 lg:flex-row flex-col">
+          <main className="unified-container">
+            {/* Mood Board Sidebar */}
+            <MoodBoardSidebar
+              moodBoards={moodBoards}
+              selectedMoodBoard={activeMoodBoard}
+              onSelectMoodBoard={setActiveMoodBoard}
+              onNewBoard={() => setShowNewBoardModal(true)}
+              onEditBoard={editMoodBoard}
+              onDeleteBoard={deleteMoodBoard}
+              inlineEditingBoardId={inlineEditingBoardId}
+              inlineEditingName={inlineEditingName}
+              onInlineEditChange={setInlineEditingName}
+              onSaveInlineEdit={saveInlineEdit}
+              onCancelInlineEdit={cancelInlineEdit}
+              userPlan={userPlan}
+              isLoading={moodBoardsLoading}
+              mobileViewMode={isMobile ? 'boards' : undefined}
+              onMobileBoardSelect={isMobile ? handleMobileBoardSelect : undefined}
+              usedStorage={storageStats.usedStorage}
+              totalStorage={storageStats.totalStorage}
+              plan={storageStats.plan}
+              onUpgrade={() => {
+                setShowUpgradeModal(true);
+              }}
+              showUpgradeBanner={(() => {
+                const canCreate = canCreateNewBoard();
+                const showBanner = showBoardLimitBanner;
+                const result = isMobile && !canCreate && showBanner;
+                console.log('Upgrade banner debug:', { 
+                  isMobile, 
+                  canCreate, 
+                  showBanner, 
+                  result,
+                  moodBoardsLength: moodBoards.length,
+                  maxBoards: userPlan.maxBoards
+                });
+                return result;
+              })()}
+              onDismissUpgradeBanner={() => setShowBoardLimitBanner(false)}
+            />
+
+            {/* Main Content Area - Mobile shows only boards list */}
+            <div className={`unified-main-content ${isMobile ? 'mobile-boards-view' : ''}`}>
+              {/* Mobile: Show message to select a board */}
+              {isMobile && (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center">
+                    <Heart className="w-16 h-16 mx-auto mb-4 text-[#AB9C95]" />
+                    <h3 className="text-lg font-playfair font-medium text-[#332B42] mb-2">
+                      Select a Mood Board
+                    </h3>
+                    <p className="text-sm text-[#7A7A7A] mb-4">
+                      Choose a mood board from the sidebar to view and edit its content
+                    </p>
+                    <button
+                      onClick={() => setShowNewBoardModal(true)}
+                      className="btn-primary flex items-center gap-2 mx-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create New Board
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Desktop: Show full content */}
+              {!isMobile && (
+                <>
+                  {/* Main Content Area */}
+                  <div className="flex-1 overflow-hidden">
+                {/* Wedding Day Header - Desktop only - styled like todo page */}
+                <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full mb-2">
+                  <div className="flex items-center w-full gap-4 px-4 py-3">
+                    {/* Left: Board Name */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <h6 className="truncate max-w-[300px] text-[#332B42] font-playfair font-medium">
+                        {getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Wedding Day'}
+                      </h6>
+                    </div>
+                    
+                    {/* Middle: Spacer */}
+                    <div className="flex-1 min-w-0"></div>
+                    
+                    {/* Right: Action Buttons */}
+                    <div className="flex-shrink-0 flex justify-end items-center gap-4 ml-auto">
+                      {/* Pinterest Integration Button */}
+                      <PinterestBanner 
+                        isExpanded={pinterestBannerExpanded}
+                        onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                      />
+                      
+                      {/* Three-dot actions menu */}
+                      <div className="relative" ref={headerDropdownRef}>
+                        <button
+                          onClick={() => setShowHeaderActionsMenu(!showHeaderActionsMenu)}
+                          className="p-1 hover:bg-gray-100 rounded-full"
+                          title="More options"
+                        >
+                          <MoreHorizontal size={16} className="text-gray-500" />
+                        </button>
+                        
+                        {/* Dropdown menu */}
+                        <AnimatePresence>
+                          {showHeaderActionsMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                              transition={{ duration: 0.15, ease: "easeOut" }}
+                              className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                            >
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    handleUploadFromMenu();
+                                    setShowHeaderActionsMenu(false);
+                                  }}
+                                  className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                >
+                                  <Upload className="w-4 h-4 mr-2 text-[#364257]" />
+                                  Upload Image
+                                </button>
+                                {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      generateVibesFromAllImages();
+                                      setShowHeaderActionsMenu(false);
+                                    }}
+                                    className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
+                                    <span className="leading-tight">Extract Moods from All Images (3 Credits)</span>
+                                  </button>
+                                )}
+                                {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
+                                  <button
+                                    onClick={() => {
+                                      deleteMoodBoard(activeMoodBoard);
+                                      setShowHeaderActionsMenu(false);
+                                    }}
+                                    className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 whitespace-nowrap"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Plan Limit Warning - positioned like todo page upgrade banner */}
+                <AnimatePresence>
+                  {!canCreateNewBoard() && showBoardLimitBanner && (
+                    <div className="px-4 pt-2">
+                      <Banner
+                        message={
+                          <>
+                            You've reached the limit of {userPlan.maxBoards} mood boards for your {userPlan.tier} plan.
+                            <button onClick={() => setShowUpgradeModal(true)} className="ml-2 font-semibold underline">Upgrade to create more!</button>
+                          </>
+                        }
+                        type="info"
+                        onDismiss={() => setShowBoardLimitBanner(false)}
+                      />
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Moods Section */}
+                {getActiveBoard(moodBoards, activeMoodBoard) && (
+                  <div className="px-4 py-4">
+                    {/* Moods Title with Edit Button */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h6 className="mb-0">Moods</h6>
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7 gap-1"
+                        aria-label="Edit moods"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Edit
+                      </button>
+                    </div>
+                    
+                    {/* Description */}
+                    <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
+                      Here are the moods that you've added or extracted from images for this board. The moods below will be used to help personalize content{' '}
+                      <button
+                        onClick={() => setShowVibePreviewModal(true)}
+                        className="text-[#A85C36] hover:text-[#8B4513] underline font-medium transition-colors inline-flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        (see it in action)
+                      </button>
+                    </div>
+                    
+                    {/* Mood Pills - Moved here with 0 left/right padding */}
+                    <div className="px-0">
+                      <VibeSection 
+                        board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                        weddingLocation={weddingLocation || undefined}
+                        isEditing={isEditing}
+                        onEdit={() => setIsEditing(true)}
+                      />
+                    </div>
+                  </div>
+                )}
+            
+                {/* Images Section - Show skeleton only for dynamic content */}
+                {moodBoardsLoading ? (
+                  <MoodBoardSkeleton />
+                ) : (
+                  getActiveBoard(moodBoards, activeMoodBoard) && (
+                    <div className="bg-white border border-gray-100 rounded-lg p-2 h-full overflow-y-auto">
+                      {/* Images Title with Extract Button and Actions Menu */}
+                      <div className="px-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h6 className="mb-0">Images</h6>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={generateVibesFromAllImages}
+                              className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
+                              aria-label="Extract moods from all images"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Extract Moods from All (3 Credits)
+                            </button>
+                            
+                            {/* Three-dot actions menu */}
+                            <div className="relative" ref={imagesDropdownRef}>
+                              <button
+                                onClick={() => setShowImagesActionsMenu(!showImagesActionsMenu)}
+                                className="p-1 hover:bg-gray-100 rounded-full"
+                                title="More options"
+                              >
+                                <MoreHorizontal size={16} className="text-gray-500" />
+                              </button>
+                              
+                              {/* Dropdown menu */}
+                              <AnimatePresence>
+                                {showImagesActionsMenu && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                    transition={{ duration: 0.15, ease: "easeOut" }}
+                                    className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10"
+                                  >
+                                    <div className="py-1">
+                                      <button
+                                        onClick={handleUploadFromMenu}
+                                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                      >
+                                        <Upload className="w-4 h-4 mr-2 text-[#364257]" />
+                                        Upload Image
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Images Description */}
+                        <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
+                          Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 3 credits.
+                        </div>
+                      </div>
+                      
+                      <MoodBoardContent
+                        board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                        userPlan={userPlan}
+                        weddingLocation={weddingLocation || undefined}
+                        isEditing={isEditing}
+                        generatingVibes={generatingVibes}
+                        isDragOver={isDragOver}
+                        onRemoveImage={(index) => {
+                          const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
+                          setMoodBoards(updatedBoards);
+                        }}
+                        onGenerateVibes={generateVibesFromImage}
+                        onExtractVibesFromAll={generateVibesFromAllImages}
+                        onChooseVibe={() => setIsEditing(true)}
+                        onEditVibes={() => setIsEditing(true)}
+                        onEditBoardName={editMoodBoard}
+                        onDeleteBoard={deleteMoodBoard}
+                        onEditImage={handleEditImage}
+                        onDownloadImage={handleDownloadImage}
+                        onImageUpload={handleImageUpload}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                          const files = Array.from(e.dataTransfer.files) as File[];
+                          const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                          
+                          if (imageFiles.length !== files.length) {
+                            showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
+                          }
+                          
+                          if (imageFiles.length > 0) {
+                            handleFilesDrop(imageFiles);
+                          }
+                        }}
+                        isLoading={moodBoardsLoading}
+                        uploadingImage={uploadingImage}
+                      />
+                    </div>
+                  )
+                )}
+                  </div>
+                </>
+              )}
+            </div>
+          </main>
+
+          {/* Mobile Content - Full width, no sidebar */}
+          <div className="lg:hidden flex flex-col h-full">
+            {/* Mobile Header with Back Button - styled like Todo page */}
+            <div className="sticky top-0 z-20 bg-[#F3F2F0] border-b-[0.5px] border-b-[var(--border-color)] w-full flex-shrink-0">
+              <div className="flex items-center p-4 pb-2 border-b border-[#E0DBD7]">
+                <button
+                  onClick={() => router.push('/moodboards')}
+                  className="lg:hidden p-1 rounded-full hover:bg-[#E0DBD7] text-[#332B42]"
+                  aria-label="Back to boards"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm lg:text-base font-playfair font-medium text-[#332B42] truncate">
+                    {getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Mood Board'}
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden lg:block">
+                    <PinterestBanner 
+                      isExpanded={pinterestBannerExpanded}
+                      onToggle={() => setPinterestBannerExpanded(!pinterestBannerExpanded)}
+                    />
+                  </div>
+                  
+                  {/* Three-dot actions menu */}
+                  <div className="relative" ref={headerDropdownRef}>
+                    <button
+                      onClick={() => setShowHeaderActionsMenu(!showHeaderActionsMenu)}
+                      className="p-1 hover:bg-gray-100 rounded-full"
+                      title="More options"
+                    >
+                      <MoreHorizontal size={16} className="text-gray-500" />
+                    </button>
+                    
+                    {/* Dropdown menu */}
+                    <AnimatePresence>
+                      {showHeaderActionsMenu && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+                        >
+                          <div className="py-1">
+                            <button
+                              onClick={() => {
+                                handleUploadFromMenu();
+                                setShowHeaderActionsMenu(false);
+                              }}
+                              className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                            >
+                              <Upload className="w-4 h-4 mr-2 text-[#364257]" />
+                              Upload Image
+                            </button>
+                            {getActiveBoard(moodBoards, activeMoodBoard)?.images && getActiveBoard(moodBoards, activeMoodBoard)!.images.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  generateVibesFromAllImages();
+                                  setShowHeaderActionsMenu(false);
+                                }}
+                                className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
+                                <span className="leading-tight">Extract Moods from All Images (3 Credits)</span>
+                              </button>
+                            )}
+                            {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
+                              <button
+                                onClick={() => {
+                                  deleteMoodBoard(activeMoodBoard);
+                                  setShowHeaderActionsMenu(false);
+                                }}
+                                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 whitespace-nowrap"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Content Area - Scrollable */}
+            <div className="flex-1 overflow-y-auto bg-white">
+
+              {/* Moods Section */}
+              {getActiveBoard(moodBoards, activeMoodBoard) && (
+                <div className="px-4 py-4">
+                  {/* Moods Title with Edit Button */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h6 className="mb-0">Moods</h6>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center h-7 gap-1"
+                      aria-label="Edit moods"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Edit
+                    </button>
+                  </div>
+                  
+                  {/* Description */}
+                  <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
+                    Here are the moods that you've added or extracted from images for this board. The moods below will be used to help personalize content{' '}
+                    <button
+                      onClick={() => setShowVibePreviewModal(true)}
+                      className="text-[#A85C36] hover:text-[#8B4513] underline font-medium transition-colors inline-flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      (see it in action)
+                    </button>
+                  </div>
+                  
+                  {/* Mood Pills */}
+                  <div className="px-0">
+                    <VibeSection 
+                      board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                      weddingLocation={weddingLocation || undefined}
+                      isEditing={isEditing}
+                      onEdit={() => setIsEditing(true)}
+                    />
+                  </div>
+                </div>
+              )}
+          
+              {/* Section Separator - Mobile only */}
+              <div className="lg:hidden border-t border-[#E0DBD7] mx-4"></div>
+          
+              {/* Images Section */}
+              {moodBoardsLoading ? (
+                <MoodBoardSkeleton />
+              ) : (
+                getActiveBoard(moodBoards, activeMoodBoard) && (
+                  <div>
+                    {/* Images Title with Extract Button and Actions Menu */}
+                    <div className="px-4 pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h6 className="mb-0">Images</h6>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={generateVibesFromAllImages}
+                            className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
+                            aria-label="Extract moods from all images"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Extract Moods from All (3 Credits)
+                          </button>
+                          
+                          {/* Three-dot actions menu */}
+                          <div className="relative" ref={imagesDropdownRef}>
+                            <button
+                              onClick={() => setShowImagesActionsMenu(!showImagesActionsMenu)}
+                              className="p-1 hover:bg-gray-100 rounded-full"
+                              title="More options"
+                            >
+                              <MoreHorizontal size={16} className="text-gray-500" />
+                            </button>
+                            
+                            {/* Dropdown menu */}
+                            <AnimatePresence>
+                              {showImagesActionsMenu && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  transition={{ duration: 0.15, ease: "easeOut" }}
+                                  className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10"
+                                >
+                                  <div className="py-1">
+                                    <button
+                                      onClick={handleUploadFromMenu}
+                                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 whitespace-nowrap"
+                                    >
+                                      <Upload className="w-4 h-4 mr-2 text-[#364257]" />
+                                      Upload Image
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Images Description */}
+                      <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
+                        Upload images below to build out your moods! You can generate vibes from individual images for 2 credits or bulk generate vibes from all your uploaded images for 3 credits.
+                      </div>
+                    </div>
+                    
+                    {/* Images Content - No padding for edge-to-edge images */}
+                    <div className="overflow-y-auto">
+                      <MoodBoardContent
+                        board={getActiveBoard(moodBoards, activeMoodBoard)!}
+                        userPlan={userPlan}
+                        weddingLocation={weddingLocation || undefined}
+                        isEditing={isEditing}
+                        generatingVibes={generatingVibes}
+                        isDragOver={isDragOver}
+                        onRemoveImage={(index) => {
+                          const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
+                          setMoodBoards(updatedBoards);
+                        }}
+                        onGenerateVibes={generateVibesFromImage}
+                        onExtractVibesFromAll={generateVibesFromAllImages}
+                        onChooseVibe={() => setIsEditing(true)}
+                        onEditVibes={() => setIsEditing(true)}
+                        onEditBoardName={editMoodBoard}
+                        onDeleteBoard={deleteMoodBoard}
+                        onEditImage={handleEditImage}
+                        onDownloadImage={handleDownloadImage}
+                        onImageUpload={handleImageUpload}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragOver(false);
+                          const files = Array.from(e.dataTransfer.files) as File[];
+                          const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                          
+                          if (imageFiles.length !== files.length) {
+                            showErrorToast('Only image files are accepted. Please upload JPG, PNG, GIF, or WebP files.');
+                          }
+                          
+                          if (imageFiles.length > 0) {
+                            handleFilesDrop(imageFiles);
+                          }
+                        }}
+                        isLoading={moodBoardsLoading}
+                        uploadingImage={uploadingImage}
+                      />
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <NewBoardModal
+            isOpen={showNewBoardModal}
+            onClose={() => {
+              setShowNewBoardModal(false);
+              setEditingBoard(null);
+              setNewBoardName('');
+            }}
+            onCreate={addMoodBoard}
+            newBoardName={newBoardName}
+            setNewBoardName={setNewBoardName}
+            newBoardType={newBoardType}
+            setNewBoardType={setNewBoardType}
+            isEditing={!!editingBoard}
+            editingBoard={editingBoard}
+          />
+
+          <VibeEditModal
+            isOpen={isEditing}
+            onClose={() => setIsEditing(false)}
+            onSave={handleSave}
+            editingVibes={editingVibes}
+            setEditingVibes={setEditingVibes}
+            boardName={getActiveBoard(moodBoards, activeMoodBoard)?.name || 'Mood Board'}
+            saving={saving}
+            showVibeInput={showVibeInput}
+            setShowVibeInput={setShowVibeInput}
+            newVibe={newVibe}
+            setNewVibe={setNewVibe}
+            onAddVibe={addVibe}
+            onRemoveVibe={removeVibe}
+          />
+
+          {showUpgradeModal && (
+            <UpgradePlanModal
+              maxLists={userPlan.maxBoards}
+              reason="lists"
+              onClose={() => setShowUpgradeModal(false)}
+            />
+          )}
+
+          {/* Image Edit Modal */}
+          {showImageEditModal && editingImageIndex !== null && getActiveBoard(moodBoards, activeMoodBoard) && (() => {
+            const activeBoard = getActiveBoard(moodBoards, activeMoodBoard)!;
+            const image = activeBoard.images[editingImageIndex];
+            
+            // Handle both old string format and new object format
+            const imageUrl = typeof image === 'string' ? image : image.url;
+            const imageName = typeof image === 'string' ? `Image ${editingImageIndex + 1}` : image.fileName;
+            const imageDescription = typeof image === 'string' ? '' : image.description;
+            
+            return (
+              <ImageEditModal
+                isOpen={showImageEditModal}
+                onClose={() => {
+                  setShowImageEditModal(false);
+                  setEditingImageIndex(null);
+                }}
+                onSave={handleUpdateImage}
+                imageIndex={editingImageIndex}
+                currentFileName={imageName}
+                currentDescription={imageDescription}
+                imageUrl={imageUrl}
+              />
+            );
+          })()}
+
+          {/* Vibe Preview Modal */}
+          <VibePreviewModal
+            isOpen={showVibePreviewModal}
+            onClose={() => setShowVibePreviewModal(false)}
+            moodBoards={moodBoards}
+            activeMoodBoard={activeMoodBoard}
+            onUseInDraft={handleUseVibesInDraft}
+          />
+
+          {/* Loading Bar for Generate Vibes */}
+          <LoadingBar
+            description="Generating vibes from your image..."
+            isVisible={generatingVibes}
+            onComplete={() => {
+              // Credit update event is already emitted in generateVibesFromImage
+              console.log('Vibe generation completed');
+            }}
+          />
+
+          {/* Not Enough Credits Modal */}
+          <NotEnoughCreditsModal
+            isOpen={showNotEnoughCreditsModal}
+            onClose={() => setShowNotEnoughCreditsModal(false)}
+            requiredCredits={creditModalData.requiredCredits}
+            currentCredits={creditModalData.currentCredits}
+            feature={creditModalData.feature}
+            accountInfo={{
+              tier: 'Free', // Since we're using the free tier
+              dailyCredits: userCredits.monthlyCredits,
+              refreshTime: 'Daily at midnight'
+            }}
+          />
+    </div>
+  );
+}
