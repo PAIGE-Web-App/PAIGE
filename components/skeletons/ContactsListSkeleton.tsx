@@ -8,8 +8,8 @@ const ContactsListSkeleton: React.FC = () => (
         <div className="flex items-center gap-3">
           <SkeletonAvatar size="sm" />
           <div className="flex-1">
-            <SkeletonText width="w-24" height="h-4" className="mb-1" />
-            <SkeletonText width="w-16" height="h-3" />
+            <SkeletonText width="w-24" className="mb-1" />
+            <SkeletonText width="w-16" />
           </div>
         </div>
       </div>

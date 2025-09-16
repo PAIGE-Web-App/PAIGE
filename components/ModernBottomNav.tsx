@@ -12,9 +12,12 @@ import {
   Heart,
   MoreHorizontal,
   Settings,
-  LogOut
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 interface NavItem {
   name: string;
@@ -30,7 +33,7 @@ interface ModernBottomNavProps {
 export default function ModernBottomNav({ className = '' }: ModernBottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, profileImageUrl } = useAuth();
+  const { user, profileImageUrl } = useAuth();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -54,7 +57,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
     if (href === '/') {
       return pathname === '/';
     }
-    return pathname.startsWith(href);
+    return pathname?.startsWith(href) || false;
   };
 
   const handleNavigation = (href: string) => {
@@ -65,7 +68,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut(auth);
       router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -136,7 +139,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <User className="w-4 h-4" />
+                <UserIcon className="w-4 h-4" />
               )}
             </button>
 

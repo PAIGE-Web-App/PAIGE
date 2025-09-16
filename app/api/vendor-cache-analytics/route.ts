@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const popularSearches = vendorSearchCache.getPopularSearchSuggestions();
     
     // Performance recommendations
-    const recommendations = [];
+    const recommendations: string[] = [];
     
     if (cacheEfficiency < 50) {
       recommendations.push('Consider increasing cache TTL for better hit rates');

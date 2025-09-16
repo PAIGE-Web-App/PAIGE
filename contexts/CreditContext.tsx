@@ -186,9 +186,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     const remainingCredits = (credits.dailyCredits || 0) + (credits.bonusCredits || 0);
     
     // Define credit requirements for each feature
-    const creditRequirements: Record<AIFeature, number> = {
-      'draft_message': 1,
-      'draft_response': 1,
+    const creditRequirements: Partial<Record<AIFeature, number>> = {
+      'draft_messaging': 1,
       'todo_generation': 2,
       'file_analysis': 3,
       'message_analysis': 2,
@@ -196,7 +195,6 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       'budget_generation': 3,
       'vibe_generation': 2,
       'vendor_suggestions': 2,
-      'follow_up_questions': 1,
     };
     
     const requiredCredits = creditRequirements[feature] || 1;

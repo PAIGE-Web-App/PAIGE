@@ -493,10 +493,14 @@ export default function MyVendorsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredVendors.map((vendor) => (
+          {filteredVendors.map((vendor) => {
+            const catalogVendor = convertVendorToCatalogFormat(vendor);
+            if (!catalogVendor) return null;
+            
+            return (
             <div key={vendor.id} className="w-full">
               <VendorCatalogCard
-                vendor={convertVendorToCatalogFormat(vendor)}
+                vendor={catalogVendor}
                 onContact={() => {
                   // Handle contact
                 }}
@@ -508,7 +512,8 @@ export default function MyVendorsPage() {
                 category={vendor.types && vendor.types.length > 0 ? mapGoogleTypesToCategory(vendor.types, vendor.name) : vendor.category || ''}
               />
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

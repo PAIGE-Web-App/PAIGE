@@ -1,4 +1,5 @@
 import React from 'react';
+import { Users, Table, Sparkles } from 'lucide-react';
 import { WizardStep } from './types';
 
 interface WizardSidebarProps {
@@ -7,9 +8,9 @@ interface WizardSidebarProps {
 }
 
 const WIZARD_STEPS: { key: WizardStep; label: string; icon: React.ComponentType<any> }[] = [
-  { key: 'guests', label: 'Guest Information', icon: 'Users' },
-  { key: 'tables', label: 'Table Layout', icon: 'Table' },
-  { key: 'organization', label: 'AI Organization', icon: 'Sparkles' }
+  { key: 'guests', label: 'Guest Information', icon: Users },
+  { key: 'tables', label: 'Table Layout', icon: Table },
+  { key: 'organization', label: 'AI Organization', icon: Sparkles }
 ];
 
 export default function WizardSidebar({ currentStep, onStepClick }: WizardSidebarProps) {

@@ -65,20 +65,20 @@ export const useTableResize = () => {
 
     if (resizeState.resizeMode === 'corner') {
       // Proportional scaling from corner - handle each direction separately
-      if (resizeState.handleType.includes('e')) { // right side
+      if (resizeState.handleType?.includes('e')) { // right side
         newWidth = Math.max(60, newWidth + localDeltaX);
-      } else if (resizeState.handleType.includes('w')) { // left side
+      } else if (resizeState.handleType?.includes('w')) { // left side
         newWidth = Math.max(60, newWidth - localDeltaX);
       }
       
-      if (resizeState.handleType.includes('s')) { // bottom side
+      if (resizeState.handleType?.includes('s')) { // bottom side
         newHeight = Math.max(40, newHeight + localDeltaY);
-      } else if (resizeState.handleType.includes('n')) { // top side
+      } else if (resizeState.handleType?.includes('n')) { // top side
         newHeight = Math.max(40, newHeight - localDeltaY);
       }
     } else {
       // Independent width/height adjustment
-      switch (resizeState.handleType) {
+      switch (resizeState.handleType || '') {
         case 'n':
           newHeight = Math.max(40, newHeight - localDeltaY);
           break;

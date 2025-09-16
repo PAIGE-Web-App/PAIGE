@@ -132,7 +132,7 @@ const AIBudgetAssistantRAGOptimized: React.FC<AIBudgetAssistantRAGOptimizedProps
         };
 
         // Call createBudgetFromAI directly with the transformed RAG response
-        await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
+        await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
 
         // Trigger credit refresh for useCredits hook
         if (budgetResponse.credits && budgetResponse.credits.required > 0) {

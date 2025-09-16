@@ -369,7 +369,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
           const endDateSafe: Date | undefined = nullToUndefined(endDate as Date | null | undefined);
           const noteSafe: string | undefined = nullToUndefined(note as string | null | undefined);
           const categorySafe: string | undefined = nullToUndefined(category as string | null | undefined);
-          const assignedToSafe: string | undefined = nullToUndefined(assignedTo as string | null | undefined);
+          const assignedToSafe: string | undefined = nullToUndefined(Array.isArray(assignedTo) ? assignedTo[0] : assignedTo as string | null | undefined);
           return {
             id: doc.id,
             name: data.name,

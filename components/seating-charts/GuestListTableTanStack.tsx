@@ -100,7 +100,7 @@ export default function GuestListTableTanStack({
           id: column.id,
           header: ({ column }) => (
             <div className="flex items-center justify-between">
-              <span>{column.label}</span>
+              <span>{column.id}</span>
               {column.id === 'notes' && onGenerateAllNotes && (
                 <button
                   onClick={onGenerateAllNotes}

@@ -465,6 +465,7 @@ export default function SeatingChartWizardModal({
           isOpen={modalState.familyGrouping}
           onClose={() => closeModal('familyGrouping')}
           selectedGuests={modalData.selectedGuests || []}
+          allGuests={wizardState.guests}
           onCreateFamilyGroup={handleCreateGuestGroup}
         />
       </motion.div>

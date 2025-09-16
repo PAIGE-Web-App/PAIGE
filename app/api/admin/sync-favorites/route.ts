@@ -16,14 +16,20 @@ export async function POST(req: NextRequest) {
     const users = usersSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<{ id: string; email?: string; [key: string]: any }>;
 
     console.log(`📊 Found ${users.length} users to process`);
 
     let processedUsers = 0;
     let syncedFavorites = 0;
     let errors = 0;
-    const results = [];
+    const results: Array<{
+      userId: string;
+      email: string;
+      favoritesCount: number;
+      status: string;
+      error?: string;
+    }> = [];
 
     // Process each user
     for (const user of users) {
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
         }));
 
         // Convert to the new simplified format
-        const simplifiedFavorites = firestoreFavorites.map(fav => ({
+        const simplifiedFavorites = firestoreFavorites.map((fav: any) => ({
           placeId: fav.placeId || fav.id,
           name: fav.name || 'Unknown Vendor',
           address: fav.address || '',

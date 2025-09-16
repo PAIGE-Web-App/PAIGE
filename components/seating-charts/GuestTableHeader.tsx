@@ -94,9 +94,9 @@ export default function GuestTableHeader({
         <th className="p-3 text-center text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap" style={{ width: '40px' }}>
           <input
             type="checkbox"
-            checked={isAllSelected}
+            checked={!!isAllSelected}
             ref={(input) => {
-              if (input) input.indeterminate = isIndeterminate;
+              if (input) input.indeterminate = !!isIndeterminate;
             }}
             onChange={() => {
               if (isAllSelected) {

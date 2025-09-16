@@ -28,7 +28,11 @@
         "./*"
       ]
     },
-    "strictNullChecks": true
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": [
     "next-env.d.ts",

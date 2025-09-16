@@ -313,7 +313,6 @@ const VendorSearchResults = forwardRef<VendorSearchResultsRef, VendorSearchResul
                     vendor={vendor}
                     onContact={() => onVendorContact(vendor)}
                     onShowFlagModal={() => onVendorFlag(vendor)}
-                    communityData={communityVendorData[vendor.place_id]}
                     isHighlighted={hoveredVendor?.place_id === vendor.place_id}
                   />
                 </motion.div>

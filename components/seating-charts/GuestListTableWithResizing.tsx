@@ -50,7 +50,7 @@ export default function GuestListTableWithResizing({
     const values = new Set<string>();
     wizardState.guests.forEach(guest => {
       const value = guest[field as keyof Guest] || guest.customFields?.[field];
-      if (value && value.trim()) {
+      if (value && typeof value === 'string' && value.trim()) {
         values.add(value.trim());
       }
     });

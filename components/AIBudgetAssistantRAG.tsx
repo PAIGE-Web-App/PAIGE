@@ -65,7 +65,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     maxBudget,
     profileLoading
   } = useUserProfileData();
-  const { updateMaxBudget } = useBudget();
+  const { updateUserMaxBudget } = useBudget();
   
   // Memoize budget validation
   const isValidBudget = useMemo(() => {
@@ -91,7 +91,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
         newTotalAllocated: budget,
         newMaxBudget
       });
-    } else if (budget <= maxBudget) {
+    } else if (budget <= (maxBudget || 0)) {
       // Hide warning if budget is now within limits
       setBudgetWarningData(null);
     }
@@ -182,7 +182,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
           };
           
           // Call createBudgetFromAI directly with the transformed RAG response
-          await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
+          await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
           
         // Trigger credit refresh for useCredits hook
         if (budgetResponse.credits && budgetResponse.credits.required > 0) {
@@ -219,12 +219,12 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
     if (!description.trim() || !canSubmit || isGenerating) return;
     
     // If there's a budget warning, automatically update max budget
-    if (budgetWarningData && updateMaxBudget) {
-      await updateMaxBudget(budgetWarningData.newMaxBudget);
+    if (budgetWarningData && updateUserMaxBudget) {
+      await updateUserMaxBudget(budgetWarningData.newMaxBudget);
     }
     
     await performGeneration();
-  }, [description, canSubmit, budgetWarningData, updateMaxBudget, performGeneration, isGenerating]);
+  }, [description, canSubmit, budgetWarningData, updateUserMaxBudget, performGeneration, isGenerating]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && canSubmit && !isGenerating) {

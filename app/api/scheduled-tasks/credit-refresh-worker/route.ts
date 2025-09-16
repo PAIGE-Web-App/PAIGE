@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { creditServiceAdmin } from '@/lib/creditServiceAdmin';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { query, where, orderBy, limit, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 interface QueueJob {
   userId: string;
@@ -71,15 +71,13 @@ export async function POST(request: NextRequest) {
       try {
         // Get next pending job that's due for processing
         const now = Timestamp.now();
-        const jobsQuery = query(
-          adminDb.collection('credit_refresh_jobs'),
-          where('status', '==', 'pending'),
-          where('scheduledFor', '<=', now),
-          orderBy('scheduledFor'),
-          limit(1)
-        );
-
-        const jobsSnapshot = await getDocs(jobsQuery);
+        const jobsSnapshot = await adminDb
+          .collection('credit_refresh_jobs')
+          .where('status', '==', 'pending')
+          .where('scheduledFor', '<=', now)
+          .orderBy('scheduledFor')
+          .limit(1)
+          .get();
 
         if (jobsSnapshot.empty) {
           console.log('✅ No pending jobs to process');
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
         console.log(`📋 Processing job ${jobId} for user ${jobData.email}`);
 
         // Mark job as processing
-        await updateDoc(doc(adminDb, 'credit_refresh_jobs', jobId), {
+        await adminDb.collection('credit_refresh_jobs').doc(jobId).update({
           status: 'processing',
           attempts: jobData.attempts + 1
         });
@@ -129,7 +127,7 @@ export async function POST(request: NextRequest) {
             );
             
             // Mark job as completed
-            await updateDoc(doc(adminDb, 'credit_refresh_jobs', jobId), {
+            await adminDb.collection('credit_refresh_jobs').doc(jobId).update({
               status: 'completed',
               result: { refreshed: true, timestamp: now.toISOString() }
             });
@@ -140,7 +138,7 @@ export async function POST(request: NextRequest) {
             // No refresh needed
             console.log(`⏭️ Skipping user ${jobData.email} - already refreshed today`);
             
-            await updateDoc(doc(adminDb, 'credit_refresh_jobs', jobId), {
+            await adminDb.collection('credit_refresh_jobs').doc(jobId).update({
               status: 'completed',
               result: { skipped: true, reason: 'Already refreshed today' }
             });
@@ -160,7 +158,7 @@ export async function POST(request: NextRequest) {
             const retryDelay = Math.pow(2, jobData.attempts) * 60000; // 1min, 2min, 4min
             const retryTime = new Date(Date.now() + retryDelay);
             
-            await updateDoc(doc(adminDb, 'credit_refresh_jobs', jobId), {
+            await adminDb.collection('credit_refresh_jobs').doc(jobId).update({
               status: 'pending',
               scheduledFor: Timestamp.fromDate(retryTime),
               error: errorMessage
@@ -169,7 +167,7 @@ export async function POST(request: NextRequest) {
             console.log(`🔄 Scheduled retry for job ${jobId} in ${retryDelay/1000}s`);
           } else {
             // Max attempts reached, mark as failed
-            await updateDoc(doc(adminDb, 'credit_refresh_jobs', jobId), {
+            await adminDb.collection('credit_refresh_jobs').doc(jobId).update({
               status: 'failed',
               error: errorMessage
             });

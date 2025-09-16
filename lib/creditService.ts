@@ -130,6 +130,7 @@ export class CreditService {
         hasEnoughCredits: false,
         requiredCredits: 0,
         remainingCredits: 0,
+        currentCredits: 0,
         canProceed: false,
         message: 'Error validating credits'
       };
@@ -226,7 +227,7 @@ export class CreditService {
       // Emit credit update event to notify clients
       const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
       creditEventEmitter.emit({
-        creditsBeforeDeduction: totalAvailable,
+        creditsBeforeDeduction: userCredits.dailyCredits + userCredits.bonusCredits,
         feature,
         requiredCredits: cost
       });

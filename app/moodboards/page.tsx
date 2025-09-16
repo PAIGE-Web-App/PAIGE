@@ -2,11 +2,12 @@
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
 import WeddingBanner from "../../components/WeddingBanner";
-import { useConsolidatedUserData } from "../../hooks/useConsolidatedUserData";
+import { useWeddingBanner } from "../../hooks/useWeddingBanner";
+import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
@@ -46,14 +47,8 @@ import { COUPLE_SUBSCRIPTION_CREDITS } from "../../types/credits";
 export default function MoodBoardsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { 
-    userName, 
-    weddingLocation, 
-    vibe, 
-    generatedVibes, 
-    vibeInputMethod,
-    isLoading: userDataLoading 
-  } = useConsolidatedUserData();
+  const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { credits, refreshCredits } = useCredits();
   
@@ -72,7 +67,6 @@ export default function MoodBoardsPage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [generatingVibes, setGeneratingVibes] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [showPinterestSearch, setShowPinterestSearch] = useState(false);
   const [pinterestSearchQuery, setPinterestSearchQuery] = useState('');
@@ -152,20 +146,23 @@ export default function MoodBoardsPage() {
       document.body.removeChild(a);
       showSuccessToast('Image downloaded successfully!');
     } catch (error) {
-      // Error downloading image
+      console.error('Error downloading image:', error);
       showErrorToast('Failed to download image');
     }
   };
 
   const handleUpdateImage = (imageIndex: number, fileName: string, description: string) => {
-    // Update image metadata
+    console.log('handleUpdateImage called with:', { imageIndex, fileName, description });
     
     const activeBoard = getActiveBoard(moodBoards, activeMoodBoard);
     if (!activeBoard) {
+      console.log('No active board found');
       return;
     }
     
-    // Update image metadata
+    console.log('Active board:', activeBoard);
+    console.log('Current images:', activeBoard.images);
+    console.log('Image at index:', activeBoard.images[imageIndex]);
     
     const updatedBoards = moodBoards.map(board => {
       if (board.id === activeBoard.id) {
@@ -179,7 +176,7 @@ export default function MoodBoardsPage() {
             description,
             uploadedAt: new Date()
           };
-          // Converted string image to object
+          console.log('Converted string image to object:', updatedImages[imageIndex]);
         } else {
           // Update existing object format
           updatedImages[imageIndex] = {
@@ -187,16 +184,15 @@ export default function MoodBoardsPage() {
             fileName,
             description
           };
-          // Updated existing object image
+          console.log('Updated existing object image:', updatedImages[imageIndex]);
         }
         return { ...board, images: updatedImages };
       }
       return board;
     });
     
-    // Updated boards
+    console.log('Updated boards:', updatedBoards);
     setMoodBoards(updatedBoards);
-    setHasUnsavedChanges(true);
     showSuccessToast('Image updated successfully!');
   };
 
@@ -262,7 +258,7 @@ export default function MoodBoardsPage() {
               // Migrate vibes to existing wedding-day board
               weddingDayBoard.vibes = existingVibes;
               weddingDayBoard.vibeInputMethod = existingVibeInputMethod;
-              // Migrated existing vibes to Wedding Day board
+              console.log('Migrated existing vibes to Wedding Day board');
             }
           }
           
@@ -273,9 +269,9 @@ export default function MoodBoardsPage() {
                 moodBoards: savedMoodBoards,
                 hasMigratedVibesToMoodBoard: true // Mark migration as complete
               });
-              // Successfully saved migrated mood boards
+              console.log('Successfully saved migrated mood boards');
             } catch (migrationError) {
-              // Error saving migrated mood boards
+              console.error('Error saving migrated mood boards:', migrationError);
             }
           }
           
@@ -287,13 +283,13 @@ export default function MoodBoardsPage() {
               await updateDoc(doc(db, "users", user.uid), {
                 moodBoards: cleanedBoards
               });
-              // Successfully cleaned up base64 images
+              console.log('Successfully cleaned up base64 images');
               setMoodBoards(cleanedBoards);
             } else {
               setMoodBoards(savedMoodBoards);
             }
           } catch (cleanupError) {
-            // Error cleaning up base64 images
+            console.error('Error cleaning up base64 images:', cleanupError);
             // Continue with original boards if cleanup fails
             setMoodBoards(savedMoodBoards);
           }
@@ -301,7 +297,7 @@ export default function MoodBoardsPage() {
           setActiveMoodBoard(savedMoodBoards[0].id);
         }
       } catch (error) {
-        // Error loading mood boards
+        console.error('Error loading mood boards:', error);
         // Fallback to default board
         const defaultBoard: MoodBoard = {
           id: 'wedding-day',
@@ -321,10 +317,10 @@ export default function MoodBoardsPage() {
     loadMoodBoards();
   }, [user]);
 
-  // Save mood boards to Firestore only when there are actual changes
+  // Save mood boards to Firestore whenever they change
   useEffect(() => {
     const saveMoodBoards = async () => {
-      if (!user || moodBoardsLoading || moodBoards.length === 0 || !hasUnsavedChanges) return;
+      if (!user || moodBoardsLoading || moodBoards.length === 0) return;
       
       try {
         // Sync vibes with user profile settings for Wedding Day board
@@ -343,9 +339,8 @@ export default function MoodBoardsPage() {
             moodBoards: moodBoards
           });
         }
-        setHasUnsavedChanges(false);
       } catch (error) {
-        // Error saving mood boards
+        console.error('Error saving mood boards:', error);
         showErrorToast('Failed to save mood boards');
       }
     };
@@ -353,46 +348,40 @@ export default function MoodBoardsPage() {
     // Debounce saves to avoid excessive Firestore writes
     const timeoutId = setTimeout(saveMoodBoards, 1000);
     return () => clearTimeout(timeoutId);
-  }, [moodBoards, user, moodBoardsLoading, hasUnsavedChanges]);
-
-  // Memoized calculations
-  const activeBoard = useMemo(() => {
-    return getActiveBoard(moodBoards, activeMoodBoard);
-  }, [moodBoards, activeMoodBoard]);
+  }, [moodBoards, user, moodBoardsLoading]);
 
   // Helper functions
-  const canCreateNewBoard = useCallback(() => {
+  const canCreateNewBoard = () => {
     return moodBoards.length < userPlan.maxBoards;
-  }, [moodBoards.length, userPlan.maxBoards]);
+  };
 
-  const handleSave = useCallback(async () => {
-    if (!user || !activeBoard) return;
+  const handleSave = async () => {
+    if (!user || !getActiveBoard(moodBoards, activeMoodBoard)) return;
     
     setSaving(true);
     try {
       // Update the active board's vibes
       const updatedMoodBoards = updateBoardVibes(moodBoards, activeMoodBoard, editingVibes);
       setMoodBoards(updatedMoodBoards);
-      setHasUnsavedChanges(true);
       
       showSuccessToast('Wedding vibe updated successfully!');
       setIsEditing(false);
     } catch (error) {
-      // Error saving vibe
+      console.error('Error saving vibe:', error);
       showErrorToast('Failed to save changes');
     } finally {
       setSaving(false);
     }
-  }, [user, activeBoard, moodBoards, activeMoodBoard, editingVibes, showSuccessToast, showErrorToast]);
+  };
 
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
       handleFilesDrop(Array.from(files));
     }
-  }, []);
+  };
 
-  const handleFilesDrop = useCallback(async (files: File[]) => {
+  const handleFilesDrop = async (files: File[]) => {
     if (!user) return;
     
     setUploadingImage(true);
@@ -406,7 +395,6 @@ export default function MoodBoardsPage() {
           // Add the Storage URL to the mood board
           const updatedBoards = addImageToBoard(moodBoards, activeMoodBoard, imageUrl, file.name);
           setMoodBoards(updatedBoards);
-          setHasUnsavedChanges(true);
           
           // Set the first image as the main preview for vibe generation
           if (!imagePreviewUrl) {
@@ -418,14 +406,14 @@ export default function MoodBoardsPage() {
         }
       }
     } catch (error) {
-      // Error uploading images
+      console.error('Error uploading images:', error);
       showErrorToast('Failed to upload images. Please try again.');
     } finally {
       setUploadingImage(false);
     }
-  }, [user, activeMoodBoard, moodBoards, imagePreviewUrl, showSuccessToast, showErrorToast]);
+  };
 
-  const generateVibesFromImage = useCallback(async (imageUrl?: string) => {
+  const generateVibesFromImage = async (imageUrl?: string) => {
     if (!user) return;
     
     // If no imageUrl provided, use the uploadedImage
@@ -441,10 +429,10 @@ export default function MoodBoardsPage() {
       
       // Handle both File objects and image URLs
       if (imageToUse instanceof File) {
-        // Processing File object
+        console.log('Processing File object:', imageToUse.name, imageToUse.type, imageToUse.size);
         formData.append('image', imageToUse);
       } else if (typeof imageToUse === 'string') {
-        // Processing image URL
+        console.log('Processing image URL:', imageToUse);
         // Check if it's already a base64 string
         if (imageToUse.startsWith('data:image/')) {
           // It's already a base64 string, convert to blob
@@ -464,7 +452,11 @@ export default function MoodBoardsPage() {
         }
       }
       
-      // Uploading image for vibe generation
+      console.log('Uploading image for vibe generation...');
+      console.log('FormData contents:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
       
       const response = await fetch('/api/generate-vibes-from-image', {
         method: 'POST',
@@ -474,7 +466,9 @@ export default function MoodBoardsPage() {
         body: formData,
       });
       
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (data.success && data.vibes && Array.isArray(data.vibes)) {
         // Add new vibes to the active board
@@ -497,7 +491,7 @@ export default function MoodBoardsPage() {
         try {
           await refreshCredits();
         } catch (refreshError) {
-          // Failed to refresh credits after vibe generation
+          console.warn('Failed to refresh credits after vibe generation:', refreshError);
         }
         
         const vibeText = newVibes.length === 1 ? 'vibe' : 'vibes';
@@ -521,14 +515,14 @@ export default function MoodBoardsPage() {
         }
       }
     } catch (error) {
-      // Error generating vibes
+      console.error('Error generating vibes:', error);
       showErrorToast('Network error: Failed to generate vibes from image');
     } finally {
       setGeneratingVibes(false);
     }
-  }, [user, uploadedImage, moodBoards, activeMoodBoard, showSuccessToast, showErrorToast, refreshCredits]);
+  };
 
-  const generateVibesFromAllImages = useCallback(async (board: MoodBoard) => {
+  const generateVibesFromAllImages = async (board: MoodBoard) => {
     if (!user || !board.images || board.images.length === 0) return;
     
     setGeneratingVibes(true);
@@ -542,7 +536,7 @@ export default function MoodBoardsPage() {
           const imageUrl = image.url;
           if (!imageUrl) continue;
           
-          // Processing image in board
+          console.log('Processing image in board:', imageUrl);
           
           const formData = new FormData();
           
@@ -552,19 +546,19 @@ export default function MoodBoardsPage() {
           formData.append('imageId', `image-${index}`);
           
           // Convert image URL to blob for API
-          // Fetching image from URL
+          console.log('Fetching image from URL:', imageUrl);
           const response = await fetch(imageUrl);
           
           if (!response.ok) {
-            // Failed to fetch image
+            console.error('Failed to fetch image:', response.status, response.statusText);
             continue;
           }
           
           const blob = await response.blob();
-          // Image blob processed
+          console.log('Image blob size:', blob.size, 'type:', blob.type);
           formData.append('image', blob, 'image.jpg');
           
-          // Processing image for bulk vibe generation
+          console.log('Processing image for bulk vibe generation...');
           const apiResponse = await fetch('/api/generate-bulk-vibes', {
             method: 'POST',
             headers: {
@@ -581,7 +575,7 @@ export default function MoodBoardsPage() {
             allNewVibes = [...allNewVibes, ...newVibes];
           }
         } catch (error) {
-          // Error processing image
+          console.error('Error processing image:', error);
           
           // Check if it's a credit-related error
           if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
@@ -619,7 +613,7 @@ export default function MoodBoardsPage() {
         try {
           await refreshCredits();
         } catch (refreshError) {
-          // Failed to refresh credits after bulk vibe generation
+          console.warn('Failed to refresh credits after bulk vibe generation:', refreshError);
         }
         
         const vibeText = uniqueNewVibes.length === 1 ? 'vibe' : 'vibes';
@@ -628,14 +622,14 @@ export default function MoodBoardsPage() {
         showErrorToast('No new vibes could be generated from the images');
       }
     } catch (error) {
-      // Error generating vibes from all images
+      console.error('Error generating vibes from all images:', error);
       showErrorToast('Failed to generate vibes from all images');
     } finally {
       setGeneratingVibes(false);
     }
-  }, [user, moodBoards, activeMoodBoard, showSuccessToast, showErrorToast, refreshCredits]);
+  };
 
-  const addMoodBoard = useCallback(async (name: string, type: 'custom' | 'wedding-day' | 'reception' | 'engagement') => {
+  const addMoodBoard = async (name: string, type: 'custom' | 'wedding-day' | 'reception' | 'engagement') => {
     // Check if we're editing an existing board
     if (editingBoard) {
       // Update existing board
@@ -647,7 +641,6 @@ export default function MoodBoardsPage() {
         );
         
         setMoodBoards(updatedBoards);
-        setHasUnsavedChanges(true);
         setShowNewBoardModal(false);
         setNewBoardName('');
         setEditingBoard(null);
@@ -660,7 +653,7 @@ export default function MoodBoardsPage() {
           });
         }
       } catch (error) {
-        // Error updating mood board
+        console.error('Error updating mood board:', error);
         showErrorToast('Failed to update mood board');
       }
       return;
@@ -684,10 +677,10 @@ export default function MoodBoardsPage() {
       
       // Save to Firestore (will be handled by useEffect)
     } catch (error) {
-      // Error creating mood board
+      console.error('Error creating mood board:', error);
       showErrorToast('Failed to create mood board');
     }
-  }, [user, moodBoards, editingBoard, showSuccessToast, showErrorToast]);
+  };
 
   const editMoodBoard = (board: MoodBoard) => {
     // Update the board with new data (for inline editing)
@@ -697,7 +690,6 @@ export default function MoodBoardsPage() {
       );
       
       setMoodBoards(updatedBoards);
-      setHasUnsavedChanges(true);
       
       // Save to Firestore
       if (user) {
@@ -708,7 +700,7 @@ export default function MoodBoardsPage() {
       
       showSuccessToast('Board updated successfully');
     } catch (error) {
-      // Error updating board
+      console.error('Error updating board:', error);
       showErrorToast('Failed to update board');
     }
   };
@@ -724,7 +716,6 @@ export default function MoodBoardsPage() {
       );
       
       setMoodBoards(updatedBoards);
-      setHasUnsavedChanges(true);
       setInlineEditingBoardId(null);
       setInlineEditingName('');
       showSuccessToast('Board name updated successfully');
@@ -736,7 +727,7 @@ export default function MoodBoardsPage() {
         });
       }
     } catch (error) {
-      // Error updating board name
+      console.error('Error updating board name:', error);
       showErrorToast('Failed to update board name');
     }
   };
@@ -752,7 +743,6 @@ export default function MoodBoardsPage() {
     try {
       const updatedBoards = moodBoards.filter(board => board.id !== boardId);
       setMoodBoards(updatedBoards);
-      setHasUnsavedChanges(true);
       
       // If we deleted the active board, switch to the first available board
       if (activeMoodBoard === boardId) {
@@ -766,7 +756,7 @@ export default function MoodBoardsPage() {
       
       showSuccessToast('Mood board deleted successfully');
     } catch (error) {
-      // Error deleting mood board
+      console.error('Error deleting mood board:', error);
       showErrorToast('Failed to delete mood board');
     }
   };
@@ -809,15 +799,12 @@ export default function MoodBoardsPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-                <WeddingBanner
-                  daysLeft={null} // TODO: Calculate from wedding date if available
-                  userName={userName}
-                  isLoading={userDataLoading}
-                  onSetWeddingDate={() => {
-                    // TODO: Implement wedding date setting
-                    showErrorToast('Wedding date setting not yet implemented');
-                  }}
-                />
+      <WeddingBanner 
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={isLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full gap-4 lg:flex-row flex-col">
@@ -1062,7 +1049,6 @@ export default function MoodBoardsPage() {
                         onRemoveImage={(index) => {
                           const updatedBoards = removeImageFromBoard(moodBoards, activeMoodBoard, index);
                           setMoodBoards(updatedBoards);
-                          setHasUnsavedChanges(true);
                         }}
                         onGenerateVibes={generateVibesFromImage}
                         onExtractVibesFromAll={generateVibesFromAllImages}
@@ -1189,7 +1175,7 @@ export default function MoodBoardsPage() {
             isVisible={generatingVibes}
             onComplete={() => {
               // Credit update event is already emitted in generateVibesFromImage
-              // Vibe generation completed
+              console.log('Vibe generation completed');
             }}
           />
 

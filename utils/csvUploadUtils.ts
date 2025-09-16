@@ -166,11 +166,11 @@ function parseGuestFromRow(
           // Split name into firstName and lastName
           const nameParts = value.split(' ');
           if (nameParts.length >= 2) {
-            guest.firstName = nameParts[0];
-            guest.lastName = nameParts.slice(1).join(' ');
+            (guest as any).firstName = nameParts[0];
+            (guest as any).lastName = nameParts.slice(1).join(' ');
           } else {
-            guest.firstName = value;
-            guest.lastName = '';
+            (guest as any).firstName = value;
+            (guest as any).lastName = '';
           }
           break;
           
@@ -213,7 +213,7 @@ function parseGuestFromRow(
   });
 
   // Validate required fields
-  if (!guest.firstName) {
+  if (!(guest as any).firstName) {
     throw new Error('First name is required');
   }
 
@@ -252,7 +252,7 @@ export function generateCSVTemplate(): string {
 export function validateGuest(guest: Guest): string[] {
   const errors: string[] = [];
   
-  if (!guest.firstName?.trim()) {
+  if (!(guest as any).firstName?.trim()) {
     errors.push('First name is required');
   }
   

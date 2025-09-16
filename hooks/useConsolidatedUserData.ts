@@ -50,6 +50,10 @@ interface ConsolidatedUserData {
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
+  
+  // Cache management functions
+  refresh: () => Promise<void>;
+  clearCache: () => void;
 }
 
 interface UseConsolidatedUserDataOptions {
@@ -133,7 +137,9 @@ export function useConsolidatedUserData(options: UseConsolidatedUserDataOptions 
     },
     isLoading: true,
     error: null,
-    lastUpdated: 0
+    lastUpdated: 0,
+    refresh: async () => {},
+    clearCache: () => {}
   });
 
   const cache = useMemo(() => UserDataCache.getInstance(), []);
@@ -222,8 +228,8 @@ export function useConsolidatedUserData(options: UseConsolidatedUserDataOptions 
   }, [fetchUserData]);
 
   // Refresh function for manual updates
-  const refresh = useCallback(() => {
-    fetchUserData(true);
+  const refresh = useCallback(async () => {
+    await fetchUserData(true);
   }, [fetchUserData]);
 
   // Clear cache function

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       // Award credits to user
       try {
         const { creditServiceAdmin } = await import('@/lib/creditServiceAdmin');
-        await creditServiceAdmin.awardBonusCredits(userId, creditsAwarded, 'feedback_reward');
+        await creditServiceAdmin.addCredits(userId, creditsAwarded, 'bonus');
         console.log(`Awarded ${creditsAwarded} bonus credits to user ${userId} for feedback`);
       } catch (creditError) {
         console.error('Error awarding bonus credits:', creditError);

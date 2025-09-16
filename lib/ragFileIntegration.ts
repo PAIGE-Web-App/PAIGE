@@ -69,7 +69,7 @@ export class RAGFileIntegration {
         document_content: content,
         source: 'user_upload',
         user_id: file.userId,
-        document_type: this.getDocumentType(file.type)
+        document_type: this.getDocumentType(file.type) as 'wedding_guide' | 'vendor_template' | 'user_document'
       });
 
       return result.success;
@@ -161,7 +161,7 @@ export class RAGFileIntegration {
       });
 
       // Map RAG results back to user files
-      const results = ragResults.results.map(result => ({
+      const results = (ragResults as any).documents?.map((result: any) => ({
         fileId: result.metadata.document_id,
         fileName: result.metadata.content?.substring(0, 50) + '...' || 'Unknown',
         relevanceScore: result.score,

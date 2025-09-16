@@ -326,9 +326,9 @@ class SmartPromptOptimizer {
   /**
    * Get default behavior pattern for new users
    */
-  private getDefaultBehaviorPattern(userId: string): UserBehaviorPattern {
+  private getDefaultBehaviorPattern(userId?: string): UserBehaviorPattern {
     return {
-      userId,
+      userId: userId || 'unknown',
       preferredCategories: ['Venue', 'Catering', 'Photography'],
       completionRates: {},
       averageTaskDuration: {},
@@ -346,19 +346,6 @@ class SmartPromptOptimizer {
     return Date.now() - lastUpdated.getTime() < this.CACHE_TTL;
   }
 
-  /**
-   * Get default behavior pattern when userId is invalid
-   */
-  private getDefaultBehaviorPattern(): UserBehaviorPattern {
-    return {
-      userId: 'unknown',
-      preferredCategories: ['general'],
-      completionRates: { 'general': 0.8 },
-      averageResponseTime: 2.5,
-      preferredPromptStyle: 'balanced',
-      lastUpdated: new Date()
-    };
-  }
 
   /**
    * Clear cache for a specific user

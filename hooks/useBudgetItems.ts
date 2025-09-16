@@ -28,12 +28,15 @@ export function useBudgetItems() {
     const q = query(itemsRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as BudgetItem[];
+      const items = snapshot.docs.map(doc => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as BudgetItem;
+      });
 
       setBudgetItems(items);
     }, (error) => {
@@ -53,11 +56,11 @@ export function useBudgetItems() {
         categoryId,
         name: itemData.name || 'New Item',
         amount: itemData.amount || 0,
-        allocatedAmount: itemData.allocatedAmount || 0,
-        priority: itemData.priority || 'Medium',
-        notes: itemData.notes || '',
-        vendorId: itemData.vendorId || null,
-        vendorName: itemData.vendorName || null,
+        allocatedAmount: (itemData as any).allocatedAmount || 0,
+        priority: (itemData as any).priority || 'Medium',
+        notes: (itemData as any).notes || '',
+        vendorId: (itemData as any).vendorId || null,
+        vendorName: (itemData as any).vendorName || null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
