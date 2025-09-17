@@ -1037,6 +1037,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         }}
                         isLoading={moodBoardsLoading}
                         uploadingImage={uploadingImage}
+                        canCreateMoreBoards={moodBoards.length < userPlan.maxBoards}
                       />
                       </div>
                     </div>
@@ -1309,6 +1310,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         }}
                         isLoading={moodBoardsLoading}
                         uploadingImage={uploadingImage}
+                        canCreateMoreBoards={moodBoards.length < userPlan.maxBoards}
                       />
                     </div>
                   </div>

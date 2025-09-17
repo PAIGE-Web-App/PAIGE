@@ -26,6 +26,7 @@ interface MoodBoardContentProps {
   onDrop: (e: React.DragEvent) => void;
   isLoading?: boolean;
   uploadingImage?: boolean;
+  canCreateMoreBoards?: boolean; // New prop to pass to ImageGrid
 }
 
 export default function MoodBoardContent({
@@ -49,7 +50,8 @@ export default function MoodBoardContent({
   onDragLeave,
   onDrop,
   isLoading = false,
-  uploadingImage = false
+  uploadingImage = false,
+  canCreateMoreBoards = true
 }: MoodBoardContentProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(board.name);
@@ -77,6 +79,7 @@ export default function MoodBoardContent({
           onEditImage={onEditImage}
           onDownloadImage={onDownloadImage}
           onImageUpload={onImageUpload}
+          canCreateMoreBoards={canCreateMoreBoards}
         />
 
       </DragDropZone>

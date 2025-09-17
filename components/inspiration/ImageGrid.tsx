@@ -15,6 +15,7 @@ interface ImageGridProps {
   onEditImage?: (imageIndex: number) => void;
   onDownloadImage?: (imageUrl: string, imageName: string) => void;
   onImageUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  canCreateMoreBoards?: boolean; // New prop to know if user can create more mood boards
 }
 
 export default function ImageGrid({
@@ -26,7 +27,8 @@ export default function ImageGrid({
   onChooseVibe,
   onEditImage,
   onDownloadImage,
-  onImageUpload
+  onImageUpload,
+  canCreateMoreBoards = true
 }: ImageGridProps) {
   const hasImages = board.images.length > 0;
   const canAddMore = canAddMoreImages(board, userPlan);
@@ -167,8 +169,8 @@ export default function ImageGrid({
         })}
       </div>
 
-      {/* Image Limit Warning */}
-      {!canAddMore && (
+      {/* Image Limit Warning - Only show if user can still create more mood boards */}
+      {!canAddMore && canCreateMoreBoards && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-lg mb-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
