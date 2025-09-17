@@ -516,7 +516,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       if (error instanceof Error && (error.message.includes('Not enough credits') || error.message.includes('Insufficient credits'))) {
         setCreditModalData({
           requiredCredits: 5, // Bulk vibe generation costs 5 credits total
-          currentCredits: userCredits.totalCredits,
+          currentCredits: (userCredits.monthlyCredits || 0) + (userCredits.rolloverCredits || 0),
           feature: 'bulk_vibe_generation'
         });
         setShowNotEnoughCreditsModal(true);
