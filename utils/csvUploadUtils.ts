@@ -1,4 +1,5 @@
 import { Guest, CSVUploadResult, GUEST_ATTRIBUTES } from '../types/seatingChart';
+import * as XLSX from 'xlsx';
 
 export interface CSVColumnMapping {
   name: string;
@@ -41,7 +42,6 @@ export function parseCSVFile(
   columnMapping: CSVColumnMapping = DEFAULT_CSV_MAPPING
 ): Promise<CSVUploadResult> {
   return new Promise((resolve) => {
-    const reader = new FileReader();
     const result: CSVUploadResult = {
       success: false,
       guests: [],
@@ -51,66 +51,143 @@ export function parseCSVFile(
       processedRows: 0
     };
 
-    reader.onload = (event) => {
-      try {
-        const csv = event.target?.result as string;
-        const lines = csv.split('\n').filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          result.errors.push('CSV file must have at least a header row and one data row');
-          resolve(result);
-          return;
-        }
-
-        const headers = parseCSVRow(lines[0]);
-        const dataRows = lines.slice(1);
-        
-        result.totalRows = dataRows.length;
-        
-        // Validate required columns
-        if (!headers.includes(columnMapping.name)) {
-          result.errors.push(`Required column '${columnMapping.name}' not found in CSV`);
-          resolve(result);
-          return;
-        }
-
-        // Process each row
-        dataRows.forEach((row, index) => {
-          try {
-            const values = parseCSVRow(row);
-            const guest = parseGuestFromRow(values, headers, columnMapping, index + 2);
-            
-            if (guest) {
-              result.guests.push(guest);
-              result.processedRows++;
-            }
-          } catch (error) {
-            result.errors.push(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid data'}`);
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (fileExtension === '.csv') {
+      // Handle CSV files
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          const csv = event.target?.result as string;
+          const lines = csv.split('\n').filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            result.errors.push('CSV file must have at least a header row and one data row');
+            resolve(result);
+            return;
           }
-        });
 
-        // Add warnings for common issues
-        if (result.guests.length === 0) {
-          result.warnings.push('No valid guest data found in CSV');
-        } else if (result.processedRows < result.totalRows) {
-          result.warnings.push(`${result.totalRows - result.processedRows} rows had errors and were skipped`);
+          const headers = parseCSVRow(lines[0]);
+          const dataRows = lines.slice(1);
+          
+          result.totalRows = dataRows.length;
+          
+          // Validate required columns
+          if (!headers.includes(columnMapping.name)) {
+            result.errors.push(`Required column '${columnMapping.name}' not found in CSV`);
+            resolve(result);
+            return;
+          }
+
+          // Process each row
+          dataRows.forEach((row, index) => {
+            try {
+              const values = parseCSVRow(row);
+              const guest = parseGuestFromRow(values, headers, columnMapping, index + 2);
+              
+              if (guest) {
+                result.guests.push(guest);
+                result.processedRows++;
+              }
+            } catch (error) {
+              result.errors.push(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid data'}`);
+            }
+          });
+
+          // Add warnings for common issues
+          if (result.guests.length === 0) {
+            result.warnings.push('No valid guest data found in CSV');
+          } else if (result.processedRows < result.totalRows) {
+            result.warnings.push(`${result.totalRows - result.processedRows} rows had errors and were skipped`);
+          }
+
+          result.success = result.processedRows > 0;
+          resolve(result);
+
+        } catch (error) {
+          result.errors.push(`Failed to parse CSV: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          resolve(result);
         }
+      };
 
-        result.success = result.processedRows > 0;
+      reader.onerror = () => {
+        result.errors.push('Failed to read CSV file');
         resolve(result);
+      };
 
-      } catch (error) {
-        result.errors.push(`Failed to parse CSV: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      reader.readAsText(file);
+    } else if (fileExtension === '.xls' || fileExtension === '.xlsx') {
+      // Handle Excel files
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        try {
+          const data = event.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          if (jsonData.length < 2) {
+            result.errors.push('Excel file must have at least a header row and one data row');
+            resolve(result);
+            return;
+          }
+
+          const headers = (jsonData[0] as string[]).map(h => h?.toString() || '');
+          const dataRows = jsonData.slice(1) as string[][];
+          
+          result.totalRows = dataRows.length;
+          
+          // Validate required columns
+          if (!headers.includes(columnMapping.name)) {
+            result.errors.push(`Required column '${columnMapping.name}' not found in Excel file`);
+            resolve(result);
+            return;
+          }
+
+          // Process each row
+          dataRows.forEach((row, index) => {
+            try {
+              const values = row.map(cell => cell?.toString() || '');
+              const guest = parseGuestFromRow(values, headers, columnMapping, index + 2);
+              
+              if (guest) {
+                result.guests.push(guest);
+                result.processedRows++;
+              }
+            } catch (error) {
+              result.errors.push(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid data'}`);
+            }
+          });
+
+          // Add warnings for common issues
+          if (result.guests.length === 0) {
+            result.warnings.push('No valid guest data found in Excel file');
+          } else if (result.processedRows < result.totalRows) {
+            result.warnings.push(`${result.totalRows - result.processedRows} rows had errors and were skipped`);
+          }
+
+          result.success = result.processedRows > 0;
+          resolve(result);
+
+        } catch (error) {
+          result.errors.push(`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          resolve(result);
+        }
+      };
+
+      reader.onerror = () => {
+        result.errors.push('Failed to read Excel file');
         resolve(result);
-      }
-    };
+      };
 
-    reader.onerror = () => {
-      result.errors.push('Failed to read CSV file');
+      reader.readAsArrayBuffer(file);
+    } else {
+      result.errors.push('Unsupported file format. Please use CSV, XLS, or XLSX files.');
       resolve(result);
-    };
-
-    reader.readAsText(file);
+    }
   });
 }
 

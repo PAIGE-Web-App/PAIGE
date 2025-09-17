@@ -15,15 +15,18 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<CSVUploadResult | null>(null);
   const [columnMapping, setColumnMapping] = useState<CSVColumnMapping>(DEFAULT_CSV_MAPPING);
-  const [showColumnMapping, setShowColumnMapping] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Please select a CSV file');
+    // Check for supported file types
+    const supportedTypes = ['.csv', '.xls', '.xlsx'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    
+    if (!supportedTypes.includes(fileExtension)) {
+      alert('Please select a CSV or Excel file (.csv, .xls, .xlsx)');
       return;
     }
 
@@ -37,13 +40,41 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
       setUploadResult({
         success: false,
         guests: [],
-        errors: ['Failed to process CSV file'],
+        errors: ['Failed to process file'],
         warnings: [],
         totalRows: 0,
         processedRows: 0
       });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      await handleFileUpload(file);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      await handleFileUpload(file);
     }
   };
 
@@ -68,7 +99,6 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
   const handleReset = () => {
     setUploadResult(null);
     setColumnMapping(DEFAULT_CSV_MAPPING);
-    setShowColumnMapping(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -95,8 +125,8 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-[#AB9C95]">
             <div>
-              <h3 className="h4 text-[#332B42]">Upload Guest List</h3>
-              <p className="text-sm text-[#AB9C95]">Import your guest list from a CSV file</p>
+              <h5 className="h5 text-[#332B42]">Upload Guest List</h5>
+              <p className="text-sm text-[#AB9C95]">Import your guest list from a CSV or Excel file</p>
             </div>
             <button
               onClick={onClose}
@@ -130,55 +160,29 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                   </div>
                 </div>
 
-                {/* Column Mapping Toggle */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[#332B42]">Customize Column Mapping</span>
-                  <button
-                    onClick={() => setShowColumnMapping(!showColumnMapping)}
-                    className="text-[#A85C36] hover:text-[#8B4A2A] text-sm font-medium"
-                  >
-                    {showColumnMapping ? 'Hide' : 'Show'} Advanced Options
-                  </button>
-                </div>
-
-                {/* Column Mapping */}
-                {showColumnMapping && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <p className="text-xs text-gray-600 mb-3">
-                      Map your CSV columns to guest attributes. Only the Name column is required.
-                    </p>
-                    {Object.entries(columnMapping).map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-[#332B42] w-32">
-                          {key === 'name' ? 'Name *' : key.replace(/([A-Z])/g, ' $1').trim()}
-                        </label>
-                        <input
-                          type="text"
-                          value={value || ''}
-                          onChange={(e) => setColumnMapping(prev => ({
-                            ...prev,
-                            [key]: e.target.value
-                          }))}
-                          className="flex-1 text-sm border border-gray-300 rounded px-3 py-2"
-                          placeholder={`e.g., ${key === 'name' ? 'Full Name' : key.replace(/([A-Z])/g, ' $1').trim()}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* File Upload */}
-                <div className="border-2 border-dashed border-[#AB9C95] rounded-lg p-8 text-center">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    dragActive ? 'border-[#A85C36] bg-[#F8F6F4]' : 'border-[#AB9C95]'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
                   <Upload className="w-12 h-12 text-[#AB9C95] mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-[#332B42] mb-2">Upload Your CSV File</h4>
+                  <h4 className="text-lg font-medium text-[#332B42] mb-2">Upload Your File</h4>
                   <p className="text-sm text-[#AB9C95] mb-4">
-                    Drag and drop your CSV file here, or click to browse
+                    Drag and drop your file here, or click to browse
+                  </p>
+                  <p className="text-xs text-[#AB9C95] mb-4">
+                    Supports CSV, XLS, and XLSX files
                   </p>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
+                    accept=".csv,.xls,.xlsx"
+                    onChange={handleFileSelect}
                     className="hidden"
                   />
                   <button
@@ -186,7 +190,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                     className="btn-primary"
                     disabled={isUploading}
                   >
-                    {isUploading ? 'Processing...' : 'Choose File'}
+                    {isUploading ? 'Processing...' : 'Upload File'}
                   </button>
                 </div>
               </div>

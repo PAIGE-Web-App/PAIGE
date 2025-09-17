@@ -16,17 +16,6 @@ const INITIAL_WIZARD_STATE: WizardState = {
       tableId: null,
       seatNumber: null,
       isRemovable: false // First guest is not removable
-    },
-    {
-      id: 'guest-default-2',
-      fullName: '',
-      mealPreference: '',
-      relationship: '',
-      notes: '',
-      customFields: {},
-      tableId: null,
-      seatNumber: null,
-      isRemovable: true // Second guest is removable
     }
   ],
   guestGroups: [],
