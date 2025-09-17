@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, X, Plus, Upload, Settings, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Plus, Upload, Settings, ChevronDown, ChevronUp, HelpCircle, Link, StickyNote, Sparkles } from 'lucide-react';
 import WizardSidebar from '@/components/seating-charts/WizardSidebar';
 import ChartDetailsForm from '@/components/seating-charts/ChartDetailsForm';
 import GuestListTableWithResizing from '@/components/seating-charts/GuestListTableWithResizing';
@@ -32,6 +32,7 @@ export default function CreateSeatingChartPage() {
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [clearTableSelection, setClearTableSelection] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -499,8 +500,17 @@ export default function CreateSeatingChartPage() {
 
             {/* Guest List Table */}
             <div className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h3>
+                  <button
+                    onClick={() => setShowHelpModal(true)}
+                    className="text-sm text-[#AB9C95] hover:text-[#A85C36] transition-colors flex items-center gap-1 mt-1"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    How to use your guest list
+                  </button>
+                </div>
                 <div className="flex items-center gap-3">
                   {/* Primary Actions */}
                   <div className="flex gap-2">
@@ -765,6 +775,96 @@ export default function CreateSeatingChartPage() {
         onUpdateGroup={handleUpdateGroup}
         onDeleteGroup={handleDeleteGroup}
       />
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 bg-white border-b border-[#AB9C95] px-6 py-4 flex items-center justify-between">
+              <h5 className="h5 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-[#805d93]" />
+                How to use your guest list
+              </h5>
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-4">
+                {/* Linking Guests */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Link className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h6 className="h6 text-blue-900 mb-2">Link Guests Together</h6>
+                      <p className="text-sm text-blue-700 mb-2">
+                        Select multiple guests by clicking the checkboxes, then click "Link Guests" to group them together. 
+                        This helps Paige understand family relationships and seating preferences.
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        💡 <strong>Pro tip:</strong> Link family members, couples, and close friends who should sit together.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes Importance */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <StickyNote className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h6 className="h6 text-green-900 mb-2">Why Notes Are Important</h6>
+                      <p className="text-sm text-green-700 mb-2">
+                        Add detailed notes about each guest's preferences, dietary restrictions, accessibility needs, 
+                        or personality traits. Paige uses this information to create the perfect seating arrangement.
+                      </p>
+                      <p className="text-xs text-green-600">
+                        💡 <strong>Examples:</strong> "Wheelchair access needed", "Very social - good for mixing", "Prefers quiet area"
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Features */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h6 className="h6 text-purple-900 mb-2">AI-Powered Seating</h6>
+                      <p className="text-sm text-purple-700 mb-2">
+                        Paige analyzes your guest list, relationships, and notes to automatically create optimal seating arrangements. 
+                        The more information you provide, the better the AI can match guests who will enjoy each other's company.
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        💡 <strong>Coming next:</strong> AI will suggest table layouts and seating arrangements based on your guest data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fixed Footer */}
+            <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowHelpModal(false)}
+                  className="btn-primary px-6 py-2 text-sm"
+                >
+                  Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

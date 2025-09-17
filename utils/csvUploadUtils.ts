@@ -21,20 +21,9 @@ export interface CSVColumnMapping {
 
 export const DEFAULT_CSV_MAPPING: CSVColumnMapping = {
   name: 'Name',
-  email: 'Email',
-  phone: 'Phone',
-  dietaryRestrictions: 'Dietary Restrictions',
-  plusOne: 'Plus One',
-  plusOneName: 'Plus One Name',
-  familyGroup: 'Family Group',
-  friendGroup: 'Friend Group',
-  workGroup: 'Work Group',
-  highSchoolGroup: 'High School Group',
-  collegeGroup: 'College Group',
-  otherGroups: 'Other Groups',
-  notes: 'Notes',
-  isAttending: 'Is Attending',
-  rsvpStatus: 'RSVP Status'
+  relationship: 'Relationship to You',
+  mealPreference: 'Meal Preference',
+  notes: 'Notes'
 };
 
 export function parseCSVFile(
@@ -240,37 +229,24 @@ function parseGuestFromRow(
           if (!value) {
             throw new Error('Name is required');
           }
-          // Split name into firstName and lastName
-          const nameParts = value.split(' ');
-          if (nameParts.length >= 2) {
-            (guest as any).firstName = nameParts[0];
-            (guest as any).lastName = nameParts.slice(1).join(' ');
-          } else {
-            (guest as any).firstName = value;
-            (guest as any).lastName = '';
-          }
+          guest.fullName = value;
           break;
           
-        case 'dietaryRestrictions':
+        case 'mealPreference':
           if (value) {
             guest.mealPreference = value;
           }
           break;
           
-        case 'familyGroup':
-        case 'friendGroup':
-        case 'workGroup':
-        case 'highSchoolGroup':
-        case 'collegeGroup':
-        case 'otherGroups':
+        case 'relationship':
           if (value) {
             guest.relationship = value;
           }
           break;
           
         case 'notes':
-          if (value && guest.customFields) {
-            guest.customFields.notes = value;
+          if (value) {
+            guest.notes = value;
           }
           break;
           
@@ -290,8 +266,8 @@ function parseGuestFromRow(
   });
 
   // Validate required fields
-  if (!(guest as any).firstName) {
-    throw new Error('First name is required');
+  if (!guest.fullName) {
+    throw new Error('Name is required');
   }
 
   return guest as Guest;
@@ -303,34 +279,43 @@ function generateGuestId(): string {
 
 // Helper function to create a sample CSV template
 export function generateCSVTemplate(): string {
-  const headers = Object.values(DEFAULT_CSV_MAPPING).filter(Boolean);
-  const sampleRow = [
-    'John Smith',
-    'john@email.com',
-    '(555) 123-4567',
-    'Vegetarian',
-    'Yes',
-    'Jane Smith',
-    'Bride Family',
-    'College Friends',
-    'Tech Company',
-    'Lincoln High',
-    'Stanford University',
-    'Book Club;Running Group',
-    'Prefers to sit near family',
-    'Yes',
-    'confirmed'
+  const headers = ['Name', 'Relationship to You', 'Meal Preference', 'Notes'];
+  
+  const sampleGuests = [
+    ['Sarah Johnson', 'Bride\'s Family', 'Beef', 'Mother of the bride - prefers front table'],
+    ['Michael Johnson', 'Bride\'s Family', 'Chicken', 'Father of the bride - needs wheelchair access'],
+    ['Emily Chen', 'Bride\'s Friends', 'Fish', 'College roommate - vegetarian option needed'],
+    ['David Rodriguez', 'Groom\'s Family', 'Beef', 'Best man - very social, good for mixing'],
+    ['Maria Rodriguez', 'Groom\'s Family', 'Chicken', 'Groom\'s mother - prefers quiet area'],
+    ['James Wilson', 'Groom\'s Friends', 'Fish', 'Work colleague - knows other guests'],
+    ['Lisa Thompson', 'Bride\'s Friends', 'Beef', 'Childhood friend - gluten-free option'],
+    ['Robert Brown', 'Bride\'s Family', 'Chicken', 'Uncle - elderly, needs assistance'],
+    ['Jennifer Davis', 'Groom\'s Friends', 'Fish', 'High school friend - bringing plus one'],
+    ['Christopher Lee', 'Bride\'s Family', 'Beef', 'Cousin - very outgoing, good for ice breaking']
   ];
   
-  return [headers.join(','), sampleRow.join(',')].join('\n');
+  // Properly escape CSV data
+  const escapeCsvValue = (value: string): string => {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  };
+  
+  const csvRows = [
+    headers.map(escapeCsvValue).join(','),
+    ...sampleGuests.map(row => row.map(escapeCsvValue).join(','))
+  ];
+  
+  return csvRows.join('\n');
 }
 
 // Helper function to validate guest data
 export function validateGuest(guest: Guest): string[] {
   const errors: string[] = [];
   
-  if (!(guest as any).firstName?.trim()) {
-    errors.push('First name is required');
+  if (!guest.fullName?.trim()) {
+    errors.push('Name is required');
   }
   
   // Check customFields for additional validation

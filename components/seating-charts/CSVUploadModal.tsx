@@ -145,9 +145,9 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <h4 className="font-medium text-blue-900 mb-2">Get Started with a Template</h4>
+                      <h6 className="h6 text-blue-900 mb-2">Get Started with a Template</h6>
                       <p className="text-sm text-blue-700 mb-3">
-                        Download our CSV template to see the required format and add your guest information.
+                        Download our CSV template with 10 example guests to see the required format and add your guest information.
                       </p>
                       <button
                         onClick={handleDownloadTemplate}
@@ -187,7 +187,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="btn-primary"
+                    className="btn-primary mx-auto block"
                     disabled={isUploading}
                   >
                     {isUploading ? 'Processing...' : 'Upload File'}
@@ -207,11 +207,11 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                       <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                     )}
                     <div>
-                      <h4 className={`font-medium ${
+                      <h6 className={`h6 ${
                         uploadResult.success ? 'text-green-900' : 'text-red-900'
                       }`}>
                         {uploadResult.success ? 'Upload Successful!' : 'Upload Failed'}
-                      </h4>
+                      </h6>
                       <p className={`text-sm ${
                         uploadResult.success ? 'text-green-700' : 'text-red-700'
                       }`}>
@@ -224,7 +224,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                 {/* Errors */}
                 {uploadResult.errors.length > 0 && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h4 className="font-medium text-red-900 mb-2">Errors</h4>
+                    <h6 className="h6 text-red-900 mb-2">Errors</h6>
                     <ul className="text-sm text-red-700 space-y-1">
                       {uploadResult.errors.map((error, index) => (
                         <li key={index}>• {error}</li>
@@ -236,7 +236,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                 {/* Warnings */}
                 {uploadResult.warnings.length > 0 && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 className="font-medium text-yellow-900 mb-2">Warnings</h4>
+                    <h6 className="h6 text-yellow-900 mb-2">Warnings</h6>
                     <ul className="text-sm text-yellow-700 space-y-1">
                       {uploadResult.warnings.map((warning, index) => (
                         <li key={index}>• {warning}</li>
@@ -248,22 +248,35 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                 {/* Guest Preview */}
                 {uploadResult.guests.length > 0 && (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-[#332B42] mb-3">
+                    <h6 className="h6 text-[#332B42] mb-3">
                       Guest Preview ({uploadResult.guests.length} guests)
-                    </h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {uploadResult.guests.slice(0, 5).map((guest) => (
-                        <div key={guest.id} className="flex items-center gap-3 text-sm">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="font-medium">{guest.fullName}</span>
-                          {guest.relationship && (
-                            <span className="text-[#AB9C95]">({guest.relationship})</span>
-                          )}
-                        </div>
-                      ))}
-                      {uploadResult.guests.length > 5 && (
-                        <div className="text-sm text-[#AB9C95]">
-                          ... and {uploadResult.guests.length - 5} more guests
+                    </h6>
+                    <div className="max-h-64 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-300">
+                            <th className="text-left py-2 font-medium text-[#332B42]">Guest Name</th>
+                            <th className="text-left py-2 font-medium text-[#332B42]">Relationship</th>
+                            <th className="text-left py-2 font-medium text-[#332B42]">Meal Preference</th>
+                            <th className="text-left py-2 font-medium text-[#332B42]">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {uploadResult.guests.slice(0, 10).map((guest) => (
+                            <tr key={guest.id} className="border-b border-gray-200 hover:bg-gray-100">
+                              <td className="py-2 font-medium text-[#332B42]">{guest.fullName}</td>
+                              <td className="py-2 text-[#AB9C95]">{guest.relationship || '-'}</td>
+                              <td className="py-2 text-[#AB9C95]">{guest.mealPreference || '-'}</td>
+                              <td className="py-2 text-[#AB9C95] max-w-xs truncate" title={guest.notes || ''}>
+                                {guest.notes || '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {uploadResult.guests.length > 10 && (
+                        <div className="text-sm text-[#AB9C95] mt-2 text-center">
+                          ... and {uploadResult.guests.length - 10} more guests
                         </div>
                       )}
                     </div>

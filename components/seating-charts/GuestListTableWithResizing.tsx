@@ -702,7 +702,7 @@ export default function GuestListTableWithResizing({
       <div className="overflow-x-auto w-full">
         <table className="w-full border-collapse">
           {/* Header */}
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-[#F8F6F4]">
               {/* Selection Column */}
               <th 
@@ -925,11 +925,13 @@ export default function GuestListTableWithResizing({
                             className="w-full border border-[#AB9C95] px-2 py-1 text-sm rounded bg-white text-[#332B42] appearance-none focus:outline-none focus:ring-2 focus:ring-[#A85C36] pr-6"
                           >
                             <option value="">Select</option>
-                            {column.options.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
+                            {column.options
+                              .filter((option, index, arr) => arr.indexOf(option) === index)
+                              .map((option, index) => (
+                                <option key={`${option}-${index}`} value={option}>
+                                  {option}
+                                </option>
+                              ))}
                           </select>
                           <svg
                             className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#AB9C95]"
