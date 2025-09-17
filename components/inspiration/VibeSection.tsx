@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import VibePill from '../VibePill';
 import { MoodBoard } from '../../types/inspiration';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -8,9 +8,10 @@ interface VibeSectionProps {
   weddingLocation?: string;
   isEditing?: boolean;
   onEdit?: () => void;
+  newlyAddedVibes?: Set<string>; // Track newly added vibes for green flash
 }
 
-export default function VibeSection({ board, weddingLocation, isEditing = false, onEdit }: VibeSectionProps) {
+export default function VibeSection({ board, weddingLocation, isEditing = false, onEdit, newlyAddedVibes = new Set() }: VibeSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Show empty state when no vibes exist
@@ -37,6 +38,8 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
   const vibeText = isSingular ? 'vibe' : 'vibes';
   const maxVisible = 20;
   const hasMore = vibeCount > maxVisible;
+  
+  // Keep vibes in their natural order, just apply truncation
   const visibleVibes = isExpanded ? board.vibes : board.vibes.slice(0, maxVisible);
   const remainingCount = vibeCount - maxVisible;
 
@@ -65,6 +68,7 @@ export default function VibeSection({ board, weddingLocation, isEditing = false,
             key={index}
             vibe={vibeItem}
             index={index}
+            isNewlyAdded={newlyAddedVibes.has(vibeItem)}
           />
         ))}
         

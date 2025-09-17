@@ -208,8 +208,8 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
             <div className="flex items-center gap-3">
               <div>
                 <h3 className="text-xl font-semibold text-[#332B42] flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#A85C36]" />
-                  See it in Action
+                  <Sparkles className="w-5 h-5 text-[#805d93]" />
+                  see it in action
                 </h3>
                 <p className="text-sm text-gray-600">How your vibes translate to vendor communication</p>
               </div>

@@ -1334,10 +1334,10 @@ export default function SignUp() {
                           setGeneratedVibes(data.vibes);
                           setVibeGenerated(true);
                         } else {
-                          showErrorToast('Could not extract vibes from image.');
+                          showErrorToast('Could not generate moods from image.');
                         }
                       } catch (err) {
-                        showErrorToast('Failed to generate vibes.');
+                        showErrorToast('Failed to generate moods.');
                       } finally {
                         setVibeLoading(false);
                       }
@@ -1346,7 +1346,7 @@ export default function SignUp() {
                     disabled={vibeLoading}
                   >
                     <WandSparkles className="w-4 h-4 mr-2" />
-                    {vibeLoading ? 'Generating...' : 'Generate vibe (2 Credits)'}
+                    {vibeLoading ? 'Generating...' : 'Generate mood (2 Credits)'}
                   </button>
                 )}
               </div>

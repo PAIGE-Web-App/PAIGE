@@ -27,6 +27,7 @@ interface MoodBoardContentProps {
   isLoading?: boolean;
   uploadingImage?: boolean;
   canCreateMoreBoards?: boolean; // New prop to pass to ImageGrid
+  newlyAddedVibes?: Set<string>; // New prop to pass to VibeSection
 }
 
 export default function MoodBoardContent({
@@ -51,7 +52,8 @@ export default function MoodBoardContent({
   onDrop,
   isLoading = false,
   uploadingImage = false,
-  canCreateMoreBoards = true
+  canCreateMoreBoards = true,
+  newlyAddedVibes = new Set()
 }: MoodBoardContentProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState(board.name);

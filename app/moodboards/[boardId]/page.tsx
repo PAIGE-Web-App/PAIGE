@@ -81,6 +81,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   // uploadingImage is now managed by useImageUpload hook
   const [generatingVibes, setGeneratingVibes] = useState(false);
+  const [generationType, setGenerationType] = useState<'single' | 'bulk' | null>(null);
 
   const [showPinterestSearch, setShowPinterestSearch] = useState(false);
   const [pinterestSearchQuery, setPinterestSearchQuery] = useState('');
@@ -88,6 +89,19 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   const [searchingPinterest, setSearchingPinterest] = useState(false);
   const [pinterestBannerExpanded, setPinterestBannerExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // State for newly added vibes (green flash animation)
+  const [newlyAddedVibes, setNewlyAddedVibes] = useState<Set<string>>(new Set());
+  
+  // Clear newly added vibes after animation duration
+  useEffect(() => {
+    if (newlyAddedVibes.size > 0) {
+      const timer = setTimeout(() => {
+        setNewlyAddedVibes(new Set());
+      }, 2000); // Clear after 2 seconds for better visibility
+      return () => clearTimeout(timer);
+    }
+  }, [newlyAddedVibes]);
   
   // Use shared mood boards context
   const { moodBoards, setMoodBoards, moodBoardsLoading, saveMoodBoards } = useMoodBoards();
@@ -336,9 +350,18 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     
     setSaving(true);
     try {
+      // Find newly added vibes by comparing with existing vibes
+      const existingVibes = activeBoard.vibes || [];
+      const newVibes = editingVibes.filter(vibe => !existingVibes.includes(vibe));
+      
       // Update the active board's vibes
       const updatedMoodBoards = updateBoardVibes(moodBoards, activeMoodBoard, editingVibes);
       setMoodBoards(updatedMoodBoards);
+      
+      // Track newly added vibes for green flash animation
+      if (newVibes.length > 0) {
+        setNewlyAddedVibes(new Set(newVibes));
+      }
       
       showSuccessToast('Wedding vibe updated successfully!');
       setIsEditing(false);
@@ -370,6 +393,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     if (!imageToUse) return;
     
     setGeneratingVibes(true);
+    setGenerationType('single');
     try {
       const formData = new FormData();
       
@@ -426,6 +450,9 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
         
         setMoodBoards(updatedMoodBoards);
         
+        // Track newly added vibes for green flash animation
+        setNewlyAddedVibes(new Set(newVibes));
+        
         // Refresh credits after successful completion
         try {
           await refreshCredits();
@@ -458,6 +485,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       showErrorToast('Network error: Failed to generate vibes from image');
     } finally {
       setGeneratingVibes(false);
+      setGenerationType(null);
     }
   };
 
@@ -465,6 +493,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     if (!user || !board.images || board.images.length === 0) return;
     
     setGeneratingVibes(true);
+    setGenerationType('bulk');
     try {
       // Extract all image URLs
       const imageUrls = board.images.map(image => image.url).filter(Boolean);
@@ -502,6 +531,9 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
           );
           setMoodBoards(updatedBoards);
           
+          // Track newly added vibes for green flash animation
+          setNewlyAddedVibes(new Set(newVibes));
+          
           showSuccessToast(`Generated ${newVibes.length} new vibes from ${data.imagesProcessed} images!`);
         } else {
           showSuccessToast('No new vibes generated - all vibes already exist in this board');
@@ -526,6 +558,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       showErrorToast('Failed to generate vibes from images. Please try again.');
     } finally {
       setGeneratingVibes(false);
+      setGenerationType(null);
     }
   };
 
@@ -833,7 +866,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                     className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   >
                                     <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
-                                    <span className="leading-tight">Extract Moods from All Images (5 Credits)</span>
+                                    <span className="leading-tight">Generate Moods from All Images (5 Credits)</span>
                                   </button>
                                 )}
                                 {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
@@ -898,13 +931,13 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                     
                     {/* Description */}
                     <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                      Here are the moods that you've added or extracted from images for this board. The moods below will be used to help personalize content{' '}
+                      Here are the moods that you've added or generated from images for this board. The moods below will be used to help personalize content{' '}
                       <button
                         onClick={() => setShowVibePreviewModal(true)}
-                        className="text-[#A85C36] hover:text-[#8B4513] underline font-medium transition-colors inline-flex items-center gap-1"
+                        className="text-[#805d93] hover:text-[#6a4d7a] underline font-semibold transition-colors inline-flex items-center gap-1"
                       >
                         <Sparkles className="w-3 h-3" />
-                        (see it in action)
+                        see it in action
                       </button>
                     </div>
                     
@@ -915,6 +948,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                         weddingLocation={weddingLocation || undefined}
                         isEditing={isEditing}
                         onEdit={() => setIsEditing(true)}
+                        newlyAddedVibes={newlyAddedVibes}
                       />
                     </div>
                   </div>
@@ -943,10 +977,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                   }
                                 }}
                                 className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
-                                aria-label="Extract moods from all images"
+                                aria-label="Generate moods from all images"
                               >
                                 <Sparkles className="w-3 h-3" />
-                                Extract Moods from All (5 Credits)
+                                Generate Moods from All (5 Credits)
                               </button>
                             )}
                             
@@ -1117,7 +1151,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                 className="flex items-start w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               >
                                 <Sparkles className="w-4 h-4 mr-2 text-[#805d93] flex-shrink-0 mt-0.5" />
-                                <span className="leading-tight">Extract Moods from All Images (5 Credits)</span>
+                                <span className="leading-tight">Generate Moods from All Images (5 Credits)</span>
                               </button>
                             )}
                             {getActiveBoard(moodBoards, activeMoodBoard)?.name !== 'Wedding Day' && (
@@ -1167,13 +1201,13 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                   
                   {/* Description */}
                   <div className="text-sm text-[#7A7A7A] leading-relaxed mb-4">
-                    Here are the moods that you've added or extracted from images for this board. The moods below will be used to help personalize content{' '}
+                    Here are the moods that you've added or generated from images for this board. The moods below will be used to help personalize content{' '}
                     <button
                       onClick={() => setShowVibePreviewModal(true)}
-                      className="text-[#A85C36] hover:text-[#8B4513] underline font-medium transition-colors inline-flex items-center gap-1"
+                      className="text-[#805d93] hover:text-[#6a4d7a] underline font-semibold transition-colors inline-flex items-center gap-1"
                     >
                       <Sparkles className="w-3 h-3" />
-                      (see it in action)
+                      see it in action
                     </button>
                   </div>
                   
@@ -1184,6 +1218,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                       weddingLocation={weddingLocation || undefined}
                       isEditing={isEditing}
                       onEdit={() => setIsEditing(true)}
+                      newlyAddedVibes={newlyAddedVibes}
                     />
                   </div>
                 </div>
@@ -1215,10 +1250,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
                                 }
                               }}
                               className="text-xs text-[#F3F2F0] border border-[#805d93] bg-[#805d93] rounded-[5px] px-2 py-1 hover:bg-[#6a4d7a] hover:border-[#6a4d7a] flex items-center h-7 gap-1"
-                              aria-label="Extract moods from all images"
+                              aria-label="Generate moods from all images"
                             >
                               <Sparkles className="w-3 h-3" />
-                              Extract Moods from All (5 Credits)
+                              Generate Moods from All (5 Credits)
                             </button>
                           )}
                           
@@ -1399,7 +1434,13 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
 
           {/* Loading Bar for Generate Vibes */}
           <LoadingBar
-            description="Generating vibes from your image..."
+            description={
+              generationType === 'single' 
+                ? "Generating Moods from Image!\nPlease don't refresh"
+                : generationType === 'bulk'
+                ? "Generating Moods from your Images!\nPlease don't refresh"
+                : "Generating moods..."
+            }
             isVisible={generatingVibes}
             onComplete={() => {
               // Credit update event is already emitted in generateVibesFromImage

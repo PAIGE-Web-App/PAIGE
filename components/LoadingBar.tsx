@@ -55,7 +55,13 @@ const LoadingBar: React.FC<LoadingBarProps> = ({ description, isVisible, onCompl
               transition={{ duration: 0.2 }}
             />
           </div>
-          <p className="text-sm text-[#332B42] mt-2 text-center">{description}</p>
+          <div className="text-sm text-[#332B42] mt-2 text-center">
+            {description.split('\n').map((line, index) => (
+              <p key={index} className={index === 1 ? 'text-xs mt-1' : ''}>
+                {line}
+              </p>
+            ))}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

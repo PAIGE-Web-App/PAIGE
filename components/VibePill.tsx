@@ -8,6 +8,7 @@ interface VibePillProps {
   isEditing?: boolean;
   onRemove?: () => void;
   isSelected?: boolean;
+  isNewlyAdded?: boolean; // For green flash animation
 }
 
 export default function VibePill({ 
@@ -16,17 +17,20 @@ export default function VibePill({
   onClick, 
   isEditing = false, 
   onRemove,
-  isSelected = false
+  isSelected = false,
+  isNewlyAdded = false
 }: VibePillProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.2 }}
-      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-1000 ${
         onClick ? 'cursor-pointer' : ''
       } ${
-        isSelected 
+        isNewlyAdded 
+          ? 'bg-green-200 text-[#332B42] border-green-300 shadow-md' // More prominent green flash
+          : isSelected 
           ? 'bg-[#A85C36] text-white border-[#A85C36]' 
           : 'bg-white text-[#332B42] border-[#332B42] hover:border-[#A85C36] hover:bg-[#F3F2F0]'
       } ${

@@ -133,7 +133,7 @@ export default function ImageGrid({
                       ) : (
                         <Sparkles className="w-3 h-3" />
                       )}
-                      Generate Vibes (2 Credits)
+                      Generate Moods (2 Credits)
                     </button>
                   </div>
                 </div>
