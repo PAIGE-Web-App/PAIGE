@@ -925,7 +925,7 @@ export default function MoodBoardsPage() {
 
           {/* Loading Bar for Generate Vibes */}
           <LoadingBar
-            description="Generating vibes from your image..."
+            description="Generating vibes from your image!\nPlease don't refresh"
             isVisible={generatingVibes}
             onComplete={() => {
               // Credit update event is already emitted in generateVibesFromImage

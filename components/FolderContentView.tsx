@@ -92,7 +92,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
       {/* Upload Progress Bar */}
       <LoadingBar 
         isVisible={isUploading} 
-        description={`Uploading file ${currentFileIndex} of ${totalFiles}...`}
+        description={`Uploading file ${currentFileIndex} of ${totalFiles}!\nPlease don't refresh`}
       />
       
       {/* If no files and no subfolders, show empty state */}

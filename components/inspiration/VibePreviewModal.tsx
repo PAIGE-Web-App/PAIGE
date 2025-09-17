@@ -1,6 +1,6 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Copy, Mail, Heart, Palette, Camera, Star, ChevronDown } from 'lucide-react';
+import { X, Sparkles, Mail, Heart, Palette, Camera, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { MoodBoard } from '../../types/inspiration';
 import VibePill from '../VibePill';
 import { useUserProfileData } from '../../hooks/useUserProfileData';
@@ -31,6 +31,7 @@ const VibePreviewModal = memo(function VibePreviewModal({
   const [showPreview, setShowPreview] = useState(false);
   const [selectedBoardType, setSelectedBoardType] = useState<string>('');
   const [selectedBoardId, setSelectedBoardId] = useState<string>(activeMoodBoard);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // Data hooks for AI integration
   const { user } = useAuth();
@@ -50,6 +51,13 @@ const VibePreviewModal = memo(function VibePreviewModal({
   const activeBoard = useMemo(() => {
     return moodBoards.find(board => board.id === selectedBoardId);
   }, [moodBoards, selectedBoardId]);
+
+  // Truncation logic (same as VibeSection)
+  const vibeCount = activeBoard?.vibes?.length || 0;
+  const maxVisible = 20;
+  const hasMore = vibeCount > maxVisible;
+  const visibleVibes = isExpanded ? (activeBoard?.vibes || []) : (activeBoard?.vibes || []).slice(0, maxVisible);
+  const remainingCount = vibeCount - maxVisible;
 
   useEffect(() => {
     if (isOpen && activeBoard) {
@@ -91,17 +99,26 @@ const VibePreviewModal = memo(function VibePreviewModal({
         vibe: vibe || []
       };
 
+      console.log('Sending draft request with:', {
+        vibes: vibes, // All vibes
+        boardType,
+        userProfileData,
+        userId: user?.uid
+      });
 
       const response = await fetch('/api/draft', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': user?.uid || ''
+        },
         body: JSON.stringify({
           contact: { name: 'Vendor', category: 'vendor' },
           messages: [],
           userId: user?.uid,
           userData: userProfileData,
           vibeContext: {
-            vibes: vibes.slice(0, 4),
+            vibes: vibes, // Use all vibes, not just first 4
             boardType,
             weddingLocation,
             completedTodos: completedTodos.map(todo => todo.name),
@@ -111,6 +128,12 @@ const VibePreviewModal = memo(function VibePreviewModal({
       });
 
       const data = await response.json();
+      console.log('Draft API response:', data);
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate draft');
+      }
+      
       if (data.draft) {
         setPreviewMessage(data.draft);
         
@@ -124,6 +147,9 @@ const VibePreviewModal = memo(function VibePreviewModal({
           setAnimatedMessage(currentText);
         }
         setIsAnimating(false);
+      } else {
+        console.error('No draft received from API:', data);
+        throw new Error('No draft content received');
       }
     } catch (error) {
       console.error('Error generating preview:', error);
@@ -175,14 +201,6 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
     onClose();
   };
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(previewMessage);
-      // You could add a toast notification here
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  };
 
   if (!isOpen || !activeBoard) return null;
 
@@ -200,27 +218,27 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-[5px] shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-[5px] shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Fixed Header */}
           <div className="flex-shrink-0 bg-white border-b border-[#AB9C95] px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h3 className="text-xl font-semibold text-[#332B42] flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#805d93]" />
-                  see it in action
-                </h3>
-                <p className="text-sm text-gray-600">How your vibes translate to vendor communication</p>
-              </div>
-            </div>
+            <h5 className="h5 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#805d93]" />
+              See It In Action
+            </h5>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 p-1"
+              className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
               title="Close"
             >
               <X size={20} />
             </button>
+          </div>
+
+          {/* Description */}
+          <div className="px-6 py-2">
+            <p className="text-sm text-gray-600 text-left">See how your vibes translate to vendor communication!</p>
           </div>
 
           {/* Scrollable Content */}
@@ -238,7 +256,11 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
                         setSelectedBoardId(e.target.value);
                         setSelectedVibes(selectedBoard.vibes || []);
                         setSelectedBoardType(selectedBoard.type);
-                        generatePreviewMessage(selectedBoard.vibes || [], selectedBoard.type);
+                        // Reset preview state when switching boards
+                        setShowPreview(false);
+                        setPreviewMessage('');
+                        setAnimatedMessage('');
+                        setIsExpanded(false);
                       }
                     }}
                     className="w-full border pr-10 pl-4 py-2 text-sm rounded-[5px] bg-white text-[#332B42] appearance-none focus:outline-none focus:ring-2 focus:ring-[#A85C36] border-[#AB9C95]"
@@ -261,71 +283,49 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
                 Here are the Vibes that will be woven in
               </span>
               <div className="flex flex-wrap gap-2">
-                {(activeBoard.vibes || []).slice(0, 4).map((vibe, index) => (
+                {visibleVibes.map((vibe, index) => (
                   <VibePill
                     key={index}
                     vibe={vibe}
                     index={index}
                   />
                 ))}
-                {(activeBoard.vibes || []).length > 4 && (
-                  <div className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#332B42] text-[#332B42]">
-                    +{(activeBoard.vibes || []).length - 4} more
-                  </div>
+                
+                {hasMore && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs text-[#805d93] bg-[#F3F2F0] border border-[#AB9C95] rounded-full hover:bg-[#E0DBD7] transition-colors"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="w-3 h-3" />
+                        Show less
+                      </>
+                    ) : (
+                      <>
+                        +{remainingCount} more
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
 
-            {/* Generate Preview Button */}
-            {!showPreview && (
-              <div className="mb-6 flex justify-end gap-3">
-                <button
-                  onClick={onClose}
-                  className="btn-primaryinverse px-6 py-2 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => generatePreviewMessage(activeBoard?.vibes || [], activeBoard?.type || '')}
-                  disabled={generating || !activeBoard?.vibes?.length}
-                  className="px-6 py-2 bg-[#6B46C1] text-white rounded-[5px] text-sm font-medium hover:bg-[#6B46C1]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {generating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      Generate Preview
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+            {/* Generate Preview Button - moved to fixed footer */}
 
                         {/* Preview Message */}
             {showPreview && (
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h6>Preview Message</h6>
-                  <button
-                    onClick={copyToClipboard}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-[#A85C36] hover:bg-[#A85C36]/10 rounded-lg transition-colors"
-                  >
-                    <Copy size={16} />
-                    Copy
-                  </button>
-                </div>
+                <h6 className="mb-3">Preview Message</h6>
                 
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   {generating ? (
-                    <div className="whitespace-pre-wrap text-[#332B42] leading-relaxed">
+                    <div className="whitespace-pre-wrap text-[#332B42] leading-relaxed font-work-sans">
                       {isAnimating ? animatedMessage : ''}
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap text-[#332B42] leading-relaxed">
+                    <div className="whitespace-pre-wrap text-[#332B42] leading-relaxed font-work-sans">
                       {previewMessage}
                     </div>
                   )}
@@ -336,25 +336,46 @@ Warm regards,${userName ? `\n${userName}` : '\nWe'}`;
           </div>
 
           {/* Fixed Footer */}
-          {showPreview && (
-            <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">💡 Tip:</span> This message will be available in your Draft Message area
-                </div>
-                {!generating && (
+          <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
+            <div className="flex justify-end gap-3">
+              {!showPreview ? (
+                <>
                   <button
-                    onClick={handleUseInDraft}
-                    disabled={!previewMessage}
-                    className="px-6 py-2 bg-[#A85C36] text-white rounded-[5px] text-sm font-medium hover:bg-[#A85C36]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    onClick={onClose}
+                    className="btn-primaryinverse px-6 py-2 text-sm"
                   >
-                    <Mail size={16} />
-                    Use in Draft Message (1 Credit)
+                    Cancel
                   </button>
-                )}
-              </div>
+                  <button
+                    onClick={() => generatePreviewMessage(activeBoard?.vibes || [], activeBoard?.type || '')}
+                    disabled={generating || !activeBoard?.vibes?.length}
+                    className="btn-primary px-6 py-2 text-sm flex items-center gap-2"
+                  >
+                    {generating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Generate Preview (1 Credit)
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                !generating && (
+                  <button
+                    onClick={onClose}
+                    className="btn-primaryinverse px-6 py-2 text-sm"
+                  >
+                    Close
+                  </button>
+                )
+              )}
             </div>
-          )}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

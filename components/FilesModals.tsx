@@ -277,7 +277,7 @@ const UploadModal = ({
     <>
       <LoadingBar 
         isVisible={uploading} 
-        description={`Uploading file ${currentFileIndex} of ${selectedFiles.length}...`}
+        description={`Uploading file ${currentFileIndex} of ${selectedFiles.length}!\nPlease don't refresh`}
       />
       <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">

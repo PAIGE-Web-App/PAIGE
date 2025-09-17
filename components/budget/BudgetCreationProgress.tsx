@@ -72,7 +72,7 @@ const BudgetCreationProgress: React.FC<BudgetCreationProgressProps> = ({
 
           {/* Status */}
           <div className="text-xs text-gray-500">
-            {isComplete ? 'You can now start adding expenses to your budget items.' : 'Please wait while we create your budget...'}
+            {isComplete ? 'You can now start adding expenses to your budget items.' : 'Please wait while we create your budget...\nPlease don\'t refresh'}
           </div>
         </div>
       </motion.div>

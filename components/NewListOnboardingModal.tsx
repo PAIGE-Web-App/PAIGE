@@ -752,15 +752,15 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
   function getLoadingMessage() {
     switch (loadingStage) {
       case 'analyzing':
-        return 'Analyzing your wedding requirements...';
+        return 'Analyzing your wedding requirements...\nPlease don\'t refresh';
       case 'priority':
-        return 'Generating high-priority todos (venue, catering, photography)...';
+        return 'Generating high-priority todos (venue, catering, photography)...\nPlease don\'t refresh';
       case 'secondary':
-        return 'Adding remaining todos (decorations, transportation, stationery)...';
+        return 'Adding remaining todos (decorations, transportation, stationery)...\nPlease don\'t refresh';
       case 'finalizing':
-        return 'Finalizing your personalized checklist...';
+        return 'Finalizing your personalized checklist...\nPlease don\'t refresh';
       default:
-        return 'Preparing your wedding planning checklist...';
+        return 'Preparing your wedding planning checklist...\nPlease don\'t refresh';
     }
   }
 

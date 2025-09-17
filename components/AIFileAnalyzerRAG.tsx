@@ -176,7 +176,7 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
     const loadingMessage: AIAnalysisMessage = {
       id: `loading-${Date.now()}`,
       type: 'assistant',
-      content: 'Hang tight! I\'m analyzing this file for key insights...',
+      content: 'Hang tight! I\'m analyzing this file for key insights...\nPlease don\'t refresh',
       timestamp: new Date(),
       analysisType: 'loading',
       isGenerating: true,

@@ -1616,15 +1616,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       </div>
       <LoadingBar 
         isVisible={isSending} 
-        description="Sending your message..." 
+        description="Sending your message!\nPlease don't refresh" 
       />
       <LoadingBar 
         isVisible={isImportingGmail} 
-        description="Importing Gmail messages..." 
+        description="Importing Gmail messages!\nPlease don't refresh" 
       />
       <LoadingBar 
         isVisible={isCheckingGmail} 
-        description="Checking for new Gmail messages..." 
+        description="Checking for new Gmail messages!\nPlease don't refresh" 
         onComplete={() => {}} 
       />
       

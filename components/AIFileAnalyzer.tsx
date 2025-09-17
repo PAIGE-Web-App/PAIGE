@@ -174,7 +174,7 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
       setMessages([{
         id: 'loading',
         type: 'assistant',
-        content: 'Analyzing your file...',
+        content: 'Analyzing your file...\nPlease don\'t refresh',
         timestamp: new Date(),
         fileId: selectedFile.id,
         analysisType: 'loading',
@@ -412,7 +412,7 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
       setMessages([{
         id: 'loading',
         type: 'assistant',
-        content: 'Re-analyzing your file...',
+        content: 'Re-analyzing your file...\nPlease don\'t refresh',
         timestamp: new Date(),
         fileId: selectedFile.id,
         analysisType: 'loading',
@@ -583,7 +583,7 @@ ${selectedFile.paymentTerms.map(term => `• ${term}`).join('\n')}`,
               {message.analysisType === 'loading' ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#A85C36]"></div>
-                  <span>Analyzing your file...</span>
+                  <span>Analyzing your file...\nPlease don't refresh</span>
                 </div>
               ) : (
                 <div 
