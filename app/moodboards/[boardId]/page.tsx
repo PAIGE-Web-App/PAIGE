@@ -504,7 +504,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
           
           showSuccessToast(`Generated ${newVibes.length} new vibes from ${data.imagesProcessed} images!`);
         } else {
-          showInfoToast('No new vibes generated - all vibes already exist in this board');
+          showSuccessToast('No new vibes generated - all vibes already exist in this board');
         }
       } else {
         showErrorToast(data.error || 'Failed to generate vibes from images');
