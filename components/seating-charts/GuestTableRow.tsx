@@ -60,6 +60,12 @@ export default function GuestTableRow({
   const guestGroupIds = guest.groupIds || (guest.groupId ? [guest.groupId] : []);
   const guestGroupsForThisGuest = guestGroups.filter(group => guestGroupIds.includes(group.id));
   
+  // Debug: Log group data for this guest
+  if (guestGroupIds.length > 0) {
+    console.log(`Guest ${guest.fullName} group IDs:`, guestGroupIds);
+    console.log(`Found groups for ${guest.fullName}:`, guestGroupsForThisGuest);
+  }
+  
 
   return (
     <tr
@@ -134,7 +140,7 @@ export default function GuestTableRow({
                       title={`${group.name} (${group.type})${guestGroupsForThisGuest.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
                       onClick={() => onEditGroup?.(group.id)}
                     >
-                      {group.name}
+                      {group.name.startsWith('group-') ? `Group ${group.name.split('-')[1]}` : group.name}
                     </span>
                   ))}
                 </div>

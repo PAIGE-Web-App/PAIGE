@@ -12,6 +12,7 @@ interface SVGCanvasProps {
   selectedTable: string | null;
   hoveredTable: string | null;
   tableDimensions?: Record<string, { width: number; height: number }>;
+  highlightedGuest?: string | null;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: (e: React.MouseEvent) => void;
@@ -30,15 +31,17 @@ interface SVGCanvasProps {
   userName?: string;
   partnerName?: string;
   // Guest assignment props
-  guestAssignments?: Record<string, { tableId: string; seatNumber: number }>;
-  onGuestDrop?: (guestId: string, tableId: string, seatNumber: number) => void;
-  onGuestSwap?: (guestId1: string, tableId1: string, seatNumber1: number, tableId2: string, seatNumber2: number) => void;
+  guestAssignments?: Record<string, { tableId: string; position: { x: number; y: number } }>;
+  onGuestDrop?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  onGuestSwap?: (guestId1: string, tableId1: string, position1: { x: number; y: number }, tableId2: string, position2: { x: number; y: number }) => void;
   guests?: Guest[];
   showingActions?: string | null;
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
-  onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
-  onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onMoveGuest?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  onRemoveGuest?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
   getGuestAvatarColor?: (guestId: string) => string;
+  onRemoveTable?: (tableId: string) => void;
+  onCloneTable?: (tableId: string) => void;
 }
 
 export const SVGCanvas: React.FC<SVGCanvasProps> = ({
@@ -49,6 +52,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   selectedTable,
   hoveredTable,
   tableDimensions,
+  highlightedGuest,
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -74,13 +78,25 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onAvatarClick,
   onMoveGuest,
   onRemoveGuest,
-  getGuestAvatarColor
+  getGuestAvatarColor,
+  onRemoveTable,
+  onCloneTable
 }) => {
+  
+
+  // Calculate dynamic viewBox based on table positions - more centered and zoomed in
+  const allPositions = tablePositions.map(p => ({ x: p.x, y: p.y }));
+  const minX = Math.min(200, ...allPositions.map(p => p.x - 150));
+  const minY = Math.min(100, ...allPositions.map(p => p.y - 150));
+  const maxX = Math.max(600, ...allPositions.map(p => p.x + 150));
+  const maxY = Math.max(500, ...allPositions.map(p => p.y + 150));
+  const viewBox = `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
 
   return (
     <svg
       width="100%"
       height="100%"
+      viewBox={viewBox}
       style={{
         background: 'white',
         cursor: isDraggingCanvas ? 'grabbing' : 'grab',
@@ -136,7 +152,9 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
           /* Tables */
           tables.map(table => {
             const position = tablePositions.find(p => p.id === table.id);
-            if (!position) return null;
+        if (!position) {
+          return null;
+        }
 
             return (
               <g key={table.id || `table-${Date.now()}`} data-table-id={table.id}>
@@ -168,7 +186,10 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   onMoveGuest={onMoveGuest}
                   onRemoveGuest={onRemoveGuest}
                   getGuestAvatarColor={getGuestAvatarColor}
-          />
+                  onRemoveTable={onRemoveTable}
+                  onCloneTable={onCloneTable}
+                  highlightedGuest={highlightedGuest}
+                />
               </g>
             );
           })

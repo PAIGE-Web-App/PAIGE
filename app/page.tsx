@@ -1,332 +1,181 @@
-// app/page.tsx
+// app/page.tsx - New Dashboard Page
 "use client";
-import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import Fuse from "fuse.js";
-import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { saveContactToFirestore } from "../lib/saveContactToFirestore";
-import { useDraftMessage } from "../hooks/useDraftMessage";
-import { getCategoryStyle } from "../utils/categoryStyle";
-import { db, getUserCollectionRef } from "../lib/firebase";
-import { useCustomToast } from "../hooks/useCustomToast";
-
-// Lazy load heavy components for better initial bundle size
-const MessageArea = lazy(() => import("../components/MessageArea"));
-const AddContactModal = lazy(() => import("../components/AddContactModal"));
-const EditContactModal = lazy(() => import("../components/EditContactModal"));
-const OnboardingModal = lazy(() => import("../components/OnboardingModal"));
-const RightDashboardPanel = lazy(() => import("../components/RightDashboardPanel"));
-const NotEnoughCreditsModal = lazy(() => import("../components/NotEnoughCreditsModal"));
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  writeBatch,
-  limit,
-  getDocs,
-} from "firebase/firestore";
-import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react";
-import CategoryPill from "../components/CategoryPill";
-import SelectField from "../components/SelectField";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
-import { useNotifications } from '../hooks/useNotifications';
-import Banner from "../components/Banner";
-import WeddingBanner from "../components/WeddingBanner";
 import { useWeddingBanner } from "../hooks/useWeddingBanner";
-import GmailReauthBanner from "../components/GmailReauthBanner";
+import WeddingBanner from "../components/WeddingBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
-import type { TodoItem } from '../types/todo';
-import { COUPLE_SUBSCRIPTION_CREDITS } from "../types/credits";
-import { useCredits } from "../contexts/CreditContext";
+import { useCustomToast } from "../hooks/useCustomToast";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { CheckCircle, Circle, Users, Heart, ClipboardList, Palette, DollarSign, Calendar, MessageSquare, Sparkles, ArrowRight, ChevronDown, ChevronUp, MapPin, Home, Star, FileText, Bot } from "lucide-react";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
-// Component that uses credits for the modal
-function NotEnoughCreditsModalWrapper({ 
-  isOpen, 
-  onClose, 
-  requiredCredits, 
-  feature, 
-  accountInfo 
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  requiredCredits: number;
-  feature: string;
-  accountInfo: any;
-}) {
-  const { credits } = useCredits();
-  
-  return (
-    <NotEnoughCreditsModal
-      isOpen={isOpen}
-      onClose={onClose}
-      requiredCredits={requiredCredits}
-      currentCredits={credits ? (credits.dailyCredits + credits.bonusCredits) : 0}
-      feature={feature}
-      accountInfo={accountInfo}
-    />
-  );
+interface ProgressItem {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  link: string;
+  icon: React.ReactNode;
+  category: 'profile' | 'contacts' | 'budget' | 'todo' | 'moodboard' | 'seating' | 'messages' | 'venue' | 'destination' | 'files' | 'ai';
+  actionText: string;
+  jiggleField?: string;
+  scrollToField?: string;
 }
 
-import { Contact } from "../types/contact";
-import { SimpleMessage } from "../types/message";
-import ContactsList from '../components/ContactsList';
-import MessagesPanel from '../components/MessagesPanel';
-import { handleLogout } from '../utils/logout';
-
-// Declare global variables provided by the Canvas environment
-declare const __app_id: string;
-declare const __firebase_config: string;
-declare const __initial_auth_token: string | undefined;
-
-// Using SimpleMessage from shared types
-
-interface RightDashboardPanelProps {
-  currentUser: User;
-  contacts: Contact[];
-  rightPanelSelection: string | null;
-  setRightPanelSelection: (selection: string | null) => void;
-}
-
-import { getRelativeDate } from '@/utils/dateUtils';
-
-import EmojiPicker from '@/components/EmojiPicker';
-
-
-// Import standardized skeleton components
-import ContactsListSkeleton from '../components/skeletons/ContactsListSkeleton';
-import MessagesSkeleton from '../components/skeletons/MessagesSkeleton';
-
-import { removeUndefinedFields } from '@/utils/arrayUtils';
-import { parseLocalDateTime } from '@/utils/dateUtils';
-
-// Add triggerGmailImport function
-const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
-  try {
-    const response = await fetch('/api/start-gmail-import', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        contacts,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to start Gmail import');
-    }
-
-    // Gmail import started successfully - no need to log in production
-    return data;
-  } catch (error) {
-    console.error('Error starting Gmail import:', error);
-    throw error;
-  }
-};
-
-export default function Home() {
+export default function Dashboard() {
   const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
-  
-  // Core state - frequently updated
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [input, setInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  // UI state - less frequently updated
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  const [jiggleEmailField, setJiggleEmailField] = useState(false);
-  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [initialContactLoadComplete, setInitialContactLoadComplete] = useState(false);
-  const [minLoadTimeReached, setMinLoadTimeReached] = useState(false);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string[]>([]);
-  const [sortOption, setSortOption] = useState('name-asc');
-  const [contactLastMessageMap, setContactLastMessageMap] = useState<Map<string, Date>>(new Map());
-  const [showFilters, setShowFilters] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [bottomNavHeight, setBottomNavHeight] = useState(0);
   const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
-  
-  // Refs for DOM elements
-  const filterPopoverRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
-  
-  // Hooks
-  const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
-  const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [userData, setUserData] = useState<any>(null);
+  const [progressData, setProgressData] = useState<any>(null);
+  const [jiggleFields, setJiggleFields] = useState<Set<string>>(new Set());
+  const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [previousCompletedItems, setPreviousCompletedItems] = useState<Set<string>>(new Set());
 
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
+  const { showInfoToast } = useCustomToast();
   
-  // Use notifications hook for unread message counts
-  const { contactUnreadCounts } = useNotifications();
+  // Fetch user data and progress information
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+      
+      try {
+        // Fetch user profile data
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserData(userData);
+          
+          // Check progress data
+          const progressChecks = await checkProgressData(user.uid, userData);
+          setProgressData(progressChecks);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
 
-  // Check Gmail authentication status globally
-  const checkGmailAuthStatus = async () => {
-    if (!user?.uid) return;
+    fetchUserData();
+  }, [user]);
+
+  // Check progress data for all items
+  const checkProgressData = async (userId: string, userData: any) => {
+    const checks: any = {};
     
     try {
-      const response = await fetch('/api/check-gmail-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, contactEmail: 'test@example.com' }),
-      });
+      // Check contacts
+      const contactsSnapshot = await getDocs(collection(db, 'users', userId, 'contacts'));
+      checks.hasContacts = contactsSnapshot.size > 0;
       
-      if (!response.ok) {
-        const data = await response.json();
-        if (data.message?.includes('Google authentication required') || 
-            data.message?.includes('Failed to refresh Google authentication') ||
-            data.message?.includes('Google authentication expired')) {
-          setShowGmailReauthBanner(true);
-        }
-      }
+      // Check todos
+      const todosSnapshot = await getDocs(collection(db, 'users', userId, 'todos'));
+      checks.hasTodos = todosSnapshot.size > 0;
+      
+      // Check budget categories
+      const budgetSnapshot = await getDocs(collection(db, 'users', userId, 'budgetCategories'));
+      checks.hasBudget = budgetSnapshot.size > 0;
+      
+      // Check moodboards
+      checks.hasMoodboards = (userData.moodBoards && userData.moodBoards.length > 0) || 
+                            (userData.vibe && userData.vibe.length > 0);
+      
+      // Check seating charts
+      const seatingSnapshot = await getDocs(collection(db, 'users', userId, 'seatingCharts'));
+      checks.hasSeatingCharts = seatingSnapshot.size > 0;
+      
+      // Check files (if user has visited files page)
+      checks.hasVisitedFiles = userData.hasVisitedFiles || false;
+      
+      // Check AI functions usage
+      checks.hasUsedAI = userData.aiFunctionsUsed || false;
+      
+      // Check vendors
+      const vendorsSnapshot = await getDocs(collection(db, 'users', userId, 'vendors'));
+      checks.hasVendors = vendorsSnapshot.size > 0;
+      
     } catch (error) {
-      console.error('Error checking Gmail auth status:', error);
+      console.error('Error checking progress data:', error);
     }
-  };
-
-  // Optimized Fuse search initialization with memoization
-  const fuse = useMemo(() => {
-    if (contacts.length === 0) return null;
     
-    return new Fuse(contacts, {
-      keys: ["name"],
-      threshold: 0.4,
-      ignoreLocation: true,
-      isCaseSensitive: false,
-    });
-  }, [contacts]);
+    return checks;
+  };
 
-  const [messages, setMessages] = useState<SimpleMessage[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(true);
-  const [selectedChannel, setSelectedChannel] = useState("Gmail");
-  const [contactsLoading, setContactsLoading] = useState(true);
-
-  const [rightPanelSelection, setRightPanelSelection] = useState<"todo" | "messages" | "favorites">("todo");
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [mobileViewMode, setMobileViewMode] = useState<'contacts' | 'messages'>('contacts');
-
-  const [userData, setUserData] = useState<any>(null);
-
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  
-  // Gmail authentication state
-  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
-  
-  // Not enough credits modal state
-  const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
-  const [creditModalData, setCreditModalData] = useState({
-    requiredCredits: 1,
-    currentCredits: 0,
-    feature: 'draft messaging'
-  });
-  
-  // User credits info
-  const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free;
-  
-  // Wrapper function to handle credit errors for draft messaging
-  const handleGenerateDraftMessage = async (contact: { name: string; category: string }, messages: string[] = [], userId?: string, userData?: any) => {
-    return generateDraftMessage(contact, messages, userId, userData, (error) => {
-      // Handle credit error by showing the modal
-      setCreditModalData({
-        requiredCredits: 1, // Draft messaging costs 1 credit
-        currentCredits: 0,
-        feature: 'draft messaging'
-      });
-      setShowNotEnoughCreditsModal(true);
+  // Toggle accordion item
+  const toggleAccordion = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
     });
   };
 
-  // Effect to handle progressive loading
-  useEffect(() => {
-    if (initialContactLoadComplete && minLoadTimeReached) {
-      // First load contacts
-      setContactsLoading(false);
-      
-      // Then load messages after a short delay
-      setTimeout(() => {
-        setMessagesLoading(false);
-        setInitialLoadComplete(true);
-      }, 300);
+  // Handle jiggle effect for settings page fields
+  const handleJiggleEffect = (fieldName: string) => {
+    setJiggleFields(prev => new Set(prev).add(fieldName));
+    setTimeout(() => {
+      setJiggleFields(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fieldName);
+        return newSet;
+      });
+    }, 700); // Match the jiggle animation duration
+  };
+
+  // Show completion toast for newly completed items
+  const showCompletionToast = (itemId: string) => {
+    const completionMessages: { [key: string]: string } = {
+      'wedding-date': '🎉 Amazing! Your wedding date is set!',
+      'wedding-destination': '🌍 Perfect! Your wedding destination is chosen!',
+      'venue': '🏰 Fantastic! Your dream venue is selected!',
+      'vibes': '✨ Beautiful! Your wedding vibes are defined!',
+      'vendors': '🤝 Excellent! You\'ve started exploring vendors!',
+      'contacts': '📞 Great! Your first contact is added!',
+      'budget': '💰 Smart! Your wedding budget is planned!',
+      'todos': '✅ Wonderful! Your first todo list is created!',
+      'moodboard': '🎨 Stunning! Your first moodboard is ready!',
+      'seating-chart': '🪑 Perfect! Your seating chart is created!',
+      'files': '📁 Excellent! Your first file is uploaded!',
+      'paige-ai': '🤖 Incredible! You\'ve discovered Paige\'s AI magic!'
+    };
+
+    const message = completionMessages[itemId] || '🎉 Congratulations! Another item completed!';
+    showInfoToast(message);
+  };
+
+  // Handle progress item click with jiggle effect
+  const handleProgressItemClick = (item: ProgressItem) => {
+    if (item.jiggleField) {
+      // Navigate to settings page with jiggle effect
+      router.push(`${item.link}?jiggle=${item.jiggleField}`);
+    } else {
+      // Regular navigation
+      router.push(item.link);
     }
-  }, [initialContactLoadComplete, minLoadTimeReached]);
+  };
 
-  // Effect to finalize contactsLoading state - simplified to prevent race conditions
-  useEffect(() => {
-    if (initialContactLoadComplete) {
-      // Add a small delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setContactsLoading(false);
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [initialContactLoadComplete]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinLoadTimeReached(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-
-  // Check Gmail authentication status when user is available
-  useEffect(() => {
-    if (user?.uid && !authLoading) {
-      checkGmailAuthStatus();
-      
-      // Set up periodic check every 5 minutes
-      const interval = setInterval(() => {
-        checkGmailAuthStatus();
-      }, 5 * 60 * 1000); // 5 minutes
-      
-      return () => clearInterval(interval);
-    }
-  }, [user?.uid, authLoading]);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      // Don't auto-redirect, let the logout function handle it
-    }
-  }, [user, authLoading]);
-
-  // Use cached onboarding status from AuthContext
+  // Check onboarding status
   useEffect(() => {
     if (!authLoading && user) {
       if (onboardingStatus === 'unknown') {
-        // Only check if status is unknown (first time or cache cleared)
         setOnboardingCheckLoading(true);
         checkOnboardingStatus().then(() => {
           setOnboardingCheckLoading(false);
         });
       } else if (onboardingStatus === 'not-onboarded') {
-        // User is not onboarded, redirect to onboarding
-        // User is not onboarded, redirecting to onboarding
         router.push('/signup?onboarding=1');
       } else {
-        // User is onboarded, no loading needed
         setOnboardingCheckLoading(false);
       }
     } else if (!authLoading && !user) {
@@ -334,720 +183,479 @@ export default function Home() {
     }
   }, [user, authLoading, onboardingStatus, checkOnboardingStatus, router]);
 
-  // Function to handle user logout
-  const handleLogoutClick = async () => {
-    await handleLogout(router);
-  };
-
-   // Optimized Contacts Listener with proper cleanup
+  // Initialize progress items based on user data and progress checks
   useEffect(() => {
-    let isSubscribed = true;
-    let unsubscribeContacts: () => void;
-    
-    if (user && user.uid) {
-      setContactsLoading(true);
-      const userId = user.uid;
-
-      const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", userId);
-
-      const q = query(
-        contactsCollectionRef,
-        where("userId", "==", userId),
-        orderBy("orderIndex", "asc"),
-        limit(100) // Limit initial load for better performance
-      );
-
-      unsubscribeContacts = onSnapshot(q, (snapshot) => {
-        if (!isSubscribed) return; // Prevent state updates on unmounted component
-        
-        const fetchedContacts: Contact[] = snapshot.docs.map((doc, index) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            category: data.category,
-            website: data.website,
-            avatarColor: data.avatarColor,
-            userId: data.userId,
-            orderIndex: data.orderIndex !== undefined ? data.orderIndex : index,
-            isOfficial: data.isOfficial || false,
-            // Add vendor association fields
-            placeId: data.placeId || null,
-            isVendorContact: data.isVendorContact || false,
-            vendorEmails: data.vendorEmails || [],
-          };
-        });
-        
-        if (isSubscribed) {
-          setContacts(fetchedContacts);
-          
-          // Only change selectedContact if we don't have one or if the current one is invalid
-          if (!selectedContact) {
-            // First time loading - try to restore from localStorage or default to first
-            const savedContactId = localStorage.getItem('selectedContactId');
-            if (savedContactId) {
-              const savedContact = fetchedContacts.find(c => c.id === savedContactId);
-              if (savedContact) {
-                setSelectedContact(savedContact);
-              } else {
-                setSelectedContact(fetchedContacts[0] || null);
-              }
-            } else {
-              setSelectedContact(fetchedContacts[0] || null);
-            }
-          } else if (!fetchedContacts.some(c => c.id === selectedContact.id)) {
-            // Current selectedContact is no longer valid, but try to keep selection if possible
-            const savedContactId = localStorage.getItem('selectedContactId');
-            if (savedContactId) {
-              const savedContact = fetchedContacts.find(c => c.id === savedContactId);
-              if (savedContact) {
-                setSelectedContact(savedContact);
-              } else {
-                setSelectedContact(fetchedContacts[0] || null);
-              }
-            } else {
-              setSelectedContact(fetchedContacts[0] || null);
-            }
-          }
-          
-          setInitialContactLoadComplete(true);
-  
+    if (userData && progressData) {
+      const items: ProgressItem[] = [
+        {
+          id: 'wedding-date',
+          title: 'Set your wedding date',
+          description: 'Choose your special day to get personalized planning recommendations and timeline guidance.',
+          completed: !!userData.weddingDate,
+          link: '/settings',
+          icon: <Calendar className="w-5 h-5" />,
+          category: 'profile',
+          actionText: userData.weddingDate ? 'Update your wedding date' : 'Set your wedding date',
+          jiggleField: 'weddingDate',
+          scrollToField: 'weddingDate'
+        },
+        {
+          id: 'wedding-destination',
+          title: 'Choose your wedding destination',
+          description: 'Select your wedding city to discover local vendors and venues in your area.',
+          completed: !!userData.weddingLocation,
+          link: '/settings',
+          icon: <MapPin className="w-5 h-5" />,
+          category: 'destination',
+          actionText: userData.weddingLocation ? 'Update your wedding destination' : 'Choose your wedding destination',
+          jiggleField: 'weddingLocation',
+          scrollToField: 'weddingLocation'
+        },
+        {
+          id: 'venue',
+          title: 'Pick out the venue',
+          description: 'Select your wedding venue to finalize your location and start detailed planning.',
+          completed: !!userData.hasVenue,
+          link: '/settings',
+          icon: <Home className="w-5 h-5" />,
+          category: 'venue',
+          actionText: userData.hasVenue ? 'Update your venue' : 'Pick out the venue',
+          jiggleField: 'venue',
+          scrollToField: 'venue'
+        },
+        {
+          id: 'vibes',
+          title: 'The vibes/mood of the big day',
+          description: 'Define your wedding style and aesthetic to get personalized recommendations.',
+          completed: progressData.hasMoodboards,
+          link: '/moodboards',
+          icon: <Star className="w-5 h-5" />,
+          category: 'moodboard',
+          actionText: progressData.hasMoodboards ? 'Update your wedding vibes' : 'Define your wedding vibes'
+        },
+        {
+          id: 'vendors',
+          title: 'Explore vendors',
+          description: 'Discover and connect with wedding vendors that match your style and budget.',
+          completed: progressData.hasVendors,
+          link: '/vendors',
+          icon: <Users className="w-5 h-5" />,
+          category: 'contacts',
+          actionText: progressData.hasVendors ? 'Explore more vendors' : 'Start exploring vendors'
+        },
+        {
+          id: 'contacts',
+          title: 'Add a contact(s)',
+          description: 'Import your vendor contacts to start managing all communications in one place.',
+          completed: progressData.hasContacts,
+          link: '/messages',
+          icon: <MessageSquare className="w-5 h-5" />,
+          category: 'contacts',
+          actionText: progressData.hasContacts ? 'Manage your contacts' : 'Add your first contact'
+        },
+        {
+          id: 'budget',
+          title: 'Plan your budget',
+          description: 'Create a realistic budget and track expenses to stay financially organized.',
+          completed: progressData.hasBudget,
+          link: '/budget',
+          icon: <DollarSign className="w-5 h-5" />,
+          category: 'budget',
+          actionText: progressData.hasBudget ? 'Update your budget' : 'Create your budget'
+        },
+        {
+          id: 'todos',
+          title: 'Create your todos',
+          description: 'Organize your wedding tasks and deadlines. Feeling overwhelmed? Let Paige create a personalized todo list for you!',
+          completed: progressData.hasTodos,
+          link: '/todo',
+          icon: <ClipboardList className="w-5 h-5" />,
+          category: 'todo',
+          actionText: progressData.hasTodos ? 'Manage your todos' : 'Create your first todo list'
+        },
+        {
+          id: 'moodboard',
+          title: 'Create a moodboard',
+          description: 'Visualize your wedding style with inspiration boards. Need help? Paige can create one based on your preferences!',
+          completed: progressData.hasMoodboards,
+          link: '/moodboards',
+          icon: <Palette className="w-5 h-5" />,
+          category: 'moodboard',
+          actionText: progressData.hasMoodboards ? 'Update your moodboards' : 'Create your first moodboard'
+        },
+        {
+          id: 'seating-chart',
+          title: 'Create your seating chart',
+          description: 'Plan your reception seating arrangement. Let Paige help you organize your guests perfectly!',
+          completed: progressData.hasSeatingCharts,
+          link: '/seating-charts',
+          icon: <Users className="w-5 h-5" />,
+          category: 'seating',
+          actionText: progressData.hasSeatingCharts ? 'Manage your seating charts' : 'Create your first seating chart'
+        },
+        {
+          id: 'files',
+          title: 'Files and contracts',
+          description: 'Upload and organize your wedding contracts, invoices, and important documents.',
+          completed: progressData.hasVisitedFiles,
+          link: '/files',
+          icon: <FileText className="w-5 h-5" />,
+          category: 'files',
+          actionText: progressData.hasVisitedFiles ? 'Manage your files' : 'Upload your first file'
+        },
+        {
+          id: 'paige-ai',
+          title: 'Bonus! Paige AI functions',
+          description: 'Explore all of Paige\'s AI-powered features to make your wedding planning effortless and personalized.',
+          completed: progressData.hasUsedAI,
+          link: '/messages',
+          icon: <Bot className="w-5 h-5" />,
+          category: 'ai',
+          actionText: progressData.hasUsedAI ? 'Try more AI features' : 'Discover Paige AI'
         }
-      }, (error) => {
-        if (isSubscribed) {
-          console.error("page.tsx: Error fetching contacts:", error);
-          setInitialContactLoadComplete(true);
-          setContactsLoading(false); // Ensure loading state is reset on error
-          showErrorToast("Failed to load contacts.");
-        }
-      });
-    } else {
-      if (isSubscribed) {
-        setContacts([]);
-        setSelectedContact(null);
-        setContactsLoading(false); // Ensure loading state is reset
-        if (!authLoading && !user) {
-          setInitialContactLoadComplete(true);
-        }
-      }
-    }
-    
-    return () => {
-      isSubscribed = false;
-      if (unsubscribeContacts) {
-        unsubscribeContacts();
-      }
-    };
-  }, [user, authLoading]);
-
-  // Select contact from query param if present
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const contactId = params.get('contactId');
-    if (contactId && contacts.length > 0) {
-      const found = contacts.find(c => c.id === contactId);
-      if (found) setSelectedContact(found);
-    }
-  }, [contacts]);
-
-  // Save selected contact to localStorage whenever it changes
-  useEffect(() => {
-    if (selectedContact && typeof window !== 'undefined') {
-      localStorage.setItem('selectedContactId', selectedContact.id);
-    }
-  }, [selectedContact]);
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [input]);
-
-  // Optimized Messages Listener - Removed redundant listener since useContactMessageData handles this
-  // This was causing duplicate reads and unnecessary complexity
-  useEffect(() => {
-    // The useContactMessageData hook now handles all message data fetching efficiently
-    // This effect is kept for any future contact-level optimizations
-    if (!user?.uid) {
-      setContactLastMessageMap(new Map());
-    }
-  }, [user?.uid]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside filter popover AND not on filter button
-      const isFilterButton = (event.target as Element)?.closest('button[aria-label="Toggle Filters"]');
-      if (filterPopoverRef.current && !filterPopoverRef.current.contains(event.target as Node) && !isFilterButton) {
-        setShowFilters(false);
-      }
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    if (showFilters || showEmojiPicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showFilters, showEmojiPicker]);
-
-  useEffect(() => {
-    if (isAdding || isEditing || showOnboardingModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isAdding, isEditing, showOnboardingModal]);
-
-  const handleSend = async () => {
-    if ((!input.trim() && selectedFiles.length === 0) || !selectedContact || !user) return;
-
-    const attachmentsToStore = selectedFiles.map(file => ({ name: file.name }));
-
-    const newMessage: SimpleMessage = {
-      id: uuidv4(),
-      via: selectedChannel,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      }),
-      body: input.trim(),
-      contactId: selectedContact.id,
-      createdAt: new Date(),
-      userId: user.uid,
-      attachments: attachmentsToStore,
-    };
-
-    try {
-      // Update to use the nested path structure
-      const messagesRef = collection(db, `users/${user.uid}/contacts/${selectedContact.id}/messages`);
-      await addDoc(messagesRef, {
-        ...newMessage,
-        createdAt: newMessage.createdAt,
-      });
-      setInput("");
-      setSelectedFiles([]);
+      ];
       
-      showSuccessToast("Message sent successfully.");
-    } catch (error: any) {
-      showErrorToast(`Failed to send message: ${error.message}`);
-      console.error("page.tsx: Error sending message:", error);
-    }
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      const newFiles = Array.from(event.target.files);
-
-      const uniqueNewFiles = newFiles.filter(
-        (newFile) => !selectedFiles.some((prevFile) => prevFile.name === newFile.name && prevFile.size === newFile.size)
-      );
-
-      setSelectedFiles((prevFiles) => [...prevFiles, ...uniqueNewFiles]);
-
-      if (uniqueNewFiles.length > 0) {
-        showSuccessToast(`Selected ${uniqueNewFiles.length} file(s).`);
+      setProgressItems(items);
+      const newCompletedCount = items.filter(item => item.completed).length;
+      setCompletedCount(newCompletedCount);
+      
+      // Check for newly completed items and show toasts
+      const currentCompletedItems = new Set(items.filter(item => item.completed).map(item => item.id));
+      const newlyCompleted = Array.from(currentCompletedItems).filter(itemId => !previousCompletedItems.has(itemId));
+      
+      // Show completion toasts for newly completed items
+      newlyCompleted.forEach((itemId, index) => {
+        setTimeout(() => showCompletionToast(itemId), 500 + (index * 200)); // Stagger toasts for multiple completions
+      });
+      
+      // Special toast for completing all items
+      if (newCompletedCount === items.length && items.length > 0) {
+        setTimeout(() => {
+          showInfoToast('🎊 INCREDIBLE! You\'ve completed your entire wedding planning setup! You\'re ready to plan the perfect wedding!');
+        }, 1000);
       }
+      
+      // Update previous completed items
+      setPreviousCompletedItems(currentCompletedItems);
+      
+      // Expand first 3 incomplete items by default to show users what's available
+      const incompleteItems = items.filter(item => !item.completed);
+      const itemsToExpand = incompleteItems.slice(0, 3).map(item => item.id);
+      setExpandedItems(new Set(itemsToExpand));
     }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  }, [userData, progressData]);
 
-  const handleRemoveFile = (fileToRemove: File) => {
-    setSelectedFiles((prevFiles) =>
-      prevFiles.filter((file) => file !== fileToRemove)
+  // Show loading spinner during onboarding check
+  if (onboardingCheckLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" text="Checking your account..." />
+      </div>
     );
-        showInfoToast(`Removed file: ${fileToRemove.name}`);
+  }
 
-  };
-
-  const handleEmojiSelect = (emoji: string) => {
-    setInput((prevInput) => prevInput + emoji);
-  };
-
-  // Optimized contact filtering and sorting with better memoization
-  const displayContacts = useMemo(() => {
-      // Early return if no contacts
-      if (contacts.length === 0) return [];
-      
-      let currentContacts = contacts;
-
-      // Apply search filter
-      if (searchQuery.trim() && fuse) {
-          currentContacts = fuse.search(searchQuery).map((result) => result.item);
-      }
-
-      // Apply category filter
-      if (selectedCategoryFilter.length > 0) {
-          currentContacts = currentContacts.filter(contact =>
-              selectedCategoryFilter.includes(contact.category)
-          );
-      }
-
-      // Apply sorting
-      if (sortOption === 'name-asc') {
-          return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
-      } else if (sortOption === 'name-desc') {
-          return [...currentContacts].sort((a, b) => b.name.localeCompare(a.name));
-      } else if (sortOption === 'recent-desc') {
-          return [...currentContacts].sort((a, b) => {
-              const aTime = contactLastMessageMap.get(a.id);
-              const bTime = contactLastMessageMap.get(b.id);
-
-              if (aTime && !bTime) return -1;
-              if (!aTime && !bTime) return a.name.localeCompare(b.name);
-              if (!aTime && bTime) return 1;
-
-              return (bTime?.getTime() || 0) - (aTime?.getTime() || 0);
-          });
-      }
-      
-      // Default sort
-      return [...currentContacts].sort((a, b) => a.name.localeCompare(b.name));
-  }, [contacts, searchQuery, fuse, selectedCategoryFilter, sortOption, contactLastMessageMap]);
-
-  // Optimized categories computation
-  const allCategories = useMemo(() => {
-      if (contacts.length === 0) return [];
-      
-      const categories = new Set<string>();
-      for (const contact of contacts) {
-          categories.add(contact.category);
-      }
-      return Array.from(categories).sort();
-  }, [contacts]);
-
-  const handleCategoryChange = useCallback((category: string) => {
-    setSelectedCategoryFilter((prevSelected) => {
-      if (prevSelected.includes(category)) {
-        return prevSelected.filter((cat) => cat !== category);
-      } else {
-        return [...prevSelected, category];
-      }
-    });
-  }, []);
-
-  const handleClearCategoryFilter = useCallback((categoryToClear: string) => {
-    setSelectedCategoryFilter((prev) => prev.filter(cat => cat !== categoryToClear));
-  }, []);
-
-  const handleClearAllCategoryFilters = useCallback(() => {
-    setSelectedCategoryFilter([]);
-  }, []);
-
-  const handleClearSortOption = useCallback(() => {
-    setSortOption('name-asc');
-  }, []);
-
-  // Mobile view mode handlers
-  const handleMobileContactSelect = useCallback((contact: Contact) => {
-    setSelectedContact(contact);
-    setMobileViewMode('messages');
-  }, []);
-
-  const handleMobileBackToContacts = useCallback(() => {
-    setMobileViewMode('contacts');
-  }, []);
-
-
-  // Only show content when both loading is complete AND minimum time has passed
-  const isLoading = authLoading || !minLoadTimeReached;
-
-  useEffect(() => {
-    // Show a welcome toast if the user just logged in (one-time, using localStorage flag)
-    if (typeof window !== 'undefined') {
-      if (localStorage.getItem('showLoginToast') === '1') {
-        showSuccessToast('Login successful, welcome back!');
-        localStorage.removeItem('showLoginToast');
-      }
-    }
-  }, []);
-
-  // Handle Gmail re-authentication success - just clear URL parameters
-  useEffect(() => {
+  // Don't render if not authenticated
     if (!user) {
-      
-      return;
-    }
+    return null;
+  }
 
-    const params = new URLSearchParams(window.location.search);
-    const gmailAuth = params.get('gmailAuth');
-    const userId = params.get('userId');
-
-
-
-    if (gmailAuth === 'success' && userId === user.uid) {
-
-      
-      // Clear URL parameters without triggering import
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-
-      
-      // Hide the reauth banner since authentication is now valid
-      setShowGmailReauthBanner(false);
-      
-      // Show success toast
-      showSuccessToast('Gmail re-authentication successful!');
-    } else {
-
-    }
-  }, [user]);
-
-  // Removed automatic Gmail import on page load - now only manual import via banner button
-
-  // Add the fetchContacts function
-  const fetchContacts = async () => {
-    if (!user) return;
-    
-    try {
-      const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-      const contactsQuery = query(contactsCollectionRef);
-      const contactsSnapshot = await getDocs(contactsQuery);
-      const fetchedContacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
-      setContacts(fetchedContacts);
-
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
-      showErrorToast('Failed to fetch contacts. Please try again.');
-    }
-  };
-
-  // Update the handleOnboardingComplete function
-  const handleOnboardingComplete = async (onboardedContacts: Contact[], selectedChannelsFromModal: string[]) => {
-    try {
-
-      
-      // Update contacts in Firestore
-      const batch = writeBatch(db);
-      onboardedContacts.forEach((contact) => {
-        const contactRef = doc(getUserCollectionRef("contacts", user!.uid), contact.id);
-        batch.set(contactRef, contact);
-      });
-      await batch.commit();
-      
-      // Update user document
-      if (user) {
-        // Convert selected channels to notification preferences
-        const notificationPreferences = {
-          sms: selectedChannelsFromModal.includes('SMS'),
-          email: selectedChannelsFromModal.includes('Gmail'), // Gmail integration enables email notifications
-          push: selectedChannelsFromModal.includes('Push'),
-          inApp: selectedChannelsFromModal.includes('InApp')
-        };
-
-        await updateDoc(doc(db, "users", user.uid), {
-          onboarded: true,
-          selectedChannels: selectedChannelsFromModal,
-          notificationPreferences
-        });
-      }
-      
-      // Refresh contacts
-      await fetchContacts();
-      
-      // Close modal
-      setShowOnboardingModal(false);
-      
-      // Show success message
-      showSuccessToast('Onboarding completed successfully!');
-
-      // If Gmail was selected, trigger the import
-      if (selectedChannelsFromModal.includes('Gmail') && user) {
-
-        try {
-          await triggerGmailImport(user.uid, onboardedContacts);
-          showSuccessToast('Gmail import started successfully');
-        } catch (error) {
-          console.error('Error during Gmail import:', error);
-          showErrorToast('Failed to start Gmail import. Please try again later.');
-        }
-      }
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      showErrorToast('Failed to complete onboarding. Please try again.');
-    }
-  };
-
-  // Move handleUpdateTodoDeadline inside Home to access currentUser and showErrorToast
-  const handleUpdateTodoDeadline = async (todoId: string, deadline?: string | null, endDate?: string | null) => {
-    if (!user) return;
-    try {
-      const updateObj: any = {};
-      if (typeof deadline !== 'undefined') {
-        updateObj.deadline = deadline && deadline !== '' ? parseLocalDateTime(deadline) : null;
-      }
-      if (typeof endDate !== 'undefined') {
-        updateObj.endDate = endDate && endDate !== '' ? parseLocalDateTime(endDate) : null;
-      }
-      if (Object.keys(updateObj).length === 0) return;
-      updateObj.userId = user.uid;
-      // Updating todo with new deadline/endDate
-      const itemRef = doc(getUserCollectionRef('todoItems', user.uid), todoId);
-      await updateDoc(itemRef, updateObj);
-      showSuccessToast('Deadline updated!');
-      // Optionally update local state here if needed
-    } catch (error) {
-      console.error('Error updating deadline:', error);
-      showErrorToast('Failed to update deadline.');
-    }
-  };
-
-  const handleUpdateTodoNotes = async (todoId: string, notes: string) => {
-    if (!user) return;
-    try {
-      const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
-      await updateDoc(itemRef, {
-        note: notes,
-        userId: user.uid
-      });
-      showSuccessToast('Notes updated!');
-    } catch (error) {
-      console.error('Error updating notes:', error);
-      showErrorToast('Failed to update notes.');
-    }
-  };
-
-  const handleUpdateTodoCategory = async (todoId: string, category: string) => {
-    if (!user) return;
-    try {
-      const itemRef = doc(getUserCollectionRef("todoItems", user.uid), todoId);
-      await updateDoc(itemRef, {
-        category,
-        userId: user.uid
-      });
-      showSuccessToast('Category updated!');
-    } catch (error) {
-      console.error('Error updating category:', error);
-      showErrorToast('Failed to update category.');
-    }
-  };
-
-  // Handler for re-import Gmail
-  const handleReimportGmail = async () => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, "users", user.uid), { gmailImportCompleted: false });
-      showSuccessToast("Gmail import will be retried.");
-      // Optionally, immediately trigger import if tokens are present
-      if (user && contacts.length > 0) {
-        await triggerGmailImport(user.uid, contacts);
-        showSuccessToast("Gmail import started.");
-      }
-    } catch (error) {
-      showErrorToast("Failed to re-import Gmail. Please try again.");
-      console.error("Error re-importing Gmail:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      const fetchUserData = async () => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          setUserData(userSnap.data());
-        }
-      };
-      fetchUserData();
-    }
-  }, [user]);
+  const progressPercentage = progressItems.length > 0 ? Math.round((completedCount / progressItems.length) * 100) : 0;
 
   return (
-    <div className="flex flex-col h-full bg-linen">
-        {/* Show loading spinner during onboarding check */}
-        {onboardingCheckLoading && (
-          <div className="flex items-center justify-center min-h-screen">
-            <LoadingSpinner size="lg" text="Checking your account..." />
-          </div>
-        )}
-
-        {/* Only render dashboard content if not checking onboarding */}
-        {!onboardingCheckLoading && (
-        <>
-          <WeddingBanner
-            daysLeft={daysLeft}
-            userName={userName}
-            isLoading={bannerLoading}
-            onSetWeddingDate={handleSetWeddingDate}
-          />
-
-          <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
-            {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
-            {showGmailReauthBanner && (
-              <div className="flex-shrink-0">
-                <GmailReauthBanner
-                  currentUser={user}
-                  onReauth={() => {
-                    setShowGmailReauthBanner(false);
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="dashboard-layout">
-              <main className="dashboard-main">
-                <ContactsList
-                  contacts={contacts}
-                  contactsLoading={contactsLoading}
-                  selectedContact={selectedContact}
-                  setSelectedContact={handleMobileContactSelect}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  showFilters={showFilters}
-                  setShowFilters={setShowFilters}
-                  filterPopoverRef={filterPopoverRef}
-                  allCategories={allCategories}
-                  selectedCategoryFilter={selectedCategoryFilter}
-                  handleCategoryChange={handleCategoryChange}
-                  handleClearCategoryFilter={handleClearCategoryFilter}
-                  handleClearSortOption={handleClearSortOption}
-                  sortOption={sortOption}
-                  setSortOption={setSortOption}
-                  displayContacts={displayContacts}
-                  deletingContactId={deletingContactId}
-                  setIsAdding={setIsAdding}
-                  unreadCounts={contactUnreadCounts}
-                  mobileViewMode={mobileViewMode}
-                  onMobileBackToContacts={handleMobileBackToContacts}
-                  currentUserId={user?.uid || null}
-                />
-                <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="text-sm text-gray-500">Loading messages...</div></div>}>
-                  <MessagesPanel
-                    contactsLoading={messagesLoading}
-                    contacts={contacts}
-                    selectedContact={selectedContact}
-                    currentUser={user}
-                    isAuthReady={true}
-                    input={input}
-                    setInput={setInput}
-                    draftLoading={draftLoading}
-                    generateDraftMessage={handleGenerateDraftMessage}
-                    selectedFiles={selectedFiles}
-                    setSelectedFiles={setSelectedFiles}
-                    setIsEditing={setIsEditing}
-                    onContactSelect={setSelectedContact}
-                    setShowOnboardingModal={setShowOnboardingModal}
-                    userName={userName}
-                    showOnboardingModal={showOnboardingModal}
-                    jiggleEmailField={jiggleEmailField}
-                    setJiggleEmailField={setJiggleEmailField}
-                    mobileViewMode={mobileViewMode}
-                    onMobileBackToContacts={handleMobileBackToContacts}
-                  />
-                </Suspense>
-              </main>
-
-            {(user && !authLoading) ? (
-              <div className="hidden lg:block lg:w-[420px]">
-                <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="text-sm text-gray-500">Loading dashboard...</div></div>}>
-                  <RightDashboardPanel
-                     currentUser={user}
-                      contacts={contacts}
-                      rightPanelSelection={rightPanelSelection}
-                      setRightPanelSelection={setRightPanelSelection}
-                    onUpdateTodoDeadline={handleUpdateTodoDeadline}
-                    onUpdateTodoNotes={handleUpdateTodoNotes}
-                    onUpdateTodoCategory={handleUpdateTodoCategory}
-                  />
-                </Suspense>
-              </div>
-            ) : (
-              <div className="hidden lg:block lg:w-[420px] min-h-full">
-              </div>
-            )}
-            </div>
-          </div>
-
-
-
-          {isEditing && selectedContact && user && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <Suspense fallback={<div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading edit modal...</div></div>}>
-                <EditContactModal
-                  contact={selectedContact}
-                  userId={user.uid}
-                  onClose={() => setIsEditing(false)}
-                  onSave={(updated) => {
-                    setContacts((prev) =>
-                      prev.map((c) => (c.id === updated.id ? updated : c))
-                    );
-                    setSelectedContact(updated);
-                    setIsEditing(false);
-                  }}
-                  onDelete={(deletedId: string) => {
-                    setDeletingContactId(deletedId);
-                    setTimeout(() => {
-                      const remainingContacts = contacts.filter((c) => c.id !== deletedId);
-                      setContacts(remainingContacts);
-                      if (remainingContacts.length > 0) {
-                        setSelectedContact(remainingContacts[0]);
-                      } else {
-                        setSelectedContact(null);
-                      }
-                      setDeletingContactId(null);
-                      setIsEditing(false);
-                    }, 300);
-                  }}
-                  jiggleEmailField={jiggleEmailField}
-                />
-              </Suspense>
-            </div>
-          )}
-          {isAdding && user && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <Suspense fallback={<div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading add modal...</div></div>}>
-                <AddContactModal
-                  userId={user.uid}
-                  onClose={() => setIsAdding(false)}
-                  onSave={(newContact) => {
-                    setSelectedContact(newContact);
-                  }}
-                />
-              </Suspense>
-            </div>
-          )}
-            {showOnboardingModal && user && (
-            <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading onboarding...</div></div></div>}>
-              <OnboardingModal
-                userId={user.uid}
-                onClose={() => setShowOnboardingModal(false)}
-                onComplete={handleOnboardingComplete}
-              />
-            </Suspense>
-          )}
+    <>
+      <style jsx global>{`
+        html, body {
+          overflow-x: hidden;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          position: relative;
+        }
+        /* Mobile: Full height with fixed nav at bottom */
+        @media (max-width: 768px) {
+          html, body {
+            height: 100vh;
+            overflow: hidden;
+          }
+          .mobile-scroll-container {
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+        /* Desktop: Normal scrolling */
+        @media (min-width: 769px) {
+          html, body {
+            height: auto;
+            min-height: 100vh;
+            overflow-y: auto;
+          }
+        }
+      `}</style>
+      <div className="min-h-screen bg-linen mobile-scroll-container">
+      <WeddingBanner
+        daysLeft={daysLeft}
+        userName={userName}
+        isLoading={bannerLoading}
+        onSetWeddingDate={handleSetWeddingDate}
+      />
+      
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
+        <div className="space-y-8">
           
-          {/* Not Enough Credits Modal */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading credits modal...</div></div></div>}>
-            <NotEnoughCreditsModalWrapper
-              isOpen={showNotEnoughCreditsModal}
-              onClose={() => setShowNotEnoughCreditsModal(false)}
-              requiredCredits={creditModalData.requiredCredits}
-              feature={creditModalData.feature}
-              accountInfo={{
-                tier: 'Free',
-                dailyCredits: userCredits.monthlyCredits,
-                refreshTime: 'Daily at midnight'
-              }}
-            />
-          </Suspense>
-        </>
-      )}
+          {/* Welcome Section */}
+          <div className="text-center mb-8">
+            {/* Welcome Image */}
+            <div className="w-full flex justify-center">
+              <img 
+                src="/Welcome.png" 
+                alt="Welcome to your wedding planning journey" 
+                className="w-[320px] h-auto"
+              />
+            </div>
+            <h3 className="text-[#332B42] mb-2">
+              Welcome to planning perfection, {userName || 'there'}!
+            </h3>
+            <p className="text-sm text-[#5A4A42] max-w-2xl mx-auto font-work">
+              Let's get you set up with everything you need to plan your perfect wedding. 
+              Track your progress and discover powerful features as you go.
+            </p>
+          </div>
 
+          {/* Quick Guide Section */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
+            <div className="flex items-center justify-between">
+              <div className="w-3/4 pr-8">
+                <h5 className="text-[#332B42] mb-2">
+                  A quick guide to planning your perfect wedding
+                </h5>
+                <p className="text-sm text-[#5A4A42] mb-4 font-work">
+                  From Paige's wedding planning experts
+                </p>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">1</div>
+                    <p className="text-sm text-[#5A4A42] font-work">
+                      <strong>Start with your profile:</strong> Add your partner and define your wedding style to get personalized recommendations.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">2</div>
+                    <p className="text-sm text-[#5A4A42] font-work">
+                      <strong>Set up your budget:</strong> Create a realistic budget and track expenses to stay on track financially.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">3</div>
+                    <p className="text-sm text-[#5A4A42] font-work">
+                      <strong>Connect with vendors:</strong> Import your contacts and use our AI-powered messaging to communicate efficiently.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">4</div>
+                    <p className="text-sm text-[#5A4A42] font-work">
+                      <strong>Stay organized:</strong> Create mood boards, manage tasks, and plan your seating chart all in one place.
+                    </p>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 mt-8 pt-8">
+                    <Link 
+                      href="/messages"
+                      className="btn-primaryinverse no-underline"
+                    >
+                      Skip to Messages
+                    </Link>
+                    <Link 
+                      href="/settings"
+                      className="btn-primary no-underline"
+                    >
+                      Get Started
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              
+                    {/* Paige illustration */}
+                    <div className="hidden lg:block w-1/4">
+                      <div className="h-full rounded-lg overflow-hidden">
+                        <img 
+                          src="/Paige.png" 
+                          alt="Paige" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+            </div>
+          </div>
+
+          {/* Progress Overview */}
+          <div className="bg-white rounded-lg border border-[#E0DBD7] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="text-[#332B42]">Your Progress</h5>
+              <span className="text-sm text-[#5A4A42] font-work">{completedCount} of {progressItems.length} completed</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+              <div 
+                className="bg-[#A85C36] h-3 rounded-full transition-all duration-500"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <p className="text-sm text-[#5A4A42] font-work">
+              {progressPercentage === 100 
+                ? "🎉 Congratulations! You've completed all the essential setup steps."
+                : `You're ${progressPercentage}% complete with your wedding planning setup.`
+              }
+            </p>
+          </div>
+
+          {/* Progress Items Accordion */}
+          <div className="space-y-3">
+            {progressItems.map((item, index) => {
+              const isExpanded = expandedItems.has(item.id);
+              const isJiggling = jiggleFields.has(item.jiggleField || '');
+              
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  className={`bg-white rounded-lg border transition-all duration-200 ${
+                    item.completed 
+                      ? 'border-green-200 bg-green-50' 
+                      : 'border-[#E0DBD7] hover:border-[#A85C36]'
+                  } ${isJiggling ? 'animate-jiggle' : ''}`}
+                >
+                  {/* Accordion Header */}
+                  <button
+                    onClick={() => toggleAccordion(item.id)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1 text-left">
+                      <div className={`p-2 rounded-lg ${
+                        item.completed 
+                          ? 'bg-green-100 text-green-600' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {item.completed ? <CheckCircle className="w-5 h-5" /> : item.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h6 className={`${
+                          item.completed ? 'text-green-800' : 'text-[#332B42]'
+                        }`}>
+                          {item.title}
+                        </h6>
+                        <p className="text-xs text-[#5A4A42] mt-1 font-work">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        item.completed 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {item.completed ? 'Complete' : 'Pending'}
+                      </span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Accordion Content */}
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-4 pb-4 border-t border-gray-100"
+                    >
+                      <div className="pt-4 space-y-3">
+                        <p className="text-sm text-[#5A4A42] font-work">
+                          {item.description}
+                        </p>
+                        
+                        {/* Paige AI encouragement for specific items */}
+                        {(item.id === 'todos' || item.id === 'moodboard' || item.id === 'seating-chart') && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p className="text-xs text-blue-700 font-work">
+                              💡 <strong>Feeling overwhelmed?</strong> Let Paige create personalized resources for you! 
+                              Use the AI features to generate custom todo lists, moodboards, or seating arrangements.
+                            </p>
+            </div>
+          )}
+                        
+                        <div className="flex gap-2 justify-end">
+                          {item.jiggleField && (
+                            <button
+                              onClick={() => handleJiggleEffect(item.jiggleField!)}
+                              className="btn-primaryinverse"
+                            >
+                              Show me where
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleProgressItemClick(item)}
+                            className="btn-primary"
+                          >
+                            {item.actionText}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-[#E0DBD7] p-6">
+            <h5 className="text-[#332B42] mb-4">Quick Actions</h5>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Link 
+                href="/messages"
+                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
+              >
+                <MessageSquare className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-work font-medium text-[#332B42]">Messages</span>
+              </Link>
+              <Link 
+                href="/budget"
+                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
+              >
+                <DollarSign className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-work font-medium text-[#332B42]">Budget</span>
+              </Link>
+              <Link 
+                href="/todo"
+                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
+              >
+                <ClipboardList className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-work font-medium text-[#332B42]">To-Do</span>
+              </Link>
+              <Link 
+                href="/moodboards"
+                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
+              >
+                <Palette className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-work font-medium text-[#332B42]">Mood Boards</span>
+              </Link>
+            </div>
+          </div>
+
+        </div>
       </div>
+    </div>
+    </>
   );
 }

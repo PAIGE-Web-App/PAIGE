@@ -8,6 +8,7 @@ interface GuestAvatarProps {
   seatNumber: number;
   onAvatarClick: (tableId: string, seatNumber: number) => void;
   getGuestAvatarColor: (guestId: string) => string;
+  isHighlighted?: boolean;
 }
 
 export const GuestAvatar: React.FC<GuestAvatarProps> = ({
@@ -16,7 +17,8 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
   tableId,
   seatNumber,
   onAvatarClick,
-  getGuestAvatarColor
+  getGuestAvatarColor,
+  isHighlighted = false
 }) => {
   const avatarColor = getGuestAvatarColor(guest.id);
   
@@ -33,6 +35,7 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
 
   return (
     <g>
+      
       {/* Wrapper foreignObject for both click and drag functionality */}
       <foreignObject
         x={position.x - 20}
@@ -61,7 +64,7 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
             e.dataTransfer.setData('text/plain', JSON.stringify({
               guestId: guest.id,
               sourceTableId: tableId,
-              sourceSeatNumber: seatNumber,
+              sourcePosition: position,
               guestName: guest.fullName,
               isFromSeat: true // Flag to indicate this is from a seat, not sidebar
             }));
@@ -123,14 +126,40 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
         </div>
       </foreignObject>
       
+      {/* Highlighted background circle */}
+      {isHighlighted && (
+        <circle
+          cx={position.x}
+          cy={position.y}
+          r={20}
+          fill="none"
+          stroke="#FFD700"
+          strokeWidth={3}
+          style={{ pointerEvents: 'none' }}
+        >
+          <animate
+            attributeName="r"
+            values="20;24;20"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="opacity"
+            values="1;0.5;1"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      )}
+      
       {/* Visible avatar circle */}
       <circle
         cx={position.x}
         cy={position.y}
         r={16}
         fill={avatarColor}
-        stroke={avatarColor}
-        strokeWidth={2}
+        stroke={isHighlighted ? "#FFD700" : avatarColor}
+        strokeWidth={isHighlighted ? 3 : 2}
         style={{ pointerEvents: 'none' }}
       />
       

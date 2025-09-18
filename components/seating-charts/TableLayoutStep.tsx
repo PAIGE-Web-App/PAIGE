@@ -12,6 +12,8 @@ interface TableLayoutStepProps {
   onUpdate: (updates: { tables: TableType[]; totalCapacity: number }) => void;
   guestCount: number;
   guests: Guest[];
+  guestGroups?: any[];
+  onEditGroup?: (groupId: string) => void;
 }
 
 const TABLE_TYPES = [
@@ -30,7 +32,9 @@ export default function TableLayoutStep({
   tableLayout, 
   onUpdate, 
   guestCount,
-  guests
+  guests,
+  guestGroups = [],
+  onEditGroup
 }: TableLayoutStepProps) {
   const [showAddTable, setShowAddTable] = useState(false);
   const [newTable, setNewTable] = useState({
@@ -98,6 +102,63 @@ export default function TableLayoutStep({
   };
 
   const handleRotationUpdate = (tableId: string, rotation: number) => {
+    // Update guest positions when table rotates
+    const tablePosition = JSON.parse(sessionStorage.getItem('seating-chart-table-positions') || '[]').find((p: any) => p.id === tableId);
+    const table = tableLayout.tables.find(t => t.id === tableId);
+    const oldRotation = table?.rotation || 0;
+    const rotationDelta = rotation - oldRotation;
+    
+    if (tablePosition && Math.abs(rotationDelta) > 0.1) {
+      console.log('🔄 ROTATING GUEST POSITIONS:', { tableId, oldRotation, rotation, rotationDelta });
+      
+      // Convert rotation delta to radians
+      const rotationRad = (rotationDelta * Math.PI) / 180;
+      const cos = Math.cos(rotationRad);
+      const sin = Math.sin(rotationRad);
+      
+      // Get current guest assignments
+      const currentAssignments = JSON.parse(sessionStorage.getItem('seating-chart-guest-assignments') || '{}');
+      const newAssignments = { ...currentAssignments };
+      let hasChanges = false;
+      
+      Object.keys(newAssignments).forEach(guestId => {
+        const assignment = newAssignments[guestId];
+        if (assignment.tableId === tableId) {
+          // Calculate the guest's position relative to the table center
+          const relativeX = assignment.position.x - tablePosition.x;
+          const relativeY = assignment.position.y - tablePosition.y;
+          
+          // Rotate the relative position
+          const newRelativeX = relativeX * cos - relativeY * sin;
+          const newRelativeY = relativeX * sin + relativeY * cos;
+          
+          // Update the absolute position
+          newAssignments[guestId] = {
+            ...assignment,
+            position: {
+              x: tablePosition.x + newRelativeX,
+              y: tablePosition.y + newRelativeY
+            }
+          };
+          hasChanges = true;
+          
+          console.log('🔄 ROTATED GUEST POSITION:', {
+            guestId,
+            oldPosition: assignment.position,
+            newPosition: newAssignments[guestId].position,
+            relativeX,
+            relativeY,
+            newRelativeX,
+            newRelativeY
+          });
+        }
+      });
+      
+      if (hasChanges) {
+        sessionStorage.setItem('seating-chart-guest-assignments', JSON.stringify(newAssignments));
+      }
+    }
+    
     updateTable(tableId, { rotation });
   };
 
@@ -210,11 +271,13 @@ export default function TableLayoutStep({
         }}
         guestCount={guestCount}
         guests={guests}
-        onGuestAssignment={useCallback((guestId: string, tableId: string, seatNumber: number) => {
+        onGuestAssignment={useCallback((guestId: string, tableId: string, position: { x: number; y: number }) => {
           // Handle guest assignment - this will be implemented when we add drag & drop
-          console.log(`Guest ${guestId} assigned to table ${tableId} seat ${seatNumber}`);
+          console.log(`Guest ${guestId} assigned to table ${tableId} at position (${position.x}, ${position.y})`);
         }, [])}
         onRotationUpdate={handleRotationUpdate}
+        guestGroups={guestGroups}
+        onEditGroup={onEditGroup}
       />
     </div>
   );

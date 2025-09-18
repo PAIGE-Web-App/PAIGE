@@ -25,16 +25,19 @@ interface TableRendererProps {
   userName?: string;
   partnerName?: string;
   // Guest assignment props
-  guestAssignments?: Record<string, { tableId: string; seatNumber: number }>;
-  onGuestDrop?: (guestId: string, tableId: string, seatNumber: number) => void;
+  guestAssignments?: Record<string, { tableId: string; position: { x: number; y: number } }>;
+  onGuestDrop?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
   guests?: Guest[];
   showingActions?: string | null;
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
-  onMoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
-  onRemoveGuest?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onMoveGuest?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  onRemoveGuest?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
   getGuestAvatarColor?: (guestId: string) => string;
   onRotationUpdate?: (tableId: string, rotation: number) => void;
-  onGuestSwap?: (guestId: string, sourceTableId: string, sourceSeatNumber: number, targetTableId: string, targetSeatNumber: number) => void;
+  onGuestSwap?: (guestId: string, sourceTableId: string, sourcePosition: { x: number; y: number }, targetTableId: string, targetPosition: { x: number; y: number }) => void;
+  onRemoveTable?: (tableId: string) => void;
+  onCloneTable?: (tableId: string) => void;
+  highlightedGuest?: string | null;
 }
 
 export const TableRenderer: React.FC<TableRendererProps> = ({
@@ -64,14 +67,19 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   onRemoveGuest,
   getGuestAvatarColor,
   onRotationUpdate,
-  onGuestSwap
+  onGuestSwap,
+  onRemoveTable,
+  onCloneTable,
+  highlightedGuest
 }) => {
+  
   const shape = getTableShape(table.type);
   const customDimensions = tableDimensions?.[table.id];
   const width = customDimensions?.width || shape.width;
   const height = customDimensions?.height || shape.height;
   const currentRotation = table.rotation || 0;
   const seatPositions = shape.seatPositions(table.capacity, width, height, currentRotation);
+
 
   const tableProps = {
     onMouseDown: (e: React.MouseEvent) => onMouseDown(table.id, e),
@@ -84,6 +92,11 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
 
   return (
     <>
+      <defs>
+        <clipPath id="avatarClip">
+          <circle cx="0" cy="0" r="16"/>
+        </clipPath>
+      </defs>
       {/* Table Shape and Handles Group - Apply rotation to entire group */}
       <g transform={`rotate(${currentRotation}, ${position.x}, ${position.y})`}>
         {/* Table Shape */}
@@ -227,9 +240,15 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
 
       {/* Seat Positions */}
       {!table.isDefault && seatPositions.map((seat, index) => {
+        const seatPosition = { x: position.x + seat.x, y: position.y + seat.y };
+        
+        
         const isSeatOccupied = Object.values(guestAssignments || {}).some(
-          assignment => assignment.tableId === table.id && assignment.seatNumber === index
+          assignment => assignment.tableId === table.id && 
+                      Math.abs(assignment.position.x - seatPosition.x) < 15 && 
+                      Math.abs(assignment.position.y - seatPosition.y) < 15
         );
+        
         
         return (
           <g key={`${table.id}-seat-${index}`}>
@@ -239,8 +258,12 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
               <g>
                 {(() => {
                   const assignedGuestId = Object.keys(guestAssignments || {}).find(
-                    guestId => guestAssignments![guestId].tableId === table.id && 
-                               guestAssignments![guestId].seatNumber === index
+                    guestId => {
+                      const assignment = guestAssignments![guestId];
+                      return assignment.tableId === table.id && 
+                             Math.abs(assignment.position.x - seatPosition.x) < 15 && 
+                             Math.abs(assignment.position.y - seatPosition.y) < 15;
+                    }
                   );
                   
                   if (!assignedGuestId) return null;
@@ -252,11 +275,12 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                     <>
                       <GuestAvatar
                         guest={assignedGuest}
-                        position={{ x: position.x + seat.x, y: position.y + seat.y }}
+                        position={seatPosition}
                         tableId={table.id}
-                        seatNumber={index}
+                        seatNumber={index + 1}
                         onAvatarClick={onAvatarClick || (() => {})}
                         getGuestAvatarColor={getGuestAvatarColor || (() => '#A85C36')}
+                        isHighlighted={highlightedGuest === assignedGuestId}
                       />
                       
                       {/* Action Icons - Move and Remove */}
@@ -268,10 +292,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                         
                         return (
                           <ActionIcons
-                            position={{ x: position.x + seat.x, y: position.y + seat.y }}
+                            position={seatPosition}
                             guestId={assignedGuestId}
                             tableId={table.id}
-                            seatNumber={index}
+                            seatNumber={index + 1}
                             onMoveGuest={onMoveGuest || (() => {})}
                             onRemoveGuest={onRemoveGuest || (() => {})}
                           />
@@ -306,9 +330,9 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             
             {/* Drop Zone - Tiny, positioned at center to catch sidebar drops but not interfere with avatars */}
             <circle
-              cx={position.x + seat.x}
-              cy={position.y + seat.y}
-              r={4}
+              cx={seatPosition.x}
+              cy={seatPosition.y}
+              r={12}
               fill="transparent"
               stroke="transparent"
               style={{ cursor: 'pointer', pointerEvents: 'auto' }}
@@ -417,21 +441,19 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   const parsedData = JSON.parse(dragData);
                   if (parsedData.isFromSeat) {
                     // Guest is being moved from another seat
-                    console.log('🔄 Guest swap detected:', parsedData.guestName);
                     if (onGuestSwap) {
-                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourceSeatNumber, table.id, index);
+                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourcePosition, table.id, seatPosition);
                     }
                   } else {
                     // Fallback to regular guest drop
                     if (onGuestDrop) {
-                      onGuestDrop(parsedData.guestId, table.id, index);
+                      onGuestDrop(parsedData.guestId, table.id, seatPosition);
                     }
                   }
                 } catch (error) {
                   // Fallback: treat as plain guest ID (from sidebar)
-                  console.log('📥 Guest assignment from sidebar:', dragData);
                   if (onGuestDrop) {
-                    onGuestDrop(dragData, table.id, index);
+                    onGuestDrop(dragData, table.id, seatPosition);
                   }
                 }
               }}
@@ -443,6 +465,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
       {/* Sweetheart Table Avatars */}
       {table.isDefault && (
         <>
+          {/* First seat (left side) */}
           <circle
             cx={position.x - 50}
             cy={position.y + 50}
@@ -450,31 +473,64 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             fill="#A85C36"
             filter="drop-shadow(1px 1px 3px rgba(0,0,0,0.2))"
           />
-          {profileImageUrl ? (
-            <image
-              x={position.x - 66}
-              y={position.y + 34}
-              width={32}
-              height={32}
-              href={profileImageUrl}
-              clipPath="circle(16px at center)"
-            />
-          ) : (
-            <text
-              x={position.x - 50}
-              y={position.y + 50}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={14}
-              fontFamily="var(--font-work-sans)"
-              fill="white"
-              fontWeight="normal"
-              style={{ userSelect: 'none', pointerEvents: 'none' }}
-            >
-              {userName ? userName.charAt(0).toUpperCase() : 'Y'}
-            </text>
-          )}
+          {(() => {
+            // For sweetheart table, show profile image or initials
+        if (profileImageUrl) {
+              return (
+                <g>
+                  <defs>
+                    <clipPath id={`avatarClip-${table.id}`}>
+                      <circle cx={position.x - 50} cy={position.y + 50} r={16}/>
+                    </clipPath>
+                  </defs>
+                  <image
+                    x={position.x - 50 - 16}
+                    y={position.y + 50 - 16}
+                    width={32}
+                    height={32}
+                    href={profileImageUrl}
+                    clipPath={`url(#avatarClip-${table.id})`}
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                onLoad={() => {}}
+                onError={(e) => {}}
+                  />
+                  {/* Fallback: show initials if image fails to load */}
+                  <text
+                    x={position.x - 50}
+                    y={position.y + 50}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={14}
+                    fontFamily="var(--font-work-sans)"
+                    fill="white"
+                    fontWeight="normal"
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                    opacity={0.3}
+                  >
+                    {userName ? userName.charAt(0).toUpperCase() : 'Y'}
+                  </text>
+                </g>
+              );
+        } else {
+              return (
+                <text
+                  x={position.x - 50}
+                  y={position.y + 50}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={14}
+                  fontFamily="var(--font-work-sans)"
+                  fill="white"
+                  fontWeight="normal"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                >
+                  {userName ? userName.charAt(0).toUpperCase() : 'Y'}
+                </text>
+              );
+            }
+          })()}
           
+          {/* Second seat (right side) */}
           <circle
             cx={position.x + 50}
             cy={position.y + 50}
@@ -482,52 +538,111 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             fill="#A85C36"
             filter="drop-shadow(1px 1px 3px rgba(0,0,0,0.2))"
           />
-          <text
-            x={position.x + 50}
-            y={position.y + 50}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={14}
-            fontFamily="var(--font-work-sans)"
-            fill="white"
-            fontWeight="normal"
-            style={{ userSelect: 'none', pointerEvents: 'none' }}
-          >
-            {partnerName ? partnerName.charAt(0).toUpperCase() : 'O'}
-          </text>
+          {(() => {
+            // For sweetheart table, show partner initials
+            return (
+              <text
+                x={position.x + 50}
+                y={position.y + 50}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={14}
+                fontFamily="var(--font-work-sans)"
+                fill="white"
+                fontWeight="normal"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >
+                {partnerName ? partnerName.charAt(0).toUpperCase() : 'O'}
+              </text>
+            );
+          })()}
         </>
       )}
 
 
 
-      {/* Rotation Handle - Only show when selected */}
-      {isSelected && !table.isDefault && (
+      {/* Clone, Rotation, and Delete Buttons - Only show when selected */}
+      {isSelected && (
         <g>
-          {/* Shadow for rotation handle */}
-          <circle
-            cx={position.x + 2}
-            cy={position.y - height / 2 - 38}
-            r={12}
-            fill="rgba(0,0,0,0.2)"
-            style={{ pointerEvents: 'none' }}
-          />
-          
-          {/* Rotation handle - bigger circle above the table */}
+          {/* Clone Button - positioned to the left (only for non-default tables) */}
+          {!table.isDefault && (
+          <g>
+            {/* Shadow for clone button */}
+            <circle
+              cx={position.x - 32}
+              cy={position.y - height / 2 - 48}
+              r={12}
+              fill="rgba(0,0,0,0.2)"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* Clone button circle */}
+            <circle
+              cx={position.x - 30}
+              cy={position.y - height / 2 - 50}
+              r={12}
+              fill="#3b82f6"
+              stroke="white"
+              strokeWidth={2}
+              style={{ cursor: 'pointer' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                // Trigger table cloning
+                if (onCloneTable) {
+                  onCloneTable(table.id);
+                }
+              }}
+            />
+            
+            {/* Clone icon */}
+            <text
+              x={position.x - 30}
+              y={position.y - height / 2 - 50}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={12}
+              fill="white"
+              fontWeight="bold"
+              style={{ pointerEvents: 'none' }}
+            >
+              ⧉
+            </text>
+          </g>
+          )}
+
+          {/* Rotation and Delete buttons (only for non-default tables) */}
+          {!table.isDefault && (
+          <>
+            {/* Shadow for rotation handle */}
+            <circle
+              cx={position.x + 2}
+              cy={position.y - height / 2 - 48}
+              r={12}
+              fill="rgba(0,0,0,0.2)"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* Rotation handle - bigger circle above the table */}
           <circle
             cx={position.x}
-            cy={position.y - height / 2 - 40}
-            r={12}
+            cy={position.y - height / 2 - 50}
+            r={15}
             fill="#a855f7"
             stroke="white"
-            strokeWidth={2}
+            strokeWidth={3}
             style={{ cursor: 'grab' }}
+            opacity={isSelected ? 1 : 0.8}
                          onMouseDown={(e) => {
                e.stopPropagation();
+               console.log('🔄 ROTATION HANDLE CLICKED:', { tableId: table.id, onRotationUpdate: !!onRotationUpdate });
                if (onRotationUpdate) {
                  // Start rotation dragging
                  const startX = e.clientX;
                  const startY = e.clientY;
                  const startRotation = currentRotation;
+                 
+                 console.log('🔄 STARTING ROTATION:', { startX, startY, startRotation });
                  
                  // Hide rotation handle during rotation
                  const rotationHandle = e.currentTarget.parentElement;
@@ -543,11 +658,14 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
                    const newRotation = (startRotation + angle) % 360;
                    
+                   console.log('🔄 ROTATION UPDATE:', { deltaX, deltaY, angle, newRotation });
+                   
                    // Update rotation in real-time
                    onRotationUpdate(table.id, newRotation);
                  };
                  
                  const handleMouseUp = () => {
+                   console.log('🔄 ROTATION ENDED');
                    // Show rotation handle again after rotation
                    if (rotationHandle) {
                      rotationHandle.style.opacity = '1';
@@ -558,6 +676,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                  
                  document.addEventListener('mousemove', handleMouseMove);
                  document.addEventListener('mouseup', handleMouseUp);
+               } else {
+                 console.warn('🔄 NO ROTATION UPDATE FUNCTION PROVIDED');
                }
              }}
           />
@@ -565,7 +685,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           {/* Rotation icon - bigger and centered */}
           <text
             x={position.x}
-            y={position.y - height / 2 - 40}
+            y={position.y - height / 2 - 50}
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={16}
@@ -575,6 +695,53 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           >
             ↻
           </text>
+          
+          {/* Delete Button - positioned to the right of rotation handle */}
+          <g>
+            {/* Shadow for delete button */}
+            <circle
+              cx={position.x + 32}
+              cy={position.y - height / 2 - 48}
+              r={12}
+              fill="rgba(0,0,0,0.2)"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* Delete button circle */}
+            <circle
+              cx={position.x + 30}
+              cy={position.y - height / 2 - 50}
+              r={12}
+              fill="#ef4444"
+              stroke="white"
+              strokeWidth={2}
+              style={{ cursor: 'pointer' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                // Trigger table deletion
+                if (onRemoveTable) {
+                  onRemoveTable(table.id);
+                }
+              }}
+            />
+            
+            {/* Delete icon */}
+            <text
+              x={position.x + 30}
+              y={position.y - height / 2 - 50}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={14}
+              fill="white"
+              fontWeight="bold"
+              style={{ pointerEvents: 'none' }}
+            >
+              ×
+            </text>
+          </g>
+          </>
+          )}
         </g>
       )}
     </>

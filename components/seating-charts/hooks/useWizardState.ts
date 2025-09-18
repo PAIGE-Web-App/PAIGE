@@ -41,7 +41,7 @@ const INITIAL_GUEST_COLUMNS: GuestColumn[] = [
     isEditable: true, 
     isRemovable: false, 
     order: 2,
-    width: 120
+    width: 100
   },
   { 
     id: 'mealPreference', 
@@ -53,7 +53,7 @@ const INITIAL_GUEST_COLUMNS: GuestColumn[] = [
     isEditable: true, 
     isRemovable: false, 
     order: 3,
-    width: 120
+    width: 100
   },
   { 
     id: 'notes', 
@@ -151,6 +151,12 @@ export const useWizardState = () => {
     localStorage.removeItem(wizardKey);
     localStorage.removeItem(columnsKey);
     
+    // Clear session storage for table layout persistence
+    sessionStorage.removeItem('seating-chart-table-positions');
+    sessionStorage.removeItem('seating-chart-canvas-transform');
+    sessionStorage.removeItem('seating-chart-table-dimensions');
+    sessionStorage.removeItem('seating-chart-guest-assignments');
+    
     // Clear session from URL
     const newParams = new URLSearchParams(searchParams?.toString() || '');
     newParams.delete('session');
@@ -225,7 +231,17 @@ export const useWizardState = () => {
       seatNumber: null,
       isRemovable: true // New guests are removable by default
     };
-    setWizardState(prev => ({ ...prev, guests: [...prev.guests, newGuest] }));
+    
+    setWizardState(prev => {
+      const newGuests = [...prev.guests, newGuest];
+      
+      // If this is the second guest being added, make the first guest removable
+      if (newGuests.length === 2) {
+        newGuests[0] = { ...newGuests[0], isRemovable: true };
+      }
+      
+      return { ...prev, guests: newGuests };
+    });
   }, []);
 
   const updateGuest = useCallback((guestId: string, field: keyof Guest | string, value: string) => {
@@ -246,16 +262,23 @@ export const useWizardState = () => {
   }, []);
 
   const removeGuest = useCallback((guestId: string) => {
-    setWizardState(prev => ({
-      ...prev,
-      guests: prev.guests.filter(guest => {
-        // Don't remove guests that are marked as non-removable
-        if (guest.id === guestId && guest.isRemovable === false) {
-          return true; // Keep the guest
-        }
-        return guest.id !== guestId;
-      })
-    }));
+    setWizardState(prev => {
+      // Don't allow removal if this would leave zero guests
+      if (prev.guests.length <= 1) {
+        return prev; // Don't change state
+      }
+      
+      return {
+        ...prev,
+        guests: prev.guests.filter(guest => {
+          // Don't remove guests that are marked as non-removable
+          if (guest.id === guestId && guest.isRemovable === false) {
+            return true; // Keep the guest
+          }
+          return guest.id !== guestId;
+        })
+      };
+    });
   }, []);
 
   // Column management functions

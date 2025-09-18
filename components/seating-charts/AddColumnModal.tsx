@@ -15,7 +15,6 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn, guestColu
   const [columnName, setColumnName] = useState('');
   const [fieldType, setFieldType] = useState<'text' | 'select' | 'number'>('text');
   const [dropdownOptions, setDropdownOptions] = useState('');
-  const [isRequired, setIsRequired] = useState(false);
   const [columnNameError, setColumnNameError] = useState('');
   const [showNewColumnFields, setShowNewColumnFields] = useState(false);
 
@@ -69,7 +68,7 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn, guestColu
       key: `custom-${Date.now()}`,
       label: columnName.trim(),
       type: fieldType,
-      isRequired,
+      isRequired: false,
       isEditable: true,
       isRemovable: true,
       options: fieldType === 'select' ? dropdownOptions.split('\n').filter(opt => opt.trim()) : undefined
@@ -83,7 +82,6 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn, guestColu
     setColumnName('');
     setFieldType('text');
     setDropdownOptions('');
-    setIsRequired(false);
     setColumnNameError('');
     setShowNewColumnFields(false);
     onClose();
@@ -279,19 +277,6 @@ export default function AddColumnModal({ isOpen, onClose, onAddColumn, guestColu
             </label>
           </div>
 
-          {/* Required Field */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isRequired"
-              checked={isRequired}
-              onChange={(e) => setIsRequired(e.target.checked)}
-              className="rounded border-[#AB9C95] text-[#A85C36] focus:ring-[#A85C36]"
-            />
-            <label htmlFor="isRequired" className="text-sm text-[#332B42] font-work-sans">
-              This field is required
-            </label>
-                      </div>
           </div>
         )}
         </div>

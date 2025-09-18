@@ -3,12 +3,12 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Download, X, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { Guest, CSVUploadResult } from '../../types/seatingChart';
-import { parseCSVFile, generateCSVTemplate, CSVColumnMapping, DEFAULT_CSV_MAPPING } from '../../utils/csvUploadUtils';
+import { parseCSVFile, generateCSVTemplate, CSVColumnMapping, DEFAULT_CSV_MAPPING, debugExcelFile } from '../../utils/csvUploadUtils';
 
 interface CSVUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGuestsUploaded: (guests: Guest[]) => void;
+  onGuestsUploaded: (guests: Guest[], customColumns?: any[]) => void;
 }
 
 export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CSVUploadModalProps) {
@@ -34,6 +34,11 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
     setUploadResult(null);
 
     try {
+      // Debug Excel files
+      if (fileExtension === '.xls' || fileExtension === '.xlsx') {
+        await debugExcelFile(file);
+      }
+      
       const result = await parseCSVFile(file, columnMapping);
       setUploadResult(result);
     } catch (error) {
@@ -91,7 +96,7 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
 
   const handleConfirmUpload = () => {
     if (uploadResult?.guests) {
-      onGuestsUploaded(uploadResult.guests);
+      onGuestsUploaded(uploadResult.guests, uploadResult.customColumns);
       onClose();
     }
   };
@@ -146,9 +151,12 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                     <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <h6 className="h6 text-blue-900 mb-2">Get Started with a Template</h6>
-                      <p className="text-sm text-blue-700 mb-3">
+                      <p className="text-sm text-blue-700 mb-2">
                         Download our CSV template with 10 example guests to see the required format and add your guest information.
                       </p>
+                       <p className="text-xs text-blue-600 mb-3">
+                         <strong>Tip:</strong> Keep the default column names unchanged. Add extra columns as needed - they'll be auto-detected.
+                       </p>
                       <button
                         onClick={handleDownloadTemplate}
                         className="btn-primaryinverse text-sm flex items-center gap-2"
@@ -170,13 +178,16 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                 >
-                  <Upload className="w-12 h-12 text-[#AB9C95] mx-auto mb-4" />
+                  <Upload className="w-8 h-8 text-[#AB9C95] mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-[#332B42] mb-2">Upload Your File</h4>
-                  <p className="text-sm text-[#AB9C95] mb-4">
+                  <p className="text-sm text-[#AB9C95] mb-2">
                     Drag and drop your file here, or click to browse
                   </p>
-                  <p className="text-xs text-[#AB9C95] mb-4">
+                  <p className="text-xs text-[#AB9C95] mb-2">
                     Supports CSV, XLS, and XLSX files
+                  </p>
+                  <p className="text-xs text-[#A85C36] mb-4 font-medium">
+                    Note: "Name" column required. Include other standard columns for best results.
                   </p>
                   <input
                     ref={fileInputRef}
@@ -250,6 +261,11 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h6 className="h6 text-[#332B42] mb-3">
                       Guest Preview ({uploadResult.guests.length} guests)
+                      {uploadResult.customColumns && uploadResult.customColumns.length > 0 && (
+                        <span className="text-sm text-[#A85C36] ml-2">
+                          (+ {uploadResult.customColumns.length} custom columns)
+                        </span>
+                      )}
                     </h6>
                     <div className="max-h-64 overflow-y-auto">
                       <table className="w-full text-sm">
@@ -259,6 +275,12 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                             <th className="text-left py-2 font-medium text-[#332B42]">Relationship</th>
                             <th className="text-left py-2 font-medium text-[#332B42]">Meal Preference</th>
                             <th className="text-left py-2 font-medium text-[#332B42]">Notes</th>
+                            {/* Dynamic custom columns */}
+                            {uploadResult.customColumns?.map((column) => (
+                              <th key={column.id} className="text-left py-2 font-medium text-[#332B42]">
+                                {column.label}
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
@@ -270,6 +292,13 @@ export default function CSVUploadModal({ isOpen, onClose, onGuestsUploaded }: CS
                               <td className="py-2 text-[#AB9C95] max-w-xs truncate" title={guest.notes || ''}>
                                 {guest.notes || '-'}
                               </td>
+                              {/* Dynamic custom field values */}
+                              {uploadResult.customColumns?.map((column) => (
+                                <td key={column.id} className="py-2 text-[#AB9C95] max-w-xs truncate" 
+                                    title={guest.customFields?.[column.key] || ''}>
+                                  {guest.customFields?.[column.key] || '-'}
+                                </td>
+                              ))}
                             </tr>
                           ))}
                         </tbody>

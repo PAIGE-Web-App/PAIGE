@@ -13,7 +13,8 @@ import {
   MoreHorizontal,
   Settings,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { signOut } from 'firebase/auth';
@@ -40,15 +41,16 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
   // Primary navigation items (always visible)
   const primaryNavItems: NavItem[] = [
     { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'To-do', href: '/todo', icon: ClipboardList },
     { name: 'Budget', href: '/budget', icon: DollarSign },
     { name: 'Vendors', href: '/vendors', icon: Users },
-    { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
   ];
 
   // User profile menu items
   const userProfileItems: NavItem[] = [
     { name: 'Mood Boards', href: '/moodboards', icon: Heart },
+    { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Files', href: '/files', icon: FileText },
   ];

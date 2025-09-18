@@ -6,6 +6,7 @@ import GuestTableRow from './GuestTableRow';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { exportGuestsToCSV } from '@/utils/csvUploadUtils';
 import { getCategoryHexColor } from '@/utils/categoryStyle';
+import BadgeCount from '@/components/BadgeCount';
 
 interface GuestListTableProps {
   wizardState: WizardState;
@@ -190,7 +191,10 @@ export default function GuestListTable({
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-base font-playfair font-semibold text-[#332B42]">Guest List</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="text-base font-playfair font-semibold text-[#332B42]">Guest List</h4>
+          <BadgeCount count={wizardState.guests.length} />
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={onShowCSVUploadModal}

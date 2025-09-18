@@ -39,6 +39,7 @@ export interface Table {
   capacity: number;
   position: { x: number; y: number };
   guests: string[]; // Guest IDs
+  guestAssignments?: Record<string, { x: number; y: number }>; // Guest coordinates
   isActive: boolean;
 }
 
@@ -53,6 +54,7 @@ export interface SeatingChart {
   tableCount: number;
   tables: Table[];
   guests: Guest[];
+  guestGroups?: GuestGroup[];
   seatingRules: SeatingRule[];
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +113,7 @@ export interface CSVUploadResult {
   warnings: string[];
   totalRows: number;
   processedRows: number;
+  customColumns?: any[];
 }
 
 // Default table types

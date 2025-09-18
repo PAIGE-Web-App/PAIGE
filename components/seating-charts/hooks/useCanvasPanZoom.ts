@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface CanvasTransform {
   x: number;
@@ -6,14 +6,35 @@ export interface CanvasTransform {
   scale: number;
 }
 
-export const useCanvasPanZoom = (initialScale: number = 1.2) => {
-  const [canvasTransform, setCanvasTransform] = useState<CanvasTransform>({ 
-    x: 0, 
-    y: 0, 
-    scale: initialScale 
+export const useCanvasPanZoom = (initialScale: number = 1.5, draggedTable?: string | null) => {
+  const [canvasTransform, setCanvasTransform] = useState<CanvasTransform>(() => {
+    // Try to load from sessionStorage first
+    const savedTransform = sessionStorage.getItem('seating-chart-canvas-transform');
+    if (savedTransform) {
+      try {
+        const parsed = JSON.parse(savedTransform);
+        if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number' && typeof parsed.scale === 'number') {
+          return parsed;
+        }
+      } catch (error) {
+        console.warn('Failed to parse saved canvas transform:', error);
+      }
+    }
+    
+    // Fallback to default transform
+    return { 
+      x: 0, 
+      y: 0, 
+      scale: initialScale 
+    };
   });
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const [canvasDragStart, setCanvasDragStart] = useState({ x: 0, y: 0 });
+
+  // Save canvas transform to sessionStorage whenever it changes
+  useEffect(() => {
+    sessionStorage.setItem('seating-chart-canvas-transform', JSON.stringify(canvasTransform));
+  }, [canvasTransform]);
 
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent, draggedTable: string | null) => {
     const target = e.target as HTMLElement;
@@ -56,13 +77,12 @@ export const useCanvasPanZoom = (initialScale: number = 1.2) => {
   }, []);
 
   const handleCanvasWheel = useCallback((e: React.WheelEvent) => {
-    // Prevent default only if we can (non-passive events)
-    try {
-      e.preventDefault();
-    } catch (error) {
-      // Wheel events are passive in modern browsers, so preventDefault fails
-      // This is expected behavior and won't affect functionality
-    }
+    // Don't zoom if a table is being dragged
+    if (draggedTable) return;
+    
+    // Prevent default scrolling behavior
+    e.preventDefault();
+    e.stopPropagation();
     
     // Smooth zoom factor - smaller steps for more precise control
     const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
@@ -94,7 +114,7 @@ export const useCanvasPanZoom = (initialScale: number = 1.2) => {
       y: prev.y + offsetY,
       scale: newScale
     }));
-  }, [canvasTransform.x, canvasTransform.y, canvasTransform.scale]);
+  }, [canvasTransform.x, canvasTransform.y, canvasTransform.scale, draggedTable]);
 
   const resetCanvas = useCallback(() => {
     setCanvasTransform({ x: 0, y: 0, scale: initialScale });

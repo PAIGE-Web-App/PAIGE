@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 
 export interface CSVColumnMapping {
   name: string;
+  relationship?: string;
+  mealPreference?: string;
   email?: string;
   phone?: string;
   dietaryRestrictions?: string;
@@ -17,6 +19,19 @@ export interface CSVColumnMapping {
   notes?: string;
   isAttending?: string;
   rsvpStatus?: string;
+}
+
+export interface CustomColumn {
+  id: string;
+  key: string;
+  label: string;
+  type: 'text' | 'select';
+  isRequired: boolean;
+  isEditable: boolean;
+  isRemovable: boolean;
+  order: number;
+  width: number;
+  options?: string[];
 }
 
 export const DEFAULT_CSV_MAPPING: CSVColumnMapping = {
@@ -37,7 +52,8 @@ export function parseCSVFile(
       errors: [],
       warnings: [],
       totalRows: 0,
-      processedRows: 0
+      processedRows: 0,
+      customColumns: []
     };
 
     const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
@@ -62,8 +78,11 @@ export function parseCSVFile(
           
           result.totalRows = dataRows.length;
           
-          // Validate required columns
-          if (!headers.includes(columnMapping.name)) {
+          // Validate required columns (case-insensitive)
+          const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
+          const requiredColumn = columnMapping.name.toLowerCase().trim();
+          
+          if (!normalizedHeaders.includes(requiredColumn)) {
             result.errors.push(`Required column '${columnMapping.name}' not found in CSV`);
             resolve(result);
             return;
@@ -73,7 +92,9 @@ export function parseCSVFile(
           dataRows.forEach((row, index) => {
             try {
               const values = parseCSVRow(row);
-              const guest = parseGuestFromRow(values, headers, columnMapping, index + 2);
+              // Ensure all values are strings and not undefined
+              const safeValues = values.map(val => val ? val.toString() : '');
+              const guest = parseGuestFromRow(safeValues, headers, columnMapping, index + 2);
               
               if (guest) {
                 result.guests.push(guest);
@@ -83,6 +104,25 @@ export function parseCSVFile(
               result.errors.push(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid data'}`);
             }
           });
+
+          // Detect custom columns from the first guest's customFields
+          if (result.guests.length > 0) {
+            const firstGuest = result.guests[0];
+            if (firstGuest.customFields) {
+              result.customColumns = Object.keys(firstGuest.customFields).map((key, index) => ({
+                id: `custom-${Date.now()}-${index}`,
+                key: key,
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                type: 'text' as const,
+                isRequired: false,
+                isEditable: true,
+                isRemovable: true,
+                order: 100 + index, // Place after standard columns
+                width: 150
+              }));
+              console.log('Detected custom columns:', result.customColumns);
+            }
+          }
 
           // Add warnings for common issues
           if (result.guests.length === 0) {
@@ -114,9 +154,26 @@ export function parseCSVFile(
         try {
           const data = event.target?.result as ArrayBuffer;
           const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // Find the first sheet that has data
+          let sheetName = workbook.SheetNames[0];
+          let worksheet = workbook.Sheets[sheetName];
+          let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // If the first sheet is empty, try other sheets
+          if (jsonData.length === 0) {
+            for (const name of workbook.SheetNames) {
+              const testWorksheet = workbook.Sheets[name];
+              const testJsonData = XLSX.utils.sheet_to_json(testWorksheet, { header: 1 });
+              if (testJsonData.length > 0) {
+                sheetName = name;
+                worksheet = testWorksheet;
+                jsonData = testJsonData;
+                console.log(`Using sheet '${sheetName}' instead of empty first sheet`);
+                break;
+              }
+            }
+          }
           
           if (jsonData.length < 2) {
             result.errors.push('Excel file must have at least a header row and one data row');
@@ -127,10 +184,33 @@ export function parseCSVFile(
           const headers = (jsonData[0] as string[]).map(h => h?.toString() || '');
           const dataRows = jsonData.slice(1) as string[][];
           
+          // Additional validation for empty data
+          if (headers.length === 0 || headers.every(h => !h || h.trim() === '')) {
+            result.errors.push('Excel file appears to be empty or has no valid headers');
+            resolve(result);
+            return;
+          }
+          
           result.totalRows = dataRows.length;
           
-          // Validate required columns
-          if (!headers.includes(columnMapping.name)) {
+          // Debug logging
+          console.log('Excel headers:', headers);
+          console.log('Excel data rows count:', dataRows.length);
+          console.log('First data row:', dataRows[0]);
+          console.log('All jsonData:', jsonData);
+          console.log('Sheet names:', workbook.SheetNames);
+          
+          // Debug first few rows to see data structure
+          dataRows.slice(0, 3).forEach((row, index) => {
+            console.log(`Row ${index + 1}:`, row);
+            console.log(`Row ${index + 1} mapped:`, row.map(cell => cell?.toString() || ''));
+          });
+          
+          // Validate required columns (case-insensitive)
+          const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
+          const requiredColumn = columnMapping.name.toLowerCase().trim();
+          
+          if (!normalizedHeaders.includes(requiredColumn)) {
             result.errors.push(`Required column '${columnMapping.name}' not found in Excel file`);
             resolve(result);
             return;
@@ -140,7 +220,9 @@ export function parseCSVFile(
           dataRows.forEach((row, index) => {
             try {
               const values = row.map(cell => cell?.toString() || '');
-              const guest = parseGuestFromRow(values, headers, columnMapping, index + 2);
+              // Ensure all values are strings and not undefined
+              const safeValues = values.map(val => val ? val.toString() : '');
+              const guest = parseGuestFromRow(safeValues, headers, columnMapping, index + 2);
               
               if (guest) {
                 result.guests.push(guest);
@@ -150,6 +232,25 @@ export function parseCSVFile(
               result.errors.push(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid data'}`);
             }
           });
+
+          // Detect custom columns from the first guest's customFields
+          if (result.guests.length > 0) {
+            const firstGuest = result.guests[0];
+            if (firstGuest.customFields) {
+              result.customColumns = Object.keys(firstGuest.customFields).map((key, index) => ({
+                id: `custom-${Date.now()}-${index}`,
+                key: key,
+                label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                type: 'text' as const,
+                isRequired: false,
+                isEditable: true,
+                isRemovable: true,
+                order: 100 + index, // Place after standard columns
+                width: 150
+              }));
+              console.log('Detected custom columns:', result.customColumns);
+            }
+          }
 
           // Add warnings for common issues
           if (result.guests.length === 0) {
@@ -213,7 +314,7 @@ function parseGuestFromRow(
     customFields: {}
   };
 
-  // Map each column
+  // First, map predefined columns
   Object.entries(mapping).forEach(([key, headerName]) => {
     if (!headerName) return;
     
@@ -222,7 +323,8 @@ function parseGuestFromRow(
     );
     
     if (columnIndex >= 0 && columnIndex < values.length) {
-      const value = values[columnIndex].trim();
+      const rawValue = values[columnIndex];
+      const value = rawValue ? rawValue.toString().trim() : '';
       
       switch (key) {
         case 'name':
@@ -265,6 +367,27 @@ function parseGuestFromRow(
     }
   });
 
+  // Then, capture ALL other columns as custom fields
+  headers.forEach((header, index) => {
+    if (index < values.length) {
+      const rawValue = values[index];
+      const value = rawValue ? rawValue.toString().trim() : '';
+      const normalizedHeader = header ? header.toLowerCase().trim() : '';
+      
+      // Skip if this column was already processed by the mapping above
+      const isMappedColumn = Object.values(mapping).some(mappedHeader => 
+        mappedHeader && mappedHeader.toLowerCase().trim() === normalizedHeader
+      );
+      
+      if (!isMappedColumn && value && guest.customFields) {
+        // Use the original header name as the key, but make it safe for object keys
+        const safeKey = header ? header.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase() : `column_${index}`;
+        guest.customFields[safeKey] = value;
+        console.log(`Captured custom field: ${header} -> ${safeKey} = ${value}`);
+      }
+    }
+  });
+
   // Validate required fields
   if (!guest.fullName) {
     throw new Error('Name is required');
@@ -278,6 +401,54 @@ function generateGuestId(): string {
 }
 
 // Helper function to create a sample CSV template
+// Debug function to test Excel parsing
+export function debugExcelFile(file: File): Promise<void> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(data, { type: 'array' });
+        console.log('=== EXCEL DEBUG INFO ===');
+        console.log('Sheet names:', workbook.SheetNames);
+        console.log('First sheet name:', workbook.SheetNames[0]);
+        
+        // Check all sheets for data
+        workbook.SheetNames.forEach((name, index) => {
+          const testWorksheet = workbook.Sheets[name];
+          const testJsonData = XLSX.utils.sheet_to_json(testWorksheet, { header: 1 });
+          console.log(`Sheet ${index + 1} (${name}):`, testJsonData.length, 'rows');
+          if (testJsonData.length > 0) {
+            console.log(`  First row:`, testJsonData[0]);
+          }
+        });
+        
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        console.log('First worksheet:', worksheet);
+        
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        console.log('Raw jsonData from first sheet:', jsonData);
+        console.log('jsonData length:', jsonData.length);
+        
+        if (jsonData.length > 0) {
+          console.log('First row (headers):', jsonData[0]);
+          console.log('Headers as strings:', (jsonData[0] as string[]).map(h => h?.toString() || ''));
+        }
+        
+        if (jsonData.length > 1) {
+          console.log('Second row (first data):', jsonData[1]);
+        }
+        
+        console.log('=== END DEBUG INFO ===');
+      } catch (error) {
+        console.error('Debug error:', error);
+      }
+      resolve();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export function generateCSVTemplate(): string {
   const headers = ['Name', 'Relationship to You', 'Meal Preference', 'Notes'];
   
@@ -294,6 +465,10 @@ export function generateCSVTemplate(): string {
     ['Christopher Lee', 'Bride\'s Family', 'Beef', 'Cousin - very outgoing, good for ice breaking']
   ];
   
+  // Debug logging
+  console.log('Generating CSV template with headers:', headers);
+  console.log('Sample guests count:', sampleGuests.length);
+  
   // Properly escape CSV data
   const escapeCsvValue = (value: string): string => {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -307,7 +482,10 @@ export function generateCSVTemplate(): string {
     ...sampleGuests.map(row => row.map(escapeCsvValue).join(','))
   ];
   
-  return csvRows.join('\n');
+  const csvContent = csvRows.join('\n');
+  console.log('Generated CSV template:', csvContent);
+  
+  return csvContent;
 }
 
 // Helper function to validate guest data

@@ -51,14 +51,17 @@ const MessagesPanel = ({
         {contacts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <img 
-              src="/api/optimize-image?src=/wine.png&f=webp&q=85&w=192" 
+              src="/cheers.png" 
               alt="Cheers" 
               className="w-48 h-48 mb-6" 
               loading="lazy"
             />
             <h4 className="mb-2">Cheers to your next chapter!</h4>
-            <p className="text-base text-[#364257] mb-6 max-w-md text-center">
-              Add your contacts to get started
+            <p className="text-base text-[#364257] mb-2 max-w-md text-center">
+              Set up your Unified Inbox to get started
+            </p>
+            <p className="text-sm text-[#7A7A7A] mb-6 max-w-md text-center">
+              Connect your email to auto-import vendor contacts and generate hyper-personalized email drafts
             </p>
             <button
               className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base"
@@ -66,6 +69,15 @@ const MessagesPanel = ({
             >
               Set up your Unified Inbox
             </button>
+            <div className="text-center">
+              <p className="text-[#364257] my-2 text-sm">or</p>
+              <a 
+                href="/vendors" 
+                className="text-[#A85C36] hover:text-[#784528] text-sm font-medium underline"
+              >
+                Check out the Vendor Catalog
+              </a>
+            </div>
           </div>
         ) : (
           <MessageArea

@@ -476,11 +476,20 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                           label="Category"
                           placeholder="Select Category"
                         />
+
+                        <FormField
+                          label="Contact Email"
+                          name="email"
+                          value={contact.email || ""}
+                          onChange={(e) => handleContactChange(index, e)}
+                          placeholder="Enter contact's email"
+                          error={errors[contact.id]?.email}
+                        />
                         
                         {/* Vendor Association */}
                         {(contact.email || contact.phone) && (
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-[#332B42]">
+                          <div className="space-y-1">
+                            <label className="block text-xs font-medium text-[#332B42]">
                               Link to Vendor (Optional)
                             </label>
                             <VendorSearchField
@@ -517,15 +526,6 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                             </p>
                           </div>
                         )}
-
-                        <FormField
-                          label="Contact Email"
-                          name="email"
-                          value={contact.email || ""}
-                          onChange={(e) => handleContactChange(index, e)}
-                          placeholder="Enter contact's email"
-                          error={errors[contact.id]?.email}
-                        />
                         <FormField
                           label="Contact Phone Number"
                           name="phone"

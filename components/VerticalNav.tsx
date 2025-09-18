@@ -13,7 +13,8 @@ import {
   User,
   Bell,
   Sparkles,
-  Armchair
+  Armchair,
+  MessageSquare
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,7 +43,8 @@ export default function VerticalNav() {
   const { notificationCounts, markNotificationAsRead } = useNotifications();
 
   const navItems: NavItem[] = [
-    { name: "Dashboard", href: "/", icon: Home, notificationKey: "messages" },
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Messages", href: "/messages", icon: MessageSquare, notificationKey: "messages" },
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },

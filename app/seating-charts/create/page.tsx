@@ -17,9 +17,13 @@ import EditGroupModal from '@/components/seating-charts/EditGroupModal';
 
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { SeatingChart } from '@/types/seatingChart';
+import BadgeCount from '@/components/BadgeCount';
+import { saveSeatingChart, getSeatingCharts, updateSeatingChart } from '@/lib/seatingChartService';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function CreateSeatingChartPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +37,8 @@ export default function CreateSeatingChartPage() {
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [clearTableSelection, setClearTableSelection] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [editingChartId, setEditingChartId] = useState<string | null>(null);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -50,7 +56,7 @@ export default function CreateSeatingChartPage() {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showActionsDropdown]);
-  
+
   // Use our optimized hooks
   const {
     wizardState,
@@ -78,6 +84,27 @@ export default function CreateSeatingChartPage() {
     updateGuestGroup
   } = useWizardState();
 
+  // Warn user before page refresh/close if they have unsaved data
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Check if there's meaningful data that would be lost
+      const hasData = wizardState.chartName.trim() || wizardState.guests.length > 0;
+      
+      if (hasData) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [wizardState.chartName, wizardState.guests.length]);
+
+
   const {
     modalState,
     modalData,
@@ -96,11 +123,21 @@ export default function CreateSeatingChartPage() {
 
   const goToNextStep = () => {
     if (currentStep === 1) {
-      // For step 1, show validation errors if chart name is empty
+      // For step 1, validate chart name and guest information
       if (!wizardState.chartName.trim()) {
         setShowValidationErrors(true);
-        return; // Don't proceed to next step
+        showErrorToast('Please enter a chart name before proceeding.');
+        return;
       }
+      
+      // Validate that all guests have required fields
+      const guestsWithMissingNames = wizardState.guests.filter(guest => !guest.fullName.trim());
+      if (guestsWithMissingNames.length > 0) {
+        setShowValidationErrors(true);
+        showErrorToast(`Please fill in the full name for ${guestsWithMissingNames.length} guest${guestsWithMissingNames.length === 1 ? '' : 's'} before proceeding.`);
+        return;
+      }
+      
       setShowValidationErrors(false);
       setCurrentStep(currentStep + 1);
     } else if (canProceedToNext()) {
@@ -117,8 +154,30 @@ export default function CreateSeatingChartPage() {
     }
   };
 
+  const handleCloseWizard = () => {
+    const hasData = wizardState.chartName.trim() || wizardState.guests.length > 0;
+    if (hasData) {
+      setShowExitConfirmModal(true);
+    } else {
+      clearStoredState();
+      router.push('/seating-charts');
+    }
+  };
+
+  const handleSaveAndClose = async () => {
+    await handleSaveChart();
+    clearStoredState();
+    router.push('/seating-charts');
+  };
+
+  const handleConfirmExit = () => {
+    clearStoredState();
+    setShowExitConfirmModal(false);
+    router.push('/seating-charts');
+  };
+
   // Handle CSV upload
-    const handleGuestsUploaded = (uploadedGuests: any[]) => {
+    const handleGuestsUploaded = (uploadedGuests: any[], customColumns?: any[]) => {
     // Collect new options from CSV upload
     const newRelationshipOptions: string[] = [];
     const newMealPreferenceOptions: string[] = [];
@@ -194,11 +253,28 @@ export default function CreateSeatingChartPage() {
       }
     });
   
-    updateWizardState({ guests: allGuests });
+    // Add new guests to existing guests instead of replacing
+    const updatedGuests = [...wizardState.guests, ...allGuests];
+    
+    // If this is the first import and we now have multiple guests, make the first guest removable
+    if (wizardState.guests.length === 1 && allGuests.length > 0) {
+      updatedGuests[0] = { ...updatedGuests[0], isRemovable: true };
+    }
+    
+    updateWizardState({ guests: updatedGuests });
+    
+    // Add custom columns if any were detected
+    if (customColumns && customColumns.length > 0) {
+      customColumns.forEach(customColumn => {
+        addColumn(customColumn);
+      });
+      console.log(`Added ${customColumns.length} custom columns from CSV upload`);
+    }
+    
     closeModal('csvUpload');
     
     // Show success message with new options and family info
-    let message = 'Guests uploaded successfully!';
+    let message = `${allGuests.length} guests added successfully!`;
     if (newRelationshipOptions.length > 0) {
       message += ` Added ${newRelationshipOptions.length} new relationship option${newRelationshipOptions.length === 1 ? '' : 's'}: ${newRelationshipOptions.join(', ')}`;
     }
@@ -286,6 +362,105 @@ export default function CreateSeatingChartPage() {
     showSuccessToast('Group deleted successfully');
     setShowEditGroupModal(false);
     setEditingGroup(null);
+  };
+
+  // Save chart
+  const handleSaveChart = async () => {
+    if (!wizardState.chartName.trim()) {
+      showErrorToast('Please enter a chart name before saving.');
+      return;
+    }
+
+    if (!user) {
+      showErrorToast('Please log in to save charts.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Check if a chart with this name already exists
+      const existingCharts = await getSeatingCharts(user.uid);
+      const existingChart = existingCharts.find(chart => chart.name === wizardState.chartName);
+
+      // Get current layout data from session storage
+      let savedPositions: any[] = [];
+      let savedAssignments: any = {};
+      
+      try {
+        const positionsData = sessionStorage.getItem('seating-chart-table-positions');
+        const assignmentsData = sessionStorage.getItem('seating-chart-guest-assignments');
+        
+        if (positionsData) {
+          savedPositions = JSON.parse(positionsData);
+        }
+        if (assignmentsData) {
+          savedAssignments = JSON.parse(assignmentsData);
+        }
+      } catch (error) {
+        console.warn('Could not load session storage data for save:', error);
+      }
+
+
+      const chartData: Omit<SeatingChart, 'id'> = {
+        name: wizardState.chartName,
+        eventType: wizardState.eventType,
+        description: wizardState.description || '',
+        venueName: '',
+        venueImage: '',
+        guestCount: wizardState.guests.length,
+        tableCount: wizardState.tableLayout.tables.length,
+        tables: wizardState.tableLayout.tables.map(table => {
+          const savedPosition = savedPositions.find((p: any) => p.id === table.id);
+          const assignedGuests = Object.keys(savedAssignments).filter(guestId => 
+            savedAssignments[guestId].tableId === table.id
+          );
+          
+          // Store guest assignments with coordinates for this table
+          const guestAssignmentsForTable: Record<string, { x: number; y: number }> = {};
+          assignedGuests.forEach(guestId => {
+            const assignment = savedAssignments[guestId];
+            if (assignment && assignment.position) {
+              guestAssignmentsForTable[guestId] = assignment.position;
+            }
+          });
+          
+          return {
+            id: table.id,
+            name: table.name,
+            type: table.type,
+            capacity: table.capacity,
+            position: savedPosition ? { x: savedPosition.x, y: savedPosition.y } : { x: 0, y: 0 },
+            guests: assignedGuests,
+            guestAssignments: guestAssignmentsForTable, // Store coordinates with guest IDs
+            isActive: true
+          };
+        }),
+        guests: wizardState.guests,
+        guestGroups: wizardState.guestGroups || [],
+        seatingRules: [],
+        isActive: true,
+        isTemplate: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      if (existingChart) {
+        // Update existing chart
+        await updateSeatingChart(existingChart.id, chartData, user.uid);
+        setEditingChartId(existingChart.id);
+        showSuccessToast('Chart updated successfully!');
+      } else {
+        // Create new chart
+        const chartId = await saveSeatingChart(chartData, user.uid);
+        setEditingChartId(chartId);
+        showSuccessToast('Chart saved successfully!');
+      }
+    } catch (error) {
+      console.error('Save chart error:', error);
+      showErrorToast('Failed to save chart. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Create chart
@@ -489,7 +664,13 @@ export default function CreateSeatingChartPage() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6 mb-6">
+          <div 
+            className="bg-white rounded-[5px] border border-[#AB9C95] p-6 mb-6 flex flex-col overflow-hidden"
+            style={{ 
+              height: 'calc(100vh - 200px)', // Fixed height - won't grow with content
+              minHeight: '600px'
+            }}
+          >
             {/* Chart Details Form */}
             <ChartDetailsForm
               wizardState={wizardState}
@@ -499,10 +680,13 @@ export default function CreateSeatingChartPage() {
             />
 
             {/* Guest List Table */}
-            <div className="pt-6">
+            <div className="pt-6 flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h3>
+                    <BadgeCount count={wizardState.guests.length} />
+                  </div>
                   <button
                     onClick={() => setShowHelpModal(true)}
                     className="text-sm text-[#AB9C95] hover:text-[#A85C36] transition-colors flex items-center gap-1 mt-1"
@@ -569,6 +753,7 @@ export default function CreateSeatingChartPage() {
                 guestColumns={guestColumns}
                 onUpdateGuest={updateGuest}
                 onRemoveGuest={removeGuest}
+                onUpdateColumn={updateColumn}
                 onColumnResize={handleColumnResize}
                 onShowMealOptionsModal={openMealOptionsModal}
                 onShowRelationshipOptionsModal={openRelationshipOptionsModal}
@@ -577,18 +762,21 @@ export default function CreateSeatingChartPage() {
                 onShowLinkUsersModal={handleShowLinkUsersModal}
                 onEditGroup={handleEditGroup}
                 clearSelection={clearTableSelection}
+                showValidationErrors={showValidationErrors}
               />
             </div>
           </div>
         );
       case 2:
         return (
-          <div className="bg-white rounded-[5px] border border-[#AB9C95]">
+          <div className="bg-white rounded-[5px] border border-[#AB9C95]" style={{ borderWidth: '1px' }}>
             <TableLayoutStep
               tableLayout={wizardState.tableLayout}
               onUpdate={updateTableLayout}
               guestCount={wizardState.guests.length}
               guests={wizardState.guests}
+              guestGroups={wizardState.guestGroups}
+              onEditGroup={handleEditGroup}
             />
           </div>
         );
@@ -655,7 +843,7 @@ export default function CreateSeatingChartPage() {
             {getCurrentStepTitle()}
           </h2>
           <button
-            onClick={goToPreviousStep}
+            onClick={handleCloseWizard}
             className="text-[#332B42] hover:text-[#A85C36] p-2 rounded-full"
             aria-label="Close wizard"
           >
@@ -685,6 +873,14 @@ export default function CreateSeatingChartPage() {
                 {currentStep === 2 ? 'Back to Guest Information' : 'Back to Table Layout'}
               </button>
             )}
+            
+            <button
+              onClick={handleSaveChart}
+              disabled={isLoading || !wizardState.chartName.trim()}
+              className="btn-primaryinverse"
+            >
+              Save
+            </button>
             
             {currentStep < 3 ? (
               <button
@@ -778,14 +974,11 @@ export default function CreateSeatingChartPage() {
 
       {/* Help Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-            {/* Fixed Header */}
-            <div className="flex-shrink-0 bg-white border-b border-[#AB9C95] px-6 py-4 flex items-center justify-between">
-              <h5 className="h5 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-[#805d93]" />
-                How to use your guest list
-              </h5>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[5px] shadow-xl max-w-xl w-full p-6 relative">
+            {/* Header row with title and close button */}
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="h5 text-left">How to use your guest list</h5>
               <button
                 onClick={() => setShowHelpModal(false)}
                 className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
@@ -795,72 +988,105 @@ export default function CreateSeatingChartPage() {
               </button>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              <div className="space-y-4">
-                {/* Linking Guests */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Link className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h6 className="h6 text-blue-900 mb-2">Link Guests Together</h6>
-                      <p className="text-sm text-blue-700 mb-2">
-                        Select multiple guests by clicking the checkboxes, then click "Link Guests" to group them together. 
-                        This helps Paige understand family relationships and seating preferences.
-                      </p>
-                      <p className="text-xs text-blue-600">
-                        💡 <strong>Pro tip:</strong> Link family members, couples, and close friends who should sit together.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            {/* Description */}
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 text-left">
+                Learn how to make the most of your guest list to help Paige create the perfect seating arrangement for your event.
+              </p>
+            </div>
 
-                {/* Notes Importance */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <StickyNote className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h6 className="h6 text-green-900 mb-2">Why Notes Are Important</h6>
-                      <p className="text-sm text-green-700 mb-2">
-                        Add detailed notes about each guest's preferences, dietary restrictions, accessibility needs, 
-                        or personality traits. Paige uses this information to create the perfect seating arrangement.
-                      </p>
-                      <p className="text-xs text-green-600">
-                        💡 <strong>Examples:</strong> "Wheelchair access needed", "Very social - good for mixing", "Prefers quiet area"
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* AI Features */}
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h6 className="h6 text-purple-900 mb-2">AI-Powered Seating</h6>
-                      <p className="text-sm text-purple-700 mb-2">
-                        Paige analyzes your guest list, relationships, and notes to automatically create optimal seating arrangements. 
-                        The more information you provide, the better the AI can match guests who will enjoy each other's company.
-                      </p>
-                      <p className="text-xs text-purple-600">
-                        💡 <strong>Coming next:</strong> AI will suggest table layouts and seating arrangements based on your guest data.
-                      </p>
-                    </div>
+            <div className="mb-6">
+              <h6 className="font-medium text-[#332B42] mb-3">Key features:</h6>
+              <ul className="space-y-2">
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Link Guests Together:</strong> Select multiple guests and group them to help Paige understand family relationships and seating preferences.
                   </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Add Detailed Notes:</strong> Include dietary restrictions, accessibility needs, or personality traits to help create optimal seating.
+                  </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>AI-Powered Seating:</strong> Paige analyzes your guest data to automatically create seating arrangements that work for everyone.
+                  </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Custom Columns:</strong> Add your own fields like meal preferences, relationship to you, or special requirements.
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="btn-primary px-6 py-2 text-sm"
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-[5px] border border-[#AB9C95] max-w-md w-full mx-4">
+            {/* Header */}
+            <div className="p-6 pb-4 border-b border-[#E0DBD7]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#805d93] rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-playfair font-semibold text-[#332B42]">
+                    Are you sure?
+                  </h3>
+                  <p className="text-sm text-[#AB9C95] mt-1">
+                    Leaving this page will cause all your work to disappear
+                  </p>
                 </div>
               </div>
             </div>
-
-            {/* Fixed Footer */}
-            <div className="flex-shrink-0 bg-white border-t border-[#AB9C95] px-6 py-4">
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowHelpModal(false)}
-                  className="btn-primary px-6 py-2 text-sm"
-                >
-                  Got it!
-                </button>
+            
+            {/* Content */}
+            <div className="p-6 pt-4">
+              <div className="bg-[#F3F2F0] rounded-lg p-4 mb-6">
+                <div className="text-xs text-[#332B42] font-medium mb-2">Current Progress:</div>
+                <div className="text-xs text-[#AB9C95] space-y-1">
+                  <div>• Chart Name: {wizardState.chartName || 'Not set'}</div>
+                  <div>• Guests: {wizardState.guests.length}</div>
+                  <div>• Tables: {wizardState.tableLayout.tables.length}</div>
+                </div>
               </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-6 pt-4 border-t border-[#E0DBD7]">
+              <button
+                onClick={handleConfirmExit}
+                className="btn-primaryinverse text-sm"
+              >
+                Yes, I'm sure
+              </button>
+              <button
+                onClick={handleSaveAndClose}
+                className="btn-primary text-sm"
+              >
+                Save & Close
+              </button>
             </div>
           </div>
         </div>

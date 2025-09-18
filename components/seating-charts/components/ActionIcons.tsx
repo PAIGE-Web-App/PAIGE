@@ -5,8 +5,8 @@ interface ActionIconsProps {
   guestId: string;
   tableId: string;
   seatNumber: number;
-  onMoveGuest: (guestId: string, tableId: string, seatNumber: number) => void;
-  onRemoveGuest: (guestId: string, tableId: string, seatNumber: number) => void;
+  onMoveGuest: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  onRemoveGuest: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
 }
 
 export const ActionIcons: React.FC<ActionIconsProps> = ({
@@ -27,7 +27,7 @@ export const ActionIcons: React.FC<ActionIconsProps> = ({
         fill="white"
         stroke="none"
         style={{ cursor: 'pointer', filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }}
-        onClick={() => onMoveGuest(guestId, tableId, seatNumber)}
+        onClick={() => onMoveGuest(guestId, tableId, position)}
       />
       {/* Simple up arrow */}
       <line
@@ -66,7 +66,7 @@ export const ActionIcons: React.FC<ActionIconsProps> = ({
         fill="white"
         stroke="none"
         style={{ cursor: 'pointer', filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }}
-        onClick={() => onRemoveGuest(guestId, tableId, seatNumber)}
+        onClick={() => onRemoveGuest(guestId, tableId, position)}
       />
       {/* Simple X mark */}
       <line

@@ -51,12 +51,13 @@ export default function TopNav() {
 
   const navItems = [ // Moved outside component
     { name: "Dashboard", href: "/" },
+    { name: "Messages", href: "/messages" },
     { name: "To-do Lists", href: "/todo" },
     { name: "Budget", href: "/budget" },
     { name: "Vendors", href: "/vendors" },
     { name: "Seating Charts", href: "/seating-charts" },
     { name: "Files", href: "/files" },
-            { name: "Mood Boards", href: "/moodboards" },
+    { name: "Mood Boards", href: "/moodboards" },
   ];
 
   useEffect(() => {

@@ -125,7 +125,7 @@ export default function SeatingChartWizardModal({
   };
 
   // Handle CSV upload
-  const handleGuestsUploaded = (uploadedGuests: any[]) => {
+  const handleGuestsUploaded = (uploadedGuests: any[], customColumns?: any[]) => {
     // Convert uploaded guests to our format
     const convertedGuests = uploadedGuests.map(guest => ({
       id: `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -137,9 +137,19 @@ export default function SeatingChartWizardModal({
       seatNumber: null
     }));
 
-    updateWizardState({ guests: convertedGuests });
+    // Add new guests to existing guests instead of replacing
+    updateWizardState({ guests: [...wizardState.guests, ...convertedGuests] });
+    
+    // Add custom columns if any were detected
+    if (customColumns && customColumns.length > 0) {
+      customColumns.forEach(customColumn => {
+        addColumn(customColumn);
+      });
+      console.log(`Added ${customColumns.length} custom columns from CSV upload`);
+    }
+    
     closeModal('csvUpload');
-    showSuccessToast(`${convertedGuests.length} guests imported successfully`);
+    showSuccessToast(`${convertedGuests.length} guests added successfully`);
   };
 
   // Handle meal options modal

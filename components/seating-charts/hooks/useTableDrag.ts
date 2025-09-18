@@ -12,7 +12,11 @@ export interface DragOffset {
   y: number;
 }
 
-export const useTableDrag = (tablePositions: TablePosition[], setTablePositions: (positions: TablePosition[]) => void) => {
+export const useTableDrag = (
+  tablePositions: TablePosition[], 
+  setTablePositions: (positions: TablePosition[]) => void,
+  onTableMoved?: (tableId: string, oldPosition: TablePosition, newPosition: TablePosition) => void
+) => {
   const [draggedTable, setDraggedTable] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<DragOffset>({ x: 0, y: 0 });
 
@@ -51,11 +55,19 @@ export const useTableDrag = (tablePositions: TablePosition[], setTablePositions:
               const newX = e.clientX - dragOffset.x;
               const newY = e.clientY - dragOffset.y;
               
-              return {
+              const oldPosition = { ...pos };
+              const newPosition = {
                 ...pos,
                 x: newX,
                 y: newY
               };
+              
+              // Call the callback to update guest assignments
+              if (onTableMoved) {
+                onTableMoved(draggedTable, oldPosition, newPosition);
+              }
+              
+              return newPosition;
             }
             return pos;
           });

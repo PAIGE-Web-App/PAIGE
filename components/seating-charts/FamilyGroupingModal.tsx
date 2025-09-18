@@ -106,7 +106,7 @@ export default function FamilyGroupingModal({
 
     onCreateFamilyGroup({
       name: groupName.trim(),
-      type: 'group', // Default type since we're removing the dropdown
+      type: 'family', // Use 'family' as the default type
       memberIds: selectedMemberIds,
     });
 

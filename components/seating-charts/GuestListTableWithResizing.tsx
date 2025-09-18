@@ -10,6 +10,7 @@ interface GuestListTableWithResizingProps {
   guestColumns: GuestColumn[];
   onUpdateGuest: (guestId: string, field: keyof Guest | string, value: string) => void;
   onRemoveGuest: (guestId: string) => void;
+  onUpdateColumn?: (columnId: string, updates: Partial<GuestColumn>) => void;
   onColumnResize?: (columnId: string, newWidth: number) => void;
   onShowMealOptionsModal?: (options: string[]) => void;
   onShowRelationshipOptionsModal?: (options: string[]) => void;
@@ -18,6 +19,7 @@ interface GuestListTableWithResizingProps {
   onShowLinkUsersModal?: (selectedGuestIds: string[]) => void;
   onEditGroup?: (groupId: string) => void;
   clearSelection?: boolean;
+  showValidationErrors?: boolean;
 }
 
 export default function GuestListTableWithResizing({
@@ -25,6 +27,7 @@ export default function GuestListTableWithResizing({
   guestColumns,
   onUpdateGuest,
   onRemoveGuest,
+  onUpdateColumn,
   onColumnResize,
   onShowMealOptionsModal,
   onShowRelationshipOptionsModal,
@@ -33,6 +36,7 @@ export default function GuestListTableWithResizing({
   onShowLinkUsersModal,
   onEditGroup,
   clearSelection = false,
+  showValidationErrors = false
 }: GuestListTableWithResizingProps) {
   // Helper function to get group color using category color system
   const getGroupColor = (groupName: string): string => {
@@ -104,9 +108,7 @@ export default function GuestListTableWithResizing({
       }
     });
   };
-  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
-  const [startX, setStartX] = useState(0);
-  const [startWidth, setStartWidth] = useState(0);
+  // Removed resizing-related state - no longer needed
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'asc' | 'desc';
@@ -137,18 +139,11 @@ export default function GuestListTableWithResizing({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [guestsToDelete, setGuestsToDelete] = useState<string[]>([]);
 
-  // Column widths state
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
-    fullName: wizardState.fullNameColumnWidth || 200,
-    ...guestColumns.reduce((acc, col) => {
-      acc[col.id] = col.width || 120; // Default to 120px instead of 200px
-      return acc;
-    }, {} as Record<string, number>),
-    actions: 80,
-  });
-  
-  // Add selection column width
-  const selectionColumnWidth = 50;
+  // Simplified column widths - let CSS handle the sizing
+  const columnWidths = {
+    fullName: '200px',
+    actions: '80px'
+  };
   
   // Sorting function
   const handleSort = (key: string) => {
@@ -282,18 +277,7 @@ export default function GuestListTableWithResizing({
     return filteredGuests;
   }, [wizardState.guests, sortConfig, globalFilter, columnFilters, selectedGroupFilter, wizardState.guestGroups, selectedRelationshipFilter, selectedMealPreferenceFilter]);
 
-  // Update column widths when guestColumns change (for newly added columns)
-  useEffect(() => {
-    setColumnWidths(prev => ({
-      ...prev,
-      ...guestColumns.reduce((acc, col) => {
-        if (!prev[col.id]) {
-          acc[col.id] = col.width || 120; // Default to 120px for new columns
-        }
-        return acc;
-      }, {} as Record<string, number>)
-    }));
-  }, [guestColumns]);
+  // Column widths are now handled by CSS classes - no need for dynamic updates
 
   // Handle click outside filter dropdown
   useEffect(() => {
@@ -366,33 +350,11 @@ export default function GuestListTableWithResizing({
   };
 
   const handleResizeStart = useCallback((e: React.MouseEvent, columnId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const startX = e.clientX;
-    const startWidth = columnWidths[columnId] || 200;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - startX;
-      const newWidth = Math.max(80, Math.min(400, startWidth + deltaX));
-      setColumnWidths(prev => ({
-        ...prev,
-        [columnId]: newWidth
-      }));
-    };
-
-    const handleMouseUp = () => {
-      setResizingColumn(null);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [columnWidths]);
+    // Simplified - no resizing functionality
+  }, []);
 
   return (
-    <div className="bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden w-full">
+    <div className="bg-white w-full border border-[#E0DBD7] rounded-[5px] overflow-hidden" style={{ maxWidth: '100%' }}>
       {/* Filter Bar */}
       <div className="p-4 border-b border-[#E0DBD7] bg-[#F8F6F4]">
         <div className="flex items-center justify-between">
@@ -626,14 +588,14 @@ export default function GuestListTableWithResizing({
             {/* Sort Pill */}
             {sortConfig && (
               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#805d93] text-white rounded-full">
-                {sortConfig.key === 'fullName' ? 'Name' : 
-                 sortConfig.key === 'relationship' ? 'Relationship' :
+                {sortConfig.key === 'fullName' ? 'Full Name' : 
+                 sortConfig.key === 'relationship' ? 'Relationship to You' :
                  sortConfig.key === 'mealPreference' ? 'Meal Preference' :
-                 sortConfig.key === 'notes' ? 'Notes' :
+                 sortConfig.key === 'notes' ? 'Notes/Seating Arrangement' :
                  sortConfig.key === 'primaryGroup' ? 'Primary Group' :
                  sortConfig.key === 'groupCount' ? 'Group Count' :
                  sortConfig.key === 'groupType' ? 'Group Type' :
-                 guestColumns.find(col => col.key === sortConfig.key)?.label || sortConfig.key}
+                 guestColumns.find(col => col.key === sortConfig.key || col.id === sortConfig.key)?.label || sortConfig.key}
                 : {sortConfig.direction === 'asc' ? 'A-Z' : 'Z-A'}
                 <button
                   onClick={() => setSortConfig(null)}
@@ -699,15 +661,33 @@ export default function GuestListTableWithResizing({
         </div>
       )}
       
-      <div className="overflow-x-auto w-full">
-        <table className="w-full border-collapse">
+      <div 
+        className="overflow-auto" 
+        style={{ 
+          width: '100%', 
+          height: 'min(400px, 50vh)',
+          minHeight: '300px',
+          maxHeight: sortConfig ? '400px' : '450px',
+          maxWidth: '100%',
+          minWidth: '0' // Allow shrinking
+        }}
+      >
+        <table 
+          className="border-collapse w-full"
+          style={{
+            minWidth: '800px',
+            maxWidth: '100%',
+            tableLayout: 'fixed',
+            wordWrap: 'break-word'
+          }}
+        >
           {/* Header */}
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#F8F6F4]">
               {/* Selection Column */}
               <th 
-                className="p-3 text-center text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap"
-                style={{ width: '50px' }}
+                className="py-2 px-1 text-center text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap w-6 overflow-hidden align-top"
+                  style={{ width: '30px' }}
               >
                 <input
                   type="checkbox"
@@ -721,8 +701,8 @@ export default function GuestListTableWithResizing({
               </th>
               
               <th
-                className="p-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors"
-                style={{ width: columnWidths.fullName }}
+                className="py-2 px-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors w-40 overflow-hidden align-top"
+                  style={{ width: '160px' }}
                 onClick={() => handleSort('fullName')}
               >
                 <div className="flex items-center justify-between">
@@ -740,34 +720,77 @@ export default function GuestListTableWithResizing({
                   </div>
                   <div className="w-1 h-full bg-transparent" />
                 </div>
-                <div
-                  className={`absolute top-0 right-0 w-1 h-full cursor-col-resize transition-opacity ${
-                    resizingColumn === 'fullName' 
-                      ? 'opacity-100 bg-[#A85C36]' 
-                      : 'opacity-0 group-hover:opacity-100 hover:bg-[#A85C36]'
-                  }`}
-                  onMouseDown={(e) => handleResizeStart(e, 'fullName')}
-                />
+                {/* Removed resize handle - no longer needed */}
               </th>
               {guestColumns.map((column) => (
                 <th 
                   key={column.id} 
-                  className="p-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors"
-                  style={{ width: columnWidths[column.id] }}
+                  className="py-2 px-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors w-48 overflow-hidden align-top"
+                  style={{ width: `${column.width || 200}px`, wordBreak: 'break-word', overflow: 'hidden' }}
                   onClick={() => handleSort(column.key)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>{column.label}</span>
-                      <span className="text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity">
-                        {sortConfig?.key === column.key ? (
-                          <span className="text-[#A85C36]">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                  <div className="flex items-center justify-between min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {column.isEditing ? (
+                        <input
+                          type="text"
+                          value={column.editingLabel !== undefined ? column.editingLabel : column.label}
+                          onChange={(e) => onUpdateColumn?.(column.id, { editingLabel: e.target.value })}
+                          onBlur={() => {
+                            if (column.editingLabel !== undefined) {
+                              const newLabel = column.editingLabel.trim();
+                              onUpdateColumn?.(column.id, { 
+                                label: newLabel, // Allow empty strings
+                                isEditing: false,
+                                editingLabel: undefined
+                              });
+                            } else {
+                              onUpdateColumn?.(column.id, { 
+                                isEditing: false,
+                                editingLabel: undefined
+                              });
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (column.editingLabel !== undefined) {
+                                const newLabel = column.editingLabel.trim();
+                                onUpdateColumn?.(column.id, { 
+                                  label: newLabel, // Allow empty strings
+                                  isEditing: false,
+                                  editingLabel: undefined
+                                });
+                              } else {
+                                onUpdateColumn?.(column.id, { 
+                                  isEditing: false,
+                                  editingLabel: undefined
+                                });
+                              }
+                            } else if (e.key === 'Escape') {
+                              onUpdateColumn?.(column.id, { 
+                                isEditing: false,
+                                editingLabel: undefined
+                              });
+                            }
+                          }}
+                          className="w-full text-sm font-medium text-[#AB9C95] bg-transparent border-none outline-none focus:ring-0"
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <span className="truncate block w-full">{column.label}</span>
+                          <span className="text-[#AB9C95] opacity-0 group-hover:opacity-100 transition-opacity">
+                            {sortConfig?.key === column.key ? (
+                              <span className="text-[#A85C36]">
+                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                              </span>
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5" />
+                            )}
                           </span>
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5" />
-                        )}
-                      </span>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
 
@@ -799,6 +822,23 @@ export default function GuestListTableWithResizing({
                           <Settings className="w-4 h-4" />
                         </button>
                       )}
+                      {/* Custom columns - show edit name button */}
+                      {column.isEditable && column.id !== 'mealPreference' && column.id !== 'relationship' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Start editing mode for this column
+                            onUpdateColumn?.(column.id, { 
+                              isEditing: true, 
+                              editingLabel: column.label 
+                            });
+                          }}
+                          className="text-xs text-[#AB9C95] hover:text-[#332B42] transition-colors opacity-0 group-hover:opacity-100"
+                          title="Edit column name"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      )}
                       {column.isRemovable && onRemoveColumn && (
                         <button
                           onClick={() => onRemoveColumn(column.id)}
@@ -810,29 +850,15 @@ export default function GuestListTableWithResizing({
                       )}
                     </div>
                   </div>
-                  <div
-                    className={`absolute top-0 right-0 w-1 h-full cursor-col-resize transition-opacity ${
-                      resizingColumn === column.id 
-                        ? 'opacity-100 bg-[#A85C36]' 
-                        : 'opacity-0 group-hover:opacity-100 hover:bg-[#A85C36]'
-                    }`}
-                    onMouseDown={(e) => handleResizeStart(e, column.id)}
-                  />
+                  {/* Removed resize handle - no longer needed */}
                 </th>
               ))}
               <th 
-                className="p-3 text-center text-sm font-medium text-[#AB9C95] whitespace-nowrap relative group"
-                style={{ width: columnWidths.actions }}
+                className="py-2 px-3 text-center text-sm font-medium text-[#AB9C95] whitespace-nowrap relative group w-16 overflow-hidden align-top"
+                  style={{ width: '60px' }}
               >
                 Actions
-                <div
-                  className={`absolute top-0 right-0 w-1 h-full cursor-col-resize transition-opacity ${
-                    resizingColumn === 'actions' 
-                      ? 'opacity-100 bg-[#A85C36]' 
-                      : 'opacity-0 group-hover:opacity-100 hover:bg-[#A85C36]'
-                  }`}
-                  onMouseDown={(e) => handleResizeStart(e, 'actions')}
-                />
+                {/* Removed resize handle - no longer needed */}
               </th>
             </tr>
           </thead>
@@ -850,14 +876,15 @@ export default function GuestListTableWithResizing({
               return (
                 <tr
                   key={guest.id}
-                  className={`border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] ${
+                  className={`border-b border-[#E0DBD7] hover:bg-[#F8F6F4] ${
                     index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
                   } ${selectedRows.has(guest.id) ? 'bg-[#F0F4FF] ring-1 ring-[#A85C36]' : ''}`}
+                  style={{ minHeight: '40px' }}
                 >
                 {/* Selection Column */}
                 <td 
-                  className="p-3 border-r border-[#E0DBD7] whitespace-nowrap text-center"
-                  style={{ width: '50px' }}
+                  className="py-2 px-1 border-r border-[#E0DBD7] text-center break-words w-6 align-top"
+                  style={{ width: '30px', wordBreak: 'break-word', overflow: 'hidden' }}
                 >
                   <input
                     type="checkbox"
@@ -868,19 +895,39 @@ export default function GuestListTableWithResizing({
                 </td>
                 
                 <td 
-                  className="p-3 border-r border-[#E0DBD7] whitespace-nowrap"
-                  style={{ width: columnWidths.fullName }}
+                  className={`py-2 px-3 border-r border-[#E0DBD7] w-40 break-words align-top ${
+                    showValidationErrors && !guest.fullName?.trim() 
+                      ? 'bg-red-50' 
+                      : ''
+                  }`}
+                  style={{ width: '160px', wordBreak: 'break-word', overflow: 'hidden' }}
                 >
                   <div className="flex items-center gap-2 flex-1">
+                    {showValidationErrors && !guest.fullName?.trim() && (
+                      <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                    )}
                     <input
                       type="text"
                       value={guest.fullName || ''}
                       onChange={(e) => onUpdateGuest(guest.id, 'fullName', e.target.value)}
-                      className="flex-1 border-none bg-transparent text-sm text-[#332B42] focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="flex-1 border-none bg-transparent text-sm text-[#332B42] focus:outline-none placeholder:text-[#AB9C95] placeholder:font-work"
+                      style={{ 
+                        wordBreak: 'break-word', 
+                        overflow: 'hidden', 
+                        maxWidth: '100%',
+                        whiteSpace: 'pre-wrap',
+                        height: 'auto',
+                        minHeight: '20px'
+                      }}
                       placeholder="Full Name"
                     />
                     {guestGroups.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
+                      <div className="flex flex-wrap gap-1 mt-1 justify-end">
                         {guestGroups.map((group, groupIndex) => (
                           <span
                             key={group.id}
@@ -914,8 +961,8 @@ export default function GuestListTableWithResizing({
                   return (
                     <td 
                       key={column.id} 
-                      className="p-3 border-r border-[#E0DBD7] whitespace-nowrap"
-                      style={{ width: columnWidths[column.id] }}
+                      className="py-2 px-3 border-r border-[#E0DBD7] w-48 break-words align-top"
+                      style={{ width: `${column.width || 200}px`, wordBreak: 'break-word', overflow: 'hidden' }}
                     >
                       {column.type === 'select' && column.options ? (
                         <div className="relative">
@@ -943,16 +990,52 @@ export default function GuestListTableWithResizing({
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                           </svg>
                         </div>
+                      ) : column.type === 'text' || column.id === 'notes' ? (
+                        <textarea
+                          value={cellValue}
+                          onChange={(e) => {
+                            onUpdateGuest(guest.id, column.key, e.target.value);
+                            // Auto-resize
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="w-full px-2 py-1 text-sm text-[#332B42] focus:outline-none border-none bg-transparent resize-none placeholder:text-[#AB9C95] placeholder:font-work"
+                          style={{ 
+                            wordBreak: 'break-word', 
+                            overflow: 'hidden', 
+                            maxWidth: '100%',
+                            whiteSpace: 'pre-wrap',
+                            height: 'auto',
+                            minHeight: '20px',
+                            maxHeight: '100px'
+                          }}
+                          placeholder={column.label}
+                          rows={1}
+                        />
                       ) : (
                         <input
                           type={column.type === 'number' ? 'number' : 'text'}
                           value={cellValue}
                           onChange={(e) => onUpdateGuest(guest.id, column.key, e.target.value)}
-                          className={`w-full px-2 py-1 text-sm text-[#332B42] focus:outline-none ${
-                            column.id === 'notes' 
-                              ? 'border-none bg-transparent' 
-                              : 'border border-[#AB9C95] rounded bg-white focus:ring-2 focus:ring-[#A85C36]'
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className={`w-full px-2 py-1 text-sm text-[#332B42] focus:outline-none placeholder:text-[#AB9C95] placeholder:font-work ${
+                            'border border-[#AB9C95] rounded bg-white focus:ring-2 focus:ring-[#A85C36]'
                           }`}
+                          style={{ 
+                            wordBreak: 'break-word', 
+                            overflow: 'hidden', 
+                            maxWidth: '100%'
+                          }}
                           placeholder={column.label}
                         />
                       )}
@@ -960,14 +1043,14 @@ export default function GuestListTableWithResizing({
                   );
                 })}
                 <td 
-                  className="p-3 whitespace-nowrap text-center"
-                  style={{ width: columnWidths.actions }}
+                  className="py-2 px-3 text-center break-words w-16 align-top"
+                  style={{ width: '60px', wordBreak: 'break-word', overflow: 'hidden' }}
                 >
                   <button
                     onClick={() => onRemoveGuest(guest.id)}
                     disabled={wizardState.guests.length === 1}
                     className={`transition-colors ${
-                      wizardState.guests.length === 1 
+                      wizardState.guests.length === 1
                         ? 'text-gray-400 cursor-not-allowed' 
                         : 'text-red-500 hover:text-red-700'
                     }`}
