@@ -63,10 +63,41 @@ export default function Login() {
   useEffect(() => {
     console.log('🔍 Login page - user state:', user ? `Logged in as ${user.email}` : 'Not logged in');
     if (user) {
-      console.log('🔄 Redirecting authenticated user to home page...');
-      router.push('/');
+      console.log('🔄 User authenticated, checking onboarding status...');
+      
+      // Check user's onboarding status and redirect accordingly
+      const checkUserAndRedirect = async () => {
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (!userDocSnap.exists()) {
+            console.log('🔄 User not found in Firestore, redirecting to signup...');
+            window.location.href = '/signup?existing=1';
+            return;
+          }
+          
+          const userData = userDocSnap.data();
+          if (userData.onboarded === true) {
+            console.log('✅ User is onboarded, redirecting to dashboard...');
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('showLoginToast', '1');
+            }
+            window.location.href = "/";
+          } else {
+            console.log('🔄 User is not onboarded, redirecting to signup...');
+            window.location.href = '/signup?onboarding=1';
+          }
+        } catch (error) {
+          console.error('Error checking user status:', error);
+          // Fallback to dashboard redirect
+          window.location.href = "/";
+        }
+      };
+      
+      checkUserAndRedirect();
     }
-  }, [user, router]);
+  }, [user]);
 
   useEffect(() => {
     if (searchParams?.get && searchParams.get("existing")) {
@@ -278,15 +309,8 @@ export default function Login() {
       const result = await signInWithPopup(auth, provider);
       console.log('✅ [Fresh Google Login] Google authentication successful:', result.user.email);
       
-      
-      // Save Google account info for future detection
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('lastSignInMethod', 'google');
-        localStorage.setItem('lastGoogleEmail', result.user.email || '');
-        localStorage.setItem('lastGoogleName', result.user.displayName || '');
-        localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
-        localStorage.setItem('lastGoogleUserId', result.user.uid);
-      }
+      // Don't save Google account info to localStorage yet - let the auth state handle the redirect
+      // This prevents the page from showing "Continue as" button after popup completes
       
       // Store Gmail tokens from the login popup
       try {
@@ -352,52 +376,17 @@ export default function Login() {
         }
       }
       
-      // Check if user doc exists in Firestore BEFORE session login
-      const userDocRef = doc(db, "users", result.user.uid);
-      const userDocSnap = await getDoc(userDocRef);
+      // Let the authentication state handle the redirect
+      // The user state will update and trigger the redirect useEffect
+      console.log('✅ [Fresh Google Login] Authentication complete, letting auth state handle redirect...');
       
-      if (!userDocSnap.exists()) {
-        // User doesn't exist in Firestore, redirect to signup immediately
-        console.log('🔄 [Fresh Google Login] User not found in Firestore, redirecting to signup...');
-        // Use window.location.href to ensure a full redirect and avoid race conditions
-        window.location.href = '/signup?existing=1';
-        return;
-      }
-      
-      console.log('✅ [Fresh Google Login] User exists in Firestore, proceeding with session login...');
-      const idToken = await result.user.getIdToken();
-      
-      
-      // POST the ID token to your session login API
-      const res = await fetch("/api/sessionLogin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      });
-      
-
-      
-      if (res.ok) {
-        console.log('✅ [Fresh Google Login] Session login successful, checking onboarding status...');
-        
-        // Check onboarding status before redirecting
-        const userData = userDocSnap.data();
-        if (userData.onboarded === true) {
-          // User is onboarded, redirect to dashboard
-          console.log('✅ [Fresh Google Login] User is onboarded, redirecting to dashboard...');
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('showLoginToast', '1');
-          }
-          window.location.href = "/";
-        } else {
-          // User is not onboarded, redirect to signup
-          console.log('🔄 [Fresh Google Login] User is not onboarded, redirecting to signup...');
-          window.location.href = '/signup?onboarding=1';
-        }
-      } else {
-        const errorText = await res.text();
-        console.error('❌ [Fresh Google Login] Session login failed:', errorText);
-        showErrorToast("Session login failed");
+      // Save Google account info for future detection after successful authentication
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastSignInMethod', 'google');
+        localStorage.setItem('lastGoogleEmail', result.user.email || '');
+        localStorage.setItem('lastGoogleName', result.user.displayName || '');
+        localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
+        localStorage.setItem('lastGoogleUserId', result.user.uid);
       }
     } catch (err: any) {
       console.error('❌ [Fresh Google Login] Error details:', {
