@@ -1,3 +1,19 @@
+import React from 'react';
+
+export interface ProgressItem {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  link: string;
+  icon: React.ReactNode;
+  category: 'profile' | 'contacts' | 'budget' | 'todo' | 'moodboard' | 'seating' | 'messages' | 'venue' | 'destination' | 'files' | 'ai' | 'credits';
+  actionText: string;
+  jiggleField?: string;
+  scrollToField?: string;
+  customHandler?: () => void;
+}
+
 export interface Guest {
   id: string;
   fullName: string;

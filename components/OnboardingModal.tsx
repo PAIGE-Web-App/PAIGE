@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { getUserCollectionRef } from "../lib/firebase";
@@ -65,6 +66,7 @@ const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
 
 export default function OnboardingModal({ userId, onClose, onComplete }: OnboardingModalProps) {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingContacts, setOnboardingContacts] = useState<OnboardingContact[]>([
     {
@@ -319,6 +321,10 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
           await saveContactToFirestore(contact);
         }
         showSuccessToast("Contacts saved successfully!");
+        
+        // Show completion toast for adding first contacts
+        showCompletionToast('contacts');
+        
         setErrors({});
         setCurrentStep(currentStep + 1);
       } catch (error) {

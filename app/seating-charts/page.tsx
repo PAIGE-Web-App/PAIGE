@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { SeatingChart } from '@/types/seatingChart';
@@ -15,6 +16,7 @@ export default function SeatingChartsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const weddingBannerData = useWeddingBanner(router);
   
   const [seatingCharts, setSeatingCharts] = useState<SeatingChart[]>([]);

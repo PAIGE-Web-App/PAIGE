@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 
@@ -62,9 +62,6 @@ const NewListOnboardingModal = dynamic(() => import('@/components/NewListOnboard
   ssr: false
 });
 
-const ContinuousImprovementModal = dynamic(() => import('@/components/ContinuousImprovementModal'), {
-  ssr: false
-});
 
 const GoogleCalendarSync = dynamic(() => import('../../components/GoogleCalendarSync'), {
   ssr: false
@@ -79,13 +76,16 @@ import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
 import { saveCategoryIfNew, deleteCategoryByName, defaultCategories } from "@/lib/firebaseCategories";
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useMobileTodoState } from "../../hooks/useMobileTodoState";
+import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
 export default function TodoPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showSuccessToast, showInfoToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
@@ -94,11 +94,6 @@ export default function TodoPage() {
   const todoLists = useTodoLists();
   const todoItems = useTodoItems(todoLists.selectedList);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
-  const [showContinuousImprovementModal, setShowContinuousImprovementModal] = React.useState(false);
-  const [aiGeneratedListData, setAiGeneratedListData] = React.useState<{
-    categories: string[];
-    promptType: string;
-  } | null>(null);
   const viewOptions = useTodoViewOptions(
     todoItems.todoItems,
     todoItems.handleReorderAndAdjustDeadline,
@@ -234,33 +229,19 @@ export default function TodoPage() {
 
   const [showNewListModal, setShowNewListModal] = React.useState(false);
 
-  // Custom onSubmit handler to detect AI-generated lists
+  // Custom onSubmit handler for list creation
   const handleListCreation = async (listData: { name: string; tasks: any[] }) => {
-    // Check if this is an AI-generated list (has tasks with AI-generated characteristics)
-    const isAiGenerated = listData.tasks.some(task => 
-      task.note && task.note.includes('wedding') || 
-      task.category && ['Venue', 'Catering', 'Photography', 'Flowers', 'Music'].includes(task.category)
-    );
-
-    if (isAiGenerated) {
-      // Extract categories from the tasks
-      const categories = [...new Set(listData.tasks.map(task => task.category).filter(Boolean))];
+    try {
+      // Call the original handleAddList
+      await todoLists.handleAddList(listData.name, listData.tasks);
+      // Close the modal after successful creation
+      setShowNewListModal(false);
       
-      // Store the data for the modal
-      setAiGeneratedListData({
-        categories,
-        promptType: 'comprehensive'
-      });
-    }
-
-    // Call the original handleAddList
-    await todoLists.handleAddList(listData.name, listData.tasks);
-
-    // Show the continuous improvement modal if it was AI-generated
-    if (isAiGenerated) {
-      setTimeout(() => {
-        setShowContinuousImprovementModal(true);
-      }, 1000); // Small delay to ensure the list is created and selected
+      // Show completion toast for creating first todo list
+      showCompletionToast('todos');
+    } catch (error) {
+      console.error('Error creating list:', error);
+      // Don't close modal on error so user can try again
     }
   };
 
@@ -277,22 +258,29 @@ export default function TodoPage() {
     };
     window.addEventListener('create-todo-list-from-ai', aiHandler);
     
-    // Check URL params for AI generation
-    const urlParams = new URLSearchParams(window.location.search);
-    const aiGenerate = urlParams.get('ai-generate');
-    const description = urlParams.get('description');
+    // Check URL params for AI generation and new list creation
+    const aiGenerate = searchParams?.get('ai-generate');
+    const description = searchParams?.get('description');
+    const newList = searchParams?.get('new-list');
     
     if (aiGenerate === 'true' && description) {
       setShowNewListModal(true);
       // Clear the URL params
-      window.history.replaceState({}, '', '/todo');
+      router.replace('/todo');
+    } else if (newList === 'true') {
+      // Add a small delay to ensure component is fully mounted
+      setTimeout(() => {
+        setShowNewListModal(true);
+      }, 100);
+      // Clear the URL params
+      router.replace('/todo');
     }
     
     return () => {
       window.removeEventListener('open-new-list-modal', handler);
       window.removeEventListener('create-todo-list-from-ai', aiHandler);
     };
-  }, []);
+  }, [searchParams, router]);
 
   // Note: Highlight functionality is now handled directly in the dashboard
   // No need for URL parameter handling
@@ -641,29 +629,6 @@ export default function TodoPage() {
         onSubmit={handleListCreation}
       />
 
-      {/* Continuous Improvement Modal */}
-      {aiGeneratedListData && (
-        <ContinuousImprovementModal
-          isOpen={showContinuousImprovementModal}
-          onClose={() => {
-            setShowContinuousImprovementModal(false);
-            setAiGeneratedListData(null);
-          }}
-          userId={user?.uid || ''}
-          categories={aiGeneratedListData.categories}
-          promptType={aiGeneratedListData.promptType}
-          onCreditsAwarded={(credits) => {
-            // Trigger credit refresh
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('creditUpdateEvent', Date.now().toString());
-              setTimeout(async () => {
-                const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-                creditEventEmitter.emit();
-              }, 1000);
-            }
-          }}
-        />
-      )}
 
       {/* Mobile Navigation is handled by VerticalNavWrapper */}
     </div>

@@ -16,6 +16,7 @@ import FamilyGroupingModal from '@/components/seating-charts/FamilyGroupingModal
 import EditGroupModal from '@/components/seating-charts/EditGroupModal';
 
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
 import { SeatingChart } from '@/types/seatingChart';
 import BadgeCount from '@/components/BadgeCount';
 import { saveSeatingChart, getSeatingCharts, updateSeatingChart } from '@/lib/seatingChartService';
@@ -25,6 +26,7 @@ export default function CreateSeatingChartPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -454,6 +456,9 @@ export default function CreateSeatingChartPage() {
         const chartId = await saveSeatingChart(chartData, user.uid);
         setEditingChartId(chartId);
         showSuccessToast('Chart saved successfully!');
+        
+        // Show completion toast for creating first seating chart
+        showCompletionToast('seating-chart');
       }
     } catch (error) {
       console.error('Save chart error:', error);

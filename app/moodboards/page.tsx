@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "../../contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
@@ -11,6 +11,7 @@ import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
+import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
 import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
 import { useCredits } from "../../contexts/CreditContext";
@@ -51,9 +52,11 @@ import { COUPLE_SUBSCRIPTION_CREDITS } from "../../types/credits";
 export default function MoodBoardsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const { credits, refreshCredits } = useCredits();
   
   // User plan (for now, default to free - you can integrate with your billing system)
@@ -111,6 +114,7 @@ export default function MoodBoardsPage() {
   
   // Not enough credits modal state
   const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
+
   const [creditModalData, setCreditModalData] = useState({
     requiredCredits: 2,
     currentCredits: 0,
@@ -132,6 +136,23 @@ export default function MoodBoardsPage() {
   const activeBoard = useMemo(() => {
     return getActiveBoard(moodBoards, activeMoodBoard);
   }, [moodBoards, activeMoodBoard]);
+
+  // Handle custom event for opening new board modal from dashboard
+  useEffect(() => {
+    const handler = () => {
+      if (!canCreateNewBoard) {
+        setShowUpgradeModal(true);
+      } else {
+        setShowNewBoardModal(true);
+      }
+    };
+    
+    window.addEventListener('open-new-board-modal', handler);
+    
+    return () => {
+      window.removeEventListener('open-new-board-modal', handler);
+    };
+  }, [canCreateNewBoard, moodBoards.length, userPlan.maxBoards]);
 
   const boardCount = useMemo(() => {
     return moodBoards.length;
@@ -550,6 +571,9 @@ export default function MoodBoardsPage() {
       setShowNewBoardModal(false);
       setNewBoardName('');
       showSuccessToast(`Created new mood board: ${name}`);
+      
+      // Show completion toast for creating first moodboard
+      showCompletionToast('moodboard');
       
       // Save to Firestore (will be handled by useEffect)
     } catch (error) {

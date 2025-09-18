@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCustomToast } from './useCustomToast';
+import { useGlobalCompletionToasts } from './useGlobalCompletionToasts';
 import { useAuth } from './useAuth';
 import { useCredits } from '@/contexts/CreditContext';
 import { getCategoryColor } from '@/utils/categoryIcons';
@@ -43,6 +44,7 @@ export function useBudget() {
   const { user } = useAuth();
   const { refreshCredits } = useCredits();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const { generateTodos } = useRAGTodoGeneration();
 
   // State for budget categories
@@ -403,6 +405,11 @@ export function useBudget() {
       }
 
       showSuccessToast(`Category "${name}" added!`);
+      
+      // Show completion toast for creating first budget category
+      if (budgetCategories.length === 0) {
+        showCompletionToast('budget');
+      }
     } catch (error: any) {
       console.error('Error adding category:', error);
       showErrorToast(`Failed to add category: ${error.message}`);

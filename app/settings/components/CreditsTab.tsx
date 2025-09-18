@@ -1,17 +1,51 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import { Sparkles, Zap, FileText, MessageSquare, Calendar, DollarSign, Heart, Users, HelpCircle } from 'lucide-react';
 import { useCredits } from '../../../contexts/CreditContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserType } from '../../../types/credits';
+import { useGlobalCompletionToasts } from '../../../hooks/useGlobalCompletionToasts';
 
 export default function CreditsTab() {
   const { credits, getRemainingCredits, loading } = useCredits();
   const { userType } = useAuth();
+  const { showCompletionToast } = useGlobalCompletionToasts();
+  const [hasScrolled, setHasScrolled] = useState(false);
   
   const remainingCredits = getRemainingCredits();
   const dailyCredits = credits?.dailyCredits || 0;
   const bonusCredits = credits?.bonusCredits || 0;
+
+  // Check if user has scrolled on this page and trigger completion
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!hasScrolled) {
+        setHasScrolled(true);
+        
+        // Store completion in localStorage for persistence
+        localStorage.setItem('paige-ai-completed', 'true');
+        
+        // Dispatch completion event for dashboard to listen (if it's open)
+        window.dispatchEvent(new CustomEvent('progressItemCompleted', {
+          detail: { itemId: 'paige-ai' }
+        }));
+        
+        // Also show the toast
+        showCompletionToast('paige-ai');
+      }
+    };
+
+    // Add a small delay to ensure the component is fully mounted
+    const timer = setTimeout(() => {
+      window.addEventListener('scroll', handleScroll);
+    }, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [hasScrolled, showCompletionToast]);
 
   const featureExamples = {
     couple: [
@@ -94,7 +128,7 @@ export default function CreditsTab() {
       </div>
 
       {/* AI Features & Costs */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div id="ai-features-section" className="bg-white rounded-lg p-6 shadow-sm">
         <h5 className="mb-6">AI Features & Credit Costs</h5>
         
         <p className="text-xs text-gray-600 mb-4">

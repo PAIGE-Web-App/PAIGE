@@ -8,6 +8,7 @@ import { useFiles } from '@/hooks/useFiles';
 import { useStorageUsage } from '@/hooks/useStorageUsage';
 import { useFilesPageState } from '@/hooks/useFilesPageState';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
 import { useExternalFileUpload } from '@/hooks/useExternalFileUpload';
 import { useModalHandlers } from '@/hooks/useModalHandlers';
 import { useFileNavigation } from '@/hooks/useFileNavigation';
@@ -57,6 +58,7 @@ export default function FilesPage() {
   const { user, loading } = useAuth();
   const { daysLeft, userName, profileLoading } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   const {
     folders,
     selectedFolder,
@@ -226,7 +228,16 @@ export default function FilesPage() {
 
   // External file upload handling
   useExternalFileUpload({
-    uploadFile,
+    uploadFile: async (uploadData: any) => {
+      const result = await uploadFile(uploadData);
+      
+      // Show completion toast for first file upload
+      if (files.length === 0) {
+        showCompletionToast('files');
+      }
+      
+      return result;
+    },
     showSuccessToast,
     showErrorToast
   });

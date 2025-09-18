@@ -31,7 +31,7 @@ const TABS = [
     key: 'ai',
     label: 'Create with Paige',
     icon: <Sparkles className="w-5 h-5 mr-1" />,
-    description: 'Describe what you need, and let PAIGE generate a smart to-do list for you in seconds.'
+    description: 'Describe what you need, and let PAIGE generate a smart to-do list with realistic deadlines based on your wedding date.'
   },
   {
     key: 'manual',
@@ -84,6 +84,9 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   // Not enough credits modal state
   const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
   const userCredits = COUPLE_SUBSCRIPTION_CREDITS.free; // For credit information
+  
+  // List name validation state
+  const [listNameError, setListNameError] = React.useState<string | null>(null);
 
   // Create a simple contacts array for assignment functionality
   const contacts = React.useMemo(() => {
@@ -222,7 +225,34 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Function to check if list name already exists
+  const checkListNameExists = async (name: string) => {
+    if (!name.trim()) {
+      return true;
+    }
+    
+    if (!user?.uid) {
+      return false;
+    }
+
+    try {
+      const res = await fetch('/api/check-list-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listName: name.trim(), userId: user.uid }),
+      });
+
+      if (!res.ok) throw new Error('Failed to check list name');
+      
+      const data = await res.json();
+      return data.exists;
+    } catch (error) {
+      console.error('Error checking list name:', error);
+      return false;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedTab === 'ai') {
       const aiResult: any = aiListResult;
@@ -232,6 +262,16 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       if (!validateListName(aiResult.name)) {
         return; // Don't submit if list name is empty
       }
+
+      // Check for duplicate name before submitting
+      const nameExists = await checkListNameExists(aiResult.name);
+      if (nameExists) {
+        setListNameError('A list with this name already exists');
+        return; // Don't submit if name already exists
+      }
+      
+      // Clear any existing errors since validation passed
+      setListNameError(null);
 
       // Check if form can be submitted (no validation errors)
       if (!canSubmit) {
@@ -287,6 +327,17 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       });
     } else if (selectedTab === 'manual') {
       if (!listName.trim()) return;
+      
+      // Check for duplicate name before submitting
+      const nameExists = await checkListNameExists(listName);
+      if (nameExists) {
+        setListNameError('A list with this name already exists');
+        return; // Don't submit if name already exists
+      }
+      
+      // Clear any existing errors since validation passed
+      setListNameError(null);
+      
       const validTasks: any[] = tasks
         .filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate))
         .map(task => ({
@@ -408,7 +459,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
         steps={STEPS}
         currentStep={step}
         onStepChange={handleStepChange}
-        sidebarTitle={step === 1 ? "Select Type" : "Build your List"}
+          sidebarTitle={step === 1 ? "Todo Create Wizard" : "Build your List"}
         footer={
           step === 1 ? (
             <button
@@ -514,6 +565,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   contacts={contacts}
                   currentUser={currentUser}
                   onAssign={handleAssignTodo}
+                  listNameError={listNameError}
+                  setListNameError={setListNameError}
                   tasks={tasks}
                   setTasks={setTasks}
                   user={user}
@@ -703,14 +756,13 @@ const ImportListCreationForm = () => {
   );
 };
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits, listNameError, setListNameError }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any, listNameError: string | null, setListNameError: (error: string | null) => void }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const { generateTodos, isLoading: ragLoading, error: ragError } = useRAGTodoGeneration();
   const [showSlowGenerationBanner, setShowSlowGenerationBanner] = React.useState(false);
   const slowGenerationTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const [listNameError, setListNameError] = React.useState<string | null>(null);
   const [isCheckingName, setIsCheckingName] = React.useState(false);
   const [useProgressiveGeneration, setUseProgressiveGeneration] = React.useState(true);
   const [loadingProgress, setLoadingProgress] = React.useState(0);
@@ -799,8 +851,8 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
     return typeof str === 'string' && /^[a-zA-Z0-9]{15,}$/.test(str) && /\d/.test(str);
   }
 
-  // Function to check if list name already exists
-  const checkListNameExists = async (name: string) => {
+  // Function to check if list name already exists (for real-time validation)
+  const checkListNameExistsRealtime = async (name: string) => {
     if (!name.trim()) {
       setListNameError('List name is required');
       return true;
@@ -1232,7 +1284,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
               onBlur={(e) => {
                 // Check for duplicate name when user leaves the input
                 if (e.target.value.trim()) {
-                  checkListNameExists(e.target.value);
+                  checkListNameExistsRealtime(e.target.value);
                 }
               }}
               placeholder="Enter list name"

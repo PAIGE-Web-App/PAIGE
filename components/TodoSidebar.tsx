@@ -208,45 +208,58 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
               </span>
             </div>
             <SectionHeader title="Your Lists" className="pt-3" />
-            {todoLists.map((list) => (
-              <div
-                key={list.id}
-                onClick={() => onListSelect(list)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Don't allow dropping into the currently selected list
-                  if (draggedTodoId && onMoveTodoItem && selectedListId !== list.id) {
-                    e.currentTarget.classList.add('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
-                    setHoveredListForMove(list);
-                  }
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            {todoLists.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <img 
+                  src="/todo.png" 
+                  alt="No todo lists" 
+                  className="w-24 h-24 mb-4 opacity-60"
+                />
+                <p className="text-sm text-[#7A7A7A] text-center">
+                  No To-do lists yet. Create a New List above!
+                </p>
+              </div>
+            ) : (
+              todoLists.map((list) => (
+                <div
+                  key={list.id}
+                  onClick={() => onListSelect(list)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Don't allow dropping into the currently selected list
+                    if (draggedTodoId && onMoveTodoItem && selectedListId !== list.id) {
+                      e.currentTarget.classList.add('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
+                      setHoveredListForMove(list);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
+                      setHoveredListForMove(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
                     setHoveredListForMove(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
-                  setHoveredListForMove(null);
-                  // Don't allow dropping into the currently selected list
-                  if (draggedTodoId && onMoveTodoItem && selectedListId !== list.id) {
-                    onMoveTodoItem(draggedTodoId, selectedListId || '', list.id);
-                  }
-                }}
-                className={`px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id && mobileViewMode !== 'lists' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${draggedTodoId && onMoveTodoItem && selectedListId !== list.id ? 'cursor-copy' : ''}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="truncate flex-1 min-w-0" title={draggedTodoId && onMoveTodoItem ? `Drop to-do item here to move it to "${list.name}"` : list.name}>{list.name}</span>
-                  <BadgeCount count={listTaskCounts.get(list.id) ?? 0} />
+                    // Don't allow dropping into the currently selected list
+                    if (draggedTodoId && onMoveTodoItem && selectedListId !== list.id) {
+                      onMoveTodoItem(draggedTodoId, selectedListId || '', list.id);
+                    }
+                  }}
+                  className={`px-0 lg:px-3 py-2 rounded-[5px] text-[#332B42] text-sm font-medium cursor-pointer ${selectedList?.id === list.id && mobileViewMode !== 'lists' ? 'bg-[#EBE3DD] border border-[#A85C36]' : 'hover:bg-[#F8F6F4] border border-transparent hover:border-[#AB9C95]'} ${draggedTodoId && onMoveTodoItem && selectedListId !== list.id ? 'cursor-copy' : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate flex-1 min-w-0" title={draggedTodoId && onMoveTodoItem ? `Drop to-do item here to move it to "${list.name}"` : list.name}>{list.name}</span>
+                    <BadgeCount count={listTaskCounts.get(list.id) ?? 0} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
                       </div>
           </div>
           

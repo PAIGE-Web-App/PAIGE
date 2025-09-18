@@ -10,6 +10,7 @@ import { useDraftMessage } from "../../hooks/useDraftMessage";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import { db, getUserCollectionRef } from "../../lib/firebase";
 import { useCustomToast } from "@/hooks/useCustomToast";
+import { useGlobalCompletionToasts } from "@/hooks/useGlobalCompletionToasts";
 
 // Lazy load heavy components for better initial bundle size
 const MessageArea = lazy(() => import("../../components/MessageArea"));
@@ -172,6 +173,7 @@ export default function MessagesPage() {
   // Hooks
   const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

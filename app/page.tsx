@@ -7,24 +7,23 @@ import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import WeddingBanner from "../components/WeddingBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useCustomToast } from "../hooks/useCustomToast";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { useGlobalCompletionToasts } from "../hooks/useGlobalCompletionToasts";
+import toast from "react-hot-toast";
+import { doc, getDoc, collection, getDocs, query, limit } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { ProgressItem } from "../types/seatingChart";
 import { CheckCircle, Circle, Users, Heart, ClipboardList, Palette, DollarSign, Calendar, MessageSquare, Sparkles, ArrowRight, ChevronDown, ChevronUp, MapPin, Home, Star, FileText, Bot } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import CreditsExplanationModal from "../components/CreditsExplanationModal";
+import { 
+  DashboardWelcome, 
+  QuickGuide, 
+  QuickActions, 
+  ProgressOverview, 
+  ProgressAccordion 
+} from "../components/dashboard";
 
-interface ProgressItem {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  link: string;
-  icon: React.ReactNode;
-  category: 'profile' | 'contacts' | 'budget' | 'todo' | 'moodboard' | 'seating' | 'messages' | 'venue' | 'destination' | 'files' | 'ai';
-  actionText: string;
-  jiggleField?: string;
-  scrollToField?: string;
-}
 
 export default function Dashboard() {
   const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
@@ -37,16 +36,23 @@ export default function Dashboard() {
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
   const [previousCompletedItems, setPreviousCompletedItems] = useState<Set<string>>(new Set());
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [creditsCompleted, setCreditsCompleted] = useState(false);
+  const [aiCompleted, setAiCompleted] = useState(false);
 
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { showInfoToast } = useCustomToast();
+  const { showCompletionToast } = useGlobalCompletionToasts();
   
   // Fetch user data and progress information
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
       
+      setProgressLoading(true);
       try {
         // Fetch user profile data
         const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -58,48 +64,94 @@ export default function Dashboard() {
           const progressChecks = await checkProgressData(user.uid, userData);
           setProgressData(progressChecks);
         }
-      } catch (error) {
+  } catch (error) {
         console.error('Error fetching user data:', error);
+      } finally {
+        setProgressLoading(false);
       }
     };
 
     fetchUserData();
   }, [user]);
 
-  // Check progress data for all items
+  // Refresh progress data when page becomes visible (e.g., when navigating back from other pages)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        // Page became visible, refresh progress data
+        const refreshProgress = async () => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const progressChecks = await checkProgressData(user.uid, userData);
+              setProgressData(progressChecks);
+            }
+          } catch (error) {
+            console.error('Error refreshing progress data:', error);
+          }
+        };
+        refreshProgress();
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        // Window gained focus, refresh progress data
+        const refreshProgress = async () => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              const progressChecks = await checkProgressData(user.uid, userData);
+              setProgressData(progressChecks);
+      }
+    } catch (error) {
+            console.error('Error refreshing progress data:', error);
+          }
+        };
+        refreshProgress();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
+
+  // Check progress data for all items - optimized with batched queries
   const checkProgressData = async (userId: string, userData: any) => {
     const checks: any = {};
     
     try {
-      // Check contacts
-      const contactsSnapshot = await getDocs(collection(db, 'users', userId, 'contacts'));
-      checks.hasContacts = contactsSnapshot.size > 0;
+      // Batch all Firestore queries in parallel with limit(1) for existence checks
+      const [contacts, todos, budget, seating, files, vendors] = await Promise.all([
+        getDocs(query(collection(db, 'users', userId, 'contacts'), limit(1))),
+        getDocs(query(collection(db, 'users', userId, 'todoLists'), limit(1))),
+        getDocs(query(collection(db, 'users', userId, 'budgetCategories'), limit(1))),
+        getDocs(query(collection(db, 'users', userId, 'seatingCharts'), limit(1))),
+        getDocs(query(collection(db, 'users', userId, 'files'), limit(1))),
+        getDocs(query(collection(db, 'users', userId, 'vendors'), limit(1)))
+      ]);
       
-      // Check todos
-      const todosSnapshot = await getDocs(collection(db, 'users', userId, 'todos'));
-      checks.hasTodos = todosSnapshot.size > 0;
+      // Process results
+      checks.hasContacts = contacts.size > 0;
+      checks.hasTodos = todos.size > 0;
+      checks.hasBudget = budget.size > 0;
+      checks.hasSeatingCharts = seating.size > 0;
+      checks.hasVisitedFiles = files.size > 0;
+      checks.hasVendors = vendors.size > 0;
       
-      // Check budget categories
-      const budgetSnapshot = await getDocs(collection(db, 'users', userId, 'budgetCategories'));
-      checks.hasBudget = budgetSnapshot.size > 0;
-      
-      // Check moodboards
+      // Check moodboards (no Firestore query needed - uses userData)
       checks.hasMoodboards = (userData.moodBoards && userData.moodBoards.length > 0) || 
                             (userData.vibe && userData.vibe.length > 0);
       
-      // Check seating charts
-      const seatingSnapshot = await getDocs(collection(db, 'users', userId, 'seatingCharts'));
-      checks.hasSeatingCharts = seatingSnapshot.size > 0;
-      
-      // Check files (if user has visited files page)
-      checks.hasVisitedFiles = userData.hasVisitedFiles || false;
-      
-      // Check AI functions usage
+      // Check AI functions usage (no Firestore query needed - uses userData)
       checks.hasUsedAI = userData.aiFunctionsUsed || false;
-      
-      // Check vendors
-      const vendorsSnapshot = await getDocs(collection(db, 'users', userId, 'vendors'));
-      checks.hasVendors = vendorsSnapshot.size > 0;
       
     } catch (error) {
       console.error('Error checking progress data:', error);
@@ -124,7 +176,7 @@ export default function Dashboard() {
   // Handle jiggle effect for settings page fields
   const handleJiggleEffect = (fieldName: string) => {
     setJiggleFields(prev => new Set(prev).add(fieldName));
-    setTimeout(() => {
+      setTimeout(() => {
       setJiggleFields(prev => {
         const newSet = new Set(prev);
         newSet.delete(fieldName);
@@ -133,32 +185,30 @@ export default function Dashboard() {
     }, 700); // Match the jiggle animation duration
   };
 
-  // Show completion toast for newly completed items
-  const showCompletionToast = (itemId: string) => {
-    const completionMessages: { [key: string]: string } = {
-      'wedding-date': '🎉 Amazing! Your wedding date is set!',
-      'wedding-destination': '🌍 Perfect! Your wedding destination is chosen!',
-      'venue': '🏰 Fantastic! Your dream venue is selected!',
-      'vibes': '✨ Beautiful! Your wedding vibes are defined!',
-      'vendors': '🤝 Excellent! You\'ve started exploring vendors!',
-      'contacts': '📞 Great! Your first contact is added!',
-      'budget': '💰 Smart! Your wedding budget is planned!',
-      'todos': '✅ Wonderful! Your first todo list is created!',
-      'moodboard': '🎨 Stunning! Your first moodboard is ready!',
-      'seating-chart': '🪑 Perfect! Your seating chart is created!',
-      'files': '📁 Excellent! Your first file is uploaded!',
-      'paige-ai': '🤖 Incredible! You\'ve discovered Paige\'s AI magic!'
-    };
-
-    const message = completionMessages[itemId] || '🎉 Congratulations! Another item completed!';
-    showInfoToast(message);
+  const handleJiggleAndNavigate = (url: string, fieldId: string) => {
+    // Navigate to the URL with highlight parameter (settings page uses 'highlight' not 'jiggle')
+    router.push(`${url}&highlight=${fieldId}`);
   };
+
+  const handleMoodboardClick = () => {
+    // Navigate to moodboards page
+    router.push('/moodboards');
+    
+    // Dispatch custom event to trigger new board modal
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-new-board-modal'));
+    }, 1000); // Delay to ensure page loads
+  };
+
 
   // Handle progress item click with jiggle effect
   const handleProgressItemClick = (item: ProgressItem) => {
-    if (item.jiggleField) {
-      // Navigate to settings page with jiggle effect
-      router.push(`${item.link}?jiggle=${item.jiggleField}`);
+    if (item.customHandler) {
+      // Use custom handler
+      item.customHandler();
+    } else if (item.jiggleField) {
+      // Use the new jiggle and navigate function
+      handleJiggleAndNavigate(item.link, item.jiggleField);
     } else {
       // Regular navigation
       router.push(item.link);
@@ -183,6 +233,19 @@ export default function Dashboard() {
     }
   }, [user, authLoading, onboardingStatus, checkOnboardingStatus, router]);
 
+  // Check localStorage for completion status
+  useEffect(() => {
+    const aiCompletedFromStorage = localStorage.getItem('paige-ai-completed') === 'true';
+    if (aiCompletedFromStorage) {
+      setAiCompleted(true);
+    }
+    
+    const creditsCompletedFromStorage = localStorage.getItem('credits-completed') === 'true';
+    if (creditsCompletedFromStorage) {
+      setCreditsCompleted(true);
+    }
+  }, []);
+
   // Initialize progress items based on user data and progress checks
   useEffect(() => {
     if (userData && progressData) {
@@ -192,7 +255,7 @@ export default function Dashboard() {
           title: 'Set your wedding date',
           description: 'Choose your special day to get personalized planning recommendations and timeline guidance.',
           completed: !!userData.weddingDate,
-          link: '/settings',
+          link: '/settings?tab=wedding',
           icon: <Calendar className="w-5 h-5" />,
           category: 'profile',
           actionText: userData.weddingDate ? 'Update your wedding date' : 'Set your wedding date',
@@ -204,7 +267,7 @@ export default function Dashboard() {
           title: 'Choose your wedding destination',
           description: 'Select your wedding city to discover local vendors and venues in your area.',
           completed: !!userData.weddingLocation,
-          link: '/settings',
+          link: '/settings?tab=wedding',
           icon: <MapPin className="w-5 h-5" />,
           category: 'destination',
           actionText: userData.weddingLocation ? 'Update your wedding destination' : 'Choose your wedding destination',
@@ -213,22 +276,20 @@ export default function Dashboard() {
         },
         {
           id: 'venue',
-          title: 'Pick out the venue',
+          title: 'Pick out your main venue',
           description: 'Select your wedding venue to finalize your location and start detailed planning.',
           completed: !!userData.hasVenue,
-          link: '/settings',
+          link: '/settings?tab=wedding',
           icon: <Home className="w-5 h-5" />,
           category: 'venue',
-          actionText: userData.hasVenue ? 'Update your venue' : 'Pick out the venue',
-          jiggleField: 'venue',
-          scrollToField: 'venue'
+          actionText: userData.hasVenue ? 'Update your venue' : 'Pick out your main venue'
         },
         {
           id: 'vibes',
           title: 'The vibes/mood of the big day',
           description: 'Define your wedding style and aesthetic to get personalized recommendations.',
           completed: progressData.hasMoodboards,
-          link: '/moodboards',
+          link: '/moodboards/wedding-day',
           icon: <Star className="w-5 h-5" />,
           category: 'moodboard',
           actionText: progressData.hasMoodboards ? 'Update your wedding vibes' : 'Define your wedding vibes'
@@ -245,13 +306,13 @@ export default function Dashboard() {
         },
         {
           id: 'contacts',
-          title: 'Add a contact(s)',
+          title: 'Add contacts',
           description: 'Import your vendor contacts to start managing all communications in one place.',
           completed: progressData.hasContacts,
           link: '/messages',
           icon: <MessageSquare className="w-5 h-5" />,
           category: 'contacts',
-          actionText: progressData.hasContacts ? 'Manage your contacts' : 'Add your first contact'
+          actionText: progressData.hasContacts ? 'Manage contacts' : 'Add contacts'
         },
         {
           id: 'budget',
@@ -268,7 +329,7 @@ export default function Dashboard() {
           title: 'Create your todos',
           description: 'Organize your wedding tasks and deadlines. Feeling overwhelmed? Let Paige create a personalized todo list for you!',
           completed: progressData.hasTodos,
-          link: '/todo',
+          link: progressData.hasTodos ? '/todo' : '/todo?new-list=true',
           icon: <ClipboardList className="w-5 h-5" />,
           category: 'todo',
           actionText: progressData.hasTodos ? 'Manage your todos' : 'Create your first todo list'
@@ -281,7 +342,8 @@ export default function Dashboard() {
           link: '/moodboards',
           icon: <Palette className="w-5 h-5" />,
           category: 'moodboard',
-          actionText: progressData.hasMoodboards ? 'Update your moodboards' : 'Create your first moodboard'
+          actionText: progressData.hasMoodboards ? 'Update moodboards' : 'Create moodboard',
+          customHandler: handleMoodboardClick
         },
         {
           id: 'seating-chart',
@@ -307,11 +369,39 @@ export default function Dashboard() {
           id: 'paige-ai',
           title: 'Bonus! Paige AI functions',
           description: 'Explore all of Paige\'s AI-powered features to make your wedding planning effortless and personalized.',
-          completed: progressData.hasUsedAI,
-          link: '/messages',
+          completed: progressData.hasUsedAI || aiCompleted,
+          link: '/settings?tab=credits',
           icon: <Bot className="w-5 h-5" />,
           category: 'ai',
-          actionText: progressData.hasUsedAI ? 'Try more AI features' : 'Discover Paige AI'
+          actionText: (progressData.hasUsedAI || aiCompleted) ? 'Try more AI features' : 'Discover Paige AI',
+          customHandler: () => {
+            router.push('/settings?tab=credits');
+            // Scroll to AI Features section after a brief delay
+            setTimeout(() => {
+              const element = document.getElementById('ai-features-section');
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                setTimeout(() => {
+                  const retryElement = document.getElementById('ai-features-section');
+                  if (retryElement) {
+                    retryElement.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }, 1000);
+              }
+            }, 500);
+          }
+        },
+        {
+          id: 'credits',
+          title: 'Understand how Credits work',
+          description: 'Learn about your daily credit refresh, membership tier benefits, and how to earn bonus credits.',
+          completed: creditsCompleted,
+          link: '#',
+          icon: <Sparkles className="w-5 h-5" />,
+          category: 'credits',
+          actionText: 'Learn More',
+          customHandler: () => setShowCreditsModal(true)
         }
       ];
       
@@ -319,20 +409,26 @@ export default function Dashboard() {
       const newCompletedCount = items.filter(item => item.completed).length;
       setCompletedCount(newCompletedCount);
       
-      // Check for newly completed items and show toasts
+      // Check for newly completed items and show toasts (only after initial load)
       const currentCompletedItems = new Set(items.filter(item => item.completed).map(item => item.id));
-      const newlyCompleted = Array.from(currentCompletedItems).filter(itemId => !previousCompletedItems.has(itemId));
       
-      // Show completion toasts for newly completed items
-      newlyCompleted.forEach((itemId, index) => {
-        setTimeout(() => showCompletionToast(itemId), 500 + (index * 200)); // Stagger toasts for multiple completions
-      });
-      
-      // Special toast for completing all items
-      if (newCompletedCount === items.length && items.length > 0) {
-        setTimeout(() => {
-          showInfoToast('🎊 INCREDIBLE! You\'ve completed your entire wedding planning setup! You\'re ready to plan the perfect wedding!');
-        }, 1000);
+      if (hasInitialized) {
+        const newlyCompleted = Array.from(currentCompletedItems).filter(itemId => !previousCompletedItems.has(itemId));
+        
+        // Show completion toasts for newly completed items
+        newlyCompleted.forEach((itemId, index) => {
+          setTimeout(() => showCompletionToast(itemId), 500 + (index * 200)); // Stagger toasts for multiple completions
+        });
+        
+        // Special toast for completing all items
+        if (newCompletedCount === items.length && items.length > 0 && previousCompletedItems.size < items.length) {
+          setTimeout(() => {
+            showInfoToast('🎊 INCREDIBLE! You\'ve completed your entire wedding planning setup! You\'re ready to plan the perfect wedding!');
+          }, 1000);
+              }
+    } else {
+        // Mark as initialized after first load
+        setHasInitialized(true);
       }
       
       // Update previous completed items
@@ -344,6 +440,33 @@ export default function Dashboard() {
       setExpandedItems(new Set(itemsToExpand));
     }
   }, [userData, progressData]);
+
+  // Listen for completion events from other pages
+  useEffect(() => {
+    const handleCompletion = (event: CustomEvent) => {
+      const { itemId } = event.detail;
+      
+      if (itemId === 'paige-ai') {
+        setAiCompleted(true);
+        // Also store in localStorage for persistence
+        localStorage.setItem('paige-ai-completed', 'true');
+      }
+      
+      // Update the specific item
+      setProgressItems(prev => prev.map(item => 
+        item.id === itemId ? { ...item, completed: true } : item
+      ));
+      
+      // Update completed count
+      setCompletedCount(prev => prev + 1);
+    };
+
+    window.addEventListener('progressItemCompleted', handleCompletion as EventListener);
+
+    return () => {
+      window.removeEventListener('progressItemCompleted', handleCompletion as EventListener);
+    };
+  }, []);
 
   // Show loading spinner during onboarding check
   if (onboardingCheckLoading) {
@@ -395,267 +518,63 @@ export default function Dashboard() {
         }
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
-      
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
+          <WeddingBanner
+            daysLeft={daysLeft}
+            userName={userName}
+            isLoading={bannerLoading}
+            onSetWeddingDate={handleSetWeddingDate}
+          />
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 pb-16 mb-16" style={{ width: '100%', maxWidth: '1152px' }}>
         <div className="space-y-8">
           
           {/* Welcome Section */}
-          <div className="text-center mb-8">
-            {/* Welcome Image */}
-            <div className="w-full flex justify-center">
-              <img 
-                src="/Welcome.png" 
-                alt="Welcome to your wedding planning journey" 
-                className="w-[320px] h-auto"
-              />
-            </div>
-            <h3 className="text-[#332B42] mb-2">
-              Welcome to planning perfection, {userName || 'there'}!
-            </h3>
-            <p className="text-sm text-[#5A4A42] max-w-2xl mx-auto font-work">
-              Let's get you set up with everything you need to plan your perfect wedding. 
-              Track your progress and discover powerful features as you go.
-            </p>
-          </div>
+          <DashboardWelcome userName={userName || 'there'} />
 
           {/* Quick Guide Section */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-            <div className="flex items-center justify-between">
-              <div className="w-3/4 pr-8">
-                <h5 className="text-[#332B42] mb-2">
-                  A quick guide to planning your perfect wedding
-                </h5>
-                <p className="text-sm text-[#5A4A42] mb-4 font-work">
-                  From Paige's wedding planning experts
-                </p>
-                
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">1</div>
-                    <p className="text-sm text-[#5A4A42] font-work">
-                      <strong>Start with your profile:</strong> Add your partner and define your wedding style to get personalized recommendations.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">2</div>
-                    <p className="text-sm text-[#5A4A42] font-work">
-                      <strong>Set up your budget:</strong> Create a realistic budget and track expenses to stay on track financially.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">3</div>
-                    <p className="text-sm text-[#5A4A42] font-work">
-                      <strong>Connect with vendors:</strong> Import your contacts and use our AI-powered messaging to communicate efficiently.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">4</div>
-                    <p className="text-sm text-[#5A4A42] font-work">
-                      <strong>Stay organized:</strong> Create mood boards, manage tasks, and plan your seating chart all in one place.
-                    </p>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 mt-8 pt-8">
-                    <Link 
-                      href="/messages"
-                      className="btn-primaryinverse no-underline"
-                    >
-                      Skip to Messages
-                    </Link>
-                    <Link 
-                      href="/settings"
-                      className="btn-primary no-underline"
-                    >
-                      Get Started
-                    </Link>
-                  </div>
-                </div>
-              </div>
-              
-                    {/* Paige illustration */}
-                    <div className="hidden lg:block w-1/4">
-                      <div className="h-full rounded-lg overflow-hidden">
-                        <img 
-                          src="/Paige.png" 
-                          alt="Paige" 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-            </div>
-          </div>
-
-          {/* Progress Overview */}
-          <div className="bg-white rounded-lg border border-[#E0DBD7] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h5 className="text-[#332B42]">Your Progress</h5>
-              <span className="text-sm text-[#5A4A42] font-work">{completedCount} of {progressItems.length} completed</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-              <div 
-                className="bg-[#A85C36] h-3 rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-            <p className="text-sm text-[#5A4A42] font-work">
-              {progressPercentage === 100 
-                ? "🎉 Congratulations! You've completed all the essential setup steps."
-                : `You're ${progressPercentage}% complete with your wedding planning setup.`
-              }
-            </p>
-          </div>
-
-          {/* Progress Items Accordion */}
-          <div className="space-y-3">
-            {progressItems.map((item, index) => {
-              const isExpanded = expandedItems.has(item.id);
-              const isJiggling = jiggleFields.has(item.jiggleField || '');
-              
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className={`bg-white rounded-lg border transition-all duration-200 ${
-                    item.completed 
-                      ? 'border-green-200 bg-green-50' 
-                      : 'border-[#E0DBD7] hover:border-[#A85C36]'
-                  } ${isJiggling ? 'animate-jiggle' : ''}`}
-                >
-                  {/* Accordion Header */}
-                  <button
-                    onClick={() => toggleAccordion(item.id)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1 text-left">
-                      <div className={`p-2 rounded-lg ${
-                        item.completed 
-                          ? 'bg-green-100 text-green-600' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {item.completed ? <CheckCircle className="w-5 h-5" /> : item.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h6 className={`${
-                          item.completed ? 'text-green-800' : 'text-[#332B42]'
-                        }`}>
-                          {item.title}
-                        </h6>
-                        <p className="text-xs text-[#5A4A42] mt-1 font-work">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        item.completed 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {item.completed ? 'Complete' : 'Pending'}
-                      </span>
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-gray-500" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Accordion Content */}
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="px-4 pb-4 border-t border-gray-100"
-                    >
-                      <div className="pt-4 space-y-3">
-                        <p className="text-sm text-[#5A4A42] font-work">
-                          {item.description}
-                        </p>
-                        
-                        {/* Paige AI encouragement for specific items */}
-                        {(item.id === 'todos' || item.id === 'moodboard' || item.id === 'seating-chart') && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <p className="text-xs text-blue-700 font-work">
-                              💡 <strong>Feeling overwhelmed?</strong> Let Paige create personalized resources for you! 
-                              Use the AI features to generate custom todo lists, moodboards, or seating arrangements.
-                            </p>
-            </div>
-          )}
-                        
-                        <div className="flex gap-2 justify-end">
-                          {item.jiggleField && (
-                            <button
-                              onClick={() => handleJiggleEffect(item.jiggleField!)}
-                              className="btn-primaryinverse"
-                            >
-                              Show me where
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleProgressItemClick(item)}
-                            className="btn-primary"
-                          >
-                            {item.actionText}
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
+          <QuickGuide />
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg border border-[#E0DBD7] p-6">
-            <h5 className="text-[#332B42] mb-4">Quick Actions</h5>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Link 
-                href="/messages"
-                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
-              >
-                <MessageSquare className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-work font-medium text-[#332B42]">Messages</span>
-              </Link>
-              <Link 
-                href="/budget"
-                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
-              >
-                <DollarSign className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-work font-medium text-[#332B42]">Budget</span>
-              </Link>
-              <Link 
-                href="/todo"
-                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
-              >
-                <ClipboardList className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-work font-medium text-[#332B42]">To-Do</span>
-              </Link>
-              <Link 
-                href="/moodboards"
-                className="flex flex-col items-center p-4 rounded-lg border border-[#E0DBD7] hover:border-[#A85C36] hover:bg-[#F8F6F4] transition-colors group"
-              >
-                <Palette className="w-6 h-6 text-[#A85C36] mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-work font-medium text-[#332B42]">Mood Boards</span>
-              </Link>
+          <QuickActions />
+
+          {/* Progress Overview */}
+          <ProgressOverview 
+            completedCount={completedCount}
+            totalCount={progressItems.length}
+            progressPercentage={progressPercentage}
+          />
+
+          {/* Progress Items Accordion */}
+          <ProgressAccordion
+            progressItems={progressItems}
+            expandedItems={expandedItems}
+            jiggleFields={jiggleFields}
+            onToggleAccordion={toggleAccordion}
+            onProgressItemClick={handleProgressItemClick}
+            progressLoading={progressLoading}
+          />
+
+              </div>
             </div>
           </div>
 
-        </div>
-      </div>
-    </div>
+    {/* Credits Explanation Modal */}
+    <CreditsExplanationModal
+      isOpen={showCreditsModal}
+      onClose={() => setShowCreditsModal(false)}
+      onComplete={() => {
+        setCreditsCompleted(true);
+        // Store in localStorage for persistence
+        localStorage.setItem('credits-completed', 'true');
+        // Update the progress items array to mark credits as completed
+        setProgressItems(prev => prev.map(item => 
+          item.id === 'credits' ? { ...item, completed: true } : item
+        ));
+        // Update completed count
+        setCompletedCount(prev => prev + 1);
+        showCompletionToast('credits');
+      }}
+    />
     </>
   );
 }
