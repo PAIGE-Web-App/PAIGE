@@ -12,33 +12,20 @@ export default function QuickGuide() {
             From Paige's wedding planning experts
           </p>
           
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">1</div>
-              <p className="text-sm text-[#5A4A42] font-work">
-                <strong>Start with your profile:</strong> Add your partner and define your wedding style to get personalized recommendations.
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">2</div>
-              <p className="text-sm text-[#5A4A42] font-work">
-                <strong>Set up your budget:</strong> Create a realistic budget and track expenses to stay on track financially.
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">3</div>
-              <p className="text-sm text-[#5A4A42] font-work">
-                <strong>Connect with vendors:</strong> Import your contacts and use our AI-powered messaging to communicate efficiently.
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-[#A85C36] text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">4</div>
-              <p className="text-sm text-[#5A4A42] font-work">
-                <strong>Stay organized:</strong> Create mood boards, manage tasks, and plan your seating chart all in one place.
-              </p>
-            </div>
-
-          </div>
+          <ul className="space-y-3 list-disc list-inside">
+            <li className="text-sm text-[#5A4A42] font-work">
+              <strong>Start with your profile:</strong> Add your partner and define your wedding style to get personalized recommendations.
+            </li>
+            <li className="text-sm text-[#5A4A42] font-work">
+              <strong>Set up your budget:</strong> Create a realistic budget and track expenses to stay on track financially.
+            </li>
+            <li className="text-sm text-[#5A4A42] font-work">
+              <strong>Connect with vendors:</strong> Import your contacts and use our AI-powered messaging to communicate efficiently.
+            </li>
+            <li className="text-sm text-[#5A4A42] font-work">
+              <strong>Stay organized:</strong> Create mood boards, manage tasks, and plan your seating chart all in one place.
+            </li>
+          </ul>
         </div>
         
         {/* Paige illustration - Hidden on mobile, visible on lg+ */}
