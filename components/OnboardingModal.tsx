@@ -92,6 +92,61 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   const { weddingLocation } = useUserProfileData();
   const [geoLocation, setGeoLocation] = useState<string | null>(null);
 
+  // Check for existing Gmail tokens when modal opens
+  useEffect(() => {
+    const checkExistingGmailAuth = async () => {
+      try {
+        console.log('OnboardingModal: Checking Gmail auth status for user:', userId);
+        const response = await fetch('/api/check-gmail-auth-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        const data = await response.json();
+        
+        console.log('OnboardingModal: Gmail auth status response:', data);
+        
+        if (data.needsReauth === false) {
+          // Gmail is already connected
+          setGmailAuthStatus('success');
+          // Automatically select Gmail in communication channels
+          if (!selectedCommunicationChannels.includes('Gmail')) {
+            setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
+          }
+          console.log('OnboardingModal: Gmail already connected for user:', userId);
+        } else {
+          // Check localStorage for Gmail connection status from sign-up
+          const gmailConnected = localStorage.getItem('gmailConnected');
+          console.log('OnboardingModal: localStorage gmailConnected:', gmailConnected);
+          if (gmailConnected === 'true') {
+            setGmailAuthStatus('success');
+            // Automatically select Gmail in communication channels
+            if (!selectedCommunicationChannels.includes('Gmail')) {
+              setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
+            }
+            console.log('OnboardingModal: Gmail connection detected from localStorage');
+          }
+        }
+      } catch (error) {
+        console.error('OnboardingModal: Error checking existing Gmail auth:', error);
+        // Check localStorage as fallback
+        const gmailConnected = localStorage.getItem('gmailConnected');
+        if (gmailConnected === 'true') {
+          setGmailAuthStatus('success');
+          // Automatically select Gmail in communication channels
+          if (!selectedCommunicationChannels.includes('Gmail')) {
+            setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
+          }
+          console.log('OnboardingModal: Gmail connection detected from localStorage fallback');
+        }
+      }
+    };
+
+    if (userId) {
+      checkExistingGmailAuth();
+    }
+  }, [userId]);
+
   // Location detection for vendor search
   useEffect(() => {
     if (!weddingLocation && !geoLocation) {
@@ -564,25 +619,42 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
               <div>
                 <div className="space-y-4"> {/* Changed to vertical layout with 2 rows */}
                   {/* Gmail Integration */}
-                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("Gmail")
+                  <div className={`flex items-center p-4 border rounded-[5px] transition-all duration-200 ${
+                    gmailAuthStatus === 'success'
+                      ? "border-green-300 bg-green-50"
+                      : selectedCommunicationChannels.includes("Gmail")
                       ? "border-[#A85C36] bg-[#EBE3DD]"
                       : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
                   }`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCommunicationChannels.includes("Gmail")}
-                      onChange={() => handleChannelToggle("Gmail")}
-                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
-                    />
-                    <div className="flex items-center flex-1">
-                      <Mail size={20} className="text-red-500 mr-2" />
-                      <div>
-                        <span className="font-medium text-[#332B42] block">Gmail Integration</span>
-                        <span className="text-xs text-[#7A7A7A]">Import existing conversations & add footers to emails</span>
-                      </div>
-                    </div>
-                  </label>
+                    {gmailAuthStatus === 'success' ? (
+                      <>
+                        <CheckCircle size={20} className="text-green-500 mr-3" />
+                        <div className="flex items-center flex-1">
+                          <Mail size={20} className="text-green-500 mr-2" />
+                          <div>
+                            <span className="font-medium text-[#332B42] block">Gmail Integration</span>
+                            <span className="text-xs text-green-600">✓ Already connected! Import existing conversations & add footers to emails</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="checkbox"
+                          checked={selectedCommunicationChannels.includes("Gmail")}
+                          onChange={() => handleChannelToggle("Gmail")}
+                          className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
+                        />
+                        <div className="flex items-center flex-1">
+                          <Mail size={20} className="text-red-500 mr-2" />
+                          <div>
+                            <span className="font-medium text-[#332B42] block">Gmail Integration</span>
+                            <span className="text-xs text-[#7A7A7A]">Import existing conversations & add footers to emails</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
 
                   {/* Push Notifications - Disabled with Coming Soon pill */}
                   <div className={`flex items-center p-4 border rounded-[5px] transition-all duration-200 ${
@@ -620,10 +692,17 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                 {selectedCommunicationChannels.includes('Gmail') && (
                   <div className="p-4 border rounded-md flex items-center justify-between shadow-sm bg-white mb-4">
                     <div className="flex items-center">
-                      <Mail size={24} className="text-red-500 mr-3" />
+                      <Mail size={24} className={`${gmailAuthStatus === 'success' ? "text-green-500" : "text-red-500"} mr-3`} />
                       <div>
-                        <p className="font-semibold text-[#332B42]">Connect Gmail</p>
-                        <p className="text-xs text-[#7A7A7A]">Allows Paige to scan your Gmail for vendor conversations.</p>
+                        <p className="font-semibold text-[#332B42]">
+                          {gmailAuthStatus === 'success' ? 'Gmail Connected' : 'Connect Gmail'}
+                        </p>
+                        <p className="text-xs text-[#7A7A7A]">
+                          {gmailAuthStatus === 'success' 
+                            ? 'Gmail is ready! Paige can scan your Gmail for vendor conversations.'
+                            : 'Allows Paige to scan your Gmail for vendor conversations.'
+                          }
+                        </p>
                       </div>
                     </div>
                     {gmailAuthStatus === 'idle' && (
@@ -672,7 +751,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
             {currentStep === 4 && (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <img src="/celebration.svg" alt="Celebration" className="w-48 h-48 mb-6" />
+                <img src="/celebrate.png" alt="Celebration" className="w-48 h-48 mb-6" />
                 <h3 className="text-xl font-playfair font-semibold text-[#332B42] mb-2">You're All Set!</h3>
                 <p className="text-sm text-[#364257] mb-6 max-w-md">
                   Your unified inbox is now ready. Start managing all your wedding communications in one place.

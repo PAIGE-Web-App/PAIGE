@@ -21,8 +21,8 @@ const createGmailTransporter = async (userId: string) => {
     const userData = userDocSnap.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
 
-    if (!accessToken || !refreshToken) {
-      console.error('No Gmail OAuth tokens found for user:', userId);
+    if (!accessToken) {
+      console.error('No Gmail OAuth access token found for user:', userId);
       return null;
     }
 
@@ -35,24 +35,29 @@ const createGmailTransporter = async (userId: string) => {
 
     oauth2Client.setCredentials({
       access_token: accessToken,
-      refresh_token: refreshToken,
+      refresh_token: refreshToken || undefined,
     });
 
     // Check if token needs refresh
     const tokenExpiry = oauth2Client.credentials.expiry_date;
     if (tokenExpiry && tokenExpiry < Date.now()) {
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        await userDocRef.set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-      } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
+      if (refreshToken) {
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          oauth2Client.setCredentials(credentials);
+          await userDocRef.set({
+            googleTokens: {
+              accessToken: credentials.access_token,
+              refreshToken: credentials.refresh_token || refreshToken,
+              expiryDate: credentials.expiry_date,
+            },
+          }, { merge: true });
+        } catch (refreshError) {
+          console.error('Error refreshing token:', refreshError);
+          return null;
+        }
+      } else {
+        console.log('Access token expired and no refresh token available (Firebase popup flow)');
         return null;
       }
     }

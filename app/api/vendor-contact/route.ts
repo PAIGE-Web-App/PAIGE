@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
     const userData = userDoc.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
 
-    if (!accessToken || !refreshToken) {
+    if (!accessToken) {
       return NextResponse.json({ error: 'Google authentication required' }, { status: 401 });
     }
 
@@ -316,24 +316,32 @@ export async function POST(req: NextRequest) {
       GOOGLE_REDIRECT_URI
     );
 
-    oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
+    oauth2Client.setCredentials({ 
+      access_token: accessToken, 
+      refresh_token: refreshToken || undefined 
+    });
 
     // Check if token needs refresh
     const tokenExpiry = oauth2Client.credentials.expiry_date;
     if (tokenExpiry && tokenExpiry < Date.now()) {
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        await userDocRef.set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-      } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
-        return NextResponse.json({ error: 'Failed to refresh Google authentication' }, { status: 401 });
+      if (refreshToken) {
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          oauth2Client.setCredentials(credentials);
+          await userDocRef.set({
+            googleTokens: {
+              accessToken: credentials.access_token,
+              refreshToken: credentials.refresh_token || refreshToken,
+              expiryDate: credentials.expiry_date,
+            },
+          }, { merge: true });
+        } catch (refreshError) {
+          console.error('Error refreshing token:', refreshError);
+          return NextResponse.json({ error: 'Failed to refresh Google authentication' }, { status: 401 });
+        }
+      } else {
+        console.log('Access token expired and no refresh token available (Firebase popup flow)');
+        return NextResponse.json({ error: 'Gmail access token expired. Please re-authorize Gmail access.' }, { status: 401 });
       }
     }
 

@@ -41,8 +41,8 @@ export async function POST(req: Request) {
     const userData = userDocSnap.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
 
-    if (!accessToken || !refreshToken) {
-      console.log('[check-gmail-history] Missing Google tokens for user:', userId);
+    if (!accessToken) {
+      console.log('[check-gmail-history] Missing access token for user:', userId);
       return NextResponse.json({ hasHistory: false, message: 'Google authentication required.' }, { status: 401 });
     }
 
@@ -52,25 +52,34 @@ export async function POST(req: Request) {
       GOOGLE_REDIRECT_URI
     );
 
-    oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
+    oauth2Client.setCredentials({ 
+      access_token: accessToken, 
+      refresh_token: refreshToken || undefined 
+    });
 
-    // Check if token needs refresh
+    // Check if token needs refresh (only if we have a refresh token)
     const tokenExpiry = oauth2Client.credentials.expiry_date;
     if (tokenExpiry && tokenExpiry < Date.now()) {
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        await userDocRef.set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-        console.log('[check-gmail-history] Access token refreshed successfully');
-      } catch (refreshError) {
-        console.error('[check-gmail-history] Error refreshing token:', refreshError);
-        return NextResponse.json({ hasHistory: false, message: 'Failed to refresh Google authentication.' }, { status: 401 });
+      if (refreshToken) {
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          oauth2Client.setCredentials(credentials);
+          await userDocRef.set({
+            googleTokens: {
+              accessToken: credentials.access_token,
+              refreshToken: credentials.refresh_token || refreshToken,
+              expiryDate: credentials.expiry_date,
+            },
+          }, { merge: true });
+          console.log('[check-gmail-history] Access token refreshed successfully');
+        } catch (refreshError) {
+          console.error('[check-gmail-history] Error refreshing token:', refreshError);
+          return NextResponse.json({ hasHistory: false, message: 'Failed to refresh Google authentication.' }, { status: 401 });
+        }
+      } else {
+        // No refresh token available (Firebase popup flow), token has expired
+        console.log('[check-gmail-history] Access token expired and no refresh token available');
+        return NextResponse.json({ hasHistory: false, message: 'Google authentication expired. Please re-authenticate.' }, { status: 401 });
       }
     }
 

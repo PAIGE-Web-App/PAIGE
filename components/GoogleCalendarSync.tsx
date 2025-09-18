@@ -227,7 +227,13 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
                 Synced with GCal
               </span>
             ) : (
-              <span className="text-xs text-gray-500">Not linked to GCal</span>
+              <button
+                onClick={() => window.location.href = '/settings?tab=integrations'}
+                className="text-xs text-[#A85C36] hover:text-[#8B4513] underline cursor-pointer bg-transparent border-none p-0"
+                title="Link Google Calendar in Settings"
+              >
+                Not linked to GCal
+              </button>
             )}
           </div>
           

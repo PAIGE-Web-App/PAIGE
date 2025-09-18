@@ -771,7 +771,7 @@ export default function MessagesPage() {
       setShowOnboardingModal(false);
       
       // Show success message
-      showSuccessToast('Onboarding completed successfully!');
+      showSuccessToast('📞 Unified Inbox Set up successfully!');
 
       // If Gmail was selected, trigger the import
       if (selectedChannelsFromModal.includes('Gmail') && user) {

@@ -74,14 +74,14 @@ export async function POST(req: Request) {
       hasRefreshToken: !!refreshToken
     });
 
-    if (!accessToken || !refreshToken) {
-      console.error(`Google tokens not found for user: ${userId}`);
+    if (!accessToken) {
+      console.error(`Google access token not found for user: ${userId}`);
       return NextResponse.json({ success: false, message: 'Google authentication required. Please re-authorize Gmail access.' }, { status: 401 });
     }
 
     oauth2Client.setCredentials({
       access_token: accessToken,
-      refresh_token: refreshToken,
+      refresh_token: refreshToken || undefined,
     });
 
     console.log('DEBUG: OAuth2 client configured with tokens');
@@ -89,17 +89,22 @@ export async function POST(req: Request) {
     // Instead of oauth2Client.isTokenExpiring(), check expiry_date
     const tokenExpiry = oauth2Client.credentials.expiry_date;
     if (tokenExpiry && tokenExpiry < Date.now()) {
-      console.log('Access token is expiring or expired, refreshing...');
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      oauth2Client.setCredentials(credentials);
-      await userDocRef.set({
-        googleTokens: {
-          accessToken: credentials.access_token,
-          refreshToken: credentials.refresh_token || refreshToken,
-          expiryDate: credentials.expiry_date,
-        },
-      }, { merge: true });
-      console.log('Access token refreshed and updated in Firestore.');
+      if (refreshToken) {
+        console.log('Access token is expiring or expired, refreshing...');
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        oauth2Client.setCredentials(credentials);
+        await userDocRef.set({
+          googleTokens: {
+            accessToken: credentials.access_token,
+            refreshToken: credentials.refresh_token || refreshToken,
+            expiryDate: credentials.expiry_date,
+          },
+        }, { merge: true });
+        console.log('Access token refreshed and updated in Firestore.');
+      } else {
+        console.log('Access token expired and no refresh token available (Firebase popup flow)');
+        return NextResponse.json({ success: false, message: 'Gmail access token expired. Please re-authorize Gmail access.' }, { status: 401 });
+      }
     }
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });

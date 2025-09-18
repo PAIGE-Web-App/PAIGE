@@ -308,31 +308,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    let authStateChangeTimeout: NodeJS.Timeout;
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      setLoading(false);
-      
-      // If user exists, validate session and set up token refresh
-      if (user) {
-        // Validate session immediately
-        const isValid = await validateSessionLocal();
-        if (!isValid) {
-          console.log('⚠️ Session validation failed, refreshing token...');
-          await refreshAuthTokenLocal();
-        }
+      // Debounce rapid auth state changes (especially during logout)
+      clearTimeout(authStateChangeTimeout);
+      authStateChangeTimeout = setTimeout(async () => {
+        console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
+        setUser(user);
+        setLoading(false);
         
-        // Set up periodic token refresh
-        const refreshInterval = setInterval(async () => {
-          if (user && user.uid) {
+        // If user exists, validate session and set up token refresh
+        if (user) {
+          // Validate session immediately
+          const isValid = await validateSessionLocal();
+          if (!isValid) {
+            console.log('⚠️ Session validation failed, refreshing token...');
             await refreshAuthTokenLocal();
           }
-        }, TOKEN_REFRESH_INTERVAL);
-        
-        // Clean up interval on unmount
-        return () => clearInterval(refreshInterval);
-      }
+          
+          // Set up periodic token refresh
+          const refreshInterval = setInterval(async () => {
+            if (user && user.uid) {
+              await refreshAuthTokenLocal();
+            }
+          }, TOKEN_REFRESH_INTERVAL);
+          
+          // Clean up interval on unmount
+          return () => clearInterval(refreshInterval);
+        }
+      }, 100); // 100ms debounce
     });
-    return () => unsubscribe();
+    
+    return () => {
+      clearTimeout(authStateChangeTimeout);
+      unsubscribe();
+    };
   }, [validateSession, refreshAuthToken]);
 
   if (loading) {

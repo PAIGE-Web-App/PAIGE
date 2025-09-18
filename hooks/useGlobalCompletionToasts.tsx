@@ -12,7 +12,7 @@ export const useGlobalCompletionToasts = () => {
       'venue': '🏰 Fantastic! Your dream venue is selected!',
       'vibes': '✨ Beautiful! Your wedding vibes are defined!',
       'vendors': '🤝 Excellent! You\'ve started exploring vendors!',
-      'contacts': '📞 Great! Your first contact is added!',
+      'contacts': '📞 Your first contact was added!',
       'budget': '💰 Smart! Your wedding budget is planned!',
       'todos': '✅ Wonderful! Your first todo list is created!',
       'moodboard': '🎨 Stunning! Your first moodboard is ready!',

@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../lib/firebase";
+import { auth, db } from "../../lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from '../../hooks/useAuth';
@@ -196,6 +197,13 @@ export default function Login() {
 
     // Otherwise, proceed with normal Google login
     const provider = new GoogleAuthProvider();
+    
+    // Add Gmail scopes for automatic Gmail connection
+    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.send');
+    provider.addScope('https://www.googleapis.com/auth/calendar');
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    
     try {
       setGoogleLoading(true);
 
@@ -210,6 +218,65 @@ export default function Login() {
         localStorage.setItem('lastGoogleName', result.user.displayName || '');
         localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
         localStorage.setItem('lastGoogleUserId', result.user.uid);
+      }
+      
+      // Store Gmail tokens from the login popup
+      try {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const accessToken = credential?.accessToken;
+        
+        if (accessToken) {
+          // Store Gmail tokens in Firestore (matching API expected format)
+          const gmailTokens = {
+            accessToken: accessToken,
+            refreshToken: null, // Firebase popup doesn't provide refresh token
+            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+            email: result.user.email, // Store Gmail account email
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+          };
+          
+          // Update user document with Gmail tokens
+          const userDocRef = doc(db, "users", result.user.uid);
+          await updateDoc(userDocRef, {
+            googleTokens: gmailTokens,
+            gmailConnected: true,
+          });
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gmailConnected', 'true');
+          }
+        } else {
+          // Check existing Gmail auth status as fallback
+          const gmailResponse = await fetch('/api/check-gmail-auth-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: result.user.uid }),
+          });
+          const gmailData = await gmailResponse.json();
+          const hasGmailTokens = gmailData.needsReauth === false;
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gmailConnected', hasGmailTokens.toString());
+          }
+        }
+      } catch (error) {
+        console.error('Error storing Gmail tokens during login:', error);
+        // Check existing Gmail auth status as fallback
+        try {
+          const gmailResponse = await fetch('/api/check-gmail-auth-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: result.user.uid }),
+          });
+          const gmailData = await gmailResponse.json();
+          const hasGmailTokens = gmailData.needsReauth === false;
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gmailConnected', hasGmailTokens.toString());
+          }
+        } catch (fallbackError) {
+          console.error('Error checking Gmail auth status during login:', fallbackError);
+        }
       }
       
       const idToken = await result.user.getIdToken();

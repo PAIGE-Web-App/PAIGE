@@ -95,7 +95,7 @@ async function getUserGmailTokens(userId) {
   if (!userDoc.exists) return null;
   const userData = userDoc.data();
   const { accessToken, refreshToken } = userData?.googleTokens || {};
-  if (!accessToken || !refreshToken) return null;
+  if (!accessToken) return null;
   return { accessToken, refreshToken };
 }
 

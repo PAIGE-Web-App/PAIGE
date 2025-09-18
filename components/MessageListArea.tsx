@@ -951,7 +951,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                               ? 'bg-white text-gray-800 border border-[#A85733] rounded-[15px_15px_0_15px] self-end'
                               : 'bg-gray-100 text-gray-800 self-start border border-gray-300 border-[0.5px] rounded-[15px_15px_15px_0]'
                           } ${replyingToMessage?.id === msg.id ? 'ring-2 ring-[#A85C36]' : ''} ${
-                            msg.parentMessageId ? '-mt-3 z-10' : 'mb-2'
+                            msg.parentMessageId ? '-mt-3 z-10 mb-2' : 'mb-2'
                           } ${bouncingId === msg.id ? 'animate-bounce-once' : ''}`}
                           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         >

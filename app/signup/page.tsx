@@ -289,9 +289,31 @@ export default function SignUp() {
     }
   };
 
+  // Helper function to check Gmail auth status
+  const checkGmailAuthStatus = async (userId: string) => {
+    try {
+      const response = await fetch('/api/check-gmail-auth-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await response.json();
+      return data.needsReauth === false; // true if Gmail is already connected
+    } catch (error) {
+      console.error('Error checking Gmail auth status:', error);
+      return false;
+    }
+  };
+
   const handleGoogleSignUp = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' }); // Always show account picker
+    
+    // Add Gmail scopes for automatic Gmail connection
+    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.send');
+    provider.addScope('https://www.googleapis.com/auth/calendar');
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');
     try {
       setGoogleLoading(true);
       const result = await signInWithPopup(auth, provider);
@@ -307,11 +329,28 @@ export default function SignUp() {
         const userDocRef = doc(db, "users", result.user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (!userDocSnap.exists()) {
+          // Store Gmail tokens from the sign-up popup
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          const accessToken = credential?.accessToken;
+          
+          // Store Gmail tokens in Firestore (matching API expected format)
+          const gmailTokens = {
+            accessToken: accessToken,
+            refreshToken: null, // Firebase popup doesn't provide refresh token
+            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+            email: result.user.email, // Store Gmail account email
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+          };
+          
           await setDoc(doc(db, "users", result.user.uid), {
             email: result.user.email,
             onboarded: false,
             createdAt: new Date(),
+            // Store Gmail tokens and connection status
+            googleTokens: gmailTokens,
+            gmailConnected: true,
           }, { merge: true });
+          
           setIsNewSignup(true);
           setStep(2);
         } else {

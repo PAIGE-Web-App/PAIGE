@@ -41,8 +41,8 @@ export async function POST(req: Request) {
     const userData = userDocSnap.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
 
-    if (!accessToken || !refreshToken) {
-      console.log('[google-calendar/create] Missing Google tokens for user:', userId);
+    if (!accessToken) {
+      console.log('[google-calendar/create] Missing Google access token for user:', userId);
       return NextResponse.json({ success: false, message: 'Google authentication required.' }, { status: 401 });
     }
 

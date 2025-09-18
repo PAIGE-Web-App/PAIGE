@@ -1012,11 +1012,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
       // Mark the contact as imported
       const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
-      await updateDoc(contactRef, {
+      const updateData: any = {
         gmailImported: true,
         lastImportDate: new Date().toISOString(),
-        lastGmailAccount: currentGmailAccount // Track which Gmail account was used for import
-      });
+      };
+      
+      // Only add lastGmailAccount if it's defined
+      if (currentGmailAccount) {
+        updateData.lastGmailAccount = currentGmailAccount;
+      }
+      
+      await updateDoc(contactRef, updateData);
 
       showSuccessToast('Gmail conversation imported!');
       setImportedOnce(true);

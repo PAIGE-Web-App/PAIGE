@@ -173,24 +173,28 @@ export function middleware(request: NextRequest) {
 
   // Define public paths that don't require authentication
   const isPublicPath = path === '/login' || path === '/signup';
+  const isApiPath = path.startsWith('/api/');
 
-  // Check for authentication loops before proceeding
-  if (checkAuthLoop(request)) {
-    console.log('🚫 Authentication loop detected, blocking request');
-    return new NextResponse(
-      JSON.stringify({
-        error: 'Too many authentication attempts',
-        message: 'Please wait a moment before trying again',
-        retryAfter: 120
-      }),
-      {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': '120'
+  // Skip authentication loop detection for API routes and public paths
+  if (!isApiPath && !isPublicPath) {
+    // Check for authentication loops before proceeding
+    if (checkAuthLoop(request)) {
+      console.log('🚫 Authentication loop detected, blocking request');
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Too many authentication attempts',
+          message: 'Please wait a moment before trying again',
+          retryAfter: 120
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '120'
+          }
         }
-      }
-    );
+      );
+    }
   }
 
   // Get the Firebase auth token from the cookies

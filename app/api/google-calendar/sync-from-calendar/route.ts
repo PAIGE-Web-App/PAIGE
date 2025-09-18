@@ -42,8 +42,8 @@ export async function POST(req: Request) {
     const { accessToken, refreshToken } = userData?.googleTokens || {};
     const { calendarId } = userData?.googleCalendar || {};
 
-    if (!accessToken || !refreshToken) {
-      console.log('[google-calendar/sync-from-calendar] Missing Google tokens for user:', userId);
+    if (!accessToken) {
+      console.log('[google-calendar/sync-from-calendar] Missing Google access token for user:', userId);
       return NextResponse.json({ success: false, message: 'Google authentication required.' }, { status: 401 });
     }
 

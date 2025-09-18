@@ -32,20 +32,20 @@ export async function POST(req: NextRequest) {
     }
 
     const userData = userDocSnap.data();
-    const { accessToken, refreshToken, expiresAt } = userData?.googleTokens || {};
+    const { accessToken, refreshToken, expiryDate } = userData?.googleTokens || {};
 
-    // Check if tokens exist and are not expired
-    if (!accessToken || !refreshToken) {
+    // Check if access token exists (refresh token is optional for Firebase popup flow)
+    if (!accessToken) {
       return NextResponse.json({ 
         needsReauth: true, 
-        message: 'No Gmail tokens found' 
+        message: 'No Gmail access token found' 
       }, { status: 401 });
     }
 
     // Check if token is expired (with 5 minute buffer)
     const now = Date.now();
     const bufferTime = 5 * 60 * 1000; // 5 minutes
-    if (expiresAt && (expiresAt - bufferTime) < now) {
+    if (expiryDate && (expiryDate - bufferTime) < now) {
       return NextResponse.json({ 
         needsReauth: true, 
         message: 'Gmail tokens expired' 
