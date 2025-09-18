@@ -355,8 +355,26 @@ export default function MoodBoardsPage() {
           const blob = await response.blob();
           formData.append('image', blob, 'image.jpg');
         } else {
-          // It's a regular URL, fetch it
-          const response = await fetch(imageToUse);
+          // It's a regular URL (likely Firebase Storage), use proxy to avoid CORS
+          const proxyResponse = await fetch('/api/fetch-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageUrl: imageToUse }),
+          });
+          
+          if (!proxyResponse.ok) {
+            throw new Error('Failed to fetch image via proxy');
+          }
+          
+          const proxyData = await proxyResponse.json();
+          if (!proxyData.success) {
+            throw new Error('Proxy failed to fetch image');
+          }
+          
+          // Convert base64 data URL to blob
+          const response = await fetch(proxyData.imageData);
           const blob = await response.blob();
           formData.append('image', blob, 'image.jpg');
         }
