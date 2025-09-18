@@ -1576,11 +1576,17 @@ export default function SignUp() {
                 if (success) {
                   console.log('Onboarding completed successfully, showing toast and redirecting...');
                   showSuccessToast("Welcome to Paige! Your wedding planning journey begins now.");
-                  // Add a small delay to ensure Firestore has updated before redirect
+                  
+                  // Clear any cached onboarding status to force refresh
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('onboardingStatus');
+                  }
+                  
+                  // Add a longer delay to ensure Firestore has fully propagated the changes
                   setTimeout(() => {
                     console.log('Redirecting to dashboard...');
                     window.location.href = "/";
-                  }, 1000);
+                  }, 2000);
                 } else {
                   console.error('Failed to complete onboarding');
                 }

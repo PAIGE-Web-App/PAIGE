@@ -225,7 +225,20 @@ export default function Dashboard() {
           setOnboardingCheckLoading(false);
         });
       } else if (onboardingStatus === 'not-onboarded') {
-        window.location.href = '/signup?onboarding=1';
+        // Add a small delay and retry check before redirecting
+        // This handles race conditions where onboarding was just completed
+        setTimeout(async () => {
+          console.log('Onboarding status is not-onboarded, double-checking before redirect...');
+          await checkOnboardingStatus();
+          
+          // If still not onboarded after retry, then redirect
+          if (onboardingStatus === 'not-onboarded') {
+            console.log('Confirmed not onboarded, redirecting to signup...');
+            window.location.href = '/signup?onboarding=1';
+          } else {
+            console.log('Onboarding status updated after retry, staying on dashboard');
+          }
+        }, 1000);
       } else {
         setOnboardingCheckLoading(false);
       }
