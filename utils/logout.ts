@@ -15,6 +15,13 @@ export const handleLogout = async (router?: any) => {
   try {
     console.log('Starting logout process...');
     
+    // Clear localStorage data
+    localStorage.removeItem('lastSignInMethod');
+    localStorage.removeItem('lastGoogleEmail');
+    localStorage.removeItem('lastGoogleName');
+    localStorage.removeItem('lastGooglePicture');
+    localStorage.removeItem('lastGoogleUserId');
+    
     // Sign out from Firebase first
     const auth = getAuth();
     await signOut(auth);

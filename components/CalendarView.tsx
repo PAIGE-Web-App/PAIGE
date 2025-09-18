@@ -557,7 +557,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </h2>
         </div>
         <div className="flex items-center gap-2 lg:hidden">
-          <DropdownMenu
+          {/* <DropdownMenu
             trigger={
               <button className="flex items-center border border-gray-400 rounded-full px-3 py-1 bg-white text-[#332B42] font-medium text-xs lg:text-sm min-w-[80px]">
                 {view.charAt(0).toUpperCase() + view.slice(1)}
@@ -571,7 +571,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             ]}
             width={120}
             align="right"
-          />
+          /> */}
         </div>
       </div>
       {/* Calendar */}

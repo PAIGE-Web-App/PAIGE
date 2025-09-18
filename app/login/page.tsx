@@ -527,18 +527,6 @@ export default function Login() {
                 </>
               )}
               
-              {/* Login with email option when Google account is detected */}
-              {googleAccount && !showEmailForm && (
-                <button
-                  type="button"
-                  onClick={() => setShowEmailForm(true)}
-                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] whitespace-nowrap"
-                >
-                  Login with Email
-                </button>
-              )}
-
-
             </form>
 
             <p className="text-xs text-center font-work-sans text-[#332B42] mt-8">
@@ -546,10 +534,10 @@ export default function Login() {
               <a href="/signup" className="text-[#A85C36] cursor-pointer font-medium underline hover:text-[#784528]">Sign up</a>
             </p>
 
-            <div className="mt-1 text-xs text-[#364257]">
+            {/* <div className="mt-1 text-xs text-[#364257]">
               Are you a wedding planner?{" "}
               <button className="text-[#A85C36] underline hover:text-[#784528]">Start here</button>
-            </div>
+            </div> */}
             </div>
               </>
             )}

@@ -67,6 +67,7 @@ export default function SignUp() {
   const [showCustomVibeInput, setShowCustomVibeInput] = useState(false);
   const [customVibe, setCustomVibe] = useState('');
   const [maxBudget, setMaxBudget] = useState(35000);
+  const [guestCount, setGuestCount] = useState(120);
   const [saving, setSaving] = useState(false);
   const [venueSearchQuery, setVenueSearchQuery] = useState('');
   const [disableSignup, setDisableSignup] = useState(false);
@@ -1502,10 +1503,10 @@ export default function SignUp() {
 {step === 5 && (
   <>
     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
-      What's your maximum wedding budget?
+      What's your maximum wedding budget and how many guests are you expecting?
     </h1>
     <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
-      Enter your maximum wedding budget below.
+      Enter your maximum wedding budget and expected guest count below.
     </h4>
     <form className="w-full max-w-md space-y-8">
       <div>
@@ -1525,6 +1526,20 @@ export default function SignUp() {
           />
         </div>
       </div>
+      <div>
+        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
+          Guest Count<span className="text-[#A85C36]">*</span>
+        </label>
+        <input
+          type="number"
+          value={guestCount}
+          onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
+          className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+          placeholder="Enter expected guest count"
+          min={1}
+          step={1}
+        />
+      </div>
       <div className="w-full mt-8">
         <div className="flex w-full gap-4">
           <button
@@ -1540,11 +1555,12 @@ export default function SignUp() {
             onClick={async () => {
               // Save step 5 data and mark as onboarded
               const saveAndComplete = async () => {
-                const step5Data = {
-                  maxBudget: maxBudget,
-                  onboarded: true,
-                  onboardingCompletedAt: new Date(),
-                };
+              const step5Data = {
+                maxBudget: maxBudget,
+                guestCount: guestCount,
+                onboarded: true,
+                onboardingCompletedAt: new Date(),
+              };
                 
                 console.log('Completing onboarding with data:', step5Data);
                 const success = await saveOnboardingData(step5Data);

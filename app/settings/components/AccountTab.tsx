@@ -139,6 +139,12 @@ export default function AccountTab({
 
       if (response.ok) {
         showSuccessToast('Account deleted successfully');
+        // Clear localStorage data
+        localStorage.removeItem('lastSignInMethod');
+        localStorage.removeItem('lastGoogleEmail');
+        localStorage.removeItem('lastGoogleName');
+        localStorage.removeItem('lastGooglePicture');
+        localStorage.removeItem('lastGoogleUserId');
         // Sign out the user
         const auth = getAuth();
         await auth.signOut();
