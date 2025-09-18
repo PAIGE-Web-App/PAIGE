@@ -5,6 +5,7 @@ import { getTableShape } from '../utils/seatPositionCalculator';
 import { GuestAvatar } from './GuestAvatar';
 import { ActionIcons } from './ActionIcons';
 import { CirclePlus } from 'lucide-react';
+import { GuestAssignment } from '../hooks/useGuestManagement';
 
 interface TableRendererProps {
   table: TableType;
@@ -25,8 +26,8 @@ interface TableRendererProps {
   userName?: string;
   partnerName?: string;
   // Guest assignment props
-  guestAssignments?: Record<string, { tableId: string; position: { x: number; y: number } }>;
-  onGuestDrop?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  guestAssignments?: Record<string, GuestAssignment>;
+  onGuestDrop?: (guestId: string, tableId: string, seatIndex: number) => void;
   guests?: Guest[];
   showingActions?: string | null;
   onAvatarClick?: (tableId: string, seatNumber: number) => void;
@@ -34,7 +35,7 @@ interface TableRendererProps {
   onRemoveGuest?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
   getGuestAvatarColor?: (guestId: string) => string;
   onRotationUpdate?: (tableId: string, rotation: number) => void;
-  onGuestSwap?: (guestId: string, sourceTableId: string, sourcePosition: { x: number; y: number }, targetTableId: string, targetPosition: { x: number; y: number }) => void;
+  onGuestSwap?: (guestId: string, sourceTableId: string, sourceSeatIndex: number, targetTableId: string, targetSeatIndex: number) => void;
   onRemoveTable?: (tableId: string) => void;
   onCloneTable?: (tableId: string) => void;
   highlightedGuest?: string | null;
@@ -244,9 +245,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
         
         
         const isSeatOccupied = Object.values(guestAssignments || {}).some(
-          assignment => assignment.tableId === table.id && 
-                      Math.abs(assignment.position.x - seatPosition.x) < 15 && 
-                      Math.abs(assignment.position.y - seatPosition.y) < 15
+          assignment => assignment.tableId === table.id && assignment.seatIndex === index
         );
         
         
@@ -260,9 +259,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   const assignedGuestId = Object.keys(guestAssignments || {}).find(
                     guestId => {
                       const assignment = guestAssignments![guestId];
-                      return assignment.tableId === table.id && 
-                             Math.abs(assignment.position.x - seatPosition.x) < 15 && 
-                             Math.abs(assignment.position.y - seatPosition.y) < 15;
+                      return assignment.tableId === table.id && assignment.seatIndex === index;
                     }
                   );
                   
@@ -285,7 +282,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                       
                       {/* Action Icons - Move and Remove */}
                       {(() => {
-                        const actionKey = `${table.id}-${index}`;
+                        const actionKey = `${table.id}-${index + 1}`;
                         const shouldShow = showingActions === actionKey;
                         
                         if (!shouldShow) return null;
@@ -442,18 +439,18 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   if (parsedData.isFromSeat) {
                     // Guest is being moved from another seat
                     if (onGuestSwap) {
-                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourcePosition, table.id, seatPosition);
+                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourceSeatIndex || 0, table.id, index);
                     }
                   } else {
                     // Fallback to regular guest drop
                     if (onGuestDrop) {
-                      onGuestDrop(parsedData.guestId, table.id, seatPosition);
+                      onGuestDrop(parsedData.guestId, table.id, index);
                     }
                   }
                 } catch (error) {
                   // Fallback: treat as plain guest ID (from sidebar)
                   if (onGuestDrop) {
-                    onGuestDrop(dragData, table.id, seatPosition);
+                    onGuestDrop(dragData, table.id, index);
                   }
                 }
               }}

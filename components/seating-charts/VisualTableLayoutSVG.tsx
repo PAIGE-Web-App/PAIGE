@@ -24,7 +24,7 @@ interface VisualTableLayoutSVGProps {
   onAddTable: (table: TableType) => void;
   guestCount: number;
   guests: Guest[];
-  onGuestAssignment?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
   onRotationUpdate?: (tableId: string, rotation: number) => void;
   onSeatedGuestClick?: (guestId: string, tableId: string, seatNumber: number) => void;
   guestGroups?: any[];
@@ -149,9 +149,9 @@ export default function VisualTableLayoutSVG({
   const { resizeState, startResize, updateResize, stopResize } = useTableResize();
   
   // Wrapper function to convert coordinates to seat numbers for backward compatibility
-  const onGuestAssignmentWrapper = useCallback((guestId: string, tableId: string, position: { x: number; y: number }) => {
+  const onGuestAssignmentWrapper = useCallback((guestId: string, tableId: string, seatIndex: number) => {
     if (onGuestAssignment) {
-      onGuestAssignment(guestId, tableId, position);
+      onGuestAssignment(guestId, tableId, seatIndex);
     }
   }, [onGuestAssignment]);
 

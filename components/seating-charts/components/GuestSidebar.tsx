@@ -4,11 +4,12 @@ import { ListFilter, ChevronDown, ChevronUp, UserCheck, User } from 'lucide-reac
 import { Guest, TableType } from '../../../types/seatingChart';
 import BadgeCount from '../../BadgeCount';
 import { getCategoryHexColor } from '../../../utils/categoryStyle';
+import { GuestAssignment } from '../hooks/useGuestManagement';
 
 interface GuestSidebarProps {
   guests: Guest[];
-  guestAssignments: Record<string, { tableId: string; position: { x: number; y: number } }>;
-  onGuestAssignment?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
+  guestAssignments: Record<string, GuestAssignment>;
+  onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
   showingActions: string | null;
   onAvatarClick: (tableId: string, seatNumber: number) => void;
   onMoveGuest: (guestId: string, tableId: string, position: { x: number; y: number }) => void;

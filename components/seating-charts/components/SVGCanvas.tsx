@@ -3,6 +3,7 @@ import { TableType, Guest } from '../../../types/seatingChart';
 import { TablePosition } from '../hooks/useTableDrag';
 import { CanvasTransform } from '../hooks/useCanvasPanZoom';
 import { TableRenderer } from './TableRenderer';
+import { GuestAssignment } from '../hooks/useGuestManagement';
 
 interface SVGCanvasProps {
   tables: TableType[];
@@ -31,9 +32,9 @@ interface SVGCanvasProps {
   userName?: string;
   partnerName?: string;
   // Guest assignment props
-  guestAssignments?: Record<string, { tableId: string; position: { x: number; y: number } }>;
-  onGuestDrop?: (guestId: string, tableId: string, position: { x: number; y: number }) => void;
-  onGuestSwap?: (guestId1: string, tableId1: string, position1: { x: number; y: number }, tableId2: string, position2: { x: number; y: number }) => void;
+  guestAssignments?: Record<string, GuestAssignment>;
+  onGuestDrop?: (guestId: string, tableId: string, seatIndex: number) => void;
+  onGuestSwap?: (guestId1: string, tableId1: string, seatIndex1: number, tableId2: string, seatIndex2: number) => void;
   guests?: Guest[];
   showingActions?: string | null;
   onAvatarClick?: (tableId: string, seatNumber: number) => void;

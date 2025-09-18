@@ -3,12 +3,13 @@ import { Guest } from '../../../types/seatingChart';
 
 export interface GuestAssignment {
   tableId: string;
-  position: { x: number; y: number };
+  seatIndex: number;
+  position?: { x: number; y: number }; // Optional for backward compatibility
 }
 
 export const useGuestManagement = (
   guests: Guest[],
-  onGuestAssignment?: (guestId: string, tableId: string, position: { x: number; y: number }) => void
+  onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void
 ) => {
   // Guest assignment state with session persistence
   const [guestAssignments, setGuestAssignments] = useState<Record<string, GuestAssignment>>(() => {
@@ -99,7 +100,7 @@ export const useGuestManagement = (
   }, [guestAssignments]);
 
   // Handle guest assignment when dropped on a seat
-  const handleGuestDrop = useCallback((guestId: string, tableId: string, position: { x: number; y: number }) => {
+  const handleGuestDrop = useCallback((guestId: string, tableId: string, seatIndex: number) => {
     // Validation: Check if the guest exists
     const guest = guests.find(g => g.id === guestId);
     if (!guest) {
@@ -107,8 +108,8 @@ export const useGuestManagement = (
       return;
     }
     
-    // Validation: Check if position is valid (allow null for removal)
-    if (!position || (position.x === -1 && position.y === -1)) {
+    // Validation: Check if seatIndex is valid (allow -1 for removal)
+    if (seatIndex === -1) {
       // Remove the guest's assignment
       const newAssignments = { ...guestAssignments };
       delete newAssignments[guestId];
@@ -119,32 +120,32 @@ export const useGuestManagement = (
     // Remove any existing assignment for this guest
     const newAssignments = { ...guestAssignments };
     
-    // Check if there are already guests assigned to this exact position
-    const existingAtPosition = Object.values(newAssignments).filter(
-      assignment => assignment.tableId === tableId && 
-                   Math.abs(assignment.position.x - position.x) < 5 && 
-                   Math.abs(assignment.position.y - position.y) < 5
+    // Check if there are already guests assigned to this seat
+    const existingAtSeat = Object.values(newAssignments).filter(
+      assignment => assignment.tableId === tableId && assignment.seatIndex === seatIndex
     );
     
-    // If there are already guests at this position, find the next available seat
-    if (existingAtPosition.length > 0) {
-      // This is a simplified approach - in a real implementation, you'd want to
-      // calculate the next available seat position based on the table layout
-      // For now, we'll add a small offset to avoid exact overlap
-      position = {
-        x: position.x + (existingAtPosition.length * 10),
-        y: position.y + (existingAtPosition.length * 10)
-      };
+    // If there are already guests at this seat, find the next available seat
+    if (existingAtSeat.length > 0) {
+      // Find the next available seat index
+      const table = guests.find(g => g.id === guestId)?.tableId ? 
+        Object.values(newAssignments).filter(a => a.tableId === tableId) : [];
+      const usedSeats = table.map(a => a.seatIndex);
+      let nextSeatIndex = seatIndex;
+      while (usedSeats.includes(nextSeatIndex)) {
+        nextSeatIndex++;
+      }
+      seatIndex = nextSeatIndex;
     }
     
-    // Add new assignment with coordinates
-    newAssignments[guestId] = { tableId, position };
+    // Add new assignment with seat index
+    newAssignments[guestId] = { tableId, seatIndex };
     
     setGuestAssignments(newAssignments);
     
     // Call parent callback if provided
     if (onGuestAssignment) {
-      onGuestAssignment(guestId, tableId, position);
+      onGuestAssignment(guestId, tableId, seatIndex);
     }
   }, [guests, guestAssignments, onGuestAssignment]);
 
@@ -164,12 +165,12 @@ export const useGuestManagement = (
     
     // TODO: Implement move mode - for now just remove
     if (onGuestAssignment) {
-      onGuestAssignment(guestId, tableId, { x: 0, y: 0 });
+      onGuestAssignment(guestId, tableId, -1);
     }
   }, [guestAssignments, onGuestAssignment]);
 
   const handleRemoveGuest = useCallback((guestId: string, tableId: string, position: { x: number; y: number }) => {
-    handleGuestDrop(guestId, tableId, { x: -1, y: -1 });
+    handleGuestDrop(guestId, tableId, -1);
     setShowingActions(null);
   }, [handleGuestDrop]);
 
@@ -177,44 +178,42 @@ export const useGuestManagement = (
   const handleGuestSwap = useCallback((
     guestId1: string, 
     tableId1: string, 
-    position1: { x: number; y: number },
+    seatIndex1: number,
     tableId2: string, 
-    position2: { x: number; y: number }
+    seatIndex2: number
   ) => {
     // Get current assignments
     const newAssignments = { ...guestAssignments };
     
-    // Find the guest currently in the destination position (if any)
+    // Find the guest currently in the destination seat (if any)
     const guestInDestinationSeat = Object.keys(newAssignments).find(key => {
       const assignment = newAssignments[key];
-      return assignment.tableId === tableId2 && 
-             Math.abs(assignment.position.x - position2.x) < 5 && 
-             Math.abs(assignment.position.y - position2.y) < 5;
+      return assignment.tableId === tableId2 && assignment.seatIndex === seatIndex2;
     });
     
     // Perform the swap
     if (guestInDestinationSeat) {
-      // Move guest from destination position to source position
-      newAssignments[guestInDestinationSeat] = { tableId: tableId1, position: position1 };
+      // Move guest from destination seat to source seat
+      newAssignments[guestInDestinationSeat] = { tableId: tableId1, seatIndex: seatIndex1 };
       
-      // Move guest1 to destination position
-      newAssignments[guestId1] = { tableId: tableId2, position: position2 };
+      // Move guest1 to destination seat
+      newAssignments[guestId1] = { tableId: tableId2, seatIndex: seatIndex2 };
     } else {
-      // Simple move (destination position is empty)
+      // Simple move (destination seat is empty)
       // Remove the original assignment first
       delete newAssignments[guestId1];
       
       // Add new assignment
-      newAssignments[guestId1] = { tableId: tableId2, position: position2 };
+      newAssignments[guestId1] = { tableId: tableId2, seatIndex: seatIndex2 };
     }
     
     setGuestAssignments(newAssignments);
     
     // Call parent callback for both guests if provided
     if (onGuestAssignment) {
-      onGuestAssignment(guestId1, tableId2, { x: 0, y: 0 });
+      onGuestAssignment(guestId1, tableId2, seatIndex2);
       if (guestInDestinationSeat) {
-        onGuestAssignment(guestInDestinationSeat, tableId1, { x: 0, y: 0 });
+        onGuestAssignment(guestInDestinationSeat, tableId1, seatIndex1);
       }
     }
   }, [guestAssignments, onGuestAssignment]);
@@ -293,38 +292,34 @@ export const useGuestManagement = (
     Object.keys(assignmentsByTable).forEach(tableId => {
       const tableAssignments = assignmentsByTable[tableId];
       
-      // Group assignments by position (within 5 pixels)
-      const positionGroups: Array<Array<{guestId: string, assignment: GuestAssignment}>> = [];
+      // Group assignments by seat index
+      const seatGroups: Record<number, Array<{guestId: string, assignment: GuestAssignment}>> = {};
       
       tableAssignments.forEach(({ guestId, assignment }) => {
-        let addedToGroup = false;
-        for (const group of positionGroups) {
-          const groupPosition = group[0].assignment.position;
-          if (Math.abs(assignment.position.x - groupPosition.x) < 5 && 
-              Math.abs(assignment.position.y - groupPosition.y) < 5) {
-            group.push({ guestId, assignment });
-            addedToGroup = true;
-            break;
-          }
+        if (!seatGroups[assignment.seatIndex]) {
+          seatGroups[assignment.seatIndex] = [];
         }
-        if (!addedToGroup) {
-          positionGroups.push([{ guestId, assignment }]);
-        }
+        seatGroups[assignment.seatIndex].push({ guestId, assignment });
       });
       
-      // Redistribute overlapping groups
-      positionGroups.forEach((group, groupIndex) => {
-        if (group.length > 1) {
+      // Redistribute overlapping groups (multiple guests at same seat index)
+      Object.keys(seatGroups).forEach(seatIndexStr => {
+        const seatIndex = parseInt(seatIndexStr);
+        const group = seatGroups[seatIndex];
+        
+        if (group && group.length > 1) {
+          // Multiple guests at the same seat - redistribute them to consecutive seats
           group.forEach(({ guestId }, guestIndex) => {
-            const basePosition = group[0].assignment.position;
-            newAssignments[guestId] = {
-              ...newAssignments[guestId],
-              position: {
-                x: basePosition.x + (guestIndex * 15),
-                y: basePosition.y + (guestIndex * 15)
-              }
-            };
-            hasChanges = true;
+            if (guestIndex > 0) {
+              // Move to next available seat index
+              const newSeatIndex = seatIndex + guestIndex;
+              
+              newAssignments[guestId] = {
+                ...newAssignments[guestId],
+                seatIndex: newSeatIndex
+              };
+              hasChanges = true;
+            }
           });
         }
       });

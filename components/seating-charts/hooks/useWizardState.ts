@@ -233,11 +233,11 @@ export const useWizardState = () => {
     };
     
     setWizardState(prev => {
-      const newGuests = [...prev.guests, newGuest];
+      const newGuests = [newGuest, ...prev.guests];
       
       // If this is the second guest being added, make the first guest removable
       if (newGuests.length === 2) {
-        newGuests[0] = { ...newGuests[0], isRemovable: true };
+        newGuests[1] = { ...newGuests[1], isRemovable: true };
       }
       
       return { ...prev, guests: newGuests };

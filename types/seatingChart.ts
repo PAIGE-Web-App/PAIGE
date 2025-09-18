@@ -54,8 +54,9 @@ export interface Table {
   type: 'round' | 'long' | 'oval' | 'square';
   capacity: number;
   position: { x: number; y: number };
+  rotation?: number; // Table rotation in degrees
   guests: string[]; // Guest IDs
-  guestAssignments?: Record<string, { x: number; y: number }>; // Guest coordinates
+  guestAssignments?: Record<string, { seatIndex: number }>; // Guest seat assignments
   isActive: boolean;
 }
 

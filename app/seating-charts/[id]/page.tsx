@@ -7,12 +7,18 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { SeatingChart } from '@/types/seatingChart';
 import { getSeatingChart } from '@/lib/seatingChartService';
-import { ArrowLeft, Users, Table, Settings, Save, Plus, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Users, Table, Settings, Save, Plus, ChevronDown, Upload, X } from 'lucide-react';
 import GuestListTableWithResizing from '@/components/seating-charts/GuestListTableWithResizing';
-import VisualTableLayoutSVG from '@/components/seating-charts/VisualTableLayoutSVG';
+import TableLayoutStep from '@/components/seating-charts/TableLayoutStep';
 import EditGroupModal from '@/components/seating-charts/EditGroupModal';
 import { useWizardState } from '@/components/seating-charts/hooks/useWizardState';
+import { useModalState } from '@/components/seating-charts/hooks/useModalState';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import CSVUploadModal from '@/components/seating-charts/CSVUploadModal';
+import { OptionsEditModal } from '@/components/seating-charts';
+import AddColumnModal from '@/components/seating-charts/AddColumnModal';
+import FamilyGroupingModal from '@/components/seating-charts/FamilyGroupingModal';
+import { updateSeatingChart } from '@/lib/seatingChartService';
 
 export default function SeatingChartDetailPage() {
   const { user, profileImageUrl } = useAuth();
@@ -32,6 +38,29 @@ export default function SeatingChartDetailPage() {
     type: string;
     guestIds: string[];
   } | null>(null);
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const [showHowToUseModal, setShowHowToUseModal] = useState(false);
+  const [editingChartName, setEditingChartName] = useState(false);
+  const [editingChartNameValue, setEditingChartNameValue] = useState('');
+  const [showFamilyGroupingModal, setShowFamilyGroupingModal] = useState(false);
+  const [selectedGuestsForGrouping, setSelectedGuestsForGrouping] = useState<any[]>([]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showActionsDropdown) {
+        const target = event.target as Element;
+        if (!target.closest('.relative')) {
+          setShowActionsDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActionsDropdown]);
   
   // Initialize wizard state from chart data
   const {
@@ -40,8 +69,25 @@ export default function SeatingChartDetailPage() {
     updateGuest,
     removeGuest,
     updateColumn,
-    guestColumns
+    guestColumns,
+    addGuest,
+    addColumn,
+    removeColumn,
+    getGroupColor
   } = useWizardState();
+
+  // Initialize modal state
+  const {
+    modalState,
+    modalData,
+    openModal,
+    closeModal,
+    openMealOptionsModal,
+    openRelationshipOptionsModal,
+    openColumnOptionsModal,
+    openFamilyGroupingModal,
+    closeAllModals
+  } = useModalState();
 
   const chartId = params.id as string;
 
@@ -85,7 +131,7 @@ export default function SeatingChartDetailPage() {
             });
             console.log('🔍 CHART LOAD DEBUG - Table positions from Firestore:', chartData.tables.map(t => ({ id: t.id, name: t.name, position: t.position })));
             
-            // Restore table positions from saved chart data
+            // Restore table positions and rotations from saved chart data
             if (chartData.tables && chartData.tables.length > 0) {
               const tablePositions = chartData.tables.map((table, index) => {
                 if (table.position) {
@@ -93,7 +139,7 @@ export default function SeatingChartDetailPage() {
                     id: table.id,
                     x: table.position.x,
                     y: table.position.y,
-                    rotation: 0
+                    rotation: table.rotation || 0 // Restore saved rotation
                   };
                 } else {
                   // Default positions if not saved
@@ -107,7 +153,7 @@ export default function SeatingChartDetailPage() {
                 }
               });
               sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(tablePositions));
-              console.log('Restored table positions:', tablePositions);
+              console.log('Restored table positions and rotations:', tablePositions);
             }
             
             // Restore guest assignments from saved chart data
@@ -117,17 +163,17 @@ export default function SeatingChartDetailPage() {
               chartData.tables.forEach(table => {
                 if (table.guests && Array.isArray(table.guests)) {
                   table.guests.forEach((guestId) => {
-                    // Use stored coordinates if available, otherwise fall back to table position
-                    let position = { x: table.position?.x || 0, y: table.position?.y || 0 };
+                    // Use stored seat index if available, otherwise fall back to 0
+                    let seatIndex = 0;
                     
                     if (table.guestAssignments && table.guestAssignments[guestId]) {
-                      // Use the stored coordinates for this specific guest
-                      position = table.guestAssignments[guestId];
+                      // Use the stored seat index for this specific guest
+                      seatIndex = table.guestAssignments[guestId].seatIndex || 0;
                     }
                     
                     guestAssignments[guestId] = {
                       tableId: table.id,
-                      position: position
+                      seatIndex: seatIndex
                     };
                   });
                 }
@@ -242,19 +288,19 @@ export default function SeatingChartDetailPage() {
         console.warn('Could not load session storage data for save:', error);
       }
       
-      // Update tables with positions and guest assignments
+      // Update tables with positions, rotation, and guest assignments
       const updatedTables = wizardState.tableLayout.tables.map(table => {
         const savedPosition = tablePositions.find(pos => pos.id === table.id);
         const assignedGuests = Object.keys(guestAssignments).filter(guestId => 
           guestAssignments[guestId].tableId === table.id
         );
         
-        // Store guest assignments with coordinates for this table
-        const guestAssignmentsForTable: Record<string, { x: number; y: number }> = {};
+        // Store guest assignments with seat indices for this table
+        const guestAssignmentsForTable: Record<string, { seatIndex: number }> = {};
         assignedGuests.forEach(guestId => {
           const assignment = guestAssignments[guestId];
-          if (assignment && assignment.position) {
-            guestAssignmentsForTable[guestId] = assignment.position;
+          if (assignment && assignment.seatIndex !== undefined) {
+            guestAssignmentsForTable[guestId] = { seatIndex: assignment.seatIndex };
           }
         });
         
@@ -265,8 +311,9 @@ export default function SeatingChartDetailPage() {
           type: table.type,
           capacity: table.capacity,
           position: savedPosition ? { x: savedPosition.x, y: savedPosition.y } : { x: 0, y: 0 },
+          rotation: table.rotation || 0, // Save the rotation
           guests: assignedGuests,
-          guestAssignments: guestAssignmentsForTable, // Store coordinates with guest IDs
+          guestAssignments: guestAssignmentsForTable, // Store seat indices with guest IDs
           isActive: true
         };
       });
@@ -298,6 +345,125 @@ export default function SeatingChartDetailPage() {
       console.error('Error saving chart:', error);
       showErrorToast('Failed to save chart');
     }
+  };
+
+  // Handle CSV upload
+  const handleGuestsUploaded = (uploadedGuests: any[], customColumns?: any[]) => {
+    // Convert uploaded guests to our format
+    const convertedGuests = uploadedGuests.map(guest => ({
+      id: `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      fullName: guest.fullName || `${guest.firstName || ''} ${guest.lastName || ''}`.trim(),
+      mealPreference: guest.mealPreference || '',
+      relationship: guest.relationship || '',
+      customFields: guest.customFields || {},
+      tableId: null,
+      seatNumber: null
+    }));
+
+    // Add new guests to existing guests instead of replacing
+    updateWizardState({ guests: [...wizardState.guests, ...convertedGuests] });
+    
+    closeModal('csvUpload');
+    showSuccessToast(`${convertedGuests.length} guests added successfully`);
+  };
+
+  // Handle meal options modal
+  const handleMealOptionsSave = (options: string[]) => {
+    // Update relationship options in the appropriate column
+    const relationshipColumn = guestColumns.find(col => col.key === 'mealPreference');
+    if (relationshipColumn) {
+      updateColumn(relationshipColumn.id, { options });
+    }
+    closeModal('mealOptions');
+    showSuccessToast('Meal options updated successfully');
+  };
+
+  // Handle relationship options modal
+  const handleRelationshipOptionsSave = (options: string[]) => {
+    // Update relationship options in the appropriate column
+    const relationshipColumn = guestColumns.find(col => col.key === 'relationship');
+    if (relationshipColumn) {
+      updateColumn(relationshipColumn.id, { options });
+    }
+    closeModal('relationshipOptions');
+    showSuccessToast('Relationship options updated successfully');
+  };
+
+  // Handle chart name editing
+  const handleRenameChart = async () => {
+    if (!chart || !user) return;
+    
+    const trimmedName = editingChartNameValue.trim();
+    if (!trimmedName) {
+      showErrorToast('Chart name cannot be empty.');
+      setEditingChartNameValue(chart.name);
+      setEditingChartName(false);
+      return;
+    }
+
+    if (trimmedName === chart.name) {
+      setEditingChartName(false);
+      return;
+    }
+
+    try {
+      // Update the chart name using the service
+      await updateSeatingChart(chart.id, { name: trimmedName }, user.uid);
+      
+      // Update local state
+      setChart({ ...chart, name: trimmedName });
+      setEditingChartName(false);
+      showSuccessToast('Chart renamed successfully!');
+    } catch (error: any) {
+      console.error('Error renaming chart:', error);
+      showErrorToast(`Failed to rename chart: ${error.message}`);
+      setEditingChartNameValue(chart.name);
+      setEditingChartName(false);
+    }
+  };
+
+  // Handle family grouping
+  const handleShowLinkUsersModal = (selectedGuestIds: string[]) => {
+    const selectedGuests = wizardState.guests.filter(guest => selectedGuestIds.includes(guest.id));
+    setSelectedGuestsForGrouping(selectedGuests);
+    setShowFamilyGroupingModal(true);
+  };
+
+  const handleCreateFamilyGroup = (groupData: { name: string; type: string; memberIds: string[] }) => {
+    // Create a new family group
+    const newGroup = {
+      id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: groupData.name,
+      type: groupData.type as 'couple' | 'family' | 'extended' | 'friends' | 'other',
+      guestIds: groupData.memberIds,
+      createdAt: new Date()
+    };
+    
+    updateWizardState({
+      guestGroups: [...(wizardState.guestGroups || []), newGroup]
+    });
+    
+    setShowFamilyGroupingModal(false);
+    setSelectedGuestsForGrouping([]);
+    showSuccessToast('Family group created successfully!');
+  };
+
+  const handleAddToExistingGroup = (groupId: string, guestIds: string[]) => {
+    // Add guests to existing group
+    const updatedGroups = (wizardState.guestGroups || []).map(group => {
+      if (group.id === groupId) {
+        return {
+          ...group,
+          guestIds: [...group.guestIds, ...guestIds]
+        };
+      }
+      return group;
+    });
+    
+    updateWizardState({ guestGroups: updatedGroups });
+    setShowFamilyGroupingModal(false);
+    setSelectedGuestsForGrouping([]);
+    showSuccessToast('Guests added to group successfully!');
   };
 
   if (!user) {
@@ -375,8 +541,62 @@ export default function SeatingChartDetailPage() {
             >
               <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
             </button>
-            <div>
-              <h1 className="h3 text-[#332B42]">{chart.name}</h1>
+            <div className="flex items-center gap-2">
+              <div
+                className="relative flex items-center transition-all duration-300"
+                style={{
+                  width: editingChartName ? '240px' : 'auto',
+                  minWidth: editingChartName ? '240px' : 'auto',
+                }}
+              >
+                <h1
+                  className={`h3 text-[#332B42] transition-opacity duration-300 truncate max-w-[300px] ${
+                    editingChartName ? 'opacity-0' : 'opacity-100'
+                  }`}
+                  title={chart.name}
+                >
+                  {chart.name}
+                </h1>
+                <input
+                  type="text"
+                  value={editingChartNameValue || ''}
+                  onChange={(e) => setEditingChartNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleRenameChart();
+                    } else if (e.key === 'Escape') {
+                      setEditingChartName(false);
+                      setEditingChartNameValue('');
+                    }
+                  }}
+                  onBlur={() => {
+                    if (editingChartNameValue) {
+                      handleRenameChart();
+                    } else {
+                      setEditingChartName(false);
+                      setEditingChartNameValue('');
+                    }
+                  }}
+                  className={`absolute left-0 w-full h-8 px-2 border border-[#D6D3D1] rounded-[5px] bg-white text-sm focus:outline-none focus:border-[#A85C36] transition-all duration-300 ${
+                    editingChartName
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none'
+                  }`}
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setEditingChartName(true);
+                  setEditingChartNameValue(chart.name);
+                }}
+                className="p-1 hover:bg-[#EBE3DD] rounded-[5px]"
+                title="Rename Chart"
+              >
+                <span className="inline-block align-middle text-[#AB9C95] -scale-x-100">
+                  ✏️
+                </span>
+              </button>
             </div>
           </div>
           
@@ -390,13 +610,22 @@ export default function SeatingChartDetailPage() {
               <div className="text-2xl font-semibold text-[#332B42] font-work">{chart.tableCount}</div>
               <div className="text-xs text-[#AB9C95] font-work">Tables</div>
             </div>
+            <button
+              onClick={() => {
+                handleSave();
+              }}
+              className="btn-primaryinverse flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Save
+            </button>
           </div>
         </div>
 
         {/* Main Content Area */}
-        <div className="bg-white flex flex-col">
+        <div className="flex flex-col">
           {/* Header with Tabs */}
-          <div className="border-b border-[#AB9C95]">
+          <div>
             <div className="flex items-center justify-between px-6 py-4">
               <div className="flex space-x-8">
                 <button
@@ -420,35 +649,18 @@ export default function SeatingChartDetailPage() {
                   Table Layout
                 </button>
               </div>
-              
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-        handleSave();
-                  }}
-                  className="btn-primaryinverse flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  Save
-                </button>
-                <button className="btn-primaryinverse flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </button>
-              </div>
             </div>
           </div>
 
           {/* Guest List Header - Only show when guests tab is active */}
           {activeTab === 'guests' && (
-            <div className="px-6 py-4 border-b border-[#E0DBD7]">
+            <div className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h2>
-                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-medium text-gray-600">1</span>
-                  </div>
-                  <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#A85C36] transition-colors">
+                  <button 
+                    onClick={() => setShowHowToUseModal(true)}
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#A85C36] transition-colors"
+                  >
                     <div className="w-4 h-4 bg-gray-300 rounded-full flex items-center justify-center">
                       <span className="text-xs">?</span>
                     </div>
@@ -457,14 +669,49 @@ export default function SeatingChartDetailPage() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <button className="btn-primary flex items-center gap-2">
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                      className="btn-primaryinverse flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      More Actions
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    
+                    {showActionsDropdown && (
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-[#E0DBD7] rounded-[5px] shadow-lg z-50 min-w-[180px]">
+                        <div className="py-1">
+                          <button
+                            onClick={() => {
+                              openModal('csvUpload');
+                              setShowActionsDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-sm text-[#332B42] hover:bg-[#F8F6F4] text-left flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Upload CSV
+                          </button>
+                          <button
+                            onClick={() => {
+                              openModal('addColumn');
+                              setShowActionsDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-sm text-[#332B42] hover:bg-[#F8F6F4] text-left flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Manage Columns
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => addGuest({ fullName: '', mealPreference: '', relationship: '', customFields: {} })}
+                    className="btn-primary flex items-center gap-2"
+                  >
                     <Plus className="w-4 h-4" />
                     Add Guest
-                  </button>
-                  <button className="btn-primaryinverse flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    More Actions
-                    <ChevronDown className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -474,8 +721,8 @@ export default function SeatingChartDetailPage() {
           {/* Tab Content */}
           <div className="flex-1 flex flex-col min-h-0">
             {activeTab === 'guests' ? (
-              <div className="flex-1 flex flex-col">
-                <div className="flex-1">
+              <div className="flex flex-col" style={{ height: '60vh' }}>
+                <div className="flex-1 overflow-y-auto">
                   <GuestListTableWithResizing
                     wizardState={wizardState}
                     guestColumns={guestColumns}
@@ -483,94 +730,31 @@ export default function SeatingChartDetailPage() {
                     onRemoveGuest={removeGuest}
                     onUpdateColumn={updateColumn}
                     onEditGroup={handleEditGroup}
+                    onShowMealOptionsModal={openMealOptionsModal}
+                    onShowRelationshipOptionsModal={openRelationshipOptionsModal}
+                    onShowLinkUsersModal={handleShowLinkUsersModal}
                   />
-                </div>
-                <div className="py-3 px-0 lg:px-4">
-                  {/* Bottom padding */}
                 </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col">
                 <div className="flex-1">
-                  <VisualTableLayoutSVG
+                  <TableLayoutStep
                     tableLayout={wizardState.tableLayout}
                     onUpdate={(updates) => updateWizardState({ tableLayout: { ...wizardState.tableLayout, ...updates } })}
-                    onAddTable={(newTable) => {
-                      const updatedTables = [...wizardState.tableLayout.tables, newTable];
-                      const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
-                      updateWizardState({ tableLayout: { tables: updatedTables, totalCapacity } });
-                    }}
                     guestCount={wizardState.guests.length}
                     guests={wizardState.guests}
-                    onGuestAssignment={() => {}}
-                    onRotationUpdate={(tableId, rotation) => {
-                      // Update guest positions when table rotates
-                      const tablePosition = JSON.parse(sessionStorage.getItem('seating-chart-table-positions') || '[]').find((p: any) => p.id === tableId);
-                      const table = wizardState.tableLayout.tables.find(t => t.id === tableId);
-                      const oldRotation = table?.rotation || 0;
-                      const rotationDelta = rotation - oldRotation;
-                      
-                      if (tablePosition && Math.abs(rotationDelta) > 0.1) {
-                        console.log('🔄 ROTATING GUEST POSITIONS:', { tableId, oldRotation, rotation, rotationDelta });
-                        
-                        // Convert rotation delta to radians
-                        const rotationRad = (rotationDelta * Math.PI) / 180;
-                        const cos = Math.cos(rotationRad);
-                        const sin = Math.sin(rotationRad);
-                        
-                        // Get current guest assignments
-                        const currentAssignments = JSON.parse(sessionStorage.getItem('seating-chart-guest-assignments') || '{}');
-                        const newAssignments = { ...currentAssignments };
-                        let hasChanges = false;
-                        
-                        Object.keys(newAssignments).forEach(guestId => {
-                          const assignment = newAssignments[guestId];
-                          if (assignment.tableId === tableId) {
-                            // Calculate the guest's position relative to the table center
-                            const relativeX = assignment.position.x - tablePosition.x;
-                            const relativeY = assignment.position.y - tablePosition.y;
-                            
-                            // Rotate the relative position
-                            const newRelativeX = relativeX * cos - relativeY * sin;
-                            const newRelativeY = relativeX * sin + relativeY * cos;
-                            
-                            // Update the absolute position
-                            newAssignments[guestId] = {
-                              ...assignment,
-                              position: {
-                                x: tablePosition.x + newRelativeX,
-                                y: tablePosition.y + newRelativeY
-                              }
-                            };
-                            hasChanges = true;
-                            
-                            console.log('🔄 ROTATED GUEST POSITION:', {
-                              guestId,
-                              oldPosition: assignment.position,
-                              newPosition: newAssignments[guestId].position,
-                              relativeX,
-                              relativeY,
-                              newRelativeX,
-                              newRelativeY
-                            });
-                          }
-                        });
-                        
-                        if (hasChanges) {
-                          sessionStorage.setItem('seating-chart-guest-assignments', JSON.stringify(newAssignments));
-                        }
-                      }
+                    guestGroups={wizardState.guestGroups || []}
+                    onEditGroup={handleEditGroup}
+                    onGuestAssignment={(guestId: string, tableId: string, seatIndex: number) => {
+                      // Update guest assignment in wizard state
+                      const updatedGuests = wizardState.guests.map(guest =>
+                        guest.id === guestId 
+                          ? { ...guest, tableId, seatNumber: seatIndex } // Use the actual seat index
+                          : guest
+                      );
+                      updateWizardState({ guests: updatedGuests });
                     }}
-                    partnerName={partnerName}
-                    guestAssignments={(() => {
-                      try {
-                        const assignmentsData = sessionStorage.getItem('seating-chart-guest-assignments');
-                        return assignmentsData ? JSON.parse(assignmentsData) : {};
-                      } catch (error) {
-                        console.warn('Could not load guest assignments:', error);
-                        return {};
-                      }
-                    })()}
                   />
                 </div>
                 <div className="py-3 px-0 lg:px-4">
@@ -597,6 +781,130 @@ export default function SeatingChartDetailPage() {
         onUpdateGroup={handleUpdateGroup}
         onDeleteGroup={handleDeleteGroup}
       />
+
+      {/* CSV Upload Modal */}
+      <CSVUploadModal
+        isOpen={modalState.csvUpload}
+        onClose={() => closeModal('csvUpload')}
+        onGuestsUploaded={handleGuestsUploaded}
+      />
+
+      {/* Meal Options Modal */}
+      <OptionsEditModal
+        isOpen={modalState.mealOptions}
+        onClose={() => closeModal('mealOptions')}
+        title="Edit Meal Preference Options"
+        placeholder="Beef\nChicken\nFish\nVegetarian\nVegan\nGluten-Free"
+        initialOptions={modalData.mealOptions}
+        onSave={handleMealOptionsSave}
+        rows={6}
+      />
+
+      {/* Relationship Options Modal */}
+      <OptionsEditModal
+        isOpen={modalState.relationshipOptions}
+        onClose={() => closeModal('relationshipOptions')}
+        title="Edit Relationship to You Options"
+        placeholder="Bride's Family\nGroom's Family\nBride's Friends\nGroom's Friends\nWork Colleagues\nCollege Friends\nChildhood Friends\nNeighbors\nOther"
+        initialOptions={modalData.relationshipOptions}
+        onSave={handleRelationshipOptionsSave}
+        rows={8}
+      />
+
+      {/* Add Column Modal */}
+      <AddColumnModal
+        isOpen={modalState.addColumn}
+        onClose={() => closeModal('addColumn')}
+        onAddColumn={addColumn}
+        guestColumns={guestColumns}
+        onToggleColumnVisibility={(columnId: string) => {
+          const column = guestColumns.find(col => col.id === columnId);
+          if (column) {
+            // For now, just remove the column to hide it
+            // In the future, we could add an isVisible property
+            removeColumn(columnId);
+          }
+        }}
+      />
+
+      {/* Family Grouping Modal */}
+      <FamilyGroupingModal
+        isOpen={showFamilyGroupingModal}
+        onClose={() => {
+          setShowFamilyGroupingModal(false);
+          setSelectedGuestsForGrouping([]);
+        }}
+        selectedGuests={selectedGuestsForGrouping}
+        allGuests={wizardState.guests}
+        onCreateFamilyGroup={handleCreateFamilyGroup}
+        existingGroups={wizardState.guestGroups || []}
+        onAddToExistingGroup={handleAddToExistingGroup}
+      />
+
+      {/* Help Modal */}
+      {showHowToUseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[5px] shadow-xl max-w-xl w-full p-6 relative">
+            {/* Header row with title and close button */}
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="h5 text-left">How to use your guest list</h5>
+              <button
+                onClick={() => setShowHowToUseModal(false)}
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Description */}
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 text-left">
+                Learn how to make the most of your guest list to help Paige create the perfect seating arrangement for your event.
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <h6 className="font-medium text-[#332B42] mb-3">Key features:</h6>
+              <ul className="space-y-2">
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Link Guests Together:</strong> Select multiple guests and group them to help Paige understand family relationships and seating preferences.
+                  </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Add Detailed Notes:</strong> Include dietary restrictions, accessibility needs, or personality traits to help create optimal seating.
+                  </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>AI-Powered Seating:</strong> Paige analyzes your guest data to automatically create seating arrangements that work for everyone.
+                  </div>
+                </li>
+                <li className="flex items-start text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-[#A85C36] rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <div>
+                    <strong>Custom Columns:</strong> Add your own fields like meal preferences, relationship to you, or special requirements.
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowHowToUseModal(false)}
+                className="btn-primary px-6 py-2 text-sm"
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

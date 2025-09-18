@@ -6,7 +6,6 @@ import WizardSidebar from '@/components/seating-charts/WizardSidebar';
 import ChartDetailsForm from '@/components/seating-charts/ChartDetailsForm';
 import GuestListTableWithResizing from '@/components/seating-charts/GuestListTableWithResizing';
 import TableLayoutStep from '@/components/seating-charts/TableLayoutStep';
-import AIOrganizationStep from '@/components/seating-charts/AIOrganizationStep';
 import { useWizardState } from '@/components/seating-charts/hooks/useWizardState';
 import { useModalState } from '@/components/seating-charts/hooks/useModalState';
 import CSVUploadModal from '@/components/seating-charts/CSVUploadModal';
@@ -141,9 +140,7 @@ export default function CreateSeatingChartPage() {
       }
       
       setShowValidationErrors(false);
-      setCurrentStep(currentStep + 1);
-    } else if (canProceedToNext()) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep(2); // Go directly to Table Layout step (now the final step)
     }
   };
 
@@ -417,12 +414,12 @@ export default function CreateSeatingChartPage() {
             savedAssignments[guestId].tableId === table.id
           );
           
-          // Store guest assignments with coordinates for this table
-          const guestAssignmentsForTable: Record<string, { x: number; y: number }> = {};
+          // Store guest assignments with seat indices for this table
+          const guestAssignmentsForTable: Record<string, { seatIndex: number }> = {};
           assignedGuests.forEach(guestId => {
             const assignment = savedAssignments[guestId];
-            if (assignment && assignment.position) {
-              guestAssignmentsForTable[guestId] = assignment.position;
+            if (assignment && assignment.seatIndex !== undefined) {
+              guestAssignmentsForTable[guestId] = { seatIndex: assignment.seatIndex };
             }
           });
           
@@ -432,8 +429,9 @@ export default function CreateSeatingChartPage() {
             type: table.type,
             capacity: table.capacity,
             position: savedPosition ? { x: savedPosition.x, y: savedPosition.y } : { x: 0, y: 0 },
+            rotation: table.rotation || 0, // Save the rotation
             guests: assignedGuests,
-            guestAssignments: guestAssignmentsForTable, // Store coordinates with guest IDs
+            guestAssignments: guestAssignmentsForTable, // Store seat indices with guest IDs
             isActive: true
           };
         }),
@@ -785,19 +783,6 @@ export default function CreateSeatingChartPage() {
             />
           </div>
         );
-      case 3:
-        return (
-          <div className="bg-white rounded-[5px] border border-[#AB9C95] p-6">
-            <AIOrganizationStep
-              guests={wizardState.guests}
-              tableLayout={wizardState.tableLayout}
-              organizationChoice={wizardState.organizationChoice}
-              onUpdate={(choice) => updateWizardState({ organizationChoice: choice })}
-              onChartCreated={handleCreateChart}
-              isLoading={isLoading}
-            />
-          </div>
-        );
       default:
         return null;
     }
@@ -809,8 +794,6 @@ export default function CreateSeatingChartPage() {
       case 1:
         return 'Next: Table Layout';
       case 2:
-        return 'Next: AI Organization';
-      case 3:
         return 'Create Chart';
       default:
         return 'Next';
@@ -822,7 +805,7 @@ export default function CreateSeatingChartPage() {
     if (currentStep === 1) {
       return false; // Always allow clicking Next on step 1
     }
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       return !canProceedToNext || isLoading;
     }
     return false;
@@ -832,11 +815,10 @@ export default function CreateSeatingChartPage() {
     <div className="fixed inset-0 bg-white z-50 flex">
       {/* Sidebar */}
       <WizardSidebar
-        currentStep={currentStep === 1 ? 'guests' : currentStep === 2 ? 'tables' : 'organization'}
+        currentStep={currentStep === 1 ? 'guests' : 'tables'}
         onStepClick={(step) => {
           if (step === 'guests') setCurrentStep(1);
           else if (step === 'tables') setCurrentStep(2);
-          else if (step === 'organization') setCurrentStep(3);
         }}
       />
 
@@ -887,7 +869,7 @@ export default function CreateSeatingChartPage() {
               Save
             </button>
             
-            {currentStep < 3 ? (
+            {currentStep === 1 ? (
               <button
                 onClick={goToNextStep}
                 disabled={isNextButtonDisabled()}

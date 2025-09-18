@@ -11,14 +11,12 @@ interface AddTableModalProps {
 
 const TABLE_TYPES = [
   { id: 'round', name: 'Round Table', icon: '●' },
-  { id: 'long', name: 'Long Table', icon: '▭' },
-  { id: 'square', name: 'Square Table', icon: '■' }
+  { id: 'long', name: 'Long Table', icon: '▭' }
 ];
 
 const DEFAULT_CAPACITIES = {
   round: [4, 6, 8, 10, 12],
-  long: [2, 4, 6, 8, 10],
-  square: [4, 6, 8, 10]
+  long: [2, 4, 6, 8, 10]
 };
 
 export default function AddTableModal({ isOpen, onClose, onAddTable }: AddTableModalProps) {
@@ -92,7 +90,7 @@ export default function AddTableModal({ isOpen, onClose, onAddTable }: AddTableM
             {/* Table Type Selection */}
             <div className="mb-6">
               <h6 className="font-medium text-[#332B42] mb-3">Table Type:</h6>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {TABLE_TYPES.map((type) => (
                   <button
                     key={type.id}
