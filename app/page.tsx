@@ -223,22 +223,21 @@ export default function Dashboard() {
         setOnboardingCheckLoading(true);
         checkOnboardingStatus().then(() => {
           setOnboardingCheckLoading(false);
+        }).catch((error) => {
+          console.error('Error checking onboarding status:', error);
+          setOnboardingCheckLoading(false);
         });
-      } else if (onboardingStatus === 'not-onboarded') {
-        // Add a small delay and retry check before redirecting
-        // This handles race conditions where onboarding was just completed
-        setTimeout(async () => {
-          console.log('Onboarding status is not-onboarded, double-checking before redirect...');
-          await checkOnboardingStatus();
-          
-          // If still not onboarded after retry, then redirect
-          if (onboardingStatus === 'not-onboarded') {
-            console.log('Confirmed not onboarded, redirecting to signup...');
-            window.location.href = '/signup?onboarding=1';
-          } else {
-            console.log('Onboarding status updated after retry, staying on dashboard');
+        
+        // Add a timeout to prevent infinite loading
+        setTimeout(() => {
+          if (onboardingCheckLoading) {
+            console.warn('Onboarding check timed out, setting loading to false');
+            setOnboardingCheckLoading(false);
           }
-        }, 1000);
+        }, 10000); // 10 second timeout
+      } else if (onboardingStatus === 'not-onboarded') {
+        console.log('User is not onboarded, redirecting to signup...');
+        window.location.href = '/signup?onboarding=1';
       } else {
         setOnboardingCheckLoading(false);
       }

@@ -1586,7 +1586,7 @@ export default function SignUp() {
                   setTimeout(() => {
                     console.log('Redirecting to dashboard...');
                     window.location.href = "/";
-                  }, 2000);
+                  }, 3000);
                 } else {
                   console.error('Failed to complete onboarding');
                 }
