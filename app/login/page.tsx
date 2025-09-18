@@ -61,7 +61,9 @@ export default function Login() {
 
   // Redirect if already logged in
   useEffect(() => {
+    console.log('🔍 Login page - user state:', user ? `Logged in as ${user.email}` : 'Not logged in');
     if (user) {
+      console.log('🔄 Redirecting authenticated user to home page...');
       router.push('/');
     }
   }, [user, router]);
@@ -292,11 +294,15 @@ export default function Login() {
 
       
       if (res.ok) {
+        console.log('✅ [Google Login] Session login successful, redirecting to home...');
         if (typeof window !== 'undefined') {
           localStorage.setItem('showLoginToast', '1');
         }
 
-        window.location.href = "/";
+        // Small delay to ensure auth state is properly set
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 100);
       } else {
         const errorText = await res.text();
         console.error('❌ [Google Login] Session login failed:', errorText);

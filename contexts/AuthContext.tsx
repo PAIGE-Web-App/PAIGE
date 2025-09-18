@@ -314,18 +314,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Debounce rapid auth state changes (especially during logout)
       clearTimeout(authStateChangeTimeout);
       authStateChangeTimeout = setTimeout(async () => {
-        console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
+        console.log('🔐 Auth state changed:', user ? `User logged in: ${user.email}` : 'User logged out');
         setUser(user);
         setLoading(false);
         
         // If user exists, validate session and set up token refresh
         if (user) {
-          // Validate session immediately
-          const isValid = await validateSessionLocal();
-          if (!isValid) {
-            console.log('⚠️ Session validation failed, refreshing token...');
-            await refreshAuthTokenLocal();
-          }
+          console.log('🔐 User authenticated, setting up session...');
+          // Don't validate session immediately to avoid redirect loops
+          // The session will be validated on the next page load
           
           // Set up periodic token refresh
           const refreshInterval = setInterval(async () => {
