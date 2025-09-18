@@ -51,6 +51,10 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
     }, 1000);
   };
 
+  const handleDeleteTodo = (todoId: string) => {
+    setTasks(tasks.filter(t => String(t.id) !== String(todoId) && String(t._id) !== String(todoId)));
+  };
+
   const handleRemoveToDo = (idx: number) => {
     setTasks(tasks.filter((_, i) => i !== idx));
   };
@@ -281,7 +285,7 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                         setTasks((tasks: any[]) => tasks.map((t: any) => (String(t.id) === String(stableId) ? { ...t, category: newCategory || '' } : t)));
                       }}
                       handleCloneTodo={() => {}}
-                      handleDeleteTodo={() => {}}
+                      handleDeleteTodo={handleDeleteTodo}
                       setTaskToMove={() => {}}
                       setShowMoveTaskModal={() => {}}
                       handleDragStart={handleDragStart}
@@ -291,7 +295,7 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
                       handleDragEnd={handleDragEnd}
                       handleDrop={() => {}}
                       mode="editor"
-                      onRemove={tasks.length > 1 ? () => handleRemoveToDo((tasks as any[]).findIndex((t: any) => String(t.id) === String(stableId))) : undefined}
+                      onRemove={() => handleDeleteTodo(stableId)}
                       onAssign={onAssign}
                     />
                     {dropIndicatorPosition.id === item.id && dropIndicatorPosition.position === 'bottom' && (

@@ -24,7 +24,7 @@ export interface TodoCSVColumnMapping {
 }
 
 export const DEFAULT_TODO_CSV_MAPPING: TodoCSVColumnMapping = {
-  name: 'Task Name',
+  name: 'To-do Name',
   note: 'Note',
   category: 'Category',
   deadline: 'Deadline',
@@ -107,7 +107,7 @@ function parseCSVContent(
 
           const name = values[nameIndex]?.trim();
           if (!name) {
-            result.warnings.push(`Row ${index + 2}: Task name is required, skipping row`);
+            result.warnings.push(`Row ${index + 2}: To-do item name is required, skipping row`);
             return;
           }
 
@@ -121,12 +121,12 @@ function parseCSVContent(
 
           // Validate date formats
           if (todo.deadline && !isValidDateFormat(todo.deadline)) {
-            result.warnings.push(`Row ${index + 2}: Invalid deadline format "${todo.deadline}". Expected: YYYY-MM-DD HH:mm`);
+            result.warnings.push(`Row ${index + 2}: Invalid deadline format "${todo.deadline}". Expected: MM-DD-YYYY HH:mm`);
             todo.deadline = undefined;
           }
 
           if (todo.endDate && !isValidDateFormat(todo.endDate)) {
-            result.warnings.push(`Row ${index + 2}: Invalid end date format "${todo.endDate}". Expected: YYYY-MM-DD HH:mm`);
+            result.warnings.push(`Row ${index + 2}: Invalid end date format "${todo.endDate}". Expected: MM-DD-YYYY HH:mm`);
             todo.endDate = undefined;
           }
 
@@ -198,7 +198,7 @@ function parseExcelContent(
 
           const name = values[nameIndex]?.toString().trim();
           if (!name) {
-            result.warnings.push(`Row ${index + 2}: Task name is required, skipping row`);
+            result.warnings.push(`Row ${index + 2}: To-do item name is required, skipping row`);
             return;
           }
 
@@ -212,12 +212,12 @@ function parseExcelContent(
 
           // Validate date formats
           if (todo.deadline && !isValidDateFormat(todo.deadline)) {
-            result.warnings.push(`Row ${index + 2}: Invalid deadline format "${todo.deadline}". Expected: YYYY-MM-DD HH:mm`);
+            result.warnings.push(`Row ${index + 2}: Invalid deadline format "${todo.deadline}". Expected: MM-DD-YYYY HH:mm`);
             todo.deadline = undefined;
           }
 
           if (todo.endDate && !isValidDateFormat(todo.endDate)) {
-            result.warnings.push(`Row ${index + 2}: Invalid end date format "${todo.endDate}". Expected: YYYY-MM-DD HH:mm`);
+            result.warnings.push(`Row ${index + 2}: Invalid end date format "${todo.endDate}". Expected: MM-DD-YYYY HH:mm`);
             todo.endDate = undefined;
           }
 
@@ -273,30 +273,38 @@ function findColumnIndex(headers: string[], targetColumn: string): number {
 }
 
 function isValidDateFormat(dateString: string): boolean {
-  // Check for YYYY-MM-DD HH:mm format
-  const dateRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+  // Check for MM-DD-YYYY HH:mm format
+  const dateRegex = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}$/;
   if (!dateRegex.test(dateString)) {
     return false;
   }
   
-  const date = new Date(dateString);
+  // Parse MM-DD-YYYY format
+  const parts = dateString.split(' ');
+  const datePart = parts[0];
+  const timePart = parts[1];
+  const [month, day, year] = datePart.split('-');
+  
+  // Create date in YYYY-MM-DD format for validation
+  const isoDateString = `${year}-${month}-${day} ${timePart}`;
+  const date = new Date(isoDateString);
   return !isNaN(date.getTime());
 }
 
 export function generateTodoCSVTemplate(): string {
-  const headers = ['Task Name', 'Note', 'Category', 'Deadline', 'End Date'];
+  const headers = ['To-do Name', 'Note', 'Category', 'Deadline', 'End Date'];
   
   const sampleTodos = [
-    ['Book venue', 'Research and visit 3-4 venues', 'Venue', '2024-06-15 18:00', '2024-06-30 18:00'],
-    ['Order wedding dress', 'Schedule fittings and alterations', 'Attire', '2024-05-01 12:00', '2024-07-15 12:00'],
-    ['Send save the dates', 'Design and print save the date cards', 'Invitations', '2024-04-01 10:00', '2024-04-15 10:00'],
-    ['Hire photographer', 'Compare packages and book photographer', 'Photography', '2024-05-15 14:00', '2024-06-01 14:00'],
-    ['Plan ceremony music', 'Choose songs for processional and recessional', 'Music', '2024-06-01 16:00', '2024-07-01 16:00'],
-    ['Order wedding rings', 'Get rings sized and engraved', 'Attire', '2024-05-30 11:00', '2024-07-01 11:00'],
-    ['Book hair and makeup', 'Schedule trial appointments', 'Beauty', '2024-06-15 10:00', '2024-07-10 10:00'],
-    ['Plan rehearsal dinner', 'Choose venue and menu', 'Rehearsal', '2024-07-20 18:00', '2024-07-25 18:00'],
-    ['Order wedding favors', 'Choose and order guest favors', 'Details', '2024-06-30 15:00', '2024-07-15 15:00'],
-    ['Finalize guest list', 'Confirm final headcount with venue', 'Planning', '2024-07-01 12:00', '2024-07-10 12:00']
+    ['Book venue', 'Research and visit 3-4 venues', 'Venue', '06-15-2024 18:00', '06-30-2024 18:00'],
+    ['Order wedding dress', 'Schedule fittings and alterations', 'Attire', '05-01-2024 12:00', '07-15-2024 12:00'],
+    ['Send save the dates', 'Design and print save the date cards', 'Invitations', '04-01-2024 10:00', '04-15-2024 10:00'],
+    ['Hire photographer', 'Compare packages and book photographer', 'Photography', '05-15-2024 14:00', '06-01-2024 14:00'],
+    ['Plan ceremony music', 'Choose songs for processional and recessional', 'Music', '06-01-2024 16:00', '07-01-2024 16:00'],
+    ['Order wedding rings', 'Get rings sized and engraved', 'Attire', '05-30-2024 11:00', '07-01-2024 11:00'],
+    ['Book hair and makeup', 'Schedule trial appointments', 'Beauty', '06-15-2024 10:00', '07-10-2024 10:00'],
+    ['Plan rehearsal dinner', 'Choose venue and menu', 'Rehearsal', '07-20-2024 18:00', '07-25-2024 18:00'],
+    ['Order wedding favors', 'Choose and order guest favors', 'Details', '06-30-2024 15:00', '07-15-2024 15:00'],
+    ['Finalize guest list', 'Confirm final headcount with venue', 'Planning', '07-01-2024 12:00', '07-10-2024 12:00']
   ];
   
   // Properly escape CSV data

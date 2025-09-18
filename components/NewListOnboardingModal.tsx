@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PenTool, Upload, Sparkles, Download, Info, CheckCircle, AlertCircle, X } from 'lucide-react';
 import OnboardingModalBase from './OnboardingModalBase';
 import { Trash2 } from 'lucide-react';
@@ -68,9 +68,12 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [selectedTab, setSelectedTab] = useState<'manual' | 'import' | 'ai'>('ai');
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
+  const [importListName, setImportListName] = useState('');
   const [tasks, setTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
+  const [manualTasks, setManualTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
   const [customCategoryValue, setCustomCategoryValue] = useState('');
   const [canSubmit, setCanSubmit] = useState(false);
+  const [importedTodos, setImportedTodos] = useState<any[]>([]);
   const [aiListResult, setAiListResult] = React.useState<any>(null);
   const [allCategories, setAllCategories] = React.useState<string[]>([]);
   const [weddingDate, setWeddingDate] = React.useState<string | null>(null);
@@ -339,7 +342,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
       // Clear any existing errors since validation passed
       setListNameError(null);
       
-      const validTasks: any[] = tasks
+      const validTasks: any[] = manualTasks
         .filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate))
         .map(task => ({
           ...task,
@@ -365,8 +368,43 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
 
       onSubmit && onSubmit({ name: listName.trim(), tasks: validTasks });
     } else if (selectedTab === 'import') {
-      // TODO: Add logic to submit imported CSV list
-      // onSubmit && onSubmit({ name: csvListName, tasks: csvTasks });
+      if (!importListName.trim()) return;
+      
+      // Check for duplicate name before submitting
+      const nameExists = await checkListNameExists(importListName);
+      if (nameExists) {
+        setListNameError('A list with this name already exists');
+        return; // Don't submit if name already exists
+      }
+      
+      // Clear any existing errors since validation passed
+      setListNameError(null);
+      
+      const validTasks: any[] = importedTodos
+        .filter((task: any) => task._id && (task.name?.trim() || task.note?.trim() || task.category?.trim() || task.deadline || task.endDate))
+        .map(task => ({
+          ...task,
+          deadline: task.deadline ? new Date(task.deadline) : null,
+          endDate: task.endDate ? new Date(task.endDate) : null,
+        }));
+
+      // Process tasks to remove [NEW] tags and save new categories
+      if (user?.uid) {
+        validTasks.forEach(async (task) => {
+          if (task.category && task.category.trim()) {
+            let categoryToSave = task.category;
+            // Remove [NEW] tag if present
+            if (task.category.includes('[NEW]')) {
+              categoryToSave = task.category.replace('[NEW]', '').trim();
+              task.category = categoryToSave;
+            }
+            // Save the category (whether it had [NEW] or not)
+            await saveCategoryIfNew(categoryToSave, user.uid);
+          }
+        });
+      }
+
+      onSubmit && onSubmit({ name: importListName.trim(), tasks: validTasks });
     }
   };
 
@@ -384,10 +422,11 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   // Helper: check if there is unsaved data
   const hasUnsavedData = () => {
     if (listName.trim()) return true;
-    if (selectedTab === 'manual' && tasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate)) return true;
+    if (importListName.trim()) return true;
+    if (selectedTab === 'manual' && manualTasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate)) return true;
     const aiResult: any = aiListResult;
     if (selectedTab === 'ai' && aiResult && (aiResult.name?.trim() || (Array.isArray(aiResult.tasks) && aiResult.tasks.some((t: any) => t.name?.trim())) || tasks.some(t => t.name.trim() || t.note.trim() || t.category.trim() || t.deadline || t.endDate))) return true;
-    // TODO: Add CSV import check if needed
+    if (selectedTab === 'import' && importedTodos.length > 0) return true;
     return false;
   };
 
@@ -396,10 +435,13 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     setSelectedTab('ai');
     setStep(1);
     setListName('');
+    setImportListName('');
     setTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
+    setManualTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
     setCustomCategoryValue('');
     setCanSubmit(false);
     setAiListResult(null);
+    setImportedTodos([]);
   };
 
   // Intercept close
@@ -480,7 +522,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               <button
                 onClick={handleSubmit}
                 className="btn-primary"
-                disabled={selectedTab === 'ai' ? (!aiListResult || !canSubmit) : !listName.trim()}
+                disabled={selectedTab === 'ai' ? (!aiListResult || !canSubmit) : selectedTab === 'import' ? !importListName.trim() : !listName.trim()}
               >
                 Submit
               </button>
@@ -542,8 +584,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   listName={listName}
                   setListName={setListName}
                   canSubmit={canSubmit}
-                  tasks={tasks}
-                  setTasks={setTasks}
+                  tasks={manualTasks}
+                  setTasks={setManualTasks}
                   customCategoryValue={customCategoryValue}
                   setCustomCategoryValue={setCustomCategoryValue}
                   contacts={contacts}
@@ -552,10 +594,22 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                 />
               )}
               {selectedTab === 'import' && (
-                <ImportListCreationForm onImportComplete={(importedTodos) => {
-                  setTasks(importedTodos);
-                  setCanSubmit(true);
-                }} />
+                <div className="w-full max-w-3xl mx-auto flex flex-col space-y-6">
+                  <ImportListCreationForm 
+                    onImportComplete={(importedListName, importedTodos) => {
+                      setImportListName(importedListName);
+                      setCanSubmit(true);
+                    }}
+                    importedTodos={importedTodos}
+                    setImportedTodos={setImportedTodos}
+                    allCategories={allCategories}
+                    customCategoryValue={customCategoryValue}
+                    setCustomCategoryValue={setCustomCategoryValue}
+                    contacts={contacts}
+                    currentUser={currentUser}
+                    onAssign={handleAssignTodo}
+                  />
+                </div>
               )}
               {selectedTab === 'ai' && (
                 <AIListCreationForm
@@ -724,12 +778,46 @@ const ManualListCreationForm = ({ allCategories = [], onSubmit, listName = '', s
   );
 };
 
-const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todos: any[]) => void }) => {
+const ImportListCreationForm = React.memo(({ 
+  onImportComplete, 
+  importedTodos, 
+  setImportedTodos, 
+  allCategories, 
+  customCategoryValue, 
+  setCustomCategoryValue, 
+  contacts, 
+  currentUser, 
+  onAssign 
+}: { 
+  onImportComplete?: (listName: string, todos: any[]) => void, 
+  importedTodos: any[], 
+  setImportedTodos: (todos: any[]) => void,
+  allCategories: string[],
+  customCategoryValue: string,
+  setCustomCategoryValue: (value: string) => void,
+  contacts: any[],
+  currentUser: any,
+  onAssign: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>
+}) => {
+  console.log('ImportListCreationForm props:', { importedTodos: importedTodos.length });
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<TodoCSVUploadResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [listName, setListName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to convert MM-DD-YYYY HH:mm format to Date
+  const convertToDate = (dateString: string): Date => {
+    const parts = dateString.split(' ');
+    const datePart = parts[0];
+    const timePart = parts[1];
+    const [month, day, year] = datePart.split('-');
+    
+    // Create date in YYYY-MM-DD format for Date constructor
+    const isoDateString = `${year}-${month}-${day} ${timePart}`;
+    return new Date(isoDateString);
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -751,17 +839,17 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
       const result = await parseTodoCSVFile(file);
       setUploadResult(result);
       
-      if (result.success && onImportComplete) {
+      if (result.success) {
         // Convert to the format expected by the parent component
         const formattedTodos = result.todos.map(todo => ({
           _id: `temp-id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: todo.name,
           note: todo.note || '',
           category: todo.category || '',
-          deadline: todo.deadline ? new Date(todo.deadline) : undefined,
-          endDate: todo.endDate ? new Date(todo.endDate) : undefined
+          deadline: todo.deadline ? convertToDate(todo.deadline) : undefined,
+          endDate: todo.endDate ? convertToDate(todo.endDate) : undefined
         }));
-        onImportComplete(formattedTodos);
+        setImportedTodos(formattedTodos);
       }
     } catch (error) {
       setUploadResult({
@@ -810,10 +898,25 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
   const handleReset = () => {
     setCsvFile(null);
     setUploadResult(null);
+    setImportedTodos([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  // Auto-update when todos are imported or list name changes
+  useEffect(() => {
+    if (importedTodos.length > 0 && onImportComplete) {
+      onImportComplete(listName, importedTodos);
+    }
+  }, [importedTodos, listName, onImportComplete]);
+
+  // Clear upload result when component unmounts (switching tabs)
+  useEffect(() => {
+    return () => {
+      setUploadResult(null);
+    };
+  }, []);
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
@@ -825,11 +928,11 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
               <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div>
                 <h6 className="h6 text-blue-900 mb-2">Get Started with a Template</h6>
-                <p className="text-sm text-blue-700 mb-2">
-                  Download our CSV template with 10 example tasks to see the required format and add your todo items.
-                </p>
+            <p className="text-sm text-blue-700 mb-2">
+              Download our CSV template with 10 example to-do items to see the required format and add your todo items.
+            </p>
                 <p className="text-xs text-blue-600 mb-3">
-                  <strong>Tip:</strong> Keep the default column names unchanged. Add extra columns as needed - they'll be auto-detected.
+                  <strong>Tip:</strong> Keep the default column names unchanged for best results.
                 </p>
                 <button
                   onClick={handleDownloadTemplate}
@@ -861,7 +964,7 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
               Supports CSV, XLS, and XLSX files
             </p>
             <p className="text-xs text-[#A85C36] mb-4 font-medium">
-              Required columns: Task Name
+              Required columns: To-do Name
             </p>
             <input
               ref={fileInputRef}
@@ -870,24 +973,26 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
               onChange={handleCsvUpload}
               className="hidden"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-primary text-sm"
-              disabled={isUploading}
-            >
-              {isUploading ? 'Processing...' : 'Choose File'}
-            </button>
+            <div className="flex justify-center">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-primary text-sm"
+                disabled={isUploading}
+              >
+                {isUploading ? 'Processing...' : 'Choose File'}
+              </button>
+            </div>
           </div>
 
           {/* File Requirements */}
           <div className="text-xs text-gray-500">
             <p className="font-medium mb-2">CSV should have the following columns:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><strong>Task Name</strong> (required)</li>
+              <li><strong>To-do Name</strong> (required)</li>
               <li><strong>Note</strong> (optional)</li>
               <li><strong>Category</strong> (optional)</li>
-              <li><strong>Deadline</strong> (optional, format: YYYY-MM-DD HH:mm)</li>
-              <li><strong>End Date</strong> (optional, format: YYYY-MM-DD HH:mm)</li>
+              <li><strong>Deadline</strong> (optional, format: MM-DD-YYYY HH:mm)</li>
+              <li><strong>End Date</strong> (optional, format: MM-DD-YYYY HH:mm)</li>
             </ul>
           </div>
         </>
@@ -905,26 +1010,29 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
           </div>
 
           {uploadResult.success ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h6 className="h6 text-green-900 mb-2">Upload Successful!</h6>
-                  <p className="text-sm text-green-700">
-                    Successfully imported {uploadResult.processedRows} of {uploadResult.totalRows} tasks.
-                  </p>
-                  {uploadResult.warnings.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-green-600 font-medium">Warnings:</p>
-                      <ul className="text-xs text-green-600 list-disc list-inside">
-                        {uploadResult.warnings.map((warning, index) => (
-                          <li key={index}>{warning}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h6 className="h6 text-green-900 mb-2">Upload Successful!</h6>
+                    <p className="text-sm text-green-700">
+                      Successfully imported {uploadResult.processedRows} of {uploadResult.totalRows} to-do items.
+                    </p>
+                    {uploadResult.warnings.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-green-600 font-medium">Warnings:</p>
+                        <ul className="text-xs text-green-600 list-disc list-inside">
+                          {uploadResult.warnings.map((warning, index) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+
             </div>
           ) : (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -948,9 +1056,38 @@ const ImportListCreationForm = ({ onImportComplete }: { onImportComplete?: (todo
           )}
         </div>
       )}
+
+      {/* Show list name input and todo editor when todos are imported */}
+      {importedTodos.length > 0 && (
+        <div className="w-full max-w-3xl mx-auto flex flex-col space-y-6">
+          <div>
+            <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
+            <input
+              className="w-full border border-[#AB9C95] px-3 py-2 rounded-[5px] text-sm"
+              value={listName}
+              onChange={(e) => setListName(e.target.value)}
+              placeholder="Enter list name"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#332B42] mb-1">Initial To-Dos</label>
+            <ToDoListEditor
+              tasks={importedTodos}
+              setTasks={setImportedTodos}
+              customCategoryValue={customCategoryValue}
+              setCustomCategoryValue={setCustomCategoryValue}
+              allCategories={allCategories}
+              contacts={contacts}
+              currentUser={currentUser}
+              onAssign={onAssign}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});
 
 const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits, listNameError, setListNameError }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any, listNameError: string | null, setListNameError: (error: string | null) => void }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
