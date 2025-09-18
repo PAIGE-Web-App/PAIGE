@@ -303,7 +303,14 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
               return (
                 <>
                   {/* Top-level folders */}
-                  {topLevelFolders.map((folder) => {
+                  {topLevelFolders.length === 0 ? (
+                    <div className="text-center py-8 px-4">
+                      <img src="/Files.png" alt="No Folders" className="w-12 h-12 mx-auto mb-3 opacity-70" />
+                      <p className="text-sm text-[#AB9C95] font-medium">No folders yet!</p>
+                      <p className="text-xs text-[#AB9C95] mt-1">Add a new one above</p>
+                    </div>
+                  ) : (
+                    topLevelFolders.map((folder) => {
                     const hasChildren = hasSubfolders(folder.id);
                     const isExpanded = isFolderExpanded(folder.id);
                     
@@ -393,7 +400,8 @@ const FilesSidebar: React.FC<FilesSidebarProps> = ({
                         {isExpanded && renderSubfolders(folder.id)}
                       </div>
                     );
-                  })}
+                    })
+                  )}
                 </>
               );
             })()}

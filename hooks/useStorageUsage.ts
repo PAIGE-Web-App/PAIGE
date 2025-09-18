@@ -5,24 +5,24 @@ import { useAuth } from './useAuth';
 // Storage limits by plan
 export const STORAGE_LIMITS = {
   FREE: {
-    storageMB: 50, // 50MB
-    maxFiles: 50,
-    maxFolders: 5,
-    maxFileSizeMB: 25,
+    storageMB: 15, // 15MB
+    maxFiles: 25,
+    maxFolders: 3,
+    maxFileSizeMB: 10,
     planName: 'Starter'
   },
   PREMIUM: {
-    storageMB: 1000, // 1GB  
-    maxFiles: 500,
-    maxFolders: 25,
-    maxFileSizeMB: 100,
+    storageMB: 100, // 100MB  
+    maxFiles: 100,
+    maxFolders: 15,
+    maxFileSizeMB: 25,
     planName: 'Premium'
   },
   ENTERPRISE: {
-    storageMB: 100000, // 100GB
-    maxFiles: 5000,
-    maxFolders: 100,
-    maxFileSizeMB: 500,
+    storageMB: 1000, // 1GB
+    maxFiles: 500,
+    maxFolders: 50,
+    maxFileSizeMB: 100,
     planName: 'Enterprise'
   }
 } as const;

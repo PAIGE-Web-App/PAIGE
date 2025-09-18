@@ -44,7 +44,7 @@ export default function Dashboard() {
 
   // Use centralized WeddingBanner hook
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
-  const { showInfoToast } = useCustomToast();
+  const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
   
   // Fetch user data and progress information
@@ -146,6 +146,7 @@ export default function Dashboard() {
       checks.hasVisitedFiles = files.size > 0;
       checks.hasVendors = vendors.size > 0;
       
+      
       // Check moodboards (no Firestore query needed - uses userData)
       checks.hasMoodboards = (userData.moodBoards && userData.moodBoards.length > 0) || 
                             (userData.vibe && userData.vibe.length > 0);
@@ -246,6 +247,16 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Show a welcome toast if the user just logged in (one-time, using localStorage flag)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (localStorage.getItem('showLoginToast') === '1') {
+        showSuccessToast('Login successful, welcome back!');
+        localStorage.removeItem('showLoginToast');
+      }
+    }
+  }, [showSuccessToast]);
+
   // Initialize progress items based on user data and progress checks
   useEffect(() => {
     if (userData && progressData) {
@@ -312,7 +323,11 @@ export default function Dashboard() {
           link: '/messages',
           icon: <MessageSquare className="w-5 h-5" />,
           category: 'contacts',
-          actionText: progressData.hasContacts ? 'Manage contacts' : 'Add contacts'
+          actionText: progressData.hasContacts ? 'Manage contacts' : 'Add contacts',
+          customHandler: () => {
+            // Navigate to messages page and trigger onboarding modal
+            router.push('/messages?onboarding=true');
+          }
         },
         {
           id: 'budget',

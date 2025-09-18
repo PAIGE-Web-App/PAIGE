@@ -69,7 +69,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   // If no folder is selected, show empty state
   if (!selectedFolder) {
     return (
-      <div className="flex-1 p-6 overflow-y-auto min-h-0">
+      <div className="flex-1 p-6 overflow-y-auto min-h-0 bg-white">
         <div className="text-center py-12">
           <div className="w-16 h-16 text-[#AB9C95] mx-auto mb-4 flex items-center justify-center">
             <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@ const FolderContentView: React.FC<FolderContentViewProps> = ({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-0 h-full">
+    <div className="flex-1 overflow-y-auto min-h-0 h-full bg-white">
       {/* Upload Progress Bar */}
       <LoadingBar 
         isVisible={isUploading} 

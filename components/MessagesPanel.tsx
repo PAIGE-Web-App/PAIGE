@@ -57,9 +57,6 @@ const MessagesPanel = ({
               loading="lazy"
             />
             <h4 className="mb-2">Cheers to your next chapter!</h4>
-            <p className="text-base text-[#364257] mb-2 max-w-md text-center">
-              Set up your Unified Inbox to get started
-            </p>
             <p className="text-sm text-[#7A7A7A] mb-6 max-w-md text-center">
               Connect your email to auto-import vendor contacts and generate hyper-personalized email drafts
             </p>

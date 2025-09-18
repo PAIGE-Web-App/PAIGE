@@ -110,7 +110,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     maxVendors: 20,
     maxContacts: 5,
     maxBoards: 2,
-    maxFiles: 10
+    maxFiles: 25
   },
   premium: {
     monthlyCredits: 60,
@@ -120,7 +120,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     maxVendors: -1, // unlimited
     maxContacts: -1,
     maxBoards: 5,
-    maxFiles: 50
+    maxFiles: 100
   },
   pro: {
     monthlyCredits: 150,
@@ -130,7 +130,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     maxVendors: -1,
     maxContacts: -1,
     maxBoards: 10,
-    maxFiles: 200
+    maxFiles: 500
   }
 };
 

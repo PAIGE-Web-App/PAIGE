@@ -7,8 +7,8 @@ import SelectField from "./SelectField";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
-import { useCustomToast } from '@/hooks/useCustomToast';
-import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
+import { useCustomToast } from '../hooks/useCustomToast';
+import { useGlobalCompletionToasts } from '../hooks/useGlobalCompletionToasts';
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { getUserCollectionRef } from "../lib/firebase";
@@ -375,7 +375,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
   const steps = [
     { id: 1, name: "Add vendor details" },
-    { id: 2, name: "Communication Channels" },
+    { id: 2, name: "Integrations" },
     { id: 3, name: "Authorize" },
     { id: 4, name: "Complete" },
   ];
@@ -562,7 +562,8 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
             {currentStep === 2 && (
               <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Adjusted for mobile */}
+                <div className="space-y-4"> {/* Changed to vertical layout with 2 rows */}
+                  {/* Gmail Integration */}
                   <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
                     selectedCommunicationChannels.includes("Gmail")
                       ? "border-[#A85C36] bg-[#EBE3DD]"
@@ -574,7 +575,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                       onChange={() => handleChannelToggle("Gmail")}
                       className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
                     />
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-1">
                       <Mail size={20} className="text-red-500 mr-2" />
                       <div>
                         <span className="font-medium text-[#332B42] block">Gmail Integration</span>
@@ -583,65 +584,32 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                     </div>
                   </label>
 
-                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("SMS")
-                      ? "border-[#A85C36] bg-[#EBE3DD]"
-                      : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
+                  {/* Push Notifications - Disabled with Coming Soon pill */}
+                  <div className={`flex items-center p-4 border rounded-[5px] transition-all duration-200 ${
+                    "border-[#AB9C95] bg-gray-50 cursor-not-allowed opacity-60"
                   }`}>
                     <input
                       type="checkbox"
-                      checked={selectedCommunicationChannels.includes("SMS")}
-                      onChange={() => handleChannelToggle("SMS")}
-                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
+                      checked={false}
+                      disabled
+                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3 opacity-50"
                     />
-                    <div className="flex items-center">
-                      <Bell size={20} className="text-green-500 mr-2" />
-                      <div>
-                        <span className="font-medium text-[#332B42] block">SMS Notifications</span>
-                        <span className="text-xs text-[#7A7A7A]">Get notified when you receive new messages</span>
-                      </div>
-                    </div>
-                  </label>
-
-                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("InApp")
-                      ? "border-[#A85C36] bg-[#EBE3DD]"
-                      : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCommunicationChannels.includes("InApp")}
-                      onChange={() => handleChannelToggle("InApp")}
-                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
-                    />
-                    <div className="flex items-center">
-                      <MessageSquare size={20} className="text-blue-500 mr-2" />
-                      <div>
-                        <span className="font-medium text-[#332B42] block">In-App Messaging</span>
-                        <span className="text-xs text-[#7A7A7A]">Message vendors directly through Paige</span>
-                      </div>
-                    </div>
-                  </label>
-
-                  <label className={`flex items-center p-4 border rounded-[5px] cursor-pointer transition-all duration-200 ${
-                    selectedCommunicationChannels.includes("Push")
-                      ? "border-[#A85C36] bg-[#EBE3DD]"
-                      : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCommunicationChannels.includes("Push")}
-                      onChange={() => handleChannelToggle("Push")}
-                      className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
-                    />
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-1">
                       <Smartphone size={20} className="text-purple-500 mr-2" />
-                      <div>
+                      <div className="flex-1">
                         <span className="font-medium text-[#332B42] block">Push Notifications</span>
-                        <span className="text-xs text-[#7A7A7A]">Real-time alerts for new messages</span>
+                        <span className="text-xs text-[#7A7A7A]">Get notified instantly when you receive new messages</span>
                       </div>
                     </div>
-                  </label>
+                    <div className="ml-2">
+                      <span
+                        className="inline-block text-[10px] lg:text-xs font-medium rounded-full px-2 lg:px-2 py-0 lg:py-0.5 border text-white"
+                        style={{ backgroundColor: '#AB9C95', borderColor: '#AB9C95' }}
+                      >
+                        Coming Soon
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 {channelErrors && <p className="text-xs text-red-500 mt-2">{channelErrors}</p>}
               </div>

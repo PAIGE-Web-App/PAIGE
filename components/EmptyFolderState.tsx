@@ -16,12 +16,13 @@ const EmptyFolderState: React.FC<EmptyFolderStateProps> = ({ selectedFolder }) =
         className="h-full w-full flex items-center justify-center"
       >
         <div className="text-center">
-          <FileText className="w-12 h-12 mx-auto mb-3 text-[#AB9C95]" />
-          <p className="text-sm mb-2 text-[#AB9C95]">
-            No files in this folder yet
+          <img src="/Files.png" alt="Empty Folder" className="w-16 h-16 mx-auto mb-4 opacity-70" />
+          <h3 className="text-lg font-medium text-[#332B42] mb-2">No files in this folder yet</h3>
+          <p className="text-sm text-[#AB9C95] mb-3">
+            Upload wedding documents, contracts, and photos to get started
           </p>
           <p className="text-xs text-[#AB9C95]">
-            Drag and drop files here to upload
+            Drag and drop files here to upload or add a new folder
           </p>
         </div>
       </DraggableArea>

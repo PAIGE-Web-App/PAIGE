@@ -354,13 +354,12 @@ export default function MessagesPage() {
 
       const q = query(
         contactsCollectionRef,
-        where("userId", "==", userId),
-        orderBy("orderIndex", "asc"),
         limit(100) // Limit initial load for better performance
       );
 
       unsubscribeContacts = onSnapshot(q, (snapshot) => {
         if (!isSubscribed) return; // Prevent state updates on unmounted component
+        
         
         const fetchedContacts: Contact[] = snapshot.docs.map((doc, index) => {
           const data = doc.data();
@@ -454,6 +453,21 @@ export default function MessagesPage() {
       if (found) setSelectedContact(found);
     }
   }, [contacts]);
+
+  // Handle onboarding parameter to auto-trigger onboarding modal
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const shouldShowOnboarding = params.get('onboarding') === 'true';
+    
+    if (shouldShowOnboarding && user && !showOnboardingModal) {
+      setShowOnboardingModal(true);
+      // Clean up the URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('onboarding');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [user, showOnboardingModal]);
 
   // Save selected contact to localStorage whenever it changes
   useEffect(() => {
@@ -669,15 +683,6 @@ export default function MessagesPage() {
   // Only show content when both loading is complete AND minimum time has passed
   const isLoading = authLoading || !minLoadTimeReached;
 
-  useEffect(() => {
-    // Show a welcome toast if the user just logged in (one-time, using localStorage flag)
-    if (typeof window !== 'undefined') {
-      if (localStorage.getItem('showLoginToast') === '1') {
-        showSuccessToast('Login successful, welcome back!');
-        localStorage.removeItem('showLoginToast');
-      }
-    }
-  }, []);
 
   // Handle Gmail re-authentication success - just clear URL parameters
   useEffect(() => {

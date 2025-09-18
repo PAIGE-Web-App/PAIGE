@@ -192,15 +192,28 @@ export function useFilesPageState({
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
 
+    // Check if this is the selected folder or the last folder before deletion
+    const userFolders = folders.filter(f => f.id !== 'all');
+    const isLastFolder = userFolders.length === 1 && userFolders[0].id === folderId;
+    const isSelectedFolder = selectedFolder?.id === folderId;
+    const shouldResetToAllFiles = isSelectedFolder || isLastFolder;
+
     try {
       await deleteFolder(folderId);
       showSuccessToast(`"${folder.name}" deleted successfully!`);
       
-      if (selectedFolder?.id === folderId) {
-        const allFilesFolder = folders.find(f => f.id === 'all');
-        if (allFilesFolder) {
-          setSelectedFolder(allFilesFolder);
-        }
+      // Reset to "All Files" if needed
+      if (shouldResetToAllFiles) {
+        // Clear localStorage to prevent persistence hook from overriding
+        localStorage.removeItem('selectedFileFolderId');
+        
+        // Small delay to ensure folder deletion is processed
+        setTimeout(() => {
+          const allFilesFolder = folders.find(f => f.id === 'all');
+          if (allFilesFolder) {
+            setSelectedFolder(allFilesFolder);
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Error deleting folder:', error);

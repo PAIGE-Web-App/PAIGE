@@ -254,11 +254,11 @@ const ToDoPanel = ({
     }
   };
 
-  // Always show 'All To-Do' as the first pinned list
-  const allTodoList = { id: 'all', name: 'All To-Do' };
+  // Always show 'All To-Do Items' as the first pinned list
+  const allTodoList = { id: 'all', name: 'All To-Do Items' };
   const pinnedLists = [allTodoList, ...todoLists.filter(l => pinnedListIds.includes(l.id))];
 
-  // If no pinned lists, default to 'All To-Do'
+  // If no pinned lists, default to 'All To-Do Items'
   const visibleLists = pinnedLists.length > 1 ? pinnedLists : [allTodoList];
 
   // Helper to pin a list by ID
@@ -335,14 +335,15 @@ const ToDoPanel = ({
       {/* Wrapper div for the header and tabs with the desired background color */}
       <div className="bg-[#F3F2F0] rounded-t-[5px] border-b border-[#AB9C95] p-3 md:p-4">
         <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
-          <h3 className="font-playfair text-base font-medium text-[#332B42] flex-1">To-do Items</h3>
+          <h3 className="font-playfair text-base font-medium text-[#332B42] flex-1">To-do Lists</h3>
           <div className="flex items-center gap-2 ml-auto">
             <DropdownMenu
               trigger={
                 <button
-                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0]"
+                  className="text-xs text-[#332B42] border border-[#AB9C95] rounded-[5px] px-2 py-1 hover:bg-[#F3F2F0] flex items-center gap-1"
                 >
                   + New
+                  <ChevronDown className="w-3 h-3" />
                 </button>
               }
               items={[
@@ -456,7 +457,7 @@ const ToDoPanel = ({
                   </label>
                 ))}
               </div>
-              <div className="mt-2 text-xs text-[#7A7A7A]">'All To-Do' is always shown first.</div>
+              <div className="mt-2 text-xs text-[#7A7A7A]">'All To-Do Items' is always shown first.</div>
             </div>
           )}
         </div>
@@ -590,7 +591,7 @@ const ToDoPanel = ({
       >
         {filterBySearch(filteredTodoItems.incompleteTasks).length === 0 && filterBySearch(filteredTodoItems.completedTasks).length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center text-gray-500 text-sm py-8">
-            <img src="/wine.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
+            <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
             <p>Add a To-do item to this list</p>
           </div>
         ) : (

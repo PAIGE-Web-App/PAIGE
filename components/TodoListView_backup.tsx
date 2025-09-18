@@ -178,7 +178,16 @@ const TodoListView: React.FC<TodoListViewProps> = ({
             </div>
           ) :
           Object.entries(groupedTasks).length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-4">No tasks yet. Add one!</div>
+            <div className="flex flex-col items-center justify-center text-center h-full min-h-[400px] py-8">
+              <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-6 opacity-70" />
+              <div className="max-w-md">
+                <h3 className="text-lg font-medium text-gray-800 mb-3">Start organizing your wedding to-do items</h3>
+                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  Wedding planning involves hundreds of details and deadlines. Paige helps you stay organized with smart to-do lists that adapt to your timeline and automatically suggest the right items at the right time.
+                </p>
+                <p className="text-sm text-gray-500 font-medium">Create your first to-do item to get started!</p>
+              </div>
+            </div>
           ) : (
             Object.entries(groupedTasks).map(([group, items]) => {
               const incompleteItems = items.filter(item => !item.isCompleted);

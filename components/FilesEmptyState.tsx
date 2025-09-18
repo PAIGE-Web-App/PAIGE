@@ -40,16 +40,18 @@ const FilesEmptyState: React.FC<FilesEmptyStateProps> = ({
       onDrop={handleExternalDrop}
     >
       <div className="text-center max-w-md">
-        <div className="w-24 h-24 bg-[#F8F6F4] border-2 border-[#E0DBD7] rounded-full flex items-center justify-center mx-auto mb-6">
-          <Folder className="w-12 h-12" style={{ strokeWidth: 1, fill: '#AB9C95', color: '#AB9C95' }} />
-        </div>
+        <img src="/Files.png" alt="Empty Files" className="w-24 h-24 mx-auto mb-6 opacity-70" />
         
         <h2 className="text-2xl font-playfair font-semibold text-[#332B42] mb-3">
-          Create a folder or upload files
+          Start organizing your wedding files
         </h2>
         
-        <p className="text-[#AB9C95] mb-8 leading-relaxed">
-          Organize your wedding documents, contracts, and photos by creating folders or uploading files directly.
+        <p className="text-[#AB9C95] mb-4 leading-relaxed">
+          Upload files to organize your wedding-related documents and use Paige to scan for insights automatically from contracts, vendor agreements, and important paperwork.
+        </p>
+        
+        <p className="text-sm text-[#AB9C95] mb-8">
+          Stay on top of deadlines, understand what you're signing, and never miss important details.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

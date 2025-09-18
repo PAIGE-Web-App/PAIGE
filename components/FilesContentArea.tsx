@@ -92,7 +92,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   // Show skeleton if loading
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 bg-white">
         <FilesTopBarSkeleton />
         <FolderContentViewSkeleton />
       </div>
@@ -100,7 +100,7 @@ const FilesContentArea: React.FC<FilesContentAreaProps> = memo(({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-white">
       {/* Top Bar */}
       <FilesTopBar
         currentFolder={currentFolder}
