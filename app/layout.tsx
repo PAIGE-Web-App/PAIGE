@@ -8,6 +8,7 @@ import { SWRProvider } from "../contexts/SWRProvider";
 import { CreditProvider } from "../contexts/CreditContext";
 import { MoodBoardsProvider } from "../contexts/MoodBoardsContext";
 import Script from "next/script";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import VerticalNavWrapper from "../components/VerticalNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </CreditProvider>
             
             <IdleTimeoutManager />
+            <SpeedInsights />
             <Toaster
               position="bottom-center"
               reverseOrder={false}
