@@ -367,18 +367,38 @@ export default function SignUp() {
           }
         }
       } else {
-        showErrorToast("Session login failed");
+        console.error('Session login failed, redirecting to login page');
+        showErrorToast("Account already exists. Redirecting to login...");
+        setTimeout(() => {
+          window.location.href = "/login?existing=1";
+        }, 2000);
       }
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
-          router.push("/login?existing=1");
+        console.log('Email already in use, redirecting to login page');
+        showErrorToast("Account already exists. Redirecting to login...");
+        setTimeout(() => {
+          window.location.href = "/login?existing=1";
+        }, 2000);
         return;
       }
       let message = "Google sign-in failed. Please try again.";
       if (err.code === "auth/popup-closed-by-user") {
         message = "Sign-in popup was closed before completing the process.";
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        message = "An account already exists with this email. Redirecting to login...";
+        showErrorToast(message);
+        setTimeout(() => {
+          window.location.href = "/login?existing=1";
+        }, 2000);
+        return;
+      } else if (err.code === "auth/operation-not-allowed") {
+        message = "Google sign-in is not enabled. Please try email signup.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        message = "This domain is not authorized for Google sign-in.";
       }
       setError(message);
+      showErrorToast(message);
     } finally {
       setGoogleLoading(false);
     }
