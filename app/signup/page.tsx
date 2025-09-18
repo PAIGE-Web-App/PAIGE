@@ -184,9 +184,9 @@ export default function SignUp() {
   // Handle redirect for onboarded users
   useEffect(() => {
     if (!authLoading && user && onboarded === true) {
-      router.push('/');
+      window.location.href = '/';
     }
-  }, [user, authLoading, onboarded, router]);
+  }, [user, authLoading, onboarded]);
 
   // Handle moving to step 2 for non-onboarded users
   useEffect(() => {
@@ -355,7 +355,16 @@ export default function SignUp() {
           setIsNewSignup(true);
           setStep(2);
         } else {
-          router.push("/");
+          // User already exists, check if they're onboarded
+          const userData = userDocSnap.data();
+          if (userData.onboarded === true) {
+            // User is onboarded, redirect to dashboard
+            window.location.href = "/";
+          } else {
+            // User exists but not onboarded, continue with signup flow
+            setIsNewSignup(true);
+            setStep(2);
+          }
         }
       } else {
         showErrorToast("Session login failed");
@@ -1570,7 +1579,7 @@ export default function SignUp() {
                   // Add a small delay to ensure Firestore has updated before redirect
                   setTimeout(() => {
                     console.log('Redirecting to dashboard...');
-                    router.push("/");
+                    window.location.href = "/";
                   }, 1000);
                 } else {
                   console.error('Failed to complete onboarding');

@@ -225,7 +225,7 @@ export default function Dashboard() {
           setOnboardingCheckLoading(false);
         });
       } else if (onboardingStatus === 'not-onboarded') {
-        router.push('/signup?onboarding=1');
+        window.location.href = '/signup?onboarding=1';
       } else {
         setOnboardingCheckLoading(false);
       }

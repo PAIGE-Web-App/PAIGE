@@ -6,7 +6,7 @@ import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from '../../hooks/useAuth';
@@ -208,9 +208,11 @@ export default function Login() {
     
     try {
       setGoogleLoading(true);
+      console.log('🔄 [Google Login] Starting Google authentication...');
 
       
       const result = await signInWithPopup(auth, provider);
+      console.log('✅ [Google Login] Google authentication successful:', result.user.email);
       
       
       // Save Google account info for future detection
@@ -237,12 +239,17 @@ export default function Login() {
             scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
           };
           
-          // Update user document with Gmail tokens
+          // Check if user exists before updating
           const userDocRef = doc(db, "users", result.user.uid);
-          await updateDoc(userDocRef, {
-            googleTokens: gmailTokens,
-            gmailConnected: true,
-          });
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists()) {
+            // Update user document with Gmail tokens
+            await updateDoc(userDocRef, {
+              googleTokens: gmailTokens,
+              gmailConnected: true,
+            });
+          }
           
           if (typeof window !== 'undefined') {
             localStorage.setItem('gmailConnected', 'true');
@@ -281,6 +288,19 @@ export default function Login() {
         }
       }
       
+      // Check if user doc exists in Firestore BEFORE session login
+      const userDocRef = doc(db, "users", result.user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (!userDocSnap.exists()) {
+        // User doesn't exist in Firestore, redirect to signup immediately
+        console.log('🔄 [Google Login] User not found in Firestore, redirecting to signup...');
+        // Use window.location.href to ensure a full redirect and avoid race conditions
+        window.location.href = '/signup?existing=1';
+        return;
+      }
+      
+      console.log('✅ [Google Login] User exists in Firestore, proceeding with session login...');
       const idToken = await result.user.getIdToken();
       
       
@@ -294,15 +314,22 @@ export default function Login() {
 
       
       if (res.ok) {
-        console.log('✅ [Google Login] Session login successful, redirecting to home...');
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('showLoginToast', '1');
-        }
-
-        // Small delay to ensure auth state is properly set
-        setTimeout(() => {
+        console.log('✅ [Google Login] Session login successful, checking onboarding status...');
+        
+        // Check onboarding status before redirecting
+        const userData = userDocSnap.data();
+        if (userData.onboarded === true) {
+          // User is onboarded, redirect to dashboard
+          console.log('✅ [Google Login] User is onboarded, redirecting to dashboard...');
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('showLoginToast', '1');
+          }
           window.location.href = "/";
-        }, 100);
+        } else {
+          // User is not onboarded, redirect to signup
+          console.log('🔄 [Google Login] User is not onboarded, redirecting to signup...');
+          window.location.href = '/signup?onboarding=1';
+        }
       } else {
         const errorText = await res.text();
         console.error('❌ [Google Login] Session login failed:', errorText);
