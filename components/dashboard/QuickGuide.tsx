@@ -1,5 +1,4 @@
 import React from 'react';
-import Link from 'next/link';
 
 export default function QuickGuide() {
   return (
@@ -39,21 +38,6 @@ export default function QuickGuide() {
               </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 mt-8 pt-8">
-              <Link 
-                href="/messages"
-                className="btn-primaryinverse no-underline flex-1 text-center"
-              >
-                Skip to Messages
-              </Link>
-              <Link 
-                href="/settings"
-                className="btn-primary no-underline flex-1 text-center"
-              >
-                Get Started
-              </Link>
-            </div>
           </div>
         </div>
         
