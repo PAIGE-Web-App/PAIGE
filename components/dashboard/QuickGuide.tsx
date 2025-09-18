@@ -12,17 +12,17 @@ export default function QuickGuide() {
             From Paige's wedding planning experts
           </p>
           
-          <ul className="space-y-3 list-disc list-inside">
-            <li className="text-sm text-[#5A4A42] font-work">
+          <ul className="space-y-3 list-disc pl-4">
+            <li className="text-sm text-[#5A4A42] font-work pl-2">
               <strong>Start with your profile:</strong> Add your partner and define your wedding style to get personalized recommendations.
             </li>
-            <li className="text-sm text-[#5A4A42] font-work">
+            <li className="text-sm text-[#5A4A42] font-work pl-2">
               <strong>Set up your budget:</strong> Create a realistic budget and track expenses to stay on track financially.
             </li>
-            <li className="text-sm text-[#5A4A42] font-work">
+            <li className="text-sm text-[#5A4A42] font-work pl-2">
               <strong>Connect with vendors:</strong> Import your contacts and use our AI-powered messaging to communicate efficiently.
             </li>
-            <li className="text-sm text-[#5A4A42] font-work">
+            <li className="text-sm text-[#5A4A42] font-work pl-2">
               <strong>Stay organized:</strong> Create mood boards, manage tasks, and plan your seating chart all in one place.
             </li>
           </ul>
