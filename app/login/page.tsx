@@ -189,7 +189,7 @@ export default function Login() {
     }
   };
 
-  const handleSmartGoogleLogin = async () => {
+  const handleContinueAsGoogle = async () => {
     // If Gmail re-authentication is needed, handle that first
     if (needsGmailReauth && googleAccount?.userId) {
       const reauthUrl = `/api/auth/google/initiate?userId=${googleAccount.userId}&redirectUri=${encodeURIComponent(window.location.href)}`;
@@ -197,7 +197,71 @@ export default function Login() {
       return;
     }
 
-    // Otherwise, proceed with normal Google login
+    // For "Continue as" - try to use existing session first
+    try {
+      setGoogleLoading(true);
+      console.log('🔄 [Continue as] Attempting to use existing Google session...');
+      
+      // Check if user is already authenticated with Google
+      if (auth.currentUser && auth.currentUser.email === googleAccount?.email) {
+        console.log('✅ [Continue as] User already authenticated, proceeding with session login...');
+        
+        // User is already authenticated, proceed with session login
+        const idToken = await auth.currentUser.getIdToken();
+        
+        // Check if user doc exists in Firestore
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          console.log('🔄 [Continue as] User not found in Firestore, redirecting to signup...');
+          window.location.href = '/signup?existing=1';
+          return;
+        }
+        
+        // POST the ID token to your session login API
+        const res = await fetch("/api/sessionLogin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        });
+        
+        if (res.ok) {
+          console.log('✅ [Continue as] Session login successful, checking onboarding status...');
+          
+          // Check onboarding status before redirecting
+          const userData = userDocSnap.data();
+          if (userData.onboarded === true) {
+            console.log('✅ [Continue as] User is onboarded, redirecting to dashboard...');
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('showLoginToast', '1');
+            }
+            window.location.href = "/";
+          } else {
+            console.log('🔄 [Continue as] User is not onboarded, redirecting to signup...');
+            window.location.href = '/signup?onboarding=1';
+          }
+        } else {
+          console.log('❌ [Continue as] Session login failed, falling back to fresh Google login...');
+          // Fall back to fresh Google login
+          await handleFreshGoogleLogin();
+        }
+      } else {
+        console.log('🔄 [Continue as] No existing session, falling back to fresh Google login...');
+        // No existing session, fall back to fresh Google login
+        await handleFreshGoogleLogin();
+      }
+    } catch (error) {
+      console.log('❌ [Continue as] Error using existing session, falling back to fresh Google login...', error);
+      // Fall back to fresh Google login
+      await handleFreshGoogleLogin();
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleFreshGoogleLogin = async () => {
+    // Fresh Google login with popup
     const provider = new GoogleAuthProvider();
     
     // Add Gmail scopes for automatic Gmail connection
@@ -208,11 +272,11 @@ export default function Login() {
     
     try {
       setGoogleLoading(true);
-      console.log('🔄 [Google Login] Starting Google authentication...');
+      console.log('🔄 [Fresh Google Login] Starting Google authentication...');
 
       
       const result = await signInWithPopup(auth, provider);
-      console.log('✅ [Google Login] Google authentication successful:', result.user.email);
+      console.log('✅ [Fresh Google Login] Google authentication successful:', result.user.email);
       
       
       // Save Google account info for future detection
@@ -294,13 +358,13 @@ export default function Login() {
       
       if (!userDocSnap.exists()) {
         // User doesn't exist in Firestore, redirect to signup immediately
-        console.log('🔄 [Google Login] User not found in Firestore, redirecting to signup...');
+        console.log('🔄 [Fresh Google Login] User not found in Firestore, redirecting to signup...');
         // Use window.location.href to ensure a full redirect and avoid race conditions
         window.location.href = '/signup?existing=1';
         return;
       }
       
-      console.log('✅ [Google Login] User exists in Firestore, proceeding with session login...');
+      console.log('✅ [Fresh Google Login] User exists in Firestore, proceeding with session login...');
       const idToken = await result.user.getIdToken();
       
       
@@ -314,29 +378,29 @@ export default function Login() {
 
       
       if (res.ok) {
-        console.log('✅ [Google Login] Session login successful, checking onboarding status...');
+        console.log('✅ [Fresh Google Login] Session login successful, checking onboarding status...');
         
         // Check onboarding status before redirecting
         const userData = userDocSnap.data();
         if (userData.onboarded === true) {
           // User is onboarded, redirect to dashboard
-          console.log('✅ [Google Login] User is onboarded, redirecting to dashboard...');
+          console.log('✅ [Fresh Google Login] User is onboarded, redirecting to dashboard...');
           if (typeof window !== 'undefined') {
             localStorage.setItem('showLoginToast', '1');
           }
           window.location.href = "/";
         } else {
           // User is not onboarded, redirect to signup
-          console.log('🔄 [Google Login] User is not onboarded, redirecting to signup...');
+          console.log('🔄 [Fresh Google Login] User is not onboarded, redirecting to signup...');
           window.location.href = '/signup?onboarding=1';
         }
       } else {
         const errorText = await res.text();
-        console.error('❌ [Google Login] Session login failed:', errorText);
+        console.error('❌ [Fresh Google Login] Session login failed:', errorText);
         showErrorToast("Session login failed");
       }
     } catch (err: any) {
-      console.error('❌ [Google Login] Error details:', {
+      console.error('❌ [Fresh Google Login] Error details:', {
         code: err.code,
         message: err.message,
         email: err.email,
@@ -369,7 +433,7 @@ export default function Login() {
   };
 
   // Keep the old function for backward compatibility
-  const handleGoogleLogin = handleSmartGoogleLogin;
+  const handleGoogleLogin = handleFreshGoogleLogin;
 
   // Function to clear Google account and switch to email sign-in
   const handleSwitchToEmail = () => {
@@ -446,7 +510,7 @@ export default function Login() {
               ) : googleAccount && !showEmailForm ? (
                 <button
                   type="button"
-                  onClick={handleSmartGoogleLogin}
+                  onClick={handleContinueAsGoogle}
                   disabled={googleLoading}
                   className={`w-full py-3 px-4 rounded-[5px] flex items-center justify-between transition-colors ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "bg-[#163c57] text-white hover:bg-[#0f2a3f]"}`}
                 >
