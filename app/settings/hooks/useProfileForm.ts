@@ -238,6 +238,18 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
   const handleAccountSave = async () => {
     if (!user?.uid) return;
 
+    // Validate required fields
+    if (!userName.trim()) {
+      toast.error("Your full name is required.");
+      setSaving(false);
+      return;
+    }
+    if (!partnerName.trim()) {
+      toast.error("Your partner's full name is required.");
+      setSaving(false);
+      return;
+    }
+
     setSaving(true);
     try {
       const userRef = doc(db, "users", user.uid);

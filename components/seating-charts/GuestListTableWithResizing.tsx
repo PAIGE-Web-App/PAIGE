@@ -354,7 +354,7 @@ export default function GuestListTableWithResizing({
   }, []);
 
   return (
-    <div className="bg-white w-full border border-[#E0DBD7] rounded-[5px] overflow-hidden" style={{ maxWidth: '100%' }}>
+    <div className="bg-white w-full border border-[#E0DBD7] rounded-[5px] overflow-hidden flex flex-col h-full" style={{ maxWidth: '100%' }}>
       {/* Filter Bar */}
       <div className="p-4 border-b border-[#E0DBD7] bg-[#F8F6F4]">
         <div className="flex items-center justify-between">
@@ -662,12 +662,9 @@ export default function GuestListTableWithResizing({
       )}
       
       <div 
-        className="overflow-auto" 
+        className="overflow-auto flex-1" 
         style={{ 
           width: '100%', 
-          height: 'min(400px, 50vh)',
-          minHeight: '300px',
-          maxHeight: sortConfig ? '400px' : '450px',
           maxWidth: '100%',
           minWidth: '0' // Allow shrinking
         }}
@@ -701,8 +698,8 @@ export default function GuestListTableWithResizing({
               </th>
               
               <th
-                className="py-2 px-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors w-40 overflow-hidden align-top"
-                  style={{ width: '160px' }}
+                className="py-2 px-3 text-left text-sm font-medium text-[#AB9C95] border-r border-[#E0DBD7] whitespace-nowrap relative group cursor-pointer hover:bg-[#F3F2F0] transition-colors overflow-hidden align-top"
+                  style={{ width: '220px' }}
                 onClick={() => handleSort('fullName')}
               >
                 <div className="flex items-center justify-between">
@@ -895,12 +892,12 @@ export default function GuestListTableWithResizing({
                 </td>
                 
                 <td 
-                  className={`py-2 px-3 border-r border-[#E0DBD7] w-40 break-words align-top ${
+                  className={`py-2 px-3 border-r border-[#E0DBD7] break-words align-top ${
                     showValidationErrors && !guest.fullName?.trim() 
                       ? 'bg-red-50' 
                       : ''
                   }`}
-                  style={{ width: '160px', wordBreak: 'break-word', overflow: 'hidden' }}
+                  style={{ width: '220px', wordBreak: 'break-word', overflow: 'hidden' }}
                 >
                   <div className="flex items-center gap-2 flex-1">
                     {showValidationErrors && !guest.fullName?.trim() && (
@@ -927,11 +924,11 @@ export default function GuestListTableWithResizing({
                       placeholder="Full Name"
                     />
                     {guestGroups.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1 justify-end">
+                      <div className="flex flex-wrap gap-1 mt-1">
                         {guestGroups.map((group, groupIndex) => (
                           <span
                             key={group.id}
-                            className={`px-1.5 py-0.5 text-xs font-medium text-white rounded-full shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${
+                            className={`px-1.5 py-0.5 text-xs font-medium text-white rounded-full shadow-sm cursor-pointer hover:opacity-80 transition-opacity relative z-10 ${
                               guestGroups.length > 1 ? 'ring-1 ring-white ring-opacity-30' : ''
                             }`}
                             style={{ 
@@ -939,7 +936,11 @@ export default function GuestListTableWithResizing({
                               opacity: guestGroups.length > 1 && groupIndex > 0 ? 0.9 : 1
                             }}
                             title={`${group.name} (${group.type})${guestGroups.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
-                            onClick={() => onEditGroup?.(group.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onEditGroup?.(group.id);
+                            }}
                           >
                             {group.name}
                           </span>

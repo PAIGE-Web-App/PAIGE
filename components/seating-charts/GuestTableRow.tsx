@@ -138,7 +138,11 @@ export default function GuestTableRow({
                         opacity: guestGroupsForThisGuest.length > 1 && groupIndex > 0 ? 0.9 : 1
                       }}
                       title={`${group.name} (${group.type})${guestGroupsForThisGuest.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
-                      onClick={() => onEditGroup?.(group.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onEditGroup?.(group.id);
+                      }}
                     >
                       {group.name.startsWith('group-') ? `Group ${group.name.split('-')[1]}` : group.name}
                     </span>

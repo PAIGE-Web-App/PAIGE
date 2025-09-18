@@ -14,7 +14,7 @@ import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { useCustomToast } from '../../hooks/useCustomToast';
-import { WandSparkles, X, User, Pencil, Upload } from 'lucide-react';
+import { WandSparkles, X, User, Pencil, Upload, Info } from 'lucide-react';
 
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
@@ -31,6 +31,7 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1);
@@ -81,7 +82,7 @@ export default function SignUp() {
 
   const vibeTabs = [
     { key: 'pills', label: 'Popular Vibes', icon: '✨' },
-    { key: 'image', label: 'Upload Image', icon: '🖼️' },
+    // { key: 'image', label: 'Upload Image', icon: '🖼️' }, // Hidden for now
     { key: 'pinterest', label: 'Pinterest', icon: '📌', comingSoon: true },
   ];
 
@@ -292,7 +293,7 @@ export default function SignUp() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' }); // Always show account picker
     try {
-      setLoading(true);
+      setGoogleLoading(true);
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
       // POST the ID token to your session login API
@@ -330,7 +331,7 @@ export default function SignUp() {
       }
       setError(message);
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -489,7 +490,7 @@ export default function SignUp() {
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
       <div className="w-full max-w-[1280px] flex">
-        <div className="w-[40%] min-w-[400px] flex flex-col justify-center items-start px-12">
+        <div className="w-[40%] min-w-[400px] flex flex-col justify-center items-start px-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -511,6 +512,49 @@ export default function SignUp() {
           </h4>
 
                     <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
+              <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleGoogleSignUp}
+                disabled={googleLoading}
+                className={`w-full flex items-center justify-center gap-2 py-2 text-base font-normal rounded-[5px] ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
+              >
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                </span>
+                <span className={googleLoading ? "text-xs font-semibold font-work-sans" : ""}>
+                  {googleLoading ? "Creating account..." : "Sign up with Google"}
+                </span>
+              </button>
+              <div className="text-xs text-center text-[#7A7A7A] mt-3 flex items-center justify-center gap-1">
+                <WandSparkles className="w-3 h-3" />
+                Recommended for best Paige experience
+                <div className="relative group">
+                  <Info className="w-3 h-3 ml-1 cursor-pointer" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-[#332B42] text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 w-48">
+                    <div className="text-center">
+                      <div className="font-semibold mb-1">Google Sign-up Benefits:</div>
+                    </div>
+                    <div className="text-left">
+                      <div>• Instant Gmail import</div>
+                      <div>• Seamless email notifications</div>
+                      <div>• Faster onboarding</div>
+                    </div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#332B42]"></div>
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#AB9C95]"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-[#F3F2F0] text-[#AB9C95]">or</span>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                   Your Email<span className="text-[#A85C36]">*</span>
@@ -633,17 +677,6 @@ export default function SignUp() {
                 {loading ? "Creating account..." : "Sign Up"}
               </button>
 
-              <button
-                type="button"
-                onClick={handleGoogleSignUp}
-                className="btn-primaryinverse w-full flex items-center justify-center gap-2"
-              >
-                <span className="w-4 h-4 flex items-center justify-center">
-                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
-                </span>
-                Sign up with Google
-              </button>
-
             </form>
 
             <p className="text-xs text-center font-work-sans text-[#332B42] mt-8">
@@ -651,10 +684,11 @@ export default function SignUp() {
               <a href="/login" className="text-[#A85C36] cursor-pointer font-medium underline hover:text-[#784528]">Login</a>
             </p>
 
-            <div className="mt-1 text-xs text-[#364257]">
+            {/* Temporarily hidden during beta testing */}
+            {/* <div className="mt-1 text-xs text-[#364257]">
               Are you a wedding planner?{" "}
               <button className="text-[#A85C36] underline hover:text-[#784528]">Start here</button>
-            </div>
+            </div> */}
             </div>
               </>
             )}
@@ -685,7 +719,7 @@ export default function SignUp() {
       <h2 className="text-2xl font-playfair font-semibold text-[#332B42] text-left">&</h2>
       <div>
        <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
-  Your Partner's Name<span className="text-[#A85C36]">*</span>
+  Your Partner's Full Name<span className="text-[#A85C36]">*</span>
 </label>
         <input
           type="text"
@@ -853,7 +887,7 @@ export default function SignUp() {
                   }
               }}
               setSelectedLocationType={setSelectedLocationType}
-              placeholder="Search for a city or a specific venue"
+              placeholder="Search for a city"
               disabled={weddingLocationUndecided}
               types={['geocode']}
             />
@@ -1042,7 +1076,7 @@ export default function SignUp() {
           <button
             key={tab.key}
             type="button"
-            className={`flex items-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${vibeInputMethod === tab.key ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]' : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'}`}
+            className={`flex-1 flex items-center justify-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${vibeInputMethod === tab.key ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]' : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'}`}
             onClick={() => setVibeInputMethod(tab.key as typeof vibeInputMethod)}
             style={{ borderRadius: '8px 8px 0 0' }}
           >
@@ -1148,7 +1182,8 @@ export default function SignUp() {
             </div>
           </div>
         )}
-        {vibeInputMethod === 'image' && (
+        {/* Upload Image tab - Hidden for now */}
+        {false && vibeInputMethod === 'image' && (
           <div className="w-full flex flex-col">
             <label className="block text-xs font-medium text-[#332B42] mb-1">Upload Inspiration Image</label>
             {/* If vibeGenerated, show preview, remove button, and pills */}

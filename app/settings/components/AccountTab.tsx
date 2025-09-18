@@ -264,7 +264,7 @@ export default function AccountTab({
           
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Partner Name</label>
+              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Your Partner's Full Name*</label>
               <input
                 type="text"
                 id="partnerName"
@@ -288,7 +288,7 @@ export default function AccountTab({
                 placeholder="Enter your partner's email"
                 disabled={saving}
               />
-              <p className="text-xs text-gray-500 mt-1">Your partner will receive @mention notifications via email</p>
+              <p className="text-xs text-gray-500 mt-1">Your partner will receive @mention notifications via email (coming soon!)</p>
             </div>
           </div>
         </div>
@@ -321,7 +321,7 @@ export default function AccountTab({
                 placeholder="Enter your wedding planner's email"
                 disabled={saving}
               />
-              <p className="text-xs text-gray-500 mt-1">Your wedding planner will receive @mention notifications via email</p>
+              <p className="text-xs text-gray-500 mt-1">Your wedding planner will receive @mention notifications via email (coming soon!)</p>
             </div>
 
             {/* Wedding Planner Search */}

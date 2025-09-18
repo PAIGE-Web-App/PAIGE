@@ -7,9 +7,10 @@ import WeddingBanner from '@/components/WeddingBanner';
 import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { SeatingChart } from '@/types/seatingChart';
 import { getSeatingChart } from '@/lib/seatingChartService';
-import { ArrowLeft, Users, Table, Settings, Save } from 'lucide-react';
+import { ArrowLeft, Users, Table, Settings, Save, Plus, ChevronDown } from 'lucide-react';
 import GuestListTableWithResizing from '@/components/seating-charts/GuestListTableWithResizing';
 import VisualTableLayoutSVG from '@/components/seating-charts/VisualTableLayoutSVG';
+import EditGroupModal from '@/components/seating-charts/EditGroupModal';
 import { useWizardState } from '@/components/seating-charts/hooks/useWizardState';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 
@@ -24,6 +25,13 @@ export default function SeatingChartDetailPage() {
   const [chart, setChart] = useState<SeatingChart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'guests' | 'layout'>('guests');
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<{
+    id: string;
+    name: string;
+    type: string;
+    guestIds: string[];
+  } | null>(null);
   
   // Initialize wizard state from chart data
   const {
@@ -160,6 +168,53 @@ export default function SeatingChartDetailPage() {
 
   const handleBackToCharts = () => {
     router.push('/seating-charts');
+  };
+
+  const handleEditGroup = (groupId: string) => {
+    const group = wizardState.guestGroups?.find(g => g.id === groupId);
+    if (group) {
+      setSelectedGroup({
+        id: group.id,
+        name: group.name,
+        type: group.type,
+        guestIds: group.guestIds || []
+      });
+      setShowEditGroupModal(true);
+    }
+  };
+
+  const handleUpdateGroup = (groupId: string, updates: {
+    name: string;
+    type: string;
+    guestIds: string[];
+  }) => {
+    // Update the group in wizard state
+    const updatedGroups = (wizardState.guestGroups || []).map(group => 
+      group.id === groupId 
+        ? { ...group, ...updates, type: updates.type as 'couple' | 'family' | 'extended' | 'friends' | 'other' }
+        : group
+    );
+    
+    updateWizardState({ guestGroups: updatedGroups });
+    showSuccessToast(`Group "${updates.name}" updated successfully!`);
+  };
+
+  const handleDeleteGroup = (groupId: string) => {
+    // Remove the group from wizard state
+    const updatedGroups = (wizardState.guestGroups || []).filter(group => group.id !== groupId);
+    
+    // Also remove group associations from guests
+    const updatedGuests = wizardState.guests.map(guest => ({
+      ...guest,
+      groupIds: (guest.groupIds || []).filter(id => id !== groupId)
+    }));
+    
+    updateWizardState({ 
+      guestGroups: updatedGroups,
+      guests: updatedGuests
+    });
+    
+    showSuccessToast('Group deleted successfully!');
   };
 
     const handleSave = async () => {
@@ -299,7 +354,7 @@ export default function SeatingChartDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F6F4]">
+    <div className="min-h-screen bg-linen">
       {/* Wedding Banner */}
       <WeddingBanner 
         daysLeft={weddingBannerData.daysLeft}
@@ -308,60 +363,38 @@ export default function SeatingChartDetailPage() {
         onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
       />
 
-      {/* Main Content */}
-      <div className="flex h-screen">
-        {/* Sidebar - Chart List */}
-        <div className="w-80 bg-white border-r border-[#AB9C95] flex flex-col">
-          {/* Header */}
-          <div className="p-6 border-b border-[#AB9C95]">
-            <div className="flex items-center gap-4 mb-4">
-              <button
-                onClick={handleBackToCharts}
-                className="text-[#A85C36] hover:text-[#8B4A2A] font-medium flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Charts
-              </button>
+      {/* Main Content Container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1400px' }}>
+        {/* Chart Header */}
+        <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBackToCharts}
+              className="p-1 hover:bg-[#EBE3DD] rounded-[5px] transition-colors flex-shrink-0"
+              aria-label="Back to previous page"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#AB9C95]" />
+            </button>
+            <div>
+              <h1 className="h3 text-[#332B42]">{chart.name}</h1>
             </div>
-            <h1 className="h3 text-[#332B42]">{chart.name}</h1>
-            <p className="text-sm text-[#AB9C95]">{chart.eventType}</p>
           </div>
-
+          
           {/* Chart Stats */}
-          <div className="p-6 border-b border-[#AB9C95]">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-[#F3F2F0] rounded-lg mx-auto mb-2">
-                  <Users className="w-6 h-6 text-[#A85C36]" />
-                </div>
-                <div className="text-2xl font-semibold text-[#332B42]">{chart.guestCount}</div>
-                <div className="text-xs text-[#AB9C95]">Guests</div>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-[#F3F2F0] rounded-lg mx-auto mb-2">
-                  <Table className="w-6 h-6 text-[#A85C36]" />
-                </div>
-                <div className="text-2xl font-semibold text-[#332B42]">{chart.tableCount}</div>
-                <div className="text-xs text-[#AB9C95]">Tables</div>
-              </div>
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-[#332B42] font-work">{chart.guestCount}</div>
+              <div className="text-xs text-[#AB9C95] font-work">Guests</div>
             </div>
-          </div>
-
-          {/* Chart List Placeholder */}
-          <div className="flex-1 p-6">
-            <h3 className="text-sm font-medium text-[#332B42] mb-4">Your Charts</h3>
-            <div className="space-y-2">
-              <div className="p-3 bg-[#F3F2F0] rounded-lg border border-[#A85C36]">
-                <div className="font-medium text-sm text-[#332B42]">{chart.name}</div>
-                <div className="text-xs text-[#AB9C95]">Current chart</div>
-              </div>
-              {/* TODO: Add other charts here */}
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-[#332B42] font-work">{chart.tableCount}</div>
+              <div className="text-xs text-[#AB9C95] font-work">Tables</div>
             </div>
           </div>
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-white flex flex-col">
+        <div className="bg-white flex flex-col">
           {/* Header with Tabs */}
           <div className="border-b border-[#AB9C95]">
             <div className="flex items-center justify-between px-6 py-4">
@@ -406,43 +439,59 @@ export default function SeatingChartDetailPage() {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 p-6">
-            {activeTab === 'guests' ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="h4 text-[#332B42]">Guest List</h2>
-                    <p className="text-sm text-[#AB9C95]">Manage your guest list and seating assignments</p>
+          {/* Guest List Header - Only show when guests tab is active */}
+          {activeTab === 'guests' && (
+            <div className="px-6 py-4 border-b border-[#E0DBD7]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-playfair font-semibold text-[#332B42]">Guest List</h2>
+                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-medium text-gray-600">1</span>
                   </div>
-                  <div className="text-sm text-[#7A7A7A]">
-                    {chart.guestCount} guests • {chart.tableCount} tables
-                  </div>
+                  <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#A85C36] transition-colors">
+                    <div className="w-4 h-4 bg-gray-300 rounded-full flex items-center justify-center">
+                      <span className="text-xs">?</span>
+                    </div>
+                    <span>How to use your guest list</span>
+                  </button>
                 </div>
                 
-                <div className="bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden">
+                <div className="flex items-center gap-3">
+                  <button className="btn-primary flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Guest
+                  </button>
+                  <button className="btn-primaryinverse flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    More Actions
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab Content */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {activeTab === 'guests' ? (
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1">
                   <GuestListTableWithResizing
                     wizardState={wizardState}
                     guestColumns={guestColumns}
                     onUpdateGuest={updateGuest}
                     onRemoveGuest={removeGuest}
                     onUpdateColumn={updateColumn}
+                    onEditGroup={handleEditGroup}
                   />
+                </div>
+                <div className="py-3 px-0 lg:px-4">
+                  {/* Bottom padding */}
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="h4 text-[#332B42]">Table Layout</h2>
-                    <p className="text-sm text-[#AB9C95]">Design and arrange your table layout</p>
-                  </div>
-                  <div className="text-sm text-[#7A7A7A]">
-                    {chart.tableCount} tables • {chart.guestCount} guests
-                  </div>
-                </div>
-                
-                <div className="bg-white border border-[#E0DBD7] rounded-[5px] overflow-hidden">
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1">
                   <VisualTableLayoutSVG
                     tableLayout={wizardState.tableLayout}
                     onUpdate={(updates) => updateWizardState({ tableLayout: { ...wizardState.tableLayout, ...updates } })}
@@ -511,17 +560,7 @@ export default function SeatingChartDetailPage() {
                           sessionStorage.setItem('seating-chart-guest-assignments', JSON.stringify(newAssignments));
                         }
                       }
-                      
-                      const updatedTables = wizardState.tableLayout.tables.map(table => 
-                        table.id === tableId ? { ...table, rotation } : table
-                      );
-                      const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
-                      updateWizardState({ tableLayout: { tables: updatedTables, totalCapacity } });
                     }}
-                    guestGroups={wizardState.guestGroups}
-                    onEditGroup={() => {}}
-                    profileImageUrl={profileImageUrl}
-                    userName={userName}
                     partnerName={partnerName}
                     guestAssignments={(() => {
                       try {
@@ -534,11 +573,30 @@ export default function SeatingChartDetailPage() {
                     })()}
                   />
                 </div>
+                <div className="py-3 px-0 lg:px-4">
+                  {/* Bottom padding */}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Edit Group Modal */}
+      <EditGroupModal
+        isOpen={showEditGroupModal}
+        onClose={() => {
+          setShowEditGroupModal(false);
+          setSelectedGroup(null);
+        }}
+        group={selectedGroup}
+        allGuests={wizardState.guests.map(guest => ({
+          id: guest.id,
+          fullName: guest.fullName
+        }))}
+        onUpdateGroup={handleUpdateGroup}
+        onDeleteGroup={handleDeleteGroup}
+      />
     </div>
   );
 }

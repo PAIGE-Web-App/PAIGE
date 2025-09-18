@@ -20,6 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1);
@@ -196,7 +197,7 @@ export default function Login() {
     // Otherwise, proceed with normal Google login
     const provider = new GoogleAuthProvider();
     try {
-      setLoading(true);
+      setGoogleLoading(true);
 
       
       const result = await signInWithPopup(auth, provider);
@@ -263,7 +264,7 @@ export default function Login() {
               showErrorToast(message);
       setError(message);
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -313,7 +314,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
       <div className="w-full max-w-[1280px] flex">
-        <div className="w-[40%] min-w-[400px] flex flex-col justify-center items-start px-12">
+        <div className="w-[40%] min-w-[400px] flex flex-col justify-center items-start px-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -337,9 +338,90 @@ export default function Login() {
 
 
                     <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
+              {/* Google Login Button - Always show at top */}
+              {detectingGoogleAccount || checkingGmailAuth ? (
+                <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : googleAccount && !showEmailForm ? (
+                <button
+                  type="button"
+                  onClick={handleSmartGoogleLogin}
+                  disabled={googleLoading}
+                  className={`w-full py-3 px-4 rounded-[5px] flex items-center justify-between transition-colors ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "bg-[#163c57] text-white hover:bg-[#0f2a3f]"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {googleAccount.picture ? (
+                      <img 
+                        src={googleAccount.picture} 
+                        alt={googleAccount.name}
+                        className="w-8 h-8 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                        <span className="text-[#163c57] font-semibold text-sm">
+                          {googleAccount.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className={`font-medium text-sm truncate ${googleLoading ? "text-xs font-semibold font-work-sans" : ""}`}>
+                        {googleLoading ? "Logging in..." : (needsGmailReauth ? 'Continue with Gmail' : `Continue as ${googleAccount.name}`)}
+                      </span>
+                      {!googleLoading && <span className="text-xs opacity-90 truncate">{googleAccount.email}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!googleLoading && <ChevronDown className="w-4 h-4" />}
+                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" />
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading}
+                  className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
+                >
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                  </span>
+                  <span className={googleLoading ? "text-xs font-semibold font-work-sans" : ""}>
+                    {googleLoading ? "Logging in..." : "Login with Google"}
+                  </span>
+                </button>
+              )}
+
+              {/* Gmail re-auth note */}
+              {needsGmailReauth && (
+                <p className="text-xs text-center text-[#AB9C95] mt-2">
+                  Gmail access has expired. Click above to re-authenticate.
+                </p>
+              )}
+
+              {/* Login with email option when Google account is detected */}
+              {googleAccount && !showEmailForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(true)}
+                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] whitespace-nowrap"
+                >
+                  Login with Email
+                </button>
+              )}
+
               {/* Only show email/password form if no Google account detected OR user clicked "Sign in with email" */}
               {(!googleAccount || showEmailForm) && (
                 <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-[#AB9C95]"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-[#F3F2F0] text-[#AB9C95]">or</span>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs text-[#332B42] font-work-sans font-normal mb-1">
                       Email
@@ -376,62 +458,6 @@ export default function Login() {
                     {loading ? "Logging in..." : "Log In"}
                   </button>
                 </>
-              )}
-              {/* LinkedIn-style Google Account Button */}
-              {detectingGoogleAccount || checkingGmailAuth ? (
-                <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
-                  <LoadingSpinner size="sm" />
-                </div>
-              ) : googleAccount && !showEmailForm ? (
-                <button
-                  type="button"
-                  onClick={handleSmartGoogleLogin}
-                  className="w-full py-3 px-4 bg-[#163c57] text-white rounded-[5px] flex items-center justify-between hover:bg-[#0f2a3f] transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    {googleAccount.picture ? (
-                      <img 
-                        src={googleAccount.picture} 
-                        alt={googleAccount.name}
-                        className="w-8 h-8 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                        <span className="text-[#163c57] font-semibold text-sm">
-                          {googleAccount.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex flex-col items-start min-w-0">
-                      <span className="font-medium text-sm truncate">
-                        {needsGmailReauth ? 'Continue with Gmail' : `Continue as ${googleAccount.name}`}
-                      </span>
-                      <span className="text-xs opacity-90 truncate">{googleAccount.email}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <ChevronDown className="w-4 h-4" />
-                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" />
-                  </div>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap"
-                >
-                  <span className="w-4 h-4 flex items-center justify-center">
-                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
-                  </span>
-                  Login with Google
-                </button>
-              )}
-              
-              {/* Gmail re-auth note */}
-              {needsGmailReauth && (
-                <p className="text-xs text-center text-[#AB9C95] mt-2">
-                  Gmail access has expired. Click above to re-authenticate.
-                </p>
               )}
               
               {/* Login with email option when Google account is detected */}

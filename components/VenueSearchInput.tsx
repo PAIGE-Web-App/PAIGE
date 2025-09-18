@@ -123,8 +123,8 @@ export default function VenueSearchInput({
       )}
       
       {isLoading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <LoadingSpinner size="sm" />
+        <div className="absolute right-3 top-0 bottom-0 flex items-center">
+          <div className="h-5 w-5 border-[2.5px] border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
       

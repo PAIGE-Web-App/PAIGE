@@ -158,11 +158,11 @@ export default function SeatingChartsPage() {
         />
       
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
-          {/* Seating Charts Header */}
-          <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
-            <h4 className="text-lg font-playfair font-medium text-[#332B42]">Seating Charts</h4>
-            <div className="flex items-center gap-4">
-              {seatingCharts.length > 0 && (
+          {/* Seating Charts Header - Only show when there are charts */}
+          {!isLoading && seatingCharts.length > 0 && (
+            <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95]" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
+              <h4 className="text-lg font-playfair font-medium text-[#332B42]">Seating Charts</h4>
+              <div className="flex items-center gap-4">
                 <button
                   onClick={handleCleanupDuplicates}
                   className="btn-primaryinverse flex items-center gap-2"
@@ -170,16 +170,16 @@ export default function SeatingChartsPage() {
                 >
                   {isLoading ? 'Cleaning...' : 'Cleanup Duplicates'}
                 </button>
-              )}
-              <button
-                onClick={handleCreateChart}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                New Chart
-              </button>
+                <button
+                  onClick={handleCreateChart}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Chart
+                </button>
+              </div>
             </div>
-          </div>
+          )}
           
           {/* Main Content */}
           <div className="py-6">
@@ -192,12 +192,16 @@ export default function SeatingChartsPage() {
                 ))}
               </div>
             ) : seatingCharts.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Users className="w-12 h-12 text-gray-400" />
+              <div className="text-center py-16 flex flex-col items-center justify-center min-h-[60vh]">
+                <div className="mx-auto mb-3" style={{ width: '240px' }}>
+                  <img 
+                    src="/SeatingArrangement.png" 
+                    alt="Seating Arrangement" 
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
-                <h2 className="h3 text-[#332B42] mb-2">Welcome to Seating Charts</h2>
-                <p className="font-work-sans text-[#332B42] mb-8 max-w-md mx-auto">
+                <h4 className="text-[#332B42] mb-3">Seating Charts made easy</h4>
+                <p className="font-work text-[#332B42] mb-8 max-w-sm mx-auto text-sm leading-tight">
                   Create and manage seating arrangements for your wedding events
                 </p>
                 <button
