@@ -451,7 +451,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       
       const data = await response.json();
       
-      if (data.success && data.vibes && Array.isArray(data.vibes)) {
+      if (data.vibes && Array.isArray(data.vibes)) {
         // Add new vibes to the active board
         const newVibes = data.vibes.filter((v: string) => !getActiveBoard(moodBoards, activeMoodBoard)?.vibes.includes(v));
         
@@ -536,7 +536,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
       
       const data = await response.json();
       
-      if (data.success && data.vibes && Array.isArray(data.vibes)) {
+      if (data.vibes && Array.isArray(data.vibes)) {
         // Filter out vibes that already exist in the board
         const newVibes = data.vibes.filter((v: string) => !board.vibes.includes(v));
         

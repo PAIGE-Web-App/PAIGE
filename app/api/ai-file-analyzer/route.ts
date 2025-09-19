@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
+import { aiResponseCache, getCacheTTL } from '@/lib/aiResponseCache';
+import { trackPerformance } from '@/lib/aiPerformanceMonitor';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -33,6 +35,22 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
     }
     
     const { fileId, fileName, fileContent, fileType, analysisType, chatHistory, userQuestion, userId: requestUserId }: AnalysisRequest = await request.json();
+
+    // Performance tracking
+    const perfTracker = trackPerformance('ai-file-analyzer', 'file-analysis', 'gpt-4o-mini');
+    const startTime = perfTracker.start();
+
+    // Check cache first (only for initial analysis, not follow-up questions)
+    if (!userQuestion && !chatHistory) {
+      const cacheKey = { fileId, fileName, fileType, analysisType, fileContent: fileContent.substring(0, 1000) }; // Use first 1000 chars for cache key
+      const cachedResponse = aiResponseCache.get('file-analysis', cacheKey);
+      
+      if (cachedResponse) {
+        console.log('🎯 Returning cached file analysis response');
+        perfTracker.end(startTime, true, undefined, true); // cache hit
+        return NextResponse.json(cachedResponse);
+      }
+    }
 
     if (!fileContent) {
       return NextResponse.json(
@@ -87,7 +105,7 @@ async function handleFileAnalysis(request: NextRequest): Promise<NextResponse> {
       ];
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages,
         max_tokens: 500,
         temperature: 0.7,
@@ -260,7 +278,7 @@ REMEMBER: Start with <div class="prose"> and end with </div>. Use <h3> for heade
     let completion;
     try {
       completion = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -340,6 +358,27 @@ If you use markdown formatting, your response will be rejected.`
     if (creditsRequired) response.headers.set('x-credits-required', creditsRequired);
     if (creditsRemaining) response.headers.set('x-credits-remaining', creditsRemaining);
     if (userId) response.headers.set('x-user-id', userId);
+
+    // Cache the response (only for initial analysis, not follow-up questions)
+    if (!userQuestion && !chatHistory) {
+      const cacheKey = { fileId, fileName, fileType, analysisType, fileContent: fileContent.substring(0, 1000) };
+      const responseData = {
+        analysis,
+        structuredData,
+        analysisType,
+        fileId,
+        fileName,
+        credits: {
+          required: creditsRequired ? parseInt(creditsRequired) : 0,
+          remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+          userId: userId || undefined
+        }
+      };
+      aiResponseCache.set('file-analysis', cacheKey, responseData, getCacheTTL('file-analysis'));
+    }
+
+    // Track performance
+    perfTracker.end(startTime, true);
 
     return response;
 

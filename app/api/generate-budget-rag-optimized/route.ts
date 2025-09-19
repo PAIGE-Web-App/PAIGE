@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
+import { aiResponseCache, getCacheTTL } from '@/lib/aiResponseCache';
 import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 
@@ -192,6 +193,15 @@ async function handleOptimizedRAGBudgetGeneration(request: NextRequest): Promise
       );
     }
 
+    // Check cache first
+    const cacheKey = { description, totalBudget, weddingDate, budgetType, focusCategories };
+    const cachedResponse = aiResponseCache.get('budget-generation', cacheKey);
+    
+    if (cachedResponse) {
+      console.log('🎯 Returning cached budget generation response');
+      return NextResponse.json(cachedResponse);
+    }
+
     if (totalBudget <= 0 || totalBudget > 1000000) {
       return NextResponse.json(
         { error: 'Invalid budget amount. Must be between $1 and $1,000,000' },
@@ -308,6 +318,9 @@ async function handleOptimizedRAGBudgetGeneration(request: NextRequest): Promise
     // Add performance headers
     response.headers.set('x-processing-time', (Date.now() - startTime).toString());
     response.headers.set('x-rag-enabled', useRAG.toString());
+
+    // Cache the response
+    aiResponseCache.set('budget-generation', cacheKey, responseData, getCacheTTL('budget-generation'));
 
     return response;
 

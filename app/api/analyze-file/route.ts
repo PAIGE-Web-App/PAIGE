@@ -48,7 +48,7 @@ Format the response as JSON with these exact keys:
 Focus on wedding-specific context and practical implications for wedding planning.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const prompt = `Suggest 3 creative, concise list names for a to-do or planning list${template ? ` with the theme: ${template}` : ''}. Return only the names, separated by newlines.`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: 'You are a helpful assistant that generates creative list names.' },
         { role: 'user', content: prompt },

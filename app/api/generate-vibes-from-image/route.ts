@@ -11,10 +11,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'OpenAI API key is not configured.' }, { status: 500 });
     }
 
-    const formData = await req.formData();
-    const file = formData.get('image');
-    if (!file || typeof file === 'string') {
-      console.error('No image uploaded.');
+    // Check Content-Type and handle both multipart/form-data and application/json
+    const contentType = req.headers.get('content-type') || '';
+    let file: File | null = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      const formFile = formData.get('image');
+      if (!formFile || typeof formFile === 'string') {
+        console.error('No image uploaded in form data.');
+        return NextResponse.json({ error: 'No image uploaded.' }, { status: 400 });
+      }
+      file = formFile as File;
+    } else {
+      console.error('Invalid Content-Type. Expected multipart/form-data, got:', contentType);
+      return NextResponse.json({ error: 'Invalid Content-Type. Expected multipart/form-data.' }, { status: 400 });
+    }
+
+    if (!file) {
+      console.error('No image file found.');
       return NextResponse.json({ error: 'No image uploaded.' }, { status: 400 });
     }
 
@@ -30,9 +45,9 @@ export async function POST(req: NextRequest) {
     
     let response;
     try {
-      // Try gpt-4-vision-preview first (better for image analysis)
+      // Use gpt-4o (current vision model)
       response = await openai.chat.completions.create({
-        model: 'gpt-4-vision-preview',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -48,9 +63,9 @@ export async function POST(req: NextRequest) {
         ],
         max_tokens: 200,
       });
-      console.log('OpenAI API call successful with gpt-4-vision-preview');
+      console.log('OpenAI API call successful with gpt-4o');
     } catch (visionError) {
-      console.log('gpt-4-vision-preview failed, trying gpt-4o...', visionError);
+      console.log('gpt-4o failed, trying alternative approach...', visionError);
       
       // Fallback to gpt-4o
       response = await openai.chat.completions.create({
@@ -133,4 +148,7 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({ error: 'Failed to process image. Please try again.' }, { status: 500 });
   }
-} 
+}
+
+// Note: Credit validation is handled client-side for Edge Runtime compatibility
+// The frontend should validate credits before calling this API

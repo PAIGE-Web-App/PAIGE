@@ -60,7 +60,7 @@ async function handleBudgetGeneration(req: Request) {
     prompt += `\nGenerate a realistic budget breakdown that totals approximately $${totalBudget}.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "You are a wedding budget expert that creates realistic, detailed budget breakdowns." },
         { role: "user", content: prompt }

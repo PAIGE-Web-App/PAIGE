@@ -85,7 +85,7 @@ Please analyze this message and return a JSON response with the following struct
 Focus on extracting concrete, actionable items that can be turned into to-do items. Be specific about deadlines, requirements, and dependencies.`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',

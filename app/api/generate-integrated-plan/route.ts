@@ -104,7 +104,7 @@ async function handleIntegratedPlanning(req: Request) {
     console.log('Sending request to OpenAI with budget:', totalBudget, 'and description length:', description.length);
     
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "You are a wedding planning expert that creates integrated budget and todo plans." },
         { role: "user", content: prompt }
