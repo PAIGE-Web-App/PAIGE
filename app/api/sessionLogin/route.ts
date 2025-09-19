@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { admin } from "@/lib/firebaseAdmin";
+import { clearRateLimit } from "@/middleware";
 
 export async function POST(req: Request) {
   try {
@@ -44,6 +45,10 @@ export async function POST(req: Request) {
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-XSS-Protection', '1; mode=block');
+    
+    // Clear rate limiting for this client on successful authentication
+    const clientId = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    clearRateLimit(clientId);
     
     return response;
   } catch (error) {

@@ -84,7 +84,7 @@ function checkAuthLoop(request: NextRequest): boolean {
   
   // If blocked, check if enough time has passed
   if (client.blocked) {
-    if (now - client.lastAttempt > 2 * 60 * 1000) { // 2 minutes
+    if (now - client.lastAttempt > 30 * 1000) { // 30 seconds (reduced from 2 minutes)
       client.blocked = false;
       client.attempts = 1;
       client.lastAttempt = now;
@@ -93,10 +93,10 @@ function checkAuthLoop(request: NextRequest): boolean {
     return true; // Still blocked
   }
   
-  // Check for rapid auth attempts
-  if (now - client.lastAttempt < 1000) { // Less than 1 second between attempts
+  // Check for rapid auth attempts - be more lenient
+  if (now - client.lastAttempt < 500) { // Less than 0.5 seconds between attempts
     client.attempts++;
-    if (client.attempts >= 5) { // 5 rapid attempts
+    if (client.attempts >= 10) { // 10 rapid attempts (increased from 5)
       client.blocked = true;
       return true;
     }
@@ -106,6 +106,15 @@ function checkAuthLoop(request: NextRequest): boolean {
   
   client.lastAttempt = now;
   return false;
+}
+
+// Clear rate limiting for a client (called on successful authentication)
+export function clearRateLimit(clientId: string) {
+  const key = `auth_loop:${clientId}`;
+  if (authLoopPrevention[key]) {
+    delete authLoopPrevention[key];
+    console.log('✅ Rate limit cleared for client:', clientId);
+  }
 }
 
 // Enhanced authentication validation
@@ -172,28 +181,16 @@ export function middleware(request: NextRequest) {
   }
 
   // Define public paths that don't require authentication
-  const isPublicPath = path === '/login' || path === '/signup';
+  const isPublicPath = path === '/login' || path === '/signup' || path === '/rate-limit';
   const isApiPath = path.startsWith('/api/');
 
   // Skip authentication loop detection for API routes and public paths
   if (!isApiPath && !isPublicPath) {
     // Check for authentication loops before proceeding
     if (checkAuthLoop(request)) {
-      console.log('🚫 Authentication loop detected, blocking request');
-      return new NextResponse(
-        JSON.stringify({
-          error: 'Too many authentication attempts',
-          message: 'Please wait a moment before trying again',
-          retryAfter: 120
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': '120'
-          }
-        }
-      );
+      console.log('🚫 Authentication loop detected, redirecting to rate limit page');
+      const rateLimitUrl = new URL('/rate-limit?retryAfter=30', request.url);
+      return NextResponse.redirect(rateLimitUrl);
     }
   }
 

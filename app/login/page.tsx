@@ -59,14 +59,19 @@ export default function Login() {
     }
   }, []);
 
-  // Redirect if already logged in
+  // Redirect if already logged in - but only if not in the middle of Google login
   useEffect(() => {
     console.log('🔍 Login page - user state:', user ? `Logged in as ${user.email}` : 'Not logged in');
-    if (user) {
+    if (user && !googleLoading) {
       console.log('🔄 Redirecting authenticated user to home page...');
-      router.push('/');
+      // Add a small delay to prevent rapid redirects during authentication
+      const timeoutId = setTimeout(() => {
+        router.push('/');
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [user, router]);
+  }, [user, router, googleLoading]);
 
   useEffect(() => {
     if (searchParams?.get && searchParams.get("existing")) {

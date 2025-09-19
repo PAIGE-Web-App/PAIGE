@@ -507,10 +507,12 @@ export default function VendorsPage() {
         {/* Check if we should show empty state */}
         {vendors.length === 0 && recentlyViewedCount === 0 && !isLoading ? (
           /* Empty State - No header, no tabs, just warm welcome */
-          <VendorHubEmptyState 
-            variant="main"
-            className="h-full px-4"
-          />
+          <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
+            <VendorHubEmptyState 
+              variant="main"
+              className="px-4"
+            />
+          </div>
         ) : (
           /* Normal State - Show header and content */
           <>
