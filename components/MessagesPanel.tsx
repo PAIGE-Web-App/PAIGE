@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MessageArea from './MessageArea';
 import { useUserProfileData } from '../hooks/useUserProfileData';
+import { useEdgeConfig } from '../hooks/useEdgeConfig';
 
 // Import standardized skeleton component
 import MessagesSkeleton from './skeletons/MessagesSkeleton';
@@ -39,6 +40,43 @@ const MessagesPanel = ({
     vibe 
   } = useUserProfileData();
 
+  const { getTextByPath, isAvailable } = useEdgeConfig();
+  
+  // UI text state with fallbacks
+  const [uiText, setUiText] = useState({
+    emptyStateTitle: "Cheers to your next chapter!",
+    emptyStateDescription: "Add contacts to manage communication in one place. Paige scans messages to create/update to-dos and generates personalized email drafts. Connect Gmail for best results!",
+    emptyStateCta: "Set up your Unified Inbox",
+    emptyStateAlternative: "Check out the Vendor Catalog",
+    emptyStateOr: "or"
+  });
+
+  // Load UI text from Edge Config (always try, fallback gracefully)
+  useEffect(() => {
+    const loadUIText = async () => {
+      try {
+        const title = await getTextByPath('messages.emptyState.title', "Cheers to your next chapter!");
+        const description = await getTextByPath('messages.emptyState.description', "Add contacts to manage communication in one place. Paige scans messages to create/update to-dos and generates personalized email drafts. Connect Gmail for best results!");
+        const cta = await getTextByPath('messages.emptyState.cta', "Set up your Unified Inbox");
+        const alternative = await getTextByPath('messages.emptyState.alternativeCta', "Check out the Vendor Catalog");
+        const or = await getTextByPath('messages.emptyState.or', "or");
+        
+        setUiText({
+          emptyStateTitle: title,
+          emptyStateDescription: description,
+          emptyStateCta: cta,
+          emptyStateAlternative: alternative,
+          emptyStateOr: or
+        });
+      } catch (error) {
+        console.warn('Failed to load UI text from Edge Config, using fallbacks:', error);
+        // UI text state already has fallbacks, so no need to update
+      }
+    };
+
+    loadUIText();
+  }, [getTextByPath]);
+
   return (
     contactsLoading ? (
       <div className="flex flex-1 min-h-full h-full w-full items-center justify-center bg-white">
@@ -56,23 +94,23 @@ const MessagesPanel = ({
               className="w-48 h-48 mb-6" 
               loading="lazy"
             />
-            <h4 className="mb-2">Cheers to your next chapter!</h4>
+            <h4 className="mb-2">{uiText.emptyStateTitle}</h4>
             <p className="text-sm text-[#7A7A7A] mb-6 max-w-md text-center">
-              Connect your email to auto-import vendor contacts and generate hyper-personalized email drafts
+              {uiText.emptyStateDescription}
             </p>
             <button
               className="btn-primary px-6 py-2 rounded-[8px] font-semibold text-base"
               onClick={() => setShowOnboardingModal(true)}
             >
-              Set up your Unified Inbox
+              {uiText.emptyStateCta}
             </button>
             <div className="text-center">
-              <p className="text-[#364257] my-2 text-sm">or</p>
+              <p className="text-[#364257] my-2 text-sm">{uiText.emptyStateOr}</p>
               <a 
                 href="/vendors" 
                 className="text-[#A85C36] hover:text-[#784528] text-sm font-medium underline"
               >
-                Check out the Vendor Catalog
+                {uiText.emptyStateAlternative}
               </a>
             </div>
           </div>

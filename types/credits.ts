@@ -86,6 +86,7 @@ export interface UserCredits {
 // Credit Configuration Interfaces
 export interface CreditAllocation {
   monthlyCredits: number;
+  dailyCredits?: number; // New field for clearer naming
   rolloverCredits: number;
   aiFeatures: AIFeature[];
   creditRefresh: 'daily' | 'monthly' | 'yearly';

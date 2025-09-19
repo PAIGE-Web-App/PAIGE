@@ -56,9 +56,9 @@ export function useRAGFileAnalysis() {
 
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('useRAGFileAnalysis: Making fetch request to /api/ai-file-analyzer-rag');
+        console.log('useRAGFileAnalysis: Making fetch request to /api/ai-file-analyzer');
       }
-      const response = await fetch('/api/ai-file-analyzer-rag', {
+      const response = await fetch('/api/ai-file-analyzer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getVendorCategories } from '@/lib/vendorCategoriesEdge';
 import { getAppSettings, getFeatureFlag, getConfigValue } from '@/lib/appSettingsEdge';
+import { getUIText, getUITextByPath, getUITextWithVars } from '@/lib/uiTextEdge';
 import { isEdgeConfigAvailable } from '@/lib/edgeConfig';
 
 export function useEdgeConfig() {
@@ -84,6 +85,40 @@ export function useEdgeConfig() {
     }
   }, []);
 
+  // Get UI text with fallback
+  const getText = useCallback(async () => {
+    try {
+      const text = await getUIText();
+      return text;
+    } catch (err) {
+      console.error('Error getting UI text:', err);
+      setError('Failed to load UI text');
+      throw err;
+    }
+  }, []);
+
+  // Get specific UI text by path
+  const getTextByPath = useCallback(async (path: string, fallback: string = '') => {
+    try {
+      const text = await getUITextByPath(path, fallback);
+      return text;
+    } catch (err) {
+      console.error(`Error getting UI text for path ${path}:`, err);
+      return fallback;
+    }
+  }, []);
+
+  // Get UI text with variable substitution
+  const getTextWithVars = useCallback(async (path: string, variables: Record<string, string | number> = {}, fallback: string = '') => {
+    try {
+      const text = await getUITextWithVars(path, variables, fallback);
+      return text;
+    } catch (err) {
+      console.error(`Error getting UI text with variables for path ${path}:`, err);
+      return fallback;
+    }
+  }, []);
+
   return {
     isAvailable,
     isLoading,
@@ -92,5 +127,8 @@ export function useEdgeConfig() {
     getSettings,
     getFeature,
     getConfig,
+    getText,
+    getTextByPath,
+    getTextWithVars,
   };
 }

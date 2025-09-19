@@ -1,149 +1,170 @@
-// app/api/analyze-message/route.ts
-// AI-powered message analysis for smart to-do detection
-
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { withCreditValidation } from '../../../lib/creditMiddleware';
+import { withCreditValidation } from '@/lib/creditMiddleware';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Main handler function
-async function handleMessageAnalysis(req: NextRequest) {
+interface MessageAnalysisRequest {
+  messageContent: string;
+  vendorCategory?: string;
+  vendorName?: string;
+  existingTodos?: any[];
+  weddingContext?: {
+    weddingDate?: string;
+    weddingLocation?: string;
+    guestCount?: number;
+    maxBudget?: number;
+    vibe?: string;
+  };
+  userId: string; // Required for credit validation
+}
+
+async function handleMessageAnalysis(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json();
     const { 
       messageContent, 
       vendorCategory, 
       vendorName, 
       existingTodos, 
-      weddingContext 
-    } = body;
+      weddingContext,
+      userId: requestUserId 
+    }: MessageAnalysisRequest = await req.json();
 
-    console.log('[analyze-message] Analyzing message from:', vendorName, 'Category:', vendorCategory);
+    if (!messageContent) {
+      return NextResponse.json(
+        { error: 'Message content is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key not configured');
+      return NextResponse.json(
+        { error: 'OpenAI API key not configured' },
+        { status: 500 }
+      );
+    }
 
     // Build the analysis prompt
-    const systemPrompt = `You are an AI assistant that analyzes wedding planning messages to detect actionable items. Your job is to identify:
+    let prompt = `You are an AI assistant that analyzes wedding planning messages to detect actionable items and prepare them for integration with an existing AI to-do generation system.
 
-1. NEW to-do items that need to be created
-2. UPDATES to existing to-do items  
-3. COMPLETED to-do items
-4. Relevant notes and context
+Message to analyze: "${messageContent}"
 
-Be precise and only suggest items that are clearly actionable from the message content.`;
+Context:
+- Vendor Category: ${vendorCategory || 'Unknown'}
+- Vendor Name: ${vendorName || 'Unknown'}
+- Wedding Date: ${weddingContext?.weddingDate || 'Not specified'}
+- Wedding Location: ${weddingContext?.weddingLocation || 'Not specified'}
+- Guest Count: ${weddingContext?.guestCount || 'Not specified'}
+- Budget: ${weddingContext?.maxBudget || 'Not specified'}
+- Vibe: ${weddingContext?.vibe || 'Not specified'}
 
-    const userPrompt = `Analyze this message from a ${vendorCategory} vendor for actionable wedding planning items.
-
-MESSAGE CONTENT:
-${messageContent}
-
-VENDOR CONTEXT:
-- Vendor: ${vendorName}
-- Category: ${vendorCategory}
-
-EXISTING TODOS:
-${existingTodos?.map((todo: any) => `- ${todo.name} (${todo.category}) - ${todo.isCompleted ? 'Completed' : 'Pending'}`).join('\n') || 'None'}
-
-WEDDING CONTEXT:
-${weddingContext ? `- Wedding Date: ${weddingContext.weddingDate}
-- Planning Stage: ${weddingContext.planningStage}
-- Days Until Wedding: ${weddingContext.daysUntilWedding}` : 'Not available'}
-
-ANALYSIS TASK:
-1. Detect NEW to-do items that need to be created
-2. Identify UPDATES to existing to-do items
-3. Spot COMPLETED to-do items
-4. Suggest relevant categories and deadlines
-
-OUTPUT FORMAT (JSON only, no other text):
+Please analyze this message and return a JSON response with the following structure:
 {
-  "newTodos": [
+  "actionableItems": [
     {
-      "name": "Task name",
-      "note": "Optional note or description",
-      "category": "Category name",
-      "deadline": "YYYY-MM-DD",
-      "sourceText": "Exact text that triggered this"
+      "title": "Brief description of the action item",
+      "description": "More detailed description",
+      "priority": "high|medium|low",
+      "category": "vendor|payment|timeline|logistics|other",
+      "dueDate": "YYYY-MM-DD or null",
+      "estimatedTime": "X hours or null",
+      "dependencies": ["list of other action items this depends on"],
+      "notes": "Additional context or notes"
     }
   ],
-  "todoUpdates": [
-    {
-      "updateType": "note|status_change|deadline_update|category_change",
-      "content": "Update content",
-      "sourceText": "Exact text that triggered this"
-    }
-  ],
-  "completedTodos": [
-    {
-      "completionReason": "Why this is considered complete",
-      "sourceText": "Exact text that triggered this"
-    }
-  ],
-  "analysisType": "new_message|reply|ongoing_conversation"
-}`;
+  "sentiment": "positive|neutral|negative",
+  "urgency": "high|medium|low",
+  "requiresResponse": true|false,
+  "suggestedResponse": "Suggested response text or null",
+  "keyPoints": ["list of key points from the message"],
+  "nextSteps": ["suggested next steps"]
+}
 
-    console.log('[analyze-message] Sending to OpenAI for analysis...');
+Focus on extracting concrete, actionable items that can be turned into to-do items. Be specific about deadlines, requirements, and dependencies.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'gpt-4',
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
+        {
+          role: 'system',
+          content: 'You are an expert wedding planning assistant. Analyze messages to extract actionable items and provide structured JSON responses.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
       ],
-      temperature: 0.1, // Very low temperature for consistent analysis
       max_tokens: 1000,
+      temperature: 0.3,
     });
 
-    console.log('[analyze-message] OpenAI response received');
-
-    if (!completion.choices[0]?.message?.content) {
-      throw new Error('No content received from OpenAI');
-    }
-
-    const aiResponse = completion.choices[0].message.content;
-    console.log('[analyze-message] Raw AI response:', aiResponse);
-
-    // Try to extract JSON from the response
-    let analysisResult;
+    const analysisText = completion.choices[0].message.content;
+    
+    // Try to parse the JSON response
+    let analysis;
     try {
-      // Find JSON content in the response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in AI response');
+      // Extract JSON from the response (in case there's extra text)
+      const jsonMatch = analysisText?.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
       }
-      
-      analysisResult = JSON.parse(jsonMatch[0]);
-      console.log('[analyze-message] Parsed analysis result:', analysisResult);
     } catch (parseError) {
-      console.error('[analyze-message] Failed to parse AI response:', parseError);
-      console.error('[analyze-message] Raw response was:', aiResponse);
-      throw new Error('Failed to parse AI analysis result');
+      console.error('Failed to parse AI response as JSON:', parseError);
+      // Fallback analysis
+      analysis = {
+        actionableItems: [],
+        sentiment: 'neutral',
+        urgency: 'low',
+        requiresResponse: false,
+        suggestedResponse: null,
+        keyPoints: [messageContent.substring(0, 100) + '...'],
+        nextSteps: ['Review message manually']
+      };
     }
 
-    // Validate the result structure
-    if (!analysisResult.newTodos || !analysisResult.todoUpdates || !analysisResult.completedTodos) {
-      throw new Error('Invalid analysis result structure');
-    }
+    // Get credit information from request headers (set by credit middleware)
+    const creditsRequired = req.headers.get('x-credits-required');
+    const creditsRemaining = req.headers.get('x-credits-remaining');
+    const userId = req.headers.get('x-user-id');
 
-    console.log('[analyze-message] Analysis complete:', {
-      newTodos: analysisResult.newTodos.length,
-      todoUpdates: analysisResult.todoUpdates.length,
-      completedTodos: analysisResult.completedTodos.length,
-      analysisType: analysisResult.analysisType
+    const response = NextResponse.json({
+      success: true,
+      analysis,
+      credits: {
+        required: creditsRequired ? parseInt(creditsRequired) : 0,
+        remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,
+        userId: userId || undefined
+      }
     });
 
-    return NextResponse.json(analysisResult);
+    // Add credit information to response headers for frontend
+    if (creditsRequired) response.headers.set('x-credits-required', creditsRequired);
+    if (creditsRemaining) response.headers.set('x-credits-remaining', creditsRemaining);
+    if (userId) response.headers.set('x-user-id', userId);
 
-  } catch (error: any) {
-    console.error('[analyze-message] Error:', error);
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Failed to analyze message', 
-        details: error.message 
-      }), 
-      { status: 500 }
-    );
+    return response;
+
+  } catch (error) {
+    console.error('Message analysis error:', error);
+    
+    // Return a fallback response
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      analysis: {
+        actionableItems: [],
+        sentiment: 'neutral',
+        urgency: 'low',
+        requiresResponse: false,
+        suggestedResponse: null,
+        keyPoints: ['Analysis failed'],
+        nextSteps: ['Please try again']
+      }
+    });
   }
 }
 

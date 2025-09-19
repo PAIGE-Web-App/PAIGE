@@ -59,7 +59,7 @@ export async function putEdgeConfig<T = any>(key: string, value: T): Promise<boo
  * Check if Edge Config is available
  */
 export function isEdgeConfigAvailable(): boolean {
-  return edgeConfig !== null;
+  return edgeConfig !== null && process.env.EDGE_CONFIG !== undefined;
 }
 
 /**

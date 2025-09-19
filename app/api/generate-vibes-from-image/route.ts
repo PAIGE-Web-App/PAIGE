@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
-import { withCreditValidation } from '@/lib/creditMiddleware';
-import { AIFeature } from '@/types/credits';
-import { ragContextCache } from '@/lib/ragContextCache';
-import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
-import { adminDb } from '@/lib/firebaseAdmin';
 
+export const runtime = 'edge';
 
-
-async function generateVibesHandler(req: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest) {
   try {
-    // Check if API key is available
+    // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY is not set');
-      return NextResponse.json({ success: false, error: 'OpenAI API key not configured.' }, { status: 500 });
+      console.error('OpenAI API key is not configured');
+      return NextResponse.json({ error: 'OpenAI API key is not configured.' }, { status: 500 });
     }
 
     const formData = await req.formData();
@@ -23,195 +18,119 @@ async function generateVibesHandler(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'No image uploaded.' }, { status: 400 });
     }
 
-    // Get user ID from headers (set by credit middleware)
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'User ID not found.' }, { status: 400 });
-    }
-
-    // RAG Week 2: Retrieve cached context for vibe generation
-    const ragContext = await ragContextCache.getCachedContext(userId, 'vibe_generation');
-    console.log('RAG context retrieved for vibe generation:', ragContext ? 'Found' : 'Not found');
-    
-    console.log('Processing file:', file.name, 'type:', file.type, 'size:', file.size);
-    
-    // Check file size to prevent stack overflow issues
-    const maxFileSize = 10 * 1024 * 1024; // 10MB limit
-    if (file.size > maxFileSize) {
-      console.error('File too large:', file.size, 'bytes');
-      return NextResponse.json({ success: false, error: 'File too large. Please use an image smaller than 10MB.' }, { status: 400 });
-    }
+    console.log('Processing image:', file.name, file.type, file.size);
     
     const arrayBuffer = await file.arrayBuffer();
-    
-    // Convert to base64 using a safe method that prevents stack overflow
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binaryString = '';
-    
-    // Process in smaller chunks to avoid stack overflow
-    const chunkSize = 1000;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const end = Math.min(i + chunkSize, uint8Array.length);
-      for (let j = i; j < end; j++) {
-        binaryString += String.fromCharCode(uint8Array[j]);
-      }
-    }
-    
-    const base64String = btoa(binaryString);
-    
-    console.log('Base64 string length:', base64String.length);
+    const buffer = Buffer.from(arrayBuffer);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    
-    // Base prompt for vibe generation
-    const basePrompt = `You are a wedding style expert. Analyze the uploaded image and return a JSON array of 3-7 wedding style or vibe words that could apply to wedding aesthetics. Even if the image isn't directly wedding-related, extract style elements that could inspire wedding themes (e.g., colors, textures, moods, settings). Use words like 'romantic', 'boho', 'modern', 'garden', 'timeless', 'vintage', 'glamorous', 'rustic', 'elegant', 'cozy', 'dramatic', etc. Always return a valid JSON array, even if the image is abstract or non-wedding related. Only return the array, no explanation.`;
+    const prompt = `You are a wedding style expert. Look at the uploaded wedding inspiration image and return a JSON array of 3-7 short, relevant wedding style or vibe words that are commonly used to describe wedding aesthetics (e.g., 'romantic', 'boho', 'modern', 'garden', 'timeless', 'vintage', 'glamorous', etc.), not generic moods or adjectives. The words should be wedding-specific, in sentence case, and not limited to a fixed list. Only return the array, no explanation.`;
 
-    // RAG Week 2: Optimize prompt with user context and behavior patterns
-    const { optimizedPrompt } = await smartPromptOptimizer.optimizePrompt(
-      userId, 
-      basePrompt, 
-      ragContext || '', 
-      'vibe_generation',
-      ['wedding', 'style', 'aesthetic']
-    );
-
-    console.log('Making OpenAI API call with optimized prompt...');
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: optimizedPrompt,
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: optimizedPrompt },
-            { type: 'image_url', image_url: { url: `data:${file.type};base64,${base64String}` } },
-          ],
-        },
-      ],
-      max_tokens: 200,
-    });
+    console.log('Calling OpenAI API...');
     
-    console.log('OpenAI API response received');
+    let response;
+    try {
+      // Try gpt-4-vision-preview first (better for image analysis)
+      response = await openai.chat.completions.create({
+        model: 'gpt-4-vision-preview',
+        messages: [
+          {
+            role: 'system',
+            content: prompt,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: `data:${file.type};base64,${buffer.toString('base64')}` } },
+            ],
+          },
+        ],
+        max_tokens: 200,
+      });
+      console.log('OpenAI API call successful with gpt-4-vision-preview');
+    } catch (visionError) {
+      console.log('gpt-4-vision-preview failed, trying gpt-4o...', visionError);
+      
+      // Fallback to gpt-4o
+      response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: prompt,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: `data:${file.type};base64,${buffer.toString('base64')}` } },
+            ],
+          },
+        ],
+        max_tokens: 200,
+      });
+      console.log('OpenAI API call successful with gpt-4o');
+    }
 
     // Try to extract the array from the response
     const text = response.choices[0]?.message?.content || '';
     console.log('OpenAI response text:', text);
-    console.log('OpenAI response length:', text.length);
-    console.log('OpenAI response type:', typeof text);
-    
-    // Safety check for empty or invalid response
-    if (!text || typeof text !== 'string') {
-      console.error('Invalid OpenAI response:', text);
-      return NextResponse.json({ success: false, error: 'Invalid response from AI service.' }, { status: 500 });
-    }
-    
     let vibes: string[] = [];
+    
+    // First try to parse as JSON
     try {
       vibes = JSON.parse(text);
-      console.log('Successfully parsed JSON:', vibes);
     } catch (err) {
-      console.error('Failed to parse JSON from OpenAI response:', err);
+      console.log('Failed to parse as JSON, trying to extract array...');
       
-      // Try to extract JSON from markdown code blocks
-      let codeBlockContent = text;
-      
-      // Remove markdown code block markers safely
-      if (text.includes('```')) {
-        // Find content between code blocks
-        const startIndex = text.indexOf('```');
-        const endIndex = text.lastIndexOf('```');
-        
-        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-          codeBlockContent = text.substring(startIndex + 3, endIndex).trim();
-          // Remove any remaining "json" label
-          if (codeBlockContent.startsWith('json')) {
-            codeBlockContent = codeBlockContent.substring(4).trim();
-          }
-        }
-      }
-      
-      if (codeBlockContent.startsWith('[') && codeBlockContent.endsWith(']')) {
-        console.log('Found code block content:', codeBlockContent);
+      // Try to extract array from text using regex
+      const match = text.match(/\[(.*?)\]/);
+      if (match) {
         try {
-          vibes = JSON.parse(codeBlockContent);
-          console.log('Successfully parsed code block content:', vibes);
+          vibes = JSON.parse(match[0]);
         } catch (err2) {
-          console.error('Failed to parse vibes from code block content:', err2);
+          console.error('Failed to parse vibes from match:', err2);
         }
       } else {
-        // Try to extract array from text
-        const match = text.match(/\[(.*?)\]/);
-        if (match) {
-          console.log('Found array match:', match[0]);
-          try {
-            vibes = JSON.parse(match[0]);
-            console.log('Successfully parsed match:', vibes);
-          } catch (err2) {
-            console.error('Failed to parse vibes from match:', err2);
-          }
+        // Try to extract individual words/phrases
+        const words = text
+          .replace(/[\[\]"]/g, '') // Remove brackets and quotes
+          .split(/[,\n]/) // Split by comma or newline
+          .map(word => word.trim())
+          .filter(word => word.length > 0 && word !== 'and' && word !== 'or');
+        
+        if (words.length > 0) {
+          vibes = words;
         } else {
           console.error('No array match in OpenAI response.');
-          console.log('Full response text for debugging:', text);
         }
       }
     }
     
     if (!Array.isArray(vibes) || vibes.length === 0) {
-      console.error('Could not extract vibes from OpenAI response.');
-      return NextResponse.json({ success: false, error: 'Could not extract vibes.' }, { status: 500 });
+      console.error('Could not extract vibes from OpenAI response. Text was:', text);
+      return NextResponse.json({ error: 'Could not extract vibes.' }, { status: 500 });
     }
     
-    console.log('Successfully extracted vibes:', vibes);
-    
-    // RAG Week 2: Track prompt effectiveness and cache context
-    try {
-      await smartPromptOptimizer.trackPromptEffectiveness(
-        userId,
-        'vibe_generation',
-        ['wedding', 'style', 'aesthetic'],
-        vibes
-      );
-      
-      // Cache the context for future use
-      await ragContextCache.cacheContext(
-        userId, 
-        'vibe_generation', 
-        JSON.stringify({
-          lastUsed: new Date().toISOString(),
-          vibesGenerated: vibes,
-          imageProcessed: true,
-          promptOptimized: true
-        })
-      );
-    } catch (error) {
-      console.error('Error in continuous improvement tracking:', error);
-      // Don't fail the request if tracking fails
-    }
-    
-    console.log('Returning successful response with vibes');
-    return NextResponse.json({ 
-      success: true, 
-      vibes,
-      cacheInfo: {
-        contextRetrieved: !!ragContext,
-        promptOptimized: true,
-        contextCached: true
-      }
-    });
+    console.log('Extracted vibes:', vibes);
+    return NextResponse.json({ vibes });
   } catch (err) {
     console.error('Failed to process image:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-    return NextResponse.json({ success: false, error: `Failed to process image: ${errorMessage}` }, { status: 500 });
+    
+    // Check for specific error types
+    if (err instanceof Error) {
+      if (err.message.includes('API key')) {
+        return NextResponse.json({ error: 'OpenAI API key is invalid or missing.' }, { status: 500 });
+      } else if (err.message.includes('model')) {
+        return NextResponse.json({ error: 'OpenAI model is not available.' }, { status: 500 });
+      } else if (err.message.includes('rate limit')) {
+        return NextResponse.json({ error: 'OpenAI rate limit exceeded. Please try again later.' }, { status: 429 });
+      } else if (err.message.includes('quota')) {
+        return NextResponse.json({ error: 'OpenAI quota exceeded. Please try again later.' }, { status: 429 });
+      }
+    }
+    
+    return NextResponse.json({ error: 'Failed to process image. Please try again.' }, { status: 500 });
   }
-}
-
-// Export the handler wrapped with credit validation
-export const POST = withCreditValidation(generateVibesHandler, {
-  feature: 'vibe_generation' as AIFeature,
-  userIdField: undefined, // Don't look for userId in body
-  requireAuth: true,
-  errorMessage: 'Not enough credits to generate vibes from image. Please upgrade your plan or wait for daily credit refresh.'
-}); 
+} 

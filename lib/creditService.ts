@@ -7,9 +7,13 @@ import {
   UserType,
   SubscriptionTier,
   CreditValidationResult,
-  getCreditCosts,
-  getSubscriptionCredits
+  getCreditCosts as getCreditCostsFallback,
+  getSubscriptionCredits as getSubscriptionCreditsFallback
 } from '@/types/credits';
+import { 
+  getCreditCosts, 
+  getSubscriptionCredits 
+} from './creditConfigEdge';
 
 export class CreditService {
   private static instance: CreditService;
@@ -41,7 +45,7 @@ export class CreditService {
           const existingCredits = userData.credits as UserCredits;
           
           // Check if credits need refresh
-          if (this.shouldRefreshCredits(existingCredits)) {
+          if (await this.shouldRefreshCredits(existingCredits)) {
             return await this.refreshCredits(userId, existingCredits);
           }
           
@@ -50,12 +54,13 @@ export class CreditService {
       }
 
       // Create new user credits
-      const subscriptionCredits = getSubscriptionCredits(userType, subscriptionTier);
+      const subscriptionCredits = await getSubscriptionCredits(userType, subscriptionTier) || 
+        getSubscriptionCreditsFallback(userType, subscriptionTier);
       const newUserCredits: UserCredits = {
         userId,
         userType,
         subscriptionTier,
-        dailyCredits: subscriptionCredits.monthlyCredits,
+        dailyCredits: subscriptionCredits.dailyCredits || subscriptionCredits.monthlyCredits,
         bonusCredits: 0,
         totalCreditsUsed: 0,
         lastCreditRefresh: new Date(),
@@ -97,7 +102,7 @@ export class CreditService {
       const userCredits = userData.credits as UserCredits;
       
               // Check if credits need refresh
-        if (this.shouldRefreshCredits(userCredits)) {
+        if (await this.shouldRefreshCredits(userCredits)) {
           return await this.refreshCredits(userId, userCredits);
         }
 
@@ -157,7 +162,7 @@ export class CreditService {
         return false;
       }
 
-      const creditCosts = getCreditCosts(userCredits.userType);
+      const creditCosts = await getCreditCosts(userCredits.userType);
       const cost = creditCosts[feature] || 1;
 
       // Create transaction record, filtering out undefined metadata values
@@ -344,12 +349,15 @@ export class CreditService {
   /**
    * Check if credits should be refreshed (daily, monthly, or yearly)
    */
-  private shouldRefreshCredits(userCredits: UserCredits): boolean {
+  private async shouldRefreshCredits(userCredits: UserCredits): Promise<boolean> {
     const now = new Date();
     const lastRefresh = userCredits.lastCreditRefresh;
     
     // Get the refresh frequency from subscription config
-    const subscriptionCredits = getSubscriptionCredits(
+    const subscriptionCredits = await getSubscriptionCredits(
+      userCredits.userType, 
+      userCredits.subscriptionTier
+    ) || getSubscriptionCreditsFallback(
       userCredits.userType, 
       userCredits.subscriptionTier
     );
@@ -411,13 +419,16 @@ export class CreditService {
     currentCredits: UserCredits
   ): Promise<UserCredits> {
     try {
-      const subscriptionCredits = getSubscriptionCredits(
+      const subscriptionCredits = await getSubscriptionCredits(
+        currentCredits.userType, 
+        currentCredits.subscriptionTier
+      ) || getSubscriptionCreditsFallback(
         currentCredits.userType, 
         currentCredits.subscriptionTier
       );
 
       // No rollover - just reset to subscription limit
-      const newCredits = subscriptionCredits.monthlyCredits;
+      const newCredits = subscriptionCredits.dailyCredits || subscriptionCredits.monthlyCredits;
 
       const userRef = adminDb.collection('users').doc(userId);
       await userRef.update({
@@ -476,7 +487,10 @@ export class CreditService {
         return false;
       }
 
-      const subscriptionCredits = getSubscriptionCredits(
+      const subscriptionCredits = await getSubscriptionCredits(
+        userCredits.userType, 
+        userCredits.subscriptionTier
+      ) || getSubscriptionCreditsFallback(
         userCredits.userType, 
         userCredits.subscriptionTier
       );

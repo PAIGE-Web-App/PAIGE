@@ -40,13 +40,13 @@ export default function Login() {
   } | null>(null);
   const [detectingGoogleAccount, setDetectingGoogleAccount] = useState(true);
   
-  // Gmail re-authentication state
-  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
-  const [checkingGmailAuth, setCheckingGmailAuth] = useState(false);
-  const [needsGmailReauth, setNeedsGmailReauth] = useState(false);
+  // COMMENTED OUT: Gmail re-authentication state (no longer needed)
+  // const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
+  // const [checkingGmailAuth, setCheckingGmailAuth] = useState(false);
+  // const [needsGmailReauth, setNeedsGmailReauth] = useState(false);
 
-  // Consolidated loading state
-  const isLoading = loading || googleLoading || detectingGoogleAccount || checkingGmailAuth;
+  // Simplified loading state
+  const isLoading = loading || googleLoading;
 
   // Enhanced error handling is now provided by useAuthError hook
 
@@ -70,39 +70,92 @@ export default function Login() {
     }
   }, []);
 
+  // COMMENTED OUT: Auto-redirect to debug session cookie issue
   // Redirect if already logged in - but only if not in the middle of Google login
+  /*
   useEffect(() => {
     if (user && !googleLoading && !loading) {
+      console.log('🔄 Auto-redirect detected, user:', user.email, 'uid:', user.uid);
+      
       // Add a small delay to prevent rapid redirects during authentication
-      const timeoutId = setTimeout(() => {
-        // Check if user is onboarded before redirecting
+      const timeoutId = setTimeout(async () => {
+        console.log('🔄 Auto-redirect timeout triggered, setting session cookie first');
+        
+        try {
+          // FIRST: Set the session cookie
+          console.log('🔑 Auto-redirect - Getting ID token...');
+          const idToken = await user.getIdToken();
+          console.log('🔑 Auto-redirect - Got ID token, length:', idToken.length);
+          console.log('🔑 Auto-redirect - ID token preview:', idToken.substring(0, 50) + '...');
+          
+          console.log('📡 Auto-redirect - Calling /api/sessionLogin...');
+          const sessionRes = await fetch("/api/sessionLogin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+            credentials: "include",
+          });
+          
+          console.log('📡 Auto-redirect - Session login response:', {
+            ok: sessionRes.ok,
+            status: sessionRes.status,
+            statusText: sessionRes.statusText,
+            headers: Object.fromEntries(sessionRes.headers.entries())
+          });
+          
+          // Check if Set-Cookie header is present
+          const setCookieHeader = sessionRes.headers.get('set-cookie');
+          console.log('🍪 Auto-redirect - Set-Cookie header:', setCookieHeader);
+          
+          if (!sessionRes.ok) {
+            const errorText = await sessionRes.text();
+            console.error('❌ Auto-redirect - Session login failed:', errorText);
+          } else {
+            console.log('✅ Auto-redirect - Session login successful');
+            const responseData = await sessionRes.json();
+            console.log('📄 Auto-redirect - Session login response data:', responseData);
+            
+            // Check cookies after the request
+            console.log('🍪 Auto-redirect - Cookies after request:', document.cookie);
+          }
+        } catch (error) {
+          console.error('❌ Auto-redirect - Error setting session cookie:', error);
+        }
+        
+        // THEN: Check if user is onboarded before redirecting
         const checkOnboarding = async () => {
           try {
+            console.log('🔍 Auto-redirect - Checking onboarding status...');
             const userDocRef = doc(db, "users", user.uid);
             const userDocSnap = await getDoc(userDocRef);
             
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
+              console.log('📄 Auto-redirect - User data:', { onboarded: userData.onboarded });
               if (userData.onboarded === true) {
+                console.log('🏠 Auto-redirect - User is onboarded, redirecting to dashboard');
                 redirectTo("/");
               } else {
+                console.log('📝 Auto-redirect - User not onboarded, redirecting to signup');
                 redirectTo('/signup?onboarding=1');
               }
             } else {
+              console.log('❌ Auto-redirect - User doc does not exist, redirecting to signup');
               redirectTo('/signup?existing=1');
             }
           } catch (error) {
-            console.error('Error checking onboarding status:', error);
+            console.error('❌ Auto-redirect - Error checking onboarding status:', error);
             redirectTo("/");
           }
         };
         
         checkOnboarding();
-      }, 1000); // Increased delay to prevent conflicts
+      }, 2000); // Increased delay to give more time for debugging
       
       return () => clearTimeout(timeoutId);
     }
-  }, [user, router, googleLoading, loading]);
+  }, [user, googleLoading, loading]); // Removed router from dependencies
+  */
 
   useEffect(() => {
     if (searchParams?.get && searchParams.get("existing")) {
@@ -110,7 +163,9 @@ export default function Login() {
     }
   }, [searchParams, showErrorToast]);
 
-  // Detect if user is already signed into Google
+  // COMMENTED OUT: Detect if user is already signed into Google
+  // This was causing too many issues with session cookie management
+  /*
   useEffect(() => {
     const detectGoogleAccount = async () => {
       try {
@@ -147,10 +202,12 @@ export default function Login() {
 
     detectGoogleAccount();
   }, []);
+  */
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // Check Gmail authentication status
+  // COMMENTED OUT: Check Gmail authentication status (no longer needed)
+  /*
   const checkGmailAuthStatus = async (userId: string) => {
     try {
       setCheckingGmailAuth(true);
@@ -172,6 +229,7 @@ export default function Login() {
       setCheckingGmailAuth(false);
     }
   };
+  */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +286,9 @@ export default function Login() {
     }
   };
 
+  // COMMENTED OUT: Continue as Google function
+  // This was causing too many issues with session cookie management
+  /*
   const handleContinueAsGoogle = async () => {
     // If Gmail re-authentication is needed, handle that first
     if (needsGmailReauth && googleAccount?.userId) {
@@ -240,28 +301,48 @@ export default function Login() {
     try {
       setGoogleLoading(true);
       
+      console.log('🔍 Continue as Google - Debug info:', {
+        hasCurrentUser: !!auth.currentUser,
+        currentUserEmail: auth.currentUser?.email,
+        googleAccountEmail: googleAccount?.email,
+        emailsMatch: auth.currentUser?.email === googleAccount?.email
+      });
+      
       // Check if user is already authenticated with Google
       if (auth.currentUser && auth.currentUser.email === googleAccount?.email) {
+        console.log('✅ User is already authenticated, proceeding with session login');
+        
         // User is already authenticated, proceed with session login
         const idToken = await auth.currentUser.getIdToken();
+        console.log('🔑 Got ID token, length:', idToken.length);
         
         // Check if user doc exists in Firestore
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         
         if (!userDocSnap.exists()) {
+          console.log('❌ User doc does not exist in Firestore');
           redirectTo('/signup?existing=1');
           return;
         }
         
+        console.log('📝 Calling /api/sessionLogin with ID token');
         // POST the ID token to your session login API
         const res = await fetch("/api/sessionLogin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
+          credentials: "include", // Important: include cookies
+        });
+        
+        console.log('📡 Session login response:', {
+          ok: res.ok,
+          status: res.status,
+          statusText: res.statusText
         });
         
         if (res.ok) {
+          console.log('✅ Session login successful, checking onboarding status');
           // Check onboarding status before redirecting
           const userData = userDocSnap.data();
           if (userData.onboarded === true) {
@@ -273,14 +354,18 @@ export default function Login() {
             redirectTo('/signup?onboarding=1');
           }
         } else {
+          const errorText = await res.text();
+          console.error('❌ Session login failed:', errorText);
           // Fall back to fresh Google login
           await handleFreshGoogleLogin();
         }
       } else {
+        console.log('❌ No existing session or email mismatch, falling back to fresh login');
         // No existing session, fall back to fresh Google login
         await handleFreshGoogleLogin();
       }
     } catch (error) {
+      console.error('❌ Error in Continue as Google:', error);
       const authError = handleError(error, 'Continue as Google login');
       showErrorToast(getErrorMessage(authError));
       // Fall back to fresh Google login
@@ -289,6 +374,7 @@ export default function Login() {
       setGoogleLoading(false);
     }
   };
+  */
 
   const handleFreshGoogleLogin = async () => {
     // Fresh Google login with popup
@@ -387,26 +473,37 @@ export default function Login() {
       }
       
       const idToken = await result.user.getIdToken();
-      
+      // Get ID token and call session login
       // POST the ID token to your session login API
       const res = await fetch("/api/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
+        credentials: "include", // Important: include cookies
       });
       
+      // Check session login response
+      
       if (res.ok) {
-        // Save Google account info for future detection after successful authentication
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('lastSignInMethod', 'google');
-          localStorage.setItem('lastGoogleEmail', result.user.email || '');
-          localStorage.setItem('lastGoogleName', result.user.displayName || '');
-          localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
-          localStorage.setItem('lastGoogleUserId', result.user.uid);
+        // Get the session token from the response
+        const sessionData = await res.json();
+        
+        // Set the client-side session cookie
+        if (typeof window !== 'undefined' && sessionData.sessionToken) {
+          document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
         }
+        
+        // Save Google account info for future detection after successful authentication
+        localStorage.setItem('lastSignInMethod', 'google');
+        localStorage.setItem('lastGoogleEmail', result.user.email || '');
+        localStorage.setItem('lastGoogleName', result.user.displayName || '');
+        localStorage.setItem('lastGooglePicture', result.user.photoURL || '');
+        localStorage.setItem('lastGoogleUserId', result.user.uid);
         
         // Check onboarding status before redirecting
         const userData = userDocSnap.data();
+        
+        // Redirect based on onboarding status
         if (userData.onboarded === true) {
           // User is onboarded, redirect to dashboard
           if (typeof window !== 'undefined') {
@@ -442,7 +539,8 @@ export default function Login() {
   // Keep the old function for backward compatibility
   const handleGoogleLogin = handleFreshGoogleLogin;
 
-  // Function to clear Google account and switch to email sign-in
+  // COMMENTED OUT: Function to clear Google account and switch to email sign-in (no longer needed)
+  /*
   const handleSwitchToEmail = () => {
     setGoogleAccount(null);
     setShowGmailReauthBanner(false);
@@ -455,8 +553,10 @@ export default function Login() {
       localStorage.removeItem('lastGoogleUserId');
     }
   };
+  */
 
-  // Handle Gmail re-authentication success
+  // COMMENTED OUT: Handle Gmail re-authentication success (no longer needed)
+  /*
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gmailAuth = params.get('gmailAuth');
@@ -478,6 +578,7 @@ export default function Login() {
       // Users need to manually complete the login flow
     }
   }, [googleAccount]);
+  */
 
   // State to control whether to show email form
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -509,80 +610,32 @@ export default function Login() {
 
 
                     <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
-              {/* Google Login Button - Always show at top */}
-              {detectingGoogleAccount || checkingGmailAuth ? (
-                <div className="w-full py-3 px-4 border border-[#AB9C95] rounded-[5px] bg-white flex items-center justify-center">
-                  <LoadingSpinner size="sm" />
-                </div>
-              ) : googleAccount && !showEmailForm ? (
-            <button
-              type="button"
-              onClick={handleContinueAsGoogle}
-              disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-[5px] flex items-center justify-between transition-colors ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "bg-[#163c57] text-white hover:bg-[#0f2a3f]"}`}
-            >
-                  <div className="flex items-center gap-3">
-                    {googleAccount.picture ? (
-                      <img 
-                        src={googleAccount.picture} 
-                        alt={googleAccount.name}
-                        className="w-8 h-8 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                        <span className="text-[#163c57] font-semibold text-sm">
-                          {googleAccount.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex flex-col items-start min-w-0">
-                      <span className={`font-medium text-sm truncate ${googleLoading ? "text-xs font-semibold font-work-sans" : ""}`}>
-                        {googleLoading ? "Logging in..." : (needsGmailReauth ? 'Continue with Gmail' : `Continue as ${googleAccount.name}`)}
-                      </span>
-                      {!googleLoading && <span className="text-xs opacity-90 truncate">{googleAccount.email}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {!googleLoading && <ChevronDown className="w-4 h-4" />}
-                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" />
-                  </div>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={isLoading}
-                  className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
-                >
-                  <span className="w-4 h-4 flex items-center justify-center">
-                    <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
-                  </span>
-                  <span className={isLoading ? "text-xs font-semibold font-work-sans" : ""}>
-                    {isLoading ? "Logging in..." : "Login with Google"}
-                  </span>
-                </button>
-              )}
+              {/* Google Login Button - Always show standard button */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
+              >
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
+                </span>
+                <span className={isLoading ? "text-xs font-semibold font-work-sans" : ""}>
+                  {isLoading ? "Logging in..." : "Login with Google"}
+                </span>
+              </button>
 
-              {/* Gmail re-auth note */}
-              {needsGmailReauth && (
-                <p className="text-xs text-center text-[#AB9C95] mt-2">
-                  Gmail access has expired. Click above to re-authenticate.
-                </p>
-              )}
+              {/* Login with email option */}
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(true)}
+                className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] whitespace-nowrap"
+              >
+                Login with Email
+              </button>
 
-              {/* Login with email option when Google account is detected */}
-              {googleAccount && !showEmailForm && (
-                <button
-                  type="button"
-                  onClick={() => setShowEmailForm(true)}
-                  className="btn-primaryinverse w-full py-2 text-base font-normal rounded-[5px] whitespace-nowrap"
-                >
-                  Login with Email
-                </button>
-              )}
-
-              {/* Only show email/password form if no Google account detected OR user clicked "Sign in with email" */}
-              {(!googleAccount || showEmailForm) && (
+              {/* Only show email/password form if user clicked "Sign in with email" */}
+              {showEmailForm && (
                 <>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

@@ -75,11 +75,8 @@ export default function SignUp() {
 
   // No auto-correction needed for single max budget
 
-  // Clear any existing session when signup page loads
-  useEffect(() => {
-    // Clear any existing session cookie to ensure clean signup state
-    document.cookie = '__session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  }, []);
+  // Note: We don't clear cookies on signup page load anymore
+  // This allows the Google auth flow to properly set and maintain session cookies
 
   const vibeTabs = [
     { key: 'pills', label: 'Popular Vibes', icon: '✨' },
@@ -326,6 +323,14 @@ export default function SignUp() {
         body: JSON.stringify({ idToken }),
       });
       if (res.ok) {
+        // Get the session token from the response and set client-side cookie
+        const sessionData = await res.json();
+        
+        if (sessionData.sessionToken) {
+          // Set the client-side session cookie
+          document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
+        }
+        
         // Check if user doc exists in Firestore
         const userDocRef = doc(db, "users", result.user.uid);
         const userDocSnap = await getDoc(userDocRef);
@@ -357,6 +362,7 @@ export default function SignUp() {
         } else {
           // User already exists, check if they're onboarded
           const userData = userDocSnap.data();
+          
           if (userData.onboarded === true) {
             // User is onboarded, redirect to dashboard
             window.location.href = "/";
@@ -367,7 +373,6 @@ export default function SignUp() {
           }
         }
       } else {
-        console.error('Session login failed, redirecting to login page');
         showErrorToast("Account already exists. Redirecting to login...");
         setTimeout(() => {
           window.location.href = "/login?existing=1";

@@ -179,9 +179,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Define public paths that don't require authentication
-  const isPublicPath = path === '/login' || path === '/signup' || path === '/rate-limit' || path === '/test-edge-config' || path === '/test-migration';
+      // Define public paths that don't require authentication
+      const isPublicPath = path === '/login' || path === '/signup' || path === '/rate-limit' || path === '/test-edge-config' || path === '/test-migration' || path === '/test-credit-config' || path === '/test-ui-text' || path === '/test-session-cookie';
   const isApiPath = path.startsWith('/api/');
+  
+  // Allow Next.js internal routes and static files
+  if (path.startsWith('/_next') || path.startsWith('/favicon.ico') || path.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|css|js|woff2?|ttf|eot)$/)) {
+    return NextResponse.next();
+  }
 
   // Skip authentication loop detection for API routes and public paths
   if (!isApiPath && !isPublicPath) {
@@ -193,7 +198,20 @@ export function middleware(request: NextRequest) {
   }
 
   // Get the Firebase auth token from the cookies
-  const token = request.cookies.get('__session')?.value || '';
+  // Check both HttpOnly server cookie and client-side cookie
+  const serverToken = request.cookies.get('__session')?.value || '';
+  const clientToken = request.cookies.get('__client_session')?.value || '';
+  const token = serverToken || clientToken;
+
+  // Debug logging for messages page
+  if (path === '/messages') {
+    console.log('🔍 Messages page access:', {
+      path,
+      hasToken: !!token,
+      tokenLength: token.length,
+      cookies: request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value }))
+    });
+  }
 
   // If user is on a public path (login/signup), always allow access
   if (isPublicPath) {
@@ -202,6 +220,7 @@ export function middleware(request: NextRequest) {
 
   // If user is not on a public path and has no token, redirect to login
   if (!token) {
+    console.log('🚫 No token found for protected route:', path);
     const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.set('show-toast', 'Please login to access this page');
     return response;

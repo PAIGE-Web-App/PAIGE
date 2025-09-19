@@ -28,6 +28,47 @@ interface AIFileAnalyzerRAGProps {
   isVisible: boolean;
 }
 
+// Helper function to generate follow-up questions from analysis content
+const generateFollowUpQuestions = (content: string): string[] => {
+  const questions = [];
+  
+  // Check for payment-related content
+  if (content.toLowerCase().includes('payment') || content.toLowerCase().includes('deposit')) {
+    questions.push('What are the payment terms and schedule?');
+  }
+  
+  // Check for date-related content
+  if (content.toLowerCase().includes('date') || content.toLowerCase().includes('deadline')) {
+    questions.push('What are the important dates and deadlines?');
+  }
+  
+  // Check for vendor responsibilities
+  if (content.toLowerCase().includes('vendor') || content.toLowerCase().includes('responsible')) {
+    questions.push('What is the vendor responsible for?');
+  }
+  
+  // Check for cancellation content
+  if (content.toLowerCase().includes('cancel') || content.toLowerCase().includes('refund')) {
+    questions.push('What is the cancellation policy?');
+  }
+  
+  // Check for concerning terms
+  if (content.toLowerCase().includes('watch') || content.toLowerCase().includes('concern')) {
+    questions.push('What should I watch out for in this contract?');
+  }
+  
+  // Default questions if no specific content found
+  if (questions.length === 0) {
+    questions.push(
+      'What are the key terms I should know?',
+      'What are my responsibilities?',
+      'What should I watch out for?'
+    );
+  }
+  
+  return questions.slice(0, 5); // Limit to 5 questions
+};
+
 const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
   selectedFile,
   onClose,
@@ -207,17 +248,42 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
       });
 
       // Replace loading message with actual analysis
+      // Ensure content is always a string
+      let content = '';
+      if (typeof result.analysis === 'string') {
+        content = result.analysis;
+      } else if (result.analysis && typeof result.analysis === 'object') {
+        // If it's an object, try to extract meaningful content
+        const analysisObj = result.analysis as any;
+        if (analysisObj.summary) {
+          content = analysisObj.summary;
+        } else if (analysisObj.message) {
+          content = analysisObj.message;
+        } else if (analysisObj.content) {
+          content = analysisObj.content;
+        } else if (analysisObj.text) {
+          content = analysisObj.text;
+        } else {
+          content = JSON.stringify(result.analysis, null, 2);
+        }
+      } else {
+        content = 'Sorry, I received an unexpected response format. Please try again.';
+      }
+
       const analysisMessage: AIAnalysisMessage = {
         id: `analysis-${Date.now()}`,
         type: 'assistant',
-        content: result.analysis,
+        content: content,
         timestamp: new Date(),
         analysisType: 'summary',
-        ragEnabled: result.ragEnabled
+        ragEnabled: true // Real analysis is always RAG-enabled
       };
 
       setMessages([analysisMessage]);
-      setFollowUpQuestions(result.followUpQuestions || []);
+      
+      // Generate follow-up questions from the analysis content
+      const questions = generateFollowUpQuestions(content);
+      setFollowUpQuestions(questions);
       
       // Trigger credit refresh for useCredits hook
       if (result.credits && result.credits.required > 0) {
@@ -353,14 +419,41 @@ const AIFileAnalyzerRAG: React.FC<AIFileAnalyzerRAGProps> = React.memo(({
         messages.map(m => ({ role: m.type, content: m.content }))
       );
 
+      // Debug logging to see what we're getting
+      console.log('RAG result:', result);
+      console.log('Result analysis type:', typeof result.analysis);
+      console.log('Result analysis value:', result.analysis);
+
+      // Ensure content is always a string
+      let content = '';
+      if (typeof result.analysis === 'string') {
+        content = result.analysis;
+      } else if (result.analysis && typeof result.analysis === 'object') {
+        // If it's an object, try to extract meaningful content
+        const analysisObj = result.analysis as any;
+        if (analysisObj.summary) {
+          content = analysisObj.summary;
+        } else if (analysisObj.message) {
+          content = analysisObj.message;
+        } else if (analysisObj.content) {
+          content = analysisObj.content;
+        } else if (analysisObj.text) {
+          content = analysisObj.text;
+        } else {
+          content = JSON.stringify(result.analysis, null, 2);
+        }
+      } else {
+        content = 'Sorry, I received an unexpected response format. Please try again.';
+      }
+
       const assistantMessage: AIAnalysisMessage = {
         id: `assistant-${Date.now()}`,
         type: 'assistant',
-        content: result.analysis,
+        content: content,
         timestamp: new Date(),
         fileId: selectedFile.id,
         analysisType: 'custom',
-        ragEnabled: result.ragEnabled,
+        ragEnabled: true, // Real analysis is always RAG-enabled
       };
 
       setMessages(prev => [...prev, assistantMessage]);

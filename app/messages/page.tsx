@@ -308,11 +308,8 @@ export default function MessagesPage() {
     }
   }, [user?.uid, authLoading]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      // Don't auto-redirect, let the logout function handle it
-    }
-  }, [user, authLoading]);
+  // Removed problematic effect that was causing redirect loops
+  // Authentication is now handled by middleware and AuthContext
 
   // Use cached onboarding status from AuthContext
   useEffect(() => {

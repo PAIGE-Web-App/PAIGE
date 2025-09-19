@@ -45,6 +45,7 @@ export interface AnalysisContext {
   vendorCategory: string;
   vendorName: string;
   contactId: string;
+  userId: string; // Required for credit validation
   conversationHistory?: string[];
   existingTodos?: Array<{
     id: string;
@@ -125,7 +126,8 @@ export class MessageAnalysisEngine {
           vendorCategory: context.vendorCategory,
           vendorName: context.vendorName,
           existingTodos: context.existingTodos,
-          weddingContext: context.weddingContext
+          weddingContext: context.weddingContext,
+          userId: context.userId
         }),
       });
 

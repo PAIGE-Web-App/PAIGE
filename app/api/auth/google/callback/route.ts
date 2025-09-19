@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, admin } from '@/lib/firebaseAdmin';
 // MODIFIED: Removed doc and setDoc imports from 'firebase/firestore'
 // import { doc, setDoc } from 'firebase/firestore'; 
 

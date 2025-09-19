@@ -334,7 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(authStateChangeTimeout);
       unsubscribe();
     };
-  }, [validateSession, refreshAuthToken]);
+  }, [refreshAuthTokenLocal]);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><LoadingSpinner size="lg" /></div>;

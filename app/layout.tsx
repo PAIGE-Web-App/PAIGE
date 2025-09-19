@@ -15,6 +15,9 @@ import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
 
+// Import scheduled task manager to start automation (server-side only)
+import '@/lib/initScheduledTasks';
+
 const playfair = Playfair_Display({ 
   subsets: ["latin"],
   variable: "--font-playfair",

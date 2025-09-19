@@ -125,10 +125,77 @@ Add this key-value pair to your Edge Config:
 }
 ```
 
-### **Step 3: Test the Migration**
+### **Step 3: Add UI Text to Edge Config**
+
+Add this key-value pair to your Edge Config for dynamic UI text:
+
+```json
+{
+  "uiText": {
+    "messages": {
+      "emptyState": {
+        "title": "Cheers to your next chapter!",
+        "description": "Connect your email to auto-import vendor contacts and generate hyper-personalized email drafts",
+        "cta": "Set up your Unified Inbox",
+        "alternativeCta": "Check out the Vendor Catalog",
+        "or": "or"
+      },
+      "errors": {
+        "insufficientCredits": "Oops you don't have enough credits",
+        "rateLimit": "Too many requests, please wait a moment",
+        "genericError": "Something went wrong. Please try again.",
+        "networkError": "Network error. Please check your connection."
+      },
+      "success": {
+        "saved": "Saved successfully!",
+        "created": "Created successfully!",
+        "updated": "Updated successfully!",
+        "deleted": "Deleted successfully!"
+      },
+      "validation": {
+        "required": "This field is required",
+        "email": "Please enter a valid email address",
+        "minLength": "Must be at least {min} characters",
+        "maxLength": "Must be no more than {max} characters",
+        "invalidDate": "Please enter a valid date"
+      }
+    },
+    "buttons": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "create": "Create",
+      "update": "Update",
+      "close": "Close",
+      "next": "Next",
+      "previous": "Previous",
+      "submit": "Submit",
+      "retry": "Retry"
+    },
+    "labels": {
+      "loading": "Loading...",
+      "noData": "No data available",
+      "search": "Search",
+      "filter": "Filter",
+      "sort": "Sort",
+      "view": "View",
+      "settings": "Settings"
+    },
+    "tooltips": {
+      "help": "Click for help",
+      "info": "More information",
+      "warning": "Warning",
+      "error": "Error occurred"
+    }
+  }
+}
+```
+
+### **Step 4: Test the Migration**
 
 1. **Visit**: `http://localhost:3000/test-edge-config`
-2. **You should see**: Both vendor categories and app settings working
+2. **You should see**: Vendor categories, app settings, and UI text working
 3. **If anything fails**: The app automatically falls back to original data
 
 ## 🛡️ Safety Guarantees

@@ -623,6 +623,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
         vendorCategory: selectedContact.category,
         vendorName: selectedContact.name,
         contactId: selectedContact.id,
+        userId: user?.uid || '', // Pass the user ID for credit validation
         existingTodos: [], // TODO: Get from your todo system
         weddingContext: undefined // TODO: Pass from parent
       });
