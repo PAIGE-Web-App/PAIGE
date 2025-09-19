@@ -9,9 +9,10 @@ import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import VendorContactModal from '@/components/VendorContactModal';
 import { mapGoogleTypesToCategory } from '@/utils/vendorUtils';
+import { useEdgeConfig } from '@/hooks/useEdgeConfig';
 
-// Same categories as used in the catalog page
-const CATEGORIES = [
+// Fallback categories (used if Edge Config fails)
+const FALLBACK_CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
   { value: 'jewelry_store', label: 'Jewelers', singular: 'Jeweler' },
   { value: 'bakery', label: 'Bakeries & Cakes', singular: 'Bakery' },
@@ -69,12 +70,28 @@ const RelatedVendorsSection = React.memo(function RelatedVendorsSection({
   const router = useRouter();
   const { user } = useAuth();
   const { showSuccessToast } = useCustomToast();
+  const { getCategories } = useEdgeConfig();
   
   const [relatedVendors, setRelatedVendors] = useState<RelatedVendor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   // Use the simplified favorites hook
   const { isFavorite, toggleFavorite } = useFavoritesSimple();
 
+  // Load categories from Edge Config with fallback
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const edgeCategories = await getCategories();
+        setCategories(edgeCategories);
+      } catch (error) {
+        console.warn('Failed to load categories from Edge Config, using fallback:', error);
+        setCategories(FALLBACK_CATEGORIES);
+      }
+    };
+    
+    loadCategories();
+  }, [getCategories]);
 
   // Fetch related vendors
   useEffect(() => {
@@ -87,7 +104,7 @@ const RelatedVendorsSection = React.memo(function RelatedVendorsSection({
       try {
         setLoading(true);
         // Convert display category to API category using the same mapping as catalog page
-        const categoryObj = CATEGORIES.find(cat => 
+        const categoryObj = categories.find(cat => 
           cat.label === category || cat.singular === category
         );
         const apiCategory = categoryObj ? categoryObj.value : category.toLowerCase().replace(/\s+/g, '_');

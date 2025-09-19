@@ -414,7 +414,11 @@ const VendorCategoryPage: React.FC = () => {
         setSearchResults(cachedResults);
       } else if (Array.isArray(data.results) && data.results.length > 0) {
         setSearchResults(data.results);
+      } else if (Array.isArray(data.results) && data.results.length === 0) {
+        // No results found from API search
+        setSearchResults([]);
       } else {
+        // Fallback to cached results
         setSearchResults(cachedResults);
       }
     } catch (error) {

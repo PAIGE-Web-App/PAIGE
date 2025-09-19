@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import SelectField from "./SelectField";
 import FormField from "./FormField";
 import { getAllCategories } from "../lib/firebaseCategories";
+import { useEdgeConfig } from "@/hooks/useEdgeConfig";
 
 interface CategorySelectFieldProps {
   userId: string;
@@ -37,8 +38,8 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
 }) => {
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
-  // Default categories to be shown if no custom categories are fetched or for new users
-  const defaultCategories = useMemo(
+  // Fallback categories (used if Edge Config fails)
+  const fallbackCategories = useMemo(
     () => [
       "Photographer",
       "Caterer",
@@ -63,6 +64,26 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
     []
   );
 
+  const { getCategories } = useEdgeConfig();
+  const [edgeCategories, setEdgeCategories] = useState<string[]>([]);
+
+  // Load categories from Edge Config with fallback
+  useEffect(() => {
+    const loadEdgeCategories = async () => {
+      try {
+        const edgeCategories = await getCategories();
+        // Extract labels from Edge Config categories
+        const edgeLabels = edgeCategories.map(cat => cat.label);
+        setEdgeCategories(edgeLabels);
+      } catch (error) {
+        console.warn('Failed to load categories from Edge Config, using fallback:', error);
+        setEdgeCategories([]);
+      }
+    };
+    
+    loadEdgeCategories();
+  }, [getCategories]);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -80,6 +101,8 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
 
   // Memoize the combined and sorted list of categories for the dropdown
   const allCategoriesCombined = useMemo(() => {
+    // Use Edge Config categories if available, otherwise fallback
+    const defaultCategories = edgeCategories.length > 0 ? edgeCategories : fallbackCategories;
     const uniqueCategories = new Set([...defaultCategories, ...categoryOptions]);
     uniqueCategories.delete("Other"); // Ensure 'Other' is not duplicated if it somehow appears in fetched categories
 
@@ -94,7 +117,7 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
       ...sortedCategories.map((cat) => ({ value: cat, label: cat })),
       { value: "Other", label: "Other" },
     ];
-  }, [categoryOptions, defaultCategories, placeholder]);
+  }, [categoryOptions, edgeCategories, fallbackCategories, placeholder]);
 
   return (
     <div className={className}>

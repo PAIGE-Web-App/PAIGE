@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useEdgeConfig } from '@/hooks/useEdgeConfig';
 
 const DISTANCE_OPTIONS = [
   { label: 'Within 5 miles', value: 5 },
@@ -15,7 +16,8 @@ const DEFAULT_FILTERS = [
 
 // Price filter removed - not functional
 
-const CATEGORY_FILTERS = {
+// Fallback category filters (used if Edge Config fails)
+const FALLBACK_CATEGORY_FILTERS = {
   restaurant: [
     { key: 'cuisine', label: 'Cuisine', type: 'dropdown', options: ['American', 'Italian', 'French', 'Asian', 'Mexican', 'Other'] }
   ],
@@ -104,7 +106,25 @@ function MultiSelectFilter({ filter, value, onChange }) {
 }
 
 export default function VendorCatalogFilters({ category, filterValues, onChange, vendors }) {
-  const dynamicFilters = CATEGORY_FILTERS[category] || [];
+  const { getConfig } = useEdgeConfig();
+  const [categoryFilters, setCategoryFilters] = useState(FALLBACK_CATEGORY_FILTERS);
+  
+  // Load category filters from Edge Config with fallback
+  useEffect(() => {
+    const loadCategoryFilters = async () => {
+      try {
+        const edgeFilters = await getConfig('categoryFilters', FALLBACK_CATEGORY_FILTERS);
+        setCategoryFilters(edgeFilters);
+      } catch (error) {
+        console.warn('Failed to load category filters from Edge Config, using fallback:', error);
+        setCategoryFilters(FALLBACK_CATEGORY_FILTERS);
+      }
+    };
+    
+    loadCategoryFilters();
+  }, [getConfig]);
+
+  const dynamicFilters = categoryFilters[category] || [];
   let allFilters = [...DEFAULT_FILTERS, ...dynamicFilters];
 
   // Only show filters that actually work

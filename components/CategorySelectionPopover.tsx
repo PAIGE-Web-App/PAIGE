@@ -5,8 +5,10 @@ import { X } from 'lucide-react';
 import SelectField from './SelectField';
 import FormField from './FormField';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
+import { useEdgeConfig } from '@/hooks/useEdgeConfig';
 
-const CATEGORIES = [
+// Fallback categories (used if Edge Config fails)
+const FALLBACK_CATEGORIES = [
   { value: 'venue', label: 'Venues', singular: 'Venue' },
   { value: 'photographer', label: 'Photographers', singular: 'Photographer' },
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -47,7 +49,24 @@ export default function CategorySelectionPopover({
   const { weddingLocation } = useUserProfileData();
   const [category, setCategory] = useState(currentCategory);
   const [location, setLocation] = useState(currentLocation);
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const { getCategories } = useEdgeConfig();
+
+  // Load categories from Edge Config with fallback
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const edgeCategories = await getCategories();
+        setCategories(edgeCategories);
+      } catch (error) {
+        console.warn('Failed to load categories from Edge Config, using fallback:', error);
+        setCategories(FALLBACK_CATEGORIES);
+      }
+    };
+    
+    loadCategories();
+  }, [getCategories]);
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -69,8 +88,13 @@ export default function CategorySelectionPopover({
   // Handle search button click
   const handleSearch = () => {
     if (category) {
-      // Always go to the category page directly
+      // If a category is selected, go to the category page
       const url = `/vendors/catalog/${category}`;
+      router.push(url);
+      onClose();
+    } else if (location) {
+      // If no category but location is provided, go to search page
+      const url = `/vendors/catalog/search?location=${encodeURIComponent(location)}`;
       router.push(url);
       onClose();
     }
@@ -142,7 +166,7 @@ export default function CategorySelectionPopover({
                   name="category"
                   value={category}
                   onChange={e => setCategory(e.target.value)}
-                  options={CATEGORIES}
+                  options={categories}
                 />
               </div>
               

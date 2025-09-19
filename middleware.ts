@@ -180,7 +180,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Define public paths that don't require authentication
-  const isPublicPath = path === '/login' || path === '/signup' || path === '/rate-limit';
+  const isPublicPath = path === '/login' || path === '/signup' || path === '/rate-limit' || path === '/test-edge-config' || path === '/test-migration';
   const isApiPath = path.startsWith('/api/');
 
   // Skip authentication loop detection for API routes and public paths
