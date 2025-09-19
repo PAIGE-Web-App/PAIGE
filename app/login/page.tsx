@@ -11,6 +11,7 @@ import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from '../../hooks/useAuth';
 import { useCustomToast } from '../../hooks/useCustomToast';
+import { useAuthError } from '../../hooks/useAuthError';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
@@ -19,7 +20,6 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,6 +29,7 @@ export default function Login() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { error, handleError, clearError, getErrorMessage } = useAuthError();
 
   // Google account detection state
   const [googleAccount, setGoogleAccount] = useState<{
@@ -47,38 +48,7 @@ export default function Login() {
   // Consolidated loading state
   const isLoading = loading || googleLoading || detectingGoogleAccount || checkingGmailAuth;
 
-  // Improved error handling
-  const handleError = (error: any, context: string) => {
-    console.error(`${context}:`, error);
-    let message = "An unexpected error occurred. Please try again.";
-    
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/invalid-credential':
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-          message = "Email or password is incorrect.";
-          break;
-        case 'auth/popup-closed-by-user':
-          message = "Sign-in popup was closed. Please try again.";
-          break;
-        case 'auth/account-exists-with-different-credential':
-          message = "An account already exists with this email. Please use a different sign-in method.";
-          break;
-        case 'auth/operation-not-allowed':
-          message = "This sign-in method is not enabled. Please try email signup.";
-          break;
-        case 'auth/unauthorized-domain':
-          message = "This domain is not authorized for sign-in.";
-          break;
-        default:
-          message = error.message || message;
-      }
-    }
-    
-    setError(message);
-    showErrorToast(message);
-  };
+  // Enhanced error handling is now provided by useAuthError hook
 
   // Consistent redirect function
   const redirectTo = (path: string) => {
@@ -102,15 +72,37 @@ export default function Login() {
 
   // Redirect if already logged in - but only if not in the middle of Google login
   useEffect(() => {
-    if (user && !googleLoading) {
+    if (user && !googleLoading && !loading) {
       // Add a small delay to prevent rapid redirects during authentication
       const timeoutId = setTimeout(() => {
-        router.push('/');
-      }, 500);
+        // Check if user is onboarded before redirecting
+        const checkOnboarding = async () => {
+          try {
+            const userDocRef = doc(db, "users", user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              if (userData.onboarded === true) {
+                redirectTo("/");
+              } else {
+                redirectTo('/signup?onboarding=1');
+              }
+            } else {
+              redirectTo('/signup?existing=1');
+            }
+          } catch (error) {
+            console.error('Error checking onboarding status:', error);
+            redirectTo("/");
+          }
+        };
+        
+        checkOnboarding();
+      }, 1000); // Increased delay to prevent conflicts
       
       return () => clearTimeout(timeoutId);
     }
-  }, [user, router, googleLoading]);
+  }, [user, router, googleLoading, loading]);
 
   useEffect(() => {
     if (searchParams?.get && searchParams.get("existing")) {
@@ -183,13 +175,13 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clearError();
     if (!email || !password) {
-      setError("All fields are required.");
+      handleError({ code: 'MISSING_FIELDS', message: 'All fields are required' }, 'Form validation');
       return;
     }
     if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
+      handleError({ code: 'INVALID_EMAIL', message: 'Please enter a valid email address' }, 'Form validation');
       return;
     }
     try {
@@ -205,8 +197,8 @@ export default function Login() {
         credentials: "include",
       });
       if (!sessionRes.ok) {
-        setError('Failed to establish session. Please try again.');
-        showErrorToast('Failed to establish session. Please try again.');
+        const authError = handleError({ code: 'SESSION_FAILED', message: 'Failed to establish session' }, 'Session login');
+        showErrorToast(getErrorMessage(authError));
         setLoading(false);
         return;
       }
@@ -229,7 +221,8 @@ export default function Login() {
         redirectTo('/signup?existing=1');
       }
     } catch (error: any) {
-      handleError(error, 'Email login');
+      const authError = handleError(error, 'Email login');
+      showErrorToast(getErrorMessage(authError));
     } finally {
       setLoading(false);
     }
@@ -288,7 +281,8 @@ export default function Login() {
         await handleFreshGoogleLogin();
       }
     } catch (error) {
-      handleError(error, 'Continue as Google login');
+      const authError = handleError(error, 'Continue as Google login');
+      showErrorToast(getErrorMessage(authError));
       // Fall back to fresh Google login
       await handleFreshGoogleLogin();
     } finally {
@@ -299,6 +293,11 @@ export default function Login() {
   const handleFreshGoogleLogin = async () => {
     // Fresh Google login with popup
     const provider = new GoogleAuthProvider();
+    
+    // Force account selection - this is how other companies handle it
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     
     // Add Gmail scopes for automatic Gmail connection
     provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
@@ -433,7 +432,8 @@ export default function Login() {
         return;
       }
       
-      handleError(err, 'Fresh Google login');
+      const authError = handleError(err, 'Fresh Google login');
+      showErrorToast(getErrorMessage(authError));
     } finally {
       setGoogleLoading(false);
     }
@@ -621,6 +621,25 @@ export default function Login() {
                       autoComplete="current-password"
                     />
                   </div>
+                  
+                  {/* Error Display */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-800">
+                            {getErrorMessage(error)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <button
                     type="submit"
                     disabled={isLoading}
