@@ -113,7 +113,6 @@ export function clearRateLimit(clientId: string) {
   const key = `auth_loop:${clientId}`;
   if (authLoopPrevention[key]) {
     delete authLoopPrevention[key];
-    console.log('✅ Rate limit cleared for client:', clientId);
   }
 }
 
@@ -188,7 +187,6 @@ export function middleware(request: NextRequest) {
   if (!isApiPath && !isPublicPath) {
     // Check for authentication loops before proceeding
     if (checkAuthLoop(request)) {
-      console.log('🚫 Authentication loop detected, redirecting to rate limit page');
       const rateLimitUrl = new URL('/rate-limit?retryAfter=30', request.url);
       return NextResponse.redirect(rateLimitUrl);
     }

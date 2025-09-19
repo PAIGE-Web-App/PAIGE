@@ -106,7 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Prevent rapid token refresh attempts
     const now = Date.now();
     if (now - lastTokenRefreshRef.current < 30000) { // 30 seconds minimum between refreshes
-      console.log('⏳ Token refresh too recent, skipping...');
       return null;
     }
     
@@ -130,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Prevent rapid validation attempts
     const now = Date.now();
     if (now - lastSessionValidationRef.current < 10000) { // 10 seconds minimum between validations
-      console.log('⏳ Session validation too recent, skipping...');
       return true; // Assume valid to prevent loops
     }
     
@@ -282,7 +280,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     
     try {
-      console.log('🔍 Checking onboarding status for user:', user.uid);
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
       
@@ -293,12 +290,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setOnboardingStatus(newStatus);
         localStorage.setItem(ONBOARDING_STATUS_KEY, newStatus);
-        
-        console.log('✅ Onboarding status updated:', newStatus);
       } else {
         setOnboardingStatus('not-onboarded');
         localStorage.setItem(ONBOARDING_STATUS_KEY, 'not-onboarded');
-        console.log('✅ New user - not onboarded');
       }
     } catch (error) {
       console.error('Error checking onboarding status:', error);
@@ -314,13 +308,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Debounce rapid auth state changes (especially during logout)
       clearTimeout(authStateChangeTimeout);
       authStateChangeTimeout = setTimeout(async () => {
-        console.log('🔐 Auth state changed:', user ? `User logged in: ${user.email}` : 'User logged out');
+        // Auth state changed
         setUser(user);
         setLoading(false);
         
         // If user exists, validate session and set up token refresh
         if (user) {
-          console.log('🔐 User authenticated, setting up session...');
           // Don't validate session immediately to avoid redirect loops
           // The session will be validated on the next page load
           

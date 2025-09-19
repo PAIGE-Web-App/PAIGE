@@ -44,6 +44,47 @@ export default function Login() {
   const [checkingGmailAuth, setCheckingGmailAuth] = useState(false);
   const [needsGmailReauth, setNeedsGmailReauth] = useState(false);
 
+  // Consolidated loading state
+  const isLoading = loading || googleLoading || detectingGoogleAccount || checkingGmailAuth;
+
+  // Improved error handling
+  const handleError = (error: any, context: string) => {
+    console.error(`${context}:`, error);
+    let message = "An unexpected error occurred. Please try again.";
+    
+    if (error.code) {
+      switch (error.code) {
+        case 'auth/invalid-credential':
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+          message = "Email or password is incorrect.";
+          break;
+        case 'auth/popup-closed-by-user':
+          message = "Sign-in popup was closed. Please try again.";
+          break;
+        case 'auth/account-exists-with-different-credential':
+          message = "An account already exists with this email. Please use a different sign-in method.";
+          break;
+        case 'auth/operation-not-allowed':
+          message = "This sign-in method is not enabled. Please try email signup.";
+          break;
+        case 'auth/unauthorized-domain':
+          message = "This domain is not authorized for sign-in.";
+          break;
+        default:
+          message = error.message || message;
+      }
+    }
+    
+    setError(message);
+    showErrorToast(message);
+  };
+
+  // Consistent redirect function
+  const redirectTo = (path: string) => {
+    window.location.href = path;
+  };
+
   // Check for toast message in cookies
   useEffect(() => {
     const cookieMatch = document.cookie.match(/show-toast=([^;]+)/);
@@ -61,9 +102,7 @@ export default function Login() {
 
   // Redirect if already logged in - but only if not in the middle of Google login
   useEffect(() => {
-    console.log('🔍 Login page - user state:', user ? `Logged in as ${user.email}` : 'Not logged in');
     if (user && !googleLoading) {
-      console.log('🔄 Redirecting authenticated user to home page...');
       // Add a small delay to prevent rapid redirects during authentication
       const timeoutId = setTimeout(() => {
         router.push('/');
@@ -175,20 +214,22 @@ export default function Login() {
         localStorage.setItem('showLoginToast', '1');
       }
       
-      router.push("/");
-    } catch (error: any) {
+      // Check if user exists in Firestore before redirecting
+      const userDocRef = doc(db, "users", result.user.uid);
+      const userDocSnap = await getDoc(userDocRef);
       
-      if (
-        error.code === 'auth/invalid-credential' ||
-        error.code === 'auth/user-not-found' ||
-        error.code === 'auth/wrong-password'
-      ) {
-        setError('Email or password is incorrect.');
-        showErrorToast('Email or password is incorrect.');
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.onboarded === true) {
+          redirectTo("/");
+        } else {
+          redirectTo('/signup?onboarding=1');
+        }
       } else {
-        setError(error.message || 'Failed to login');
-        showErrorToast(error.message || 'Failed to login');
+        redirectTo('/signup?existing=1');
       }
+    } catch (error: any) {
+      handleError(error, 'Email login');
     } finally {
       setLoading(false);
     }
@@ -205,12 +246,9 @@ export default function Login() {
     // For "Continue as" - try to use existing session first
     try {
       setGoogleLoading(true);
-      console.log('🔄 [Continue as] Attempting to use existing Google session...');
       
       // Check if user is already authenticated with Google
       if (auth.currentUser && auth.currentUser.email === googleAccount?.email) {
-        console.log('✅ [Continue as] User already authenticated, proceeding with session login...');
-        
         // User is already authenticated, proceed with session login
         const idToken = await auth.currentUser.getIdToken();
         
@@ -219,8 +257,7 @@ export default function Login() {
         const userDocSnap = await getDoc(userDocRef);
         
         if (!userDocSnap.exists()) {
-          console.log('🔄 [Continue as] User not found in Firestore, redirecting to signup...');
-          window.location.href = '/signup?existing=1';
+          redirectTo('/signup?existing=1');
           return;
         }
         
@@ -232,32 +269,26 @@ export default function Login() {
         });
         
         if (res.ok) {
-          console.log('✅ [Continue as] Session login successful, checking onboarding status...');
-          
           // Check onboarding status before redirecting
           const userData = userDocSnap.data();
           if (userData.onboarded === true) {
-            console.log('✅ [Continue as] User is onboarded, redirecting to dashboard...');
             if (typeof window !== 'undefined') {
               localStorage.setItem('showLoginToast', '1');
             }
-            window.location.href = "/";
+            redirectTo("/");
           } else {
-            console.log('🔄 [Continue as] User is not onboarded, redirecting to signup...');
-            window.location.href = '/signup?onboarding=1';
+            redirectTo('/signup?onboarding=1');
           }
         } else {
-          console.log('❌ [Continue as] Session login failed, falling back to fresh Google login...');
           // Fall back to fresh Google login
           await handleFreshGoogleLogin();
         }
       } else {
-        console.log('🔄 [Continue as] No existing session, falling back to fresh Google login...');
         // No existing session, fall back to fresh Google login
         await handleFreshGoogleLogin();
       }
     } catch (error) {
-      console.log('❌ [Continue as] Error using existing session, falling back to fresh Google login...', error);
+      handleError(error, 'Continue as Google login');
       // Fall back to fresh Google login
       await handleFreshGoogleLogin();
     } finally {
@@ -277,11 +308,7 @@ export default function Login() {
     
     try {
       setGoogleLoading(true);
-      console.log('🔄 [Fresh Google Login] Starting Google authentication...');
-
-      
       const result = await signInWithPopup(auth, provider);
-      console.log('✅ [Fresh Google Login] Google authentication successful:', result.user.email);
       
       // Don't save Google account info to localStorage yet - let the auth state handle the redirect
       // This prevents the page from showing "Continue as" button after popup completes
@@ -356,12 +383,10 @@ export default function Login() {
       
       if (!userDocSnap.exists()) {
         // User doesn't exist in Firestore, redirect to signup immediately
-        console.log('🔄 [Fresh Google Login] User not found in Firestore, redirecting to signup...');
-        window.location.href = '/signup?existing=1';
+        redirectTo('/signup?existing=1');
         return;
       }
       
-      console.log('✅ [Fresh Google Login] User exists in Firestore, proceeding with session login...');
       const idToken = await result.user.getIdToken();
       
       // POST the ID token to your session login API
@@ -372,8 +397,6 @@ export default function Login() {
       });
       
       if (res.ok) {
-        console.log('✅ [Fresh Google Login] Session login successful, checking onboarding status...');
-        
         // Save Google account info for future detection after successful authentication
         if (typeof window !== 'undefined') {
           localStorage.setItem('lastSignInMethod', 'google');
@@ -387,49 +410,30 @@ export default function Login() {
         const userData = userDocSnap.data();
         if (userData.onboarded === true) {
           // User is onboarded, redirect to dashboard
-          console.log('✅ [Fresh Google Login] User is onboarded, redirecting to dashboard...');
           if (typeof window !== 'undefined') {
             localStorage.setItem('showLoginToast', '1');
           }
-          window.location.href = "/";
+          redirectTo("/");
         } else {
           // User is not onboarded, redirect to signup
-          console.log('🔄 [Fresh Google Login] User is not onboarded, redirecting to signup...');
-          window.location.href = '/signup?onboarding=1';
+          redirectTo('/signup?onboarding=1');
         }
       } else {
         const errorText = await res.text();
-        console.error('❌ [Fresh Google Login] Session login failed:', errorText);
+        console.error('Session login failed:', errorText);
         showErrorToast("Session login failed");
       }
     } catch (err: any) {
-      console.error('❌ [Fresh Google Login] Error details:', {
-        code: err.code,
-        message: err.message,
-        email: err.email,
-        credential: err.credential,
-        fullError: err
-      });
-      
-      let message = "Google login failed. Please try again.";
-      if (err.code === "auth/popup-closed-by-user") {
-        message = "Sign-in popup was closed before completing the process.";
-      } else if (err.code === "auth/unauthorized-domain") {
-        message = "This domain is not authorized for Google sign-in.";
-      } else if (err.code === "auth/operation-not-allowed") {
-        message = "Google sign-in is not enabled for this app.";
-      } else if (err.code === "auth/user-disabled") {
-        message = "This account has been disabled.";
-      } else if (err.code === "auth/user-not-found") {
-        message = "User account not found.";
-      } else if (err.code === "auth/invalid-credential") {
-        message = "Invalid credentials.";
-      } else if (err.code === "auth/account-exists-with-different-credential") {
-        message = "An account already exists with the same email address but different sign-in credentials.";
+      // Handle special case for existing account
+      if (err.code === "auth/account-exists-with-different-credential") {
+        showErrorToast("An account already exists with this email. Redirecting to login...");
+        setTimeout(() => {
+          redirectTo("/login?existing=1");
+        }, 2000);
+        return;
       }
       
-              showErrorToast(message);
-      setError(message);
+      handleError(err, 'Fresh Google login');
     } finally {
       setGoogleLoading(false);
     }
@@ -511,12 +515,12 @@ export default function Login() {
                   <LoadingSpinner size="sm" />
                 </div>
               ) : googleAccount && !showEmailForm ? (
-                <button
-                  type="button"
-                  onClick={handleContinueAsGoogle}
-                  disabled={googleLoading}
-                  className={`w-full py-3 px-4 rounded-[5px] flex items-center justify-between transition-colors ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "bg-[#163c57] text-white hover:bg-[#0f2a3f]"}`}
-                >
+            <button
+              type="button"
+              onClick={handleContinueAsGoogle}
+              disabled={isLoading}
+              className={`w-full py-3 px-4 rounded-[5px] flex items-center justify-between transition-colors ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "bg-[#163c57] text-white hover:bg-[#0f2a3f]"}`}
+            >
                   <div className="flex items-center gap-3">
                     {googleAccount.picture ? (
                       <img 
@@ -547,14 +551,14 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  disabled={googleLoading}
-                  className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${googleLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
+                  disabled={isLoading}
+                  className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
                 >
                   <span className="w-4 h-4 flex items-center justify-center">
                     <img src="/Google__G__logo.svg" alt="Google" width="16" height="16" className="block" />
                   </span>
-                  <span className={googleLoading ? "text-xs font-semibold font-work-sans" : ""}>
-                    {googleLoading ? "Logging in..." : "Login with Google"}
+                  <span className={isLoading ? "text-xs font-semibold font-work-sans" : ""}>
+                    {isLoading ? "Logging in..." : "Login with Google"}
                   </span>
                 </button>
               )}
@@ -619,10 +623,10 @@ export default function Login() {
                   </div>
                   <button
                     type="submit"
-                    disabled={loading}
-                    className={`w-full py-2 text-base font-normal rounded-[5px] ${loading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primary"}`}
+                    disabled={isLoading}
+                    className={`w-full py-2 text-base font-normal rounded-[5px] ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primary"}`}
                   >
-                    {loading ? "Logging in..." : "Log In"}
+                    {isLoading ? "Logging in..." : "Log In"}
                   </button>
                 </>
               )}
