@@ -854,54 +854,12 @@ export function useBudget() {
       let data: AIGeneratedBudget;
       
       if (aiBudget) {
-        // Use the provided RAG response directly
+        // Use the provided RAG response directly (no additional API call needed)
         data = aiBudget;
       } else {
-        // Use RAG system as default (no fallback to old API)
-        const response = await fetch('/api/generate-budget-rag', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            description, 
-            totalBudget,
-            weddingDate: new Date().toISOString(),
-            userId: user?.uid,
-            userEmail: user?.email
-          }),
-        });
-
-        if (!response.ok) throw new Error('Failed to generate budget');
-        const ragResponse = await response.json();
-        
-        if (ragResponse.success && ragResponse.budget) {
-          // Transform RAG response to match expected format
-          data = {
-            categories: ragResponse.budget.categories.map((category: any) => {
-              // Calculate category total from items if not provided
-              const categoryTotal = category.amount || 
-                (category.subcategories || []).reduce((sum: number, sub: any) => sum + (sub.amount || 0), 0);
-              
-              return {
-                name: category.name,
-                allocatedAmount: categoryTotal || 0, // Ensure we always have a number
-                color: getCategoryColor(category.name),
-                items: (category.subcategories || []).map((sub: any) => ({
-                  name: sub.name,
-                  amount: sub.amount || 0, // Planned amount - realistic cost estimate
-                  allocatedAmount: sub.amount || 0, // Same as planned amount for new items
-                  dueDate: sub.dueDate ? parseValidDate(sub.dueDate) : null, // Due date from AI with validation
-                  priority: sub.priority || 'Medium',
-                  notes: sub.notes || '',
-                  isPaid: false, // New items are not paid yet
-                  amountSpent: null // No amount spent for new items
-                }))
-              };
-            }),
-            totalAllocated: totalBudget
-          };
-        } else {
-          throw new Error('Invalid RAG response format');
-        }
+        // This should not happen in the current flow since AI components provide aiBudget
+        // But keep as fallback for any legacy usage
+        throw new Error('AI budget data is required. Please use the AI Budget Assistant to generate budgets.');
       }
       
       // Create the budget from AI response
@@ -1040,10 +998,7 @@ export function useBudget() {
     const batch = writeBatch(getUserCollectionRef('budgetCategories', user.uid).firestore);
     
     // Create categories and items from AI response
-    console.log('🔍 AI Budget Response Structure:', JSON.stringify(aiBudget, null, 2));
-    
     for (const category of aiBudget.categories) {
-      console.log('🔍 Processing category:', category.name, 'items:', category.items);
       const categoryRef = doc(getUserCollectionRef('budgetCategories', user.uid));
       
       // Ensure all required fields have valid values
@@ -1059,7 +1014,6 @@ export function useBudget() {
       
       // Validate data before saving
       if (categoryData.allocatedAmount === undefined || categoryData.allocatedAmount === null) {
-        console.warn('Invalid allocatedAmount for category:', category.name, 'defaulting to 0');
         categoryData.allocatedAmount = 0;
       }
       
@@ -1102,14 +1056,10 @@ export function useBudget() {
         
         // Validate critical fields
         if (itemData.amount === undefined || itemData.amount === null) {
-          console.warn('Invalid amount for item:', item.name, 'defaulting to 0');
           itemData.amount = 0;
         }
         
         batch.set(itemRef, itemData);
-        
-        // Minimal delay to show progress without slowing down generation
-        await new Promise(resolve => setTimeout(resolve, 25));
       }
     }
 

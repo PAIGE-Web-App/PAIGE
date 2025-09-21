@@ -63,7 +63,7 @@ function parseValidDate(dateString: string): Date | null {
 interface AIBudgetAssistantRAGProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerateBudget: (description: string, budget: number) => Promise<void>;
+  onGenerateBudget: (description: string, budget: number, aiBudget?: any) => Promise<void>;
   onGenerateTodoList: (description: string) => Promise<void>;
   onGenerateIntegratedPlan: (description: string, budget: number) => Promise<void>;
   weddingDate: Date | null;
@@ -246,8 +246,8 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
             })
           };
           
-           // Call createBudgetFromAI directly with the transformed RAG response
-           await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
+           // Call onGenerateBudget with the transformed budget data (no additional API call needed)
+           await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
            
            // Credits are already deducted by the API middleware, no need to refresh
         } else {
@@ -268,10 +268,9 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
         throw budgetError;
         }
       
-    } catch (error: any) {
-      console.error('Error generating budget:', error);
-      setError(error.message || 'An unexpected error occurred. Please try again.');
-    } finally {
+      } catch (error: any) {
+        setError(error.message || 'An unexpected error occurred. Please try again.');
+      } finally {
       setIsGenerating(false);
     }
   }, [description, budgetAmount, userWeddingDate, generateBudget, onGenerateBudget, onCreditError, onClose, setIsCreatingBudget, setBudgetCreationProgress, isGenerating]);

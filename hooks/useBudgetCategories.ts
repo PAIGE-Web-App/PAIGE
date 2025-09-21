@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   addDoc,
   doc,
@@ -40,7 +41,7 @@ export function useBudgetCategories() {
     if (!user?.uid) return;
 
     const categoriesRef = getUserCollectionRef(user.uid, 'budgetCategories');
-    const q = query(categoriesRef, orderBy('createdAt', 'desc'));
+    const q = query(categoriesRef, orderBy('createdAt', 'desc'), limit(50)); // Limit for better performance
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const categories = snapshot.docs.map(doc => {

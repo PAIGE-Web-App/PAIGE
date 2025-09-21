@@ -31,15 +31,8 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
   const handleGenerate = async () => {
     if (!description.trim()) return;
     
-    console.log('AI Budget Assistant - handleGenerate called:', {
-      selectedOption,
-      hasExistingBudget: totalBudget && totalBudget > 0,
-      totalBudget
-    });
-    
     // Show overwrite warning for budget-related options if user has existing budget
     if ((selectedOption === 'budget' || selectedOption === 'integrated') && totalBudget && totalBudget > 0) {
-      console.log('Showing overwrite warning');
       setShowOverwriteWarning(true);
       return;
     }
@@ -48,13 +41,6 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
   };
 
   const performGeneration = async () => {
-    console.log('AI Budget Assistant - Starting generation:', {
-      selectedOption,
-      description,
-      budgetAmount,
-      isGenerating
-    });
-    
     setIsGenerating(true);
     setError(null);
     
@@ -63,25 +49,20 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
       
       switch (selectedOption) {
         case 'budget':
-          console.log('Generating budget only...');
           await onGenerateBudget(description, budget);
           break;
         case 'todo':
-          console.log('Redirecting to todo page...');
           // For todo-only generation, use your existing todo system
           // This will redirect to the todo page with AI generation
           window.location.href = '/todo?ai-generate=true&description=' + encodeURIComponent(description);
           break;
         case 'integrated':
-          console.log('Generating integrated plan...');
           await onGenerateIntegratedPlan(description, budget);
           break;
       }
       
-      console.log('Generation completed successfully');
       onClose();
     } catch (error: any) {
-      console.error('Error generating:', error);
       setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsGenerating(false);

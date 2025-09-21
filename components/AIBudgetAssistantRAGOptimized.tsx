@@ -63,7 +63,7 @@ function parseValidDate(dateString: string): Date | null {
 interface AIBudgetAssistantRAGOptimizedProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerateBudget: (description: string, budget: number) => Promise<void>;
+  onGenerateBudget: (description: string, budget: number, aiBudget?: any) => Promise<void>;
   onGenerateTodoList: (description: string) => Promise<void>;
   onGenerateIntegratedPlan: (description: string, budget: number) => Promise<void>;
   weddingDate: Date | null;
@@ -147,14 +147,6 @@ const AIBudgetAssistantRAGOptimized: React.FC<AIBudgetAssistantRAGOptimizedProps
 
   // Optimized generation function
   const performGeneration = useCallback(async () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🎯 Starting budget generation with:', {
-        description,
-        budgetAmount: parseFloat(budgetAmount),
-        weddingDate: userWeddingDate?.toISOString(),
-        ragEnabled: true
-      });
-    }
 
     setIsGenerating(true);
     setError(null);
@@ -196,8 +188,8 @@ const AIBudgetAssistantRAGOptimized: React.FC<AIBudgetAssistantRAGOptimizedProps
           }))
         };
 
-         // Call createBudgetFromAI directly with the transformed RAG response
-         await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
+         // Call onGenerateBudget with the transformed budget data (no additional API call needed)
+         await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
 
          // Credits are already deducted by the API middleware, no need to refresh
       } else {

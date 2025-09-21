@@ -1295,45 +1295,20 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       setShowSlowGenerationBanner(true);
     }, 5000);
 
-    // Progressive loading simulation
-    const simulateProgress = () => {
-      // Stage 1: Starting (0-20%)
-      setLoadingStage('analyzing');
-      setLoadingProgress(10);
-      
-      setTimeout(() => {
-        setLoadingProgress(20);
-        
-        // Stage 2: Generating priority todos (20-50%)
-        setTimeout(() => {
-          setLoadingStage('priority');
-          setLoadingProgress(35);
-          
-          setTimeout(() => {
-            setLoadingProgress(50);
-            
-            // Stage 3: Generating secondary todos (50-80%)
-            setTimeout(() => {
-              setLoadingStage('secondary');
-              setLoadingProgress(65);
-              
-              setTimeout(() => {
-                setLoadingProgress(80);
-                
-                // Stage 4: Finalizing (80-100%)
-                setTimeout(() => {
-                  setLoadingStage('finalizing');
-                  setLoadingProgress(95);
-                }, 800);
-              }, 1000);
-            }, 1000);
-          }, 800);
-        }, 1000);
-      }, 500);
-    };
+    // Simple progress simulation
+    const progressInterval = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 95) {
+          clearInterval(progressInterval);
+          setLoadingStage('finalizing');
+          return 95;
+        }
+        return prev + 5;
+      });
+    }, 200);
 
-    // Start progress simulation
-    simulateProgress();
+    // Clean up interval when component unmounts or generation completes
+    const cleanup = () => clearInterval(progressInterval);
 
     try {
       // Use RAG system for todo generation
@@ -1396,6 +1371,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
         setError(e.message || 'Something went wrong');
       }
     } finally {
+      cleanup(); // Clear progress interval
       setIsLoading(false);
       if (slowGenerationTimer.current) {
         clearTimeout(slowGenerationTimer.current);

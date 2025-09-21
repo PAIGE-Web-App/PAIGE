@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   addDoc,
   doc,
@@ -25,7 +26,7 @@ export function useBudgetItems() {
     if (!user?.uid) return;
 
     const itemsRef = getUserCollectionRef(user.uid, 'budgetItems');
-    const q = query(itemsRef, orderBy('createdAt', 'desc'));
+    const q = query(itemsRef, orderBy('createdAt', 'desc'), limit(100)); // Limit for better performance
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map(doc => {

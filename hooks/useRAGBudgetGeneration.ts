@@ -100,12 +100,14 @@ export function useRAGBudgetGeneration() {
           throw creditError;
         }
         
-        // Log other API errors (non-402)
-        console.error('RAG Budget API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: data.error
-        });
+        // Log other API errors (non-402) - only in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('RAG Budget API Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: data.error
+          });
+        }
         
         throw new Error(data.error || 'Budget generation failed');
       }
