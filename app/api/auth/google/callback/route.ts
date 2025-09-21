@@ -137,7 +137,37 @@ export async function GET(request: Request) {
     }, { merge: true });
 
     console.log('Google tokens and email stored successfully for user:', userId, 'Email:', gmailUserEmail);
-    console.log('Redirecting to frontend with success parameter');
+    
+    // Check if this is a login flow (not just Gmail re-auth)
+    // If the frontendRedirectUri is the login page, we need to create a session cookie
+    const isLoginFlow = frontendRedirectUri.includes('/login');
+    
+    if (isLoginFlow) {
+      console.log('🔑 [Google OAuth Callback] Login flow detected, creating session cookie');
+      
+      try {
+        // Get the user's Firebase ID token to create a session cookie
+        // First, we need to verify the user exists in Firebase Auth
+        const userRecord = await admin.auth().getUser(userId);
+        
+        if (userRecord) {
+          console.log('✅ [Google OAuth Callback] User found in Firebase Auth:', userRecord.email);
+          
+          // Create a custom token for the user
+          const customToken = await admin.auth().createCustomToken(userId);
+          console.log('🔑 [Google OAuth Callback] Custom token created');
+          
+          // Exchange custom token for ID token (this would normally be done client-side)
+          // For now, we'll redirect with success and let the frontend handle session creation
+          console.log('📡 [Google OAuth Callback] Redirecting to login with success parameter');
+        } else {
+          console.error('❌ [Google OAuth Callback] User not found in Firebase Auth');
+        }
+      } catch (error) {
+        console.error('❌ [Google OAuth Callback] Error creating session:', error);
+        // Continue with redirect even if session creation fails
+      }
+    }
 
     // Redirect to frontend with success parameter
     const redirectUrl = new URL(frontendRedirectUri);

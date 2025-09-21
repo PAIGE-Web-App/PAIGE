@@ -163,6 +163,99 @@ export default function Login() {
     }
   }, [searchParams, showErrorToast]);
 
+  // Handle Google OAuth callback parameters
+  useEffect(() => {
+    const gmailAuth = searchParams?.get("gmailAuth");
+    const userId = searchParams?.get("userId");
+    
+    if (gmailAuth === 'success' && userId) {
+      console.log('🔍 [Login] Google OAuth success detected, userId:', userId);
+      
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Show success message and redirect based on onboarding status
+      showSuccessToast('Gmail connected successfully!');
+      
+      // Check if user exists and their onboarding status, then create session
+      const checkUserAndRedirect = async () => {
+        try {
+          const userDocRef = doc(db, "users", userId);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            
+            // Create session cookie for the user
+            console.log('🔑 [Login] Creating session cookie for user:', userId);
+            try {
+              // Get the user's Firebase ID token
+              const currentUser = auth.currentUser;
+              if (currentUser && currentUser.uid === userId) {
+                const idToken = await currentUser.getIdToken();
+                
+                // Call session login API to create session cookie
+                const sessionRes = await fetch("/api/sessionLogin", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ idToken }),
+                  credentials: "include",
+                });
+                
+                if (sessionRes.ok) {
+                  console.log('✅ [Login] Session cookie created successfully');
+                  const sessionData = await sessionRes.json();
+                  
+                  // Set the client-side session cookie as backup
+                  if (typeof window !== 'undefined' && sessionData.sessionToken) {
+                    document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
+                  }
+                } else {
+                  console.error('❌ [Login] Failed to create session cookie');
+                  const errorText = await sessionRes.text();
+                  console.error('Session login error:', errorText);
+                }
+              } else {
+                console.log('⚠️ [Login] User not authenticated in Firebase, will need fresh login');
+              }
+            } catch (sessionError) {
+              console.error('❌ [Login] Error creating session cookie:', sessionError);
+            }
+            
+            // Redirect based on onboarding status
+            if (userData.onboarded === true) {
+              console.log('✅ [Login] User is onboarded, redirecting to dashboard');
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('showLoginToast', '1');
+              }
+              redirectTo("/");
+            } else {
+              console.log('📝 [Login] User not onboarded, redirecting to signup');
+              redirectTo('/signup?onboarding=1');
+            }
+          } else {
+            console.log('❌ [Login] User doc does not exist, redirecting to signup');
+            redirectTo('/signup?existing=1');
+          }
+        } catch (error) {
+          console.error('❌ [Login] Error checking user status:', error);
+          showErrorToast('Error processing login. Please try again.');
+        }
+      };
+      
+      checkUserAndRedirect();
+    } else if (gmailAuth === 'error') {
+      console.log('❌ [Login] Google OAuth error detected');
+      
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      showErrorToast('Google authentication failed. Please try again.');
+    }
+  }, [searchParams, showSuccessToast, showErrorToast]);
+
   // COMMENTED OUT: Detect if user is already signed into Google
   // This was causing too many issues with session cookie management
   /*
@@ -613,7 +706,7 @@ export default function Login() {
               {/* Google Login Button - Always show standard button */}
               <button
                 type="button"
-                onClick={handleGoogleLogin}
+                onClick={handleFreshGoogleLogin}
                 disabled={isLoading}
                 className={`w-full py-2 text-base font-normal rounded-[5px] flex items-center justify-center gap-2 whitespace-nowrap ${isLoading ? "bg-[#DCDCDC] cursor-not-allowed" : "btn-primaryinverse"}`}
               >
