@@ -227,10 +227,15 @@ export function middleware(request: NextRequest) {
   }
 
   // Enhanced token validation for protected routes
-  // Note: We'll implement async validation in a future update
-  // For now, we'll rely on the client-side validation in AuthContext
+  // Check if token exists and has reasonable length (basic validation)
+  if (token.length < 10) {
+    console.log('🚫 Invalid token format for protected route:', path);
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.set('show-toast', 'Session expired, please login again');
+    return response;
+  }
   
-  // User has token and is accessing protected route - allow access
+  // User has valid token and is accessing protected route - allow access
   return NextResponse.next();
 }
 

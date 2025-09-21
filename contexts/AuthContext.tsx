@@ -12,7 +12,8 @@ import { refreshAuthToken, validateSession } from '@/utils/authUtils';
 const PROFILE_IMAGE_KEY = 'paige_profile_image_url';
 const PROFILE_IMAGE_LQIP_KEY = 'paige_profile_image_lqip';
 const ONBOARDING_STATUS_KEY = 'paige_onboarding_status';
-const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
+// Get token refresh interval from environment (default: 10 minutes)
+const TOKEN_REFRESH_INTERVAL = (parseInt(process.env.TOKEN_REFRESH_INTERVAL_MINUTES || '10')) * 60 * 1000;
 
 // Extend the existing context with role information
 interface AuthContextType {

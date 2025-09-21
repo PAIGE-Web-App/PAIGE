@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
  */
 export async function refreshAuthToken(user: User): Promise<string | null> {
   try {
+    console.log('🔄 Refreshing auth token for user:', user.uid);
     const newToken = await getIdToken(user, true); // Force refresh
     
     // Update session cookie with new token
@@ -18,13 +19,14 @@ export async function refreshAuthToken(user: User): Promise<string | null> {
     });
     
     if (sessionRes.ok) {
+      console.log('✅ Auth token refreshed successfully');
       return newToken;
     } else {
       console.error('❌ Failed to update session cookie');
       return null;
     }
   } catch (error) {
-    console.error('Error refreshing auth token:', error);
+    console.error('❌ Error refreshing auth token:', error);
     return null;
   }
 }

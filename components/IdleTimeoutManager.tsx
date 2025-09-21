@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import IdleWarningModal from './IdleWarningModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
@@ -8,17 +8,30 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 export default function IdleTimeoutManager() {
   const [showWarning, setShowWarning] = useState(false);
   const { showInfoToast } = useCustomToast();
+  const warningShownRef = useRef(false);
+  const lastToastTimeRef = useRef(0);
 
   const handleWarning = () => {
+    // Prevent multiple warnings and toast spam
+    if (warningShownRef.current) return;
+    
+    // Debounce toast notifications (prevent multiple toasts within 5 seconds)
+    const now = Date.now();
+    if (now - lastToastTimeRef.current < 5000) return;
+    
+    warningShownRef.current = true;
+    lastToastTimeRef.current = now;
     setShowWarning(true);
     showInfoToast('You\'ll be logged out soon due to inactivity');
   };
 
   const handleStayLoggedIn = () => {
+    warningShownRef.current = false;
     setShowWarning(false);
   };
 
   const handleLogout = async () => {
+    warningShownRef.current = false;
     setShowWarning(false);
     // Actually perform the logout
     try {
@@ -32,8 +45,8 @@ export default function IdleTimeoutManager() {
   };
 
   // Use the idle timeout hook with configurable timeout
-  const timeoutMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || '20');
-  const warningMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_WARNING_MINUTES || '2');
+  const timeoutMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || '30');
+  const warningMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_WARNING_MINUTES || '5');
   
   useIdleTimeout({
     timeoutMinutes,
@@ -41,6 +54,29 @@ export default function IdleTimeoutManager() {
     onWarning: handleWarning,
     onLogout: handleLogout
   });
+
+  // Reset warning state when user interacts
+  useEffect(() => {
+    const handleUserActivity = () => {
+      if (warningShownRef.current) {
+        console.log('🔄 User activity detected, dismissing warning modal');
+        warningShownRef.current = false;
+        setShowWarning(false);
+      }
+    };
+
+    // Add event listeners for user activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'focus'];
+    events.forEach(event => {
+      document.addEventListener(event, handleUserActivity, true);
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserActivity, true);
+      });
+    };
+  }, []);
 
   return (
     <IdleWarningModal

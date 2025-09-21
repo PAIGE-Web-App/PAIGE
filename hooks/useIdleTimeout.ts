@@ -10,8 +10,8 @@ interface UseIdleTimeoutOptions {
 }
 
 export const useIdleTimeout = ({
-  timeoutMinutes = 20,
-  showWarningMinutes = 2,
+  timeoutMinutes = 30,
+  showWarningMinutes = 5,
   onWarning,
   onLogout
 }: UseIdleTimeoutOptions = {}) => {
@@ -37,6 +37,7 @@ export const useIdleTimeout = ({
     const warningTime = (timeoutMinutes - showWarningMinutes) * 60 * 1000;
     warningTimeoutRef.current = setTimeout(() => {
       warningShownRef.current = true;
+      console.log(`⚠️ User idle warning triggered - ${showWarningMinutes} minutes until logout`);
       if (onWarning) {
         onWarning();
       }
@@ -45,7 +46,7 @@ export const useIdleTimeout = ({
     // Set logout timer
     const logoutTime = timeoutMinutes * 60 * 1000;
     timeoutRef.current = setTimeout(async () => {
-      console.log('User idle timeout reached, logging out...');
+      console.log(`⏰ User idle timeout reached after ${timeoutMinutes} minutes, logging out...`);
       if (onLogout) {
         onLogout();
       }
@@ -54,8 +55,9 @@ export const useIdleTimeout = ({
   }, [user, timeoutMinutes, showWarningMinutes, onWarning, onLogout]);
 
   const handleUserActivity = useCallback(() => {
+    // Only reset if warning was actually shown
     if (warningShownRef.current) {
-      // If warning was shown, reset the warning state
+      console.log('🔄 User activity detected, resetting idle timeout');
       warningShownRef.current = false;
     }
     resetTimer();

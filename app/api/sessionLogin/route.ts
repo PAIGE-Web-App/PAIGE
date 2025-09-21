@@ -23,15 +23,23 @@ export async function POST(req: Request) {
 
         // Verify the Firebase ID token first
         let decodedToken;
+        
+        // Get session duration from environment (default: 8 hours)
+        const sessionDurationHours = parseInt(process.env.SESSION_DURATION_HOURS || '8');
+        const expiresIn = sessionDurationHours * 60 * 60 * 1000; // Convert hours to milliseconds
+        
+        console.log(`🔑 Creating session cookie with ${sessionDurationHours} hour duration`);
+        
         try {
-          decodedToken = await admin.auth().createSessionCookie(idToken, { expiresIn: 60 * 60 * 24 * 5 * 1000 });
+          decodedToken = await admin.auth().createSessionCookie(idToken, { expiresIn });
+          console.log('✅ Session cookie created successfully');
         } catch (err) {
+          console.error('❌ Failed to create session cookie:', err);
           return NextResponse.json({ error: "Unauthorized", details: String(err) }, { status: 401 });
         }
 
         // Set cookie options with enhanced security
         const isProd = process.env.NODE_ENV === "production";
-        const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
         
         const cookieOptions = [
           `Path=/`,
