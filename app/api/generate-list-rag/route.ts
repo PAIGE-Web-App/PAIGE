@@ -270,7 +270,7 @@ For each todo item, provide:
 
 Format your response as JSON with this structure:
 {
-  "listName": "Wedding Planning Checklist",
+  "listName": "Create a personalized, descriptive name for this todo list based on the wedding description (e.g., 'Sarah & Mike's Beach Wedding Planning', 'Elegant Garden Wedding Checklist', etc.)",
   "todos": [
     {
       "name": "Task name",
@@ -303,7 +303,13 @@ For each focus category, provide:
 - Dependencies and prerequisites
 - Cost considerations
 
-Format your response as JSON with detailed focus category breakdown.`;
+Format your response as JSON with this structure:
+{
+  "listName": "Create a personalized, descriptive name for this todo list based on the wedding description and focus categories (e.g., 'Sarah & Mike's Venue & Catering Planning', 'Elegant Garden Wedding - Photography Focus', etc.)",
+  "todos": [...],
+  "timeline": {...},
+  "recommendations": [...]
+}`;
 
     case 'timeline_focus':
       return `${basePrompt}
@@ -318,7 +324,13 @@ Please provide a timeline-focused todo list with tasks organized by time periods
 - 1 month before
 - Week of wedding
 
-Format your response as JSON with timeline-organized tasks.`;
+Format your response as JSON with this structure:
+{
+  "listName": "Create a personalized, descriptive name for this timeline-focused todo list based on the wedding description (e.g., 'Sarah & Mike's 12-Month Wedding Timeline', 'Elegant Garden Wedding - Complete Timeline', etc.)",
+  "todos": [...],
+  "timeline": {...},
+  "recommendations": [...]
+}`;
 
     default:
       return basePrompt;

@@ -91,6 +91,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   
   // List name validation state
   const [listNameError, setListNameError] = React.useState<string | null>(null);
+  const listNameInputRef = React.useRef<HTMLInputElement>(null);
 
   // Create a simple contacts array for assignment functionality
   const contacts = React.useMemo(() => {
@@ -260,10 +261,17 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     e.preventDefault();
     if (selectedTab === 'ai') {
       const aiResult: any = aiListResult;
-      if (!aiResult || !aiResult.name) return;
+      if (!aiResult) return;
 
       // Validate list name is not empty
-      if (!validateListName(aiResult.name)) {
+      if (!validateListName(aiResult.name || '')) {
+        // Scroll to list name field and show error
+        setListNameError('List name is required');
+        // Scroll to list name input using ref
+        if (listNameInputRef.current) {
+          listNameInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          listNameInputRef.current.focus();
+        }
         return; // Don't submit if list name is empty
       }
 
@@ -522,7 +530,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
               <button
                 onClick={handleSubmit}
                 className="btn-primary"
-                disabled={selectedTab === 'ai' ? (!aiListResult || !canSubmit) : selectedTab === 'import' ? !importListName.trim() : !listName.trim()}
+                disabled={selectedTab === 'ai' ? (!aiListResult || !canSubmit || !aiListResult?.name?.trim()) : selectedTab === 'import' ? !importListName.trim() : !listName.trim()}
               >
                 Submit
               </button>
@@ -625,6 +633,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
                   onAssign={handleAssignTodo}
                   listNameError={listNameError}
                   setListNameError={setListNameError}
+                  listNameInputRef={listNameInputRef}
                   tasks={tasks}
                   setTasks={setTasks}
                   user={user}
@@ -1089,7 +1098,7 @@ const ImportListCreationForm = React.memo(({
   );
 });
 
-const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits, listNameError, setListNameError }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any, listNameError: string | null, setListNameError: (error: string | null) => void }) => {
+const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, aiListResult, allCategories, weddingDate, aiGenerationData, contacts = [], currentUser = null, onAssign, tasks = [], setTasks, user, credits, loadCredits, router, onValidationChange, showNotEnoughCreditsModal, setShowNotEnoughCreditsModal, userCredits, listNameError, setListNameError, listNameInputRef }: { isGenerating: boolean, handleBuildWithAI: (template: string) => void, setAiListResult: (result: any) => void, aiListResult: any, allCategories: string[], weddingDate: string | null, aiGenerationData?: any, contacts?: any[], currentUser?: any, onAssign?: (todoId: string, assigneeIds: string[], assigneeNames: string[], assigneeTypes: ('user' | 'contact')[]) => Promise<void>, tasks?: any[], setTasks?: any, user?: any, credits?: any, loadCredits: () => Promise<void>, router?: any, onValidationChange?: (hasError: boolean) => void, showNotEnoughCreditsModal: boolean, setShowNotEnoughCreditsModal: (show: boolean) => void, userCredits: any, listNameError: string | null, setListNameError: (error: string | null) => void, listNameInputRef?: React.RefObject<HTMLInputElement> }) => {
   const [description, setDescription] = React.useState(aiGenerationData?.description || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -1324,7 +1333,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
       if (ragResponse.success && ragResponse.todos) {
         // Transform RAG response to match expected format
         const transformedData = {
-          listName: ragResponse.todos.listName,
+          name: ragResponse.todos.listName,
           tasks: ragResponse.todos.todos.map((task: any) => {
             const id = getStableId();
             let deadline = task.deadline ? formatDateForInputWithTime(task.deadline) : undefined;
@@ -1579,6 +1588,7 @@ const AIListCreationForm = ({ isGenerating, handleBuildWithAI, setAiListResult, 
           <div>
             <label className="block text-xs font-medium text-[#332B42] mb-1">List Name</label>
             <input
+              ref={listNameInputRef}
               className={`w-full border px-3 py-2 rounded-[5px] text-sm ${
                 listNameError ? 'border-red-500' : 'border-[#AB9C95]'
               }`}
