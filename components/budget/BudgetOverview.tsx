@@ -23,7 +23,9 @@ interface BudgetOverviewProps {
   totalBudget: number;
   maxBudget: number;
   onShowAIAssistant: () => void;
+  onShowAIAssistantDirect?: () => void;
   onAddCategory: () => void;
+  onAddMultipleCategories?: (categories: Array<{name: string; amount: number}>) => void;
   onSelectCategory: (category: BudgetCategory) => void;
   onClearAllBudgetData: () => void;
   isLoading?: boolean;
@@ -36,7 +38,9 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
   totalBudget,
   maxBudget,
   onShowAIAssistant,
+  onShowAIAssistantDirect,
   onAddCategory,
+  onAddMultipleCategories,
   onSelectCategory,
   onClearAllBudgetData,
   isLoading = false,
@@ -164,8 +168,9 @@ const BudgetOverview: React.FC<BudgetOverviewProps> = React.memo(({
                 />
               ) : (
                 <CategoryBreakdownEmptyState
-                  onShowAIAssistant={onShowAIAssistant}
+                  onShowAIAssistant={onShowAIAssistantDirect || onShowAIAssistant}
                   onAddCategory={onAddCategory}
+                  onAddMultipleCategories={onAddMultipleCategories}
                 />
               )}
             </CollapsibleSection>

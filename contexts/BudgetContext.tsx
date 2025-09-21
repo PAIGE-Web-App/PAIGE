@@ -14,10 +14,11 @@ interface BudgetContextType {
   
   // Actions
   setSelectedCategory: (category: BudgetCategory | null) => void;
-  handleAddCategory: (name: string, allocatedAmount?: number) => Promise<void>;
+  handleAddCategory: (name: string, allocatedAmount?: number, showToast?: boolean, showCompletion?: boolean) => Promise<string | null>;
+  handleAddMultipleCategories: (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => Promise<void>;
   handleEditCategory: (categoryId: string, updates: Partial<BudgetCategory>) => Promise<void>;
   handleDeleteCategory: (categoryId: string) => Promise<void>;
-  handleAddBudgetItem: (categoryId: string, itemData: Partial<BudgetItem>) => Promise<void>;
+  handleAddBudgetItem: (categoryId: string, itemData: Partial<BudgetItem>, showToast?: boolean) => Promise<void>;
   handleUpdateBudgetItem: (itemId: string, updates: Partial<BudgetItem>) => Promise<void>;
   handleDeleteBudgetItem: (itemId: string) => Promise<void>;
   handleLinkVendor: (itemId: string, vendorData: any) => Promise<void>;
@@ -88,6 +89,7 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({
     // Actions
     setSelectedCategory,
     handleAddCategory: budget.handleAddCategory,
+    handleAddMultipleCategories: budget.handleAddMultipleCategories,
     handleEditCategory: budget.handleEditCategory,
     handleDeleteCategory: budget.handleDeleteCategory,
     handleAddBudgetItem: budget.handleAddBudgetItem,
@@ -117,6 +119,7 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({
     budget.userMaxBudget,
     budget.budgetStats,
     budget.handleAddCategory,
+    budget.handleAddMultipleCategories,
     budget.handleEditCategory,
     budget.handleDeleteCategory,
     budget.handleAddBudgetItem,

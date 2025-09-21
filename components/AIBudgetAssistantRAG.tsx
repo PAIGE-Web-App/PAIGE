@@ -6,6 +6,60 @@ import { useRAGBudgetGeneration } from '@/hooks/useRAGBudgetGeneration';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useBudget } from '@/hooks/useBudget';
 
+// Helper function to generate fallback due dates
+function generateFallbackDueDate(itemName: string, categoryName: string): Date {
+  const today = new Date();
+  const dueDate = new Date(today);
+  
+  // Generate due dates based on category and item type
+  const itemLower = itemName.toLowerCase();
+  const categoryLower = categoryName.toLowerCase();
+  
+  if (categoryLower.includes('venue') || categoryLower.includes('catering')) {
+    dueDate.setMonth(dueDate.getMonth() + 6); // 6 months out
+  } else if (categoryLower.includes('photography') || categoryLower.includes('videography')) {
+    dueDate.setMonth(dueDate.getMonth() + 4); // 4 months out
+  } else if (categoryLower.includes('flower') || categoryLower.includes('decor')) {
+    dueDate.setMonth(dueDate.getMonth() + 3); // 3 months out
+  } else if (categoryLower.includes('music') || categoryLower.includes('entertainment')) {
+    dueDate.setMonth(dueDate.getMonth() + 3); // 3 months out
+  } else if (categoryLower.includes('attire') || categoryLower.includes('beauty')) {
+    dueDate.setMonth(dueDate.getMonth() + 2); // 2 months out
+  } else {
+    dueDate.setMonth(dueDate.getMonth() + 2); // Default 2 months out
+  }
+  
+  return dueDate;
+}
+
+// Helper function to safely parse dates
+function parseValidDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  
+  try {
+    const date = new Date(dateString);
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return null;
+    }
+    
+    // Ensure date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
+    
+    if (date < today) {
+      console.warn('Date is in the past, skipping:', dateString);
+      return null;
+    }
+    
+    return date;
+  } catch (error) {
+    console.warn('Error parsing date:', dateString, error);
+    return null;
+  }
+}
+
 interface AIBudgetAssistantRAGProps {
   isOpen: boolean;
   onClose: () => void;
@@ -170,25 +224,32 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
                 name: category.name,
                 allocatedAmount: category.amount || 0,
                 color: color,
-                items: (category.subcategories || []).map((sub: any) => ({
-                  name: sub.name,
-                  amount: 0, // Set to 0 as per user requirement (amount = spent, not allocated)
-                  allocatedAmount: sub.amount || 0,
-                  priority: sub.priority || 'Medium',
-                  notes: sub.notes || ''
-                }))
+                 items: (category.subcategories || []).map((sub: any) => {
+                   let dueDate = sub.dueDate ? parseValidDate(sub.dueDate) : null;
+                   // Generate fallback due date if AI didn't provide one
+                   if (!dueDate) {
+                     dueDate = generateFallbackDueDate(sub.name, category.name);
+                   }
+                   
+                   return {
+                     name: sub.name,
+                     amount: sub.amount || 0, // Planned amount - realistic cost estimate
+                     allocatedAmount: sub.amount || 0, // Same as planned amount for new items
+                     dueDate: dueDate, // Due date from AI or fallback
+                     priority: sub.priority || 'Medium',
+                     notes: sub.notes || '',
+                     isPaid: false, // New items are not paid yet
+                     amountSpent: null // No amount spent for new items
+                   };
+                 })
               };
             })
           };
           
-          // Call createBudgetFromAI directly with the transformed RAG response
-          await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
-          
-        // Trigger credit refresh for useCredits hook
-        if (budgetResponse.credits && budgetResponse.credits.required > 0) {
-          console.log('🎯 Budget generation complete, triggering credit refresh:', budgetResponse.credits);
-          // Credit refresh is now handled by the useBudget hook
-        }
+           // Call createBudgetFromAI directly with the transformed RAG response
+           await onGenerateBudget(description, parseFloat(budgetAmount) || 0);
+           
+           // Credits are already deducted by the API middleware, no need to refresh
         } else {
           throw new Error('Failed to generate budget');
         }

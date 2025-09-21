@@ -155,6 +155,10 @@ export default function BudgetPage() {
     setShowCreateBudgetModal(true);
   }, []);
 
+  const handleCreateBudgetWithAIDirect = React.useCallback(() => {
+    budget.setShowAIAssistant(true);
+  }, [budget]);
+
   const handleConfirmCreateBudget = React.useCallback(() => {
     budget.setShowAIAssistant(true);
     setShowCreateBudgetModal(false);
@@ -304,6 +308,11 @@ export default function BudgetPage() {
     setShowCategoryModal(true);
   }, [user?.uid, budget.budgetCategories.length]);
 
+  // Handle adding multiple categories at once
+  const handleAddMultipleCategories = useCallback((categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string}>}>) => {
+    budget.handleAddMultipleCategories(categories);
+  }, [budget]);
+
 
   const handleSearchQueryChange = useCallback((query: string) => {
     setBudgetSearchQuery(query);
@@ -429,7 +438,9 @@ export default function BudgetPage() {
                   totalBudget={budget.userTotalBudget || 0}
                   maxBudget={budget.userMaxBudget || 0}
                   onShowAIAssistant={handleCreateBudgetWithAI}
+                  onShowAIAssistantDirect={handleCreateBudgetWithAIDirect}
                   onAddCategory={handleAddCategory}
+                  onAddMultipleCategories={handleAddMultipleCategories}
                   onSelectCategory={handleSelectCategory}
                   onClearAllBudgetData={budget.handleClearAllBudgetData}
                   isLoading={budget.budgetCategories === undefined}

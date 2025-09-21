@@ -2,7 +2,7 @@ export interface BudgetItem {
   id?: string;
   categoryId: string;
   name: string;
-  amount: number;
+  amount: number; // Planned amount (what you expect to pay)
   notes?: string;
   isCustom: boolean;
   isCompleted: boolean;
@@ -12,6 +12,10 @@ export interface BudgetItem {
   vendorId?: string;
   vendorName?: string;
   vendorPlaceId?: string;
+  // Payment tracking fields
+  dueDate?: Date; // When payment is due
+  isPaid: boolean; // Whether the item has been paid for
+  amountSpent?: number; // Actual amount spent (only when isPaid is true)
   // Assignment fields (same as TodoItem)
   assignedTo?: string[] | null; // array of userIds of assignees
   assignedBy?: string | null; // userId of who assigned it
@@ -40,6 +44,10 @@ export interface AIGeneratedBudgetItem {
   name: string;
   amount: number;
   notes: string;
+  dueDate?: Date;
+  priority?: string;
+  isPaid?: boolean;
+  amountSpent?: number | null;
 }
 
 export interface AIGeneratedBudgetCategory {

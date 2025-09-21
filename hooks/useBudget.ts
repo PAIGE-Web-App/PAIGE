@@ -4,6 +4,66 @@ import { useGlobalCompletionToasts } from './useGlobalCompletionToasts';
 import { useAuth } from './useAuth';
 import { useCredits } from '@/contexts/CreditContext';
 import { getCategoryColor } from '@/utils/categoryIcons';
+
+// Helper function to generate fallback due dates
+function generateFallbackDueDate(itemName: string, categoryName: string): Date {
+  const today = new Date();
+  const dueDate = new Date(today);
+  
+  // Generate due dates based on category and item type
+  const itemLower = itemName.toLowerCase();
+  const categoryLower = categoryName.toLowerCase();
+  
+  if (categoryLower.includes('venue') || categoryLower.includes('catering')) {
+    // Venue and catering typically need early booking
+    dueDate.setMonth(dueDate.getMonth() + 6); // 6 months out
+  } else if (categoryLower.includes('photography') || categoryLower.includes('videography')) {
+    // Photography/video needs moderate lead time
+    dueDate.setMonth(dueDate.getMonth() + 4); // 4 months out
+  } else if (categoryLower.includes('flower') || categoryLower.includes('decor')) {
+    // Flowers and decorations need moderate lead time
+    dueDate.setMonth(dueDate.getMonth() + 3); // 3 months out
+  } else if (categoryLower.includes('music') || categoryLower.includes('entertainment')) {
+    // Entertainment needs moderate lead time
+    dueDate.setMonth(dueDate.getMonth() + 3); // 3 months out
+  } else if (categoryLower.includes('attire') || categoryLower.includes('beauty')) {
+    // Attire needs moderate lead time
+    dueDate.setMonth(dueDate.getMonth() + 2); // 2 months out
+  } else {
+    // Default to 2 months out for other items
+    dueDate.setMonth(dueDate.getMonth() + 2);
+  }
+  
+  return dueDate;
+}
+
+// Helper function to safely parse dates
+function parseValidDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  
+  try {
+    const date = new Date(dateString);
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return null;
+    }
+    
+    // Ensure date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
+    
+    if (date < today) {
+      console.warn('Date is in the past, skipping:', dateString);
+      return null;
+    }
+    
+    return date;
+  } catch (error) {
+    console.warn('Error parsing date:', dateString, error);
+    return null;
+  }
+}
 import { useRAGTodoGeneration } from './useRAGTodoGeneration';
 import {
   collection,
@@ -181,6 +241,10 @@ export function useBudget() {
             notes: data.notes,
             isCustom: data.isCustom || false,
             isCompleted: data.isCompleted || false,
+            // Payment tracking fields
+            dueDate: processDate(data.dueDate),
+            isPaid: data.isPaid || false,
+            amountSpent: data.amountSpent,
             createdAt: processDate(data.createdAt) || new Date(),
             updatedAt: processDate(data.updatedAt) || new Date(),
             // Assignment fields
@@ -339,14 +403,21 @@ export function useBudget() {
 
   // Calculate budget statistics
   const budgetStats = useMemo(() => {
-    const totalSpent = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+    // Only count paid items for total spent calculation
+    const totalSpent = budgetItems
+      .filter(item => item.isPaid && item.amountSpent !== undefined)
+      .reduce((sum, item) => sum + (item.amountSpent || 0), 0);
+    
     const totalAllocated = budgetCategories.reduce((sum, category) => sum + category.allocatedAmount, 0);
     const totalRemaining = (userMaxBudget || 0) - totalSpent;
     const spentPercentage = (userMaxBudget || 0) > 0 ? (totalSpent / (userMaxBudget || 1)) * 100 : 0;
 
     const categoryBreakdown = budgetCategories.map(category => {
       const categoryItems = budgetItems.filter(item => item.categoryId === category.id);
-      const categorySpent = categoryItems.reduce((sum, item) => sum + item.amount, 0);
+      // Only count paid items for category spent calculation
+      const categorySpent = categoryItems
+        .filter(item => item.isPaid && item.amountSpent !== undefined)
+        .reduce((sum, item) => sum + (item.amountSpent || 0), 0);
       const categoryRemaining = category.allocatedAmount - categorySpent;
       const categoryPercentage = category.allocatedAmount > 0 ? (categorySpent / category.allocatedAmount) * 100 : 0;
 
@@ -367,20 +438,20 @@ export function useBudget() {
       spentPercentage,
       categoryBreakdown,
     };
-  }, [budgetCategories, budgetItems]);
+  }, [budgetCategories, budgetItems, userMaxBudget]);
 
   // Add new category
-  const handleAddCategory = async (name: string, allocatedAmount: number = 0) => {
-    if (!user) return;
+  const handleAddCategory = async (name: string, allocatedAmount: number = 0, showToast: boolean = true, showCompletion: boolean = true): Promise<string | null> => {
+    if (!user) return null;
 
     if (!name.trim()) {
       showErrorToast('Category name cannot be empty.');
-      return;
+      return null;
     }
 
     try {
       const maxOrderIndex = budgetCategories.length > 0 ? Math.max(...budgetCategories.map(cat => cat.orderIndex)) : -1;
-      await addDoc(getUserCollectionRef('budgetCategories', user.uid), {
+      const categoryRef = await addDoc(getUserCollectionRef('budgetCategories', user.uid), {
         name: name.trim(),
         allocatedAmount,
         spentAmount: 0,
@@ -404,15 +475,69 @@ export function useBudget() {
         });
       }
 
-      showSuccessToast(`Category "${name}" added!`);
+      if (showToast) {
+        showSuccessToast(`Category "${name}" added!`);
+      }
       
-      // Show completion toast for creating first budget category
-      if (budgetCategories.length === 0) {
+      // Show completion toast for creating first budget category (only when not part of batch)
+      if (showCompletion && budgetCategories.length === 0) {
         showCompletionToast('budget');
       }
+
+      return categoryRef.id;
     } catch (error: any) {
       console.error('Error adding category:', error);
       showErrorToast(`Failed to add category: ${error.message}`);
+      return null;
+    }
+  };
+
+  // Add multiple categories with consolidated toast
+  const handleAddMultipleCategories = async (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => {
+    if (!user) return;
+
+    try {
+      const initialCategoryCount = budgetCategories.length;
+      let totalAmount = 0;
+      let totalItemsAdded = 0;
+      
+      // Add all categories without individual toasts or completion toasts
+      for (const category of categories) {
+        const categoryId = await handleAddCategory(category.name, category.amount, false, false);
+        totalAmount += category.amount;
+        
+        // Add budget items for this category if provided
+        if (categoryId && category.items && category.items.length > 0) {
+          for (const item of category.items) {
+            await handleAddBudgetItem(categoryId, {
+              name: item.name,
+              amount: item.amount,
+              notes: item.notes || '',
+              dueDate: item.dueDate,
+            }, false); // Don't show individual toasts
+            totalItemsAdded++;
+          }
+        }
+      }
+
+      // Show single consolidated success toast
+      const categoryCount = categories.length;
+      const categoryText = categoryCount === 1 ? 'category' : 'categories';
+      
+      if (totalItemsAdded > 0) {
+        const itemText = totalItemsAdded === 1 ? 'item' : 'items';
+        showSuccessToast(`${categoryCount} ${categoryText} and ${totalItemsAdded} ${itemText} added successfully!`);
+      } else {
+        showSuccessToast(`${categoryCount} ${categoryText} added successfully!`);
+      }
+      
+      // Show completion toast for creating first budget categories (only once, based on initial count)
+      if (initialCategoryCount === 0) {
+        showCompletionToast('budget');
+      }
+    } catch (error: any) {
+      console.error('Error adding multiple categories:', error);
+      showErrorToast(`Failed to add categories: ${error.message}`);
     }
   };
 
@@ -617,7 +742,7 @@ export function useBudget() {
   };
 
   // Add budget item
-  const handleAddBudgetItem = async (categoryId: string, itemData: Partial<BudgetItem>) => {
+  const handleAddBudgetItem = async (categoryId: string, itemData: Partial<BudgetItem>, showToast: boolean = true) => {
     if (!user) return;
 
     if (!itemData.name?.trim()) {
@@ -626,22 +751,34 @@ export function useBudget() {
     }
 
     try {
-      await addDoc(getUserCollectionRef('budgetItems', user.uid), {
+      const budgetItemData: any = {
         categoryId,
         name: itemData.name.trim(),
         amount: itemData.amount || 0,
-        vendorId: itemData.vendorId,
-        vendorName: itemData.vendorName,
-        vendorPlaceId: itemData.vendorPlaceId,
-        notes: itemData.notes,
+        notes: itemData.notes || '',
         isCustom: itemData.isCustom || false,
         isCompleted: false,
         userId: user.uid,
+        // Payment tracking defaults
+        isPaid: false, // Default to unpaid
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
 
-      showSuccessToast(`Budget item "${itemData.name}" added!`);
+      // Only add vendor fields if they exist
+      if (itemData.vendorId) budgetItemData.vendorId = itemData.vendorId;
+      if (itemData.vendorName) budgetItemData.vendorName = itemData.vendorName;
+      if (itemData.vendorPlaceId) budgetItemData.vendorPlaceId = itemData.vendorPlaceId;
+      
+      // Only add payment tracking fields if they exist
+      if (itemData.dueDate) budgetItemData.dueDate = itemData.dueDate;
+      if (itemData.amountSpent !== undefined) budgetItemData.amountSpent = itemData.amountSpent;
+
+      await addDoc(getUserCollectionRef('budgetItems', user.uid), budgetItemData);
+
+      if (showToast) {
+        showSuccessToast(`Budget item "${itemData.name}" added!`);
+      }
     } catch (error: any) {
       console.error('Error adding budget item:', error);
       showErrorToast(`Failed to add budget item: ${error.message}`);
@@ -739,18 +876,27 @@ export function useBudget() {
         if (ragResponse.success && ragResponse.budget) {
           // Transform RAG response to match expected format
           data = {
-            categories: ragResponse.budget.categories.map((category: any) => ({
-              name: category.name,
-              allocatedAmount: category.amount || 0,
-              color: getCategoryColor(category.name),
-              items: (category.subcategories || []).map((sub: any) => ({
-                name: sub.name,
-                amount: 0, // Set to 0 as per user requirement (amount = spent, not allocated)
-                allocatedAmount: sub.amount || 0,
-                priority: sub.priority || 'Medium',
-                notes: sub.notes || ''
-              }))
-            })),
+            categories: ragResponse.budget.categories.map((category: any) => {
+              // Calculate category total from items if not provided
+              const categoryTotal = category.amount || 
+                (category.subcategories || []).reduce((sum: number, sub: any) => sum + (sub.amount || 0), 0);
+              
+              return {
+                name: category.name,
+                allocatedAmount: categoryTotal || 0, // Ensure we always have a number
+                color: getCategoryColor(category.name),
+                items: (category.subcategories || []).map((sub: any) => ({
+                  name: sub.name,
+                  amount: sub.amount || 0, // Planned amount - realistic cost estimate
+                  allocatedAmount: sub.amount || 0, // Same as planned amount for new items
+                  dueDate: sub.dueDate ? parseValidDate(sub.dueDate) : null, // Due date from AI with validation
+                  priority: sub.priority || 'Medium',
+                  notes: sub.notes || '',
+                  isPaid: false, // New items are not paid yet
+                  amountSpent: null // No amount spent for new items
+                }))
+              };
+            }),
             totalAllocated: totalBudget
           };
         } else {
@@ -761,13 +907,7 @@ export function useBudget() {
       // Create the budget from AI response
       await createBudgetFromAI(data);
       
-      // Refresh credits after successful completion
-      try {
-        await refreshCredits();
-      } catch (refreshError) {
-        console.warn('Failed to refresh credits after budget generation:', refreshError);
-      }
-      
+      // Credits are already deducted by the API middleware, no need to refresh
       showSuccessToast('AI budget generated successfully!');
     } catch (error: any) {
       console.error('Error generating budget:', error);
@@ -900,17 +1040,30 @@ export function useBudget() {
     const batch = writeBatch(getUserCollectionRef('budgetCategories', user.uid).firestore);
     
     // Create categories and items from AI response
+    console.log('🔍 AI Budget Response Structure:', JSON.stringify(aiBudget, null, 2));
+    
     for (const category of aiBudget.categories) {
+      console.log('🔍 Processing category:', category.name, 'items:', category.items);
       const categoryRef = doc(getUserCollectionRef('budgetCategories', user.uid));
-      batch.set(categoryRef, {
-        name: category.name,
-        allocatedAmount: category.allocatedAmount,
+      
+      // Ensure all required fields have valid values
+      const categoryData = {
+        name: category.name || 'Untitled Category',
+        allocatedAmount: category.allocatedAmount || 0, // Ensure this is never undefined
         spentAmount: 0,
         orderIndex: budgetCategories.length,
         userId: user.uid,
         createdAt: new Date(),
         color: category.color || '#696969', // Add the color from the transformed budget with fallback
-      });
+      };
+      
+      // Validate data before saving
+      if (categoryData.allocatedAmount === undefined || categoryData.allocatedAmount === null) {
+        console.warn('Invalid allocatedAmount for category:', category.name, 'defaulting to 0');
+        categoryData.allocatedAmount = 0;
+      }
+      
+      batch.set(categoryRef, categoryData);
 
       // Add items for this category (without amounts - amounts represent spent, not allocated)
       for (const item of category.items) {
@@ -922,21 +1075,41 @@ export function useBudget() {
           currentItem: `Creating "${item.name}" in ${category.name}...`
         });
         
+        // Generate fallback due date if AI didn't provide one
+        let dueDate = item.dueDate;
+        if (!dueDate) {
+          // Generate a reasonable due date based on item name/category
+          dueDate = generateFallbackDueDate(item.name, category.name);
+        }
+
         const itemRef = doc(getUserCollectionRef('budgetItems', user.uid));
-        batch.set(itemRef, {
+        
+        // Ensure all required fields have valid values
+        const itemData = {
           categoryId: categoryRef.id,
-          name: item.name,
-          amount: 0, // Start with 0 spent amount
-          notes: item.notes,
+          name: item.name || 'Untitled Item',
+          amount: item.amount || 0, // Planned amount from AI
+          notes: item.notes || '',
+          dueDate: dueDate, // Due date from AI or fallback
+          isPaid: false, // New items are not paid yet
+          amountSpent: null, // No amount spent for new items
           isCustom: false,
           isCompleted: false,
           userId: user.uid,
           createdAt: new Date(),
           updatedAt: new Date(),
-        });
+        };
         
-        // Small delay to show progress
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Validate critical fields
+        if (itemData.amount === undefined || itemData.amount === null) {
+          console.warn('Invalid amount for item:', item.name, 'defaulting to 0');
+          itemData.amount = 0;
+        }
+        
+        batch.set(itemRef, itemData);
+        
+        // Minimal delay to show progress without slowing down generation
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
     }
 
@@ -1073,6 +1246,7 @@ export function useBudget() {
 
     // Handlers
     handleAddCategory,
+    handleAddMultipleCategories,
     handleEditCategory,
     handleDeleteCategory,
     handleDeleteAllCategories,

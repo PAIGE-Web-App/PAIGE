@@ -187,7 +187,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
         )}
         
         {/* Overall Budget Progress Bar */}
-        <BudgetMetricsCard title="Overall Budget">
+        <BudgetMetricsCard title="Overall Budget Spent">
           <BudgetProgressBar
             totalSpent={totalSpent}
             maxBudget={maxBudget || 0}

@@ -110,12 +110,7 @@ export function useRAGBudgetGeneration() {
         throw new Error(data.error || 'Budget generation failed');
       }
 
-      // Refresh credits after successful completion
-      try {
-        await refreshCredits();
-      } catch (refreshError) {
-        console.warn('Failed to refresh credits after budget generation:', refreshError);
-      }
+      // Credits are already deducted by the API middleware, no need to refresh
 
       return data;
     } catch (err) {

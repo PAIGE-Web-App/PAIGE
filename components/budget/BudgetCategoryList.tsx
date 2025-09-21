@@ -21,8 +21,11 @@ const BudgetCategoryList: React.FC<BudgetCategoryListProps> = ({
     const spentMap = new Map<string, number>();
     
     budgetItems.forEach(item => {
-      const currentSpent = spentMap.get(item.categoryId) || 0;
-      spentMap.set(item.categoryId, currentSpent + item.amount);
+      // Only count paid items for sidebar category cards
+      if (item.isPaid && item.amountSpent !== undefined) {
+        const currentSpent = spentMap.get(item.categoryId) || 0;
+        spentMap.set(item.categoryId, currentSpent + (item.amountSpent || 0));
+      }
     });
     
     return spentMap;

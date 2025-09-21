@@ -1,17 +1,18 @@
+import { useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 
 export const useCustomToast = () => {
-  const showSuccessToast = (message: string) => {
+  const showSuccessToast = useCallback((message: string) => {
     toast.success(message);
-  };
+  }, []);
 
-  const showErrorToast = (message: string) => {
+  const showErrorToast = useCallback((message: string) => {
     toast.error(message);
-  };
+  }, []);
 
-  const showInfoToast = (message: string) => {
+  const showInfoToast = useCallback((message: string) => {
     toast(message);
-  };
+  }, []);
 
   return { showSuccessToast, showErrorToast, showInfoToast };
 }; 

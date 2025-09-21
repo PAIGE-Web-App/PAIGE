@@ -1,0 +1,328 @@
+import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { DollarSign, Camera, Utensils, Car, Music, Flower2, Shirt, Gift, FileText, X, Sparkles } from 'lucide-react';
+
+interface PrePopulatedCategory {
+  name: string;
+  icon: React.ReactNode;
+  suggestedAmount: number;
+  color: string;
+  description: string;
+  items: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>;
+}
+
+interface PrePopulatedBudgetCategoriesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddCategories: (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => void;
+  onShowAIAssistant?: () => void;
+}
+
+const PRE_POPULATED_CATEGORIES: PrePopulatedCategory[] = [
+  {
+    name: 'Venue & Catering',
+    icon: <Utensils className="w-5 h-5" />,
+    suggestedAmount: 15000,
+    color: 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100',
+    description: 'Ceremony venue, reception space, and catering services',
+    items: [
+      { name: 'Ceremony Venue', amount: 5000, notes: 'Cost for the ceremony location', dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) }, // 60 days from now
+      { name: 'Reception Venue', amount: 8000, notes: 'Cost for the reception space', dueDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000) }, // 45 days from now
+      { name: 'Catering per person', amount: 100, notes: 'Food and beverage cost per guest', dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }, // 30 days from now
+      { name: 'Bar Service', amount: 2000, notes: 'Alcohol and bartender services', dueDate: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000) } // 35 days from now
+    ]
+  },
+  {
+    name: 'Photography & Videography',
+    icon: <Camera className="w-5 h-5" />,
+    suggestedAmount: 3500,
+    color: 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100',
+    description: 'Wedding photographer, videographer, and photo booth',
+    items: [
+      { name: 'Photographer Package', amount: 2500, notes: 'Main photographer for the day', dueDate: new Date(Date.now() + 50 * 24 * 60 * 60 * 1000) }, // 50 days from now
+      { name: 'Videographer Package', amount: 2000, notes: 'Wedding videographer services', dueDate: new Date(Date.now() + 55 * 24 * 60 * 60 * 1000) }, // 55 days from now
+      { name: 'Photo Booth', amount: 500, notes: 'Rental for a fun photo booth', dueDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000) } // 25 days from now
+    ]
+  },
+  {
+    name: 'Flowers & Decorations',
+    icon: <Flower2 className="w-5 h-5" />,
+    suggestedAmount: 2500,
+    color: 'bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100',
+    description: 'Bridal bouquet, centerpieces, and ceremony decorations',
+    items: [
+      { name: 'Bridal Bouquet', amount: 250, notes: 'Bride\'s main flower arrangement', dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000) }, // 15 days from now
+      { name: 'Boutonnieres', amount: 100, notes: 'Flowers for groom and groomsmen', dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000) }, // 15 days from now
+      { name: 'Centerpieces', amount: 1000, notes: 'Table decorations for reception', dueDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) }, // 20 days from now
+      { name: 'Ceremony Decorations', amount: 700, notes: 'Flowers and decor for ceremony space', dueDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) } // 20 days from now
+    ]
+  },
+  {
+    name: 'Attire & Beauty',
+    icon: <Shirt className="w-5 h-5" />,
+    suggestedAmount: 2000,
+    color: 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
+    description: 'Wedding dress, groom\'s suit, hair, and makeup',
+    items: [
+      { name: 'Wedding Dress', amount: 1200, notes: 'Bride\'s wedding gown' },
+      { name: 'Groom\'s Suit/Tux', amount: 400, notes: 'Groom\'s formal wear' },
+      { name: 'Hair & Makeup', amount: 200, notes: 'Professional styling for the bride' },
+      { name: 'Bridal Accessories', amount: 200, notes: 'Shoes, jewelry, and other accessories' }
+    ]
+  },
+  {
+    name: 'Music & Entertainment',
+    icon: <Music className="w-5 h-5" />,
+    suggestedAmount: 1800,
+    color: 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100',
+    description: 'DJ, live music, ceremony musicians, and lighting',
+    items: [
+      { name: 'DJ Services', amount: 1000, notes: 'Music and MC for reception' },
+      { name: 'Ceremony Musicians', amount: 400, notes: 'Live music for ceremony' },
+      { name: 'Lighting', amount: 200, notes: 'Uplighting and special effects' },
+      { name: 'Sound System', amount: 200, notes: 'Audio equipment rental' }
+    ]
+  },
+  {
+    name: 'Transportation',
+    icon: <Car className="w-5 h-5" />,
+    suggestedAmount: 800,
+    color: 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100',
+    description: 'Limo service and guest transportation',
+    items: [
+      { name: 'Limo Service', amount: 500, notes: 'Transportation for bridal party' },
+      { name: 'Guest Shuttle', amount: 300, notes: 'Shuttle service for guests' }
+    ]
+  },
+  {
+    name: 'Stationery & Favors',
+    icon: <FileText className="w-5 h-5" />,
+    suggestedAmount: 600,
+    color: 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100',
+    description: 'Invitations, programs, and guest favors',
+    items: [
+      { name: 'Invitations', amount: 300, notes: 'Wedding invitations and RSVPs' },
+      { name: 'Save the Dates', amount: 150, notes: 'Pre-invitation cards' },
+      { name: 'Guest Favors', amount: 150, notes: 'Small gifts for guests' }
+    ]
+  },
+  {
+    name: 'Miscellaneous',
+    icon: <Gift className="w-5 h-5" />,
+    suggestedAmount: 1200,
+    color: 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100',
+    description: 'Wedding planner, marriage license, and other expenses',
+    items: [
+      { name: 'Wedding Planner', amount: 1000, notes: 'Professional wedding coordination' },
+      { name: 'Marriage License', amount: 50, notes: 'Legal document for marriage' },
+      { name: 'Contingency Fund', amount: 150, notes: 'Buffer for unexpected expenses' }
+    ]
+  }
+];
+
+const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesModalProps> = ({
+  isOpen,
+  onClose,
+  onAddCategories,
+  onShowAIAssistant
+}) => {
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+
+  // Reset selections when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedCategories(new Set());
+    }
+  }, [isOpen]);
+
+  const handleCategoryClick = (category: PrePopulatedCategory) => {
+    const newSelected = new Set(selectedCategories);
+    if (newSelected.has(category.name)) {
+      newSelected.delete(category.name);
+    } else {
+      newSelected.add(category.name);
+    }
+    setSelectedCategories(newSelected);
+  };
+
+  const handleAddSelected = () => {
+    const categoriesToAdd = PRE_POPULATED_CATEGORIES.filter(cat => 
+      selectedCategories.has(cat.name)
+    ).map(cat => ({
+      name: cat.name,
+      amount: cat.suggestedAmount,
+      items: cat.items
+    }));
+
+    if (categoriesToAdd.length > 0) {
+      onAddCategories(categoriesToAdd);
+      onClose();
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCategories.size === PRE_POPULATED_CATEGORIES.length) {
+      // If all are selected, deselect all
+      setSelectedCategories(new Set());
+    } else {
+      // Select all categories
+      setSelectedCategories(new Set(PRE_POPULATED_CATEGORIES.map(cat => cat.name)));
+    }
+  };
+
+
+  const totalSelected = selectedCategories.size;
+  const totalAmount = PRE_POPULATED_CATEGORIES
+    .filter(cat => selectedCategories.has(cat.name))
+    .reduce((sum, cat) => sum + cat.suggestedAmount, 0);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full h-[80vh] flex flex-col relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7] flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="bg-[#A85C36] bg-opacity-10 rounded-full p-2">
+                  <DollarSign className="w-6 h-6 text-[#A85C36]" />
+                </div>
+                <h5 className="h5 text-left">Quick Start with Common Categories</h5>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-4">
+                {/* Purple AI Banner */}
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-purple-800 font-medium mb-1">
+                        Want a hyper-personalized budget?
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        Generate a custom budget tailored to your specific wedding needs and preferences
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (onShowAIAssistant) {
+                          onShowAIAssistant();
+                          onClose();
+                        }
+                      }}
+                      className="btn-gradient-purple flex items-center gap-2 ml-4 flex-shrink-0"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Generate with Paige (5 Credits)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Separator Line */}
+                <div className="border-b border-gray-300 mb-4"></div>
+
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 text-left mb-2">
+                      Select budget categories below to get started quickly. You can adjust amounts later.
+                    </p>
+                    <p className="text-xs text-gray-500 text-left">
+                      💡 These are estimated costs based on average wedding expenses. Adjust amounts as needed.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSelectAll}
+                    className="btn-primaryinverse text-xs px-3 py-1 ml-4 flex-shrink-0"
+                  >
+                    {selectedCategories.size === PRE_POPULATED_CATEGORIES.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {PRE_POPULATED_CATEGORIES.map((category) => (
+                  <button
+                    key={category.name}
+                    onClick={() => handleCategoryClick(category)}
+                    className={`p-4 rounded-lg border-2 transition-colors duration-200 text-left ${
+                      selectedCategories.has(category.name)
+                        ? `${category.color} border-current shadow-md`
+                        : 'border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      {category.icon}
+                      <span className="font-medium">{category.name}</span>
+                    </div>
+                    <div className="text-sm opacity-75 mb-1">
+                      {category.description}
+                    </div>
+                    <div className="text-sm font-medium">
+                      ${category.suggestedAmount.toLocaleString()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
+            {/* Fixed Footer */}
+            <div className="border-t border-[#E0DBD7] p-6 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  {totalSelected > 0 ? (
+                    <p className="text-sm text-gray-600">
+                      {totalSelected} {totalSelected === 1 ? 'category' : 'categories'} selected • Total: ${totalAmount.toLocaleString()}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Select categories above or try generating with Paige to get a hyper-personalized budget
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-3 ml-auto">
+                  <button
+                    onClick={handleAddSelected}
+                    disabled={totalSelected === 0}
+                    className={`flex items-center justify-center gap-2 ${
+                      totalSelected > 0 
+                        ? 'btn-primary' 
+                        : 'btn-primary opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Add {totalSelected > 0 ? `${totalSelected} ` : ''}Categories
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export default PrePopulatedBudgetCategoriesModal;

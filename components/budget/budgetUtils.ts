@@ -31,7 +31,10 @@ export const prepareChartData = (
   return budgetCategories
     .map(category => {
       const categoryItems = budgetItems.filter(item => item.categoryId === category.id);
-      const spent = categoryItems.reduce((sum, item) => sum + item.amount, 0);
+      // Only count paid items for chart data
+      const spent = categoryItems
+        .filter(item => item.isPaid && item.amountSpent !== undefined)
+        .reduce((sum, item) => sum + (item.amountSpent || 0), 0);
       return {
         id: category.id!,
         name: category.name,
@@ -49,7 +52,10 @@ export const prepareCategoryBreakdown = (
 ) => {
   return budgetCategories.map(category => {
     const categoryItems = budgetItems.filter(item => item.categoryId === category.id);
-    const spent = categoryItems.reduce((sum, item) => sum + item.amount, 0);
+    // Only count paid items for category breakdown
+    const spent = categoryItems
+      .filter(item => item.isPaid && item.amountSpent !== undefined)
+      .reduce((sum, item) => sum + (item.amountSpent || 0), 0);
     const remaining = category.allocatedAmount - spent;
     const utilization = category.allocatedAmount > 0 ? (spent / category.allocatedAmount) * 100 : 0;
     

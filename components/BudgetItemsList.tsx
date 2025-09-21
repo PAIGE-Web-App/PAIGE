@@ -124,6 +124,40 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = React.memo(({
     }
   };
 
+  // Handle adding multiple pre-populated items
+  const handleAddMultipleItems = async (items: Array<{name: string; amount: number; notes?: string}>) => {
+    if (!user || !selectedCategory) {
+      showErrorToast('Please select a category first');
+      return;
+    }
+    
+    try {
+      const promises = items.map(item => 
+        addDoc(getUserCollectionRef('budgetItems', user.uid), {
+          categoryId: selectedCategory.id,
+          name: item.name,
+          amount: item.amount,
+          notes: item.notes || null,
+          isCustom: true,
+          isCompleted: false,
+          userId: user.uid,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+      
+      const docRefs = await Promise.all(promises);
+      
+      // Track newly added items for green flash animation
+      docRefs.forEach(docRef => addNewItem(docRef.id));
+      
+      showSuccessToast(`Added ${items.length} budget items successfully!`);
+    } catch (error: any) {
+      console.error('Error adding multiple budget items:', error);
+      showErrorToast(`Failed to add budget items: ${error.message}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col bg-white">
@@ -170,6 +204,9 @@ const BudgetItemsList: React.FC<BudgetItemsListProps> = React.memo(({
           onLinkVendor={onLinkVendor}
           onAssign={onAssign}
           onAddItem={handleAddItem}
+          onAddMultipleItems={handleAddMultipleItems}
+          selectedCategoryId={selectedCategory?.id}
+          selectedCategoryName={selectedCategory?.name}
           newlyAddedItems={newlyAddedItems}
         />
       )}

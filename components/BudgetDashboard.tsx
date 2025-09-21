@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { DollarSign, Sparkles, Upload, Plus } from 'lucide-react';
 import type { BudgetCategory, BudgetItem } from '@/types/budget';
 
@@ -10,6 +10,7 @@ interface BudgetDashboardProps {
   spentAmount: number;
   remainingAmount: number;
   onAddCategory: (name: string, amount: number) => void;
+  onAddMultipleCategories?: (categories: Array<{name: string; amount: number}>) => void;
   onAddBudgetItem: (categoryId: string) => void;
   onUpdateBudgetItem: (itemId: string, updates: Partial<BudgetItem>) => void;
   onDeleteBudgetItem: (itemId: string) => void;
@@ -27,6 +28,7 @@ const BudgetDashboard: React.FC<BudgetDashboardProps> = ({
   spentAmount,
   remainingAmount,
   onAddCategory,
+  onAddMultipleCategories,
   onAddBudgetItem,
   onUpdateBudgetItem,
   onDeleteBudgetItem,

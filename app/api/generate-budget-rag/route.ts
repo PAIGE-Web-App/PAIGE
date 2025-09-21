@@ -220,11 +220,28 @@ Please provide a comprehensive budget breakdown including:
 8. **Miscellaneous** (5-10% of total budget)
 
 For each category, provide:
-- Subcategory breakdown
-- Estimated costs
-- Percentage of total budget
+- Subcategory breakdown (budget items)
+- Planned amounts (realistic cost estimates for each item)
+- Due dates (when payment is typically due relative to wedding date)
 - Priority level (High/Medium/Low)
 - Notes and recommendations
+
+**CRITICAL REQUIREMENTS for Budget Items:**
+- **EVERY budget item MUST have a dueDate field** - this is mandatory, not optional
+- Each subcategory becomes a budget item with a "planned amount" (realistic cost estimate)
+- **Due dates are REQUIRED for every single item** - no exceptions
+- Due dates should be logical payment deadlines relative to the wedding date
+- **CRITICAL**: ALL due dates must be in the FUTURE relative to today's date. Never generate past dates.
+- **Due Date Guidelines (MANDATORY):**
+  * Venue deposits: 6-12 months before wedding
+  * Photography/Video: 3-6 months before wedding  
+  * Flowers & Decor: 2-4 months before wedding
+  * Catering: 1-3 months before wedding
+  * Attire & Beauty: 2-4 months before wedding
+  * Music & Entertainment: 2-3 months before wedding
+  * Final payments: 2-4 weeks before wedding
+- Do NOT include "paid" or "spent" amounts - these are new budget items the user hasn't paid for yet
+- Focus on realistic market rates for wedding services
 
 Format your response as JSON with this structure:
 {
@@ -235,8 +252,9 @@ Format your response as JSON with this structure:
       "amount": 20000,
       "subcategories": [
         {
-          "name": "Subcategory",
+          "name": "Budget Item Name",
           "amount": 15000,
+          "dueDate": "2025-06-15",
           "priority": "High",
           "notes": "Recommendations and notes"
         }
