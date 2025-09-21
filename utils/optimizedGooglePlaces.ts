@@ -360,11 +360,11 @@ class OptimizedGooglePlaces {
         `${searchTerm}` // Just the search term alone
       ];
     } else {
-      // Fallback to generic venue queries
+      // Fallback to generic venue queries with location
       primaryQueries = [
-        'wedding venue',
-        'banquet hall',
-        'event space'
+        `wedding venue ${location}`,
+        `banquet hall ${location}`,
+        `event space ${location}`
       ];
     }
     

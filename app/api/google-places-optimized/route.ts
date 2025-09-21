@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`🚀 Optimized Google Places search: ${category} in ${location}`);
+    console.log('🔍 API received parameters:', { category, location, searchTerm, nextPageToken });
 
     // Use our optimized search wrapper
     const searchParams = {

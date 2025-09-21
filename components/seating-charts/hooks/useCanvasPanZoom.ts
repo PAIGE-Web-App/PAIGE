@@ -78,7 +78,11 @@ export const useCanvasPanZoom = (initialScale: number = 1.5, draggedTable?: stri
 
   const handleCanvasWheel = useCallback((e: React.WheelEvent) => {
     // Don't zoom if a table is being dragged
-    if (draggedTable) return;
+    if (draggedTable) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     
     // Prevent default scrolling behavior
     e.preventDefault();

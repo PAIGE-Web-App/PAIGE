@@ -113,8 +113,8 @@ export default function VendorsPage() {
     isLoading: userDataLoading 
   } = useVendorsPageData();
   
-  // Use user's wedding location or fallback to default
-  const defaultLocation = weddingLocation || 'Dallas, TX';
+  // Use user's wedding location or fallback to empty string
+  const defaultLocation = weddingLocation || '';
   
   const [vendors, setVendors] = useState<any[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});

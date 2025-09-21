@@ -239,5 +239,10 @@ export const deduplicatedRequest = {
   delete: (url: string, options: Omit<RequestOptions, 'method'> = {}) => {
     const deduplicator = RequestDeduplicator.getInstance();
     return deduplicator.request(url, { ...options, method: 'DELETE' });
+  },
+  
+  clearCache: (pattern?: string) => {
+    const deduplicator = RequestDeduplicator.getInstance();
+    return deduplicator.clearCache(pattern);
   }
 };

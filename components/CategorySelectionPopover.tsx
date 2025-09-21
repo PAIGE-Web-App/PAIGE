@@ -68,6 +68,13 @@ export default function CategorySelectionPopover({
     loadCategories();
   }, [getCategories]);
 
+  // Update location when weddingLocation changes
+  useEffect(() => {
+    if (weddingLocation && !location) {
+      setLocation(weddingLocation);
+    }
+  }, [weddingLocation, location]);
+
   // Close popover when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,8 +95,8 @@ export default function CategorySelectionPopover({
   // Handle search button click
   const handleSearch = () => {
     if (category) {
-      // If a category is selected, go to the category page
-      const url = `/vendors/catalog/${category}`;
+      // If a category is selected, go to the category page with location parameter
+      const url = `/vendors/catalog/${category}${location ? `?location=${encodeURIComponent(location)}` : ''}`;
       router.push(url);
       onClose();
     } else if (location) {

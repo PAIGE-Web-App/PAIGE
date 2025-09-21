@@ -83,6 +83,8 @@ class VendorCacheService {
         maxResults: 50 // Load more vendors for better filtering
       };
       
+      console.log('🔍 VendorCacheService API Request:', requestBody);
+      
       const response = await fetch('/api/google-places-optimized', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

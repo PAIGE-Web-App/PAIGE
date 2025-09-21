@@ -142,6 +142,15 @@ a {
   transition: all 0.2s ease-in-out;
 }
 
+/* Prevent zoom gestures during table dragging */
+.prevent-zoom {
+  touch-action: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 .empty-seat:hover {
   stroke: #A85C36 !important;
   stroke-width: 2 !important;

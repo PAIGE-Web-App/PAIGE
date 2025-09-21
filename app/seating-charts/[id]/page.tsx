@@ -755,6 +755,9 @@ export default function SeatingChartDetailPage() {
                       );
                       updateWizardState({ guests: updatedGuests });
                     }}
+                    profileImageUrl={profileImageUrl}
+                    userName={userName}
+                    partnerName={partnerName}
                   />
                 </div>
                 <div className="py-3 px-0 lg:px-4">

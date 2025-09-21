@@ -36,7 +36,7 @@ export function useVendorSearch(): UseVendorSearchReturn {
   // Search parameters state
   const [searchParamsState, setSearchParamsState] = useState<VendorSearchParams>({
     category: searchParams?.get('category') || 'venue', // Default to venue for wedding venues
-    location: searchParams?.get('location') || 'Dallas, TX',
+    location: searchParams?.get('location') || '', // Remove hardcoded Dallas fallback
     priceRange: {
       min: searchParams?.get('minprice') || '',
       max: searchParams?.get('maxprice') || ''

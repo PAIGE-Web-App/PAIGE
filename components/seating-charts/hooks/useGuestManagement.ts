@@ -256,7 +256,7 @@ export const useGuestManagement = (
     
     Object.keys(newAssignments).forEach(guestId => {
       const assignment = newAssignments[guestId];
-      if (assignment.tableId === tableId) {
+      if (assignment.tableId === tableId && assignment.position) {
         newAssignments[guestId] = {
           ...assignment,
           position: {

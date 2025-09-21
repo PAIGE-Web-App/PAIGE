@@ -99,7 +99,7 @@ class PrefetchManager {
         method: 'POST',
         body: {
           category,
-          location: 'Dallas, TX',
+          location: 'United States', // Use generic location for prefetching
           maxResults: 5
         },
         priority: 0.8,

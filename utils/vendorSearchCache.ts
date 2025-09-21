@@ -241,14 +241,14 @@ class VendorSearchCache {
    */
   async predictAndCachePopularSearches(): Promise<void> {
     const popularSearches = [
-      { category: 'venue', location: 'Dallas, TX' },
-      { category: 'photographer', location: 'Dallas, TX' },
-      { category: 'florist', location: 'Dallas, TX' },
-      { category: 'caterer', location: 'Dallas, TX' },
-      { category: 'dj', location: 'Dallas, TX' },
-      { category: 'venue', location: 'Austin, TX' },
-      { category: 'photographer', location: 'Austin, TX' },
-      { category: 'florist', location: 'Austin, TX' }
+      { category: 'venue', location: 'New York, NY' },
+      { category: 'photographer', location: 'New York, NY' },
+      { category: 'florist', location: 'New York, NY' },
+      { category: 'caterer', location: 'New York, NY' },
+      { category: 'dj', location: 'New York, NY' },
+      { category: 'venue', location: 'Los Angeles, CA' },
+      { category: 'photographer', location: 'Los Angeles, CA' },
+      { category: 'florist', location: 'Los Angeles, CA' }
     ];
 
     console.log('🚀 Starting predictive caching for popular searches...');

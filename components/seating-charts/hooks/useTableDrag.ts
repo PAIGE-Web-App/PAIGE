@@ -85,9 +85,20 @@ export const useTableDrag = (
       }
     };
 
+    // Prevent zoom during table dragging
+    const handleGlobalWheel = (e: WheelEvent) => {
+      if (draggedTable) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
     if (draggedTable) {
       document.addEventListener('mousemove', handleGlobalMouseMove);
       document.addEventListener('mouseup', handleGlobalMouseUp);
+      // Block wheel events globally during table dragging
+      document.addEventListener('wheel', handleGlobalWheel, { passive: false });
     }
 
     return () => {
@@ -96,6 +107,7 @@ export const useTableDrag = (
       }
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('wheel', handleGlobalWheel);
     };
   }, [draggedTable, dragOffset, tablePositions, setTablePositions, handleTableMouseUp]);
 

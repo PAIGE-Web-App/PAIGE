@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Guest } from '@/types/seatingChart';
 
 interface GuestAvatarProps {
@@ -20,6 +20,7 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
   getGuestAvatarColor,
   isHighlighted = false
 }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
   const avatarColor = getGuestAvatarColor(guest.id);
   
   // Parse full name to get initials
@@ -43,6 +44,12 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
         width={40}
         height={40}
         style={{ cursor: 'grab', pointerEvents: 'auto' }}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={() => {
+          setShowTooltip(false); // Hide tooltip when clicked
+          onAvatarClick(tableId, seatNumber);
+        }}
       >
         <div
           style={{
@@ -189,6 +196,40 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
               {getInitials(guest.fullName)}
             </div>
           </foreignObject>
+
+      {/* Tooltip/Popover for guest name */}
+      {showTooltip && (
+        <foreignObject
+          x={position.x - 60}
+          y={position.y - 45}
+          width={120}
+          height={30}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              color: 'white',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontFamily: "'Work Sans', sans-serif",
+              fontWeight: '500',
+              textAlign: 'center',
+              padding: '4px 8px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              userSelect: 'none',
+              pointerEvents: 'none'
+            }}
+          >
+            {guest.fullName}
+          </div>
+        </foreignObject>
+      )}
     </g>
   );
 };

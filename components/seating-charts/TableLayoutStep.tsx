@@ -15,6 +15,9 @@ interface TableLayoutStepProps {
   guestGroups?: any[];
   onEditGroup?: (groupId: string) => void;
   onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
+  profileImageUrl?: string;
+  userName?: string;
+  partnerName?: string;
 }
 
 const TABLE_TYPES = [
@@ -34,7 +37,10 @@ export default function TableLayoutStep({
   guests,
   guestGroups = [],
   onEditGroup,
-  onGuestAssignment
+  onGuestAssignment,
+  profileImageUrl,
+  userName,
+  partnerName
 }: TableLayoutStepProps) {
   const [showAddTable, setShowAddTable] = useState(false);
   const [newTable, setNewTable] = useState({
@@ -222,6 +228,9 @@ export default function TableLayoutStep({
         onRotationUpdate={handleRotationUpdate}
         guestGroups={guestGroups}
         onEditGroup={onEditGroup}
+        profileImageUrl={profileImageUrl}
+        userName={userName}
+        partnerName={partnerName}
       />
     </div>
   );

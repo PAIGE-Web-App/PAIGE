@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -59,22 +59,29 @@ export default function VendorCatalogPage() {
   const [category, setCategory] = useState(CATEGORIES[0].value);
   
   // Get user's wedding location from profile data
-  const { weddingLocation } = useUserProfileData();
-  const [location, setLocation] = useState(weddingLocation || 'Dallas, TX');
+  const { weddingLocation, profileLoading } = useUserProfileData();
+  const [location, setLocation] = useState('');
+  
+  // Update location when weddingLocation loads from Firestore
+  useEffect(() => {
+    if (weddingLocation && !profileLoading) {
+      setLocation(weddingLocation);
+    }
+  }, [weddingLocation, profileLoading]);
   
   const router = useRouter();
   const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
   // Handler for category card click
   const handleCategoryClick = (catValue: string) => {
-    const url = `/vendors/catalog/${catValue}`;
+    const url = `/vendors/catalog/${catValue}${location ? `?location=${encodeURIComponent(location)}` : ''}`;
     router.push(url);
   };
 
   // Handler for search button
   const handleSearch = () => {
     if (category) {
-      const url = `/vendors/catalog/${category}`;
+      const url = `/vendors/catalog/${category}${location ? `?location=${encodeURIComponent(location)}` : ''}`;
       router.push(url);
     }
   };

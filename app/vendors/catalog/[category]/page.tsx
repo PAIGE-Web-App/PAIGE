@@ -21,6 +21,7 @@ import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { usePrefetch } from '@/utils/prefetchManager';
 import { deduplicatedRequest } from '@/utils/requestDeduplicator';
 import { vendorCacheService } from '@/utils/vendorCacheService';
+import { optimizedGooglePlaces } from '@/utils/optimizedGooglePlaces';
 
 const CATEGORIES = [
   { value: 'florist', label: 'Florists', singular: 'Florist' },
@@ -150,7 +151,15 @@ const VendorCategoryPage: React.FC = () => {
   const { trackSearch } = usePrefetch();
 
   // Use URL location or fallback to user's wedding location
-  const location = urlLocation || weddingLocation || 'Dallas, TX';
+  const location = urlLocation || weddingLocation || '';
+  
+  // Debug logging
+  console.log('🔍 Vendor search debug:', {
+    urlLocation,
+    weddingLocation,
+    finalLocation: location,
+    category
+  });
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -249,6 +258,7 @@ const VendorCategoryPage: React.FC = () => {
       if (isNextPage) {
         const apiFilters = getApiFilters(filterValuesArg);
         const body = { category, location, nextPageToken, ...apiFilters };
+        console.log('🔍 API Request Body (Next Page):', body);
         const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
           cache: true,
           cacheTTL: 5 * 60 * 1000 // 5 minutes cache
@@ -265,7 +275,9 @@ const VendorCategoryPage: React.FC = () => {
         }
       } else {
         // For initial load, use vendor cache service to prevent rate limiting
+        console.log('🔍 Getting vendors from cache service:', { category, location });
         const vendors = await vendorCacheService.getVendors(category, location);
+        console.log('🔍 Cache service returned:', vendors?.length || 0, 'vendors');
         if (vendors && vendors.length > 0) {
           setVendors(vendors);
           setNextPageToken(null); // Reset pagination for cached results
@@ -287,7 +299,12 @@ const VendorCategoryPage: React.FC = () => {
   useEffect(() => {
     setNextPageToken(null);
     // Clear cache when category or location changes to ensure fresh data
+    console.log('🧹 Clearing vendor cache due to location/category change:', { category, location });
+    // Clear all caches to prevent stale location data
     vendorCacheService.clearCache();
+    optimizedGooglePlaces.clearCache();
+    // Clear the request deduplicator cache for vendor searches
+    deduplicatedRequest.clearCache('/api/google-places-optimized');
     debouncedFetchVendors(apiFilterValues);
     // eslint-disable-next-line
   }, [category, location, apiFilterValues]);

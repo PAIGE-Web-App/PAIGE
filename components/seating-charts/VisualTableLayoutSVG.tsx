@@ -308,7 +308,7 @@ export default function VisualTableLayoutSVG({
       
       Object.keys(newAssignments).forEach(guestId => {
         const assignment = newAssignments[guestId];
-        if (assignment.tableId === tableId) {
+        if (assignment.tableId === tableId && assignment.position) {
           // Calculate the guest's position relative to the table center
           const relativeX = assignment.position.x - tablePosition.x;
           const relativeY = assignment.position.y - tablePosition.y;
@@ -449,7 +449,13 @@ export default function VisualTableLayoutSVG({
   }, [tablePositions]);
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden" style={{ borderWidth: '1px' }}>
+    <div 
+      className={`flex h-[calc(100vh-14rem)] border border-[#E0DBD7] rounded-[5px] overflow-hidden ${draggedTable ? 'prevent-zoom' : ''}`}
+      style={{ 
+        borderWidth: '1px',
+        touchAction: draggedTable ? 'none' : 'auto' // Prevent zoom gestures during table dragging
+      }}
+    >
       {/* Guest Assignment Sidebar - Left side like todo page */}
       <GuestSidebar
         guests={guests}

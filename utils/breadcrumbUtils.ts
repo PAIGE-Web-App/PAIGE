@@ -32,7 +32,7 @@ export const extractLocationFromAddress = (
   // Always prioritize user's wedding location over vendor address
   if (userWeddingLocation) return userWeddingLocation;
   
-  if (!address) return 'Dallas, TX';
+  if (!address) return 'Unknown Location';
   
   // Try to extract city and state from address
   const addressParts = address.split(',').map(part => part.trim());
@@ -42,7 +42,7 @@ export const extractLocationFromAddress = (
     return `${city}, ${state}`;
   }
   
-  return 'Dallas, TX';
+  return 'Unknown Location';
 };
 
 // Generate vendor detail page breadcrumbs
