@@ -85,7 +85,6 @@ export function useRAGBudgetGeneration() {
           data = { error: 'Empty response' };
         }
       } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
         data = { error: 'Invalid response format', rawText: responseText };
       }
 
@@ -102,11 +101,7 @@ export function useRAGBudgetGeneration() {
         
         // Log other API errors (non-402) - only in development
         if (process.env.NODE_ENV === 'development') {
-          console.error('RAG Budget API Error:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: data.error
-          });
+          // Silent fail in production
         }
         
         throw new Error(data.error || 'Budget generation failed');

@@ -19,7 +19,7 @@ interface CategoryBreakdownListProps {
 }
 
 const CategoryBreakdownList: React.FC<CategoryBreakdownListProps> = React.memo(({ categories, formatCurrency, onSelectCategory }) => (
-  <div className="max-h-64 overflow-y-auto space-y-4 pr-2">
+  <div className="max-h-128 overflow-y-auto space-y-4 pr-2">
     {categories.map((category) => (
       <div 
         key={category.id} 

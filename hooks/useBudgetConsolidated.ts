@@ -21,7 +21,7 @@ import { db } from '@/lib/firebase';
 import { getUserCollectionRef } from '@/lib/firebase';
 import type { BudgetCategory, BudgetItem } from '@/types/budget';
 
-interface OptimizedBudgetData {
+interface ConsolidatedBudgetData {
   budgetCategories: BudgetCategory[];
   budgetItems: BudgetItem[];
   userMaxBudget: number | null;
@@ -36,22 +36,13 @@ interface BudgetStats {
   isOverBudget: boolean;
 }
 
-// Cache for reducing redundant reads
-const budgetDataCache = new Map<string, {
-  data: OptimizedBudgetData;
-  timestamp: number;
-  ttl: number;
-}>();
-
-const CACHE_TTL = 30000; // 30 seconds cache
-
-export function useBudgetOptimized() {
+export function useBudgetConsolidated() {
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
   
   // Consolidated state
-  const [budgetData, setBudgetData] = useState<OptimizedBudgetData>({
+  const [budgetData, setBudgetData] = useState<ConsolidatedBudgetData>({
     budgetCategories: [],
     budgetItems: [],
     userMaxBudget: null,
@@ -71,16 +62,6 @@ export function useBudgetOptimized() {
         loading: false,
         error: null
       });
-      return;
-    }
-
-    // Check cache first
-    const cacheKey = `budget_${user.uid}`;
-    const cached = budgetDataCache.get(cacheKey);
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp) < cached.ttl) {
-      setBudgetData(cached.data);
       return;
     }
 
@@ -132,21 +113,13 @@ export function useBudgetOptimized() {
           } as BudgetItem;
         });
 
-        const newData = {
-          budgetCategories,
-          budgetItems,
-          userMaxBudget,
-          loading: false,
-          error: null
-        };
-
         if (isSubscribed) {
-          setBudgetData(newData);
-          // Cache the data
-          budgetDataCache.set(cacheKey, {
-            data: newData,
-            timestamp: now,
-            ttl: CACHE_TTL
+          setBudgetData({
+            budgetCategories,
+            budgetItems,
+            userMaxBudget,
+            loading: false,
+            error: null
           });
         }
       } catch (error) {
@@ -187,16 +160,7 @@ export function useBudgetOptimized() {
         };
       });
 
-      setBudgetData(prev => {
-        const newData = { ...prev, budgetCategories: categories };
-        // Update cache
-        budgetDataCache.set(cacheKey, {
-          data: newData,
-          timestamp: Date.now(),
-          ttl: CACHE_TTL
-        });
-        return newData;
-      });
+      setBudgetData(prev => ({ ...prev, budgetCategories: categories }));
     }, (error) => {
       if (isSubscribed) {
         setBudgetData(prev => ({ ...prev, error: 'Failed to load budget categories' }));
@@ -222,16 +186,7 @@ export function useBudgetOptimized() {
         } as BudgetItem;
       });
 
-      setBudgetData(prev => {
-        const newData = { ...prev, budgetItems: items };
-        // Update cache
-        budgetDataCache.set(cacheKey, {
-          data: newData,
-          timestamp: Date.now(),
-          ttl: CACHE_TTL
-        });
-        return newData;
-      });
+      setBudgetData(prev => ({ ...prev, budgetItems: items }));
     }, (error) => {
       if (isSubscribed) {
         setBudgetData(prev => ({ ...prev, error: 'Failed to load budget items' }));
@@ -246,27 +201,9 @@ export function useBudgetOptimized() {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const userMaxBudget = userData.maxBudget || null;
-        setBudgetData(prev => {
-          const newData = { ...prev, userMaxBudget };
-          // Update cache
-          budgetDataCache.set(cacheKey, {
-            data: newData,
-            timestamp: Date.now(),
-            ttl: CACHE_TTL
-          });
-          return newData;
-        });
+        setBudgetData(prev => ({ ...prev, userMaxBudget }));
       } else {
-        setBudgetData(prev => {
-          const newData = { ...prev, userMaxBudget: null };
-          // Update cache
-          budgetDataCache.set(cacheKey, {
-            data: newData,
-            timestamp: Date.now(),
-            ttl: CACHE_TTL
-          });
-          return newData;
-        });
+        setBudgetData(prev => ({ ...prev, userMaxBudget: null }));
       }
     }, (error) => {
       if (isSubscribed) {
@@ -329,8 +266,6 @@ export function useBudgetOptimized() {
         updatedAt: new Date(),
       });
 
-      // Clear cache to force refresh
-      budgetDataCache.delete(`budget_${user.uid}`);
       showSuccessToast('Max budget updated successfully!');
     } catch (error) {
       showErrorToast('Failed to update max budget.');
@@ -350,9 +285,6 @@ export function useBudgetOptimized() {
         createdAt: new Date(),
         color: color || '#A85C36',
       });
-
-      // Clear cache to force refresh
-      budgetDataCache.delete(`budget_${user.uid}`);
 
       if (showToast) {
         showSuccessToast(`Category "${name}" added!`);
@@ -390,9 +322,6 @@ export function useBudgetOptimized() {
       };
 
       await addDoc(getUserCollectionRef('budgetItems', user.uid), budgetItemData);
-
-      // Clear cache to force refresh
-      budgetDataCache.delete(`budget_${user.uid}`);
 
       if (showToast) {
         showSuccessToast(`Budget item "${itemData.name}" added!`);

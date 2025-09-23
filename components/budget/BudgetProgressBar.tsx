@@ -18,7 +18,7 @@ export const BudgetProgressBar: React.FC<BudgetProgressBarProps> = ({
   return (
     <div className={className}>
       <div className="text-lg font-bold text-[#332B42] mb-2">
-        ${totalSpent.toLocaleString()} <span className="text-sm font-normal text-[#AB9C95]">Spent</span>
+        ${totalSpent.toLocaleString()} <span className="text-sm font-normal text-[#AB9C95]">Spent Amount</span>
       </div>
       
       {/* Progress Bar */}

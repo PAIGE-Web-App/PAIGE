@@ -15,6 +15,7 @@ interface BudgetMetricsProps {
   maxBudget: number | null;
   budgetItems?: any[];
   onEditCategory?: (category: any) => void;
+  onUpdateMaxBudget?: (newAmount: number) => void;
   isLoading?: boolean;
 }
 
@@ -25,6 +26,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   maxBudget,
   budgetItems = [],
   onEditCategory,
+  onUpdateMaxBudget,
   isLoading = false,
 }) => {
   const router = useRouter();
@@ -74,8 +76,11 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
   }, [onEditCategory, selectedCategory]);
   
   const handleMaxBudgetEdit = useCallback(() => {
-    router.push('/settings?tab=wedding&highlight=maxBudget');
-  }, [router]);
+    if (onUpdateMaxBudget) {
+      // This will be handled by the RemainingBudgetCard component
+      // We just need to pass the function down
+    }
+  }, [onUpdateMaxBudget]);
 
   // Show skeleton while loading
   if (isLoading) {
@@ -200,6 +205,7 @@ const BudgetMetrics: React.FC<BudgetMetricsProps> = React.memo(({
             remaining={remaining}
             maxBudget={maxBudget}
             onEdit={handleMaxBudgetEdit}
+            onUpdateMaxBudget={onUpdateMaxBudget}
           />
         )}
       </div>

@@ -5,12 +5,14 @@ interface CategoryBreakdownEmptyStateProps {
   onShowAIAssistant: () => void;
   onAddCategory: () => void;
   onAddMultipleCategories?: (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => void;
+  maxBudget?: number;
 }
 
 const CategoryBreakdownEmptyState: React.FC<CategoryBreakdownEmptyStateProps> = React.memo(({
   onShowAIAssistant,
   onAddCategory,
-  onAddMultipleCategories
+  onAddMultipleCategories,
+  maxBudget
 }) => {
   const [showPrePopulatedModal, setShowPrePopulatedModal] = useState(false);
 
@@ -49,6 +51,7 @@ const CategoryBreakdownEmptyState: React.FC<CategoryBreakdownEmptyStateProps> = 
         onClose={handleDismissPrePopulated}
         onAddCategories={handleAddMultipleCategories}
         onShowAIAssistant={onShowAIAssistant}
+        maxBudget={maxBudget}
       />
       
       <div className="text-center py-8">

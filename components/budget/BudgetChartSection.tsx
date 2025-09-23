@@ -31,8 +31,8 @@ const BudgetChartSection: React.FC<BudgetChartSectionProps> = React.memo(({ char
         alt="Wedding Illustration" 
         className="w-32 h-32 mx-auto mb-4 opacity-60"
       />
-      <p className="text-gray-500 mb-2">You haven't added any items to any budget categories yet!</p>
-      <p className="text-sm text-gray-500">Add budget items to see spending breakdown by category.</p>
+      <p className="text-gray-500 mb-2">You haven't added any spent money on budget categories yet!</p>
+      <p className="text-sm text-gray-500">To see a breakdown, mark items as Paid and add the Spent Amount for that item</p>
     </div>
   );
 });

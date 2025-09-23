@@ -22,11 +22,11 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ totalBudget, to
       </div>
       <div className="space-y-1 text-sm text-[#332B42]">
         <div className="flex justify-between">
-          <span>Total Budget:</span>
+          <span>Max Budget:</span>
           <span className="font-medium">{formatCurrency(totalBudget)}</span>
         </div>
         <div className="flex justify-between">
-          <span>Spent:</span>
+          <span>Spent Amount:</span>
           <span className="font-medium">{formatCurrency(totalSpent)}</span>
         </div>
         <div className="flex justify-between">

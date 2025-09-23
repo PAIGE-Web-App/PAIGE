@@ -25,7 +25,7 @@ const BudgetSidebarSkeleton: React.FC = () => (
       ))}
     </div>
 
-    {/* Total Budget Card */}
+    {/* Max Budget Card */}
     <SkeletonCard>
       <SkeletonTitle width="w-24" className="mb-2" />
       <div className="flex-1 flex flex-col justify-center">

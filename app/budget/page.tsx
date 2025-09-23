@@ -111,6 +111,16 @@ export default function BudgetPage() {
   // Track Quick Start Guide completion
   useQuickStartCompletion();
   
+  // Calculate projected spend and budget flexibility
+  const projectedSpend = React.useMemo(() => 
+    budget.budgetCategories.reduce((sum, category) => sum + category.allocatedAmount, 0),
+    [budget.budgetCategories]
+  );
+
+  const budgetFlexibility = React.useMemo(() => 
+    (budget.userMaxBudget || 0) - projectedSpend,
+    [budget.userMaxBudget, projectedSpend]
+  );
 
   // State for selected category and item
   const [selectedCategory, setSelectedCategory] = React.useState<any>(null);
@@ -411,12 +421,15 @@ export default function BudgetPage() {
               totalSpent={budget.totalSpent}
               totalBudget={budget.userTotalBudget}
               maxBudget={budget.userMaxBudget || 0}
+              projectedSpend={projectedSpend}
+              budgetFlexibility={budgetFlexibility}
               onSelectBudgetOverview={isMobile ? () => handleMobileCategorySelect(null) : handleSelectBudgetOverview}
               isBudgetOverviewSelected={isBudgetOverviewSelected}
               mobileViewMode={isMobile ? mobileViewMode : undefined}
               onMobileBackToCategories={isMobile ? handleMobileBackToCategories : undefined}
               onRemoveAllCategories={budget.handleDeleteAllCategories}
               onCreateBudgetWithAI={handleCreateBudgetWithAI}
+              onUpdateMaxBudget={budget.updateUserMaxBudget}
             />
 
             {/* Main Content Area */}
@@ -435,6 +448,7 @@ export default function BudgetPage() {
                   onAddMultipleCategories={handleAddMultipleCategories}
                   onSelectCategory={handleSelectCategory}
                   onClearAllBudgetData={budget.handleClearAllBudgetData}
+                  onUpdateMaxBudget={budget.updateUserMaxBudget}
                   isLoading={budget.budgetCategories === undefined}
                 />
               ) : (!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems) ? (
@@ -499,6 +513,7 @@ export default function BudgetPage() {
                       // Reset jiggle after animation
                       setTimeout(() => setJiggleAllocatedAmount(false), 1000);
                     }}
+                    onUpdateMaxBudget={budget.updateUserMaxBudget}
                     isLoading={!budget.budgetCategories || !budget.budgetStats || !budget.budgetItems}
                   />
 

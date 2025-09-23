@@ -52,7 +52,7 @@ async function handleBudgetGeneration(req: Request) {
     prompt += `  ]\n`;
     prompt += `}\n`;
 
-    prompt += `\nTotal Budget: $${totalBudget}\n`;
+    prompt += `\nMax Budget: $${totalBudget}\n`;
     prompt += `Wedding Description: ${description}\n`;
     if (weddingDate) {
       prompt += `Wedding Date: ${weddingDate}\n`;

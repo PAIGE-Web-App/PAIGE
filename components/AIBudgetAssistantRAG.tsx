@@ -246,6 +246,27 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
             })
           };
           
+          // Validate that AI-generated budget doesn't exceed max budget (with 10% flexibility buffer)
+          const totalAllocatedAmount = transformedBudget.categories.reduce((sum, cat) => sum + (cat.allocatedAmount || 0), 0);
+          const userMaxBudget = maxBudget || 0;
+          const flexibilityBuffer = userMaxBudget * 0.1; // 10% buffer for realistic planning
+          const maxAllowedBudget = userMaxBudget + flexibilityBuffer;
+          
+          if (userMaxBudget > 0 && totalAllocatedAmount > maxAllowedBudget) {
+            const overageAmount = totalAllocatedAmount - maxAllowedBudget;
+            const overagePercentage = Math.round((overageAmount / userMaxBudget) * 100);
+            
+            // Show warning and stop budget generation
+            setError(
+              `AI-generated budget exceeds your max budget by $${overageAmount.toLocaleString()} (${overagePercentage}% over). ` +
+              `Total: $${totalAllocatedAmount.toLocaleString()} vs Max: $${userMaxBudget.toLocaleString()} (with 10% flexibility). ` +
+              `Please adjust your budget or try generating with a different description.`
+            );
+            setIsGenerating(false);
+            setIsCreatingBudget(false); // Reset progress modal
+            return;
+          }
+          
            // Call onGenerateBudget with the transformed budget data (no additional API call needed)
            await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
            
@@ -399,7 +420,7 @@ const AIBudgetAssistantRAG: React.FC<AIBudgetAssistantRAGProps> = React.memo(({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Total Budget
+                Max Budget
               </label>
               
               {/* Budget Warning Banner */}

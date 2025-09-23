@@ -31,7 +31,7 @@ export const CategoryBudgetCard: React.FC<CategoryBudgetCardProps> = ({
         </div>
         
         <div className="text-xs text-[#AB9C95]">
-          ${totalSpent.toLocaleString()} spent • ${remaining.toLocaleString()} remaining
+          ${totalSpent.toLocaleString()} spent amount • ${remaining.toLocaleString()} remaining
         </div>
       </div>
       

@@ -222,9 +222,9 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
           <div>Notes</div>
           <div>Vendor</div>
           <div>Due Date</div>
-          <div className="text-right">Planned Amount</div>
+          <div className="text-right">Projected Amount</div>
           <div className="text-center">Paid</div>
-          <div className="text-right">Spent</div>
+          <div className="text-right">Spent Amount</div>
           <div className="text-center">Actions</div>
         </div>
         {/* Mobile: Simplified columns */}
@@ -358,7 +358,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
                   )}
                 </div>
 
-                {/* Planned Amount */}
+                {/* Projected Amount */}
                 <div className="flex items-start justify-end">
                   {editingCell?.itemId === item.id && editingCell?.field === 'amount' ? (
                     <EditableField

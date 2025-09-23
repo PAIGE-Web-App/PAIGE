@@ -2,6 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DollarSign, Camera, Utensils, Car, Music, Flower2, Shirt, Gift, FileText, X, Sparkles } from 'lucide-react';
 
+// Color mapping function to match AI-generated categories
+const getCategoryColor = (categoryName: string): string => {
+  const colorMap: Record<string, string> = {
+    'Venue & Catering': '#A85C36',
+    'Photography & Videography': '#2F4F4F',
+    'Flowers & Decorations': '#FF69B4',
+    'Attire & Beauty': '#8A2BE2',
+    'Music & Entertainment': '#32CD32',
+    'Transportation': '#4169E1',
+    'Stationery & Favors': '#DC143C',
+    'Wedding Rings': '#FFD700',
+    'Wedding Planner': '#00CED1',
+    'Miscellaneous': '#696969'
+  };
+  
+  return colorMap[categoryName] || '#696969';
+};
+
 interface PrePopulatedCategory {
   name: string;
   icon: React.ReactNode;
@@ -14,8 +32,9 @@ interface PrePopulatedCategory {
 interface PrePopulatedBudgetCategoriesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddCategories: (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => void;
+  onAddCategories: (categories: Array<{name: string; amount: number; color?: string; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => void;
   onShowAIAssistant?: () => void;
+  maxBudget?: number;
 }
 
 const PRE_POPULATED_CATEGORIES: PrePopulatedCategory[] = [
@@ -124,7 +143,8 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
   isOpen,
   onClose,
   onAddCategories,
-  onShowAIAssistant
+  onShowAIAssistant,
+  maxBudget
 }) => {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
 
@@ -151,6 +171,7 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
     ).map(cat => ({
       name: cat.name,
       amount: cat.suggestedAmount,
+      color: getCategoryColor(cat.name),
       items: cat.items
     }));
 
@@ -242,36 +263,57 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                 {/* Separator Line */}
                 <div className="border-b border-gray-300 mb-4"></div>
 
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 text-left mb-2">
-                      Select budget categories below to get started quickly. You can adjust amounts later.
-                    </p>
-                    <p className="text-xs text-gray-500 text-left">
-                      💡 These are estimated costs based on average wedding expenses. Adjust amounts as needed.
-                    </p>
+                <p className="text-sm text-gray-600 text-left mb-4">
+                  Select budget categories below to get started quickly. You can adjust amounts later.
+                </p>
+                
+                {/* Info Banner - Full Width */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-800 font-medium">
+                    💡 These are estimated costs based on average wedding expenses. Adjust amounts as needed.
+                  </p>
+                </div>
+
+                {/* Select All Row */}
+                <div className="flex justify-start mb-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="select-all"
+                      checked={selectedCategories.size === PRE_POPULATED_CATEGORIES.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-[#A85C36] bg-gray-100 border-gray-300 rounded focus:ring-[#A85C36] focus:ring-2"
+                    />
+                    <label htmlFor="select-all" className="text-sm text-gray-700 cursor-pointer">
+                      Select All
+                    </label>
                   </div>
-                  <button
-                    onClick={handleSelectAll}
-                    className="btn-primaryinverse text-xs px-3 py-1 ml-4 flex-shrink-0"
-                  >
-                    {selectedCategories.size === PRE_POPULATED_CATEGORIES.length ? 'Deselect All' : 'Select All'}
-                  </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {PRE_POPULATED_CATEGORIES.map((category) => (
-                  <button
+                  <div
                     key={category.name}
-                    onClick={() => handleCategoryClick(category)}
-                    className={`p-4 rounded-lg border-2 transition-colors duration-200 text-left ${
+                    className={`p-4 rounded-lg border-2 transition-colors duration-200 text-left relative cursor-pointer ${
                       selectedCategories.has(category.name)
-                        ? `${category.color} border-current shadow-md`
+                        ? 'bg-blue-50 border-blue-300 shadow-md'
                         : 'border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
                     }`}
+                    onClick={() => handleCategoryClick(category)}
                   >
-                    <div className="flex items-center gap-3 mb-2">
+                    {/* Checkbox in top left */}
+                    <div className="absolute top-3 left-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.has(category.name)}
+                        onChange={() => handleCategoryClick(category)}
+                        className="w-4 h-4 text-[#A85C36] bg-white border-gray-300 rounded focus:ring-[#A85C36] focus:ring-2"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mb-2 pl-6">
                       {category.icon}
                       <span className="font-medium">{category.name}</span>
                     </div>
@@ -281,7 +323,7 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                     <div className="text-sm font-medium">
                       ${category.suggestedAmount.toLocaleString()}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
 
@@ -292,14 +334,17 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
               <div className="flex items-center justify-between">
                 <div className="text-left">
                   {totalSelected > 0 ? (
-                    <p className="text-sm text-gray-600">
-                      {totalSelected} {totalSelected === 1 ? 'category' : 'categories'} selected • Total: ${totalAmount.toLocaleString()}
+                    <p className="text-base font-semibold text-gray-800">
+                      {totalSelected} selected • Total Projected Spend: ${totalAmount.toLocaleString()}
+                      {maxBudget && (
+                        <span className={`text-sm font-normal ${
+                          totalAmount <= maxBudget ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {' '}({Math.round((totalAmount / maxBudget) * 100)}% of your Max Budget)
+                        </span>
+                      )}
                     </p>
-                  ) : (
-                    <p className="text-xs text-gray-500">
-                      Select categories above or try generating with Paige to get a hyper-personalized budget
-                    </p>
-                  )}
+                  ) : null}
                 </div>
                 
                 <div className="flex gap-3 ml-auto">

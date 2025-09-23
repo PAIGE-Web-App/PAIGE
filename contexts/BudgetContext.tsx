@@ -15,7 +15,7 @@ interface BudgetContextType {
   // Actions
   setSelectedCategory: (category: BudgetCategory | null) => void;
   handleAddCategory: (name: string, allocatedAmount?: number, showToast?: boolean, showCompletion?: boolean) => Promise<string | null>;
-  handleAddMultipleCategories: (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => Promise<void>;
+  handleAddMultipleCategories: (categories: Array<{name: string; amount: number; color?: string; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => Promise<void>;
   handleEditCategory: (categoryId: string, updates: Partial<BudgetCategory>) => Promise<void>;
   handleDeleteCategory: (categoryId: string) => Promise<void>;
   handleAddBudgetItem: (categoryId: string, itemData: Partial<BudgetItem>, showToast?: boolean) => Promise<void>;

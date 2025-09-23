@@ -41,7 +41,6 @@ export function useBudgetItems() {
 
       setBudgetItems(items);
     }, (error) => {
-      console.error('Error fetching budget items:', error);
       showErrorToast('Failed to load budget items');
     });
 
@@ -68,7 +67,6 @@ export function useBudgetItems() {
 
       showSuccessToast('Budget item added successfully!');
     } catch (error: any) {
-      console.error('Error adding budget item:', error);
       showErrorToast(`Failed to add budget item: ${error.message}`);
     }
   }, [user?.uid, showSuccessToast, showErrorToast]);
@@ -85,7 +83,6 @@ export function useBudgetItems() {
 
       showSuccessToast('Budget item updated successfully!');
     } catch (error: any) {
-      console.error('Error updating budget item:', error);
       showErrorToast(`Failed to update budget item: ${error.message}`);
     }
   }, [user?.uid, showSuccessToast, showErrorToast]);
@@ -99,7 +96,6 @@ export function useBudgetItems() {
 
       showSuccessToast('Budget item deleted successfully!');
     } catch (error: any) {
-      console.error('Error deleting budget item:', error);
       showErrorToast(`Failed to delete budget item: ${error.message}`);
     }
   }, [user?.uid, showSuccessToast, showErrorToast]);
@@ -117,7 +113,6 @@ export function useBudgetItems() {
 
       showSuccessToast('Vendor linked successfully!');
     } catch (error: any) {
-      console.error('Error linking vendor:', error);
       showErrorToast(`Failed to link vendor: ${error.message}`);
     }
   }, [user?.uid, showSuccessToast, showErrorToast]);

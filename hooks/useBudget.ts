@@ -45,7 +45,6 @@ function parseValidDate(dateString: string): Date | null {
     const date = new Date(dateString);
     // Check if the date is valid
     if (isNaN(date.getTime())) {
-      console.warn('Invalid date string:', dateString);
       return null;
     }
     
@@ -54,13 +53,11 @@ function parseValidDate(dateString: string): Date | null {
     today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
     
     if (date < today) {
-      console.warn('Date is in the past, skipping:', dateString);
       return null;
     }
     
     return date;
   } catch (error) {
-    console.warn('Error parsing date:', dateString, error);
     return null;
   }
 }
@@ -159,7 +156,6 @@ export function useBudget() {
         setBudgetCategories(categories);
       }, (error) => {
         if (isSubscribed) {
-          console.error('Error fetching budget categories:', error);
           setBudgetCategories([]);
         }
       });
@@ -192,7 +188,6 @@ export function useBudget() {
         }
       }, (error) => {
         if (isSubscribed) {
-          console.error('Error fetching user budget:', error);
           setUserMaxBudget(null);
         }
       });
@@ -260,7 +255,6 @@ export function useBudget() {
         }
       }, (error) => {
         if (isSubscribed) {
-          console.error('Error fetching budget items:', error);
           setBudgetItems([]);
         }
       });
@@ -337,7 +331,7 @@ export function useBudget() {
 
       await batch.commit();
     } catch (error) {
-      console.error('Error creating default categories:', error);
+      // Silent fail - default categories creation is not critical
     }
   };
 
@@ -355,7 +349,6 @@ export function useBudget() {
       // The onSnapshot listener will automatically update the local state
       showSuccessToast('Max budget updated successfully!');
     } catch (error) {
-      console.error('Error updating max budget:', error);
       showErrorToast('Failed to update max budget.');
     }
   };
@@ -396,7 +389,6 @@ export function useBudget() {
       await batch.commit();
       showSuccessToast('Budget categories updated to match your new budget range!');
     } catch (error) {
-      console.error('Error updating budget categories:', error);
       showErrorToast('Failed to update budget categories.');
     }
   };
@@ -441,7 +433,7 @@ export function useBudget() {
   }, [budgetCategories, budgetItems, userMaxBudget]);
 
   // Add new category
-  const handleAddCategory = async (name: string, allocatedAmount: number = 0, showToast: boolean = true, showCompletion: boolean = true): Promise<string | null> => {
+  const handleAddCategory = async (name: string, allocatedAmount: number = 0, showToast: boolean = true, showCompletion: boolean = true, color?: string): Promise<string | null> => {
     if (!user) return null;
 
     if (!name.trim()) {
@@ -458,6 +450,7 @@ export function useBudget() {
         orderIndex: maxOrderIndex + 1,
         userId: user.uid,
         createdAt: new Date(),
+        color: color || '#A85C36', // Use provided color or default
       });
 
       // Update user's budget range to reflect the new total
@@ -486,14 +479,13 @@ export function useBudget() {
 
       return categoryRef.id;
     } catch (error: any) {
-      console.error('Error adding category:', error);
       showErrorToast(`Failed to add category: ${error.message}`);
       return null;
     }
   };
 
   // Add multiple categories with consolidated toast
-  const handleAddMultipleCategories = async (categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => {
+  const handleAddMultipleCategories = async (categories: Array<{name: string; amount: number; color?: string; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => {
     if (!user) return;
 
     try {
@@ -503,7 +495,7 @@ export function useBudget() {
       
       // Add all categories without individual toasts or completion toasts
       for (const category of categories) {
-        const categoryId = await handleAddCategory(category.name, category.amount, false, false);
+        const categoryId = await handleAddCategory(category.name, category.amount, false, false, category.color);
         totalAmount += category.amount;
         
         // Add budget items for this category if provided
@@ -536,7 +528,6 @@ export function useBudget() {
         showCompletionToast('budget');
       }
     } catch (error: any) {
-      console.error('Error adding multiple categories:', error);
       showErrorToast(`Failed to add categories: ${error.message}`);
     }
   };
@@ -587,7 +578,6 @@ export function useBudget() {
 
       showSuccessToast('Category updated!');
     } catch (error: any) {
-      console.error('Error updating category:', error);
       showErrorToast(`Failed to update category: ${error.message}`);
     }
   };
@@ -635,7 +625,6 @@ export function useBudget() {
 
       showSuccessToast('Category deleted!');
     } catch (error: any) {
-      console.error('Error deleting category:', error);
       showErrorToast(`Failed to delete category: ${error.message}`);
     }
   };
@@ -685,7 +674,6 @@ export function useBudget() {
 
       showSuccessToast('All categories and items deleted!');
     } catch (error: any) {
-      console.error('Error deleting all categories:', error);
       showErrorToast(`Failed to delete all categories: ${error.message}`);
     }
   };
@@ -736,7 +724,6 @@ export function useBudget() {
 
       showSuccessToast('All budget data cleared!');
     } catch (error: any) {
-      console.error('Error clearing all budget data:', error);
       showErrorToast(`Failed to clear budget data: ${error.message}`);
     }
   };
@@ -780,7 +767,6 @@ export function useBudget() {
         showSuccessToast(`Budget item "${itemData.name}" added!`);
       }
     } catch (error: any) {
-      console.error('Error adding budget item:', error);
       showErrorToast(`Failed to add budget item: ${error.message}`);
     }
   };
@@ -798,7 +784,6 @@ export function useBudget() {
 
       showSuccessToast('Budget item updated!');
     } catch (error: any) {
-      console.error('Error updating budget item:', error);
       showErrorToast(`Failed to update budget item: ${error.message}`);
     }
   };
@@ -812,7 +797,6 @@ export function useBudget() {
       await deleteDoc(itemRef);
       showSuccessToast('Budget item deleted!');
     } catch (error: any) {
-      console.error('Error deleting budget item:', error);
       showErrorToast(`Failed to delete budget item: ${error.message}`);
     }
   };
@@ -838,7 +822,6 @@ export function useBudget() {
 
       showSuccessToast('Vendor linked to budget item!');
     } catch (error: any) {
-      console.error('Error linking vendor:', error);
       showErrorToast(`Failed to link vendor: ${error.message}`);
     }
   };
@@ -868,7 +851,6 @@ export function useBudget() {
       // Credits are already deducted by the API middleware, no need to refresh
       showSuccessToast('AI budget generated successfully!');
     } catch (error: any) {
-      console.error('Error generating budget:', error);
       showErrorToast(`Failed to generate budget: ${error.message}`);
     }
   };
@@ -905,7 +887,6 @@ export function useBudget() {
         throw new Error('Failed to generate todo list');
       }
     } catch (error: any) {
-      console.error('Error generating todo list:', error);
       showErrorToast(`Failed to generate todo list: ${error.message}`);
     }
   };
@@ -967,7 +948,6 @@ export function useBudget() {
       
       showSuccessToast('Integrated plan generated successfully!');
     } catch (error: any) {
-      console.error('Error generating integrated plan:', error);
       showErrorToast(`Failed to generate integrated plan: ${error.message}`);
     }
   };
@@ -994,6 +974,26 @@ export function useBudget() {
       total: totalItems,
       currentItem: 'Starting budget creation...'
     });
+
+    // Validate that AI-generated budget doesn't exceed max budget (with 10% flexibility buffer)
+    const totalAllocatedAmount = aiBudget.categories.reduce((sum, cat) => sum + (cat.allocatedAmount || 0), 0);
+    const maxBudget = userMaxBudget || 0;
+    const flexibilityBuffer = maxBudget * 0.1; // 10% buffer for realistic planning
+    const maxAllowedBudget = maxBudget + flexibilityBuffer;
+    
+    if (maxBudget > 0 && totalAllocatedAmount > maxAllowedBudget) {
+      const overageAmount = totalAllocatedAmount - maxAllowedBudget;
+      const overagePercentage = Math.round((overageAmount / maxBudget) * 100);
+      
+      // Show warning and stop budget creation
+      showErrorToast(
+        `AI-generated budget exceeds your max budget by $${overageAmount.toLocaleString()} (${overagePercentage}% over). ` +
+        `Total: $${totalAllocatedAmount.toLocaleString()} vs Max: $${maxBudget.toLocaleString()} (with 10% flexibility). ` +
+        `Please adjust your budget or try generating with a different description.`
+      );
+      setIsCreatingBudget(false);
+      return;
+    }
 
     const batch = writeBatch(getUserCollectionRef('budgetCategories', user.uid).firestore);
     
@@ -1029,6 +1029,18 @@ export function useBudget() {
           currentItem: `Creating "${item.name}" in ${category.name}...`
         });
         
+        // Validate that item amount doesn't exceed category allocated amount
+        const itemAmount = item.amount || 0;
+        const categoryAllocatedAmount = categoryData.allocatedAmount;
+        
+        if (itemAmount > categoryAllocatedAmount) {
+          // Log warning but continue - this shouldn't happen with improved AI prompts
+          console.warn(`Item "${item.name}" amount ($${itemAmount}) exceeds category "${category.name}" allocated amount ($${categoryAllocatedAmount}). Adjusting item amount.`);
+        }
+        
+        // Cap item amount to category allocated amount to prevent unrealistic allocations
+        const adjustedItemAmount = Math.min(itemAmount, categoryAllocatedAmount);
+        
         // Generate fallback due date if AI didn't provide one
         let dueDate = item.dueDate;
         if (!dueDate) {
@@ -1042,7 +1054,7 @@ export function useBudget() {
         const itemData = {
           categoryId: categoryRef.id,
           name: item.name || 'Untitled Item',
-          amount: item.amount || 0, // Planned amount from AI
+          amount: adjustedItemAmount, // Use adjusted amount to prevent exceeding category
           notes: item.notes || '',
           dueDate: dueDate, // Due date from AI or fallback
           isPaid: false, // New items are not paid yet
@@ -1101,7 +1113,6 @@ export function useBudget() {
 
       showSuccessToast(`Todo list "${aiTodoList.name}" created successfully!`);
     } catch (error: any) {
-      console.error('Error creating todo list from AI:', error);
       showErrorToast(`Failed to create todo list: ${error.message}`);
     }
   };
@@ -1147,7 +1158,7 @@ export function useBudget() {
                 })
               });
             } catch (error) {
-              console.error('Failed to send budget item assignment notification:', error);
+              // Silent fail - notification is not critical
             }
           }
         }
@@ -1158,7 +1169,6 @@ export function useBudget() {
         showSuccessToast('Assignment removed');
       }
     } catch (error) {
-      console.error('Error assigning budget item:', error);
       showErrorToast('Failed to assign budget item');
     }
   };

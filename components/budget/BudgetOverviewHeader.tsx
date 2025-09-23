@@ -18,7 +18,7 @@ const BudgetOverviewHeader: React.FC<BudgetOverviewHeaderProps> = React.memo(({
     <div className="flex items-center justify-between">
       <div>
         <h6 className="mb-2">{title}</h6>
-        <p className="text-[#6B7280]">{subtitle}</p>
+        <p className="text-[#6B7280] font-work text-sm">{subtitle}</p>
       </div>
       {(onShowAIAssistant || onAddCategory) && (
         <div className="flex gap-3">

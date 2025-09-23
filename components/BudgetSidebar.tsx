@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BudgetCategory } from '@/types/budget';
 import BudgetCategoryList from './budget/BudgetCategoryList';
 import { BudgetDoughnutChart } from './budget';
-import { ChevronDown, ChevronUp, Edit, MoreHorizontal, Trash2, Sparkles } from 'lucide-react';
+import { Edit, MoreHorizontal, Trash2, Sparkles, Check, X } from 'lucide-react';
+import InfoTooltip from './budget/InfoTooltip';
 import { useRouter } from 'next/navigation';
 import DropdownMenu from '@/components/DropdownMenu';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -16,12 +17,15 @@ interface BudgetSidebarProps {
   totalSpent?: number;
   totalBudget?: number;
   maxBudget?: number;
+  projectedSpend?: number;
+  budgetFlexibility?: number;
   onSelectBudgetOverview: () => void;
   isBudgetOverviewSelected: boolean;
   mobileViewMode?: 'categories' | 'category';
   onMobileBackToCategories?: () => void;
   onRemoveAllCategories?: () => void;
   onCreateBudgetWithAI?: () => void;
+  onUpdateMaxBudget?: (newAmount: number) => void;
 }
 
 const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
@@ -33,20 +37,26 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
   totalSpent = 0,
   totalBudget = 0,
   maxBudget = 0,
+  projectedSpend = 0,
+  budgetFlexibility = 0,
   onSelectBudgetOverview,
   isBudgetOverviewSelected,
   mobileViewMode = 'categories',
   onMobileBackToCategories,
   onRemoveAllCategories,
   onCreateBudgetWithAI,
+  onUpdateMaxBudget,
 }) => {
   const router = useRouter();
   
-  // Mobile collapsible state for Total Budget section
-  const [isTotalBudgetExpanded, setIsTotalBudgetExpanded] = useState(true);
   
   // Mobile confirmation modal state
   const [showRemoveAllModal, setShowRemoveAllModal] = useState(false);
+  
+  // Inline editing state for mobile max budget
+  const [isEditingMaxBudget, setIsEditingMaxBudget] = useState(false);
+  const [editMaxBudgetValue, setEditMaxBudgetValue] = useState(maxBudget.toString());
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   
   // Calculate budget statistics
   const totalRemaining = maxBudget - totalSpent;
@@ -71,6 +81,50 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
     onRemoveAllCategories?.();
     setShowRemoveAllModal(false);
   };
+
+  // Inline editing functions for mobile max budget
+  const handleEditMaxBudget = () => {
+    setIsEditingMaxBudget(true);
+    setEditMaxBudgetValue(maxBudget.toString());
+  };
+
+  const handleSaveMaxBudget = () => {
+    const newAmount = parseFloat(editMaxBudgetValue);
+    if (!isNaN(newAmount) && newAmount >= 0 && onUpdateMaxBudget) {
+      onUpdateMaxBudget(newAmount);
+    }
+    setIsEditingMaxBudget(false);
+  };
+
+  const handleCancelMaxBudget = () => {
+    setIsEditingMaxBudget(false);
+    setEditMaxBudgetValue(maxBudget.toString());
+  };
+
+  const handleMaxBudgetKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveMaxBudget();
+    } else if (e.key === 'Escape') {
+      handleCancelMaxBudget();
+    }
+  };
+
+  // Handle click away to save for mobile max budget
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isEditingMaxBudget && mobileInputRef.current && !mobileInputRef.current.contains(event.target as Node)) {
+        handleSaveMaxBudget();
+      }
+    };
+
+    if (isEditingMaxBudget) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditingMaxBudget, editMaxBudgetValue]);
 
 
   return (
@@ -122,34 +176,11 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
         {/* Overall Wedding Budget Overview */}
         <div className="p-4 border-b border-[#E0DBD7] bg-white flex-shrink-0">
           <div>
-            {/* Mobile: Collapsible Total Budget Header */}
-            <div className="lg:hidden">
-            <button
-              onClick={() => setIsTotalBudgetExpanded(!isTotalBudgetExpanded)}
-              className="w-full flex items-center justify-between p-2 hover:bg-[#F8F6F4] rounded-[5px] transition-colors"
-            >
-              <h6 className="text-sm font-medium text-[#332B42]">Total Budget</h6>
-              <div className="flex items-center gap-2">
-                {/* Only show summary when collapsed */}
-                {!isTotalBudgetExpanded && (
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-[#332B42]">{formatCurrency(maxBudget)}</div>
-                    <div className="text-xs text-[#6B7280]">{formatCurrency(totalSpent)} spent</div>
-                  </div>
-                )}
-                {isTotalBudgetExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-[#6B7280]" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-[#6B7280]" />
-                )}
-              </div>
-            </button>
-          </div>
           
-          {/* Desktop: Regular Total Budget Header */}
-          <h6 className="hidden lg:block text-sm font-medium text-[#332B42] mb-2">Total Budget</h6>
+          {/* Desktop: Enhanced Budget Overview */}
+          <h6 className="hidden lg:block text-sm font-medium text-[#332B42] mb-2">Budget Overview</h6>
           
-          {/* Total Budget from Settings - Clickable on desktop only */}
+          {/* Enhanced Budget Overview - Clickable on desktop only */}
           <div className={`w-full p-3 rounded-[5px] border transition-all duration-200 group ${
             isBudgetOverviewSelected 
               ? 'bg-[#EBE3DD] border-[#A85C36]' 
@@ -160,96 +191,144 @@ const BudgetSidebar: React.FC<BudgetSidebarProps> = React.memo(({
               className="w-full text-left"
               title="Click to view budget overview"
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-[#6B7280]">Total Budget</span>
-                <span className="text-sm font-semibold text-[#332B42] group-hover:text-[#A85C36] transition-colors">{formatCurrency(maxBudget)}</span>
+              {/* Main Metric - Max Budget */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-[#6B7280]">Max Budget</span>
+                <span className="text-base font-semibold text-[#332B42] group-hover:text-[#A85C36] transition-colors">{formatCurrency(maxBudget)}</span>
               </div>
-              <div className="w-full bg-[#E0DBD7] rounded-full h-2">
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-[#E0DBD7] rounded-full h-2 mb-2">
                 <div 
                   className="h-2 rounded-full transition-all duration-300 bg-[#A85C36]"
                   style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between mt-1">
+              
+              {/* Status Row */}
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-[#6B7280]">{budgetUtilization.toFixed(1)}% used</span>
                 <span className="text-xs text-[#6B7280]">{formatCurrency(totalSpent)} spent</span>
               </div>
-            </button>
-            <div className="flex items-center justify-center mt-2 pt-2 border-t border-[#E0DBD7] gap-2">
-              <span className="text-xs text-[#6B7280] group-hover:text-[#A85C36] transition-colors">
-                {totalRemaining >= 0 ? `${formatCurrency(totalRemaining)} remaining` : `${formatCurrency(Math.abs(totalRemaining))} over budget`}
-              </span>
-              <button
-                onClick={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
-                className="text-[#A85C36] hover:text-[#8B4513] transition-colors p-1"
-                title="Edit budget in settings"
-              >
-                <Edit className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile: Collapsible Total Budget Content */}
-          {isTotalBudgetExpanded && (
-            <div className="lg:hidden space-y-3 mt-3">
-              {/* Mobile: Non-clickable Total Budget Card */}
-              <div className="w-full p-3 rounded-[5px] border bg-[#F8F6F4] border-[#E0DBD7]">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-[#6B7280]">Total Budget</span>
-                  <span className="text-sm font-semibold text-[#332B42]">{formatCurrency(maxBudget)}</span>
+              
+              {/* Divider Line */}
+              <div className="border-t border-[#E0DBD7] mb-2"></div>
+              
+              {/* Sub-metrics Row */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-center">
+                  <div className="text-xs text-[#6B7280]">Projected</div>
+                  <div className="text-sm font-medium text-[#332B42]">{formatCurrency(projectedSpend)}</div>
                 </div>
-                <div className="w-full bg-[#E0DBD7] rounded-full h-2">
-                  <div 
-                    className="h-2 rounded-full transition-all duration-300 bg-[#A85C36]"
-                    style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-[#6B7280]">{budgetUtilization.toFixed(1)}% used</span>
-                  <span className="text-xs text-[#6B7280]">{formatCurrency(totalSpent)} spent</span>
-                </div>
-                <div className="flex items-center justify-center mt-2 pt-2 border-t border-[#E0DBD7] gap-2">
-                  <span className="text-xs text-[#6B7280]">
-                    {totalRemaining >= 0 ? `${formatCurrency(totalRemaining)} remaining` : `${formatCurrency(Math.abs(totalRemaining))} over budget`}
-                  </span>
-                  <button
-                    onClick={() => router.push('/settings?tab=wedding&highlight=maxBudget')}
-                    className="text-[#A85C36] hover:text-[#8B4513] transition-colors p-1"
-                    title="Edit budget in settings"
-                  >
-                    <Edit className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Mobile: Budget Spend by Category Doughnut Chart */}
-              {budgetCategories.length > 0 && (
-                <div className="w-full p-3 rounded-[5px] border bg-[#F8F6F4] border-[#E0DBD7]">
-                  <div className="text-xs font-normal text-[#332B42] mb-3 font-work">Budget Spend by Category</div>
-                  <div className="flex items-center justify-center pt-2 pb-6">
-                    <div className="w-16 h-16">
-                      <BudgetDoughnutChart
-                        budgetItems={budgetCategories.map(cat => {
-                          // Calculate spent amount from budget items for this category
-                          const categorySpent = budgetItems
-                            .filter(item => item.categoryId === cat.id)
-                            .reduce((sum, item) => sum + (item.amount || 0), 0);
-                          
-                          return {
-                            id: cat.id || '',
-                            name: cat.name,
-                            amount: categorySpent
-                          };
-                        })}
-                        allocatedAmount={maxBudget}
-                        className=""
-                      />
-                    </div>
+                <div className="text-center">
+                  <div className="text-xs text-[#6B7280]">Flexibility</div>
+                  <div className={`text-sm font-medium ${budgetFlexibility >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {budgetFlexibility < 0 ? formatCurrency(budgetFlexibility) : formatCurrency(Math.abs(budgetFlexibility))}
                   </div>
                 </div>
-              )}
+              </div>
+            </button>
+          </div>
+
+          {/* Mobile: Always Visible Budget Overview Card */}
+          <div className="lg:hidden space-y-3 mt-3">
+            {/* Mobile: Enhanced Budget Overview Card */}
+            <div className="w-full p-3 rounded-[5px] border bg-[#F8F6F4] border-[#E0DBD7]">
+              {/* Main Metric - Max Budget */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-[#6B7280]">Max Budget</span>
+                {isEditingMaxBudget ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-[#6B7280]">$</span>
+                    <input
+                      ref={mobileInputRef}
+                      type="number"
+                      value={editMaxBudgetValue}
+                      onChange={(e) => setEditMaxBudgetValue(e.target.value)}
+                      onKeyDown={handleMaxBudgetKeyPress}
+                      className="w-16 text-center text-xs text-[#332B42] bg-white border border-[#A85C36] rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-[#A85C36]"
+                      autoFocus
+                      min="0"
+                      step="100"
+                    />
+                    <button
+                      onClick={handleSaveMaxBudget}
+                      className="text-green-600 hover:text-green-700 p-1"
+                      title="Save changes"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={handleCancelMaxBudget}
+                      className="text-red-600 hover:text-red-700 p-1"
+                      title="Cancel editing"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-semibold text-[#332B42]">{formatCurrency(maxBudget)}</span>
+                    {onUpdateMaxBudget && (
+                      <button
+                        onClick={handleEditMaxBudget}
+                        className="text-[#A85C36] hover:text-[#8B4513] transition-colors p-1"
+                        title="Edit max budget"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-[#E0DBD7] rounded-full h-2 mb-2">
+                <div 
+                  className="h-2 rounded-full transition-all duration-300 bg-[#A85C36]"
+                  style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
+                />
+              </div>
+              
+              {/* Status Row */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-[#6B7280]">{budgetUtilization.toFixed(1)}% used</span>
+                <span className="text-xs text-[#6B7280]">{formatCurrency(totalSpent)} spent</span>
+              </div>
+              
+              {/* Divider Line */}
+              <div className="border-t border-[#E0DBD7] mb-2"></div>
+              
+              {/* Sub-metrics Row */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-center">
+                  <div className="text-xs text-[#6B7280] flex items-center justify-center gap-1">
+                    Projected
+                    <InfoTooltip 
+                      content="Sum of all projected amounts across all budget categories"
+                      maxWidth="max-w-48"
+                    />
+                  </div>
+                  <div className="text-xs font-medium text-[#332B42]">{formatCurrency(projectedSpend)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-[#6B7280] flex items-center justify-center gap-1">
+                    Flexibility
+                    <InfoTooltip 
+                      content={budgetFlexibility >= 0 
+                        ? 'Max Budget minus Projected Spend (available to allocate)'
+                        : 'Projected Spend exceeds Max Budget (over planned)'
+                      }
+                      maxWidth="max-w-48"
+                    />
+                  </div>
+                  <div className={`text-xs font-medium ${budgetFlexibility >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {budgetFlexibility < 0 ? formatCurrency(budgetFlexibility) : formatCurrency(Math.abs(budgetFlexibility))}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
       

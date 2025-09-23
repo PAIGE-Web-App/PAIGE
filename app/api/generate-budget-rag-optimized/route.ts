@@ -44,7 +44,7 @@ function buildOptimizedBudgetPrompt(
 
 --- USER REQUIREMENTS ---
 Description: ${description}
-Total Budget: $${totalBudget.toLocaleString()}
+Max Budget: $${totalBudget.toLocaleString()}
 Wedding Date: ${new Date(weddingDate).toLocaleDateString()}
 Budget Type: ${budgetType}
 
@@ -52,8 +52,11 @@ Budget Type: ${budgetType}
 1. **Realistic Distribution**: Allocate budget based on typical wedding cost percentages
 2. **Priority-Based**: Focus on high-impact areas (venue, catering, photography)
 3. **Regional Awareness**: Consider location-specific pricing
-4. **Flexibility**: Include buffer for unexpected costs
+4. **Flexibility**: Include 5-10% buffer for unexpected costs and realistic planning
 5. **Detailed Breakdown**: Provide specific line items with realistic prices
+6. **CRITICAL**: Each subcategory item amount MUST NOT exceed its parent category amount
+7. **CRITICAL**: Total of all subcategory amounts should equal or be slightly under the parent category amount
+8. **Budget Flexibility**: Aim to use 90-95% of the total budget to allow for realistic planning flexibility
 
 --- STANDARD CATEGORIES ---
 Use these proven wedding budget categories:

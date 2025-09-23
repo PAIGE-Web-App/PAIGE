@@ -175,7 +175,7 @@ const AIBudgetAssistant: React.FC<AIBudgetAssistantProps> = ({
           {(selectedOption === 'budget' || selectedOption === 'integrated') && (
             <div>
               <label className="block text-sm font-medium text-[#332B42] mb-1">
-                Total Budget
+                Max Budget
               </label>
               <input
                 type="number"

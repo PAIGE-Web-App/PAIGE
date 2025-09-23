@@ -188,6 +188,26 @@ const AIBudgetAssistantRAGOptimized: React.FC<AIBudgetAssistantRAGOptimizedProps
           }))
         };
 
+        // Validate that AI-generated budget doesn't exceed max budget (with 10% flexibility buffer)
+        const totalAllocatedAmount = transformedBudget.categories.reduce((sum, cat) => sum + (cat.allocatedAmount || 0), 0);
+        const userMaxBudget = maxBudget || 0;
+        const flexibilityBuffer = userMaxBudget * 0.1; // 10% buffer for realistic planning
+        const maxAllowedBudget = userMaxBudget + flexibilityBuffer;
+        
+        if (userMaxBudget > 0 && totalAllocatedAmount > maxAllowedBudget) {
+          const overageAmount = totalAllocatedAmount - maxAllowedBudget;
+          const overagePercentage = Math.round((overageAmount / userMaxBudget) * 100);
+          
+          // Show warning and stop budget generation
+          setError(
+            `AI-generated budget exceeds your max budget by $${overageAmount.toLocaleString()} (${overagePercentage}% over). ` +
+            `Total: $${totalAllocatedAmount.toLocaleString()} vs Max: $${userMaxBudget.toLocaleString()} (with 10% flexibility). ` +
+            `Please adjust your budget or try generating with a different description.`
+          );
+          setIsGenerating(false);
+          return;
+        }
+
          // Call onGenerateBudget with the transformed budget data (no additional API call needed)
          await onGenerateBudget(description, parseFloat(budgetAmount) || 0, transformedBudget);
 
@@ -311,10 +331,10 @@ const AIBudgetAssistantRAGOptimized: React.FC<AIBudgetAssistantRAGOptimizedProps
             />
           </div>
 
-          {/* Total Budget */}
+          {/* Max Budget */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
-              Total Budget
+              Max Budget
             </label>
             <div className="relative">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

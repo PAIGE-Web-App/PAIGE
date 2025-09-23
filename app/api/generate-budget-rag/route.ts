@@ -199,7 +199,7 @@ function buildBudgetPrompt(
   const basePrompt = `Create a detailed wedding budget based on the following information:
 
 Wedding Description: ${description}
-Total Budget: $${totalBudget.toLocaleString()}
+Max Budget: $${totalBudget.toLocaleString()}
 Wedding Date: ${weddingDate}
 Budget Type: ${budgetType}
 ${focusCategories.length > 0 ? `Focus Categories: ${focusCategories.join(', ')}` : ''}
@@ -218,6 +218,12 @@ Please provide a comprehensive budget breakdown including:
 6. **Transportation** (2-5% of total budget)
 7. **Stationery & Favors** (2-3% of total budget)
 8. **Miscellaneous** (5-10% of total budget)
+
+**BUDGET ALLOCATION RULES:**
+- **Flexibility**: Aim to use 90-95% of the total budget to allow for realistic planning flexibility
+- **CRITICAL**: Each subcategory item amount MUST NOT exceed its parent category amount
+- **CRITICAL**: Total of all subcategory amounts should equal or be slightly under the parent category amount
+- **Realistic Planning**: Include 5-10% buffer for unexpected costs and realistic planning
 
 For each category, provide:
 - Subcategory breakdown (budget items)

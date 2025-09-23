@@ -104,7 +104,7 @@ const BudgetDashboard: React.FC<BudgetDashboardProps> = ({
           <div className="bg-[#F8F6F4] p-4 rounded-[5px] border border-[#AB9C95]">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-5 h-5 text-[#A85C36]" />
-              <h3 className="font-medium text-[#332B42]">Total Budget</h3>
+              <h3 className="font-medium text-[#332B42]">Max Budget</h3>
             </div>
             {budgetRange ? (
               <p className="text-2xl font-bold text-[#332B42]">
@@ -192,7 +192,7 @@ const BudgetDashboard: React.FC<BudgetDashboardProps> = ({
                 <span className="text-[10px] opacity-75">
                   Range: ${budgetRange.min.toLocaleString()} - ${budgetRange.max.toLocaleString()} | 
                   Average: ${totalBudget?.toLocaleString()} | 
-                  Spent: ${spentAmount.toLocaleString()}
+                  Spent Amount: ${spentAmount.toLocaleString()}
                 </span>
               </p>
             </div>

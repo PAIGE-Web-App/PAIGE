@@ -103,8 +103,8 @@ export default function QuickGuideCards({ userData, progressData }: QuickGuideCa
           <div className="hidden lg:block w-1/5">
             <div className="h-full rounded-lg overflow-hidden">
               <img 
-                src="/Paige.png" 
-                alt="Paige" 
+                src="/Quick Start.png" 
+                alt="Quick Start Guide" 
                 className="w-full h-full object-cover"
               />
             </div>
@@ -195,8 +195,8 @@ export default function QuickGuideCards({ userData, progressData }: QuickGuideCa
          <div className="hidden lg:block w-1/5">
            <div className="h-full rounded-lg overflow-hidden">
              <img 
-               src="/Paige.png" 
-               alt="Paige" 
+               src="/Quick Start.png" 
+               alt="Quick Start Guide" 
                className="w-full h-full object-cover"
              />
            </div>
