@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
-interface ClientOnlyProps {
+interface HydrationErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
-export default function ClientOnly({ 
+export default function HydrationErrorBoundary({ 
   children, 
   fallback = (
     <div className="flex items-center justify-center min-h-screen bg-linen">
@@ -17,34 +17,28 @@ export default function ClientOnly({
       </div>
     </div>
   )
-}: ClientOnlyProps) {
-  const [hasMounted, setHasMounted] = useState(false);
+}: HydrationErrorBoundaryProps) {
+  const [hasHydrated, setHasHydrated] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // Add a small delay to ensure proper hydration
-    const timer = setTimeout(() => {
-      setHasMounted(true);
-    }, 100);
-
+    // Mark as hydrated after first render
+    setHasHydrated(true);
+    
     // Listen for hydration errors
     const handleError = (event: ErrorEvent) => {
       if (event.message.includes('hydration') || event.message.includes('Hydration')) {
-        console.error('Hydration error in ClientOnly:', event);
+        console.error('Hydration error detected:', event);
         setHasError(true);
       }
     };
 
     window.addEventListener('error', handleError);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('error', handleError);
-    };
+    return () => window.removeEventListener('error', handleError);
   }, []);
 
   // Show fallback during hydration or if there's an error
-  if (!hasMounted || hasError) {
+  if (!hasHydrated || hasError) {
     return <>{fallback}</>;
   }
 

@@ -50,6 +50,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             min-height: 100vh;
             background-color: #F3F2F0;
           }
+          /* Force re-render on hydration issues */
+          .hydration-fix {
+            opacity: 0;
+            animation: fadeIn 0.3s ease-in-out forwards;
+          }
+          @keyframes fadeIn {
+            to { opacity: 1; }
+          }
         `}</style>
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">

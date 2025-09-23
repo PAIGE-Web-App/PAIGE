@@ -155,6 +155,11 @@ const nextConfig = {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
+
+  // Add cache busting for better deployment reliability
+  generateBuildId: async () => {
+    return `build-${Date.now()}`;
+  },
 }
 
 module.exports = nextConfig;
