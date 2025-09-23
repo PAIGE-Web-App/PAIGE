@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 import EditContactModal from '@/components/EditContactModal';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import BadgeCount from '@/components/BadgeCount';
 import Banner from '@/components/Banner';
@@ -102,7 +101,6 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
 export default function VendorsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   // Get all user data in a single optimized hook
@@ -496,12 +494,7 @@ export default function VendorsPage() {
         }
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
-        <WeddingBanner
-          daysLeft={daysLeft}
-          userName={userName}
-          isLoading={bannerLoading}
-          onSetWeddingDate={handleSetWeddingDate}
-        />
+        <WeddingBanner />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}

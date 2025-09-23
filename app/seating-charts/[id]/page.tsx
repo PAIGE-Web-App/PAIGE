@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { SeatingChart } from '@/types/seatingChart';
 import { getSeatingChart } from '@/lib/seatingChartService';
 import { ArrowLeft, Users, Table, Settings, Save, Plus, ChevronDown, Upload, X } from 'lucide-react';
@@ -26,7 +25,6 @@ export default function SeatingChartDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { showSuccessToast, showErrorToast } = useCustomToast();
-  const weddingBannerData = useWeddingBanner(router);
   
   const [chart, setChart] = useState<SeatingChart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -479,12 +477,7 @@ export default function SeatingChartDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8F6F4]">
-        <WeddingBanner 
-          daysLeft={weddingBannerData.daysLeft}
-          userName={weddingBannerData.userName}
-          isLoading={weddingBannerData.isLoading}
-          onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-        />
+        <WeddingBanner />
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
@@ -498,12 +491,7 @@ export default function SeatingChartDetailPage() {
   if (!chart) {
     return (
       <div className="min-h-screen bg-[#F8F6F4]">
-        <WeddingBanner 
-          daysLeft={weddingBannerData.daysLeft}
-          userName={weddingBannerData.userName}
-          isLoading={weddingBannerData.isLoading}
-          onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-        />
+        <WeddingBanner />
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-[#332B42] mb-4">Chart not found</h1>
@@ -522,12 +510,7 @@ export default function SeatingChartDetailPage() {
   return (
     <div className="min-h-screen bg-linen">
       {/* Wedding Banner */}
-      <WeddingBanner 
-        daysLeft={weddingBannerData.daysLeft}
-        userName={weddingBannerData.userName}
-        isLoading={weddingBannerData.isLoading}
-        onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-      />
+      <WeddingBanner />
 
       {/* Main Content Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1400px' }}>

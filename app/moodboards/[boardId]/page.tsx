@@ -6,7 +6,6 @@ import { useEffect, useState, use, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag, MoreHorizontal, Trash2, ArrowLeft } from "lucide-react";
 import WeddingBanner from "../../../components/WeddingBanner";
-import { useWeddingBanner } from "../../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
@@ -57,7 +56,6 @@ interface MoodBoardPageProps {
 export default function MoodBoardPage({ params }: MoodBoardPageProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { credits, refreshCredits } = useCredits();
@@ -750,12 +748,7 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      <WeddingBanner 
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={isLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full lg:gap-4 lg:flex-row flex-col">

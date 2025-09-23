@@ -15,7 +15,6 @@ const VendorContactModal = lazy(() => import('@/components/VendorContactModal'))
 const FlagVendorModal = lazy(() => import('@/components/FlagVendorModal'));
 const RelatedVendorsSection = lazy(() => import('@/components/RelatedVendorsSection'));
 const VendorComments = lazy(() => import('@/components/VendorComments'));
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 
@@ -59,7 +58,6 @@ export default function VendorDetailPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   
   // Get user's wedding location from consolidated user data
   const { weddingLocation: userWeddingLocation } = useConsolidatedUserData();
@@ -961,12 +959,7 @@ export default function VendorDetailPage() {
             }
           }
         `}</style>
-        <WeddingBanner
-          daysLeft={daysLeft}
-          userName={userName}
-          isLoading={bannerLoading}
-          onSetWeddingDate={handleSetWeddingDate}
-        />
+        <WeddingBanner />
         <div className="max-w-6xl mx-auto">
           <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
             {/* Back Button and Error Title - Same Row */}
@@ -1024,12 +1017,7 @@ export default function VendorDetailPage() {
           }
         }
       `}</style>
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       <div className="max-w-6xl mx-auto">
         <div className="app-content-container flex flex-col gap-4 py-8 mobile-vendor-content pb-6">
           {/* Mobile Header - Full width */}

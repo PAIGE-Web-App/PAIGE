@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useGlobalCompletionToasts } from '@/hooks/useGlobalCompletionToasts';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { SeatingChart } from '@/types/seatingChart';
 import { getSeatingCharts, deleteSeatingChart } from '@/lib/seatingChartService';
 import SeatingChartCard from '@/components/seating-charts/SeatingChartCard';
@@ -17,7 +16,6 @@ export default function SeatingChartsPage() {
   const router = useRouter();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
-  const weddingBannerData = useWeddingBanner(router);
   
   const [seatingCharts, setSeatingCharts] = useState<SeatingChart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,12 +148,7 @@ export default function SeatingChartsPage() {
         }
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
-        <WeddingBanner 
-          daysLeft={weddingBannerData.daysLeft}
-          userName={weddingBannerData.userName}
-          isLoading={weddingBannerData.isLoading}
-          onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-        />
+        <WeddingBanner />
       
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
           {/* Seating Charts Header - Only show when there are charts */}

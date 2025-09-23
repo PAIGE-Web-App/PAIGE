@@ -10,7 +10,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { ROLE_CONFIGS } from '@/utils/roleConfig';
 import { UserRole, UserType, AdminUser } from '@/types/user';
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -26,7 +25,6 @@ export default function AdminUsersPage() {
   const { user, userRole: currentUserRole } = useAuth();
   const { canAccessUserManagement, userRole } = usePermissions();
   const router = useRouter();
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -479,12 +477,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+        <WeddingBanner />
       
       <div className="app-content-container mx-auto py-6">
         <div className="max-w-7xl mx-auto min-w-[1200px]">

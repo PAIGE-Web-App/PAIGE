@@ -16,7 +16,6 @@ import VendorCatalogHeader from '@/components/VendorCatalogHeader';
 import VendorCatalogToolbar from '@/components/VendorCatalogToolbar';
 import BulkContactBanner from '@/components/BulkContactBanner';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { usePrefetch } from '@/utils/prefetchManager';
 import { deduplicatedRequest } from '@/utils/requestDeduplicator';
@@ -144,7 +143,6 @@ const VendorCategoryPage: React.FC = () => {
   const categoryLabel = categoryObj ? categoryObj.label : category;
   const categorySingular = categoryObj ? categoryObj.singular : category;
   
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { weddingLocation } = useConsolidatedUserData();
   
   // Initialize prefetch tracking
@@ -608,12 +606,7 @@ const VendorCategoryPage: React.FC = () => {
           }
         }
       `}</style>
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       <div className="max-w-6xl mx-auto w-full">
         <div className={`app-content-container flex flex-col gap-4 py-8 mobile-catalog-content ${bulkContactMode ? 'pb-24' : 'pb-6'}`} style={{ minHeight: bulkContactMode ? 'calc(100vh - 80px)' : 'auto' }}>
           {/* Sticky Header and Search Area */}

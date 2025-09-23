@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 
 // Firebase imports
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 
 // UI component imports
 import Banner from '@/components/Banner';
@@ -93,7 +94,6 @@ const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
 
 // Custom hooks
 import { useUserProfileData } from "@/hooks/useUserProfileData";
-import { useWeddingBanner } from "@/hooks/useWeddingBanner";
 import { useBudget } from "@/hooks/useBudget";
 import toast from "react-hot-toast";
 import type { BudgetItem, BudgetCategory } from "@/types/budget";
@@ -107,6 +107,9 @@ export default function BudgetPage() {
 
   // Use custom hooks for budget functionality
   const budget = useBudget();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
   
 
   // State for selected category and item
@@ -373,17 +376,11 @@ export default function BudgetPage() {
     localStorage.setItem('selectedBudgetCategoryId', category.id!);
   }, []);
 
-  const weddingBannerData = useWeddingBanner(router);
 
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-linen">
-        <WeddingBanner
-          daysLeft={null}
-          userName={null}
-          isLoading={true}
-          onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-        />
+        <WeddingBanner />
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner size="lg" />
         </div>
@@ -398,12 +395,7 @@ export default function BudgetPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={profileLoading}
-        onSetWeddingDate={weddingBannerData.handleSetWeddingDate}
-      />
+      <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
 

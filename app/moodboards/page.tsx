@@ -6,12 +6,12 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
 import WeddingBanner from "../../components/WeddingBanner";
-import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
+import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import { useMoodBoardStorage } from "../../hooks/useMoodBoardStorage";
 import VibePill from "../../components/VibePill";
 import { useCredits } from "../../contexts/CreditContext";
@@ -53,11 +53,13 @@ export default function MoodBoardsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { daysLeft, userName, isLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
   const { credits, refreshCredits } = useCredits();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
   
   // User plan (for now, default to free - you can integrate with your billing system)
   const userPlan = PLAN_LIMITS.free;
@@ -717,12 +719,7 @@ export default function MoodBoardsPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      <WeddingBanner 
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={isLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full gap-4 lg:flex-row flex-col">

@@ -632,12 +632,7 @@ export default function FilesPage() {
     return (
       <DragDropProvider>
         <div className="flex flex-col h-full bg-linen">
-          <WeddingBanner 
-            daysLeft={daysLeft}
-            userName={userName}
-            isLoading={profileLoading}
-            onSetWeddingDate={handleSetWeddingDate}
-          />
+          <WeddingBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">
@@ -682,12 +677,7 @@ export default function FilesPage() {
   return (
     <DragDropProvider>
       <div className="flex flex-col h-full bg-linen">
-        <WeddingBanner 
-          daysLeft={daysLeft}
-          userName={userName}
-          isLoading={profileLoading}
-          onSetWeddingDate={handleSetWeddingDate}
-        />
+        <WeddingBanner />
 
         <div className="app-content-container flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">

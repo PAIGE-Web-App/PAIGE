@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useCustomToast } from '@/hooks/useCustomToast';
 
@@ -58,7 +57,6 @@ export default function VendorSearchPage() {
   // Pagination
   const [itemsPerPage] = useState(10);
 
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
   // Update search params when they change
   useEffect(() => {
@@ -194,12 +192,7 @@ export default function VendorSearchPage() {
 
   return (
     <div className="flex flex-col h-screen bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="pb-2">

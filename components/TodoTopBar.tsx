@@ -28,6 +28,7 @@ interface TodoTopBarProps {
   onSyncCategories: () => void;
   mobileViewMode?: 'lists' | 'items';
   onMobileBackToLists?: () => void;
+  hasTodoLists: boolean;
 }
 
 const TodoTopBar: React.FC<TodoTopBarProps> = ({
@@ -53,6 +54,7 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
   onSyncCategories,
   mobileViewMode,
   onMobileBackToLists,
+  hasTodoLists,
 }) => {
   const [showDropdown, setShowDropdown] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -356,8 +358,8 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
               <CalendarIcon size={18} stroke={viewMode === 'calendar' ? '#A85C36' : '#364257'} />
             </button>
           </div>
-          {/* Only show the New To-do button if not viewing Completed To-Do Items */}
-          {!showCompletedItems && (
+          {/* Only show the New To-do button if not viewing Completed To-Do Items and there are todo lists */}
+          {!showCompletedItems && hasTodoLists && (
             <button className="btn-primary ml-2" onClick={handleOpenAddTodo}>
               + New To-do Item
             </button>

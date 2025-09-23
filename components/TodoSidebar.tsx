@@ -216,7 +216,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
                   className="w-24 h-24 mb-4 opacity-60"
                 />
                 <p className="text-sm text-[#7A7A7A] text-center">
-                  No To-do lists yet. Create a New List above!
+                  No To-do lists yet. Create a New List to get started!
                 </p>
               </div>
             ) : (

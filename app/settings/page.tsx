@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import WeddingBanner from "../../components/WeddingBanner";
-import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 
 // Import our new components
@@ -48,6 +48,9 @@ export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
 
   const getInitialTab = () => {
     const tabFromUrl = searchParams?.get('tab');
@@ -170,7 +173,6 @@ export default function ProfilePage() {
   };
 
   // Wedding banner logic
-  const { daysLeft, isLoading: bannerLoading } = useWeddingBanner(router, weddingDate);
 
   // Create a wrapper for the wedding banner's onSetWeddingDate prop
   const handleBannerSetWeddingDate = () => {
@@ -187,12 +189,7 @@ export default function ProfilePage() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <WeddingBanner
-              daysLeft={daysLeft}
-              userName={user?.displayName || user?.email || ""}
-              isLoading={bannerLoading}
-              onSetWeddingDate={handleBannerSetWeddingDate}
-            />
+            <WeddingBanner localWeddingDate={weddingDate} />
           </motion.div>
         )}
       </AnimatePresence>

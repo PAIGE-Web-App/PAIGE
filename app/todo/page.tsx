@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 
 // Firebase imports
 import { useAuth } from '@/hooks/useAuth';
+import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 
 // UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
@@ -69,7 +70,6 @@ const GoogleCalendarSync = dynamic(() => import('../../components/GoogleCalendar
 
 // Custom hooks
 import { useUserProfileData } from "../../hooks/useUserProfileData";
-import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import { useTodoLists } from "../../hooks/useTodoLists";
 import { useTodoItems } from "../../hooks/useTodoItems";
 import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
@@ -89,6 +89,9 @@ export default function TodoPage() {
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
 
   // Use custom hooks for todo functionality
   const todoLists = useTodoLists();
@@ -195,7 +198,6 @@ export default function TodoPage() {
   // Only show content when profile loading is complete
   const isLoading = profileLoading || loading || todoLists.todoLists === undefined;
 
-  const { handleSetWeddingDate } = useWeddingBanner(router);
 
   // Sync & Clean Up Categories handler
   const onSyncCategories = async () => {
@@ -228,6 +230,19 @@ export default function TodoPage() {
   };
 
   const [showNewListModal, setShowNewListModal] = React.useState(false);
+
+  // Listen for custom event from empty state button
+  React.useEffect(() => {
+    const handleOpenNewListModal = () => {
+      setShowNewListModal(true);
+    };
+
+    window.addEventListener('openNewListModal', handleOpenNewListModal);
+    
+    return () => {
+      window.removeEventListener('openNewListModal', handleOpenNewListModal);
+    };
+  }, []);
 
   // Custom onSubmit handler for list creation
   const handleListCreation = async (listData: { name: string; tasks: any[] }) => {
@@ -319,12 +334,7 @@ export default function TodoPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-linen">
-        <WeddingBanner
-          daysLeft={null}
-          userName={null}
-          isLoading={true}
-          onSetWeddingDate={handleSetWeddingDate}
-        />
+        <WeddingBanner />
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner size="lg" />
         </div>
@@ -347,12 +357,7 @@ export default function TodoPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={profileLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full gap-4 lg:flex-row flex-col">
@@ -418,6 +423,7 @@ export default function TodoPage() {
                   onSyncCategories={onSyncCategories}
                   mobileViewMode={mobileViewMode}
                   onMobileBackToLists={handleMobileBackToLists}
+                  hasTodoLists={todoLists.todoLists.length > 0}
             />
 
                 <AnimatePresence>

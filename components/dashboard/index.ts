@@ -1,5 +1,8 @@
 export { default as DashboardWelcome } from './DashboardWelcome';
 export { default as QuickGuide } from './QuickGuide';
+export { default as QuickGuideCards } from './QuickGuideCards';
+export { default as QuickGuideCard } from './QuickGuideCard';
+export { default as WhyImportantModal } from './WhyImportantModal';
 export { default as QuickActions } from './QuickActions';
 export { default as ProgressOverview } from './ProgressOverview';
 export { default as ProgressAccordion } from './ProgressAccordion';

@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
-import { useWeddingBanner } from "../hooks/useWeddingBanner";
 import WeddingBanner from "../components/WeddingBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useCustomToast } from "../hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "../hooks/useGlobalCompletionToasts";
+import { useQuickStartCompletion } from "../hooks/useQuickStartCompletion";
 import toast from "react-hot-toast";
 import { doc, getDoc, collection, getDocs, query, limit } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -17,8 +17,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import CreditsExplanationModal from "../components/CreditsExplanationModal";
 import { 
-  DashboardWelcome, 
   QuickGuide, 
+  QuickGuideCards,
   QuickActions, 
   ProgressOverview, 
   ProgressAccordion 
@@ -26,8 +26,11 @@ import {
 
 
 export default function Dashboard() {
-  const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
+  const { user, userName, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
   const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [userData, setUserData] = useState<any>(null);
@@ -42,8 +45,6 @@ export default function Dashboard() {
   const [creditsCompleted, setCreditsCompleted] = useState(false);
   const [aiCompleted, setAiCompleted] = useState(false);
 
-  // Use centralized WeddingBanner hook
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
   
@@ -468,6 +469,7 @@ export default function Dashboard() {
     }
   }, [userData, progressData]);
 
+
   // Listen for completion events from other pages
   useEffect(() => {
     const handleCompletion = (event: CustomEvent) => {
@@ -545,41 +547,17 @@ export default function Dashboard() {
         }
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
-          <WeddingBanner
-            daysLeft={daysLeft}
-            userName={userName}
-            isLoading={bannerLoading}
-            onSetWeddingDate={handleSetWeddingDate}
-          />
+          <WeddingBanner />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 pb-16 mb-16" style={{ width: '100%', maxWidth: '1152px' }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ width: '100%', maxWidth: '1152px' }}>
         <div className="space-y-8">
           
-          {/* Welcome Section */}
-          <DashboardWelcome userName={userName || 'there'} />
-
-          {/* Quick Guide Section */}
-          <QuickGuide />
-
-          {/* Quick Actions */}
-          <QuickActions />
-
-          {/* Progress Overview */}
-          <ProgressOverview 
-            completedCount={completedCount}
-            totalCount={progressItems.length}
-            progressPercentage={progressPercentage}
+          {/* Quick Guide Cards Section */}
+          <QuickGuideCards 
+            userData={userData}
+            progressData={progressData}
           />
 
-          {/* Progress Items Accordion */}
-          <ProgressAccordion
-            progressItems={progressItems}
-            expandedItems={expandedItems}
-            jiggleFields={jiggleFields}
-            onToggleAccordion={toggleAccordion}
-            onProgressItemClick={handleProgressItemClick}
-            progressLoading={progressLoading}
-          />
 
               </div>
             </div>

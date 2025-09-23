@@ -26,7 +26,6 @@ import {
   Map 
 } from 'lucide-react';
 import WeddingBanner from '@/components/WeddingBanner';
-import { useWeddingBanner } from '@/hooks/useWeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import SelectField from '@/components/SelectField';
 import FormField from '@/components/FormField';
@@ -70,7 +69,6 @@ export default function VendorCatalogPage() {
   }, [weddingLocation, profileLoading]);
   
   const router = useRouter();
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
 
   // Handler for category card click
   const handleCategoryClick = (catValue: string) => {
@@ -107,12 +105,7 @@ export default function VendorCatalogPage() {
           }
         }
       `}</style>
-      <WeddingBanner
-        daysLeft={daysLeft}
-        userName={userName}
-        isLoading={bannerLoading}
-        onSetWeddingDate={handleSetWeddingDate}
-      />
+      <WeddingBanner />
       <div className="max-w-6xl mx-auto w-full">
         <div className="app-content-container flex flex-col gap-6 py-8 mobile-catalog-content">
           <div className="mt-12 mb-12">

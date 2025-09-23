@@ -193,7 +193,19 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                 <p className="text-sm text-gray-600 mb-4 leading-relaxed">
                   Wedding planning involves hundreds of details and deadlines. Paige helps you stay organized with smart to-do lists that adapt to your timeline and automatically suggest the right items at the right time.
                 </p>
-                <p className="text-sm text-gray-500 font-medium">Create your first to-do item to get started!</p>
+                <p className="text-sm text-gray-500 font-medium mb-4">Create your first to-do list to get started!</p>
+                <div className="flex justify-center">
+                  <button 
+                    onClick={() => {
+                      // Trigger the new list modal - this will be handled by the parent component
+                      const event = new CustomEvent('openNewListModal');
+                      window.dispatchEvent(event);
+                    }}
+                    className="btn-primary"
+                  >
+                    Create your First To-do List
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

@@ -11,6 +11,7 @@ import { getCategoryStyle } from "../../utils/categoryStyle";
 import { db, getUserCollectionRef } from "../../lib/firebase";
 import { useCustomToast } from "@/hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "@/hooks/useGlobalCompletionToasts";
+import { useQuickStartCompletion } from "@/hooks/useQuickStartCompletion";
 
 // Lazy load heavy components for better initial bundle size
 const MessageArea = lazy(() => import("../../components/MessageArea"));
@@ -39,7 +40,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import Banner from "../../components/Banner";
 import WeddingBanner from "../../components/WeddingBanner";
-import { useWeddingBanner } from "../../hooks/useWeddingBanner";
 import GmailReauthBanner from "../../components/GmailReauthBanner";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import type { TodoItem } from '../../types/todo';
@@ -135,8 +135,11 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
 };
 
 export default function MessagesPage() {
-  const { user, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
+  const { user, userName, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
   const router = useRouter();
+  
+  // Track Quick Start Guide completion
+  useQuickStartCompletion();
   
   // Core state - frequently updated
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -178,7 +181,6 @@ export default function MessagesPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Use centralized WeddingBanner hook
-  const { daysLeft, userName, isLoading: bannerLoading, handleSetWeddingDate } = useWeddingBanner(router);
   
   // Use notifications hook for unread message counts
   const { contactUnreadCounts } = useNotifications();
@@ -883,12 +885,7 @@ export default function MessagesPage() {
         {/* Only render dashboard content if not checking onboarding */}
         {!onboardingCheckLoading && (
         <>
-          <WeddingBanner
-            daysLeft={daysLeft}
-            userName={userName}
-            isLoading={bannerLoading}
-            onSetWeddingDate={handleSetWeddingDate}
-          />
+        <WeddingBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
             {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
