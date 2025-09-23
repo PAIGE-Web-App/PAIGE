@@ -24,8 +24,8 @@ const DEFAULT_APP_SETTINGS = {
     maxVendorsPerPage: 20,
     maxSeatingChartGuests: 500,
     maxBudgetAmount: 1000000,
-    sessionTimeoutMinutes: 30,
-    idleWarningMinutes: 5,
+    sessionTimeoutMinutes: 480, // 8 hours
+    idleWarningMinutes: 10, // 10 minutes before logout
     maxFileSize: 10 * 1024 * 1024, // 10MB
     supportedImageTypes: ['image/jpeg', 'image/png', 'image/webp'],
   },

@@ -41,6 +41,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
           strategy="lazyOnload"
         />
+        {/* Prevent white screen flash */}
+        <style jsx global>{`
+          html, body {
+            background-color: #F3F2F0 !important;
+          }
+          #__next {
+            min-height: 100vh;
+            background-color: #F3F2F0;
+          }
+        `}</style>
       </head>
       <body className="min-h-screen flex flex-col font-sans text-base text-[#364257] bg-linen">
         <AuthProvider>

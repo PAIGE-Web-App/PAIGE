@@ -64,6 +64,16 @@ const nextConfig = {
           },
         ],
       },
+      // Authenticated pages - no cache to prevent white screen issues
+      {
+        source: '/(dashboard|budget|todo|moodboards|messages|files|vendors|seating-charts|settings)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
       // Default for other pages - short cache
       {
         source: '/(.*)',

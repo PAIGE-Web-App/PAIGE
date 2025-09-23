@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
+import ClientOnly from '../components/ClientOnly';
 import WeddingBanner from "../components/WeddingBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useCustomToast } from "../hooks/useCustomToast";
@@ -514,7 +515,14 @@ export default function Dashboard() {
   const progressPercentage = progressItems.length > 0 ? Math.round((completedCount / progressItems.length) * 100) : 0;
 
   return (
-    <>
+    <ClientOnly fallback={
+      <div className="flex items-center justify-center min-h-screen bg-linen">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-[#6B7280]">Loading your dashboard...</p>
+        </div>
+      </div>
+    }>
       <style jsx global>{`
         html, body {
           overflow-x: hidden;
@@ -580,6 +588,6 @@ export default function Dashboard() {
         showCompletionToast('credits');
       }}
     />
-    </>
+    </ClientOnly>
   );
 }
