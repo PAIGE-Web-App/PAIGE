@@ -18,7 +18,7 @@ import {
   Timestamp,
   limit,
 } from 'firebase/firestore';
-import { getUserCollectionRef } from '@/lib/firebase';
+import { getUserCollectionRef, getPinnedListIds, setPinnedListIds } from '@/lib/firebase';
 import { saveCategoryIfNew } from '@/lib/firebaseCategories';
 import type { TodoList } from '@/types/todo';
 
@@ -261,6 +261,16 @@ export function useTodoLists() {
       setNewListName('');
       setShowNewListInput(false);
 
+      // Pin the new list
+      try {
+        const currentPinnedIds = await getPinnedListIds(user.uid);
+        if (!currentPinnedIds.includes(newListRef.id)) {
+          await setPinnedListIds(user.uid, [...currentPinnedIds, newListRef.id]);
+        }
+      } catch (error) {
+        console.warn('Failed to pin new list:', error);
+      }
+
       // Select the new list
       const newList = {
         id: newListRef.id,
@@ -271,6 +281,11 @@ export function useTodoLists() {
         orderIndex: maxOrderIndex + 1
       };
       setSelectedList(newList);
+      
+      // Dispatch custom event to notify other components that a new list was created and selected
+      window.dispatchEvent(new CustomEvent('selectTodoList', { 
+        detail: { listId: newListRef.id } 
+      }));
     } catch (error: any) {
       console.error('Error adding list:', error);
       showErrorToast(`Failed to create list: ${error.message}`);
