@@ -1,7 +1,7 @@
 // app/messages/page.tsx
 "use client";
 import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, addDoc, writeBatch, Timestamp, collection, query, where, orderBy, onSnapshot, limit, getDocs } from "firebase/firestore";
 import Fuse from "fuse.js";
 import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -21,17 +21,6 @@ const OnboardingModal = lazy(() => import("../../components/OnboardingModal"));
 const RightDashboardPanel = lazy(() => import("../../components/RightDashboardPanel"));
 const NotEnoughCreditsModal = lazy(() => import("../../components/NotEnoughCreditsModal"));
 const TodoTemplatesModal = lazy(() => import("../../components/TodoTemplatesModal"));
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  writeBatch,
-  limit,
-  getDocs,
-} from "firebase/firestore";
 import { Mail, Phone, Filter, X, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, CheckCircle, Circle, MoreHorizontal, MessageSquare, Heart, ClipboardList, Users } from "lucide-react";
 import CategoryPill from "../../components/CategoryPill";
 import SelectField from "../../components/SelectField";
@@ -1100,24 +1089,36 @@ export default function MessagesPage() {
                       };
                     });
 
-                    // Create the list via API
-                    const response = await fetch('/api/todo-lists', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        name: template.name,
-                        tasks: tasks,
-                        userId: user?.uid
-                      }),
+                    // Create the list directly in Firestore
+                    const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), {
+                      name: template.name,
+                      order: 0, // Will be updated by the todo page when it loads
+                      userId: user.uid,
+                      createdAt: new Date(),
+                      orderIndex: 0
                     });
 
-                    if (response.ok) {
-                      showSuccessToast(`Created "${template.name}" successfully!`);
-                    } else {
-                      throw new Error('Failed to create list');
+                    // Add tasks to the new list
+                    if (tasks && tasks.length > 0) {
+                      const batch = writeBatch(getUserCollectionRef('todoItems', user.uid).firestore);
+                      
+                      tasks.forEach((task, index) => {
+                        const taskRef = doc(getUserCollectionRef('todoItems', user.uid));
+                        batch.set(taskRef, {
+                          ...task,
+                          listId: newListRef.id,
+                          orderIndex: index,
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                          deadline: task.deadline ? Timestamp.fromDate(task.deadline) : null,
+                          endDate: task.endDate ? Timestamp.fromDate(task.endDate) : null
+                        });
+                      });
+                      
+                      await batch.commit();
                     }
+
+                    showSuccessToast(`Created "${template.name}" successfully!`);
                   } catch (error) {
                     console.error('Error creating template list:', error);
                     showErrorToast('Failed to create template list. Please try again.');
