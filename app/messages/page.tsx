@@ -1119,6 +1119,11 @@ export default function MessagesPage() {
                     }
 
                     showSuccessToast(`Created "${template.name}" successfully!`);
+                    
+                    // Trigger a custom event to notify the RightDashboardPanel to select the new list
+                    window.dispatchEvent(new CustomEvent('selectTodoList', { 
+                      detail: { listId: newListRef.id } 
+                    }));
                   } catch (error) {
                     console.error('Error creating template list:', error);
                     showErrorToast('Failed to create template list. Please try again.');

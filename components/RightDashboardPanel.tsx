@@ -277,6 +277,22 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     };
   }, [currentUser?.uid, selectedListId]);
 
+  // Effect to listen for custom events to select a specific list
+  useEffect(() => {
+    const handleSelectTodoList = (event: CustomEvent) => {
+      const { listId } = event.detail;
+      if (listId) {
+        setSelectedListId(listId);
+      }
+    };
+
+    window.addEventListener('selectTodoList', handleSelectTodoList as EventListener);
+
+    return () => {
+      window.removeEventListener('selectTodoList', handleSelectTodoList as EventListener);
+    };
+  }, []);
+
   // NEW: Effect to fetch all To-Do items for task counts
   useEffect(() => {
     let unsubscribeAllTodoItems: () => void;
