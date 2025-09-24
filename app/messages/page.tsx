@@ -1050,7 +1050,20 @@ export default function MessagesPage() {
                   // Close the modal first
                   setShowTemplatesModal(false);
                   
-                  // Create the todo list using the shared handleAddList function
+                  // If this is the Full Wedding Checklist with AI deadlines, redirect to todo page
+                  // This ensures the full AI deadline generation flow is used
+                  if (template.id === 'full-wedding-planning' && allowAIDeadlines) {
+                    // Store the template selection in sessionStorage for the todo page to pick up
+                    sessionStorage.setItem('pendingTemplateSelection', JSON.stringify({
+                      template,
+                      allowAIDeadlines
+                    }));
+                    // Redirect to todo page where the full AI flow will be handled
+                    router.push('/todo');
+                    return;
+                  }
+                  
+                  // For other templates or without AI deadlines, create directly
                   try {
                     // Convert template tasks to the format expected by handleAddList
                     const tasks = template.tasks.map((task: any, index: number) => {
