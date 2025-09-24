@@ -146,14 +146,6 @@ export default function MessagesPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
-  
-  // AI deadline generation state
-  const [isGeneratingDeadlines, setIsGeneratingDeadlines] = useState(false);
-  const [deadlineGenerationProgress, setDeadlineGenerationProgress] = useState<{
-    current: number;
-    total: number;
-    currentItem: string;
-  } | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +173,199 @@ export default function MessagesPage() {
   // Use the shared todo lists hook
   const todoListsHook = useTodoLists();
   const { handleAddList } = todoListsHook;
+  
+  // Import the same template selection logic from todo page
+  const [isGeneratingDeadlines, setIsGeneratingDeadlines] = useState(false);
+  const [deadlineGenerationProgress, setDeadlineGenerationProgress] = useState<{
+    current: number;
+    total: number;
+    currentItem: string;
+  } | null>(null);
+
+  // Get wedding date for AI deadline generation
+  const [weddingDate, setWeddingDate] = useState<Date | null>(null);
+  
+  useEffect(() => {
+    if (user?.uid) {
+      const fetchWeddingDate = async () => {
+        try {
+          const userProfile = await getDoc(doc(db, 'users', user.uid));
+          const weddingDateData = userProfile.data()?.weddingDate?.toDate();
+          setWeddingDate(weddingDateData || null);
+        } catch (error) {
+          console.error('Error fetching wedding date:', error);
+        }
+      };
+      fetchWeddingDate();
+    }
+  }, [user?.uid]);
+
+  // Handler for template selection - exact same as todo page
+  const handleTemplateSelection = async (template: any, allowAIDeadlines: boolean = false) => {
+    try {
+      // Convert template tasks to the format expected by handleAddList
+      const tasks = template.tasks.map((task: any, index: number) => {
+        // Handle both old string format and new object format
+        const taskName = typeof task === 'string' ? task : task.name;
+        const taskNote = typeof task === 'string' ? '' : (task.note || '');
+        
+        // Determine planning phase based on task content and position
+        let planningPhase = 'Later'; // default
+        
+        if (template.id === 'venue-selection') {
+          // Map venue selection tasks to planning phases
+          if (index < 6) planningPhase = 'Discover & Shortlist';
+          else if (index < 8) planningPhase = 'Inquire (from your Shortlist)';
+          else if (index < 14) planningPhase = 'Tour Like a Pro';
+          else planningPhase = 'Lock It In';
+        } else if (template.id === 'full-wedding-planning') {
+          // Map tasks to planning phases based on their position in the comprehensive list
+          if (index < 5) planningPhase = 'Kickoff (ASAP)';
+          else if (index < 9) planningPhase = 'Lock Venue + Date (early)';
+          else if (index < 13) planningPhase = 'Core Team (9–12 months out)';
+          else if (index < 16) planningPhase = 'Looks + Attire (8–10 months out)';
+          else if (index < 21) planningPhase = 'Food + Flow (6–8 months out)';
+          else if (index < 25) planningPhase = 'Paper + Details (4–6 months out)';
+          else if (index < 30) planningPhase = 'Send + Finalize (2–4 months out)';
+          else if (index < 35) planningPhase = 'Tighten Up (4–6 weeks out)';
+          else if (index < 40) planningPhase = 'Week Of';
+          else if (index < 43) planningPhase = 'Day Before';
+          else if (index < 47) planningPhase = 'Wedding Day';
+          else if (index < 51) planningPhase = 'After';
+          else planningPhase = 'Tiny "Don\'t-Forget" Wins';
+        } else {
+          // For other templates, use a generic planning phase
+          planningPhase = 'Planning Phase';
+        }
+
+        return {
+          _id: `temp-id-${Date.now()}-${index}`,
+          name: taskName,
+          note: taskNote,
+          category: null, // No default category for template items
+          deadline: null,
+          endDate: null,
+          planningPhase: planningPhase,
+          allowAIDeadlines: allowAIDeadlines
+        };
+      });
+
+      // If AI deadlines are enabled and user has a wedding date, generate AI deadlines
+      if (allowAIDeadlines && weddingDate && user?.uid) {
+        
+        // Declare progress interval outside try block for error handling
+        let progressInterval: NodeJS.Timeout | null = null;
+        
+        try {
+          // Start progress tracking
+          setIsGeneratingDeadlines(true);
+          setDeadlineGenerationProgress({
+            current: 0,
+            total: tasks.length,
+            currentItem: 'Initializing AI deadline generation...'
+          });
+          
+          // Simulate progress updates
+          progressInterval = setInterval(() => {
+            setDeadlineGenerationProgress(prev => {
+              if (!prev) return null;
+              const newCurrent = Math.min(prev.current + 1, prev.total - 1);
+              const messages = [
+                'Analyzing wedding timeline...',
+                'Calculating optimal deadlines...',
+                'Prioritizing critical tasks...',
+                'Generating intelligent schedules...',
+                'Finalizing deadline assignments...'
+              ];
+              return {
+                ...prev,
+                current: newCurrent,
+                currentItem: messages[Math.floor((newCurrent / prev.total) * messages.length)] || 'Processing...'
+              };
+            });
+          }, 800);
+
+          const response = await fetch('/api/generate-todo-deadlines', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              todos: tasks,
+              weddingDate: weddingDate,
+              userId: user.uid,
+              userEmail: user.email,
+              listName: template.name
+            }),
+          });
+
+          // Clear progress interval
+          if (progressInterval) clearInterval(progressInterval);
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            if (response.status === 402) {
+              // Insufficient credits
+              showInfoToast(errorData.message || 'Insufficient credits for AI deadline generation');
+              // Continue with template creation without AI deadlines
+            } else {
+              throw new Error(errorData.message || 'Failed to generate AI deadlines');
+            }
+          } else {
+            const result = await response.json();
+            
+            if (result.success && result.todos) {
+              // Use AI-generated deadlines
+              const tasksWithDeadlines = result.todos.map((todo: any) => ({
+                ...todo,
+                deadline: todo.deadline ? new Date(todo.deadline) : null,
+                endDate: todo.endDate ? new Date(todo.endDate) : null
+              }));
+              
+              // Update progress to completion
+              setDeadlineGenerationProgress({
+                current: tasks.length,
+                total: tasks.length,
+                currentItem: 'Creating todo list with AI deadlines...'
+              });
+              
+              // Create the list with AI-generated deadlines
+              await handleAddList(template.name, tasksWithDeadlines);
+              
+              // Close progress modal
+              setIsGeneratingDeadlines(false);
+              setDeadlineGenerationProgress(null);
+              
+              showSuccessToast('Todo list created with AI-powered deadlines!');
+            } else {
+              throw new Error('Invalid response from AI deadline generation');
+            }
+          }
+        } catch (aiError) {
+          console.error('AI deadline generation failed:', aiError);
+          
+          // Clear any remaining progress interval
+          if (progressInterval) clearInterval(progressInterval);
+          
+          // Close progress modal
+          setIsGeneratingDeadlines(false);
+          setDeadlineGenerationProgress(null);
+          
+          showInfoToast('AI deadline generation failed. Creating list with template deadlines.');
+          // Fall back to creating list without AI deadlines
+          await handleAddList(template.name, tasks);
+          showCompletionToast('todos');
+        }
+      } else {
+        // Create the list with template tasks (no AI deadlines)
+        await handleAddList(template.name, tasks);
+        showCompletionToast('todos');
+      }
+    } catch (error) {
+      console.error('Error creating list from template:', error);
+      showInfoToast('Failed to create list from template. Please try again.');
+    }
+  };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1058,210 +1243,8 @@ export default function MessagesPage() {
                   // Close the modal first
                   setShowTemplatesModal(false);
                   
-                  // If this is the Full Wedding Checklist with AI deadlines, handle AI generation here
-                  if (template.id === 'full-wedding-planning' && allowAIDeadlines) {
-                    // Convert template tasks to the format expected
-                    const tasks = template.tasks.map((task: any, index: number) => {
-                      const taskName = typeof task === 'string' ? task : task.name;
-                      const taskNote = typeof task === 'string' ? '' : (task.note || '');
-                      
-                      // Determine planning phase based on template
-                      let planningPhase = 'Later';
-                      if (index < 5) planningPhase = 'Kickoff (ASAP)';
-                      else if (index < 9) planningPhase = 'Lock Venue + Date (early)';
-                      else if (index < 13) planningPhase = 'Core Team (9–12 months out)';
-                      else if (index < 16) planningPhase = 'Looks + Attire (8–10 months out)';
-                      else if (index < 21) planningPhase = 'Food + Flow (6–8 months out)';
-                      else if (index < 25) planningPhase = 'Paper + Details (4–6 months out)';
-                      else if (index < 30) planningPhase = 'Send + Finalize (2–4 months out)';
-                      else if (index < 35) planningPhase = 'Tighten Up (4–6 weeks out)';
-                      else if (index < 40) planningPhase = 'Week Of';
-                      else if (index < 43) planningPhase = 'Day Before';
-                      else if (index < 47) planningPhase = 'Wedding Day';
-                      else if (index < 51) planningPhase = 'After';
-                      else planningPhase = 'Tiny "Don\'t-Forget" Wins';
-
-                      return {
-                        _id: `temp-id-${Date.now()}-${index}`,
-                        name: taskName,
-                        note: taskNote,
-                        category: null,
-                        deadline: null,
-                        endDate: null,
-                        planningPhase: planningPhase,
-                        allowAIDeadlines: allowAIDeadlines
-                      };
-                    });
-
-                    // Get wedding date from user profile
-                    const userProfile = await getDoc(doc(db, 'users', user.uid));
-                    const weddingDate = userProfile.data()?.weddingDate?.toDate();
-
-                    if (!weddingDate) {
-                      showErrorToast('Please set your wedding date in Settings to use AI deadline generation.');
-                      return;
-                    }
-
-                    // Start AI deadline generation
-                    let progressInterval: NodeJS.Timeout | null = null;
-                    
-                    try {
-                      // Start progress tracking
-                      setIsGeneratingDeadlines(true);
-                      setDeadlineGenerationProgress({
-                        current: 0,
-                        total: tasks.length,
-                        currentItem: 'Initializing AI deadline generation...'
-                      });
-                      
-                      // Simulate progress updates
-                      progressInterval = setInterval(() => {
-                        setDeadlineGenerationProgress(prev => {
-                          if (!prev) return null;
-                          const newCurrent = Math.min(prev.current + 1, prev.total - 1);
-                          const messages = [
-                            'Analyzing wedding timeline...',
-                            'Calculating optimal deadlines...',
-                            'Prioritizing critical tasks...',
-                            'Generating intelligent schedules...',
-                            'Finalizing deadline assignments...'
-                          ];
-                          return {
-                            ...prev,
-                            current: newCurrent,
-                            currentItem: messages[Math.floor((newCurrent / prev.total) * messages.length)] || 'Processing...'
-                          };
-                        });
-                      }, 800);
-
-                      const response = await fetch('/api/generate-todo-deadlines', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          todos: tasks,
-                          weddingDate: weddingDate,
-                          userId: user.uid,
-                          userEmail: user.email,
-                          listName: template.name
-                        }),
-                      });
-
-                      // Clear progress interval
-                      if (progressInterval) clearInterval(progressInterval);
-
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        if (response.status === 402) {
-                          // Insufficient credits
-                          showInfoToast(errorData.message || 'Insufficient credits for AI deadline generation');
-                          // Continue with template creation without AI deadlines
-                          await handleAddList(template.name, tasks);
-                          showSuccessToast(`Created "${template.name}" successfully!`);
-                        } else {
-                          throw new Error(errorData.message || 'Failed to generate AI deadlines');
-                        }
-                      } else {
-                        const result = await response.json();
-                        
-                        if (result.success && result.todos) {
-                          // Use AI-generated deadlines
-                          const tasksWithDeadlines = result.todos.map((todo: any) => ({
-                            ...todo,
-                            deadline: todo.deadline ? new Date(todo.deadline) : null,
-                            endDate: todo.endDate ? new Date(todo.endDate) : null
-                          }));
-                          
-                          // Update progress to completion
-                          setDeadlineGenerationProgress({
-                            current: tasks.length,
-                            total: tasks.length,
-                            currentItem: 'Creating todo list with AI deadlines...'
-                          });
-                          
-                          // Create the list with AI-generated deadlines
-                          await handleAddList(template.name, tasksWithDeadlines);
-                          
-                          // Close progress modal
-                          setIsGeneratingDeadlines(false);
-                          setDeadlineGenerationProgress(null);
-                          
-                          showSuccessToast('Todo list created with AI-powered deadlines!');
-                        } else {
-                          throw new Error('Invalid response from AI deadline generation');
-                        }
-                      }
-                    } catch (aiError) {
-                      console.error('AI deadline generation failed:', aiError);
-                      
-                      // Clear any remaining progress interval
-                      if (progressInterval) clearInterval(progressInterval);
-                      
-                      // Close progress modal
-                      setIsGeneratingDeadlines(false);
-                      setDeadlineGenerationProgress(null);
-                      
-                      showInfoToast('AI deadline generation failed. Creating list with template deadlines.');
-                      // Fall back to creating list without AI deadlines
-                      await handleAddList(template.name, tasks);
-                      showSuccessToast(`Created "${template.name}" successfully!`);
-                    }
-                    return;
-                  }
-                  
-                  // For other templates or without AI deadlines, create directly
-                  try {
-                    // Convert template tasks to the format expected by handleAddList
-                    const tasks = template.tasks.map((task: any, index: number) => {
-                      const taskName = typeof task === 'string' ? task : task.name;
-                      const taskNote = typeof task === 'string' ? '' : (task.note || '');
-                      
-                      // Determine planning phase based on template
-                      let planningPhase = 'Later';
-                      if (template.id === 'venue-selection') {
-                        if (index < 6) planningPhase = 'Discover & Shortlist';
-                        else if (index < 8) planningPhase = 'Inquire (from your Shortlist)';
-                        else if (index < 14) planningPhase = 'Tour Like a Pro';
-                        else planningPhase = 'Lock It In';
-                      } else if (template.id === 'full-wedding-planning') {
-                        if (index < 5) planningPhase = 'Kickoff (ASAP)';
-                        else if (index < 9) planningPhase = 'Lock Venue + Date (early)';
-                        else if (index < 13) planningPhase = 'Core Team (9–12 months out)';
-                        else if (index < 16) planningPhase = 'Looks + Attire (8–10 months out)';
-                        else if (index < 21) planningPhase = 'Food + Flow (6–8 months out)';
-                        else if (index < 25) planningPhase = 'Paper + Details (4–6 months out)';
-                        else if (index < 30) planningPhase = 'Send + Finalize (2–4 months out)';
-                        else if (index < 35) planningPhase = 'Tighten Up (4–6 weeks out)';
-                        else if (index < 40) planningPhase = 'Week Of';
-                        else if (index < 43) planningPhase = 'Day Before';
-                        else if (index < 47) planningPhase = 'Wedding Day';
-                        else if (index < 51) planningPhase = 'After';
-                        else planningPhase = 'Tiny "Don\'t-Forget" Wins';
-                      } else {
-                        planningPhase = 'Planning Phase';
-                      }
-
-                      return {
-                        _id: `temp-id-${Date.now()}-${index}`,
-                        name: taskName,
-                        note: taskNote,
-                        category: null,
-                        deadline: null,
-                        endDate: null,
-                        planningPhase: planningPhase,
-                        allowAIDeadlines: allowAIDeadlines
-                      };
-                    });
-
-                    // Use the shared handleAddList function
-                    await handleAddList(template.name, tasks);
-                    
-                    showSuccessToast(`Created "${template.name}" successfully!`);
-                  } catch (error) {
-                    console.error('Error creating template list:', error);
-                    showErrorToast('Failed to create template list. Please try again.');
-                  }
+                  // Use the exact same template selection logic as todo page
+                  await handleTemplateSelection(template, allowAIDeadlines);
                 }}
                 onCreateWithAI={() => {
                   // Redirect to todo page for AI creation
