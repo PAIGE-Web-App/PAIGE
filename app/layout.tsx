@@ -14,6 +14,7 @@ import VerticalNavWrapper from "../components/VerticalNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
+import HydrationErrorBoundary from '../components/HydrationErrorBoundary';
 
 // Import scheduled task manager to start automation (server-side only)
 import '@/lib/initScheduledTasks';
@@ -69,13 +70,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {!hideNav && (
                   <VerticalNavWrapper>
                     <GlobalErrorBoundary>
-                      {children}
+                      <HydrationErrorBoundary>
+                        {children}
+                      </HydrationErrorBoundary>
                     </GlobalErrorBoundary>
                   </VerticalNavWrapper>
               )}
               {hideNav && (
                 <GlobalErrorBoundary>
-                  {children}
+                  <HydrationErrorBoundary>
+                    {children}
+                  </HydrationErrorBoundary>
                 </GlobalErrorBoundary>
               )}
               </MoodBoardsProvider>

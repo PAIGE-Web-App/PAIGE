@@ -93,10 +93,10 @@ function checkAuthLoop(request: NextRequest): boolean {
     return true; // Still blocked
   }
   
-  // Check for rapid auth attempts - be more lenient
-  if (now - client.lastAttempt < 500) { // Less than 0.5 seconds between attempts
+  // Check for rapid auth attempts - be much more lenient
+  if (now - client.lastAttempt < 200) { // Less than 0.2 seconds between attempts
     client.attempts++;
-    if (client.attempts >= 10) { // 10 rapid attempts (increased from 5)
+    if (client.attempts >= 20) { // 20 rapid attempts (increased from 10)
       client.blocked = true;
       return true;
     }
@@ -198,10 +198,8 @@ export function middleware(request: NextRequest) {
   }
 
   // Get the Firebase auth token from the cookies
-  // Check both HttpOnly server cookie and client-side cookie
-  const serverToken = request.cookies.get('__session')?.value || '';
-  const clientToken = request.cookies.get('__client_session')?.value || '';
-  const token = serverToken || clientToken;
+  // Use only the HttpOnly server cookie for security
+  const token = request.cookies.get('__session')?.value || '';
 
   // Debug logging for messages page
   if (path === '/messages') {

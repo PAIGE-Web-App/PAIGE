@@ -176,7 +176,7 @@ export default function Login() {
       window.history.replaceState({}, document.title, newUrl);
       
       // Show success message and redirect based on onboarding status
-      showSuccessToast('Gmail connected successfully!');
+      showSuccessToast('Login successful!');
       
       // Check if user exists and their onboarding status, then create session
       const checkUserAndRedirect = async () => {
@@ -187,41 +187,8 @@ export default function Login() {
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             
-            // Create session cookie for the user
-            console.log('🔑 [Login] Creating session cookie for user:', userId);
-            try {
-              // Get the user's Firebase ID token
-              const currentUser = auth.currentUser;
-              if (currentUser && currentUser.uid === userId) {
-                const idToken = await currentUser.getIdToken();
-                
-                // Call session login API to create session cookie
-                const sessionRes = await fetch("/api/sessionLogin", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ idToken }),
-                  credentials: "include",
-                });
-                
-                if (sessionRes.ok) {
-                  console.log('✅ [Login] Session cookie created successfully');
-                  const sessionData = await sessionRes.json();
-                  
-                  // Set the client-side session cookie as backup
-                  if (typeof window !== 'undefined' && sessionData.sessionToken) {
-                    document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
-                  }
-                } else {
-                  console.error('❌ [Login] Failed to create session cookie');
-                  const errorText = await sessionRes.text();
-                  console.error('Session login error:', errorText);
-                }
-              } else {
-                console.log('⚠️ [Login] User not authenticated in Firebase, will need fresh login');
-              }
-            } catch (sessionError) {
-              console.error('❌ [Login] Error creating session cookie:', sessionError);
-            }
+            // Session cookie should already be created by OAuth callback
+            console.log('✅ [Login] Session cookie should already be set by OAuth callback');
             
             // Redirect based on onboarding status
             if (userData.onboarded === true) {
@@ -581,10 +548,7 @@ export default function Login() {
         // Get the session token from the response
         const sessionData = await res.json();
         
-        // Set the client-side session cookie
-        if (typeof window !== 'undefined' && sessionData.sessionToken) {
-          document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
-        }
+        // Server-side session cookie is already set by the API
         
         // Save Google account info for future detection after successful authentication
         localStorage.setItem('lastSignInMethod', 'google');

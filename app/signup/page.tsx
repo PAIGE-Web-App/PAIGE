@@ -326,10 +326,7 @@ export default function SignUp() {
         // Get the session token from the response and set client-side cookie
         const sessionData = await res.json();
         
-        if (sessionData.sessionToken) {
-          // Set the client-side session cookie
-          document.cookie = `__client_session=${sessionData.sessionToken}; Path=/; Max-Age=432000; SameSite=Lax`;
-        }
+        // Server-side session cookie is already set by the API
         
         // Check if user doc exists in Firestore
         const userDocRef = doc(db, "users", result.user.uid);

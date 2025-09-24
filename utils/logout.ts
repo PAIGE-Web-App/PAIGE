@@ -21,6 +21,10 @@ export const handleLogout = async (router?: any) => {
     localStorage.removeItem('lastGoogleName');
     localStorage.removeItem('lastGooglePicture');
     localStorage.removeItem('lastGoogleUserId');
+    localStorage.removeItem('onboardingStatus');
+    
+    // Clear sessionStorage to prevent any cache issues
+    sessionStorage.clear();
     
     // Sign out from Firebase first
     const auth = getAuth();

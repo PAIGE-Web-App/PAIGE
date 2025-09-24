@@ -45,9 +45,8 @@ export default function IdleTimeoutManager() {
   };
 
   // Use the idle timeout hook with configurable timeout
-  // Match the session duration (8 hours = 480 minutes)
-  const sessionDurationHours = parseInt(process.env.SESSION_DURATION_HOURS || '8');
-  const timeoutMinutes = sessionDurationHours * 60; // Convert hours to minutes
+  // Use the actual idle timeout setting (not session duration)
+  const timeoutMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES || '120'); // 2 hours default
   const warningMinutes = parseInt(process.env.NEXT_PUBLIC_IDLE_WARNING_MINUTES || '10'); // 10 minutes warning
   
   useIdleTimeout({

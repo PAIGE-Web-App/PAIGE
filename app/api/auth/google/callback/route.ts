@@ -157,9 +157,33 @@ export async function GET(request: Request) {
           const customToken = await admin.auth().createCustomToken(userId);
           console.log('🔑 [Google OAuth Callback] Custom token created');
           
-          // Exchange custom token for ID token (this would normally be done client-side)
-          // For now, we'll redirect with success and let the frontend handle session creation
-          console.log('📡 [Google OAuth Callback] Redirecting to login with success parameter');
+          // Create session cookie directly using the custom token
+          const sessionDurationHours = parseInt(process.env.SESSION_DURATION_HOURS || '8');
+          const expiresIn = sessionDurationHours * 60 * 60 * 1000; // Convert hours to milliseconds
+          
+          // Create session cookie from custom token
+          const sessionCookie = await admin.auth().createSessionCookie(customToken, { expiresIn });
+          console.log('🔑 [Google OAuth Callback] Session cookie created');
+          
+          // Set the session cookie in the response
+          const isProd = process.env.NODE_ENV === "production";
+          const cookieOptions = [
+            `Path=/`,
+            `HttpOnly`,
+            `Max-Age=${expiresIn / 1000}`,
+            `SameSite=${isProd ? 'Strict' : 'Lax'}`,
+            ...(isProd ? ["Secure"] : [])
+          ].filter(Boolean).join("; ");
+          
+          const cookieValue = `__session=${sessionCookie}; ${cookieOptions}`;
+          
+          // Create response with session cookie
+          const response = NextResponse.redirect(frontendRedirectUri);
+          response.headers.append("Set-Cookie", cookieValue);
+          response.headers.set('Access-Control-Allow-Credentials', 'true');
+          
+          console.log('📡 [Google OAuth Callback] Redirecting with session cookie');
+          return response;
         } else {
           console.error('❌ [Google OAuth Callback] User not found in Firebase Auth');
         }

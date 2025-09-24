@@ -144,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+
   // Always prefer Firestore value over localStorage after Firestore loads
   useEffect(() => {
     if (!loading && user) {
