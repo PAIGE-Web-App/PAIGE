@@ -191,6 +191,24 @@ const ToDoPanel = ({
     fetchPinned();
   }, [currentUser?.uid]);
 
+  // Listen for refresh pinned lists events
+  useEffect(() => {
+    const handleRefreshPinnedLists = async () => {
+      if (currentUser?.uid) {
+        console.log('🔄 Refreshing pinned lists in ToDoPanel');
+        const { getPinnedListIds } = await import('../lib/firebase');
+        const ids = await getPinnedListIds(currentUser.uid);
+        setPinnedListIdsState(ids);
+        console.log('📌 Updated pinned lists:', ids);
+      }
+    };
+
+    window.addEventListener('refreshPinnedLists', handleRefreshPinnedLists);
+    return () => {
+      window.removeEventListener('refreshPinnedLists', handleRefreshPinnedLists);
+    };
+  }, [currentUser?.uid]);
+
   // Click outside to close dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
