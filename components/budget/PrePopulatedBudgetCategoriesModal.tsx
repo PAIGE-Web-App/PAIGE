@@ -211,20 +211,20 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -50, opacity: 0 }}
-            className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full h-[80vh] flex flex-col relative"
+            className="bg-white rounded-[5px] shadow-xl max-w-4xl w-full h-[80vh] md:h-[85vh] flex flex-col relative mx-2 md:mx-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Fixed Header */}
-            <div className="flex items-center justify-between p-6 border-b border-[#E0DBD7] flex-shrink-0">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#E0DBD7] flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="bg-[#A85C36] bg-opacity-10 rounded-full p-2">
                   <DollarSign className="w-6 h-6 text-[#A85C36]" />
                 </div>
-                <h5 className="h5 text-left">Quick Start with Common Categories</h5>
+                <h5 className="h5 text-left text-lg md:text-xl">Quick Start with Common Categories</h5>
               </div>
               <button
                 onClick={onClose}
-                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full ml-auto"
                 title="Close"
               >
                 <X size={20} />
@@ -232,11 +232,11 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <div className="mb-4">
                 {/* Purple AI Banner */}
-                <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between">
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
                     <div className="flex-1">
                       <p className="text-sm text-purple-800 font-medium mb-1">
                         Want a hyper-personalized budget?
@@ -252,7 +252,7 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                           onClose();
                         }
                       }}
-                      className="btn-gradient-purple flex items-center gap-2 ml-4 flex-shrink-0"
+                      className="btn-gradient-purple flex items-center gap-2 w-full md:w-auto md:ml-4 flex-shrink-0 justify-center md:justify-start"
                     >
                       <Sparkles className="w-4 h-4" />
                       Generate with Paige (5 Credits)
@@ -291,11 +291,11 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
                 {PRE_POPULATED_CATEGORIES.map((category) => (
                   <div
                     key={category.name}
-                    className={`p-4 rounded-lg border-2 transition-colors duration-200 text-left relative cursor-pointer ${
+                    className={`p-3 md:p-4 rounded-lg border-2 transition-colors duration-200 text-left relative cursor-pointer ${
                       selectedCategories.has(category.name)
                         ? 'bg-blue-50 border-blue-300 shadow-md'
                         : 'border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
@@ -330,8 +330,8 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
             </div>
 
             {/* Fixed Footer */}
-            <div className="border-t border-[#E0DBD7] p-6 flex-shrink-0">
-              <div className="flex items-center justify-between">
+            <div className="border-t border-[#E0DBD7] p-4 md:p-6 flex-shrink-0">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
                 <div className="text-left">
                   {totalSelected > 0 ? (
                     <p className="text-base font-semibold text-gray-800">
@@ -347,11 +347,11 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                   ) : null}
                 </div>
                 
-                <div className="flex gap-3 ml-auto">
+                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                   <button
                     onClick={handleAddSelected}
                     disabled={totalSelected === 0}
-                    className={`flex items-center justify-center gap-2 ${
+                    className={`flex items-center justify-center gap-2 w-full md:w-auto ${
                       totalSelected > 0 
                         ? 'btn-primary' 
                         : 'btn-primary opacity-50 cursor-not-allowed'

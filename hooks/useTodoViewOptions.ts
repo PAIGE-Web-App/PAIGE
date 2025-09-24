@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Fuse from 'fuse.js';
 import type { TodoItem } from '@/types/todo';
+import { groupTasks } from '@/utils/taskGrouping';
 
 // Helper to get the group for a given deadline
 function getTaskGroup(deadline?: Date | null): string {
@@ -119,7 +120,7 @@ export function useTodoViewOptions(
     return items;
   }, [todoItems, todoSearchQuery, selectedCategoryFilters, fuse]);
 
-  // Group tasks by deadline - optimized with pre-allocated arrays and lazy loading
+  // Group tasks using the hybrid grouping logic (supports both deadline-based and planning phase-based grouping)
   const groupedTasks = useMemo(() => {
     if (!filteredTodoItems.length) return {};
 
@@ -127,47 +128,8 @@ export function useTodoViewOptions(
     const maxItemsPerGroup = window.innerWidth < 768 ? 20 : 50;
     const limitedItems = filteredTodoItems.slice(0, maxItemsPerGroup * 9); // 9 groups max
 
-    // Pre-allocate groups for better performance
-    const groups: { [key: string]: TodoItem[] } = {
-      'Overdue': [],
-      'Today': [],
-      'Tomorrow': [],
-      'This Week': [],
-      'Next Week': [],
-      'This Month': [],
-      'Next Month': [],
-      'Later': [],
-      'No date yet': []
-    };
-
-    // Single pass grouping with sorting
-    limitedItems.forEach((item: TodoItem) => {
-      const group = getTaskGroup(item.deadline);
-      if (groups[group]) {
-        groups[group].push(item);
-      }
-    });
-
-    // Sort tasks within each group by deadline (only non-empty groups)
-    Object.keys(groups).forEach(group => {
-      if (groups[group].length > 0) {
-        groups[group].sort((a: TodoItem, b: TodoItem) => {
-          if (!a.deadline) return 1; // Move items without deadline to the end
-          if (!b.deadline) return -1;
-          return a.deadline.getTime() - b.deadline.getTime();
-        });
-      }
-    });
-
-    // Return only non-empty groups
-    const orderedGroups: { [key: string]: TodoItem[] } = {};
-    Object.keys(groups).forEach(group => {
-      if (groups[group].length > 0) {
-        orderedGroups[group] = groups[group];
-      }
-    });
-
-    return orderedGroups;
+    // Use the hybrid grouping logic from utils/taskGrouping.ts
+    return groupTasks(limitedItems);
   }, [filteredTodoItems]);
 
   // Toggle group accordion

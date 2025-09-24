@@ -77,7 +77,9 @@ export function useOptimizedTodoListeners(selectedListId?: string | null): Optim
       assignedTo: data.assignedTo || null,
       assignedBy: data.assignedBy || null,
       assignedAt: processDate(data.assignedAt),
-      notificationRead: data.notificationRead || false
+      notificationRead: data.notificationRead || false,
+      // Planning phase field
+      planningPhase: data.planningPhase || null
     };
   };
 

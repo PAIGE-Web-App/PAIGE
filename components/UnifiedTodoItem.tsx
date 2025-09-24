@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, NotepadText, UserPlus,
+  CheckCircle, Circle, MoreHorizontal, Check, Copy, Trash2, MoveRight, Calendar, Clipboard, User as UserIcon, NotepadText, UserPlus, Sparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import CategoryPill from './CategoryPill';
@@ -117,6 +117,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
     }
     return '';
   });
+  const [isRemovingEndDate, setIsRemovingEndDate] = useState(false);
 
   // Assignment state
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -403,6 +404,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         }
       }
     }
+    
     await handleUpdateDeadline(
       todoId,
       deadlineStr,
@@ -411,7 +413,9 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
   };
 
   const handleRemoveEndDate = async (todoId: string) => {
-    await handleUpdateDeadline(todoId, null, '');
+    await handleUpdateEndDate(todoId, '');
+    setIsEditingEndDate(false);
+    setEditingEndDateValue('');
   };
 
   const handleStartEditEndDate = () => {
@@ -665,13 +669,13 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
               onChange={(e) => setEditingNameValue(e.target.value)}
               onBlur={handleNameBlur}
               onKeyDown={handleNameKeyDown}
-              className="font-work text-xs font-medium text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
+              className="font-work text-sm font-normal text-[#332B42] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 w-full"
             />
           )
         ) : (
           <div className="flex items-center justify-between">
             <p
-              className={`font-work text-xs font-medium text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${isEditingName ? 'hidden' : ''}`}
+              className={`font-work text-sm font-normal text-[#332B42] ${todo.isCompleted ? 'line-through text-gray-500' : ''} ${isEditingName ? 'hidden' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!todo.isCompleted) {
@@ -743,7 +747,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
         )}
 
         {/* Show list name if provided (for All To-Do Items view) */}
-        {listName && (
+        {listName && listName !== "Template Preview" && (
           <p className="text-xs text-[#AB9C95] italic mt-0.5">From: <span className="font-medium">{listName}</span></p>
         )}
 
@@ -758,7 +762,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 onChange={handleDeadlineChange}
                 onBlur={handleDeadlineBlur}
                 onKeyDown={handleDeadlineKeyDown}
-                className="text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                className="w-48 text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                 disabled
               />
             </span>
@@ -771,7 +775,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 onChange={handleDeadlineChange}
                 onBlur={handleDeadlineBlur}
                 onKeyDown={handleDeadlineKeyDown}
-                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+                className="w-48 text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
                 style={{ 
                   position: 'relative',
                   zIndex: 1000
@@ -833,16 +837,23 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                 )}
               </>
             ) : (
-              <button
-                type="button"
-                className="text-xs text-[#A85C36] hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditingDeadline(true);
-                }}
-              >
-                + Add Deadline
-              </button>
+              todo.allowAIDeadlines ? (
+                <span className="text-xs text-purple-600 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  Will be intelligently determined by Paige
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs text-[#A85C36] hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingDeadline(true);
+                  }}
+                >
+                  + Add Deadline
+                </button>
+              )
             )}
           </div>
         )}
@@ -854,8 +865,13 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
               type="datetime-local"
               value={editingEndDateValue}
               onChange={e => setEditingEndDateValue(e.target.value)}
-              onBlur={async () => { await handleUpdateEndDate(todo.id, editingEndDateValue); setIsEditingEndDate(false); }}
-              className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
+              onBlur={async () => { 
+                if (!isRemovingEndDate) {
+                  await handleUpdateEndDate(todo.id, editingEndDateValue); 
+                  setIsEditingEndDate(false); 
+                }
+              }}
+              className="w-48 text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5 block"
               style={{ 
                 position: 'relative',
                 zIndex: 1000
@@ -865,14 +881,20 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
             />
             <div className="flex gap-2 mt-1">
               <button onClick={() => { setIsEditingEndDate(false); setEditingEndDateValue(todo.endDate ? formatDateForInputWithTime(todo.endDate) : ''); }} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
-              {(todo.deadline || todo.endDate) && (
+              {todo.endDate && (
                 <button
-                  onClick={async () => {
-                    await handleUpdateDeadline(todo.id, null, '');
+                  onMouseDown={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsRemovingEndDate(true);
+                    await handleUpdateEndDate(todo.id, '');
                     setIsEditingEndDate(false);
-                    setIsEditingDeadline(false);
+                    setEditingEndDateValue('');
+                    setIsRemovingEndDate(false);
                   }}
                   className="btn-primaryinverse text-xs px-2 py-1"
+                  type="button"
+                  style={{ zIndex: 9999, position: 'relative' }}
                 >
                   Remove
                 </button>
@@ -976,7 +998,7 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
                   </div>
                 </div>
               )
-            ) : todo.category ? (
+            ) : todo.category && listName !== "Template Preview" ? (
               todo.isCompleted ? (
                 <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
                   <button className={`text-xs font-normal text-[#364257] text-left p-0 bg-transparent border-none opacity-70 cursor-not-allowed`} disabled>

@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, CircleCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import UnifiedTodoItem from './UnifiedTodoItem';
 import { highlightText } from '@/utils/searchHighlight';
+import TodoEmptyState from './TodoEmptyState';
+import { getHybridGroupDisplayName, getGroupDescription } from '@/utils/taskGrouping';
 
 interface TodoListViewProps {
   todoItems: any[];
@@ -44,6 +46,10 @@ interface TodoListViewProps {
   // Mobile view mode props
   mobileViewMode?: 'lists' | 'items';
   onMobileBackToLists?: () => void;
+  
+  // Empty state handlers
+  onSelectTemplate?: (template: any, allowAIDeadlines?: boolean) => void;
+  onCreateWithAI?: () => void;
 }
 
 const TodoListView: React.FC<TodoListViewProps> = ({
@@ -84,6 +90,8 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   onMoveTodoItem,
   mobileViewMode = 'items',
   onMobileBackToLists,
+  onSelectTemplate,
+  onCreateWithAI,
 }) => {
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);
@@ -186,32 +194,18 @@ const TodoListView: React.FC<TodoListViewProps> = ({
             </div>
           ) :
           Object.entries(groupedTasks).length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center h-full min-h-[400px] py-8">
-              <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-6 opacity-70" />
-              <div className="max-w-md">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">Start organizing your wedding to-do items</h3>
-                <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                  Wedding planning involves hundreds of details and deadlines. Paige helps you stay organized with smart to-do lists that adapt to your timeline and automatically suggest the right items at the right time.
-                </p>
-                <p className="text-sm text-gray-500 font-medium mb-4">Create your first to-do list to get started!</p>
-                <div className="flex justify-center">
-                  <button 
-                    onClick={() => {
-                      // Trigger the new list modal - this will be handled by the parent component
-                      const event = new CustomEvent('openNewListModal');
-                      window.dispatchEvent(event);
-                    }}
-                    className="btn-primary"
-                  >
-                    Create your First To-do List
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TodoEmptyState
+              onSelectTemplate={onSelectTemplate || (() => {})}
+              onCreateWithAI={onCreateWithAI || (() => {})}
+            />
           ) : (
             Object.entries(groupedTasks).map(([group, items]) => {
               const incompleteItems = items.filter(item => !item.isCompleted);
               if (incompleteItems.length === 0) return null;
+              
+              // Get hybrid display name for the group
+              const displayName = getHybridGroupDisplayName(group, items);
+              
               return (
                 <div key={group} className="mb-6">
                   <button
@@ -222,21 +216,13 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                       className={`w-5 h-5 transition-transform ${(openGroups[group] ?? true) ? 'rotate-90' : ''}`}
                       strokeWidth={2}
                     />
-                    <span>{group}</span>
+                    <span>{displayName}</span>
                     <span className="text-xs lg:text-xs text-[10px] text-[#7A7A7A] bg-[#EBE3DD] px-2 lg:px-2.5 py-0 lg:py-0.5 rounded-full font-work">
                       {incompleteItems.length}
                     </span>
                   </button>
                   <div className="text-xs text-[#AB9C95] mb-2">
-                    {group === 'No date yet' && 'for tasks without a deadline'}
-                    {group === 'Overdue' && 'for tasks past their deadline'}
-                    {group === 'Today' && 'for tasks due today'}
-                    {group === 'Tomorrow' && 'for tasks due tomorrow'}
-                    {group === 'This Week' && 'for tasks due within the next 7 days'}
-                    {group === 'Next Week' && 'for tasks due within 8-14 days'}
-                    {group === 'This Month' && 'for tasks due within 15-30 days'}
-                    {group === 'Next Month' && 'for tasks due within 31-60 days'}
-                    {group === 'Later' && 'for tasks due beyond 60 days'}
+                    {getGroupDescription(group)}
                   </div>
                   <div
                     className={`${(openGroups[group] ?? true) ? 'block' : 'hidden'}`}

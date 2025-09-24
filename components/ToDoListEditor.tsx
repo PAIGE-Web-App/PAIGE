@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import UnifiedTodoItem from './UnifiedTodoItem';
-import { groupTasks, getGroupDescription, getDateForGroup, getTaskGroup } from '../utils/taskGrouping';
+import { groupTasks, getGroupDescription, getDateForGroup, getTaskGroup, getHybridGroupDisplayName } from '../utils/taskGrouping';
 import { TodoItem } from '../types/todo';
 import { ChevronRight } from 'lucide-react';
 
@@ -34,8 +34,8 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
       name: 'New Task', 
       note: '', 
       category: '', 
-      deadline: undefined, 
-      endDate: undefined,
+      deadline: null, 
+      endDate: null,
       justUpdated: true 
     };
     const updatedTasks = [...tasks, newTask];
@@ -197,32 +197,28 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
   return (
     <>
       <div className="space-y-4">
-        {Object.entries(groupedTasks).map(([group, items]) => (
-          <div key={group} className="mb-6">
-            <button
-              className="flex items-center w-full text-left text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
-              onClick={() => toggleGroup(group)}
-              type="button"
-            >
-              <ChevronRight
-                className={`w-5 h-5 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`}
-                strokeWidth={2}
-              />
-              <span>{group}</span>
-              <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-2.5 py-0.5 rounded-full font-work">
-                {items.length}
-              </span>
-            </button>
+        {Object.entries(groupedTasks).map(([group, items]) => {
+          // Get hybrid display name for the group
+          const displayName = getHybridGroupDisplayName(group, items);
+          
+          return (
+            <div key={group} className="mb-6">
+              <button
+                className="flex items-center w-full text-left text-lg font-playfair font-medium text-[#332B42] mb-1 gap-2"
+                onClick={() => toggleGroup(group)}
+                type="button"
+              >
+                <ChevronRight
+                  className={`w-5 h-5 transition-transform ${openGroups[group] !== false ? 'rotate-90' : ''}`}
+                  strokeWidth={2}
+                />
+                <span>{displayName}</span>
+                <span className="text-xs text-[#7A7A7A] bg-[#EBE3DD] px-2.5 py-0.5 rounded-full font-work">
+                  {items.length}
+                </span>
+              </button>
             <div className="text-xs text-[#AB9C95] mb-2">
-              {group === 'No date yet' && 'for tasks without a deadline'}
-              {group === 'Overdue' && 'for tasks past their deadline'}
-              {group === 'Today' && 'for tasks due today'}
-              {group === 'Tomorrow' && 'for tasks due tomorrow'}
-              {group === 'This Week' && 'for tasks due within the next 7 days'}
-              {group === 'Next Week' && 'for tasks due within 8-14 days'}
-              {group === 'This Month' && 'for tasks due within 15-30 days'}
-              {group === 'Next Month' && 'for tasks due within 31-60 days'}
-              {group === 'Later' && 'for tasks due beyond 60 days'}
+              {getGroupDescription(group)}
             </div>
             <div className={`${openGroups[group] !== false ? 'block' : 'hidden'}`}>
               {(items as any[]).map((item) => {
@@ -306,7 +302,8 @@ const ToDoListEditor: React.FC<ToDoListEditorProps> = ({ tasks, setTasks, custom
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <button
         type="button"

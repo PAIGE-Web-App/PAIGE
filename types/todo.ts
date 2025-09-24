@@ -21,6 +21,10 @@ export interface TodoItem {
   assignedBy?: string | null; // userId of who assigned it
   assignedAt?: Date | null; // when it was assigned
   notificationRead?: boolean; // for tracking if assignee has seen the notification
+  // Planning phase for template-based items
+  planningPhase?: string | null; // e.g., "12+ Months Out", "9–12 Months Out", etc.
+  // AI deadline setting for template-based items
+  allowAIDeadlines?: boolean; // whether AI should intelligently set deadlines
 }
 
 export interface TodoList {

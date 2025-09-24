@@ -240,7 +240,9 @@ export function useTodoLists() {
             listId: newListRef.id,
             userId: user.uid,
             createdAt: new Date(),
-            orderIndex: index
+            orderIndex: index,
+            // Ensure planningPhase is included if it exists
+            ...(processedTask.planningPhase && { planningPhase: processedTask.planningPhase })
           };
 
           if (task.deadline) {

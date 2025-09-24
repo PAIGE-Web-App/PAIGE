@@ -26,6 +26,14 @@ export const getCategoryStyle = (category: string): string => {
 // Helper to get the hex color for a category (for inline style)
 export const getCategoryHexColor = (category: string): string => {
   if (!category) return "#6b7280"; // Tailwind gray-500
+  
+  // For recommended pills, use specific teal color
+  const isRecommendedPill = category.toLowerCase().includes('recommended');
+  
+  if (isRecommendedPill) {
+    return "#A85C36"; // Accent brown color for recommended pills
+  }
+  
   let hash = 0;
   for (let i = 0; i < category.length; i++) {
     hash = category.charCodeAt(i) + ((hash << 5) - hash);

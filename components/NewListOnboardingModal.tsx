@@ -69,8 +69,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const [step, setStep] = useState(1);
   const [listName, setListName] = useState('');
   const [importListName, setImportListName] = useState('');
-  const [tasks, setTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
-  const [manualTasks, setManualTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
+  const [tasks, setTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: null as string | null, endDate: null as string | null }]);
+  const [manualTasks, setManualTasks] = useState([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: null as string | null, endDate: null as string | null }]);
   const [customCategoryValue, setCustomCategoryValue] = useState('');
   const [canSubmit, setCanSubmit] = useState(false);
   const [importedTodos, setImportedTodos] = useState<any[]>([]);
@@ -193,7 +193,7 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
   const handleStepChange = (newStep: number) => setStep(newStep);
 
   const handleAddTask = () => {
-    const newTask = { _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined, endDate: undefined };
+    const newTask = { _id: getStableId(), name: 'New Task', note: '', category: '', deadline: null, endDate: null };
     setTasks([...tasks, newTask]);
   };
   const handleRemoveTask = (idx: number) => setTasks(tasks.filter((_, i) => i !== idx));
@@ -444,8 +444,8 @@ const NewListOnboardingModal: React.FC<NewListOnboardingModalProps> = ({ isOpen,
     setStep(1);
     setListName('');
     setImportListName('');
-    setTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
-    setManualTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: undefined as string | undefined, endDate: undefined as string | undefined }]);
+    setTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: null as string | null, endDate: null as string | null }]);
+    setManualTasks([{ _id: getStableId(), name: 'New Task', note: '', category: '', deadline: null as string | null, endDate: null as string | null }]);
     setCustomCategoryValue('');
     setCanSubmit(false);
     setAiListResult(null);

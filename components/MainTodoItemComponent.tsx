@@ -365,7 +365,9 @@ const MainTodoItemComponent: React.FC<MainTodoItemComponentProps> = ({
   };
 
   const handleRemoveEndDate = async (todoId: string) => {
-    await handleUpdateDeadline(todoId, null, '');
+    await handleUpdateEndDate(todoId, '');
+    setIsEditingEndDate(false);
+    setEditingEndDateValue('');
   };
 
   const handleStartEditEndDate = () => {

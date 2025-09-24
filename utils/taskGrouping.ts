@@ -21,52 +21,163 @@ export function getTaskGroup(deadline?: Date | null): string {
   return 'Later';
 }
 
-// Group tasks by deadline
+// Group tasks by deadline with hybrid display support
 export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
   const groups: { [key: string]: TodoItem[] } = {};
   
-  tasks.forEach((item) => {
-    const group = getTaskGroup(item.deadline);
-    if (!groups[group]) groups[group] = [];
-    groups[group].push(item);
-  });
+  // Check if this is a template-based list (majority of items have planning phases and no deadlines)
+  const itemsWithPlanningPhases = tasks.filter(item => item.planningPhase && item.planningPhase !== 'Planning Phase');
+  const itemsWithoutDeadlines = tasks.filter(item => !item.deadline);
+  const isTemplateList = tasks.length > 0 && 
+    itemsWithPlanningPhases.length > 0 && // Has some planning phases
+    itemsWithPlanningPhases.length >= tasks.length * 0.7; // At least 70% have planning phases
 
-  // Sort tasks within each group by deadline
-  Object.keys(groups).forEach(group => {
-    groups[group].sort((a, b) => {
-      if (!a.deadline) return 1; // Move items without deadline to the end
-      if (!b.deadline) return -1;
-      // Compare only the date part
-      const aDate = a.deadline ? new Date(a.deadline.getFullYear(), a.deadline.getMonth(), a.deadline.getDate()) : null;
-      const bDate = b.deadline ? new Date(b.deadline.getFullYear(), b.deadline.getMonth(), b.deadline.getDate()) : null;
-      if (!aDate) return 1;
-      if (!bDate) return -1;
-      return aDate.getTime() - bDate.getTime();
+
+  if (isTemplateList) {
+    // Hybrid grouping: items with deadlines go to time-based groups, items with planning phases go to planning phase groups
+    tasks.forEach((item) => {
+      if (item.deadline) {
+        // Item has a deadline - use time-based grouping
+        const group = getTaskGroup(item.deadline);
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(item);
+      } else if (item.planningPhase && item.planningPhase !== 'Planning Phase') {
+        // Item has a planning phase - use planning phase grouping
+        const group = item.planningPhase;
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(item);
+      } else {
+        // Fallback to "No date yet" or "Planning Phase"
+        const group = item.planningPhase || 'No date yet';
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(item);
+      }
     });
-  });
 
-  // Define the order of groups
-  const groupOrder = [
-    'Overdue',
-    'Today',
-    'Tomorrow',
-    'This Week',
-    'Next Week',
-    'This Month',
-    'Next Month',
-    'Later',
-    'No date yet'
-  ];
+    // Define the order of groups (time-based first, then planning phases)
+    const timeBasedOrder = [
+      'Overdue', 'Today', 'Tomorrow', 'This Week', 'Next Week', 'This Month', 'Next Month', 'Later', 'No date yet'
+    ];
+            const planningPhaseOrder = [
+              // Venue Selection phases (should come first as prerequisite)
+              'Discover & Shortlist',
+              'Inquire (from your Shortlist)',
+              'Tour Like a Pro',
+              'Lock It In',
+              // Full Wedding Checklist phases
+              'Kickoff (ASAP)',
+              'Lock Venue + Date (early)',
+              'Core Team (9–12 months out)',
+              'Looks + Attire (8–10 months out)',
+              'Food + Flow (6–8 months out)',
+              'Paper + Details (4–6 months out)',
+              'Send + Finalize (2–4 months out)',
+              'Tighten Up (4–6 weeks out)',
+              'Week Of',
+              'Day Before',
+              'Wedding Day',
+              'After',
+              'Tiny "Don\'t-Forget" Wins',
+              'Planning Phase'
+            ];
 
-  // Create a new object with ordered groups
-  const orderedGroups: { [key: string]: TodoItem[] } = {};
-  groupOrder.forEach(group => {
-    if (groups[group]) {
-      orderedGroups[group] = groups[group];
-    }
-  });
+    // Sort tasks within each group by deadline (for time-based groups) or by original order (for planning phase groups)
+    Object.keys(groups).forEach(group => {
+      const isTimeBasedGroup = timeBasedOrder.includes(group);
+      
+      if (isTimeBasedGroup) {
+        // Sort time-based groups by deadline
+        groups[group].sort((a, b) => {
+          if (!a.deadline) return 1; // Move items without deadline to the end
+          if (!b.deadline) return -1;
+          // Compare only the date part
+          const aDate = a.deadline ? new Date(a.deadline.getFullYear(), a.deadline.getMonth(), a.deadline.getDate()) : null;
+          const bDate = b.deadline ? new Date(b.deadline.getFullYear(), b.deadline.getMonth(), b.deadline.getDate()) : null;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate.getTime() - bDate.getTime();
+        });
+      }
+      // For planning phase groups, maintain original order (no sorting needed)
+    });
 
-  return orderedGroups;
+    // Create a new object with ordered groups
+    const orderedGroups: { [key: string]: TodoItem[] } = {};
+    
+    // Add time-based groups first
+    timeBasedOrder.forEach(group => {
+      if (groups[group]) {
+        orderedGroups[group] = groups[group];
+      }
+    });
+    
+    // Add planning phase groups
+    planningPhaseOrder.forEach(group => {
+      if (groups[group]) {
+        orderedGroups[group] = groups[group];
+      }
+    });
+
+    return orderedGroups;
+  } else {
+    // Use regular deadline-based grouping for non-template lists
+    tasks.forEach((item) => {
+      const group = getTaskGroup(item.deadline);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(item);
+    });
+
+    // Sort tasks within each group by deadline
+    Object.keys(groups).forEach(group => {
+      groups[group].sort((a, b) => {
+        if (!a.deadline) return 1; // Move items without deadline to the end
+        if (!b.deadline) return -1;
+        // Compare only the date part
+        const aDate = a.deadline ? new Date(a.deadline.getFullYear(), a.deadline.getMonth(), a.deadline.getDate()) : null;
+        const bDate = b.deadline ? new Date(b.deadline.getFullYear(), b.deadline.getMonth(), b.deadline.getDate()) : null;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+        return aDate.getTime() - bDate.getTime();
+      });
+    });
+
+    // Define the order of groups
+    const groupOrder = [
+      'Overdue',
+      'Today',
+      'Tomorrow',
+      'This Week',
+      'Next Week',
+      'This Month',
+      'Next Month',
+      'Later',
+      'No date yet'
+    ];
+
+    // Create a new object with ordered groups
+    const orderedGroups: { [key: string]: TodoItem[] } = {};
+    groupOrder.forEach(group => {
+      if (groups[group]) {
+        orderedGroups[group] = groups[group];
+      }
+    });
+
+    return orderedGroups;
+  }
+}
+
+// Get hybrid group display name (time-based + planning phase context)
+export function getHybridGroupDisplayName(group: string, items: TodoItem[]): string {
+  // Only add planning phase context for planning phase groups, not time-based groups
+  const isTimeBasedGroup = ['Overdue', 'Today', 'Tomorrow', 'This Week', 'Next Week', 'This Month', 'Next Month', 'Later', 'No date yet'].includes(group);
+  
+  if (isTimeBasedGroup) {
+    // For time-based groups, just return the group name without planning phase context
+    return group;
+  }
+  
+  // For planning phase groups, just return the group name (no need to add planning phase context since the group name IS the planning phase)
+  return group;
 }
 
 // Get group description
@@ -90,6 +201,44 @@ export function getGroupDescription(group: string): string {
       return 'for tasks due within 31-60 days';
     case 'Later':
       return 'for tasks due beyond 60 days';
+    // Venue Selection phase descriptions
+    case 'Discover & Shortlist':
+      return 'for venue research and shortlisting';
+    case 'Inquire (from your Shortlist)':
+      return 'for reaching out to shortlisted venues';
+    case 'Tour Like a Pro':
+      return 'for venue tours and evaluations';
+    case 'Lock It In':
+      return 'for final venue selection and booking';
+            // Planning phase descriptions
+            case 'Kickoff (ASAP)':
+              return 'for initial planning and foundation setting';
+            case 'Lock Venue + Date (early)':
+              return 'for venue selection and date confirmation';
+            case 'Core Team (9–12 months out)':
+              return 'for booking key vendors and building your team';
+            case 'Looks + Attire (8–10 months out)':
+              return 'for wedding party and attire planning';
+            case 'Food + Flow (6–8 months out)':
+              return 'for catering, rentals, and timeline planning';
+            case 'Paper + Details (4–6 months out)':
+              return 'for stationery and final vendor bookings';
+            case 'Send + Finalize (2–4 months out)':
+              return 'for invitations and final confirmations';
+            case 'Tighten Up (4–6 weeks out)':
+              return 'for final preparations and coordination';
+            case 'Week Of':
+              return 'for last-minute details and organization';
+            case 'Day Before':
+              return 'for rehearsal and final preparations';
+            case 'Wedding Day':
+              return 'for your special day execution';
+            case 'After':
+              return 'for post-wedding wrap-up and thank-yous';
+            case 'Tiny "Don\'t-Forget" Wins':
+              return 'for often-overlooked important details';
+    case 'Planning Phase':
+      return 'for general planning tasks';
     default:
       return '';
   }

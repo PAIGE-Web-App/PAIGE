@@ -141,11 +141,14 @@ export function useTodoItems(selectedList: TodoList | null) {
           assignedTo: data.assignedTo || null,
           assignedBy: data.assignedBy || null,
           assignedAt: processDate(data.assignedAt),
-          notificationRead: data.notificationRead || false
+          notificationRead: data.notificationRead || false,
+          // Planning phase field
+          planningPhase: data.planningPhase || null
         };
       });
       
       setAllTodoItems(items);
+      
     }, (error) => {
       console.error('Error fetching todo items:', error);
       setAllTodoItems([]); // Set empty array on error

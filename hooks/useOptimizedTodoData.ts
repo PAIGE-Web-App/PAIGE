@@ -64,7 +64,9 @@ export function useOptimizedTodoData(selectedListId?: string | null): OptimizedT
     assignedTo: data.assignedTo || null,
     assignedBy: data.assignedBy || null,
     assignedAt: processDate(data.assignedAt),
-    notificationRead: data.notificationRead || false
+    notificationRead: data.notificationRead || false,
+    // Planning phase field
+    planningPhase: data.planningPhase || null
   });
 
   // Fetch todo lists with caching
