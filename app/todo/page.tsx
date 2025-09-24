@@ -264,22 +264,6 @@ export default function TodoPage() {
     };
   }, []);
 
-  // Effect to check for pending template selections from other pages
-  React.useEffect(() => {
-    const pendingTemplateSelection = sessionStorage.getItem('pendingTemplateSelection');
-    if (pendingTemplateSelection) {
-      try {
-        const { template, allowAIDeadlines } = JSON.parse(pendingTemplateSelection);
-        // Clear the pending selection
-        sessionStorage.removeItem('pendingTemplateSelection');
-        // Automatically trigger the template selection
-        handleTemplateSelection(template, allowAIDeadlines);
-      } catch (error) {
-        console.error('Error parsing pending template selection:', error);
-        sessionStorage.removeItem('pendingTemplateSelection');
-      }
-    }
-  }, []);
 
   // Custom onSubmit handler for list creation
   const handleListCreation = async (listData: { name: string; tasks: any[] }) => {
