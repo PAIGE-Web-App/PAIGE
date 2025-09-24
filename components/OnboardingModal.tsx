@@ -20,6 +20,7 @@ import VendorSearchField from "./VendorSearchField";
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { getRelevantCategories } from "../utils/vendorSearchUtils";
 import LoadingSpinner from "./LoadingSpinner";
+import GmailReauthBanner from "./GmailReauthBanner";
 
 interface OnboardingContact {
   id: string;
@@ -89,6 +90,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   const [selectedVendors, setSelectedVendors] = useState<{ [key: string]: any }>({});
 
   const [gmailAuthStatus, setGmailAuthStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
+  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
   const { weddingLocation } = useUserProfileData();
   const [geoLocation, setGeoLocation] = useState<string | null>(null);
 
@@ -97,47 +99,61 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     const checkExistingGmailAuth = async () => {
       try {
         console.log('OnboardingModal: Checking Gmail auth status for user:', userId);
-        const response = await fetch('/api/check-gmail-auth-status', {
+        const response = await fetch('/api/check-gmail-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ userId, contactEmail: 'test@example.com' }),
         });
+        
+        if (!response.ok) {
+          // Check for authentication-related errors in both 401 and 500 responses
+          if (response.status === 401 || response.status === 500) {
+            try {
+              const data = await response.json();
+              if (data.message?.includes('Google authentication required') || 
+                  data.message?.includes('Failed to refresh Google authentication') ||
+                  data.message?.includes('Google authentication expired') ||
+                  data.message?.includes('invalid_grant') ||
+                  data.message?.includes('Token has been expired')) {
+                setShowGmailReauthBanner(true);
+                setGmailAuthStatus('idle');
+                return;
+              }
+            } catch (parseError) {
+              // If we can't parse the response, silently handle it
+            }
+          }
+          // If not an auth error, treat as no Gmail connection
+          setGmailAuthStatus('idle');
+          return;
+        }
+        
         const data = await response.json();
         
         console.log('OnboardingModal: Gmail auth status response:', data);
         
-        if (data.needsReauth === false) {
-          // Gmail is already connected
-          setGmailAuthStatus('success');
-          // Automatically select Gmail in communication channels
-          if (!selectedCommunicationChannels.includes('Gmail')) {
-            setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
-          }
-          console.log('OnboardingModal: Gmail already connected for user:', userId);
-        } else {
-          // Check localStorage for Gmail connection status from sign-up
-          const gmailConnected = localStorage.getItem('gmailConnected');
-          console.log('OnboardingModal: localStorage gmailConnected:', gmailConnected);
-          if (gmailConnected === 'true') {
-            setGmailAuthStatus('success');
-            // Automatically select Gmail in communication channels
-            if (!selectedCommunicationChannels.includes('Gmail')) {
-              setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
-            }
-            console.log('OnboardingModal: Gmail connection detected from localStorage');
-          }
+        // If we get here, Gmail is working properly
+        setGmailAuthStatus('success');
+        setShowGmailReauthBanner(false);
+        // Automatically select Gmail in communication channels
+        if (!selectedCommunicationChannels.includes('Gmail')) {
+          setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
         }
+        console.log('OnboardingModal: Gmail already connected for user:', userId);
       } catch (error) {
         console.error('OnboardingModal: Error checking existing Gmail auth:', error);
         // Check localStorage as fallback
         const gmailConnected = localStorage.getItem('gmailConnected');
         if (gmailConnected === 'true') {
           setGmailAuthStatus('success');
+          setShowGmailReauthBanner(false);
           // Automatically select Gmail in communication channels
           if (!selectedCommunicationChannels.includes('Gmail')) {
             setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
           }
           console.log('OnboardingModal: Gmail connection detected from localStorage fallback');
+        } else {
+          setShowGmailReauthBanner(true);
         }
       }
     };
@@ -617,16 +633,30 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
 
             {currentStep === 2 && (
               <div>
+                {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
+                {showGmailReauthBanner && (
+                  <div className="mb-4">
+                    <GmailReauthBanner
+                      currentUser={{ uid: userId } as any}
+                      onReauth={() => {
+                        setShowGmailReauthBanner(false);
+                      }}
+                    />
+                  </div>
+                )}
+                
                 <div className="space-y-4"> {/* Changed to vertical layout with 2 rows */}
                   {/* Gmail Integration */}
                   <div className={`flex items-center p-4 border rounded-[5px] transition-all duration-200 ${
-                    gmailAuthStatus === 'success'
+                    gmailAuthStatus === 'success' && !showGmailReauthBanner
                       ? "border-green-300 bg-green-50"
+                      : showGmailReauthBanner
+                      ? "border-red-300 bg-red-50"
                       : selectedCommunicationChannels.includes("Gmail")
                       ? "border-[#A85C36] bg-[#EBE3DD]"
                       : "border-[#AB9C95] bg-white hover:bg-[#F8F6F4]"
                   }`}>
-                    {gmailAuthStatus === 'success' ? (
+                    {gmailAuthStatus === 'success' && !showGmailReauthBanner ? (
                       <>
                         <CheckCircle size={20} className="text-green-500 mr-3" />
                         <div className="flex items-center flex-1">
@@ -634,6 +664,19 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
                           <div>
                             <span className="font-medium text-[#332B42] block">Gmail Integration</span>
                             <span className="text-xs text-green-600">✓ Already connected! Import existing conversations & add footers to emails</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : showGmailReauthBanner ? (
+                      <>
+                        <div className="w-5 h-5 mr-3 flex items-center justify-center">
+                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        </div>
+                        <div className="flex items-center flex-1">
+                          <Mail size={20} className="text-red-500 mr-2" />
+                          <div>
+                            <span className="font-medium text-[#332B42] block">Gmail Integration</span>
+                            <span className="text-xs text-red-600">Connection to Gmail has been lost. Please reauthorize to allow for email importing and sending through Paige</span>
                           </div>
                         </div>
                       </>

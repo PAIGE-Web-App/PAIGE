@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, CircleCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import UnifiedTodoItem from './UnifiedTodoItem';
@@ -93,6 +93,26 @@ const TodoListView: React.FC<TodoListViewProps> = ({
   onSelectTemplate,
   onCreateWithAI,
 }) => {
+  // Ref to track newly created todo items for auto-scrolling
+  const newlyCreatedItemRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to newly created todo item
+  useEffect(() => {
+    if (todoItems.length > 0) {
+      // Small delay to ensure the item is rendered
+      setTimeout(() => {
+        // Find the first todo item and scroll to it
+        const firstTodoItem = document.querySelector('[data-todo-item="first"]');
+        if (firstTodoItem) {
+          firstTodoItem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 300);
+    }
+  }, [todoItems.length]); // Trigger when new items are added
+
   const hasIncomplete = todoItems.some(item => !item.isCompleted);
   const hasCompleted = todoItems.some(item => item.isCompleted);
 
@@ -111,8 +131,8 @@ const TodoListView: React.FC<TodoListViewProps> = ({
           filteredTodoItems.length === 0 ? (
             <div className="text-sm text-gray-500 text-center py-4">No matching tasks found.</div>
           ) : (
-            filteredTodoItems.map((item) => (
-              <div key={item.id} className="mb-2">
+            filteredTodoItems.map((item, index) => (
+              <div key={item.id} data-todo-item={index === 0 ? 'first' : ''} className="mb-2">
                 <UnifiedTodoItem
                   todo={item}
                   contacts={[]}
@@ -150,9 +170,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
             <div className="text-sm text-gray-500 text-center py-4">No completed tasks yet.</div>
           ) : (
             <div className="space-y-2">
-              {todoItems.map((item) => (
-                <UnifiedTodoItem
-                  key={item.id}
+              {todoItems.map((item, index) => (
+                <div key={item.id} data-todo-item={index === 0 ? 'first' : ''}>
+                  <UnifiedTodoItem
                   todo={item}
                   contacts={[]}
                   allCategories={allCategories}
@@ -181,6 +201,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                   searchQuery={todoSearchQuery}
                 />
+                </div>
               ))}
             </div>
           )
@@ -234,6 +255,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                       return (
                         <div
                           key={item.id}
+                          data-todo-item={index === 0 ? 'first' : ''}
                           className="mb-2"
                         >
                           <UnifiedTodoItem
@@ -299,9 +321,9 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                   className="overflow-hidden max-h-[40vh] overflow-y-auto px-4 py-4 pb-3"
                 >
                   <div className="space-y-0">
-                    {todoItems.filter(item => item.isCompleted).map((item) => (
-                      <UnifiedTodoItem
-                        key={item.id}
+                    {todoItems.filter(item => item.isCompleted).map((item, index) => (
+                      <div key={item.id} data-todo-item={index === 0 ? 'first' : ''}>
+                        <UnifiedTodoItem
                         todo={item}
                         contacts={[]}
                         allCategories={allCategories}
@@ -330,6 +352,7 @@ const TodoListView: React.FC<TodoListViewProps> = ({
                         {...(!selectedList && { listName: (todoLists.find(l => l.id === item.listId)?.name) || 'Unknown List' })}
                         searchQuery={todoSearchQuery}
                       />
+                      </div>
                     ))}
                   </div>
                 </motion.div>

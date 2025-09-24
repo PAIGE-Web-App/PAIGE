@@ -55,8 +55,9 @@ export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
     });
 
     // Define the order of groups (time-based first, then planning phases)
+    // "No date yet" always comes first if it exists
     const timeBasedOrder = [
-      'Overdue', 'Today', 'Tomorrow', 'This Week', 'Next Week', 'This Month', 'Next Month', 'Later', 'No date yet'
+      'No date yet', 'Overdue', 'Today', 'Tomorrow', 'This Week', 'Next Week', 'This Month', 'Next Month', 'Later'
     ];
             const planningPhaseOrder = [
               // Venue Selection phases (should come first as prerequisite)
@@ -134,7 +135,9 @@ export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
     });
 
     // Define the order of groups
+    // "No date yet" always comes first if it exists
     const groupOrder = [
+      'No date yet',
       'Overdue',
       'Today',
       'Tomorrow',
@@ -142,8 +145,7 @@ export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
       'Next Week',
       'This Month',
       'Next Month',
-      'Later',
-      'No date yet'
+      'Later'
     ];
 
     // Create a new object with ordered groups

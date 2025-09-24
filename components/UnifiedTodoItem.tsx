@@ -457,6 +457,12 @@ const UnifiedTodoItem: React.FC<UnifiedTodoItemProps> = ({
       
       await updateDoc(todoRef, updateData);
       
+      // Trigger green flash animation
+      setJustUpdated(true);
+      setTimeout(() => {
+        setJustUpdated(false);
+      }, 1000);
+      
       // Send notifications for assignments to others (not self)
       if (assigneeIds.length > 0) {
         const currentUserName = userName || 'You';

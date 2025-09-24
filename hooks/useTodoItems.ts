@@ -190,7 +190,10 @@ export function useTodoItems(selectedList: TodoList | null) {
     }
 
     try {
-      await addDoc(getUserCollectionRef('todoItems', user.uid), {
+      // Calculate the next orderIndex for the current list - place at the top
+      const minOrderIndex = todoItems.length > 0 ? Math.min(...todoItems.map(item => item.orderIndex)) : 0;
+
+      const docRef = await addDoc(getUserCollectionRef('todoItems', user.uid), {
         name: newTaskName.trim(),
         deadline: null,
         startDate: null,
@@ -202,7 +205,7 @@ export function useTodoItems(selectedList: TodoList | null) {
         createdAt: new Date(),
         listId,
         userId: user.uid,
-        orderIndex: todoItems.length,
+        orderIndex: minOrderIndex - 1, // Place at the top of the list
         completedAt: null,
         justUpdated: false,
         assignedTo: null,
@@ -210,6 +213,31 @@ export function useTodoItems(selectedList: TodoList | null) {
         assignedAt: null,
         notificationRead: false
       });
+      
+      // Green flash logic for newly created item:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === docRef.id ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === docRef.id ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: false } : item
+        )
+      );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
+      
       showSuccessToast(`Task "${newTaskName}" added!`);
       setNewTaskName('');
     } catch (error: any) {
@@ -284,6 +312,30 @@ export function useTodoItems(selectedList: TodoList | null) {
         );
       }
       
+      // Green flash logic:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+        )
+      );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
+      
       showSuccessToast('Task name updated!');
     } catch (error: any) {
       console.error('Error updating task name:', error);
@@ -312,6 +364,30 @@ export function useTodoItems(selectedList: TodoList | null) {
           todoItem.assignedTo
         );
       }
+      
+      // Green flash logic:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+        )
+      );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
       
       showSuccessToast('Category updated!');
     } catch (error: any) {
@@ -536,6 +612,31 @@ export function useTodoItems(selectedList: TodoList | null) {
           )
         );
       }
+      
+      // Green flash logic:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === todoId ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+        )
+      );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === todoId ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
+      
       showSuccessToast('Note updated!');
     } catch (error) {
       console.error('Error updating note:', error);
@@ -565,7 +666,10 @@ export function useTodoItems(selectedList: TodoList | null) {
     }
     setIsAdding(true);
     try {
-      await addDoc(getUserCollectionRef('todoItems', user.uid), {
+      // Calculate the next orderIndex for the current list - place at the top
+      const minOrderIndex = todoItems.length > 0 ? Math.min(...todoItems.map(item => item.orderIndex)) : 0;
+
+      const docRef = await addDoc(getUserCollectionRef('todoItems', user.uid), {
         name: data.name,
         note: data.note || null,
         deadline: data.deadline || null,
@@ -577,7 +681,7 @@ export function useTodoItems(selectedList: TodoList | null) {
         createdAt: new Date(),
         listId,
         userId: user.uid,
-        orderIndex: todoItems.length,
+        orderIndex: minOrderIndex - 1, // Place at the top of the list
         completedAt: null,
         justUpdated: false,
         assignedTo: null,
@@ -585,6 +689,31 @@ export function useTodoItems(selectedList: TodoList | null) {
         assignedAt: null,
         notificationRead: false
       });
+      
+      // Green flash logic for newly created item:
+      setTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === docRef.id ? { ...item, justUpdated: true } : item
+        )
+      );
+      setAllTodoItems(prevItems =>
+        prevItems.map(item =>
+          item.id === docRef.id ? { ...item, justUpdated: true } : item
+        )
+      );
+      setTimeout(() => {
+        setTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: false } : item
+        )
+      );
+        setAllTodoItems(prevItems =>
+          prevItems.map(item =>
+            item.id === docRef.id ? { ...item, justUpdated: false } : item
+          )
+        );
+      }, 1000);
+      
       showSuccessToast(`Task "${data.name}" added!`);
       handleCloseAddTodo();
     } catch (error) {

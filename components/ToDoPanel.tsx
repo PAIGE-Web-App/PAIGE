@@ -7,6 +7,7 @@ import BadgeCount from './BadgeCount';
 import SearchBar from './SearchBar';
 import ListMenuDropdown from './ListMenuDropdown';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import DropdownMenu from './DropdownMenu';
 import TodoTopBar from './TodoTopBar';
 import NewListOnboardingModal from './NewListOnboardingModal';
@@ -169,7 +170,6 @@ const ToDoPanel = ({
   
   // Dropdown state
   const [showListDropdown, setShowListDropdown] = useState(false);
-  const [pinnedListIds, setPinnedListIdsState] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -178,36 +178,24 @@ const ToDoPanel = ({
   
   // State for tracking which list is being hovered over during drag
   const [hoveredListForMove, setHoveredListForMove] = useState<any>(null);
+  
+  // Ref to track newly created todo items for auto-scrolling
+  const newlyCreatedItemRef = useRef<HTMLDivElement>(null);
 
-  // Fetch pinned lists from Firestore on mount
+  // Listen for list selection events from other components
   useEffect(() => {
-    async function fetchPinned() {
-      if (currentUser?.uid) {
-        const { getPinnedListIds } = await import('../lib/firebase');
-        const ids = await getPinnedListIds(currentUser.uid);
-        setPinnedListIdsState(ids);
-      }
-    }
-    fetchPinned();
-  }, [currentUser?.uid]);
-
-  // Listen for refresh pinned lists events
-  useEffect(() => {
-    const handleRefreshPinnedLists = async () => {
-      if (currentUser?.uid) {
-        console.log('🔄 Refreshing pinned lists in ToDoPanel');
-        const { getPinnedListIds } = await import('../lib/firebase');
-        const ids = await getPinnedListIds(currentUser.uid);
-        setPinnedListIdsState(ids);
-        console.log('📌 Updated pinned lists:', ids);
+    const handleSelectTodoList = (event: CustomEvent) => {
+      const { listId } = event.detail;
+      if (listId) {
+        setSelectedListId(listId);
       }
     };
 
-    window.addEventListener('refreshPinnedLists', handleRefreshPinnedLists);
+    window.addEventListener('selectTodoList', handleSelectTodoList as EventListener);
     return () => {
-      window.removeEventListener('refreshPinnedLists', handleRefreshPinnedLists);
+      window.removeEventListener('selectTodoList', handleSelectTodoList as EventListener);
     };
-  }, [currentUser?.uid]);
+  }, []);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -251,42 +239,50 @@ const ToDoPanel = ({
     };
   }, [searchOpen]);
 
+  // Auto-scroll to newly created todo item
+  useEffect(() => {
+    if (filteredTodoItems.incompleteTasks.length > 0) {
+      // Small delay to ensure the item is rendered
+      setTimeout(() => {
+        // Find the first todo item and scroll to it
+        const firstTodoItem = document.querySelector('[data-todo-item="first"]');
+        if (firstTodoItem) {
+          firstTodoItem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 300);
+    }
+  }, [filteredTodoItems.incompleteTasks.length]); // Trigger when new items are added
+
   // Filter todos by search query
   const filterBySearch = (items: any[]) =>
     searchQuery.trim() === ''
       ? items
       : items.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Handle pin/unpin
-  const handleTogglePin = async (listId: string) => {
-    let newPinned: string[];
-    if (pinnedListIds.includes(listId)) {
-      newPinned = pinnedListIds.filter(id => id !== listId);
-    } else {
-      newPinned = [...pinnedListIds, listId];
-    }
-    setPinnedListIdsState(newPinned);
-    if (currentUser?.uid) {
-      const { setPinnedListIds } = await import('../lib/firebase');
-      await setPinnedListIds(currentUser.uid, newPinned);
-    }
+  // Handle list selection
+  const handleSelectList = (listId: string | null) => {
+    setSelectedListId(listId);
+    setShowListDropdown(false);
   };
 
-  // Always show 'All To-Do Items' as the first pinned list
-  const allTodoList = { id: 'all', name: 'All To-Do Items' };
-  const pinnedLists = [allTodoList, ...todoLists.filter(l => pinnedListIds.includes(l.id))];
+  // Create list options for dropdown
+  const allTodoList = { id: null, name: 'All To-Do Items' };
+  const listOptions = [allTodoList, ...todoLists];
+  
+  // Get current selected list name
+  const selectedListName = selectedListId 
+    ? todoLists.find(l => l.id === selectedListId)?.name || 'All To-Do Items'
+    : 'All To-Do Items';
 
-  // If no pinned lists, default to 'All To-Do Items'
-  const visibleLists = pinnedLists.length > 1 ? pinnedLists : [allTodoList];
-
-  // Helper to pin a list by ID
-  const pinList = async (listId: string) => {
-    const newPinned = [...new Set([listId, ...pinnedListIds])];
-    setPinnedListIdsState(newPinned);
-    if (currentUser?.uid) {
-      const { setPinnedListIds } = await import('../lib/firebase');
-      await setPinnedListIds(currentUser.uid, newPinned);
-    }
+  // Helper function to get filtered items based on selected list
+  const getFilteredItems = (items: any[]) => {
+    const listFiltered = selectedListId 
+      ? items.filter((todo: any) => todo.listId === selectedListId)
+      : items;
+    return filterBySearch(listFiltered);
   };
 
   // Handler for creating a new list (and its tasks) from the onboarding modal
@@ -319,8 +315,8 @@ const ToDoPanel = ({
     try {
       const docRef = await addDoc(getUserCollectionRef('todoLists', currentUser.uid), newList);
       showSuccessToast(`List "${trimmedListName}" created!`);
+      // Auto-select the new list
       setSelectedListId(docRef.id);
-      await pinList(docRef.id); // Automatically pin the new list
       // Add initial tasks if provided
       if (data.tasks && data.tasks.length > 0) {
         const batch = writeBatch(db);
@@ -353,7 +349,20 @@ const ToDoPanel = ({
       {/* Wrapper div for the header and tabs with the desired background color */}
       <div className="bg-[#F3F2F0] rounded-t-[5px] border-b border-[#AB9C95] p-3 md:p-4">
         <div className="flex justify-between items-center px-1 pt-1 mb-2 md:px-0 md:pt-0">
-          <h3 className="font-playfair text-base font-medium text-[#332B42] flex-1">To-do Lists</h3>
+          <div className="flex items-center gap-2 flex-1">
+            <h3 className="font-playfair text-base font-medium text-[#332B42]">To-do Lists</h3>
+            <Link 
+              href="/todo" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#AB9C95] hover:text-[#A85C36] transition-colors"
+              title="Open To-do Lists in full page"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Link>
+          </div>
           <div className="flex items-center gap-2 ml-auto">
             <DropdownMenu
               trigger={
@@ -387,8 +396,47 @@ const ToDoPanel = ({
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-2 relative justify-start">
-          {/* Sort Button */}
+        {/* List selector dropdown - full width */}
+        <div className="relative mb-2">
+          <button
+            className="w-full flex items-center justify-between px-3 py-2 border border-[#AB9C95] rounded-[5px] text-sm text-[#332B42] hover:bg-[#F3F2F0]"
+            onClick={() => setShowListDropdown(!showListDropdown)}
+            type="button"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm truncate">{selectedListName}</span>
+              <BadgeCount count={getFilteredItems(filteredTodoItems.incompleteTasks).length + getFilteredItems(filteredTodoItems.completedTasks).length} />
+            </div>
+            <ChevronDown className="w-4 h-4" />
+          </button>
+          
+          {showListDropdown && (
+            <div ref={dropdownRef} className="absolute z-20 mt-2 w-full bg-white border border-[#AB9C95] rounded-[5px] shadow-lg p-2">
+              <div className="font-semibold text-xs text-[#332B42] mb-2">Select List to View</div>
+              <div className="flex flex-col gap-1 max-h-60 overflow-y-auto">
+                {listOptions.map(list => (
+                  <button
+                    key={list.id || 'all'}
+                    onClick={() => handleSelectList(list.id)}
+                    className={`w-full text-left px-2 py-1 rounded text-sm hover:bg-[#F3F2F0] flex items-center justify-between ${
+                      selectedListId === list.id ? 'bg-[#EBE3DD] text-[#A85C36]' : 'text-[#332B42]'
+                    }`}
+                  >
+                    <span className="truncate flex-1 mr-2">{list.name}</span>
+                    <BadgeCount count={
+                      list.id === null 
+                        ? getFilteredItems(filteredTodoItems.incompleteTasks).length + getFilteredItems(filteredTodoItems.completedTasks).length
+                        : getFilteredItems(filteredTodoItems.incompleteTasks.filter((todo: any) => todo.listId === list.id)).length + getFilteredItems(filteredTodoItems.completedTasks.filter((todo: any) => todo.listId === list.id)).length
+                    } />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sort and Search on same line */}
+        <div className="flex items-center gap-2">
           <div className="relative" ref={sortMenuRef}>
             <button
               onClick={() => setShowSortMenu(!showSortMenu)}
@@ -440,45 +488,15 @@ const ToDoPanel = ({
               )}
             </AnimatePresence>
           </div>
-          <button
-            className="flex items-center gap-2 px-3 py-1 border border-[#AB9C95] rounded-[5px] text-sm text-[#332B42] hover:bg-[#F3F2F0]"
-            onClick={() => setShowListDropdown(v => !v)}
-            type="button"
-          >
-            <Pin className="w-4 h-4" />
-            <ChevronDown className="w-4 h-4" />
-          </button>
-          {/* Search button/input (now immediately right of pin list dropdown) */}
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search to-dos..."
-            isOpen={searchOpen}
-            setIsOpen={setSearchOpen}
-          />
-        </div>
-
-        {/* List Dropdown Multi-Select */}
-        <div className="relative mb-2">
-          {showListDropdown && (
-            <div ref={dropdownRef} className="absolute z-20 mt-2 w-64 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg p-2">
-              <div className="font-semibold text-xs text-[#332B42] mb-2">Pin Lists to Show</div>
-              <div className="flex flex-col gap-1 max-h-60 overflow-y-auto">
-                {todoLists.map(list => (
-                  <label key={list.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[#F3F2F0] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={pinnedListIds.includes(list.id)}
-                      onChange={() => handleTogglePin(list.id)}
-                      className="accent-[#A85C36]"
-                    />
-                    <span className="text-sm text-[#332B42]">{list.name}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="mt-2 text-xs text-[#7A7A7A]">'All To-Do Items' is always shown first.</div>
-            </div>
-          )}
+          <div className="flex-1">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search to-dos..."
+              isOpen={searchOpen}
+              setIsOpen={setSearchOpen}
+            />
+          </div>
         </div>
 
         {/* Applied sort filter pill above list names */}
@@ -499,82 +517,6 @@ const ToDoPanel = ({
           </div>
         )}
 
-        {/* Pinned Lists Tabs */}
-        <div className="flex gap-2 pt-3 flex-nowrap overflow-x-auto scrollbar-thin scrollbar-thumb-[#AB9C95] scrollbar-track-[#F3F2F0]" style={{ WebkitOverflowScrolling: 'touch' }}>
-            {visibleLists.map(list => {
-              const isAll = list.id === 'all';
-              return (
-              <div
-                key={list.id}
-                onClick={() => setSelectedListId(isAll ? null : list.id)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Don't allow dropping into the currently selected list
-                  if (draggedTodoId && !isAll && onMoveTodoItem && selectedListId !== list.id) {
-                    e.currentTarget.classList.add('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
-                    // Show the move indicator
-                    setHoveredListForMove(list);
-                  }
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
-                    // Clear the move indicator
-                    setHoveredListForMove(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.classList.remove('bg-[#F0EDE8]', 'border-2', 'border-[#A85C36]', 'shadow-md');
-                  
-                  
-                  // Clear the move indicator
-                  setHoveredListForMove(null);
-                  
-                  // Don't allow dropping into the currently selected list
-                  if (draggedTodoId && !isAll && onMoveTodoItem && selectedListId !== list.id) {
-                    // Get the current list ID from the dragged todo item
-                    const draggedTodo = [...filteredTodoItems.incompleteTasks, ...filteredTodoItems.completedTasks]
-                      .find(todo => todo.id === draggedTodoId);
-                    
-                    console.log('🎯 Found dragged todo:', draggedTodo);
-                    
-                    if (draggedTodo && draggedTodo.listId !== list.id) {
-                      console.log('🎯 Moving todo from', draggedTodo.listId, 'to', list.id);
-                      // Call the move function with just taskId and targetListId
-                      onMoveTodoItem(draggedTodoId, list.id);
-                    } else {
-                      console.log('🎯 No move needed - same list or todo not found');
-                    }
-                  } else {
-                  }
-                }}
-                className={`flex items-center px-4 py-1 text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out group relative cursor-pointer
-                  ${selectedListId === list.id || (isAll && !selectedListId)
-                    ? 'bg-white text-[#332B42] rounded-t-[5px]'
-                    : 'bg-[#F3F2F0] text-[#364257] hover:bg-[#E0DBD7] border-b-2 border-transparent hover:border-[#AB9C95] rounded-t-[5px]'
-                  }
-                  ${draggedTodoId && !isAll ? 'cursor-copy' : ''}
-                `}
-              >
-                <span title={draggedTodoId && !isAll ? `Drop to-do item here to move it to "${list.name}"` : list.name}>
-                  {list.name}
-                </span>
-                {isAll ? (
-                  <BadgeCount count={allTodoCount} />
-                ) : (
-                  listTaskCounts.has(list.id) && (
-                    <BadgeCount count={listTaskCounts.get(list.id) || 0} />
-                  )
-                )}
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Banner for list limit */}
@@ -608,7 +550,7 @@ const ToDoPanel = ({
         onDragOver={handleListDragOver}
         onDrop={handleListDrop}
       >
-        {filterBySearch(filteredTodoItems.incompleteTasks).length === 0 && filterBySearch(filteredTodoItems.completedTasks).length === 0 ? (
+        {getFilteredItems(filteredTodoItems.incompleteTasks).length === 0 && getFilteredItems(filteredTodoItems.completedTasks).length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center h-full min-h-[400px] p-3">
             <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-6 opacity-70" />
             <div className="max-w-md">
@@ -629,17 +571,22 @@ const ToDoPanel = ({
         ) : (
           <div className="space-y-0 transition-all duration-300 ease-in-out p-3">
             {/* Incomplete Tasks */}
-            {filterBySearch(filteredTodoItems.incompleteTasks).length > 0 && (
+            {getFilteredItems(filteredTodoItems.incompleteTasks).length > 0 && (
               <AnimatePresence initial={false}>
-                {filterBySearch(filteredTodoItems.incompleteTasks).map((todo) => (
+                {getFilteredItems(filteredTodoItems.incompleteTasks).map((todo, index) => (
                   <div
                     key={todo.id}
+                    data-todo-item={index === 0 ? 'first' : ''}
                     ref={(el) => { 
                       if (itemRefs) {
                         itemRefs.current[todo.id] = el;
-                        if (justMovedItemId === todo.id) {
-                          console.log('🎯 Ref set for green flash item:', todo.id, 'Element:', !!el);
-                        }
+                      }
+                      // Set ref for the first item to enable auto-scrolling to newly created items
+                      if (index === 0) {
+                        newlyCreatedItemRef.current = el;
+                      }
+                      if (justMovedItemId === todo.id) {
+                        console.log('🎯 Ref set for green flash item:', todo.id, 'Element:', !!el);
                       }
                     }}
                   >
@@ -684,7 +631,7 @@ const ToDoPanel = ({
       </div>
 
       {/* COMPLETED TASKS SECTION - Moved OUTSIDE the main scrollable area for incomplete tasks */}
-      {filterBySearch(filteredTodoItems.completedTasks).length > 0 && (
+      {getFilteredItems(filteredTodoItems.completedTasks).length > 0 && (
         <div className="sticky bottom-0 z-10 bg-[#DEDBDB] mt-4 border-t border-[#AB9C95] pt-3 -mx-3 p-3">
           <button
             onClick={() => setShowCompletedTasks(!showCompletedTasks)}
@@ -692,7 +639,7 @@ const ToDoPanel = ({
           >
             <div className="flex items-center gap-2">
               <CheckCircle size={16} />
-              <span>Completed ({filterBySearch(filteredTodoItems.completedTasks).length})</span>
+              <span>Completed ({getFilteredItems(filteredTodoItems.completedTasks).length})</span>
             </div>
             {showCompletedTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -706,7 +653,7 @@ const ToDoPanel = ({
                 className="overflow-hidden max-h-[40vh] overflow-y-auto"
               >
                 <div className="space-y-0 transition-all duration-300 ease-in-out">
-                  {filterBySearch(filteredTodoItems.completedTasks).map((todo) => (
+                  {getFilteredItems(filteredTodoItems.completedTasks).map((todo) => (
                     <div
                       key={todo.id}
                       ref={(el) => { 

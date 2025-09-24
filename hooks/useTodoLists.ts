@@ -18,7 +18,7 @@ import {
   Timestamp,
   limit,
 } from 'firebase/firestore';
-import { getUserCollectionRef, getPinnedListIds, setPinnedListIds } from '@/lib/firebase';
+import { getUserCollectionRef } from '@/lib/firebase';
 import { saveCategoryIfNew } from '@/lib/firebaseCategories';
 import type { TodoList } from '@/types/todo';
 
@@ -261,23 +261,6 @@ export function useTodoLists() {
       setNewListName('');
       setShowNewListInput(false);
 
-      // Pin the new list
-      try {
-        console.log('🔗 Attempting to pin new list:', newListRef.id);
-        const currentPinnedIds = await getPinnedListIds(user.uid);
-        console.log('📌 Current pinned IDs:', currentPinnedIds);
-        if (!currentPinnedIds.includes(newListRef.id)) {
-          const newPinnedIds = [...currentPinnedIds, newListRef.id];
-          console.log('📌 Setting new pinned IDs:', newPinnedIds);
-          await setPinnedListIds(user.uid, newPinnedIds);
-          console.log('✅ Successfully pinned new list');
-        } else {
-          console.log('ℹ️ List already pinned');
-        }
-      } catch (error) {
-        console.error('❌ Failed to pin new list:', error);
-      }
-
       // Select the new list
       const newList = {
         id: newListRef.id,
@@ -293,9 +276,6 @@ export function useTodoLists() {
       window.dispatchEvent(new CustomEvent('selectTodoList', { 
         detail: { listId: newListRef.id } 
       }));
-      
-      // Dispatch custom event to refresh pinned lists in ToDoPanel
-      window.dispatchEvent(new CustomEvent('refreshPinnedLists'));
     } catch (error: any) {
       console.error('Error adding list:', error);
       showErrorToast(`Failed to create list: ${error.message}`);

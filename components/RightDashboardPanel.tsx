@@ -500,8 +500,8 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       return;
     }
 
-    // Calculate the next orderIndex for the current list
-    const maxOrderIndex = todoItems.length > 0 ? Math.max(...todoItems.map(item => item.orderIndex)) : -1;
+    // Calculate the next orderIndex for the current list - place at the top
+    const minOrderIndex = todoItems.length > 0 ? Math.min(...todoItems.map(item => item.orderIndex)) : 0;
 
     const newTodo: TodoItem = {
       id: uuidv4(),
@@ -515,7 +515,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       isCompleted: false,
       userId: currentUser.uid,
       createdAt: new Date(),
-      orderIndex: maxOrderIndex + 1,
+      orderIndex: minOrderIndex - 1, // Place at the top of the list
       listId: selectedListId, // Assign to the currently selected list
       completedAt: null,
       justUpdated: false,

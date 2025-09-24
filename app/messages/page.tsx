@@ -379,22 +379,41 @@ export default function MessagesPage() {
     if (!user?.uid) return;
     
     try {
+      console.log('🔍 Checking Gmail auth status for user:', user.uid);
       const response = await fetch('/api/check-gmail-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.uid, contactEmail: 'test@example.com' }),
       });
       
+      console.log('📡 Gmail auth response status:', response.status);
+      
       if (!response.ok) {
-        const data = await response.json();
-        if (data.message?.includes('Google authentication required') || 
-            data.message?.includes('Failed to refresh Google authentication') ||
-            data.message?.includes('Google authentication expired')) {
-          setShowGmailReauthBanner(true);
+        // Check for authentication-related errors in both 401 and 500 responses
+        if (response.status === 401 || response.status === 500) {
+          try {
+            const data = await response.json();
+            console.log('📄 Gmail auth error data:', data);
+            if (data.message?.includes('Google authentication required') || 
+                data.message?.includes('Failed to refresh Google authentication') ||
+                data.message?.includes('Google authentication expired') ||
+                data.message?.includes('invalid_grant') ||
+                data.message?.includes('Token has been expired') ||
+                data.message?.includes('An error occurred while checking Gmail history')) {
+              console.log('🚨 Setting Gmail reauth banner to true');
+              setShowGmailReauthBanner(true);
+            }
+          } catch (parseError) {
+            console.log('❌ Could not parse Gmail auth error response');
+          }
         }
+        // Silently handle other errors that aren't authentication-related
+      } else {
+        console.log('✅ Gmail auth is working, hiding banner');
+        setShowGmailReauthBanner(false);
       }
     } catch (error) {
-      console.error('Error checking Gmail auth status:', error);
+      console.log('💥 Gmail auth check error:', error);
     }
   };
 
@@ -425,6 +444,7 @@ export default function MessagesPage() {
   
   // Gmail authentication state
   const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
+  
   
   // Not enough credits modal state
   const [showNotEnoughCreditsModal, setShowNotEnoughCreditsModal] = useState(false);
@@ -499,15 +519,28 @@ export default function MessagesPage() {
 
   // Check Gmail authentication status when user is available
   useEffect(() => {
+    console.log('🔄 Gmail auth useEffect triggered:', { 
+      hasUser: !!user?.uid, 
+      authLoading, 
+      userId: user?.uid 
+    });
+    
     if (user?.uid && !authLoading) {
+      console.log('✅ Calling checkGmailAuthStatus');
       checkGmailAuthStatus();
       
       // Set up periodic check every 5 minutes
       const interval = setInterval(() => {
+        console.log('⏰ Periodic Gmail auth check');
         checkGmailAuthStatus();
       }, 5 * 60 * 1000); // 5 minutes
       
       return () => clearInterval(interval);
+    } else {
+      console.log('❌ Not calling checkGmailAuthStatus:', { 
+        hasUser: !!user?.uid, 
+        authLoading 
+      });
     }
   }, [user?.uid, authLoading]);
 

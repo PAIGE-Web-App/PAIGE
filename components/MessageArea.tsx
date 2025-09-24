@@ -842,14 +842,25 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       });
       
       if (!response.ok) {
-        const data = await response.json();
-        if (data.message?.includes('Google authentication required') || 
-            data.message?.includes('Failed to refresh Google authentication')) {
-          setShowReauthBanner(true);
+        // Check for authentication-related errors in both 401 and 500 responses
+        if (response.status === 401 || response.status === 500) {
+          try {
+            const data = await response.json();
+            if (data.message?.includes('Google authentication required') || 
+                data.message?.includes('Failed to refresh Google authentication') ||
+                data.message?.includes('Google authentication expired') ||
+                data.message?.includes('invalid_grant') ||
+                data.message?.includes('Token has been expired') ||
+                data.message?.includes('An error occurred while checking Gmail history')) {
+              setShowReauthBanner(true);
+            }
+          } catch (parseError) {
+            // If we can't parse the response, silently handle it
+          }
         }
       }
     } catch (error) {
-      console.error('Error checking Gmail auth status:', error);
+      // Silently handle Gmail API errors - they're not critical for todo functionality
     }
   };
 
@@ -922,8 +933,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           }));
         }
       } catch (e) {
-        console.error('Error checking Gmail eligibility:', e);
-        // fail silently
+        // Silently handle Gmail API errors - they're not critical for todo functionality
       } finally {
         if (isMounted) setCheckingGmail(false);
     }
