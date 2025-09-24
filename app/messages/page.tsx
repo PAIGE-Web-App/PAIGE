@@ -20,6 +20,7 @@ const EditContactModal = lazy(() => import("../../components/EditContactModal"))
 const OnboardingModal = lazy(() => import("../../components/OnboardingModal"));
 const RightDashboardPanel = lazy(() => import("../../components/RightDashboardPanel"));
 const NotEnoughCreditsModal = lazy(() => import("../../components/NotEnoughCreditsModal"));
+const TodoTemplatesModal = lazy(() => import("../../components/TodoTemplatesModal"));
 import {
   collection,
   query,
@@ -154,6 +155,7 @@ export default function MessagesPage() {
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [lastOnboardedContacts, setLastOnboardedContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +297,18 @@ export default function MessagesPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Event listener for opening todo templates modal
+  useEffect(() => {
+    const handleOpenTemplatesModal = () => {
+      setShowTemplatesModal(true);
+    };
+
+    window.addEventListener('openTodoTemplatesModal', handleOpenTemplatesModal);
+    
+    return () => {
+      window.removeEventListener('openTodoTemplatesModal', handleOpenTemplatesModal);
+    };
+  }, []);
 
   // Check Gmail authentication status when user is available
   useEffect(() => {
@@ -1028,6 +1042,25 @@ export default function MessagesPage() {
                 userId={user.uid}
                 onClose={() => setShowOnboardingModal(false)}
                 onComplete={handleOnboardingComplete}
+              />
+            </Suspense>
+          )}
+
+          {/* Todo Templates Modal */}
+          {showTemplatesModal && user && (
+            <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading templates...</div></div></div>}>
+              <TodoTemplatesModal
+                isOpen={showTemplatesModal}
+                onClose={() => setShowTemplatesModal(false)}
+                onSelectTemplate={(template, allowAIDeadlines) => {
+                  // Handle template selection - redirect to todo page with template
+                  router.push('/todo');
+                  // The todo page will handle the template creation
+                }}
+                onCreateWithAI={() => {
+                  // Redirect to todo page for AI creation
+                  router.push('/todo');
+                }}
               />
             </Suspense>
           )}

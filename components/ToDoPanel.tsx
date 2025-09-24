@@ -354,7 +354,8 @@ const ToDoPanel = ({
                     if (todoLists.length >= STARTER_TIER_MAX_LISTS) {
                       setShowUpgradeModal(true);
                     } else {
-                      setShowNewListModal(true);
+                      // Trigger the Quick Start with Common To-Do Lists modal
+                      window.dispatchEvent(new CustomEvent('openTodoTemplatesModal'));
                     }
                   }
                 },
