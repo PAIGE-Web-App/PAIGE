@@ -285,7 +285,12 @@ ${todoList}
 DEADLINE GENERATION RULES:
 1. CRITICAL: The wedding is only ${daysUntilWedding} days away! ALL deadlines must be BEFORE ${weddingDate}
 2. IMPORTANT: Preserve the original order of items as listed above. Items should be processed in the exact sequence they appear.
-3. Use these specific date ranges (all dates must be BEFORE the wedding):
+3. TIME DISTRIBUTION: Spread tasks naturally across different times of day to avoid conflicts:
+   - Morning tasks (9:00 AM - 11:00 AM): Administrative tasks, research, planning
+   - Afternoon tasks (1:00 PM - 3:00 PM): Vendor communications, appointments
+   - Evening tasks (6:00 PM - 8:00 PM): Personal tasks, discussions with partner
+   - Avoid scheduling multiple tasks at the same time - each task should have a unique time
+4. Use these specific date ranges (all dates must be BEFORE the wedding):
    - "Kickoff (ASAP)" or "ASAP" items: Between ${now.toISOString().split('T')[0]} and ${oneWeekFromNow.toISOString().split('T')[0]}
    - "Lock Venue + Date (early)" items: Between ${now.toISOString().split('T')[0]} and ${twoWeeksFromNow.toISOString().split('T')[0]}
    - "Core Team (9–12 months out)" items: Between ${oneWeekFromNow.toISOString().split('T')[0]} and ${oneMonthFromNow.toISOString().split('T')[0]}
@@ -300,16 +305,21 @@ DEADLINE GENERATION RULES:
    - "After" items: After ${weddingDate} (but only if absolutely necessary)
    - "Tiny 'Don't-Forget' Wins" items: Between ${twoMonthsFromNow.toISOString().split('T')[0]} and ${oneWeekBeforeWedding.toISOString().split('T')[0]} (LOWEST PRIORITY - these are nice-to-have items that should NEVER be assigned to "This Week" or urgent timeframes)
 
-4. For tight timelines (${daysUntilWedding} days), prioritize:
+5. For tight timelines (${daysUntilWedding} days), prioritize:
    - Critical path items first (venue, photographer, officiant)
    - Items that can be done quickly
    - Items that don't require long vendor lead times
    - "Tiny 'Don't-Forget' Wins" items are LOWEST priority - assign them later dates (NEVER assign to "This Week" or urgent timeframes)
-5. Ensure deadlines are achievable and realistic for the compressed timeline
-6. Account for weekends and holidays
-7. Focus on what's absolutely essential vs. nice-to-have
-8. NEVER generate dates after ${weddingDate} unless it's an "After" item
-9. CRITICAL: Maintain the exact order of items as they appear in the list above. Do not reorder based on deadlines.
+6. Ensure deadlines are achievable and realistic for the compressed timeline
+7. Account for weekends and holidays
+8. Focus on what's absolutely essential vs. nice-to-have
+9. NEVER generate dates after ${weddingDate} unless it's an "After" item
+10. CRITICAL: Maintain the exact order of items as they appear in the list above. Do not reorder based on deadlines.
+11. NATURAL SPREADING: Distribute tasks across different days and times to create a realistic schedule:
+    - Don't cluster all tasks on the same day
+    - Spread similar tasks across different days
+    - Consider task duration and complexity when assigning times
+    - Ensure each task has a unique date and time combination
 
 ${deadlineValidation.hasTightDeadlines ? `
 ⚠️  WARNING: ${deadlineValidation.warningMessage}
@@ -323,17 +333,26 @@ ${ragContext}
 RESPONSE FORMAT:
 Return a JSON array where each object has:
 - "id": the todo item id (must match exactly as provided above)
-- "deadline": deadline date in YYYY-MM-DD format
-- "reasoning": brief explanation of why this deadline was chosen
+- "deadline": deadline date and time in YYYY-MM-DDTHH:MM:SS format (e.g., "2024-03-15T14:30:00")
+- "reasoning": brief explanation of why this deadline and time was chosen
 
-IMPORTANT: Process items in the exact order they appear in the list above. Do not reorder or skip items.
+IMPORTANT: 
+- Process items in the exact order they appear in the list above. Do not reorder or skip items.
+- Each task must have a unique date and time combination
+- Spread tasks naturally across different days and times
+- Use realistic times (9:00 AM - 8:00 PM) and avoid scheduling conflicts
 
 Example:
 [
   {
     "id": "todo-1",
-    "deadline": "2024-03-15",
-    "reasoning": "Venue booking should be done 12+ months in advance to secure preferred dates"
+    "deadline": "2024-03-15T10:00:00",
+    "reasoning": "Venue booking should be done 12+ months in advance to secure preferred dates. Scheduled for 10 AM to allow time for research and calls."
+  },
+  {
+    "id": "todo-2", 
+    "deadline": "2024-03-16T14:30:00",
+    "reasoning": "Photographer research scheduled for afternoon to allow morning for venue follow-up. 2:30 PM gives time for lunch and vendor calls."
   }
 ]`;
 
@@ -358,9 +377,21 @@ function parseDeadlineResponse(response: string, todos: Array<any>, weddingDate:
       const deadlineInfo = deadlineData.find((d: any) => d.id === todo.id);
       
       if (deadlineInfo && deadlineInfo.deadline) {
+        // Parse the datetime string and ensure it's a valid Date object
+        const deadlineDate = new Date(deadlineInfo.deadline);
+        if (isNaN(deadlineDate.getTime())) {
+          console.warn(`Invalid deadline date for todo ${todo.id}: ${deadlineInfo.deadline}`);
+          // Fallback to default deadline
+          return {
+            ...todo,
+            deadline: getDefaultDeadlineForPhase(todo.planningPhase, weddingDate),
+            deadlineReasoning: 'Default deadline due to invalid AI-generated date'
+          };
+        }
+        
         return {
           ...todo,
-          deadline: new Date(deadlineInfo.deadline),
+          deadline: deadlineDate,
           deadlineReasoning: deadlineInfo.reasoning || 'AI-generated deadline'
         };
       }
@@ -387,91 +418,134 @@ function parseDeadlineResponse(response: string, todos: Array<any>, weddingDate:
 }
 
 /**
- * Get default deadline based on planning phase
+ * Get default deadline based on planning phase with realistic times
  */
 function getDefaultDeadlineForPhase(planningPhase?: string, weddingDate?: string): Date {
   const now = new Date();
   const wedding = weddingDate ? new Date(weddingDate) : new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year if no wedding date
   const daysUntilWedding = Math.ceil((wedding.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
+  // Generate a realistic time based on planning phase
+  const getRealisticTime = (phase?: string): { hours: number; minutes: number } => {
+    if (!phase) return { hours: 10, minutes: 0 }; // Default to 10:00 AM
+    
+    const phaseLower = phase.toLowerCase();
+    
+    // Administrative/research tasks - morning
+    if (phaseLower.includes('kickoff') || phaseLower.includes('asap') || phaseLower.includes('budget') || phaseLower.includes('research')) {
+      return { hours: 9, minutes: 30 }; // 9:30 AM
+    }
+    
+    // Vendor communications - afternoon
+    if (phaseLower.includes('venue') || phaseLower.includes('vendor') || phaseLower.includes('photographer') || phaseLower.includes('caterer')) {
+      return { hours: 14, minutes: 0 }; // 2:00 PM
+    }
+    
+    // Personal tasks - evening
+    if (phaseLower.includes('attire') || phaseLower.includes('guest') || phaseLower.includes('invitation') || phaseLower.includes('personal')) {
+      return { hours: 19, minutes: 0 }; // 7:00 PM
+    }
+    
+    // Default to morning
+    return { hours: 10, minutes: 0 }; // 10:00 AM
+  };
+  
   // For tight timelines, compress all deadlines
   if (daysUntilWedding < 90) {
+    const time = getRealisticTime(planningPhase);
+    
     if (!planningPhase) {
-      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week from now
+      const deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week from now
+      deadline.setHours(time.hours, time.minutes, 0, 0);
+      return deadline;
     }
     
     const phase = planningPhase.toLowerCase();
+    let deadline: Date;
     
     if (phase.includes('asap') || phase.includes('kickoff')) {
-      return new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+      deadline = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
     } else if (phase.includes('12+') || phase.includes('early')) {
-      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week
+      deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week
     } else if (phase.includes('9-12') || phase.includes('core team')) {
-      return new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
+      deadline = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
     } else if (phase.includes('8-10') || phase.includes('looks')) {
-      return new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000); // 3 weeks
+      deadline = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000); // 3 weeks
     } else if (phase.includes('6-8') || phase.includes('food')) {
-      return new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000); // 4 weeks
+      deadline = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000); // 4 weeks
     } else if (phase.includes('4-6') || phase.includes('paper')) {
-      return new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000); // 5 weeks
+      deadline = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000); // 5 weeks
     } else if (phase.includes('2-4') || phase.includes('send')) {
-      return new Date(now.getTime() + 42 * 24 * 60 * 60 * 1000); // 6 weeks
+      deadline = new Date(now.getTime() + 42 * 24 * 60 * 60 * 1000); // 6 weeks
     } else if (phase.includes('4-6 weeks') || phase.includes('tighten')) {
-      return new Date(now.getTime() + 49 * 24 * 60 * 60 * 1000); // 7 weeks
+      deadline = new Date(now.getTime() + 49 * 24 * 60 * 60 * 1000); // 7 weeks
     } else if (phase.includes('week of')) {
-      return new Date(wedding.getTime() - 7 * 24 * 60 * 60 * 1000); // 1 week before wedding
+      deadline = new Date(wedding.getTime() - 7 * 24 * 60 * 60 * 1000); // 1 week before wedding
     } else if (phase.includes('day before')) {
-      return new Date(wedding.getTime() - 24 * 60 * 60 * 1000); // 1 day before wedding
+      deadline = new Date(wedding.getTime() - 24 * 60 * 60 * 1000); // 1 day before wedding
     } else if (phase.includes('wedding day')) {
-      return wedding; // Wedding day
+      deadline = new Date(wedding); // Wedding day
     } else if (phase.includes('after')) {
-      return new Date(wedding.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week after
+      deadline = new Date(wedding.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week after
     } else if (phase.includes('tiny') || phase.includes('don\'t-forget') || phase.includes('don\'t forget')) {
       // Tiny "Don't-Forget" Wins should be much later - 6-8 weeks out
-      return new Date(now.getTime() + 56 * 24 * 60 * 60 * 1000); // 8 weeks from now
+      deadline = new Date(now.getTime() + 56 * 24 * 60 * 60 * 1000); // 8 weeks from now
+    } else {
+      // Default fallback for tight timeline
+      deadline = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
     }
     
-    // Default fallback for tight timeline
-    return new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
+    // Set the realistic time
+    deadline.setHours(time.hours, time.minutes, 0, 0);
+    return deadline;
   }
   
-  // Normal timeline (90+ days) - keep original logic
+  // Normal timeline (90+ days) - keep original logic with realistic times
+  const time = getRealisticTime(planningPhase);
+  
   if (!planningPhase) {
-    return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    const deadline = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    deadline.setHours(time.hours, time.minutes, 0, 0);
+    return deadline;
   }
   
   const phase = planningPhase.toLowerCase();
+  let deadline: Date;
   
   if (phase.includes('asap') || phase.includes('kickoff')) {
-    return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
   } else if (phase.includes('12+') || phase.includes('early')) {
-    return new Date(now.getTime() + 300 * 24 * 60 * 60 * 1000); // ~10 months
+    deadline = new Date(now.getTime() + 300 * 24 * 60 * 60 * 1000); // ~10 months
   } else if (phase.includes('9-12') || phase.includes('core team')) {
-    return new Date(now.getTime() + 270 * 24 * 60 * 60 * 1000); // ~9 months
+    deadline = new Date(now.getTime() + 270 * 24 * 60 * 60 * 1000); // ~9 months
   } else if (phase.includes('8-10') || phase.includes('looks')) {
-    return new Date(now.getTime() + 240 * 24 * 60 * 60 * 1000); // ~8 months
+    deadline = new Date(now.getTime() + 240 * 24 * 60 * 60 * 1000); // ~8 months
   } else if (phase.includes('6-8') || phase.includes('food')) {
-    return new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000); // ~6 months
+    deadline = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000); // ~6 months
   } else if (phase.includes('4-6') || phase.includes('paper')) {
-    return new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000); // ~4 months
+    deadline = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000); // ~4 months
   } else if (phase.includes('2-4') || phase.includes('send')) {
-    return new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // ~2 months
+    deadline = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // ~2 months
   } else if (phase.includes('4-6 weeks') || phase.includes('tighten')) {
-    return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // ~1 month
+    deadline = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // ~1 month
   } else if (phase.includes('week of')) {
-    return new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
+    deadline = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 2 weeks
   } else if (phase.includes('day before')) {
-    return new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
+    deadline = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days
   } else if (phase.includes('wedding day')) {
-    return new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000); // 1 day
+    deadline = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000); // 1 day
   } else if (phase.includes('after')) {
-    return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week after
+    deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week after
   } else if (phase.includes('tiny') || phase.includes('don\'t-forget') || phase.includes('don\'t forget')) {
     // Tiny "Don't-Forget" Wins should be much later - 4-6 months out
-    return new Date(now.getTime() + 150 * 24 * 60 * 60 * 1000); // ~5 months from now
+    deadline = new Date(now.getTime() + 150 * 24 * 60 * 60 * 1000); // ~5 months from now
+  } else {
+    deadline = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Default: 30 days
   }
   
-  return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Default: 30 days
+  // Set the realistic time
+  deadline.setHours(time.hours, time.minutes, 0, 0);
+  return deadline;
 }
 
 // Export the handler with credit validation
