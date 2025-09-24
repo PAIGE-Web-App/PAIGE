@@ -26,7 +26,6 @@ export const useMobileTodoState = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         setState(parsed);
-        console.log('📱 Loaded mobile todo state:', parsed);
       }
     } catch (error) {
       console.error('Failed to load mobile todo state:', error);
@@ -39,7 +38,6 @@ export const useMobileTodoState = () => {
     
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      console.log('📱 Saved mobile todo state:', state);
     } catch (error) {
       console.error('Failed to save mobile todo state:', error);
     }

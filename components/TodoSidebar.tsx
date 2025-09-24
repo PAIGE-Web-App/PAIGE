@@ -85,8 +85,8 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
     if (listLimitReached && showUpgradeModal) {
       showUpgradeModal();
     } else {
-      setShowAddListModal(true);
-      setCreationStep('choose');
+      // Trigger the Quick Start with Common To-Do Lists modal
+      window.dispatchEvent(new CustomEvent('openTodoTemplatesModal'));
     }
   };
 

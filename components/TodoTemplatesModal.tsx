@@ -318,8 +318,11 @@ export default function TodoTemplatesModal({ isOpen, onClose, onSelectTemplate, 
 
   const handleConfirmSelection = () => {
     if (selectedTemplate) {
-      // Check for tight deadlines if AI deadlines are enabled
-      if (allowAIDeadlines && hasWeddingDate && weddingDate) {
+      // Only check for tight deadlines if this is the Full Wedding Checklist template with AI deadlines enabled
+      const isFullWeddingChecklist = selectedTemplate.id === 'full-wedding-planning';
+      const shouldCheckTightDeadlines = isFullWeddingChecklist && allowAIDeadlines && hasWeddingDate && weddingDate;
+      
+      if (shouldCheckTightDeadlines) {
         const wedding = new Date(weddingDate);
         const now = new Date();
         const daysUntilWedding = Math.ceil((wedding.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -341,14 +344,17 @@ export default function TodoTemplatesModal({ isOpen, onClose, onSelectTemplate, 
       }
       
       // Proceed with template selection
-      onSelectTemplate(selectedTemplate, allowAIDeadlines && hasWeddingDate);
+      const shouldUseAIDeadlines = isFullWeddingChecklist && allowAIDeadlines && hasWeddingDate;
+      onSelectTemplate(selectedTemplate, shouldUseAIDeadlines);
       onClose();
     }
   };
 
   const handleContinueAnyway = () => {
     if (selectedTemplate) {
-      onSelectTemplate(selectedTemplate, allowAIDeadlines && hasWeddingDate);
+      const isFullWeddingChecklist = selectedTemplate.id === 'full-wedding-planning';
+      const shouldUseAIDeadlines = isFullWeddingChecklist && allowAIDeadlines && hasWeddingDate;
+      onSelectTemplate(selectedTemplate, shouldUseAIDeadlines);
       onClose();
     }
   };

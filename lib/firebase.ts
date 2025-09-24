@@ -54,6 +54,15 @@ const firestoreSettings = {
 // Enable offline persistence to reduce Firebase reads and improve performance
 import { enableIndexedDbPersistence } from 'firebase/firestore';
 
+// Suppress Firebase deprecation warnings
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('enableIndexedDbPersistence() will be deprecated')) {
+    return; // Suppress this specific warning
+  }
+  originalWarn.apply(console, args);
+};
+
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code === 'failed-precondition') {
     // Multiple tabs open, persistence can only be enabled in one tab at a time
@@ -62,6 +71,9 @@ enableIndexedDbPersistence(db).catch((err) => {
     // Browser doesn't support persistence
     // console.log('Firebase persistence not supported in this browser');
   }
+}).finally(() => {
+  // Restore original console.warn after Firebase initialization
+  console.warn = originalWarn;
 });
 
 // Note: Enhanced cache configuration for better offline support and reduced Firebase reads

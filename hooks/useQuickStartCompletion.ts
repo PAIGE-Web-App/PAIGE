@@ -35,7 +35,6 @@ const addToastShown = (toastId: string) => {
 };
 
 // Force hot reload
-console.log('useQuickStartCompletion.ts loaded - simplified version');
 
 export const useQuickStartCompletion = () => {
   const { user } = useAuth();
@@ -102,13 +101,6 @@ export const useQuickStartCompletion = () => {
 
   // Process completion with simple global state
   useEffect(() => {
-    console.log('useQuickStartCompletion useEffect triggered:', {
-      hasUser: !!user,
-      hasUserData: !!userData,
-      hasProgressData: !!progressData,
-      userDataKeys: userData ? Object.keys(userData) : [],
-      progressDataKeys: progressData ? Object.keys(progressData) : []
-    });
 
     if (!user || !userData || !progressData) return;
 
@@ -126,26 +118,17 @@ export const useQuickStartCompletion = () => {
       })
     );
 
-    console.log('QuickStart completion check:', {
-      currentCompleted: Array.from(currentCompleted),
-      previousCompleted: Array.from(globalCompletedCards),
-      hasInitialized: globalHasInitialized,
-      globalToastShown: Array.from(globalToastShown),
-      storedToastShown: Array.from(getStoredToastShown())
-    });
 
     // Initialize on first load
     if (!globalHasInitialized) {
       globalCompletedCards = new Set(currentCompleted);
       globalHasInitialized = true;
-      console.log('Initialized global state');
       return;
     }
 
     // Reset toast tracking if user was previously incomplete and now completes something
     // This allows toasts to show again when user re-completes actions
     if (globalCompletedCards.size < 5 && currentCompleted.size > globalCompletedCards.size) {
-      console.log('User completed something new after being incomplete, resetting toast tracking');
       globalToastShown.clear();
       setStoredToastShown(new Set());
     }
@@ -155,7 +138,6 @@ export const useQuickStartCompletion = () => {
       cardId => !globalCompletedCards.has(cardId)
     );
 
-    console.log('Newly completed cards:', newlyCompleted);
 
     // Check if we're completing all 5 cards
     const isCompletingAll = currentCompleted.size === 5 && globalCompletedCards.size < 5;
@@ -167,17 +149,13 @@ export const useQuickStartCompletion = () => {
         const storedToasts = getStoredToastShown();
         if (!storedToasts.has(cardId)) {
           addToastShown(cardId);
-          console.log(`Adding ${cardId} toast to queue`);
           setTimeout(() => {
-            console.log(`Showing ${cardId} toast now!`);
             showCompletionToast(cardId);
           }, 500 + (index * 200));
         } else {
-          console.log(`${cardId} toast already shown, skipping`);
         }
       });
     } else {
-      console.log('Skipping individual toasts because completing all 5 cards');
     }
 
     // Special toast for completing all 5 cards
@@ -185,13 +163,10 @@ export const useQuickStartCompletion = () => {
       const storedToasts = getStoredToastShown();
       if (!storedToasts.has('quick-start-complete')) {
         addToastShown('quick-start-complete');
-        console.log('Adding quick-start-complete toast to queue');
         setTimeout(() => {
-          console.log('Showing quick-start-complete toast now!');
           showCompletionToast('quick-start-complete');
         }, 500);
       } else {
-        console.log('quick-start-complete toast already shown');
       }
     }
 

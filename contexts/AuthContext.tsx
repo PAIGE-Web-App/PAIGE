@@ -206,7 +206,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       localStorage.removeItem(PROFILE_IMAGE_KEY);
     }
-    console.log('profileImageUrl updated:', profileImageUrl);
   }, [profileImageUrl]);
 
   useEffect(() => {
