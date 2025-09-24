@@ -1052,10 +1052,76 @@ export default function MessagesPage() {
               <TodoTemplatesModal
                 isOpen={showTemplatesModal}
                 onClose={() => setShowTemplatesModal(false)}
-                onSelectTemplate={(template, allowAIDeadlines) => {
-                  // Handle template selection - redirect to todo page with template
-                  router.push('/todo');
-                  // The todo page will handle the template creation
+                onSelectTemplate={async (template, allowAIDeadlines) => {
+                  // Close the modal first
+                  setShowTemplatesModal(false);
+                  
+                  // Create the todo list directly from the messages page
+                  try {
+                    // Convert template tasks to the format expected
+                    const tasks = template.tasks.map((task: any, index: number) => {
+                      const taskName = typeof task === 'string' ? task : task.name;
+                      const taskNote = typeof task === 'string' ? '' : (task.note || '');
+                      
+                      // Determine planning phase based on template
+                      let planningPhase = 'Later';
+                      if (template.id === 'venue-selection') {
+                        if (index < 6) planningPhase = 'Discover & Shortlist';
+                        else if (index < 8) planningPhase = 'Inquire (from your Shortlist)';
+                        else if (index < 14) planningPhase = 'Tour Like a Pro';
+                        else planningPhase = 'Lock It In';
+                      } else if (template.id === 'full-wedding-planning') {
+                        if (index < 5) planningPhase = 'Kickoff (ASAP)';
+                        else if (index < 9) planningPhase = 'Lock Venue + Date (early)';
+                        else if (index < 13) planningPhase = 'Core Team (9–12 months out)';
+                        else if (index < 16) planningPhase = 'Looks + Attire (8–10 months out)';
+                        else if (index < 21) planningPhase = 'Food + Flow (6–8 months out)';
+                        else if (index < 25) planningPhase = 'Paper + Details (4–6 months out)';
+                        else if (index < 30) planningPhase = 'Send + Finalize (2–4 months out)';
+                        else if (index < 35) planningPhase = 'Tighten Up (4–6 weeks out)';
+                        else if (index < 40) planningPhase = 'Week Of';
+                        else if (index < 43) planningPhase = 'Day Before';
+                        else if (index < 47) planningPhase = 'Wedding Day';
+                        else if (index < 51) planningPhase = 'After';
+                        else planningPhase = 'Tiny "Don\'t-Forget" Wins';
+                      } else {
+                        planningPhase = 'Planning Phase';
+                      }
+
+                      return {
+                        _id: `temp-id-${Date.now()}-${index}`,
+                        name: taskName,
+                        note: taskNote,
+                        category: null,
+                        deadline: null,
+                        endDate: null,
+                        planningPhase: planningPhase,
+                        allowAIDeadlines: allowAIDeadlines
+                      };
+                    });
+
+                    // Create the list via API
+                    const response = await fetch('/api/todo-lists', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        name: template.name,
+                        tasks: tasks,
+                        userId: user?.uid
+                      }),
+                    });
+
+                    if (response.ok) {
+                      showSuccessToast(`Created "${template.name}" successfully!`);
+                    } else {
+                      throw new Error('Failed to create list');
+                    }
+                  } catch (error) {
+                    console.error('Error creating template list:', error);
+                    showErrorToast('Failed to create template list. Please try again.');
+                  }
                 }}
                 onCreateWithAI={() => {
                   // Redirect to todo page for AI creation

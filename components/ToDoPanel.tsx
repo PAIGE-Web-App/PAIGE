@@ -586,22 +586,22 @@ const ToDoPanel = ({
 
       {/* Main To-Do Items Display Area - This will now ONLY contain incomplete tasks and be the scrollable part */}
       <div
-        className="flex-1 bg-white p-3 overflow-y-auto w-full"
+        className="flex-1 bg-white overflow-y-auto w-full"
         onDragOver={handleListDragOver}
         onDrop={handleListDrop}
       >
         {filterBySearch(filteredTodoItems.incompleteTasks).length === 0 && filterBySearch(filteredTodoItems.completedTasks).length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-8">
+          <div className="flex flex-col items-center justify-center text-center h-full min-h-[400px] p-3">
             <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-6 opacity-70" />
             <div className="max-w-md">
-              <h3 className="text-lg font-medium text-gray-800 mb-3">Start organizing your wedding to-do items</h3>
+              <h3 className="text-base font-medium text-gray-800 mb-3">Start organizing your wedding to-do items</h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
                 Choose a template to get started!
               </p>
               <div className="flex justify-center">
                 <button 
                   onClick={() => window.dispatchEvent(new CustomEvent('openTodoTemplatesModal'))}
-                  className="btn-primary"
+                  className="btn-primaryinverse"
                 >
                   + Choose Template
                 </button>
@@ -609,7 +609,7 @@ const ToDoPanel = ({
             </div>
           </div>
         ) : (
-          <div className="space-y-0 transition-all duration-300 ease-in-out">
+          <div className="space-y-0 transition-all duration-300 ease-in-out p-3">
             {/* Incomplete Tasks */}
             {filterBySearch(filteredTodoItems.incompleteTasks).length > 0 && (
               <AnimatePresence initial={false}>
