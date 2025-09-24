@@ -591,9 +591,22 @@ const ToDoPanel = ({
         onDrop={handleListDrop}
       >
         {filterBySearch(filteredTodoItems.incompleteTasks).length === 0 && filterBySearch(filteredTodoItems.completedTasks).length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center text-gray-500 text-sm py-8">
-            <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-4 opacity-70" />
-            <p>Add a To-do item to this list</p>
+          <div className="flex flex-col items-center justify-center text-center py-8">
+            <img src="/todo.png" alt="Empty To-do List" className="w-24 h-24 mb-6 opacity-70" />
+            <div className="max-w-md">
+              <h3 className="text-lg font-medium text-gray-800 mb-3">Start organizing your wedding to-do items</h3>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                Choose a template to get started!
+              </p>
+              <div className="flex justify-center">
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('openTodoTemplatesModal'))}
+                  className="btn-primary"
+                >
+                  + Choose Template
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-0 transition-all duration-300 ease-in-out">
