@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../../lib/saveContactToFirestore";
 import { useDraftMessage } from "../../hooks/useDraftMessage";
 import { getCategoryStyle } from "../../utils/categoryStyle";
-import { db, getUserCollectionRef } from "../../lib/firebase";
+import { db, getUserCollectionRef, getPinnedListIds } from "../../lib/firebase";
 import { useCustomToast } from "@/hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "@/hooks/useGlobalCompletionToasts";
 import { useQuickStartCompletion } from "@/hooks/useQuickStartCompletion";
@@ -1119,6 +1119,17 @@ export default function MessagesPage() {
                     }
 
                     showSuccessToast(`Created "${template.name}" successfully!`);
+                    
+                    // Pin the newly created list so it appears in the right panel
+                    try {
+                      const { setPinnedListIds } = await import('../../lib/firebase');
+                      // Get current pinned lists and add the new one
+                      const currentPinned = await getPinnedListIds(user.uid);
+                      const newPinned = [...new Set([newListRef.id, ...currentPinned])];
+                      await setPinnedListIds(user.uid, newPinned);
+                    } catch (error) {
+                      console.error('Error pinning list:', error);
+                    }
                     
                     // Trigger a custom event to notify the RightDashboardPanel to select the new list
                     window.dispatchEvent(new CustomEvent('selectTodoList', { 
