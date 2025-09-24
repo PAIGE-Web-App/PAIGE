@@ -248,6 +248,15 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         const listToSelect = todoLists.find(list => list.id === listId);
         if (listToSelect) {
           setSelectedList(listToSelect);
+        } else {
+          // If list not found immediately, retry after a short delay
+          // This handles timing issues where the list was just created
+          setTimeout(() => {
+            const retryListToSelect = todoLists.find(list => list.id === listId);
+            if (retryListToSelect) {
+              setSelectedList(retryListToSelect);
+            }
+          }, 500);
         }
       }
     };

@@ -1,15 +1,16 @@
 // app/messages/page.tsx
 "use client";
 import { getAuth, onAuthStateChanged, User, signInWithCustomToken, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, addDoc, writeBatch, Timestamp, collection, query, where, orderBy, onSnapshot, limit, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, addDoc, writeBatch, collection, query, where, orderBy, onSnapshot, limit, getDocs } from "firebase/firestore";
 import Fuse from "fuse.js";
 import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { saveContactToFirestore } from "../../lib/saveContactToFirestore";
 import { useDraftMessage } from "../../hooks/useDraftMessage";
 import { getCategoryStyle } from "../../utils/categoryStyle";
-import { db, getUserCollectionRef, getPinnedListIds } from "../../lib/firebase";
+import { db, getUserCollectionRef } from "../../lib/firebase";
 import { useCustomToast } from "@/hooks/useCustomToast";
+import { useTodoLists } from "@/hooks/useTodoLists";
 import { useGlobalCompletionToasts } from "@/hooks/useGlobalCompletionToasts";
 import { useQuickStartCompletion } from "@/hooks/useQuickStartCompletion";
 
@@ -168,6 +169,10 @@ export default function MessagesPage() {
   const { draft, loading: draftLoading, generateDraft: generateDraftMessage } = useDraftMessage();
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
+  
+  // Use the shared todo lists hook
+  const todoListsHook = useTodoLists();
+  const { handleAddList } = todoListsHook;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1045,9 +1050,9 @@ export default function MessagesPage() {
                   // Close the modal first
                   setShowTemplatesModal(false);
                   
-                  // Create the todo list directly from the messages page
+                  // Create the todo list using the shared handleAddList function
                   try {
-                    // Convert template tasks to the format expected
+                    // Convert template tasks to the format expected by handleAddList
                     const tasks = template.tasks.map((task: any, index: number) => {
                       const taskName = typeof task === 'string' ? task : task.name;
                       const taskNote = typeof task === 'string' ? '' : (task.note || '');
@@ -1089,52 +1094,10 @@ export default function MessagesPage() {
                       };
                     });
 
-                    // Create the list directly in Firestore
-                    const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), {
-                      name: template.name,
-                      order: 0, // Will be updated by the todo page when it loads
-                      userId: user.uid,
-                      createdAt: new Date(),
-                      orderIndex: 0
-                    });
-
-                    // Add tasks to the new list
-                    if (tasks && tasks.length > 0) {
-                      const batch = writeBatch(getUserCollectionRef('todoItems', user.uid).firestore);
-                      
-                      tasks.forEach((task, index) => {
-                        const taskRef = doc(getUserCollectionRef('todoItems', user.uid));
-                        batch.set(taskRef, {
-                          ...task,
-                          listId: newListRef.id,
-                          orderIndex: index,
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                          deadline: task.deadline ? Timestamp.fromDate(task.deadline) : null,
-                          endDate: task.endDate ? Timestamp.fromDate(task.endDate) : null
-                        });
-                      });
-                      
-                      await batch.commit();
-                    }
-
+                    // Use the shared handleAddList function
+                    await handleAddList(template.name, tasks);
+                    
                     showSuccessToast(`Created "${template.name}" successfully!`);
-                    
-                    // Pin the newly created list so it appears in the right panel
-                    try {
-                      const { setPinnedListIds } = await import('../../lib/firebase');
-                      // Get current pinned lists and add the new one
-                      const currentPinned = await getPinnedListIds(user.uid);
-                      const newPinned = [...new Set([newListRef.id, ...currentPinned])];
-                      await setPinnedListIds(user.uid, newPinned);
-                    } catch (error) {
-                      console.error('Error pinning list:', error);
-                    }
-                    
-                    // Trigger a custom event to notify the RightDashboardPanel to select the new list
-                    window.dispatchEvent(new CustomEvent('selectTodoList', { 
-                      detail: { listId: newListRef.id } 
-                    }));
                   } catch (error) {
                     console.error('Error creating template list:', error);
                     showErrorToast('Failed to create template list. Please try again.');
