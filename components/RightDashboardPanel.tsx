@@ -19,6 +19,7 @@ import {
 import { db, getUserCollectionRef } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useTodoLists } from '@/hooks/useTodoLists';
 import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import {
@@ -69,9 +70,13 @@ const calendarStyles = `
 
 const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, contacts, rightPanelSelection, setRightPanelSelection, onUpdateTodoDeadline, onUpdateTodoNotes, onUpdateTodoCategory }) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  
+  // Use the shared todo lists hook
+  const todoListsHook = useTodoLists();
+  const { todoLists, selectedList, setSelectedList, handleAddList } = todoListsHook;
+  
   // State declarations
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
-  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null); // null = "All To-Do" view
   const [listTaskCounts, setListTaskCounts] = useState<Map<string, number>>(new Map()); // NEW: State for task counts per list
 
@@ -225,64 +230,25 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     }
   }, [currentUser]);
 
-  // Effect to manage default "My To-do" list and fetch all lists
+  // Sync selectedListId with the selectedList from useTodoLists hook
   useEffect(() => {
-    let unsubscribeTodoLists: () => void;
-
-    const userId = currentUser?.uid;
-
-    if (userId) {
-      const todoListsCollectionRef = getUserCollectionRef<TodoList>("todoLists", userId);
-      const q = query(
-        todoListsCollectionRef,
-        where('userId', '==', userId),
-        orderBy('orderIndex', 'asc'),
-        orderBy('createdAt', 'asc'),
-        limit(50) // Limit to 50 lists for better performance
-      );
-
-      unsubscribeTodoLists = onSnapshot(q, async (snapshot) => {
-        const fetchedLists: TodoList[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            userId: data.userId,
-            createdAt: data.createdAt && typeof data.createdAt === 'object' && typeof (data.createdAt as any).toDate === 'function' ? (data.createdAt as any).toDate() : data.createdAt instanceof Date ? data.createdAt : new Date(),
-            orderIndex: data.orderIndex || 0,
-          };
-        });
-        setTodoLists(fetchedLists);
-
-        const currentSelectedListExists = fetchedLists.some(list => list.id === selectedListId);
-
-        // Set default to show "All To-Do" if no list is currently selected
-        if (selectedListId === null && fetchedLists.length > 0) {
-          // Keep selectedListId as null to show "All To-Do" view
-        }
-        // Only set selectedListId if there are no lists at all
-        if (fetchedLists.length === 0 && selectedListId !== null) {
-          setSelectedListId(null);
-        }
-      }, (error) => {
-        console.error('Error fetching To-do lists:', error);
-        showErrorToast('Failed to load To-do lists.');
-      });
+    if (selectedList) {
+      setSelectedListId(selectedList.id);
+    } else {
+      setSelectedListId(null);
     }
-
-    return () => {
-      if (unsubscribeTodoLists) {
-        unsubscribeTodoLists();
-      }
-    };
-  }, [currentUser?.uid, selectedListId]);
+  }, [selectedList]);
 
   // Effect to listen for custom events to select a specific list
   useEffect(() => {
     const handleSelectTodoList = (event: CustomEvent) => {
       const { listId } = event.detail;
       if (listId) {
-        setSelectedListId(listId);
+        // Find the list in todoLists and set it as selected
+        const listToSelect = todoLists.find(list => list.id === listId);
+        if (listToSelect) {
+          setSelectedList(listToSelect);
+        }
       }
     };
 
@@ -291,7 +257,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
     return () => {
       window.removeEventListener('selectTodoList', handleSelectTodoList as EventListener);
     };
-  }, []);
+  }, [todoLists, setSelectedList]);
 
   // NEW: Effect to fetch all To-Do items for task counts
   useEffect(() => {
@@ -570,57 +536,23 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
   // Function to handle creating a new list
   const handleCreateNewList = async () => {
-    console.log('handleCreateNewList called'); // Debug log
     if (!currentUser) {
       showErrorToast('You must be logged in to create a new list.');
-      // Do NOT clear input or hide input field here.
       return;
     }
-    // Check if adding this new list would exceed the limit
-    if (todoLists.length + 1 > STARTER_TIER_MAX_LISTS) { // This condition checks if the *next* list would exceed the limit
-      setShowUpgradeModal(true);
-      setNewListName(''); // Clear input if modal is shown
-      setShowNewListInput(false); // Hide input if modal is shown
-      return;
-    }
-
+    
     const trimmedListName = newListName.trim();
     if (!trimmedListName) {
       showErrorToast('List name cannot be empty.');
-      // Do NOT clear input or hide input field here.
       return;
     }
 
-    // Check if a list with this name already exists for the user
-    const existingList = todoLists.find(list => list.name.toLowerCase() === trimmedListName.toLowerCase());
-    if (existingList) {
-      showErrorToast('A list with this name already exists.');
-      // Do NOT clear input or hide input field here.
-      return;
-    }
-
-    // Calculate the next orderIndex for lists
-    const maxListOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
-
-    const newList: Omit<TodoList, 'id'> = {
-      name: trimmedListName,
-      userId: currentUser.uid,
-      createdAt: new Date(),
-      orderIndex: maxListOrderIndex + 1,
-    };
-
-    try {
-      // Capture the docRef here
-      const docRef = await addDoc(getUserCollectionRef("todoLists", currentUser.uid), newList);
-      showSuccessToast(`List "${trimmedListName}" created!`);
-      setSelectedListId(docRef.id); // Automatically select the new list
-      setNewListName(''); // Clear input ONLY on success
-      setShowNewListInput(false); // Hide input ONLY on success
-    } catch (error: any) {
-      console.error('Error creating new list:', error);
-      showErrorToast(`Failed to create new list: ${error.message}`);
-      // If an error occurs during addDoc, the input and field should remain.
-    }
+    // Use the handleAddList from the useTodoLists hook
+    await handleAddList(trimmedListName);
+    
+    // Clear input and hide input field on success
+    setNewListName('');
+    setShowNewListInput(false);
   };
 
   // Function to handle renaming a list
