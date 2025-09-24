@@ -163,6 +163,9 @@ async function handleDeadlineGeneration(request: NextRequest): Promise<NextRespo
 
     // Parse the deadline response into structured data
     const structuredDeadlines = parseDeadlineResponse(deadlineResponse, todos, weddingDate);
+    
+    // Post-process to ensure no duplicate times
+    const finalDeadlines = ensureUniqueDeadlines(structuredDeadlines);
 
     console.log('Deadline generation completed successfully');
 
@@ -173,7 +176,7 @@ async function handleDeadlineGeneration(request: NextRequest): Promise<NextRespo
 
     const response = NextResponse.json({
       success: true,
-      todos: structuredDeadlines,
+      todos: finalDeadlines,
       rawResponse: deadlineResponse,
       ragEnabled: useRAG,
       ragContext: ragContext ? 'Context from your files included' : 'No additional context',
@@ -285,11 +288,15 @@ ${todoList}
 DEADLINE GENERATION RULES:
 1. CRITICAL: The wedding is only ${daysUntilWedding} days away! ALL deadlines must be BEFORE ${weddingDate}
 2. IMPORTANT: Preserve the original order of items as listed above. Items should be processed in the exact sequence they appear.
-3. TIME DISTRIBUTION: Spread tasks naturally across different times of day to avoid conflicts:
-   - Morning tasks (9:00 AM - 11:00 AM): Administrative tasks, research, planning
-   - Afternoon tasks (1:00 PM - 3:00 PM): Vendor communications, appointments
-   - Evening tasks (6:00 PM - 8:00 PM): Personal tasks, discussions with partner
-   - Avoid scheduling multiple tasks at the same time - each task should have a unique time
+3. TIME DISTRIBUTION: CRITICAL - Each task must have a UNIQUE date and time combination:
+   - NEVER assign the same date and time to multiple tasks
+   - Spread tasks across different days AND different times
+   - Use these time slots and rotate through them:
+     * 9:00 AM, 9:30 AM, 10:00 AM, 10:30 AM, 11:00 AM (morning)
+     * 1:00 PM, 1:30 PM, 2:00 PM, 2:30 PM, 3:00 PM (afternoon)  
+     * 6:00 PM, 6:30 PM, 7:00 PM, 7:30 PM, 8:00 PM (evening)
+   - If you have many tasks, spread them across multiple days
+   - Each task gets its own unique time slot - NO EXCEPTIONS
 4. Use these specific date ranges (all dates must be BEFORE the wedding):
    - "Kickoff (ASAP)" or "ASAP" items: Between ${now.toISOString().split('T')[0]} and ${oneWeekFromNow.toISOString().split('T')[0]}
    - "Lock Venue + Date (early)" items: Between ${now.toISOString().split('T')[0]} and ${twoWeeksFromNow.toISOString().split('T')[0]}
@@ -315,11 +322,13 @@ DEADLINE GENERATION RULES:
 8. Focus on what's absolutely essential vs. nice-to-have
 9. NEVER generate dates after ${weddingDate} unless it's an "After" item
 10. CRITICAL: Maintain the exact order of items as they appear in the list above. Do not reorder based on deadlines.
-11. NATURAL SPREADING: Distribute tasks across different days and times to create a realistic schedule:
-    - Don't cluster all tasks on the same day
-    - Spread similar tasks across different days
-    - Consider task duration and complexity when assigning times
-    - Ensure each task has a unique date and time combination
+11. NATURAL SPREADING: CRITICAL - Create a realistic, non-overlapping schedule:
+    - NEVER put more than 2-3 tasks on the same day
+    - NEVER use the same time for multiple tasks
+    - Spread tasks across multiple days (e.g., if you have 6 tasks, use at least 3 different days)
+    - Use different time slots: 9:00 AM, 9:30 AM, 10:00 AM, 1:00 PM, 2:00 PM, 6:00 PM, 7:00 PM
+    - Consider task complexity: simple tasks get shorter time slots, complex tasks get longer ones
+    - Each task must have a completely unique date and time - NO DUPLICATES ALLOWED
 
 ${deadlineValidation.hasTightDeadlines ? `
 ⚠️  WARNING: ${deadlineValidation.warningMessage}
@@ -338,21 +347,33 @@ Return a JSON array where each object has:
 
 IMPORTANT: 
 - Process items in the exact order they appear in the list above. Do not reorder or skip items.
-- Each task must have a unique date and time combination
-- Spread tasks naturally across different days and times
-- Use realistic times (9:00 AM - 8:00 PM) and avoid scheduling conflicts
+- CRITICAL: Each task must have a completely unique date and time combination - NO DUPLICATES
+- Spread tasks across multiple days (max 2-3 tasks per day)
+- Use different time slots: 9:00 AM, 9:30 AM, 10:00 AM, 1:00 PM, 2:00 PM, 6:00 PM, 7:00 PM
+- If you have many tasks, use more days to spread them out
+- NEVER assign the same date and time to multiple tasks
 
-Example:
+Example (showing proper time distribution):
 [
   {
     "id": "todo-1",
-    "deadline": "2024-03-15T10:00:00",
-    "reasoning": "Venue booking should be done 12+ months in advance to secure preferred dates. Scheduled for 10 AM to allow time for research and calls."
+    "deadline": "2024-03-15T09:00:00",
+    "reasoning": "Venue booking should be done 12+ months in advance. Scheduled for 9:00 AM to start the day with important research."
   },
   {
     "id": "todo-2", 
-    "deadline": "2024-03-16T14:30:00",
-    "reasoning": "Photographer research scheduled for afternoon to allow morning for venue follow-up. 2:30 PM gives time for lunch and vendor calls."
+    "deadline": "2024-03-15T09:30:00",
+    "reasoning": "Photographer research scheduled for 9:30 AM to follow venue research, allowing time for vendor calls."
+  },
+  {
+    "id": "todo-3",
+    "deadline": "2024-03-16T10:00:00", 
+    "reasoning": "Budget planning moved to next day at 10:00 AM to avoid clustering tasks on same day."
+  },
+  {
+    "id": "todo-4",
+    "deadline": "2024-03-16T14:00:00",
+    "reasoning": "Guest count planning scheduled for 2:00 PM afternoon slot to spread tasks across different times."
   }
 ]`;
 
@@ -415,6 +436,54 @@ function parseDeadlineResponse(response: string, todos: Array<any>, weddingDate:
       deadlineReasoning: 'Default deadline due to parsing error'
     }));
   }
+}
+
+/**
+ * Ensure all deadlines have unique date and time combinations
+ */
+function ensureUniqueDeadlines(todos: Array<any>): Array<any> {
+  const usedTimes = new Set<string>();
+  const timeSlots = [
+    '09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00',
+    '13:00:00', '13:30:00', '14:00:00', '14:30:00', '15:00:00',
+    '18:00:00', '18:30:00', '19:00:00', '19:30:00', '20:00:00'
+  ];
+  
+  return todos.map((todo, index) => {
+    if (!todo.deadline) return todo;
+    
+    const deadline = new Date(todo.deadline);
+    const dateStr = deadline.toISOString().split('T')[0];
+    const timeStr = deadline.toTimeString().split(' ')[0];
+    const dateTimeKey = `${dateStr}T${timeStr}`;
+    
+    // If this time is already used, find a new one
+    if (usedTimes.has(dateTimeKey)) {
+      // Find next available time slot
+      let newTimeSlot = timeSlots[index % timeSlots.length];
+      let newDate = new Date(deadline);
+      
+      // If we've used all time slots for this date, move to next day
+      if (index >= timeSlots.length) {
+        newDate.setDate(newDate.getDate() + Math.floor(index / timeSlots.length));
+      }
+      
+      // Set the new time
+      const [hours, minutes, seconds] = newTimeSlot.split(':').map(Number);
+      newDate.setHours(hours, minutes, seconds, 0);
+      
+      usedTimes.add(newDate.toISOString().split('T')[0] + 'T' + newTimeSlot);
+      
+      return {
+        ...todo,
+        deadline: newDate,
+        deadlineReasoning: (todo.deadlineReasoning || 'AI-generated deadline') + ' (adjusted for time conflict)'
+      };
+    }
+    
+    usedTimes.add(dateTimeKey);
+    return todo;
+  });
 }
 
 /**
