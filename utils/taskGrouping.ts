@@ -86,16 +86,12 @@ export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
       const isTimeBasedGroup = timeBasedOrder.includes(group);
       
       if (isTimeBasedGroup) {
-        // Sort time-based groups by deadline
+        // Sort time-based groups by deadline (including time)
         groups[group].sort((a, b) => {
           if (!a.deadline) return 1; // Move items without deadline to the end
           if (!b.deadline) return -1;
-          // Compare only the date part
-          const aDate = a.deadline ? new Date(a.deadline.getFullYear(), a.deadline.getMonth(), a.deadline.getDate()) : null;
-          const bDate = b.deadline ? new Date(b.deadline.getFullYear(), b.deadline.getMonth(), b.deadline.getDate()) : null;
-          if (!aDate) return 1;
-          if (!bDate) return -1;
-          return aDate.getTime() - bDate.getTime();
+          // Compare the full datetime (date + time)
+          return a.deadline.getTime() - b.deadline.getTime();
         });
       }
       // For planning phase groups, maintain original order (no sorting needed)
@@ -127,17 +123,13 @@ export function groupTasks(tasks: TodoItem[]): { [key: string]: TodoItem[] } {
       groups[group].push(item);
     });
 
-    // Sort tasks within each group by deadline
+    // Sort tasks within each group by deadline (including time)
     Object.keys(groups).forEach(group => {
       groups[group].sort((a, b) => {
         if (!a.deadline) return 1; // Move items without deadline to the end
         if (!b.deadline) return -1;
-        // Compare only the date part
-        const aDate = a.deadline ? new Date(a.deadline.getFullYear(), a.deadline.getMonth(), a.deadline.getDate()) : null;
-        const bDate = b.deadline ? new Date(b.deadline.getFullYear(), b.deadline.getMonth(), b.deadline.getDate()) : null;
-        if (!aDate) return 1;
-        if (!bDate) return -1;
-        return aDate.getTime() - bDate.getTime();
+        // Compare the full datetime (date + time)
+        return a.deadline.getTime() - b.deadline.getTime();
       });
     });
 

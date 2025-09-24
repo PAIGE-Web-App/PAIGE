@@ -323,12 +323,13 @@ DEADLINE GENERATION RULES:
 9. NEVER generate dates after ${weddingDate} unless it's an "After" item
 10. CRITICAL: Maintain the exact order of items as they appear in the list above. Do not reorder based on deadlines.
 11. NATURAL SPREADING: CRITICAL - Create a realistic, non-overlapping schedule:
-    - NEVER put more than 2-3 tasks on the same day
+    - MAXIMUM 1-2 tasks per day (not 2-3)
     - NEVER use the same time for multiple tasks
-    - Spread tasks across multiple days (e.g., if you have 6 tasks, use at least 3 different days)
+    - FORCE tasks across multiple days (e.g., if you have 6 tasks, use at least 4-5 different days)
     - Use different time slots: 9:00 AM, 9:30 AM, 10:00 AM, 1:00 PM, 2:00 PM, 6:00 PM, 7:00 PM
     - Consider task complexity: simple tasks get shorter time slots, complex tasks get longer ones
     - Each task must have a completely unique date and time - NO DUPLICATES ALLOWED
+    - SPREAD ACROSS DAYS: Don't cluster tasks on the same date - use different dates for each task when possible
 
 ${deadlineValidation.hasTightDeadlines ? `
 ⚠️  WARNING: ${deadlineValidation.warningMessage}
@@ -348,12 +349,13 @@ Return a JSON array where each object has:
 IMPORTANT: 
 - Process items in the exact order they appear in the list above. Do not reorder or skip items.
 - CRITICAL: Each task must have a completely unique date and time combination - NO DUPLICATES
-- Spread tasks across multiple days (max 2-3 tasks per day)
+- Spread tasks across multiple days (max 1-2 tasks per day)
 - Use different time slots: 9:00 AM, 9:30 AM, 10:00 AM, 1:00 PM, 2:00 PM, 6:00 PM, 7:00 PM
-- If you have many tasks, use more days to spread them out
+- FORCE SPREADING: If you have 6 tasks, use at least 4-5 different dates
 - NEVER assign the same date and time to multiple tasks
+- AVOID CLUSTERING: Don't put multiple tasks on the same date - spread them out
 
-Example (showing proper time distribution):
+Example (showing proper time distribution across multiple days):
 [
   {
     "id": "todo-1",
@@ -362,18 +364,18 @@ Example (showing proper time distribution):
   },
   {
     "id": "todo-2", 
-    "deadline": "2024-03-15T09:30:00",
-    "reasoning": "Photographer research scheduled for 9:30 AM to follow venue research, allowing time for vendor calls."
+    "deadline": "2024-03-16T09:30:00",
+    "reasoning": "Photographer research moved to next day at 9:30 AM to avoid clustering on same date."
   },
   {
     "id": "todo-3",
-    "deadline": "2024-03-16T10:00:00", 
-    "reasoning": "Budget planning moved to next day at 10:00 AM to avoid clustering tasks on same day."
+    "deadline": "2024-03-17T10:00:00", 
+    "reasoning": "Budget planning moved to third day at 10:00 AM to spread tasks across multiple days."
   },
   {
     "id": "todo-4",
-    "deadline": "2024-03-16T14:00:00",
-    "reasoning": "Guest count planning scheduled for 2:00 PM afternoon slot to spread tasks across different times."
+    "deadline": "2024-03-18T14:00:00",
+    "reasoning": "Guest count planning scheduled for fourth day at 2:00 PM to ensure proper spreading."
   }
 ]`;
 
@@ -443,6 +445,7 @@ function parseDeadlineResponse(response: string, todos: Array<any>, weddingDate:
  */
 function ensureUniqueDeadlines(todos: Array<any>): Array<any> {
   const usedTimes = new Set<string>();
+  const usedDates = new Map<string, number>(); // Track how many tasks per date
   const timeSlots = [
     '09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00',
     '13:00:00', '13:30:00', '14:00:00', '14:30:00', '15:00:00',
@@ -457,31 +460,39 @@ function ensureUniqueDeadlines(todos: Array<any>): Array<any> {
     const timeStr = deadline.toTimeString().split(' ')[0];
     const dateTimeKey = `${dateStr}T${timeStr}`;
     
-    // If this time is already used, find a new one
-    if (usedTimes.has(dateTimeKey)) {
-      // Find next available time slot
+    // Check if this date already has too many tasks (max 1-2 per day)
+    const tasksOnThisDate = usedDates.get(dateStr) || 0;
+    const maxTasksPerDay = 2;
+    
+    // If this time is already used OR this date has too many tasks, find a new one
+    if (usedTimes.has(dateTimeKey) || tasksOnThisDate >= maxTasksPerDay) {
+      // Find next available time slot and date
       let newTimeSlot = timeSlots[index % timeSlots.length];
       let newDate = new Date(deadline);
       
-      // If we've used all time slots for this date, move to next day
-      if (index >= timeSlots.length) {
-        newDate.setDate(newDate.getDate() + Math.floor(index / timeSlots.length));
-      }
+      // Move to next day to avoid clustering
+      const daysToAdd = Math.floor(index / maxTasksPerDay) + 1;
+      newDate.setDate(newDate.getDate() + daysToAdd);
       
       // Set the new time
       const [hours, minutes, seconds] = newTimeSlot.split(':').map(Number);
       newDate.setHours(hours, minutes, seconds, 0);
       
-      usedTimes.add(newDate.toISOString().split('T')[0] + 'T' + newTimeSlot);
+      const newDateStr = newDate.toISOString().split('T')[0];
+      const newDateTimeKey = `${newDateStr}T${newTimeSlot}`;
+      
+      usedTimes.add(newDateTimeKey);
+      usedDates.set(newDateStr, (usedDates.get(newDateStr) || 0) + 1);
       
       return {
         ...todo,
         deadline: newDate,
-        deadlineReasoning: (todo.deadlineReasoning || 'AI-generated deadline') + ' (adjusted for time conflict)'
+        deadlineReasoning: (todo.deadlineReasoning || 'AI-generated deadline') + ' (adjusted for clustering)'
       };
     }
     
     usedTimes.add(dateTimeKey);
+    usedDates.set(dateStr, (usedDates.get(dateStr) || 0) + 1);
     return todo;
   });
 }
