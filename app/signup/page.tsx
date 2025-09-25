@@ -75,8 +75,40 @@ export default function SignUp() {
 
   // No auto-correction needed for single max budget
 
-  // Note: We don't clear cookies on signup page load anymore
-  // This allows the Google auth flow to properly set and maintain session cookies
+  // Smart session cleanup - only clear if user is not authenticated
+  useEffect(() => {
+    const cleanupStaleSession = async () => {
+      try {
+        // Only clear session if user is not authenticated
+        // This prevents clearing session after successful login
+        if (!user) {
+          console.log('🧹 [SIGNUP] Running session cleanup on signup page (user not authenticated)...');
+          
+          // Clear session cookies only if no user
+          document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          document.cookie = 'show-toast=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          
+          // Clear localStorage auth data
+          localStorage.removeItem('lastSignInMethod');
+          localStorage.removeItem('lastGoogleEmail');
+          localStorage.removeItem('lastGoogleName');
+          localStorage.removeItem('lastGooglePicture');
+          localStorage.removeItem('lastGoogleUserId');
+          localStorage.removeItem('gmailConnected');
+          localStorage.removeItem('showLoginToast');
+          localStorage.removeItem('paige_onboarding_status');
+          
+          console.log('✅ [SIGNUP] Session cleanup completed');
+        } else {
+          console.log('🚫 [SIGNUP] Skipping session cleanup - user is authenticated');
+        }
+      } catch (error) {
+        console.error('Error during session cleanup:', error);
+      }
+    };
+
+    cleanupStaleSession();
+  }, [user]);
 
   const vibeTabs = [
     { key: 'pills', label: 'Popular Vibes', icon: '✨' },
@@ -325,6 +357,18 @@ export default function SignUp() {
       if (res.ok) {
         // Get the session token from the response and set client-side cookie
         const sessionData = await res.json();
+        console.log('✅ [SIGNUP] Session login successful:', sessionData);
+        
+        // Add a longer delay to ensure cookie is set and propagated
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check if cookie was actually set
+        const cookieSet = document.cookie.includes('__session=');
+        console.log('🍪 [SIGNUP] Cookie check after session login:', {
+          cookieSet,
+          cookieValue: document.cookie.includes('__session=') ? 'present' : 'missing',
+          allCookies: document.cookie
+        });
         
         // Server-side session cookie is already set by the API
         
@@ -362,7 +406,11 @@ export default function SignUp() {
           
           if (userData.onboarded === true) {
             // User is onboarded, redirect to dashboard
-            window.location.href = "/";
+            console.log('🔄 [SIGNUP] Redirecting to dashboard');
+            setTimeout(() => {
+              console.log('🚀 [SIGNUP] Executing redirect to dashboard');
+              window.location.href = "/";
+            }, 300);
           } else {
             // User exists but not onboarded, continue with signup flow
             setIsNewSignup(true);
@@ -372,6 +420,7 @@ export default function SignUp() {
       } else {
         showErrorToast("Account already exists. Redirecting to login...");
         setTimeout(() => {
+          console.log('🚀 [SIGNUP] Executing redirect to login (existing account)');
           window.location.href = "/login?existing=1";
         }, 2000);
       }

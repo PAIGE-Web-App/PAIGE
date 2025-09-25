@@ -12,7 +12,7 @@ import {
 } from '@/utils/vendorUtils';
 
 export default function MyFavoritesPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { weddingLocation } = useUserProfileData();
   const { favorites, isLoading: favoritesLoading } = useFavoritesSimple();
@@ -93,14 +93,9 @@ export default function MyFavoritesPage() {
     setIsLoading(favoritesLoading);
   }, [favoritesLoading]);
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/signin');
-    }
-  }, [user, loading, router]);
+  // Auth is handled by middleware - no need for client-side redirects
 
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

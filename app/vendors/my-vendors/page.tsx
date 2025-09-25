@@ -86,7 +86,7 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
 }
 
 export default function MyVendorsPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -317,9 +317,8 @@ export default function MyVendorsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSortMenu]);
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
-  }
+  // Simplified loading - show page immediately, load data progressively
+  // Removed blocking loading state - data loads in background
 
   return (
     <div className="flex flex-col h-full bg-linen">

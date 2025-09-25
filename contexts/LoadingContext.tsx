@@ -39,6 +39,7 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     setLoadingStateInternal(prev => ({ ...prev, ...updates }));
   }, []);
 
+
   // Update loading states based on context values
   useEffect(() => {
     setLoadingState({

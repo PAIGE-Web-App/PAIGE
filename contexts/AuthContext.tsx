@@ -303,41 +303,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    let authStateChangeTimeout: NodeJS.Timeout;
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Debounce rapid auth state changes (especially during logout)
-      clearTimeout(authStateChangeTimeout);
-      authStateChangeTimeout = setTimeout(async () => {
-        // Auth state changed
-        setUser(user);
-        setLoading(false);
-        
-        // If user exists, validate session and set up token refresh
-        if (user) {
-          // Check onboarding status immediately
-          await checkOnboardingStatus();
-          
-          // Don't validate session immediately to avoid redirect loops
-          // The session will be validated on the next page load
-          
-          // Set up periodic token refresh
-          const refreshInterval = setInterval(async () => {
-            if (user && user.uid) {
-              await refreshAuthTokenLocal();
-            }
-          }, TOKEN_REFRESH_INTERVAL);
-          
-          // Clean up interval on unmount
-          return () => clearInterval(refreshInterval);
+      // Auth state changed
+      setUser(user);
+      setLoading(false);
+      
+      // If user exists, validate session and set up token refresh
+      if (user) {
+        await checkOnboardingStatus();
+        const refreshInterval = setInterval(async () => {
+          if (user && user.uid) {
+            await refreshAuthTokenLocal();
+          }
+        }, TOKEN_REFRESH_INTERVAL);
+        return () => clearInterval(refreshInterval);
+      } else {
+        // Clear onboarding status when user logs out
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(ONBOARDING_STATUS_KEY);
         }
-      }, 100); // 100ms debounce
+      }
     });
     
-    return () => {
-      clearTimeout(authStateChangeTimeout);
-      unsubscribe();
-    };
+    return unsubscribe;
   }, [refreshAuthTokenLocal]);
 
   // Loading is now handled by LoadingProvider in layout.tsx

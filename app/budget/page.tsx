@@ -103,7 +103,7 @@ import toast from "react-hot-toast";
 import type { BudgetItem, BudgetCategory } from "@/types/budget";
 
 export default function BudgetPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   // Use shared user profile data hook
@@ -185,8 +185,8 @@ export default function BudgetPage() {
   }, [budget]);
 
   // Memoized values for performance
-  const isLoading = useMemo(() => profileLoading || loading || budget.budgetCategories === undefined, 
-    [profileLoading, loading, budget.budgetCategories]);
+  const isLoading = useMemo(() => profileLoading || budget.budgetCategories === undefined, 
+    [profileLoading, budget.budgetCategories]);
   
   const selectedCategoryId = useMemo(() => selectedCategory?.id, [selectedCategory]);
   

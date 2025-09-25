@@ -55,7 +55,7 @@ import { FileFolder, FileItem } from '@/types/files';
 const STARTER_TIER_MAX_SUBFOLDER_LEVELS = 3;
 
 export default function FilesPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const { daysLeft, userName, profileLoading } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();

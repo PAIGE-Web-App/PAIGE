@@ -126,7 +126,7 @@ const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
 };
 
 export default function MessagesPage() {
-  const { user, userName, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
+  const { user, userName } = useAuth();
   const router = useRouter();
   
   // Track Quick Start Guide completion
@@ -157,7 +157,7 @@ export default function MessagesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
-  const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
+  // Removed onboardingCheckLoading - using progressive loading
   
   // Refs for DOM elements
   const filterPopoverRef = useRef<HTMLDivElement | null>(null);
@@ -521,11 +521,10 @@ export default function MessagesPage() {
   useEffect(() => {
     console.log('🔄 Gmail auth useEffect triggered:', { 
       hasUser: !!user?.uid, 
-      authLoading, 
       userId: user?.uid 
     });
     
-    if (user?.uid && !authLoading) {
+    if (user?.uid) {
       console.log('✅ Calling checkGmailAuthStatus');
       checkGmailAuthStatus();
       
@@ -538,36 +537,24 @@ export default function MessagesPage() {
       return () => clearInterval(interval);
     } else {
       console.log('❌ Not calling checkGmailAuthStatus:', { 
-        hasUser: !!user?.uid, 
-        authLoading 
+        hasUser: !!user?.uid
       });
     }
-  }, [user?.uid, authLoading]);
+  }, [user?.uid]);
 
   // Removed problematic effect that was causing redirect loops
   // Authentication is now handled by middleware and AuthContext
 
-  // Use cached onboarding status from AuthContext
+  // Simplified onboarding check - use cached status from localStorage
   useEffect(() => {
-    if (!authLoading && user) {
-      if (onboardingStatus === 'unknown') {
-        // Only check if status is unknown (first time or cache cleared)
-        setOnboardingCheckLoading(true);
-        checkOnboardingStatus().then(() => {
-          setOnboardingCheckLoading(false);
-        });
-      } else if (onboardingStatus === 'not-onboarded') {
-        // User is not onboarded, redirect to onboarding
-        // User is not onboarded, redirecting to onboarding
+    if (user) {
+      const cachedOnboardingStatus = localStorage.getItem('paige_onboarding_status');
+      if (cachedOnboardingStatus === 'not-onboarded') {
+        console.log('User is not onboarded, redirecting to signup...');
         router.push('/signup?onboarding=1');
-      } else {
-        // User is onboarded, no loading needed
-        setOnboardingCheckLoading(false);
       }
-    } else if (!authLoading && !user) {
-      setOnboardingCheckLoading(false);
     }
-  }, [user, authLoading, onboardingStatus, checkOnboardingStatus, router]);
+  }, [user, router]);
 
   // Function to handle user logout
   const handleLogoutClick = async () => {
@@ -662,7 +649,7 @@ export default function MessagesPage() {
         setContacts([]);
         setSelectedContact(null);
         setContactsLoading(false); // Ensure loading state is reset
-        if (!authLoading && !user) {
+        if (!user) {
           setInitialContactLoadComplete(true);
         }
       }
@@ -674,7 +661,7 @@ export default function MessagesPage() {
         unsubscribeContacts();
       }
     };
-  }, [user, authLoading]);
+  }, [user]);
 
   // Select contact from query param if present
   useEffect(() => {
@@ -914,7 +901,7 @@ export default function MessagesPage() {
 
 
   // Only show content when both loading is complete AND minimum time has passed
-  const isLoading = authLoading || !minLoadTimeReached;
+  const isLoading = !minLoadTimeReached;
 
 
   // Handle Gmail re-authentication success - just clear URL parameters
@@ -1178,7 +1165,7 @@ export default function MessagesPage() {
                 </Suspense>
               </main>
 
-            {(user && !authLoading) ? (
+            {user ? (
               <div className="hidden lg:block lg:w-[420px]">
                 <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="text-sm text-gray-500">Loading dashboard...</div></div>}>
                   <RightDashboardPanel
@@ -1317,19 +1304,21 @@ export default function MessagesPage() {
           )}
           
           {/* Not Enough Credits Modal */}
-          <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading credits modal...</div></div></div>}>
-            <NotEnoughCreditsModalWrapper
-              isOpen={showNotEnoughCreditsModal}
-              onClose={() => setShowNotEnoughCreditsModal(false)}
-              requiredCredits={creditModalData.requiredCredits}
-              feature={creditModalData.feature}
-              accountInfo={{
-                tier: 'Free',
-                dailyCredits: userCredits.monthlyCredits,
-                refreshTime: 'Daily at midnight'
-              }}
-            />
-          </Suspense>
+          {showNotEnoughCreditsModal && (
+            <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white p-6 rounded-lg"><div className="text-sm text-gray-500">Loading credits modal...</div></div></div>}>
+              <NotEnoughCreditsModalWrapper
+                isOpen={showNotEnoughCreditsModal}
+                onClose={() => setShowNotEnoughCreditsModal(false)}
+                requiredCredits={creditModalData.requiredCredits}
+                feature={creditModalData.feature}
+                accountInfo={{
+                  tier: 'Free',
+                  dailyCredits: userCredits.monthlyCredits,
+                  refreshTime: 'Daily at midnight'
+                }}
+              />
+            </Suspense>
+          )}
       </div>
   );
 }

@@ -464,14 +464,9 @@ export default function SeatingChartDetailPage() {
     showSuccessToast('Guests added to group successfully!');
   };
 
+  // Simplified loading - show page immediately, handle auth in background
   if (!user) {
-    return (
-      <div className="min-h-screen bg-[#F8F6F4] flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold text-[#332B42] mb-4">Please log in to access seating charts</h1>
-        </div>
-      </div>
-    );
+    return null; // Let middleware handle redirect
   }
 
   if (isLoading) {

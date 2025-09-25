@@ -201,13 +201,14 @@ export function middleware(request: NextRequest) {
   // Use only the HttpOnly server cookie for security
   const token = request.cookies.get('__session')?.value || '';
 
-  // Debug logging for messages page
-  if (path === '/messages') {
-    console.log('🔍 Messages page access:', {
+  // Debug logging for all protected routes
+  if (!isPublicPath) {
+    console.log('🔍 [MIDDLEWARE] Route access:', {
       path,
       hasToken: !!token,
       tokenLength: token.length,
-      cookies: request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value }))
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'none',
+      cookies: request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 }))
     });
   }
 
@@ -219,14 +220,8 @@ export function middleware(request: NextRequest) {
   // If user is not on a public path and has no token, redirect to login
   if (!token) {
     console.log('🚫 No token found for protected route:', path);
-    const loginUrl = new URL('/login', request.url);
-    
-    // Preserve the current path as a callback URL
-    if (path !== '/login' && path !== '/signup') {
-      loginUrl.searchParams.set('callbackUrl', path);
-    }
-    
-    const response = NextResponse.redirect(loginUrl);
+    console.log('🍪 All cookies:', request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value })));
+    const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.set('show-toast', 'Please login to access this page');
     return response;
   }
@@ -235,16 +230,22 @@ export function middleware(request: NextRequest) {
   // Check if token exists and has reasonable length (basic validation)
   if (token.length < 10) {
     console.log('🚫 Invalid token format for protected route:', path);
-    const loginUrl = new URL('/login', request.url);
-    
-    // Preserve the current path as a callback URL
-    if (path !== '/login' && path !== '/signup') {
-      loginUrl.searchParams.set('callbackUrl', path);
-    }
-    
-    const response = NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.set('show-toast', 'Session expired, please login again');
     return response;
+  }
+
+  // For development, we can add a simple token format check
+  // In production, you might want to validate the token with Firebase Admin
+  if (process.env.NODE_ENV === 'development') {
+    // Basic JWT format check (should have 3 parts separated by dots)
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      console.log('🚫 Invalid JWT format for protected route:', path);
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.set('show-toast', 'Invalid session, please login again');
+      return response;
+    }
   }
   
   // User has valid token and is accessing protected route - allow access

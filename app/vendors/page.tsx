@@ -99,7 +99,7 @@ function ConfirmOfficialModal({ open, onClose, onConfirm, vendorName, category, 
 
 
 export default function VendorsPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
@@ -448,17 +448,8 @@ export default function VendorsPage() {
     return vendorsWithPills;
   }, [vendors, selectedVenuePlaceId, selectedVendors]);
 
-  // Show loading state while user data is loading
-  if (userDataLoading) {
-    return (
-      <div className="min-h-screen bg-linen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
-          <p className="text-[#332B42]">Loading vendors...</p>
-        </div>
-      </div>
-    );
-  }
+  // Simplified loading - show page immediately, load data progressively
+  // Removed userDataLoading blocking - data loads in background
 
   return (
     <>

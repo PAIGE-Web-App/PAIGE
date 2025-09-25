@@ -50,27 +50,49 @@ export default function Login() {
 
   // Enhanced error handling is now provided by useAuthError hook
 
-  // Consistent redirect function with callback URL support
+  // Simple redirect function
   const redirectTo = (path: string) => {
-    // Check if there's a callback URL in the search parameters
-    const callbackUrl = searchParams?.get('callbackUrl') || searchParams?.get('returnUrl');
-    
-    if (callbackUrl && callbackUrl !== '/login' && callbackUrl !== '/signup') {
-      // Validate the callback URL to prevent open redirects
+    // Use a longer delay to ensure cookie is set and propagated
+    setTimeout(() => {
+      console.log('🚀 Executing redirect to:', path);
+      window.location.href = path;
+    }, 300);
+  };
+
+  // Smart session cleanup - only clear if user is not authenticated
+  useEffect(() => {
+    const cleanupStaleSession = async () => {
       try {
-        const url = new URL(callbackUrl, window.location.origin);
-        if (url.origin === window.location.origin) {
-          console.log('🔄 Redirecting to callback URL:', callbackUrl);
-          window.location.href = callbackUrl;
-          return;
+        // Only clear session if user is not authenticated
+        // This prevents clearing session after successful login
+        if (!user) {
+          console.log('🧹 Running session cleanup on login page (user not authenticated)...');
+          
+          // Clear session cookies only if no user
+          document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          document.cookie = 'show-toast=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          
+          // Clear localStorage auth data
+          localStorage.removeItem('lastSignInMethod');
+          localStorage.removeItem('lastGoogleEmail');
+          localStorage.removeItem('lastGoogleName');
+          localStorage.removeItem('lastGooglePicture');
+          localStorage.removeItem('lastGoogleUserId');
+          localStorage.removeItem('gmailConnected');
+          localStorage.removeItem('showLoginToast');
+          localStorage.removeItem('paige_onboarding_status');
+          
+          console.log('✅ Session cleanup completed');
+        } else {
+          console.log('🚫 Skipping session cleanup - user is authenticated');
         }
       } catch (error) {
-        console.warn('Invalid callback URL:', callbackUrl);
+        console.error('Error during session cleanup:', error);
       }
-    }
-    
-    window.location.href = path;
-  };
+    };
+
+    cleanupStaleSession();
+  }, [user]);
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -454,23 +476,24 @@ export default function Login() {
   */
 
   const handleFreshGoogleLogin = async () => {
+    // Clear any existing auth state first to prevent conflicts
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('lastSignInMethod');
+      localStorage.removeItem('lastGoogleEmail');
+      localStorage.removeItem('lastGoogleName');
+      localStorage.removeItem('lastGooglePicture');
+      localStorage.removeItem('lastGoogleUserId');
+      localStorage.removeItem('gmailConnected');
+      localStorage.removeItem('showLoginToast');
+    }
+    
     // Fresh Google login with popup
     const provider = new GoogleAuthProvider();
     
-    // Get callback URL from search parameters
-    const callbackUrl = searchParams?.get('callbackUrl') || searchParams?.get('returnUrl');
-    
     // Force account selection - this is how other companies handle it
-    const customParams: any = {
+    provider.setCustomParameters({
       prompt: 'select_account'
-    };
-    
-    // Add callback URL if present
-    if (callbackUrl) {
-      customParams.state = encodeURIComponent(JSON.stringify({ callbackUrl }));
-    }
-    
-    provider.setCustomParameters(customParams);
+    });
     
     // Add Gmail scopes for automatic Gmail connection
     provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
@@ -570,12 +593,10 @@ export default function Login() {
       });
       
       // Check session login response
-      
       if (res.ok) {
         // Get the session token from the response
         const sessionData = await res.json();
-        
-        // Server-side session cookie is already set by the API
+        console.log('✅ Session login successful:', sessionData);
         
         // Save Google account info for future detection after successful authentication
         localStorage.setItem('lastSignInMethod', 'google');
@@ -587,40 +608,33 @@ export default function Login() {
         // Check onboarding status before redirecting
         const userData = userDocSnap.data();
         
-        // Extract callback URL from OAuth state if present
-        let oauthCallbackUrl = null;
-        try {
-          // Access the OAuth state from the credential
-          const credential = GoogleAuthProvider.credentialFromResult(result);
-          const state = (credential as any)?.state;
-          if (state) {
-            const decodedState = JSON.parse(decodeURIComponent(state));
-            oauthCallbackUrl = decodedState.callbackUrl;
-          }
-        } catch (error) {
-          console.log('No OAuth state or invalid state:', error);
-        }
+        // Add a longer delay to ensure cookie is set and propagated
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check if cookie was actually set
+        const cookieSet = document.cookie.includes('__session=');
+        console.log('🍪 Cookie check after session login:', {
+          cookieSet,
+          cookieValue: document.cookie.includes('__session=') ? 'present' : 'missing',
+          allCookies: document.cookie
+        });
         
         // Redirect based on onboarding status
         if (userData.onboarded === true) {
-          // User is onboarded, redirect to dashboard or callback URL
+          // User is onboarded, redirect to dashboard
           if (typeof window !== 'undefined') {
             localStorage.setItem('showLoginToast', '1');
           }
-          
-          if (oauthCallbackUrl) {
-            console.log('🔄 Redirecting to OAuth callback URL:', oauthCallbackUrl);
-            window.location.href = oauthCallbackUrl;
-          } else {
-            redirectTo("/");
-          }
+          console.log('🔄 Redirecting to dashboard');
+          redirectTo("/");
         } else {
           // User is not onboarded, redirect to signup
+          console.log('🔄 Redirecting to signup');
           redirectTo('/signup?onboarding=1');
         }
       } else {
         const errorText = await res.text();
-        console.error('Session login failed:', errorText);
+        console.error('❌ Session login failed:', errorText);
         showErrorToast("Session login failed");
       }
     } catch (err: any) {

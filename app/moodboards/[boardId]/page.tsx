@@ -54,7 +54,7 @@ interface MoodBoardPageProps {
 }
 
 export default function MoodBoardPage({ params }: MoodBoardPageProps) {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { vibe, generatedVibes, vibeInputMethod, weddingLocation } = useUserProfileData();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -727,20 +727,10 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
     setEditingVibes(editingVibes.filter((_, i) => i !== index));
   };
 
-  // Auth check
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  // Auth is handled by middleware - no need for client-side redirects
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F3F2F0] flex items-center justify-center">
-        <div className="text-[#332B42]">Loading...</div>
-      </div>
-    );
-  }
+  // Simplified loading - show page immediately, load data progressively
+  // Removed blocking loading state - let middleware handle auth redirects
 
   if (!user) {
     return null;

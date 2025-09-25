@@ -7,11 +7,11 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
 import { CreditProvider } from "../contexts/CreditContext";
 import { MoodBoardsProvider } from "../contexts/MoodBoardsContext";
-import { LoadingProvider } from "../contexts/LoadingContext";
+// Removed LoadingProvider - using progressive loading instead
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
-import VerticalNavWrapper from "../components/VerticalNavWrapper";
+import SimpleNavWrapper from "../components/SimpleNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
@@ -76,17 +76,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </HydrationErrorBoundary>
                   </GlobalErrorBoundary>
                 ) : (
-                  // For authenticated pages, use LoadingProvider
-                  <LoadingProvider>
-                    {/* New Vertical Navigation */}
+                  // For authenticated pages, show immediately with progressive loading
+                  <>
+                    {/* Simplified Navigation */}
                     {!hideNav && (
-                      <VerticalNavWrapper>
+                      <SimpleNavWrapper>
                         <GlobalErrorBoundary>
                           <HydrationErrorBoundary>
                             {children}
                           </HydrationErrorBoundary>
                         </GlobalErrorBoundary>
-                      </VerticalNavWrapper>
+                      </SimpleNavWrapper>
                     )}
                     {hideNav && (
                       <GlobalErrorBoundary>
@@ -95,7 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </HydrationErrorBoundary>
                       </GlobalErrorBoundary>
                     )}
-                  </LoadingProvider>
+                  </>
                 )}
               </MoodBoardsProvider>
             </CreditProvider>

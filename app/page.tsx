@@ -27,12 +27,12 @@ import {
 
 
 export default function Dashboard() {
-  const { user, userName, loading: authLoading, onboardingStatus, checkOnboardingStatus } = useAuth();
+  const { user, userName } = useAuth();
   const router = useRouter();
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
-  const [onboardingCheckLoading, setOnboardingCheckLoading] = useState(false);
+  // Removed onboardingCheckLoading - using progressive loading
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [userData, setUserData] = useState<any>(null);
   const [progressData, setProgressData] = useState<any>(null);
@@ -218,35 +218,16 @@ export default function Dashboard() {
     }
   };
 
-  // Check onboarding status
+  // Simplified onboarding check - use cached status from localStorage
   useEffect(() => {
-    if (!authLoading && user) {
-      if (onboardingStatus === 'unknown') {
-        setOnboardingCheckLoading(true);
-        checkOnboardingStatus().then(() => {
-          setOnboardingCheckLoading(false);
-        }).catch((error) => {
-          console.error('Error checking onboarding status:', error);
-          setOnboardingCheckLoading(false);
-        });
-        
-        // Add a timeout to prevent infinite loading
-        setTimeout(() => {
-          if (onboardingCheckLoading) {
-            console.warn('Onboarding check timed out, setting loading to false');
-            setOnboardingCheckLoading(false);
-          }
-        }, 10000); // 10 second timeout
-      } else if (onboardingStatus === 'not-onboarded') {
+    if (user) {
+      const cachedOnboardingStatus = localStorage.getItem('paige_onboarding_status');
+      if (cachedOnboardingStatus === 'not-onboarded') {
         console.log('User is not onboarded, redirecting to signup...');
         window.location.href = '/signup?onboarding=1';
-      } else {
-        setOnboardingCheckLoading(false);
       }
-    } else if (!authLoading && !user) {
-      setOnboardingCheckLoading(false);
     }
-  }, [user, authLoading, onboardingStatus, checkOnboardingStatus, router]);
+  }, [user]);
 
   // Check localStorage for completion status
   useEffect(() => {

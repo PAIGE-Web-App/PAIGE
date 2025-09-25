@@ -80,7 +80,7 @@ import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts
 const STARTER_TIER_MAX_LISTS = 3;
 
 export default function TodoPage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showSuccessToast, showInfoToast } = useCustomToast();
@@ -195,7 +195,7 @@ export default function TodoPage() {
   // Mobile navigation is now handled by VerticalNavWrapper
 
   // Only show content when profile loading is complete
-  const isLoading = profileLoading || loading || todoLists.todoLists === undefined;
+  const isLoading = profileLoading || todoLists.todoLists === undefined;
 
 
   // Sync & Clean Up Categories handler
@@ -513,11 +513,55 @@ export default function TodoPage() {
     return events;
   }, [viewOptions.filteredTodoItems, weddingDate, user?.uid]);
 
-  // Loading is now handled by LoadingProvider in layout.tsx
+  // Add initial loading state to prevent empty state flash
+  const [initialLoadComplete, setInitialLoadComplete] = React.useState(false);
+
+  // Mark initial load as complete after a short delay to allow data to load
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoadComplete(true);
+    }, 1000); // 1 second delay to allow data to load
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // If not loading and no user, just return null (middleware will redirect)
   if (!user) {
     return null;
+  }
+
+  // Show skeleton loading while initial data loads
+  if (!initialLoadComplete) {
+    return (
+      <div className="flex flex-col h-full bg-linen">
+        <WeddingBanner />
+        <div className="flex-1 flex">
+          {/* Sidebar Skeleton */}
+          <div className="w-72 bg-white border-r border-gray-200 p-4">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded mb-4"></div>
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Main Content Skeleton */}
+          <div className="flex-1 p-6">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded mb-6 w-1/3"></div>
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const handleCalendarEventClick = (event) => {
