@@ -50,8 +50,25 @@ export default function Login() {
 
   // Enhanced error handling is now provided by useAuthError hook
 
-  // Consistent redirect function
+  // Consistent redirect function with callback URL support
   const redirectTo = (path: string) => {
+    // Check if there's a callback URL in the search parameters
+    const callbackUrl = searchParams?.get('callbackUrl') || searchParams?.get('returnUrl');
+    
+    if (callbackUrl && callbackUrl !== '/login' && callbackUrl !== '/signup') {
+      // Validate the callback URL to prevent open redirects
+      try {
+        const url = new URL(callbackUrl, window.location.origin);
+        if (url.origin === window.location.origin) {
+          console.log('🔄 Redirecting to callback URL:', callbackUrl);
+          window.location.href = callbackUrl;
+          return;
+        }
+      } catch (error) {
+        console.warn('Invalid callback URL:', callbackUrl);
+      }
+    }
+    
     window.location.href = path;
   };
 
@@ -440,10 +457,20 @@ export default function Login() {
     // Fresh Google login with popup
     const provider = new GoogleAuthProvider();
     
+    // Get callback URL from search parameters
+    const callbackUrl = searchParams?.get('callbackUrl') || searchParams?.get('returnUrl');
+    
     // Force account selection - this is how other companies handle it
-    provider.setCustomParameters({
+    const customParams: any = {
       prompt: 'select_account'
-    });
+    };
+    
+    // Add callback URL if present
+    if (callbackUrl) {
+      customParams.state = encodeURIComponent(JSON.stringify({ callbackUrl }));
+    }
+    
+    provider.setCustomParameters(customParams);
     
     // Add Gmail scopes for automatic Gmail connection
     provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
@@ -560,13 +587,33 @@ export default function Login() {
         // Check onboarding status before redirecting
         const userData = userDocSnap.data();
         
+        // Extract callback URL from OAuth state if present
+        let oauthCallbackUrl = null;
+        try {
+          // Access the OAuth state from the credential
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          const state = (credential as any)?.state;
+          if (state) {
+            const decodedState = JSON.parse(decodeURIComponent(state));
+            oauthCallbackUrl = decodedState.callbackUrl;
+          }
+        } catch (error) {
+          console.log('No OAuth state or invalid state:', error);
+        }
+        
         // Redirect based on onboarding status
         if (userData.onboarded === true) {
-          // User is onboarded, redirect to dashboard
+          // User is onboarded, redirect to dashboard or callback URL
           if (typeof window !== 'undefined') {
             localStorage.setItem('showLoginToast', '1');
           }
-          redirectTo("/");
+          
+          if (oauthCallbackUrl) {
+            console.log('🔄 Redirecting to OAuth callback URL:', oauthCallbackUrl);
+            window.location.href = oauthCallbackUrl;
+          } else {
+            redirectTo("/");
+          }
         } else {
           // User is not onboarded, redirect to signup
           redirectTo('/signup?onboarding=1');

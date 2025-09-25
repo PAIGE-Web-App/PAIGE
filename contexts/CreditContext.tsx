@@ -80,7 +80,6 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      
       logger.perf('Loading credits from API', { userId: user.uid });
       const userCredits = await creditServiceClient.getUserCredits(user.uid);
       

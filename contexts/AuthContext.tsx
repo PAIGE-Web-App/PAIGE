@@ -315,6 +315,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // If user exists, validate session and set up token refresh
         if (user) {
+          // Check onboarding status immediately
+          await checkOnboardingStatus();
+          
           // Don't validate session immediately to avoid redirect loops
           // The session will be validated on the next page load
           

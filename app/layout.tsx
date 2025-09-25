@@ -35,6 +35,7 @@ const workSans = Work_Sans({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideNav = pathname === '/login' || pathname === '/signup';
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
   
   return (
     <html lang="en" className={`${playfair.variable} ${workSans.variable}`}>
@@ -67,25 +68,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SWRProvider>
             <CreditProvider>
               <MoodBoardsProvider>
-                <LoadingProvider>
-                  {/* New Vertical Navigation */}
-                  {!hideNav && (
-                    <VerticalNavWrapper>
+                {isAuthPage ? (
+                  // For auth pages (login/signup), don't use LoadingProvider
+                  <GlobalErrorBoundary>
+                    <HydrationErrorBoundary>
+                      {children}
+                    </HydrationErrorBoundary>
+                  </GlobalErrorBoundary>
+                ) : (
+                  // For authenticated pages, use LoadingProvider
+                  <LoadingProvider>
+                    {/* New Vertical Navigation */}
+                    {!hideNav && (
+                      <VerticalNavWrapper>
+                        <GlobalErrorBoundary>
+                          <HydrationErrorBoundary>
+                            {children}
+                          </HydrationErrorBoundary>
+                        </GlobalErrorBoundary>
+                      </VerticalNavWrapper>
+                    )}
+                    {hideNav && (
                       <GlobalErrorBoundary>
                         <HydrationErrorBoundary>
                           {children}
                         </HydrationErrorBoundary>
                       </GlobalErrorBoundary>
-                    </VerticalNavWrapper>
-                  )}
-                  {hideNav && (
-                    <GlobalErrorBoundary>
-                      <HydrationErrorBoundary>
-                        {children}
-                      </HydrationErrorBoundary>
-                    </GlobalErrorBoundary>
-                  )}
-                </LoadingProvider>
+                    )}
+                  </LoadingProvider>
+                )}
               </MoodBoardsProvider>
             </CreditProvider>
             

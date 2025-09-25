@@ -219,7 +219,14 @@ export function middleware(request: NextRequest) {
   // If user is not on a public path and has no token, redirect to login
   if (!token) {
     console.log('🚫 No token found for protected route:', path);
-    const response = NextResponse.redirect(new URL('/login', request.url));
+    const loginUrl = new URL('/login', request.url);
+    
+    // Preserve the current path as a callback URL
+    if (path !== '/login' && path !== '/signup') {
+      loginUrl.searchParams.set('callbackUrl', path);
+    }
+    
+    const response = NextResponse.redirect(loginUrl);
     response.cookies.set('show-toast', 'Please login to access this page');
     return response;
   }
@@ -228,7 +235,14 @@ export function middleware(request: NextRequest) {
   // Check if token exists and has reasonable length (basic validation)
   if (token.length < 10) {
     console.log('🚫 Invalid token format for protected route:', path);
-    const response = NextResponse.redirect(new URL('/login', request.url));
+    const loginUrl = new URL('/login', request.url);
+    
+    // Preserve the current path as a callback URL
+    if (path !== '/login' && path !== '/signup') {
+      loginUrl.searchParams.set('callbackUrl', path);
+    }
+    
+    const response = NextResponse.redirect(loginUrl);
     response.cookies.set('show-toast', 'Session expired, please login again');
     return response;
   }
