@@ -52,47 +52,16 @@ export default function Login() {
 
   // Simple redirect function
   const redirectTo = (path: string) => {
-    // Use a longer delay to ensure cookie is set and propagated
+    console.log('🚀 Executing redirect to:', path);
+    // Small delay to ensure loading state is reset
     setTimeout(() => {
-      console.log('🚀 Executing redirect to:', path);
       window.location.href = path;
-    }, 300);
+    }, 100);
   };
 
-  // Smart session cleanup - only clear if user is not authenticated
-  useEffect(() => {
-    const cleanupStaleSession = async () => {
-      try {
-        // Only clear session if user is not authenticated
-        // This prevents clearing session after successful login
-        if (!user) {
-          console.log('🧹 Running session cleanup on login page (user not authenticated)...');
-          
-          // Clear session cookies only if no user
-          document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-          document.cookie = 'show-toast=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-          
-          // Clear localStorage auth data
-          localStorage.removeItem('lastSignInMethod');
-          localStorage.removeItem('lastGoogleEmail');
-          localStorage.removeItem('lastGoogleName');
-          localStorage.removeItem('lastGooglePicture');
-          localStorage.removeItem('lastGoogleUserId');
-          localStorage.removeItem('gmailConnected');
-          localStorage.removeItem('showLoginToast');
-          localStorage.removeItem('paige_onboarding_status');
-          
-          console.log('✅ Session cleanup completed');
-        } else {
-          console.log('🚫 Skipping session cleanup - user is authenticated');
-        }
-      } catch (error) {
-        console.error('Error during session cleanup:', error);
-      }
-    };
-
-    cleanupStaleSession();
-  }, [user]);
+  // Note: Removed automatic session cleanup from login page
+  // Session cleanup should only happen when explicitly needed (e.g., logout)
+  // This prevents interference with the Google OAuth flow
 
   // Check for toast message in cookies
   useEffect(() => {
@@ -584,7 +553,7 @@ export default function Login() {
       
       const idToken = await result.user.getIdToken();
       // Get ID token and call session login
-      // POST the ID token to your session login API
+      // POST the ID token to the next-firebase-auth-edge login API
       const res = await fetch("/api/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -608,16 +577,10 @@ export default function Login() {
         // Check onboarding status before redirecting
         const userData = userDocSnap.data();
         
-        // Add a longer delay to ensure cookie is set and propagated
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('✅ Session login successful, redirecting based on onboarding status');
         
-        // Check if cookie was actually set
-        const cookieSet = document.cookie.includes('__session=');
-        console.log('🍪 Cookie check after session login:', {
-          cookieSet,
-          cookieValue: document.cookie.includes('__session=') ? 'present' : 'missing',
-          allCookies: document.cookie
-        });
+        // Reset loading state before redirect
+        setGoogleLoading(false);
         
         // Redirect based on onboarding status
         if (userData.onboarded === true) {
@@ -634,10 +597,22 @@ export default function Login() {
         }
       } else {
         const errorText = await res.text();
-        console.error('❌ Session login failed:', errorText);
+        console.error('❌ Session login failed:', {
+          status: res.status,
+          statusText: res.statusText,
+          error: errorText
+        });
         showErrorToast("Session login failed");
+        // Don't reset loading state here - let the finally block handle it
+        return; // Exit early to prevent further execution
       }
     } catch (err: any) {
+      console.error('❌ Google login error:', {
+        code: err.code,
+        message: err.message,
+        stack: err.stack
+      });
+      
       // Handle special case for existing account
       if (err.code === "auth/account-exists-with-different-credential") {
         showErrorToast("An account already exists with this email. Redirecting to login...");
@@ -650,6 +625,7 @@ export default function Login() {
       const authError = handleError(err, 'Fresh Google login');
       showErrorToast(getErrorMessage(authError));
     } finally {
+      console.log('🔄 Resetting Google loading state');
       setGoogleLoading(false);
     }
   };

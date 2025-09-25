@@ -38,6 +38,7 @@
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.511.0",
     "next": "latest",
+    "next-firebase-auth-edge": "^1.11.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.5",
     "openai": "^4.100.0",

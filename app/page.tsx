@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
 import ClientOnly from '../components/ClientOnly';
+import AuthGuard from '../components/AuthGuard';
 import WeddingBanner from "../components/WeddingBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useCustomToast } from "../hooks/useCustomToast";
@@ -27,7 +28,7 @@ import {
 
 
 export default function Dashboard() {
-  const { user, userName } = useAuth();
+  const { user, userName, loading } = useAuth();
   const router = useRouter();
   
   // Track Quick Start Guide completion
@@ -479,10 +480,21 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Loading is now handled by LoadingProvider in layout.tsx
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Don't render if not authenticated
-    if (!user) {
+  // Don't render if not authenticated - redirect to login
+  if (!user) {
+    router.push('/login');
     return null;
   }
 

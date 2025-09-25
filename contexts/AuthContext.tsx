@@ -311,6 +311,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If user exists, validate session and set up token refresh
       if (user) {
         await checkOnboardingStatus();
+        
+        // Note: Redirect logic moved back to login page for better control
+        
         const refreshInterval = setInterval(async () => {
           if (user && user.uid) {
             await refreshAuthTokenLocal();
