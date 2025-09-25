@@ -15,32 +15,26 @@ import WeddingBanner from '@/components/WeddingBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import TodoDeadlineGenerationProgress from '@/components/TodoDeadlineGenerationProgress';
 
-// Import standardized skeleton components
-import TodoSidebarSkeleton from '../../components/skeletons/TodoSidebarSkeleton';
-import TodoTopBarSkeleton from '../../components/skeletons/TodoTopBarSkeleton';
-import TodoListViewSkeleton from '../../components/skeletons/TodoListViewSkeleton';
-import CalendarViewSkeleton from '../../components/skeletons/CalendarViewSkeleton';
-import TaskSideCardSkeleton from '../../components/skeletons/TaskSideCardSkeleton';
 
 // Lazy load heavy components
 const TodoSidebar = dynamic(() => import('../../components/TodoSidebar'), {
-  loading: () => <TodoSidebarSkeleton />
+  ssr: false
 });
 
 const TodoTopBar = dynamic(() => import('../../components/TodoTopBar'), {
-  loading: () => <TodoTopBarSkeleton />
+  ssr: false
 });
 
 const TodoListView = dynamic(() => import('../../components/TodoListView'), {
-  loading: () => <TodoListViewSkeleton />
+  ssr: false
 });
 
 const CalendarView = dynamic(() => import('../../components/CalendarView'), {
-  loading: () => <CalendarViewSkeleton />
+  ssr: false
 });
 
 const TaskSideCard = dynamic(() => import('../../components/TaskSideCard'), {
-  loading: () => <TaskSideCardSkeleton />
+  ssr: false
 });
 
 // Lazy load modals - only load when needed
@@ -519,16 +513,7 @@ export default function TodoPage() {
     return events;
   }, [viewOptions.filteredTodoItems, weddingDate, user?.uid]);
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-linen">
-        <WeddingBanner />
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      </div>
-    );
-  }
+  // Loading is now handled by LoadingProvider in layout.tsx
 
   // If not loading and no user, just return null (middleware will redirect)
   if (!user) {
@@ -581,13 +566,8 @@ export default function TodoPage() {
             />
 
             <div className={`unified-main-content mobile-${mobileViewMode}-view`}>
-            {/* Conditional rendering for loading state */}
-            {loading && !user ? (
-              <div className="flex-1 flex items-center justify-center">
-                <LoadingSpinner size="lg" text="Loading your to-do lists..." />
-              </div>
-            ) : (
-              <>
+            {/* Loading is now handled by LoadingProvider in layout.tsx */}
+            <>
             <TodoTopBar
                   selectedList={todoLists.selectedList}
                   editingListNameId={todoLists.editingListNameId}
@@ -718,7 +698,6 @@ export default function TodoPage() {
                   )}
                 </div>
               </>
-            )}
             </div>
           </main>
           

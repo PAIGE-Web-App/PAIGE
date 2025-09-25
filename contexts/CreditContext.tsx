@@ -57,20 +57,25 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   const eventListenerRef = useRef<(() => void) | null>(null);
 
   // Load user credits with caching
-  const loadCredits = useCallback(async () => {
+  const loadCredits = useCallback(async (showLoading = true) => {
     if (!user?.uid) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Only show loading if explicitly requested (not for background polling)
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     // Check cache first
     const now = Date.now();
     if (creditCache.data && (now - creditCache.timestamp) < creditCache.duration) {
       setCredits(creditCache.data);
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -105,7 +110,9 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       logger.error('Error loading credits:', err);
       setError(err instanceof Error ? err.message : 'Failed to load credits');
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [user?.uid]);
 
@@ -165,7 +172,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         // Invalidate cache and reload credits
         creditCache.data = null;
         creditCache.timestamp = 0;
-        await loadCredits();
+        await loadCredits(false); // Don't show loading for credit updates
         await loadCreditHistory();
         
         // Emit credit event for UI updates
@@ -223,7 +230,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         creditCache.data = null;
         creditCache.timestamp = 0;
         // Load credits immediately to get fresh data
-        loadCredits();
+        loadCredits(false); // Don't show loading for event-triggered updates
       };
 
       const unsubscribe = creditEventEmitter.subscribe(handleCreditEvent);
@@ -248,9 +255,9 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       if (credits && (now - creditCache.timestamp) > 5000) {
         // Check if credits might have changed by doing a quick validation
         // This is a lightweight check that doesn't invalidate cache
-        loadCredits();
+        loadCredits(false); // Don't show loading for background polling
       }
-    }, 3000); // Poll every 3 seconds
+    }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(pollInterval);
   }, [user?.uid, credits, loadCredits]);
@@ -272,8 +279,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     creditCache.data = null;
     creditCache.timestamp = 0;
     
-    // Load fresh credits
-    await loadCredits();
+    // Load fresh credits without showing loading screen
+    await loadCredits(false);
   }, [user?.uid, loadCredits]);
 
   const value: CreditContextType = {

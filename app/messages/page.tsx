@@ -1109,16 +1109,7 @@ export default function MessagesPage() {
 
   return (
     <div className="flex flex-col h-full bg-linen">
-        {/* Show loading spinner during onboarding check */}
-        {onboardingCheckLoading && (
-          <div className="flex items-center justify-center min-h-screen">
-            <LoadingSpinner size="lg" text="Checking your account..." />
-          </div>
-        )}
-
-        {/* Only render dashboard content if not checking onboarding */}
-        {!onboardingCheckLoading && (
-        <>
+        {/* Loading is now handled by LoadingProvider in layout.tsx */}
         <WeddingBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
@@ -1339,9 +1330,6 @@ export default function MessagesPage() {
               }}
             />
           </Suspense>
-        </>
-      )}
-
       </div>
   );
 }

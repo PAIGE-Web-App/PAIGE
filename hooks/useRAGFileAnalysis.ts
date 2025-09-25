@@ -17,6 +17,11 @@ interface RAGAnalysisRequest {
 interface RAGAnalysisResponse {
   success: boolean;
   analysis: string;
+  sources?: string[];
+  confidence?: number[];
+  timestamp?: string;
+  ragEnabled?: boolean;
+  modelUsed?: string;
   structuredData?: {
     summary: string;
     keyPoints: string[];
@@ -26,8 +31,7 @@ interface RAGAnalysisResponse {
     cancellationPolicy: string[];
   };
   followUpQuestions?: string[];
-  ragEnabled: boolean;
-  ragContext: string;
+  ragContext?: string;
   credits?: {
     required: number;
     remaining: number;
@@ -56,17 +60,18 @@ export function useRAGFileAnalysis() {
 
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('useRAGFileAnalysis: Making fetch request to /api/ai-file-analyzer');
+        console.log('useRAGFileAnalysis: Making fetch request to /api/analyze-file');
       }
-      const response = await fetch('/api/ai-file-analyzer', {
+      const response = await fetch('/api/analyze-file', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': user.uid
         },
         body: JSON.stringify({
-          ...request,
-          userId: user.uid,
-          userEmail: user.email || user.uid
+          fileName: request.fileName,
+          fileContent: request.fileContent,
+          fileType: request.fileType
         })
       });
 
@@ -142,7 +147,82 @@ export function useRAGFileAnalysis() {
         throw new Error(data.error || 'Analysis failed');
       }
 
-      return data;
+      // Transform analyze-file response to match expected format
+      let formattedAnalysis = 'Analysis completed';
+      
+      if (data.analysis) {
+        // The API should now return clean JSON, so we can format it directly
+        const analysis = data.analysis;
+        
+        // Format the analysis into readable HTML
+        formattedAnalysis = `
+          <div class="file-analysis">
+            <div class="font-work font-medium text-gray-800 mb-0.5">📄 File Analysis Summary</div>
+            <p class="font-work text-gray-700 mb-1">${analysis.summary || 'No summary available'}</p>
+            
+            ${analysis.keyPoints && analysis.keyPoints.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">🔑 Key Points</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.keyPoints.map((point: string) => `<li class="mb-0">${point}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.importantDates && analysis.importantDates.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">📅 Important Dates</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.importantDates.map((date: string) => `<li class="mb-0">${date}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.paymentTerms && analysis.paymentTerms.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">💰 Payment Terms</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.paymentTerms.map((term: string) => `<li class="mb-0">${term}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.vendorAccountability && analysis.vendorAccountability.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">🏢 Vendor Responsibilities</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.vendorAccountability.map((item: string) => `<li class="mb-0">${item}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.cancellationPolicy && analysis.cancellationPolicy.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">❌ Cancellation Policy</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.cancellationPolicy.map((policy: string) => `<li class="mb-0">${policy}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.riskFactors && analysis.riskFactors.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">⚠️ Risk Factors</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.riskFactors.map((risk: string) => `<li class="mb-0">${risk}</li>`).join('')}
+              </ul>
+            ` : ''}
+            
+            ${analysis.recommendations && analysis.recommendations.length > 0 ? `
+              <div class="font-work font-medium text-gray-800 mb-0.5">💡 Recommendations</div>
+              <ul class="font-work list-disc list-inside text-gray-700 mb-1">
+                ${analysis.recommendations.map((rec: string) => `<li class="mb-0">${rec}</li>`).join('')}
+              </ul>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+      return {
+        success: data.success,
+        analysis: formattedAnalysis,
+        sources: [],
+        confidence: [],
+        timestamp: new Date().toISOString(),
+        ragEnabled: false, // This is OpenAI-based, not RAG
+        modelUsed: 'OpenAI GPT-4o-mini',
+        structuredData: data.analysis,
+        error: data.error
+      };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
       setError(errorMessage);

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
+import { withCreditValidation } from '@/lib/creditMiddleware';
+import { AIFeature } from '@/types/credits';
 
-export const runtime = 'edge';
-
-export async function POST(req: NextRequest) {
+async function handleVibeGeneration(req: NextRequest) {
   try {
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
@@ -150,5 +150,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Note: Credit validation is handled client-side for Edge Runtime compatibility
-// The frontend should validate credits before calling this API
+// Export the handler with credit validation
+export const POST = withCreditValidation(handleVibeGeneration, {
+  feature: 'vibe_generation' as AIFeature,
+  userIdField: undefined, // Get userId from headers
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for vibe generation. Please upgrade your plan to continue using AI features.'
+});

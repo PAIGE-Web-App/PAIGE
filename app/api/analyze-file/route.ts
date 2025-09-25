@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { withCreditValidation } from '@/lib/creditMiddleware';
+import { AIFeature } from '@/types/credits';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function POST(request: NextRequest) {
+async function handleFileAnalysis(request: NextRequest) {
   try {
     console.log('Analyze File API called (DEPRECATED - Use /api/ai-file-analyzer-rag instead)');
     const { fileContent, fileName, fileType } = await request.json();
@@ -33,7 +35,8 @@ Please provide a comprehensive analysis including:
 7. **Risk Factors**: Potential issues, red flags, or areas of concern
 8. **Recommendations**: Suggestions for next steps or actions needed
 
-Format the response as JSON with these exact keys:
+IMPORTANT: Return ONLY valid JSON with these exact keys. Do NOT wrap the response in markdown code blocks or any other formatting. Return pure JSON only:
+
 {
   "summary": "string",
   "keyPoints": ["string"],
@@ -72,19 +75,36 @@ Focus on wedding-specific context and practical implications for wedding plannin
     // Try to parse JSON response
     let analysis;
     try {
+      // First, try to parse the response directly
       analysis = JSON.parse(response);
     } catch (parseError) {
-      // If JSON parsing fails, create a structured response from the text
-      analysis = {
-        summary: response.substring(0, 200) + "...",
-        keyPoints: [response],
-        vendorAccountability: [],
-        importantDates: [],
-        paymentTerms: [],
-        cancellationPolicy: [],
-        riskFactors: [],
-        recommendations: []
-      };
+      try {
+        // If that fails, try to extract JSON from markdown code blocks
+        const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[1]);
+        } else {
+          // Try to find any JSON object in the response
+          const jsonObjectMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonObjectMatch) {
+            analysis = JSON.parse(jsonObjectMatch[0]);
+          } else {
+            throw new Error('No JSON found in response');
+          }
+        }
+      } catch (secondParseError) {
+        // If all parsing fails, create a structured response from the text
+        analysis = {
+          summary: response.substring(0, 200) + "...",
+          keyPoints: [response],
+          vendorAccountability: [],
+          importantDates: [],
+          paymentTerms: [],
+          cancellationPolicy: [],
+          riskFactors: [],
+          recommendations: []
+        };
+      }
     }
 
     return NextResponse.json({
@@ -104,4 +124,12 @@ Focus on wedding-specific context and practical implications for wedding plannin
       { status: 500 }
     );
   }
-} 
+}
+
+// Export the handler with credit validation
+export const POST = withCreditValidation(handleFileAnalysis, {
+  feature: 'file_analysis' as AIFeature,
+  userIdField: undefined, // Get userId from headers
+  requireAuth: true,
+  errorMessage: 'Insufficient credits for file analysis. Please upgrade your plan to continue using AI features.'
+}); 

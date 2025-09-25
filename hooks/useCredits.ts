@@ -17,14 +17,16 @@ export function useCredits() {
   const [creditHistory, setCreditHistory] = useState<CreditTransaction[]>([]);
 
            // Load user credits
-         const loadCredits = useCallback(async () => {
+         const loadCredits = useCallback(async (showLoading = true) => {
            if (!user?.uid) {
              setLoading(false);
              return;
            }
 
            try {
-             setLoading(true);
+             if (showLoading) {
+               setLoading(true);
+             }
              setError(null);
              
              const userCredits = await creditServiceClient.getUserCredits(user.uid);
@@ -44,7 +46,9 @@ export function useCredits() {
              console.error('🔄 useCredits: Error loading credits:', err);
              setError(err instanceof Error ? err.message : 'Failed to load credits');
            } finally {
-             setLoading(false);
+             if (showLoading) {
+               setLoading(false);
+             }
            }
          }, [user?.uid]);
 
@@ -101,7 +105,7 @@ export function useCredits() {
       
       if (success) {
         // Reload credits to get updated count
-        await loadCredits();
+        await loadCredits(false); // Don't show loading for credit updates
         await loadCreditHistory();
       }
       
@@ -145,7 +149,7 @@ export function useCredits() {
       );
       
       if (success) {
-        await loadCredits();
+        await loadCredits(false); // Don't show loading for credit updates
         await loadCreditHistory();
       }
       
@@ -158,7 +162,7 @@ export function useCredits() {
 
   // Refresh credits manually
   const refreshCredits = useCallback(async () => {
-    await loadCredits();
+    await loadCredits(false); // Don't show loading for manual refresh
     await loadCreditHistory();
   }, [loadCredits, loadCreditHistory]);
 
@@ -177,7 +181,7 @@ export function useCredits() {
            // Listen for global credit update events
          useEffect(() => {
            const unsubscribe = creditEventEmitter.subscribe(() => {
-             loadCredits();
+             loadCredits(false); // Don't show loading for event-triggered updates
            });
 
            return unsubscribe;

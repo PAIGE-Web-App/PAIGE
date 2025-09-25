@@ -498,14 +498,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Show loading spinner during onboarding check
-  if (onboardingCheckLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" text="Checking your account..." />
-      </div>
-    );
-  }
+  // Loading is now handled by LoadingProvider in layout.tsx
 
   // Don't render if not authenticated
     if (!user) {
@@ -515,14 +508,7 @@ export default function Dashboard() {
   const progressPercentage = progressItems.length > 0 ? Math.round((completedCount / progressItems.length) * 100) : 0;
 
   return (
-    <ClientOnly fallback={
-      <div className="flex items-center justify-center min-h-screen bg-linen">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-[#6B7280]">Loading your dashboard...</p>
-        </div>
-      </div>
-    }>
+    <ClientOnly>
       <style jsx global>{`
         html, body {
           overflow-x: hidden;

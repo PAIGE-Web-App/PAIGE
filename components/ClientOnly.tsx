@@ -9,14 +9,7 @@ interface ClientOnlyProps {
 
 export default function ClientOnly({ 
   children, 
-  fallback = (
-    <div className="flex items-center justify-center min-h-screen bg-linen">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
-        <p className="text-[#6B7280]">Loading your wedding planning experience...</p>
-      </div>
-    </div>
-  )
+  fallback = null // No fallback - let LoadingProvider handle all loading states
 }: ClientOnlyProps) {
   const [hasMounted, setHasMounted] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -45,7 +38,7 @@ export default function ClientOnly({
 
   // Show fallback during hydration or if there's an error
   if (!hasMounted || hasError) {
-    return <>{fallback}</>;
+    return fallback ? <>{fallback}</> : null;
   }
 
   return <>{children}</>;

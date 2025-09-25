@@ -7,6 +7,7 @@ import { AuthProvider } from "../contexts/AuthContext";
 import { SWRProvider } from "../contexts/SWRProvider";
 import { CreditProvider } from "../contexts/CreditContext";
 import { MoodBoardsProvider } from "../contexts/MoodBoardsContext";
+import { LoadingProvider } from "../contexts/LoadingContext";
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
@@ -66,23 +67,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SWRProvider>
             <CreditProvider>
               <MoodBoardsProvider>
-                {/* New Vertical Navigation */}
-                {!hideNav && (
-                  <VerticalNavWrapper>
+                <LoadingProvider>
+                  {/* New Vertical Navigation */}
+                  {!hideNav && (
+                    <VerticalNavWrapper>
+                      <GlobalErrorBoundary>
+                        <HydrationErrorBoundary>
+                          {children}
+                        </HydrationErrorBoundary>
+                      </GlobalErrorBoundary>
+                    </VerticalNavWrapper>
+                  )}
+                  {hideNav && (
                     <GlobalErrorBoundary>
                       <HydrationErrorBoundary>
                         {children}
                       </HydrationErrorBoundary>
                     </GlobalErrorBoundary>
-                  </VerticalNavWrapper>
-              )}
-              {hideNav && (
-                <GlobalErrorBoundary>
-                  <HydrationErrorBoundary>
-                    {children}
-                  </HydrationErrorBoundary>
-                </GlobalErrorBoundary>
-              )}
+                  )}
+                </LoadingProvider>
               </MoodBoardsProvider>
             </CreditProvider>
             

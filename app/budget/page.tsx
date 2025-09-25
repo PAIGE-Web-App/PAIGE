@@ -55,7 +55,11 @@ const BudgetOverview = dynamic(() => import('@/components/budget/BudgetOverview'
   loading: () => <div className="flex-1 bg-white animate-pulse" />
 });
 
-const BudgetCreationProgress = dynamic(() => import('@/components/budget/BudgetCreationProgress'), {
+const BudgetGenerationProgress = dynamic(() => import('@/components/budget/BudgetGenerationProgress'), {
+  ssr: false
+});
+
+const PrePopulatedBudgetCategoriesModal = dynamic(() => import('@/components/budget/PrePopulatedBudgetCategoriesModal'), {
   ssr: false
 });
 
@@ -131,6 +135,9 @@ export default function BudgetPage() {
   const [editingCategory, setEditingCategory] = React.useState<any>(null);
   const [deletingCategory, setDeletingCategory] = React.useState<any>(null);
   const [jiggleAllocatedAmount, setJiggleAllocatedAmount] = React.useState(false);
+  
+  // Quick Start modal state
+  const [showQuickStartModal, setShowQuickStartModal] = React.useState(false);
   
   // Link Vendor Modal state
   const [showLinkVendorModal, setShowLinkVendorModal] = React.useState(false);
@@ -307,19 +314,8 @@ export default function BudgetPage() {
 
   // Memoized handlers for better performance
   const handleAddCategory = useCallback(() => {
-    const newCategory = {
-      id: 'new',
-      userId: user?.uid || '',
-      name: 'New Category',
-      allocatedAmount: 0,
-      spentAmount: 0,
-      orderIndex: budget.budgetCategories.length,
-      createdAt: new Date(),
-      color: '#A85C36',
-    };
-    setEditingCategory(newCategory);
-    setShowCategoryModal(true);
-  }, [user?.uid, budget.budgetCategories.length]);
+    setShowQuickStartModal(true);
+  }, []);
 
   // Handle adding multiple categories at once
   const handleAddMultipleCategories = useCallback((categories: Array<{name: string; amount: number; items?: Array<{name: string; amount: number; notes?: string}>}>) => {
@@ -387,16 +383,7 @@ export default function BudgetPage() {
   }, []);
 
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-linen">
-        <WeddingBanner />
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      </div>
-    );
-  }
+  // Loading is now handled by LoadingProvider in layout.tsx
 
   // If not loading and no user, just return null (middleware will redirect)
   if (!user) {
@@ -707,9 +694,9 @@ export default function BudgetPage() {
         />
       )}
 
-      {/* Budget Creation Progress */}
+      {/* Budget Generation Progress */}
       {budget.budgetCreationProgress && (
-        <BudgetCreationProgress
+        <BudgetGenerationProgress
           isVisible={budget.isCreatingBudget}
           current={budget.budgetCreationProgress.current}
           total={budget.budgetCreationProgress.total}
@@ -775,6 +762,20 @@ export default function BudgetPage() {
               }
             }
           }}
+        />
+      )}
+
+      {/* Quick Start with Common Categories Modal */}
+      {showQuickStartModal && (
+        <PrePopulatedBudgetCategoriesModal
+          isOpen={showQuickStartModal}
+          onClose={() => setShowQuickStartModal(false)}
+          onAddCategories={handleAddMultipleCategories}
+          onShowAIAssistant={() => {
+            setShowQuickStartModal(false);
+            setShowCreateBudgetModal(true);
+          }}
+          maxBudget={budget.userMaxBudget}
         />
       )}
 

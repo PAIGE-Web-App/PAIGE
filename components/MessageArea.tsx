@@ -250,7 +250,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast();
-  const { loadCredits } = useCredits();
+  const { loadCredits, refreshCredits } = useCredits();
 
   // Get user profile data for AI draft personalization
   const { 
@@ -733,7 +733,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         try {
           // Add a small delay to ensure server-side credit deduction is committed
           await new Promise(resolve => setTimeout(resolve, 500));
-          await loadCredits();
+          await refreshCredits(); // Don't show loading screen for credit refresh
           
           // Notify other components about credit update
           if (typeof window !== 'undefined') {
@@ -762,7 +762,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         try {
           // Add a small delay to ensure server-side credit deduction is committed
           await new Promise(resolve => setTimeout(resolve, 500));
-          await loadCredits();
+          await refreshCredits(); // Don't show loading screen for credit refresh
           
           // Notify other components about credit update
           if (typeof window !== 'undefined') {

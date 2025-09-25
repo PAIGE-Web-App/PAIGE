@@ -453,12 +453,12 @@ export default function MoodBoardPage({ params }: MoodBoardPageProps) {
         // Add new vibes to the active board
         const newVibes = data.vibes.filter((v: string) => !getActiveBoard(moodBoards, activeMoodBoard)?.vibes.includes(v));
         
-        // Update the active board with new vibes
+        // Update the active board with new vibes (add to top)
         const updatedMoodBoards = moodBoards.map(board => 
           board.id === activeMoodBoard 
             ? { 
                 ...board, 
-                vibes: [...board.vibes, ...newVibes],
+                vibes: [...newVibes, ...board.vibes],
                 vibeInputMethod: 'image'
               }
             : board

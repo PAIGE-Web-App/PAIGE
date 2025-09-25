@@ -264,20 +264,17 @@ export function useFiles() {
       // This is a limitation of the current architecture
       const fileContent = `[File: ${fileDoc.name}] - Content extraction will be implemented in the next phase.`;
       
-      // Call the RAG-enhanced AI analysis API
-      const response = await fetch('/api/ai-file-analyzer-rag', {
+      // Call the AI analysis API
+      const response = await fetch('/api/analyze-file', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fileId: fileDoc.id,
           fileName: fileDoc.name,
           fileContent: fileContent,
           fileType: fileDoc.fileType,
-          analysisType: 'comprehensive',
-          userId: user?.uid || '',
-          userEmail: user?.email || user?.uid || '',
+          userId: user?.uid || ''
         }),
       });
 
@@ -289,12 +286,12 @@ export function useFiles() {
       
       // Update file with AI results
       await updateDoc(fileRef, {
-        aiSummary: result.structuredData?.summary || result.analysis || 'Analysis completed',
-        keyPoints: result.structuredData?.keyPoints || [],
-        vendorAccountability: result.structuredData?.vendorAccountability || [],
-        importantDates: result.structuredData?.importantDates || [],
-        paymentTerms: result.structuredData?.paymentTerms || [],
-        cancellationPolicy: result.structuredData?.cancellationPolicy || [],
+        aiSummary: result.analysis ? JSON.stringify(result.analysis, null, 2) : 'Analysis completed',
+        keyPoints: result.analysis?.keyPoints || [],
+        vendorAccountability: result.analysis?.vendorAccountability || [],
+        importantDates: result.analysis?.importantDates || [],
+        paymentTerms: result.analysis?.paymentTerms || [],
+        cancellationPolicy: result.analysis?.cancellationPolicy || [],
         isProcessed: true,
         processingStatus: 'completed',
         updatedAt: new Date(),
