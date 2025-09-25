@@ -63,8 +63,9 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 
   const getLoadingProgress = useCallback(() => {
     const totalSteps = 5;
-    const completedSteps = Object.values(loadingState).filter(Boolean).length;
-    return ((totalSteps - completedSteps) / totalSteps) * 100;
+    const remainingSteps = Object.values(loadingState).filter(Boolean).length;
+    const completedSteps = totalSteps - remainingSteps;
+    return (completedSteps / totalSteps) * 100;
   }, [loadingState]);
 
   const contextValue: LoadingContextType = {
