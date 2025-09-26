@@ -22,11 +22,12 @@ export default function GmailReauthNotification({
       const { auth } = await import('@/lib/firebase');
       
       const provider = new GoogleAuthProvider();
+      // Only request Gmail scopes for Gmail re-authentication
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      // Force account selection
+      // Force account selection and consent
       provider.setCustomParameters({
-        prompt: 'select_account'
+        prompt: 'select_account consent'
       });
       
       const result = await signInWithPopup(auth, provider);

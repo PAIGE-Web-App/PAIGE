@@ -450,6 +450,46 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       
       const result = await signInWithPopup(auth, provider);
       
+      // Store Gmail tokens from the popup
+      try {
+        const { GoogleAuthProvider } = await import('firebase/auth');
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const accessToken = credential?.accessToken;
+        
+        if (accessToken) {
+          // Import Firestore functions
+          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('@/lib/firebase');
+          
+          // Store Gmail tokens in Firestore (matching API expected format)
+          const gmailTokens = {
+            accessToken: accessToken,
+            refreshToken: null, // Firebase popup doesn't provide refresh token
+            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+            email: result.user.email, // Store Gmail account email
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+          };
+          
+          // Check if user exists before updating
+          const userDocRef = doc(db, "users", result.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists()) {
+            // Update user document with Gmail tokens
+            await updateDoc(userDocRef, {
+              googleTokens: gmailTokens,
+              gmailConnected: true,
+            });
+          }
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gmailConnected', 'true');
+          }
+        }
+      } catch (tokenError) {
+        console.error('❌ Error storing Gmail tokens:', tokenError);
+      }
+      
       // Get ID token and call session login
       const idToken = await result.user.getIdToken();
       const res = await fetch("/api/sessionLogin", {
