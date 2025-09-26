@@ -184,14 +184,17 @@ export default function ModalTodoItem({
       <div className="mb-2">
         {isEditingNote ? (
           <div className="flex flex-col gap-2">
-            <textarea
-              value={editingNoteValue}
-              onChange={(e) => setEditingNoteValue(e.target.value)}
-              className="text-xs text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 resize-none"
-              placeholder="Add a note..."
-              rows={2}
-              autoFocus
-            />
+            <div className="flex items-start gap-2">
+              <NotepadText size={14} className="text-[#364257] mt-0.5 flex-shrink-0" />
+              <textarea
+                value={editingNoteValue}
+                onChange={(e) => setEditingNoteValue(e.target.value)}
+                className="flex-1 text-xs text-[#364257] border border-[#AB9C95] rounded-[3px] px-2 py-1 resize-none"
+                placeholder="Add a note..."
+                rows={2}
+                autoFocus
+              />
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleNoteEdit}
@@ -215,7 +218,7 @@ export default function ModalTodoItem({
             className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 rounded p-1 -m-1"
             onClick={handleNoteEdit}
           >
-            <NotepadText size={14} className="text-[#364257] mt-0.5" />
+            <NotepadText size={14} className="text-[#364257] mt-0.5 flex-shrink-0" />
             <span className="text-xs text-[#364257] flex-1">
               {todo.note || '+ Add Note'}
             </span>

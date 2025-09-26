@@ -58,6 +58,7 @@ export interface AnalysisContext {
     planningStage: string;
     daysUntilWedding: number;
   };
+  ragContext?: string; // RAG-enhanced context for better analysis
 }
 
 export class MessageAnalysisEngine {
@@ -112,12 +113,38 @@ export class MessageAnalysisEngine {
   }
 
   /**
-   * Perform AI-powered analysis using OpenAI
+   * Perform AI-powered analysis using OpenAI with RAG enhancement
    */
   private async performAIAnalysis(context: AnalysisContext): Promise<MessageAnalysisResult> {
     const prompt = this.buildAnalysisPrompt(context);
     
     try {
+      // Get RAG context if available
+      let ragContext = '';
+      if (context.ragContext) {
+        ragContext = context.ragContext;
+      } else {
+        // Try to get RAG context for better analysis
+        try {
+          const ragResponse = await fetch('/api/rag/process-query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: context.messageContent,
+              userId: context.userId,
+              contextType: 'message_analysis'
+            }),
+          });
+
+          if (ragResponse.ok) {
+            const ragResult = await ragResponse.json();
+            ragContext = ragResult.context || '';
+          }
+        } catch (ragError) {
+          console.warn('[MessageAnalysisEngine] RAG context failed, proceeding without:', ragError);
+        }
+      }
+
       const response = await fetch('/api/analyze-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,7 +154,8 @@ export class MessageAnalysisEngine {
           vendorName: context.vendorName,
           existingTodos: context.existingTodos,
           weddingContext: context.weddingContext,
-          userId: context.userId
+          userId: context.userId,
+          ragContext: ragContext
         }),
       });
 

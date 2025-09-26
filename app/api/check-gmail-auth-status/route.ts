@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
 
     // Check if access token exists (refresh token is optional for Firebase popup flow)
     if (!accessToken) {
+      console.log('Gmail auth check: No access token found for user:', userId);
       return NextResponse.json({ 
         needsReauth: true, 
         message: 'No Gmail access token found' 
@@ -46,11 +47,14 @@ export async function POST(req: NextRequest) {
     const now = Date.now();
     const bufferTime = 5 * 60 * 1000; // 5 minutes
     if (expiryDate && (expiryDate - bufferTime) < now) {
+      console.log('Gmail auth check: Token expired for user:', userId, 'Expiry:', new Date(expiryDate), 'Now:', new Date(now));
       return NextResponse.json({ 
         needsReauth: true, 
         message: 'Gmail tokens expired' 
       }, { status: 401 });
     }
+
+    console.log('Gmail auth check: Valid tokens for user:', userId, 'Expiry:', expiryDate ? new Date(expiryDate) : 'No expiry');
 
     return NextResponse.json({ 
       needsReauth: false, 

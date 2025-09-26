@@ -1,6 +1,12 @@
 import { storage } from '@/lib/firebase';
 import { ref, getDownloadURL, listAll, getMetadata } from 'firebase/storage';
-import { ragService } from './ragService';
+// import { ragService } from './ragService';
+
+// Mock RAG service for now
+const mockRagService = {
+  processDocument: async (params: any) => ({ success: false, error: 'RAG not implemented' }),
+  processQuery: async (params: any) => ({ success: false, error: 'RAG not implemented' })
+};
 
 export interface UserFile {
   id: string;
@@ -20,10 +26,10 @@ export interface RAGProcessedFile extends UserFile {
 }
 
 export class RAGFileIntegration {
-  private ragService: typeof ragService;
+  private ragService: typeof mockRagService;
 
   constructor() {
-    this.ragService = ragService;
+    this.ragService = mockRagService;
   }
 
   /**

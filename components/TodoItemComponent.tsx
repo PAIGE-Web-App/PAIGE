@@ -625,31 +625,37 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
         {isEditingNote ? (
           todo.isCompleted ? (
             <span title="Mark as incomplete to edit this task." style={{ display: 'block' }}>
-              <textarea
-                value={editingNoteValue}
-                onChange={handleNoteChange}
-                placeholder="Add a note..."
-                rows={2}
-                onBlur={handleNoteBlur}
-                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
-                disabled
-              />
+              <div className="flex items-start gap-1">
+                <NotepadText size={14} className="text-[#364257] mt-0.5 flex-shrink-0" />
+                <textarea
+                  value={editingNoteValue}
+                  onChange={handleNoteChange}
+                  placeholder="Add a note..."
+                  rows={2}
+                  onBlur={handleNoteBlur}
+                  className="flex-1 text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
+                  disabled
+                />
+              </div>
             </span>
           ) : (
             <div className="w-full">
-              <textarea
-                value={editingNoteValue}
-                onChange={handleNoteChange}
-                placeholder="Add a note..."
-                rows={3}
-                className="w-full text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
-                autoFocus
-                onKeyDown={e => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    handleUpdateNoteClick();
-                  }
-                }}
-              />
+              <div className="flex items-start gap-1">
+                <NotepadText size={14} className="text-[#364257] mt-0.5 flex-shrink-0" />
+                <textarea
+                  value={editingNoteValue}
+                  onChange={handleNoteChange}
+                  placeholder="Add a note..."
+                  rows={3}
+                  className="flex-1 text-xs font-normal text-[#364257] border border-[#AB9C95] rounded-[3px] px-1 py-0.5"
+                  autoFocus
+                  onKeyDown={e => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      handleUpdateNoteClick();
+                    }
+                  }}
+                />
+              </div>
               <div className="flex gap-2 mt-1">
                 <button onClick={handleUpdateNoteClick} className="btn-primary text-xs px-2 py-1">Update</button>
                 <button onClick={handleNoteCancel} className="btn-primaryinverse text-xs px-2 py-1">Cancel</button>
@@ -661,7 +667,7 @@ const TodoItemComponent: React.FC<TodoItemComponentProps> = ({
             className="flex items-start gap-1 mt-1 cursor-pointer hover:bg-gray-50 rounded"
             onClick={handleAddNoteClick}
           >
-            <NotepadText size={14} className="text-[#364257] mt-0.5" />
+            <NotepadText size={14} className="text-[#364257] mt-0.5 flex-shrink-0" />
             <span className="text-xs text-[#364257]">{todo.note || '+ Add Note'}</span>
           </div>
         )}

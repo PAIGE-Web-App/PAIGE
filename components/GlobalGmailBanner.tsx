@@ -19,12 +19,11 @@ export default function GlobalGmailBanner() {
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
       
-      // Try to force consent screen with multiple parameters
+      // Force consent screen with proper parameters (avoiding conflict)
       provider.setCustomParameters({
         prompt: 'consent',
         access_type: 'offline',
-        include_granted_scopes: 'true',
-        approval_prompt: 'force'
+        include_granted_scopes: 'true'
       });
       
       const result = await signInWithPopup(auth, provider);
@@ -79,8 +78,12 @@ export default function GlobalGmailBanner() {
       });
       
       if (res.ok) {
-        // Refresh Gmail auth status
-        await checkGmailAuth();
+        // Small delay to ensure tokens are stored
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Force refresh Gmail auth status immediately
+        await checkGmailAuth(true);
+        // Also dismiss the banner immediately
+        dismissBanner();
       } else {
         console.error('❌ Gmail reauth failed');
       }

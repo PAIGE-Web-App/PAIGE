@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRAGHealth } from '@/lib/ragService';
+// import { checkRAGHealth } from '@/lib/ragService';
 import { getRAGConfigForLogging } from '@/lib/ragFeatureFlag';
 
 export async function GET(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const config = getRAGConfigForLogging();
     
     // Perform health checks
-    const health = await checkRAGHealth();
+    const health = { status: 'disabled', timestamp: new Date() };
     
     // Get system status
     const status = {
@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
     };
 
     // Return appropriate status code based on health
-    const statusCode = health.overall_status === 'healthy' ? 200 : 
-                      health.overall_status === 'degraded' ? 200 : 503;
+    const statusCode = health.status === 'healthy' ? 200 : 
+                      health.status === 'degraded' ? 200 : 503;
 
     return NextResponse.json(status, { status: statusCode });
 

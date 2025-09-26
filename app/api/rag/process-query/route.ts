@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withCreditValidation } from '@/lib/creditMiddleware';
-import { processQueryWithRAG } from '@/lib/ragService';
+// import { processQueryWithRAG } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 import { AIFeature } from '@/types/credits';
 
@@ -33,12 +33,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Process query through RAG system
-    const result = await processQueryWithRAG({
-      query,
-      user_id,
-      user_document,
-      context
-    });
+    // TODO: Implement processQueryWithRAG function
+    const result = {
+      success: false,
+      error: 'RAG processing not yet implemented'
+    };
 
     if (!result.success) {
       return NextResponse.json(

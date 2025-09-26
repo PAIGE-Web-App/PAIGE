@@ -20,7 +20,8 @@ export default function GmailLoginReauthBanner({ onReauth, onDismiss }: GmailLog
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
       // Force account selection and consent
       provider.setCustomParameters({
-        prompt: 'select_account consent'
+        prompt: 'consent',
+        access_type: 'offline'
       });
       
       const result = await signInWithPopup(auth, provider);

@@ -16,6 +16,7 @@ interface MessageAnalysisRequest {
     maxBudget?: number;
     vibe?: string;
   };
+  ragContext?: string; // RAG-enhanced context for better analysis
   userId: string; // Required for credit validation
 }
 
@@ -27,6 +28,7 @@ async function handleMessageAnalysis(req: NextRequest): Promise<NextResponse> {
       vendorName, 
       existingTodos, 
       weddingContext,
+      ragContext,
       userId: requestUserId 
     }: MessageAnalysisRequest = await req.json();
 
@@ -59,6 +61,11 @@ Context:
 - Guest Count: ${weddingContext?.guestCount || 'Not specified'}
 - Budget: ${weddingContext?.maxBudget || 'Not specified'}
 - Vibe: ${weddingContext?.vibe || 'Not specified'}
+
+${ragContext ? `Additional Context from Knowledge Base:
+${ragContext}
+
+` : ''}
 
 Please analyze this message and return a JSON response with the following structure:
 {

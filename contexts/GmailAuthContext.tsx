@@ -7,7 +7,7 @@ import { User } from 'firebase/auth';
 interface GmailAuthContextType {
   needsReauth: boolean;
   isLoading: boolean;
-  checkGmailAuth: () => Promise<void>;
+  checkGmailAuth: (force?: boolean) => Promise<void>;
   dismissBanner: () => void;
 }
 
@@ -19,12 +19,12 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<number>(0);
 
-  const checkGmailAuth = useCallback(async () => {
+  const checkGmailAuth = useCallback(async (force = false) => {
     if (!user?.uid || isLoading) return;
     
-    // Only check once every 5 minutes to avoid unnecessary API calls
+    // Only check once every 5 minutes to avoid unnecessary API calls, unless forced
     const now = Date.now();
-    if (now - lastChecked < 5 * 60 * 1000) return;
+    if (!force && now - lastChecked < 5 * 60 * 1000) return;
     
     setIsLoading(true);
     setLastChecked(now);

@@ -23,6 +23,7 @@ import GmailReauthNotification from './GmailReauthNotification';
 import GmailReauthBanner from './GmailReauthBanner';
 import DropdownMenu, { DropdownItem } from './DropdownMenu';
 import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
+import GmailTodoReviewModal from './GmailTodoReviewModal';
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { useCredits } from "../contexts/CreditContext";
 
@@ -517,6 +518,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [isImportingGmail, setIsImportingGmail] = useState(false);
   const [isCheckingGmail, setIsCheckingGmail] = useState(false);
   const [showImportConfigModal, setShowImportConfigModal] = useState(false);
+  
+  // Gmail todo review modal state
+  const [showGmailTodoReview, setShowGmailTodoReview] = useState(false);
+  const [gmailTodoAnalysisResults, setGmailTodoAnalysisResults] = useState<any>(null);
+  const [isAnalyzingMessages, setIsAnalyzingMessages] = useState(false);
 
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
@@ -1006,13 +1012,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
 
       // Now proceed with the import
-      const response = await fetch('/api/start-gmail-import', {
+      const response = await fetch('/api/start-gmail-import-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: currentUser.uid, 
           contacts: [selectedContact],
-          config: config
+          config: config,
+          enableTodoScanning: true
         }),
       });
 
@@ -1020,6 +1027,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         throw new Error('Failed to import Gmail conversation');
       }
 
+      const result = await response.json();
+      
       // Mark the contact as imported
       const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
       const updateData: any = {
@@ -1048,6 +1057,16 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           gmailAccountMismatch: false,
         }
       }));
+
+      // Show analysis loading modal immediately
+      setIsAnalyzingMessages(true);
+      setShowGmailTodoReview(true);
+      
+      // Show todo analysis review modal if there are results
+      if (result.todoAnalysis && result.todoAnalysis.analysisResults) {
+        setGmailTodoAnalysisResults(result.todoAnalysis.analysisResults);
+        setIsAnalyzingMessages(false);
+      }
     } catch (error) {
       console.error('Error importing Gmail:', error);
       showErrorToast('Failed to import Gmail messages');
@@ -1081,19 +1100,104 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
+  const createSuggestedTodo = async (todoData: any, message: any, userId: string) => {
+    try {
+      const todoRef = await addDoc(collection(db, `users/${userId}/todos`), {
+        name: todoData.name,
+        description: todoData.description || '',
+        priority: todoData.priority || 'medium',
+        category: todoData.category || 'other',
+        dueDate: todoData.dueDate || null,
+        estimatedTime: todoData.estimatedTime || null,
+        notes: todoData.notes || '',
+        isCompleted: false,
+        createdAt: Timestamp.now(),
+        source: 'gmail_analysis',
+        sourceMessageId: message.id,
+        sourceContact: message.sourceContact || 'unknown'
+      });
+      return todoRef.id;
+    } catch (error) {
+      console.error('Error creating suggested todo:', error);
+      throw error;
+    }
+  };
+
+  const updateExistingTodo = async (update: any, userId: string) => {
+    try {
+      const updateData: any = {};
+      
+      if (update.updates.note) updateData.note = update.updates.note;
+      if (update.updates.deadline) updateData.deadline = update.updates.deadline;
+      if (update.updates.category) updateData.category = update.updates.category;
+      if (update.updates.isCompleted !== undefined) updateData.isCompleted = update.updates.isCompleted;
+      
+      updateData.updatedAt = Timestamp.now();
+
+      await updateDoc(doc(db, `users/${userId}/todos`, update.todoId), updateData);
+    } catch (error) {
+      console.error('Error updating todo:', error);
+      throw error;
+    }
+  };
+
+  const markTodoCompleted = async (completed: any, userId: string) => {
+    try {
+      await updateDoc(doc(db, `users/${userId}/todos`, completed.todoId), {
+        isCompleted: true,
+        completedAt: Timestamp.now(),
+        completionReason: completed.completionReason
+      });
+    } catch (error) {
+      console.error('Error marking todo as completed:', error);
+      throw error;
+    }
+  };
+
+  const handleGmailTodoConfirm = async (selectedTodos: any) => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      // Create the selected todos
+      for (const todo of selectedTodos.newTodos) {
+        await createSuggestedTodo(todo, { id: 'gmail-import', sourceContact: todo.sourceContact }, currentUser.uid);
+      }
+      
+      // Update existing todos
+      for (const update of selectedTodos.todoUpdates) {
+        await updateExistingTodo(update, currentUser.uid);
+      }
+      
+      // Mark todos as completed
+      for (const completed of selectedTodos.completedTodos) {
+        await markTodoCompleted(completed, currentUser.uid);
+      }
+      
+      showSuccessToast(`Applied ${selectedTodos.newTodos.length + selectedTodos.todoUpdates.length + selectedTodos.completedTodos.length} todo changes!`);
+      
+    } catch (error) {
+      console.error('Error applying todo changes:', error);
+      showErrorToast('Failed to apply some todo changes');
+    } finally {
+      setShowGmailTodoReview(false);
+      setGmailTodoAnalysisResults(null);
+    }
+  };
+
   // For button-triggered check
   const handleCheckNewGmail = async (userInitiated = false) => {
     if (!currentUser?.uid || !selectedContact?.email) return;
     try {
       if (userInitiated) setIsCheckingGmail(true);
       // Call the actual import API to fetch new messages
-      const response = await fetch('/api/start-gmail-import', {
+      const response = await fetch('/api/start-gmail-import-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: currentUser.uid, 
           contacts: [selectedContact],
-          config: { checkForNewOnly: true } // Flag to only check for new messages
+          config: { checkForNewOnly: true }, // Flag to only check for new messages
+          enableTodoScanning: true
         }),
       });
       if (!response.ok) {
@@ -1636,7 +1740,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       />
       <LoadingBar 
         isVisible={isImportingGmail} 
-        description="Importing Gmail messages!\nPlease don't refresh" 
+        description="Importing Gmail messages! Please don't refresh" 
       />
       <LoadingBar 
         isVisible={isCheckingGmail} 
@@ -1663,6 +1767,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           isImporting={isImportingGmail}
         />
       )}
+
+        {/* Gmail Todo Review Modal */}
+        <GmailTodoReviewModal
+          isOpen={showGmailTodoReview}
+          onClose={() => setShowGmailTodoReview(false)}
+          onConfirm={handleGmailTodoConfirm}
+          analysisResults={gmailTodoAnalysisResults}
+          isAnalyzing={isAnalyzingMessages}
+        />
     </div>
   );
 };

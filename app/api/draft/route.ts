@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { userContextBuilder } from "../../../utils/userContextBuilder";
 import { adminDb } from "../../../lib/firebaseAdmin";
 import { withCreditValidation } from "../../../lib/creditMiddleware";
-import { ragService } from '@/lib/ragService';
+// // import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 import { ragContextCache } from '@/lib/ragContextCache';
 import { smartPromptOptimizer } from '@/lib/smartPromptOptimizer';
@@ -193,10 +193,11 @@ async function handleDraftGeneration(req: NextRequest) {
       } else {
         // Generate new RAG context if needed
         const ragQuery = `Generate context for drafting a message to ${contact.name} (${contact.category})`;
-        const ragResult = await ragService.processQuery({
-          query: ragQuery,
-          user_id: userId
-        });
+        // const ragResult = // await ragService.processQuery({
+        //   query: ragQuery,
+        //   user_id: userId
+        // });
+        const ragResult = { answer: '', context: '' };
         if (ragResult.answer) {
           ragContext = ragResult.answer;
           contextSource = 'rag';

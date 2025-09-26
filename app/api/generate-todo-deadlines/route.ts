@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
-import { ragService } from '@/lib/ragService';
+// import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 import { ragContextCache } from '@/lib/ragContextCache';
 import { AIFeature } from '@/types/credits';
@@ -103,11 +103,7 @@ async function handleDeadlineGeneration(request: NextRequest): Promise<NextRespo
           console.log('Cache miss - fetching fresh RAG context...');
           
           // Get context from existing todos, vendor communications, and file insights
-          const ragResults = await ragService.processQuery({
-            query: queryKey,
-            user_id: userId,
-            context: 'deadline_generation'
-          });
+          const ragResults = { success: false, answer: '' };
           
           if (ragResults.success && ragResults.answer) {
             ragContext = '\n\nRelevant context from your files and data:\n' + 

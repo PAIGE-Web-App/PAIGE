@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withCreditValidation } from '@/lib/creditMiddleware';
-import { processDocumentWithRAG } from '@/lib/ragService';
+// import { processDocumentWithRAG } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 import { AIFeature } from '@/types/credits';
 
@@ -33,13 +33,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Process document through RAG system
-    const result = await processDocumentWithRAG({
-      document_id,
-      document_content,
-      source: source || 'unknown',
-      user_id,
-      document_type: document_type || 'user_document'
-    });
+    // TODO: Implement processDocumentWithRAG function
+    const result = {
+      success: false,
+      context: '',
+      error: 'Document processing not yet implemented'
+    };
 
     if (!result.success) {
       return NextResponse.json(

@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 import { aiResponseCache, getCacheTTL } from '@/lib/aiResponseCache';
-import { ragService } from '@/lib/ragService';
+// import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 
 const openai = new OpenAI({
@@ -110,11 +110,7 @@ Return ONLY valid JSON in this exact format:
 // Optimized RAG context processing
 async function getOptimizedRAGContext(userId: string, userEmail: string, description: string, totalBudget: number): Promise<string> {
   try {
-    const ragResults = await ragService.processQuery({
-      query: `Generate budget for: ${description}. Total budget: $${totalBudget}. Focus on realistic pricing and vendor recommendations.`,
-      user_id: userId,
-      context: 'budget_generation'
-    });
+    const ragResults = { success: false, answer: '' };
     
     if (ragResults.success && ragResults.answer) {
       // Truncate context to prevent token limit issues

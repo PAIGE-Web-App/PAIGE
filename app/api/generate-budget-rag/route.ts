@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { withCreditValidation } from '@/lib/creditMiddleware';
-import { ragService } from '@/lib/ragService';
+// import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';
 
 const openai = new OpenAI({
@@ -75,11 +75,7 @@ async function handleRAGBudgetGeneration(request: NextRequest): Promise<NextResp
         console.log('Getting RAG context for budget generation...');
         
         // Get context from vendor contracts, pricing data, and budget history
-        const ragResults = await ragService.processQuery({
-          query: `Generate budget for: ${description}. Total budget: $${totalBudget}. Wedding date: ${weddingDate}`,
-          user_id: userId,
-          context: 'budget_generation'
-        });
+        const ragResults = { success: false, answer: '' };
         
         if (ragResults.success && ragResults.answer) {
           ragContext = '\n\nRelevant context from your files and data:\n' + 
