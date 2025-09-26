@@ -31,6 +31,8 @@ export default function Login() {
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const { error, handleError, clearError, getErrorMessage } = useAuthError();
 
+  // Gmail reauth is now handled directly in GlobalGmailBanner component
+
   // Google account detection state
   const [googleAccount, setGoogleAccount] = useState<{
     email: string;
@@ -360,8 +362,35 @@ export default function Login() {
   const handleContinueAsGoogle = async () => {
     // If Gmail re-authentication is needed, handle that first
     if (needsGmailReauth && googleAccount?.userId) {
-      const reauthUrl = `/api/auth/google/initiate?userId=${googleAccount.userId}&redirectUri=${encodeURIComponent(window.location.href)}`;
-      window.open(reauthUrl, '_blank', 'noopener,noreferrer');
+      // Use Firebase popup for Gmail reauth
+      try {
+        const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        
+        const provider = new GoogleAuthProvider();
+        provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+        provider.addScope('https://www.googleapis.com/auth/gmail.send');
+        
+        const result = await signInWithPopup(auth, provider);
+        
+        // Get ID token and call session login
+        const idToken = await result.user.getIdToken();
+        const res = await fetch("/api/sessionLogin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+          credentials: "include",
+        });
+        
+        if (res.ok) {
+          // Continue with the login flow
+          console.log("Gmail reauth successful, continuing login");
+        } else {
+          console.error('❌ Gmail reauth failed');
+        }
+      } catch (error: any) {
+        console.error('❌ Gmail reauth error:', error);
+      }
       return;
     }
 

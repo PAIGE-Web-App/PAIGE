@@ -9,12 +9,40 @@ interface GmailReauthBannerProps {
 }
 
 export default function GmailReauthBanner({ onReauth, currentUser }: GmailReauthBannerProps) {
-  const handleReauth = () => {
-    // Open re-authentication in a new tab to preserve the current page state
-    const reauthUrl = `/api/auth/google/initiate?userId=${currentUser?.uid}&redirectUri=${encodeURIComponent(window.location.href)}`;
-    window.open(reauthUrl, '_blank', 'noopener,noreferrer');
-    // Call the original onReauth callback for any additional cleanup
-    onReauth();
+  const handleReauth = async () => {
+    try {
+      // Import Firebase auth dynamically to avoid SSR issues
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      // Force account selection
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      const result = await signInWithPopup(auth, provider);
+      
+      // Get ID token and call session login
+      const idToken = await result.user.getIdToken();
+      const res = await fetch("/api/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        // Call the original onReauth callback for any additional cleanup
+        onReauth();
+      } else {
+        console.error('❌ Gmail reauth failed');
+      }
+    } catch (error: any) {
+      console.error('❌ Gmail reauth error:', error);
+    }
   };
 
   return (

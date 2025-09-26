@@ -22,7 +22,7 @@ import Banner from '@/components/Banner';
 import ChangeUserRoleModal from '@/components/admin/ChangeUserRoleModal';
 
 export default function AdminUsersPage() {
-  const { user, userRole: currentUserRole } = useAuth();
+  const { user, userRole: currentUserRole, loading: authLoading } = useAuth();
   const { canAccessUserManagement, userRole } = usePermissions();
   const router = useRouter();
   const { showSuccessToast, showErrorToast } = useCustomToast();
@@ -68,6 +68,9 @@ export default function AdminUsersPage() {
 
   // Check if user has access to this page
   useEffect(() => {
+    // Wait for auth to finish loading before checking
+    if (authLoading) return;
+    
     if (!user) {
       router.push('/login');
       return;
@@ -79,7 +82,7 @@ export default function AdminUsersPage() {
       router.push('/');
       return;
     }
-  }, [user, userRole, canAccessUserManagement, router, showErrorToast]);
+  }, [user, userRole, canAccessUserManagement, router, showErrorToast, authLoading]);
 
   // Fetch users with pagination
   const fetchUsers = async (page: number = 1, append: boolean = false) => {
@@ -449,6 +452,20 @@ export default function AdminUsersPage() {
 
 
 
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="app-content-container mx-auto p-6">
+        <div className="text-center">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-48 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading while role is being determined
   if (!userRole || userRole === 'couple') {

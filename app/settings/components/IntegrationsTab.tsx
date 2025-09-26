@@ -58,14 +58,62 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     fetchGoogleIntegration();
   }, [user?.uid]);
 
-  const handleConnectGoogle = () => {
+  const handleConnectGoogle = async () => {
     if (!user?.uid) {
       showErrorToast("Could not find user. Please try logging in again.");
       return;
     }
-    const redirectUri = encodeURIComponent(`${window.location.origin}/settings?tab=integrations`);
-    const googleAuthUrl = `/api/auth/google/initiate?userId=${user.uid}&redirectUri=${redirectUri}`;
-    window.location.href = googleAuthUrl;
+    
+    try {
+      setLoading(true);
+      
+      // Import Firebase auth dynamically to avoid SSR issues
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/calendar');
+      // Force account selection
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      const result = await signInWithPopup(auth, provider);
+      
+      // Get ID token and call session login
+      const idToken = await result.user.getIdToken();
+      const res = await fetch("/api/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        // Update local state
+        setGoogleConnected(true);
+        setGoogleEmail(result.user.email || "");
+        
+        // Refresh the integration status
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data();
+        if (userData?.googleTokens) {
+          setGoogleEmail(userData.googleTokens.email || userData.googleEmail || "");
+        }
+        
+        showSuccessToast("Google account connected successfully!");
+      } else {
+        console.error('❌ Google auth failed');
+        showErrorToast("Failed to connect Google account. Please try again.");
+      }
+    } catch (error: any) {
+      console.error('❌ Google auth error:', error);
+      showErrorToast("Failed to connect Google account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDisconnectGoogle = () => {
@@ -128,14 +176,62 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     }
   };
 
-  const handleReauthorizeGoogle = () => {
+  const handleReauthorizeGoogle = async () => {
     if (!user?.uid) {
       showErrorToast("Could not find user. Please try logging in again.");
       return;
     }
-    const redirectUri = encodeURIComponent(`${window.location.origin}/settings?tab=integrations`);
-    const googleAuthUrl = `/api/auth/google/initiate?userId=${user.uid}&redirectUri=${redirectUri}`;
-    window.location.href = googleAuthUrl;
+    
+    try {
+      setLoading(true);
+      
+      // Import Firebase auth dynamically to avoid SSR issues
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/calendar');
+      // Force account selection
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      const result = await signInWithPopup(auth, provider);
+      
+      // Get ID token and call session login
+      const idToken = await result.user.getIdToken();
+      const res = await fetch("/api/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        // Update local state
+        setGoogleConnected(true);
+        setGoogleEmail(result.user.email || "");
+        
+        // Refresh the integration status
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userData = userDoc.data();
+        if (userData?.googleTokens) {
+          setGoogleEmail(userData.googleTokens.email || userData.googleEmail || "");
+        }
+        
+        showSuccessToast("Google account re-authorized successfully!");
+      } else {
+        console.error('❌ Google reauth failed');
+        showErrorToast("Failed to re-authorize Google account. Please try again.");
+      }
+    } catch (error: any) {
+      console.error('❌ Google reauth error:', error);
+      showErrorToast("Failed to re-authorize Google account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createCalendar = async () => {

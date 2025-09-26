@@ -18,6 +18,7 @@ import { useFolderPersistence } from '@/hooks/useFolderPersistence';
 
 // Components
 import WeddingBanner from '@/components/WeddingBanner';
+import GlobalGmailBanner from '@/components/GlobalGmailBanner';
 import FilesSidebar from '@/components/FilesSidebar';
 import FilesSidebarSkeleton from '@/components/FilesSidebarSkeleton';
 import FilesContentArea from '@/components/FilesContentArea';
@@ -633,6 +634,7 @@ export default function FilesPage() {
       <DragDropProvider>
         <div className="flex flex-col h-full bg-linen">
           <WeddingBanner />
+          <GlobalGmailBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">
@@ -678,6 +680,7 @@ export default function FilesPage() {
     <DragDropProvider>
       <div className="flex flex-col h-full bg-linen">
         <WeddingBanner />
+        <GlobalGmailBanner />
 
         <div className="app-content-container flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-1 gap-4 lg:flex-row flex-col overflow-hidden">

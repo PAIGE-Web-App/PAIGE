@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ClientOnly from '../components/ClientOnly';
 import AuthGuard from '../components/AuthGuard';
 import WeddingBanner from "../components/WeddingBanner";
+import GlobalGmailBanner from "../components/GlobalGmailBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useCustomToast } from "../hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "../hooks/useGlobalCompletionToasts";
@@ -535,6 +536,7 @@ export default function Dashboard() {
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
           <WeddingBanner />
+          <GlobalGmailBanner />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ width: '100%', maxWidth: '1152px' }}>
         <div className="space-y-8">

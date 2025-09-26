@@ -432,12 +432,45 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
     setChannelErrors("");
   }, []);
 
-  const handleGmailAuth = useCallback(() => {
-    setGmailAuthStatus('pending');
-    const redirectUri = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
-    console.log("OnboardingModal: Initiating Gmail Auth. redirectUri:", decodeURIComponent(redirectUri));
-    window.location.href = `/api/auth/google/initiate?userId=${userId}&redirectUri=${redirectUri}`;
-  }, [userId]);
+  const handleGmailAuth = useCallback(async () => {
+    try {
+      setGmailAuthStatus('pending');
+      
+      // Import Firebase auth dynamically to avoid SSR issues
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      // Force account selection
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      const result = await signInWithPopup(auth, provider);
+      
+      // Get ID token and call session login
+      const idToken = await result.user.getIdToken();
+      const res = await fetch("/api/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+        credentials: "include",
+      });
+      
+      if (res.ok) {
+        setGmailAuthStatus('success');
+        console.log("OnboardingModal: Gmail auth successful");
+      } else {
+        console.error('❌ Gmail auth failed');
+        setGmailAuthStatus('failed');
+      }
+    } catch (error: any) {
+      console.error('❌ Gmail auth error:', error);
+      setGmailAuthStatus('failed');
+    }
+  }, []);
 
   const handleComplete = useCallback(() => {
     onComplete(onboardingContacts, selectedCommunicationChannels);

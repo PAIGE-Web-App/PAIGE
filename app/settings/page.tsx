@@ -7,7 +7,9 @@ import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import WeddingBanner from "../../components/WeddingBanner";
+import GlobalGmailBanner from "../../components/GlobalGmailBanner";
 import UnsavedChangesModal from "../../components/UnsavedChangesModal";
+import GmailConfirmModal from "../../components/GmailConfirmModal";
 
 // Import our new components
 import ProfileTabs, { TABS } from "./components/ProfileTabs";
@@ -190,6 +192,7 @@ export default function ProfilePage() {
             transition={{ duration: 0.3 }}
           >
             <WeddingBanner localWeddingDate={weddingDate} />
+            <GlobalGmailBanner />
           </motion.div>
         )}
       </AnimatePresence>
@@ -278,6 +281,21 @@ export default function ProfilePage() {
               onClose={() => setShowFlagReview(false)}
             />
           )}
+          <GmailConfirmModal
+            isOpen={!!showGmailConfirmModal}
+            onConfirm={async () => {
+              if (pendingGoogleAction) {
+                await pendingGoogleAction();
+                setPendingGoogleAction(null);
+              }
+              setShowGmailConfirmModal(null);
+            }}
+            onCancel={() => {
+              setPendingGoogleAction(null);
+              setShowGmailConfirmModal(null);
+            }}
+            actionType="disconnect"
+          />
         </div>
       </div>
     </>

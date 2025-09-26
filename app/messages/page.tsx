@@ -31,7 +31,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import Banner from "../../components/Banner";
 import WeddingBanner from "../../components/WeddingBanner";
-import GmailReauthBanner from "../../components/GmailReauthBanner";
+import GlobalGmailBanner from "../../components/GlobalGmailBanner";
+// GmailReauthBanner now handled globally in layout.tsx
 import LoadingSpinner from "../../components/LoadingSpinner";
 import type { TodoItem } from '../../types/todo';
 import { COUPLE_SUBSCRIPTION_CREDITS } from "../../types/credits";
@@ -374,48 +375,7 @@ export default function MessagesPage() {
   // Use notifications hook for unread message counts
   const { contactUnreadCounts } = useNotifications();
 
-  // Check Gmail authentication status globally
-  const checkGmailAuthStatus = async () => {
-    if (!user?.uid) return;
-    
-    try {
-      console.log('🔍 Checking Gmail auth status for user:', user.uid);
-      const response = await fetch('/api/check-gmail-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, contactEmail: 'test@example.com' }),
-      });
-      
-      console.log('📡 Gmail auth response status:', response.status);
-      
-      if (!response.ok) {
-        // Check for authentication-related errors in both 401 and 500 responses
-        if (response.status === 401 || response.status === 500) {
-          try {
-            const data = await response.json();
-            console.log('📄 Gmail auth error data:', data);
-            if (data.message?.includes('Google authentication required') || 
-                data.message?.includes('Failed to refresh Google authentication') ||
-                data.message?.includes('Google authentication expired') ||
-                data.message?.includes('invalid_grant') ||
-                data.message?.includes('Token has been expired') ||
-                data.message?.includes('An error occurred while checking Gmail history')) {
-              console.log('🚨 Setting Gmail reauth banner to true');
-              setShowGmailReauthBanner(true);
-            }
-          } catch (parseError) {
-            console.log('❌ Could not parse Gmail auth error response');
-          }
-        }
-        // Silently handle other errors that aren't authentication-related
-      } else {
-        console.log('✅ Gmail auth is working, hiding banner');
-        setShowGmailReauthBanner(false);
-      }
-    } catch (error) {
-      console.log('💥 Gmail auth check error:', error);
-    }
-  };
+  // Gmail authentication status now checked globally in GmailAuthContext
 
   // Optimized Fuse search initialization with memoization
   const fuse = useMemo(() => {
@@ -442,8 +402,7 @@ export default function MessagesPage() {
 
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
-  // Gmail authentication state
-  const [showGmailReauthBanner, setShowGmailReauthBanner] = useState(false);
+  // Gmail authentication now handled globally in GmailAuthContext
   
   
   // Not enough credits modal state
@@ -517,30 +476,7 @@ export default function MessagesPage() {
     };
   }, []);
 
-  // Check Gmail authentication status when user is available
-  useEffect(() => {
-    console.log('🔄 Gmail auth useEffect triggered:', { 
-      hasUser: !!user?.uid, 
-      userId: user?.uid 
-    });
-    
-    if (user?.uid) {
-      console.log('✅ Calling checkGmailAuthStatus');
-      checkGmailAuthStatus();
-      
-      // Set up periodic check every 5 minutes
-      const interval = setInterval(() => {
-        console.log('⏰ Periodic Gmail auth check');
-        checkGmailAuthStatus();
-      }, 5 * 60 * 1000); // 5 minutes
-      
-      return () => clearInterval(interval);
-    } else {
-      console.log('❌ Not calling checkGmailAuthStatus:', { 
-        hasUser: !!user?.uid
-      });
-    }
-  }, [user?.uid]);
+  // Gmail authentication status now checked globally in GmailAuthContext
 
   // Removed problematic effect that was causing redirect loops
   // Authentication is now handled by middleware and AuthContext
@@ -925,8 +861,7 @@ export default function MessagesPage() {
       window.history.replaceState({}, document.title, newUrl);
 
       
-      // Hide the reauth banner since authentication is now valid
-      setShowGmailReauthBanner(false);
+      // Gmail reauth banner now handled globally
       
       // Show success toast
       showSuccessToast('Gmail re-authentication successful!');
@@ -1098,19 +1033,10 @@ export default function MessagesPage() {
     <div className="flex flex-col h-full bg-linen">
         {/* Loading is now handled by LoadingProvider in layout.tsx */}
         <WeddingBanner />
+        <GlobalGmailBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
-            {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
-            {showGmailReauthBanner && (
-              <div className="flex-shrink-0">
-                <GmailReauthBanner
-                  currentUser={user}
-                  onReauth={() => {
-                    setShowGmailReauthBanner(false);
-                  }}
-                />
-              </div>
-            )}
+            {/* Gmail Re-authentication Banner now handled globally in layout.tsx */}
 
             <div className="dashboard-layout">
               <main className="dashboard-main">

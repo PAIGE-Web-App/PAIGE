@@ -12,6 +12,7 @@ import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 // UI component imports
 import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
+import GlobalGmailBanner from '@/components/GlobalGmailBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Breadcrumb from '@/components/Breadcrumb';
 import SearchBar from '@/components/SearchBar';
@@ -393,6 +394,7 @@ export default function BudgetPage() {
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner />
+      <GlobalGmailBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
 
