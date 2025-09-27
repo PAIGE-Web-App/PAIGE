@@ -32,6 +32,12 @@ export async function POST(req: NextRequest) {
     }
 
     const userData = userDocSnap.data();
+    console.log('Gmail auth check: User data for', userId, ':', {
+      hasGoogleTokens: !!userData?.googleTokens,
+      googleTokens: userData?.googleTokens,
+      gmailConnected: userData?.gmailConnected
+    });
+    
     const { accessToken, refreshToken, expiryDate } = userData?.googleTokens || {};
 
     // Check if access token exists (refresh token is optional for Firebase popup flow)

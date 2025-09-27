@@ -5,7 +5,7 @@ export interface DetectedTodo {
   name: string;
   note?: string;
   deadline?: Date | null;
-  category?: string | null;
+  category?: string | null; // Categories can be assigned by user
   suggestedList?: string | null;
   assignedTo?: string[] | null;
   sourceText: string;
@@ -214,7 +214,7 @@ OUTPUT FORMAT (JSON only, no other text):
     {
       "name": "Task name",
       "note": "Optional note or description",
-      "category": "Category name (use existing categories when possible)",
+      "category": null,
       "deadline": "YYYY-MM-DD",
       "suggestedList": "Recommended list name from guidelines above",
       "sourceText": "Exact text that triggered this"

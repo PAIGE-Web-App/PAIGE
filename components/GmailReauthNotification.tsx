@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from 'firebase/auth';
+import { RefreshCw } from 'lucide-react';
 
 interface GmailReauthNotificationProps {
   isVisible: boolean;
@@ -15,7 +16,12 @@ export default function GmailReauthNotification({
   onDismiss,
   currentUser
 }: GmailReauthNotificationProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleReauth = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous reauth attempts
+    
+    setIsLoading(true);
     try {
       // Import Firebase auth dynamically to avoid SSR issues
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
@@ -49,6 +55,8 @@ export default function GmailReauthNotification({
       }
     } catch (error: any) {
       console.error('❌ Gmail reauth error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -79,8 +87,10 @@ export default function GmailReauthNotification({
               <div className="mt-4 flex space-x-3">
                 <button
                   onClick={handleReauth}
-                  className="bg-yellow-600 text-white px-3 py-1.5 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                  disabled={isLoading}
+                  className="bg-yellow-600 text-white px-3 py-1.5 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
+                  <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
                   Re-authenticate
                 </button>
                 <button

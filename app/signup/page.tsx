@@ -342,7 +342,7 @@ export default function SignUp() {
           const gmailTokens = {
             accessToken: accessToken,
             refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+            expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
             email: result.user.email, // Store Gmail account email
             scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
           };

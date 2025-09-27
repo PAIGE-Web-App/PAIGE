@@ -9,7 +9,7 @@ interface DetectedTodo {
   id: string;
   name: string;
   note?: string;
-  category: string;
+  category: string | null; // Categories can be assigned by user
   deadline?: Date | string;
   sourceMessage: string;
   sourceContact: string;
@@ -169,7 +169,7 @@ export default function GmailTodoReviewModal({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-[#805d93]" />
-                  <h5 className="text-[#332B42] font-semibold">Gmail Import Analysis Complete!</h5>
+                  <h5 className="text-[#332B42] font-semibold">Messages Analyzed</h5>
                 </div>
                 <button
                   onClick={onClose}
@@ -202,7 +202,7 @@ export default function GmailTodoReviewModal({
                         id: todoId,
                         name: todo.name,
                         note: todo.note || null,
-                        category: todo.category || null,
+                        category: null, // No category assigned for Gmail-generated todos
                         deadline: todo.deadline ? new Date(todo.deadline) : null,
                         isCompleted: false,
                         userId: 'gmail-import', // Placeholder
@@ -418,8 +418,8 @@ function ReferenceAccordion({ sourceMessage, sourceContact, sourceEmail, confide
         >
           <div className="p-3 space-y-3">
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-1">Source Message</h4>
-              <p className="text-sm text-gray-600 bg-white p-2 rounded border">
+              <h4 className="text-xs font-medium text-gray-700 mb-1">Source Message</h4>
+              <p className="text-xs text-gray-600 bg-white p-2 rounded border font-work">
                 {sourceMessage}
               </p>
             </div>

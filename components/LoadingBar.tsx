@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
 interface LoadingBarProps {
   description: string;
@@ -49,18 +50,21 @@ const LoadingBar: React.FC<LoadingBarProps> = ({ description, isVisible, onCompl
         >
           <div className="w-full h-2 bg-[#EBE3DD] rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-[#A85C36]"
+              className="h-full bg-purple-600"
               initial={{ width: "0%" }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.2 }}
             />
           </div>
-          <div className="text-sm text-[#332B42] mt-2 text-center">
-            {description.split('\n').map((line, index) => (
-              <p key={index} className={index === 1 ? 'text-xs mt-1' : ''}>
-                {line}
-              </p>
-            ))}
+          <div className="text-sm text-[#332B42] mt-2 flex items-center gap-2 text-left">
+            <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" />
+            <div>
+              {description.split('\n').map((line, index) => (
+                <p key={index} className={index === 1 ? 'text-xs mt-1' : ''}>
+                  {line}
+                </p>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}

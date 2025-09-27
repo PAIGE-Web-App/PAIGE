@@ -4,11 +4,15 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useGmailAuth } from '@/contexts/GmailAuthContext';
+import { useCustomToast } from '@/hooks/useCustomToast';
 
 export default function GlobalGmailBanner() {
   const { needsReauth, isLoading, checkGmailAuth, dismissBanner } = useGmailAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
 
   const handleReauth = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous reauth attempts
+    
     try {
       // Import Firebase auth dynamically to avoid SSR issues
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
@@ -43,7 +47,7 @@ export default function GlobalGmailBanner() {
           const gmailTokens = {
             accessToken: accessToken,
             refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+            expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
             email: result.user.email, // Store Gmail account email
             scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
           };
@@ -80,15 +84,17 @@ export default function GlobalGmailBanner() {
       if (res.ok) {
         // Small delay to ensure tokens are stored
         await new Promise(resolve => setTimeout(resolve, 1000));
-        // Force refresh Gmail auth status immediately
-        await checkGmailAuth(true);
-        // Also dismiss the banner immediately
+        // Dismiss the banner immediately without calling checkGmailAuth
         dismissBanner();
+        // Show success toast
+        showSuccessToast('Gmail integration re-enabled');
       } else {
         console.error('❌ Gmail reauth failed');
+        showErrorToast('Failed to re-enable Gmail integration');
       }
     } catch (error: any) {
       console.error('❌ Gmail reauth error:', error);
+      showErrorToast('Failed to re-enable Gmail integration');
     }
   };
 
@@ -100,7 +106,8 @@ export default function GlobalGmailBanner() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className="bg-yellow-50 border border-yellow-300 border-l-4 border-l-yellow-400 p-3 shadow-sm"
+        className="bg-yellow-50 border border-yellow-300 border-l-4 border-l-yellow-400 p-3 shadow-lg"
+        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
       >
         <div className="flex items-center">
           <div className="flex-shrink-0">
@@ -122,7 +129,7 @@ export default function GlobalGmailBanner() {
                 <button
                   onClick={handleReauth}
                   disabled={isLoading}
-                  className="bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+                  className="btn-primary flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
                   Re-authenticate

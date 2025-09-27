@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { User } from 'firebase/auth';
 
@@ -18,14 +18,16 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
   const [needsReauth, setNeedsReauth] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<number>(0);
+  const isCheckingRef = useRef(false);
 
   const checkGmailAuth = useCallback(async (force = false) => {
-    if (!user?.uid || isLoading) return;
+    if (!user?.uid || isCheckingRef.current) return;
     
     // Only check once every 5 minutes to avoid unnecessary API calls, unless forced
     const now = Date.now();
     if (!force && now - lastChecked < 5 * 60 * 1000) return;
     
+    isCheckingRef.current = true;
     setIsLoading(true);
     setLastChecked(now);
     
@@ -37,14 +39,16 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       const data = await response.json();
+      console.log('Gmail auth check result:', data);
       setNeedsReauth(data.needsReauth || false);
     } catch (error) {
       console.error('Error checking Gmail auth status:', error);
       // Don't show banner on network errors, only on actual auth failures
     } finally {
       setIsLoading(false);
+      isCheckingRef.current = false;
     }
-  }, [user?.uid, isLoading, lastChecked]);
+  }, [user?.uid, lastChecked]);
 
   const dismissBanner = useCallback(() => {
     setNeedsReauth(false);
@@ -53,7 +57,13 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
   // Check Gmail auth when user changes
   useEffect(() => {
     if (user?.uid) {
-      checkGmailAuth();
+      // Add a small delay to ensure user document is fully created
+      const timeoutId = setTimeout(async () => {
+        // Try to check Gmail auth once
+        await checkGmailAuth();
+      }, 2000); // Initial 2 second delay
+      
+      return () => clearTimeout(timeoutId);
     } else {
       setNeedsReauth(false);
     }

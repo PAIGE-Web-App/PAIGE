@@ -20,7 +20,7 @@ import Banner from "./Banner";
 import LoadingBar from "./LoadingBar";
 import { useRouter } from "next/navigation";
 import GmailReauthNotification from './GmailReauthNotification';
-import GmailReauthBanner from './GmailReauthBanner';
+// GmailReauthBanner now handled globally
 import DropdownMenu, { DropdownItem } from './DropdownMenu';
 import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 import GmailTodoReviewModal from './GmailTodoReviewModal';
@@ -330,7 +330,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   
   // Add re-authentication state
   const [showReauthNotification, setShowReauthNotification] = useState(false);
-  const [showReauthBanner, setShowReauthBanner] = useState(false);
+  // Gmail reauth banner now handled globally
 
   const clearReply = () => setReplyingToMessage(null);
 
@@ -583,7 +583,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         if (!data.success) {
           if (data.needsReauth) {
             setShowReauthNotification(true);
-            setShowReauthBanner(true);
+            // Gmail reauth banner now handled globally
             return; // Don't throw error, just return
           }
           throw new Error(data.error || 'Failed to send Gmail message');
@@ -858,7 +858,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 data.message?.includes('invalid_grant') ||
                 data.message?.includes('Token has been expired') ||
                 data.message?.includes('An error occurred while checking Gmail history')) {
-              setShowReauthBanner(true);
+              // Gmail reauth banner now handled globally
             }
           } catch (parseError) {
             // If we can't parse the response, silently handle it
@@ -1485,7 +1485,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               {selectedContact.email ? (
                 <button
                   type="button"
-                  onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                  onClick={() => setIsEditing(true)}
                   className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                 >
@@ -1510,7 +1510,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               {(selectedContact.phone || vendorDetails?.formatted_phone_number) && (
                 <button
                   type="button"
-                  onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                  onClick={() => setIsEditing(true)}
                   className="text-[11px] font-normal text-[#364257] hover:text-[#A85C36] flex items-center gap-1 focus:outline-none flex-shrink-0"
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                 >
@@ -1555,7 +1555,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 {selectedContact.email ? (
                   <button
                     type="button"
-                    onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                    onClick={() => setIsEditing(true)}
                     className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
                     title={selectedContact.email}
                   >
@@ -1578,7 +1578,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 {(selectedContact.phone || vendorDetails?.formatted_phone_number) && (
                   <button
                     type="button"
-                    onClick={() => router.push(`/?contactId=${selectedContact.id}`)}
+                    onClick={() => setIsEditing(true)}
                     className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
                     title={selectedContact.phone || vendorDetails?.formatted_phone_number}
                   >
@@ -1612,21 +1612,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
               </div>
             </div>
           </div>
-          {/* Gmail Re-authentication Banner - Shows when authentication is expired */}
-          {showReauthBanner && (
-            <div className="mt-0">
-              <GmailReauthBanner
-                currentUser={currentUser}
-                onReauth={() => {
-                  setShowReauthNotification(false);
-                  setShowReauthBanner(false);
-                }}
-              />
-            </div>
-          )}
+          {/* Gmail Re-authentication Banner - Removed, now handled globally */}
           
           {/* Gmail Import Banner - Shows when Gmail history is available */}
-          {showGmailBanner && !bannerDismissed && !showReauthBanner && (
+          {showGmailBanner && !bannerDismissed && (
             <div className="mt-0">
               <Banner
                 message={
@@ -1740,7 +1729,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       />
       <LoadingBar 
         isVisible={isImportingGmail} 
-        description="Importing Gmail messages! Please don't refresh" 
+        description="Analyzing emails to create/update to-dos! Please do not refresh" 
       />
       <LoadingBar 
         isVisible={isCheckingGmail} 
@@ -1754,7 +1743,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         currentUser={currentUser}
         onReauth={() => {
           setShowReauthNotification(false);
-          setShowReauthBanner(false);
+          // Gmail reauth banner now handled globally
         }}
         onDismiss={() => setShowReauthNotification(false)}
       />
