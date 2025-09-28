@@ -54,6 +54,13 @@ export default function Dashboard() {
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
   
+  // Helper function to extract first name from full name
+  const getFirstName = (fullName: string | null | undefined): string => {
+    if (!fullName) return 'there';
+    const nameParts = fullName.trim().split(' ');
+    return nameParts[0] || 'there';
+  };
+  
   // Fetch user data and progress information
   useEffect(() => {
     const fetchUserData = async () => {
@@ -599,7 +606,7 @@ export default function Dashboard() {
         // Mark as seen in localStorage so it doesn't show automatically again
         localStorage.setItem('hasSeenWelcomeModal', 'true');
       }}
-      firstName={userData?.firstName}
+      firstName={getFirstName(userData?.userName)}
       showCloseButton={isManualWelcomeModal}
     />
     </ClientOnly>

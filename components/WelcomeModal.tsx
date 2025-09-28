@@ -46,9 +46,9 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
                   className="mx-auto max-w-32 h-auto"
                 />
               </div>
-              <h2 className="text-xl font-medium text-[#332B42] mb-4">
-                Welcome aboard, {firstName || 'there'}!
-              </h2>
+                     <h2 className="text-xl font-medium text-[#332B42] mb-4">
+                       {firstName ? `Welcome aboard, ${firstName}!` : 'Welcome aboard!'}
+                     </h2>
               <div className="text-left">
                 <p className="text-[#5A4A42] text-sm leading-relaxed">
                   Wedding planning isn't easy for <strong>anyone</strong>. It can be an extremely stressful time of juggling timelines, communication with vendors, budgets, and much more.
