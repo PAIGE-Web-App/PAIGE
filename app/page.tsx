@@ -19,6 +19,7 @@ import { CheckCircle, Circle, Users, Heart, ClipboardList, Palette, DollarSign, 
 import { motion } from "framer-motion";
 import Link from "next/link";
 import CreditsExplanationModal from "../components/CreditsExplanationModal";
+import WelcomeModal from "../components/WelcomeModal";
 import { 
   QuickGuide, 
   QuickGuideCards,
@@ -47,6 +48,8 @@ export default function Dashboard() {
   const [progressLoading, setProgressLoading] = useState(true);
   const [creditsCompleted, setCreditsCompleted] = useState(false);
   const [aiCompleted, setAiCompleted] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isManualWelcomeModal, setIsManualWelcomeModal] = useState(false);
 
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
@@ -253,6 +256,20 @@ export default function Dashboard() {
       }
     }
   }, [showSuccessToast]);
+
+  // Show welcome modal for first-time users
+  useEffect(() => {
+    if (userData && !loading) {
+      // Check if user is a first-time user (no partner name set yet) and hasn't seen welcome modal
+      const hasSeenWelcomeModal = localStorage.getItem('hasSeenWelcomeModal');
+      const isFirstTimeUser = !userData.partnerName;
+      
+      if (isFirstTimeUser && !hasSeenWelcomeModal) {
+        setShowWelcomeModal(true);
+        setIsManualWelcomeModal(false); // This is automatic, not manual
+      }
+    }
+  }, [userData, loading]);
 
   // Initialize progress items based on user data and progress checks
   useEffect(() => {
@@ -545,6 +562,10 @@ export default function Dashboard() {
           <QuickGuideCards 
             userData={userData}
             progressData={progressData}
+            onOpenWelcomeModal={() => {
+              setShowWelcomeModal(true);
+              setIsManualWelcomeModal(true);
+            }}
           />
 
 
@@ -568,6 +589,18 @@ export default function Dashboard() {
         setCompletedCount(prev => prev + 1);
         showCompletionToast('credits');
       }}
+    />
+
+    {/* Welcome Modal */}
+    <WelcomeModal
+      isOpen={showWelcomeModal}
+      onClose={() => {
+        setShowWelcomeModal(false);
+        // Mark as seen in localStorage so it doesn't show automatically again
+        localStorage.setItem('hasSeenWelcomeModal', 'true');
+      }}
+      firstName={userData?.firstName}
+      showCloseButton={isManualWelcomeModal}
     />
     </ClientOnly>
   );

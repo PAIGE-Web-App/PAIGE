@@ -6,9 +6,10 @@ import WhyImportantModal from './WhyImportantModal';
 interface QuickGuideCardsProps {
   userData: any;
   progressData: any;
+  onOpenWelcomeModal?: () => void;
 }
 
-export default function QuickGuideCards({ userData, progressData }: QuickGuideCardsProps) {
+export default function QuickGuideCards({ userData, progressData, onOpenWelcomeModal }: QuickGuideCardsProps) {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Define guide cards data with useMemo to prevent recreation on every render
@@ -95,9 +96,17 @@ export default function QuickGuideCards({ userData, progressData }: QuickGuideCa
             <h5 className="text-[#332B42] mb-2">
               Quick Start Guide
             </h5>
-            <p className="text-sm text-[#5A4A42] mb-6 font-work">
+            <p className="text-sm text-[#5A4A42] mb-4 font-work">
               Get set up with Paige and establish the foundation for your wedding planning
             </p>
+            {onOpenWelcomeModal && (
+              <button
+                onClick={onOpenWelcomeModal}
+                className="text-[#A85C36] hover:text-[#8B4A2A] font-medium text-sm underline mb-6"
+              >
+                View Welcome Guide →
+              </button>
+            )}
           </div>
           
           <div className="hidden lg:block w-1/5">
@@ -186,9 +195,17 @@ export default function QuickGuideCards({ userData, progressData }: QuickGuideCa
            <h4 className="text-[#332B42] mb-2">
              Quick Start Guide
            </h4>
-           <p className="text-sm text-[#5A4A42] font-work">
+           <p className="text-sm text-[#5A4A42] font-work mb-4">
              Get set up with Paige and establish the foundation for your wedding planning
            </p>
+           {onOpenWelcomeModal && (
+             <button
+               onClick={onOpenWelcomeModal}
+               className="text-[#A85C36] hover:text-[#8B4A2A] font-medium text-sm underline"
+             >
+               View Welcome Guide →
+             </button>
+           )}
          </div>
          
          {/* Paige illustration - Hidden on mobile, visible on lg+ */}
