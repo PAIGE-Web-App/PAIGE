@@ -12,7 +12,7 @@ import { useCustomToast } from "../hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "../hooks/useGlobalCompletionToasts";
 import { useQuickStartCompletion } from "../hooks/useQuickStartCompletion";
 import toast from "react-hot-toast";
-import { doc, getDoc, collection, getDocs, query, limit } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, limit, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { ProgressItem } from "../types/seatingChart";
 import { CheckCircle, Circle, Users, Heart, ClipboardList, Palette, DollarSign, Calendar, MessageSquare, Sparkles, ArrowRight, ChevronDown, ChevronUp, MapPin, Home, Star, FileText, Bot } from "lucide-react";
@@ -267,11 +267,17 @@ export default function Dashboard() {
   // Show welcome modal for first-time users
   useEffect(() => {
     if (userData && !loading) {
-      // Check if user is a first-time user (no partner name set yet) and hasn't seen welcome modal
-      const hasSeenWelcomeModal = localStorage.getItem('hasSeenWelcomeModal');
-      const isFirstTimeUser = !userData.partnerName;
+      // Check if user has seen the welcome modal before (from Firestore)
+      const hasSeenWelcomeModal = userData.hasSeenWelcomeModal;
       
-      if (isFirstTimeUser && !hasSeenWelcomeModal) {
+      console.log('Welcome modal check:', {
+        hasSeenWelcomeModal,
+        shouldShow: !hasSeenWelcomeModal
+      });
+      
+      // Show welcome modal for ALL new users who haven't seen it before
+      if (!hasSeenWelcomeModal) {
+        console.log('Showing welcome modal automatically for new user');
         setShowWelcomeModal(true);
         setIsManualWelcomeModal(false); // This is automatic, not manual
       }
@@ -601,10 +607,20 @@ export default function Dashboard() {
     {/* Welcome Modal */}
     <WelcomeModal
       isOpen={showWelcomeModal}
-      onClose={() => {
+      onClose={async () => {
         setShowWelcomeModal(false);
-        // Mark as seen in localStorage so it doesn't show automatically again
-        localStorage.setItem('hasSeenWelcomeModal', 'true');
+        // Mark as seen in Firestore so it doesn't show automatically again
+        if (user?.uid) {
+          try {
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, {
+              hasSeenWelcomeModal: true
+            });
+            console.log('Welcome modal marked as seen in Firestore');
+          } catch (error) {
+            console.error('Error updating welcome modal status:', error);
+          }
+        }
       }}
       firstName={getFirstName(userData?.userName)}
       showCloseButton={isManualWelcomeModal}

@@ -40,9 +40,18 @@ export async function POST(req: NextRequest) {
     
     const { accessToken, refreshToken, expiryDate } = userData?.googleTokens || {};
 
+    // Check if user has ever connected Gmail (gmailConnected flag)
+    if (!userData?.gmailConnected) {
+      console.log('Gmail auth check: User has never connected Gmail:', userId);
+      return NextResponse.json({ 
+        needsReauth: false, 
+        message: 'User has never connected Gmail' 
+      });
+    }
+
     // Check if access token exists (refresh token is optional for Firebase popup flow)
     if (!accessToken) {
-      console.log('Gmail auth check: No access token found for user:', userId);
+      console.log('Gmail auth check: No access token found for user who previously connected Gmail:', userId);
       return NextResponse.json({ 
         needsReauth: true, 
         message: 'No Gmail access token found' 

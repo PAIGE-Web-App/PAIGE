@@ -547,6 +547,7 @@ export default function SignUp() {
       await setDoc(doc(db, "users", user.uid), {
         ...cleanedStepData,
         email: user.email,
+        hasSeenWelcomeModal: false, // New users haven't seen welcome modal yet
         updatedAt: new Date(),
       }, { merge: true });
       

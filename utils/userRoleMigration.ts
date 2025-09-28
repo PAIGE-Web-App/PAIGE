@@ -50,6 +50,7 @@ export async function migrateUserToRoleSystem(userId: string): Promise<void> {
       isActive: true,
       lastActive: new Date(),
       emailVerified: userData.emailVerified || false,
+      hasSeenWelcomeModal: userData.hasSeenWelcomeModal || false, // Preserve existing value or default to false
       metadata: {
         weddingDate: userData.weddingDate || null,
         location: userData.location || null,
@@ -90,6 +91,9 @@ export async function createNewUserWithRoleSystem(userId: string, userData: any 
       isActive: true,
       lastActive: new Date(),
       emailVerified: userData.emailVerified || false,
+      
+      // Welcome modal tracking
+      hasSeenWelcomeModal: false,
       
       // Metadata
       metadata: {
