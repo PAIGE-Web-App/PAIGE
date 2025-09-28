@@ -38,25 +38,23 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
       case 1:
         return (
           <div className="text-center">
-            <div className="mb-6">
-              <div className="mb-6">
-                <img 
-                  src="/first.png" 
-                  alt="Welcome to Paige" 
-                  className="mx-auto max-w-32 h-auto"
-                />
-              </div>
-                     <h2 className="text-xl font-medium text-[#332B42] mb-4">
-                       {firstName ? `Welcome aboard, ${firstName}!` : 'Welcome aboard!'}
-                     </h2>
-              <div className="text-left">
-                <p className="text-[#5A4A42] text-sm leading-relaxed">
+            <div className="mb-4">
+              <img 
+                src="/first.png" 
+                alt="Welcome to Paige" 
+                className="mx-auto max-w-32 h-auto"
+              />
+            </div>
+            <h2 className="text-xl font-medium text-[#332B42] mb-4">
+              {firstName ? `Welcome to Paige, ${firstName}!` : 'Welcome to Paige!'}
+            </h2>
+            <div className="text-left">
+                <p className="text-[#5A4A42] text-base leading-relaxed font-work">
                   Wedding planning isn't easy for <strong>anyone</strong>. It can be an extremely stressful time of juggling timelines, communication with vendors, budgets, and much more.
                 </p>
-                <p className="text-[#5A4A42] text-sm leading-relaxed mt-4">
+                <p className="text-[#5A4A42] text-base leading-relaxed mt-4 font-work">
                   That's where Paige comes in - and it's the reason why we're here in the first place.
                 </p>
-              </div>
             </div>
           </div>
         );
@@ -64,7 +62,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
       case 2:
         return (
           <div className="text-center">
-            <div className="mb-6">
+            <div className="mb-4">
               <img 
                 src="/two.png" 
                 alt="Wedding Planning Factors" 
@@ -78,23 +76,23 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
                   <Users className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
-                  <span className="text-[#5A4A42] text-sm"><strong>Vendors:</strong> Selection, Communication, Management, etc.</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <ClipboardList className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
-                  <span className="text-[#5A4A42] text-sm"><strong>To-dos:</strong> Knowing what to do when according to your wedding date</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <DollarSign className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
-                  <span className="text-[#5A4A42] text-sm"><strong>Budgets:</strong> Setting realistic budgets for your wedding that you can actually manage</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Layout className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
-                  <span className="text-[#5A4A42] text-sm"><strong>Seating Charts:</strong> Creating the optimal layout for your guests</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Palette className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
-                  <span className="text-[#5A4A42] text-sm"><strong>Moodboards:</strong> Setting the vibe for your big day</span>
+                       <span className="text-[#5A4A42] text-base font-work"><strong>Vendors:</strong> Selection, Communication, Management, etc.</span>
+                     </div>
+                     <div className="flex items-center space-x-3">
+                       <ClipboardList className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
+                       <span className="text-[#5A4A42] text-base font-work"><strong>To-dos:</strong> Knowing what to do when according to your wedding date</span>
+                     </div>
+                     <div className="flex items-center space-x-3">
+                       <DollarSign className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
+                       <span className="text-[#5A4A42] text-base font-work"><strong>Budgets:</strong> Setting realistic budgets for your wedding that you can actually manage</span>
+                     </div>
+                     <div className="flex items-center space-x-3">
+                       <Layout className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
+                       <span className="text-[#5A4A42] text-base font-work"><strong>Seating Charts:</strong> Creating the optimal layout for your guests</span>
+                     </div>
+                     <div className="flex items-center space-x-3">
+                       <Palette className="w-4 h-4 text-[#A85C36] flex-shrink-0" />
+                       <span className="text-[#5A4A42] text-base font-work"><strong>Moodboards:</strong> Setting the vibe for your big day</span>
                 </div>
               </div>
             </div>
@@ -104,7 +102,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
       case 3:
         return (
           <div className="text-center">
-            <div className="mb-6">
+            <div className="mb-4">
               <img 
                 src="/tech.png" 
                 alt="Paige AI Technology" 
@@ -116,17 +114,17 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
             </h2>
             <div className="text-left">
               <div className="space-y-4">
-                <p className="text-[#5A4A42] text-sm leading-relaxed">
+                <p className="text-[#5A4A42] text-base leading-relaxed font-work">
                   Paige is your all-in-one wedding planning partner.
                 </p>
-                <p className="text-[#5A4A42] text-sm leading-relaxed">
-                  It takes the details that matter most: your venue, wedding date, and vibe and uses them to draft personalized outreach to your vendors.
+                <p className="text-[#5A4A42] text-base leading-relaxed font-work">
+                  It takes your venue, wedding date, and vibe into account to draft personalized outreach to your vendors.
                 </p>
-                <p className="text-[#5A4A42] text-sm leading-relaxed">
-                  With Paige, you'll get smart budgets built around your max spend and custom to-do lists that match your wedding timeline so that you stay organized without being overwhelmed.
+                <p className="text-[#5A4A42] text-base leading-relaxed font-work">
+                  You'll get smart budgets and custom to-do lists that match your timeline.
                 </p>
-                <p className="text-[#5A4A42] text-sm leading-relaxed">
-                  And when you connect your Gmail, Paige automatically keeps tabs on vendor replies, suggesting new tasks or updates to your list as plans evolve.
+                <p className="text-[#5A4A42] text-base leading-relaxed font-work">
+                  Connect your Gmail and Paige automatically tracks vendor replies, suggesting new tasks as plans evolve.
                 </p>
               </div>
             </div>
@@ -136,7 +134,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
       case 4:
         return (
           <div className="text-center">
-            <div className="mb-6">
+            <div className="mb-4">
               <img 
                 src="/four.png" 
                 alt="Get Started with Paige" 
@@ -147,7 +145,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
               That's it! Let's get started.
             </h2>
             <div className="text-left">
-              <p className="text-[#5A4A42] text-sm mb-8">
+              <p className="text-[#5A4A42] text-base mb-8 font-work">
                 Select one of the most common wedding planning items below to kick off your journey with Paige. You can always access this popup again on your dashboard!
               </p>
             </div>
