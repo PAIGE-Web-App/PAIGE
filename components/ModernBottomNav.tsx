@@ -40,7 +40,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
 
   // Primary navigation items (always visible)
   const primaryNavItems: NavItem[] = [
-    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'To-do', href: '/todo', icon: ClipboardList },
     { name: 'Budget', href: '/budget', icon: DollarSign },
@@ -56,8 +56,8 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
   ];
 
   const isActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/';
+    if (href === '/dashboard') {
+      return pathname === '/dashboard';
     }
     return pathname?.startsWith(href) || false;
   };
