@@ -43,7 +43,7 @@ export default function VerticalNav() {
   const { notificationCounts, markNotificationAsRead } = useNotifications();
 
   const navItems: NavItem[] = [
-    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Messages", href: "/messages", icon: MessageSquare, notificationKey: "messages" },
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },

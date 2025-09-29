@@ -50,7 +50,7 @@ export default function TopNav() {
   };
 
   const navItems = [ // Moved outside component
-    { name: "Dashboard", href: "/" },
+    { name: "Dashboard", href: "/dashboard" },
     { name: "Messages", href: "/messages" },
     { name: "To-do Lists", href: "/todo" },
     { name: "Budget", href: "/budget" },

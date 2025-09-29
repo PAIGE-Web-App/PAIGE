@@ -16,6 +16,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import Link from "next/link";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -144,7 +145,7 @@ export default function Login() {
               console.log('📄 Auto-redirect - User data:', { onboarded: userData.onboarded });
               if (userData.onboarded === true) {
                 console.log('🏠 Auto-redirect - User is onboarded, redirecting to dashboard');
-                redirectTo("/");
+                redirectTo("/dashboard");
               } else {
                 console.log('📝 Auto-redirect - User not onboarded, redirecting to signup');
                 redirectTo('/signup?onboarding=1');
@@ -155,7 +156,7 @@ export default function Login() {
             }
           } catch (error) {
             console.error('❌ Auto-redirect - Error checking onboarding status:', error);
-            redirectTo("/");
+            redirectTo("/dashboard");
           }
         };
         
@@ -206,7 +207,7 @@ export default function Login() {
               if (typeof window !== 'undefined') {
                 localStorage.setItem('showLoginToast', '1');
               }
-              redirectTo("/");
+              redirectTo("/dashboard");
             } else {
               console.log('📝 [Login] User not onboarded, redirecting to signup');
               redirectTo('/signup?onboarding=1');
@@ -341,7 +342,7 @@ export default function Login() {
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         if (userData.onboarded === true) {
-          redirectTo("/");
+          redirectTo("/dashboard");
         } else {
           redirectTo('/signup?onboarding=1');
         }
@@ -446,7 +447,7 @@ export default function Login() {
             if (typeof window !== 'undefined') {
               localStorage.setItem('showLoginToast', '1');
             }
-            redirectTo("/");
+            redirectTo("/dashboard");
           } else {
             redirectTo('/signup?onboarding=1');
           }
@@ -618,7 +619,7 @@ export default function Login() {
             localStorage.setItem('showLoginToast', '1');
           }
           console.log('🔄 Redirecting to dashboard');
-          redirectTo("/");
+          redirectTo("/dashboard");
         } else {
           // User is not onboarded, redirect to signup
           console.log('🔄 Redirecting to signup');
@@ -722,7 +723,9 @@ export default function Login() {
             {step === 1 && (
               <>
                 <div className="flex flex-col justify-center items-center px-12">
-                    <div className="text-[#AB9C95] text-2xl font-playfair mb-4">Logo</div>
+                    <Link href="/" className="flex items-center gap-2 no-underline mb-4">
+                      <span className="font-playfair text-xl text-[#5A4A42]">Paige</span>
+                    </Link>
                     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-center w-full">
             Welcome back!
           </h1>

@@ -15,6 +15,7 @@ import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { useCustomToast } from '../../hooks/useCustomToast';
 import { WandSparkles, X, User, Pencil, Upload, Info } from 'lucide-react';
+import Link from "next/link";
 
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
@@ -365,7 +366,7 @@ export default function SignUp() {
           if (userData.onboarded === true) {
             // User is onboarded, redirect to dashboard
             console.log('🔄 [SIGNUP] Redirecting to dashboard');
-            window.location.href = "/";
+            window.location.href = "/dashboard";
           } else {
             // User exists but not onboarded, continue with signup flow
             setIsNewSignup(true);
@@ -578,7 +579,9 @@ export default function SignUp() {
             {step === 1 && (
               <>
                 <div className="flex flex-col justify-center items-center px-12">
-                    <div className="text-[#AB9C95] text-2xl font-playfair mb-4">Logo</div>
+                    <Link href="/" className="flex items-center gap-2 no-underline mb-4">
+                      <span className="font-playfair text-xl text-[#5A4A42]">Paige</span>
+                    </Link>
                     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-center w-full">
             Welcome to Paige!
           </h1>
@@ -1611,7 +1614,7 @@ export default function SignUp() {
                   // Add a longer delay to ensure Firestore has fully propagated the changes
                   setTimeout(() => {
                     console.log('Redirecting to dashboard...');
-                    window.location.href = "/";
+                    window.location.href = "/dashboard";
                   }, 3000);
                 } else {
                   console.error('Failed to complete onboarding');

@@ -100,6 +100,7 @@ a {
 
 .btn-primary {
   background-color: #332B42;
+  border: #332B42 1px solid;
   color: #F3F2F0;
   font-family: var(--font-work-sans);
   font-weight: 600;
@@ -208,6 +209,29 @@ a {
 
 .btn-primaryinverse-large:active {
   background: #E5E7EB;
+}
+
+.btn-white-outline {
+  border: white 1px solid;
+  background: transparent;
+  color: white;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.75rem; /* Equivalent to text-xs */
+  padding: 4px 12px; /* Updated padding */
+  border-radius: 5px;
+  gap: 8px; /* Equivalent to gap-2 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-white-outline:hover {
+  background: white;
+  color: #332B42;
 }
 
 /* MODIFIED: Remove hardcoded background-color, color, and border from .category-pill */

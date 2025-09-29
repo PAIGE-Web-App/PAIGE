@@ -83,7 +83,7 @@ export function EnhancedLoginForm({ onSuccess, className = '' }: EnhancedLoginFo
 
       // Redirect based on onboarding status
       if (userData.onboarded === true) {
-        window.location.href = "/";
+        window.location.href = "/dashboard";
       } else {
         window.location.href = '/signup?onboarding=1';
       }
