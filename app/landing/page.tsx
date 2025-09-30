@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from 'canvas-confetti';
+import ScrollingTodoList from "@/components/ScrollingTodoList";
+import ScrollingTodoListReversed from "@/components/ScrollingTodoListReversed";
+import FeaturesGrid from "@/components/FeaturesCarousel";
 import { 
   Sparkles, 
   MessageSquare, 
@@ -420,41 +423,58 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CORE OUTCOMES / FEATURES */}
+      {/* TAKE CONTROL OF YOUR TO-DOS */}
+      <section className="bg-white">
+        <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-20 items-center">
+            {/* Left side - Visual with scrolling to-dos */}
+            <div className="flex justify-start lg:justify-start">
+              <ScrollingTodoList />
+            </div>
+            
+            {/* Right side - Text content */}
+            <div className="text-center lg:text-left">
+              <h2 className="h5 font-semibold mb-4">
+                Take control of your To-dos
+              </h2>
+              <p className="mt-2 text-[#5A4A42] font-work">
+                Paige instantly creates and tracks your to-dos. We're built to bring calm, not chaos, to your wedding planning.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TAKE CONTROL OF YOUR TO-DOS - REVERSED */}
+      <section className="bg-white">
+        <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-20 items-center">
+            {/* Left side - Text content */}
+            <div className="text-center lg:text-left">
+              <h2 className="h5 font-semibold mb-4">
+                Personalized AI-Powered Messaging
+              </h2>
+              <p className="mt-2 text-[#5A4A42] font-work">
+                Draft friendly, on-brand vendor emails in seconds.
+              </p>
+            </div>
+            
+            {/* Right side - Visual with scrolling to-dos */}
+            <div className="flex justify-end lg:justify-end">
+              <ScrollingTodoListReversed />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CORE OUTCOMES / FEATURES - CAROUSEL */}
       <section id="features" className="bg-white">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="mx-auto max-w-2xl text-center mb-12">
             <h2 className="h5 font-semibold">Everything You Need, All in One Place</h2>
             <p className="mt-2 text-[#5A4A42] font-work">Powerful AI + intuitive design to make planning effortless.</p>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Card 1 */}
-            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 shadow-lg shadow-black/5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#A85C36]/10 text-[#8B4A2A]">✉️</div>
-              <h3 className="mt-4 text-sm font-semibold font-work">AI‑Powered Messaging</h3>
-              <p className="mt-1 text-[#5A4A42] font-work">Draft friendly, on‑brand vendor emails in seconds. Keep every thread in one place so nothing slips.</p>
-            </div>
-            {/* Card 2 */}
-            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 shadow-lg shadow-black/5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#A85C36]/10 text-[#8B4A2A]">💰</div>
-              <h3 className="mt-4 text-sm font-semibold font-work">Smart Budget Planning</h3>
-              <p className="mt-1 text-[#5A4A42] font-work">Budgets built around your location, date, and guest count. Track changes in real time.</p>
-            </div>
-            {/* Card 3 */}
-            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 shadow-lg shadow-black/5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#A85C36]/10 text-[#8B4A2A]">✅</div>
-              <h3 className="mt-4 text-sm font-semibold font-work">Intelligent To‑Dos (with Gmail)</h3>
-              <p className="mt-1 text-[#5A4A42] font-work">Connect Gmail once. When vendors reply, Paige suggests new to-dos and updates existing ones automatically!</p>
-            </div>
-            {/* Optional Card 4 */}
-            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 shadow-lg shadow-black/5 sm:col-span-2 lg:col-span-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#A85C36]/10 text-[#8B4A2A]">🪑</div>
-                <h3 className="text-sm font-semibold font-work">Seating & Style, Simplified</h3>
-              </div>
-              <p className="mt-1 text-[#5A4A42] font-work">Sketch your seating chart and save mood‑board notes without bouncing between apps.</p>
-            </div>
-          </div>
+          <FeaturesGrid />
         </div>
       </section>
 
@@ -586,7 +606,7 @@ export default function LandingPage() {
             <div className="flex justify-center lg:justify-end">
               <div className="w-full max-w-lg h-80 rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white shadow-lg shadow-black/5 overflow-hidden">
                 <img 
-                  src="/Assign.png" 
+                  src="/plannerfin.png" 
                   alt="Paige Collaboration Features" 
                   className="w-full h-full object-cover"
                 />
