@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import confetti from 'canvas-confetti';
 import { 
   Sparkles, 
   MessageSquare, 
   DollarSign, 
   ClipboardList, 
   Users, 
+  User,
   Heart, 
   FileText, 
   Bot,
@@ -33,7 +35,6 @@ export default function LandingPage() {
   const [demoStep, setDemoStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [openAccordion, setOpenAccordion] = useState<number | null>(0); // First item open by default
-
   const toggleAccordion = (index: number) => {
     setOpenAccordion(openAccordion === index ? null : index);
   };
@@ -46,7 +47,10 @@ export default function LandingPage() {
     allocated: "$23,700",
     flexibility: "$1,300"
   };
-  const emailData = { subject: "Wedding Photography Inquiry", preview: "Hi Sarah, I'm planning my wedding for June 15th at the Garden Manor. Would love to discuss your photography packages..." };
+  const emailData = { 
+    subject: "Wedding Photography Inquiry", 
+    preview: "Hi Sarah, I'm planning my wedding for June 15th at the Garden Manor. Would love to discuss your photography packages..."
+  };
   const todoData = { items: ["✓ Book venue (Due: Jan 15)", "○ Send save-the-dates (Due: Feb 1)", "○ Finalize guest list (Due: Jan 30)"] };
 
   // Animation cycle - loading (2.5s) then content (4.5s)
@@ -77,9 +81,109 @@ export default function LandingPage() {
     }
   }, [user, loading, router]);
 
+  // Confetti effect for hero section
+  useEffect(() => {
+    if (!isClient) return;
+
+    let confettiInterval: NodeJS.Timeout;
+    let heroConfetti: any = null;
+    
+    const createConfetti = () => {
+      // Check if we're on mobile
+      const isMobile = window.innerWidth < 1024; // lg breakpoint
+      
+      if (isMobile) {
+        // On mobile, create a custom canvas for the hero section
+        if (!heroConfetti) {
+          const heroElement = document.querySelector('section.relative.overflow-hidden.bg-linen');
+          if (heroElement) {
+            const canvas = document.createElement('canvas');
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '10';
+            heroElement.appendChild(canvas);
+            
+            heroConfetti = confetti.create(canvas, {
+              resize: true,
+              useWorker: false
+            });
+          }
+        }
+        
+        if (heroConfetti) {
+          // Create confetti from left side
+          heroConfetti({
+            particleCount: 5,
+            angle: 60,
+            spread: 45,
+            origin: { x: 0, y: 0.8 },
+            colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
+          });
+          
+          // Create confetti from right side
+          heroConfetti({
+            particleCount: 5,
+            angle: 120,
+            spread: 45,
+            origin: { x: 1, y: 0.8 },
+            colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
+          });
+        }
+      } else {
+        // On desktop, use global confetti
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 45,
+          origin: { x: 0, y: 0.8 },
+          colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
+        });
+        
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 45,
+          origin: { x: 1, y: 0.8 },
+          colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
+        });
+      }
+    };
+
+    // Start confetti after a short delay
+    const startConfetti = () => {
+      confettiInterval = setInterval(createConfetti, 4000); // Every 4 seconds
+    };
+
+    const timeoutId = setTimeout(startConfetti, 2000); // Start after 2 seconds
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (confettiInterval) clearInterval(confettiInterval);
+      if (heroConfetti) {
+        heroConfetti.reset();
+      }
+    };
+  }, [isClient]);
+
   // Prevent hydration mismatch
   useEffect(() => {
     setIsClient(true);
+    
+    // Initial celebratory confetti burst
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        confetti({
+          particleCount: 60,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0', '#784528']
+        });
+      }, 1000);
+    }
   }, []);
 
   if (loading || !isClient) {
@@ -110,7 +214,7 @@ export default function LandingPage() {
 
       {/* NAVBAR */}
       <div className="sticky top-0 z-30 pt-4 px-4">
-        <header className="mx-auto max-w-7xl rounded-2xl bg-white/85 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
+        <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
           <div className="px-4 flex h-16 items-center justify-between">
           <Link href="#" className="flex items-center gap-2 no-underline">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
@@ -160,35 +264,47 @@ export default function LandingPage() {
         </header>
       </div>
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-cover bg-center -mt-20 pt-20" style={{ backgroundImage: 'url(/Final.png)' }}>
-        <div className="px-4 lg:px-8 mx-auto grid lg:grid-cols-2 gap-10 items-center py-16 lg:py-24 max-w-7xl">
-          <div>
-            <h1 className="font-playfair text-4xl leading-tight tracking-tight sm:text-5xl font-semibold">
-              Your AI‑Powered Wedding <span className="text-[#A85C36]">Planning Partner</span>
-            </h1>
-            <p className="mt-4 max-w-xl text-[#5A4A42] font-work">
-              We built Paige after our own planning stress so that you don't have to repeat it. From managing to-dos to vendor communication and budgets, Paige handles the details while you focus on celebrating.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/login" className="btn-primaryinverse no-underline w-32 text-center whitespace-nowrap">
-              Login
-            </Link>
-            <Link href="/signup" className="btn-primary no-underline w-32 text-center whitespace-nowrap">
-              Start Planning
-            </Link>
+      {/* HERO - JASPER-STYLE LAYOUT */}
+      <section className="relative overflow-hidden bg-linen -mt-20 pt-20 h-screen flex flex-col">
+        <div className="px-4 lg:px-8 mx-auto max-w-7xl flex-1 flex flex-col">
+          {/* Top Section - Text Content */}
+          <div className="py-8 lg:py-12 flex-shrink-0">
+            <div className="text-center">
+              <h1 className="font-playfair text-4xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
+                Your AI-Powered <span className="text-[#A85C36]">Wedding Planner</span>
+              </h1>
+              <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work lg:text-xl">
+                Created to minimize stress and maximize celebration.<br />
+                Easily manage your to-dos, vendor communication, budgets and more with AI.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+                <Link href="/signup" className="btn-primary no-underline px-8 py-3 text-center whitespace-nowrap">
+                  Start Free Trial
+                </Link>
+                <Link href="/login" className="btn-primaryinverse no-underline px-8 py-3 text-center whitespace-nowrap">
+                  Get A Demo
+                </Link>
+              </div>
+              <p className="mt-4 text-sm text-[#5A4A42]">No credit card needed • Cancel anytime</p>
             </div>
-            <p className="mt-3 text-sm text-[#5A4A42]">No credit card needed • Cancel anytime</p>
           </div>
-          {/* Illustration / Mock */}
-          <div className="relative">
-            <div className="mx-auto w-full max-w-md rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-4 shadow-lg shadow-black/5">
-              <div className="rounded-xl bg-gray-50 p-4">
-                <div className="grid gap-3">
-                  {/* Budget Card */}
-                  <div className="rounded-lg bg-white p-4 ring-1 ring-[rgb(236,233,231)]">
-                    <div className="text-xs font-semibold text-[#5A4A42]">Budget</div>
-                    <div className="mt-1 h-16 flex items-center">
+
+          {/* Bottom Section - Image with Animated Demo Cards */}
+          <div className="relative flex-1 flex items-center">
+            <div className="relative w-full h-full">
+              {/* Main Image - Full Width and Height */}
+              <div className="relative w-full h-full overflow-hidden">
+                <img 
+                  src="/finalhero.png" 
+                  alt="Wedding planning dashboard" 
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Animated Demo Cards - Top Left */}
+                <div className="absolute left-1/2 transform -translate-x-1/2 top-1/2 lg:left-4 lg:top-8 lg:transform-none">
+                  <div className="bg-white rounded-xl p-4 shadow-lg w-80">
+                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">Budget</div>
+                    <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (
                           <motion.div
@@ -202,9 +318,9 @@ export default function LandingPage() {
                               <Sparkles className="w-3 h-3" />
                               Generating Budget...
                             </div>
-                            <div className="h-3 w-2/3 rounded bg-[#A85C36]/20 animate-pulse"></div>
+                            <div className="h-3 w-3/4 rounded bg-[#A85C36]/20 animate-pulse"></div>
                             <div className="h-3 w-1/2 rounded bg-[#A85C36]/15 animate-pulse"></div>
-                            <div className="h-3 w-4/5 rounded bg-[#A85C36]/25 animate-pulse"></div>
+                            <div className="h-3 w-5/6 rounded bg-[#A85C36]/25 animate-pulse"></div>
                           </motion.div>
                         ) : (
                           <motion.div
@@ -224,11 +340,13 @@ export default function LandingPage() {
                       </AnimatePresence>
                     </div>
                   </div>
+                </div>
 
-                  {/* Email Card */}
-                  <div className="rounded-lg bg-white p-4 ring-1 ring-[rgb(236,233,231)]">
-                    <div className="text-xs font-semibold text-[#5A4A42]">Vendor Email</div>
-                    <div className="mt-1 h-16 flex items-center">
+                {/* Animated Demo Cards - Right Side */}
+                <div className="absolute right-16 top-16 hidden lg:block">
+                  <div className="bg-white rounded-xl p-4 shadow-lg w-80">
+                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">Vendor Email</div>
+                    <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (
                           <motion.div
@@ -242,9 +360,9 @@ export default function LandingPage() {
                               <Sparkles className="w-3 h-3" />
                               Generating Vendor Email...
                             </div>
-                            <div className="h-3 w-3/4 rounded bg-gray-200 animate-pulse"></div>
-                            <div className="h-3 w-full rounded bg-gray-100 animate-pulse"></div>
-                            <div className="h-3 w-1/2 rounded bg-gray-100 animate-pulse"></div>
+                            <div className="h-3 w-4/5 rounded bg-gray-200 animate-pulse"></div>
+                            <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse"></div>
+                            <div className="h-3 w-3/5 rounded bg-gray-100 animate-pulse"></div>
                           </motion.div>
                         ) : (
                           <motion.div
@@ -261,11 +379,13 @@ export default function LandingPage() {
                       </AnimatePresence>
                     </div>
                   </div>
+                </div>
 
-                  {/* To-Dos Card */}
-                  <div className="rounded-lg bg-white p-4 ring-1 ring-[rgb(236,233,231)]">
-                    <div className="text-xs font-semibold text-[#5A4A42]">To‑Dos</div>
-                    <div className="mt-1 h-16 flex items-center">
+                {/* Animated Demo Cards - Under Vendor Email */}
+                <div className="absolute right-2 top-64 hidden lg:block">
+                  <div className="bg-white rounded-xl p-4 shadow-lg w-80">
+                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">To‑Dos</div>
+                    <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (
                           <motion.div
@@ -279,9 +399,9 @@ export default function LandingPage() {
                               <Sparkles className="w-3 h-3" />
                               Generating To-dos...
                             </div>
-                            <div className="h-3 w-4/5 rounded bg-[#A85C36]/25 animate-pulse"></div>
-                            <div className="h-3 w-2/3 rounded bg-[#A85C36]/15 animate-pulse"></div>
-                            <div className="h-3 w-3/4 rounded bg-[#A85C36]/20 animate-pulse"></div>
+                            <div className="h-3 w-2/3 rounded bg-[#A85C36]/25 animate-pulse"></div>
+                            <div className="h-3 w-4/5 rounded bg-[#A85C36]/15 animate-pulse"></div>
+                            <div className="h-3 w-1/2 rounded bg-[#A85C36]/20 animate-pulse"></div>
                           </motion.div>
                         ) : (
                           <motion.div
@@ -301,10 +421,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-            </div>
-            {/* Calm floating element - positioned relative to the main card */}
-            <div className="pointer-events-none absolute h-16 w-16 rotate-12 items-center justify-center rounded-xl bg-[#A85C36] text-white shadow-lg shadow-black/5 hidden lg:flex" style={{ right: '24px', top: '-24px' }}>
-              <span className="font-playfair text-sm">Calm ✨</span>
             </div>
           </div>
         </div>
@@ -359,6 +475,144 @@ export default function LandingPage() {
                 <h3 className="text-sm font-semibold font-work">Seating & Style, Simplified</h3>
               </div>
               <p className="mt-1 text-[#5A4A42] font-work">Sketch your seating chart and save mood‑board notes without bouncing between apps.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PAIGE SNEAK PEEK */}
+      <section className="bg-[rgb(31,28,26)]">
+        <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="font-playfair text-3xl text-white font-semibold">A Paige Sneak Peek</h2>
+            <p className="mt-2 text-gray-200 font-work">See how Paige transforms wedding planning from chaos to calm</p>
+          </div>
+          <div className="mt-10 grid gap-8 md:grid-cols-3 lg:grid-cols-3">
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/messages.png" 
+                    alt="Paige Messages" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">AI-Powered Messages</h3>
+              <p className="mt-1 text-gray-300 font-work">Draft personalized vendor outreach with AI</p>
+            </div>
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/TodoSC.png" 
+                    alt="Paige To-Dos" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">Smart To-do Management</h3>
+              <p className="mt-1 text-gray-300 font-work">AI-powered task management that keeps you organized</p>
+            </div>
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/BudgetTooling.png" 
+                    alt="Paige Budget" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">Budgeting that Works</h3>
+              <p className="mt-1 text-gray-300 font-work">Smart budget planning tailored to your wedding</p>
+            </div>
+            
+            {/* Second Row */}
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/Moods.png" 
+                    alt="Paige Mood Boards" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">Mood Board Generation</h3>
+              <p className="mt-1 text-gray-300 font-work">AI extracts moods from your inspiration images</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/Seats.png" 
+                    alt="Paige Seating Charts" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">Seating Chart Creator</h3>
+              <p className="mt-1 text-gray-300 font-work">Drag-and-drop seating with guest management</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
+                <div className="aspect-video">
+                  <img 
+                    src="/FileManager.png" 
+                    alt="Paige File Management" 
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white font-work">File Management & Insights</h3>
+              <p className="mt-1 text-gray-300 font-work">AI extracts key insights from your documents</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COLLABORATION SECTION */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Text */}
+            <div>
+              <h2 className="h5 font-semibold mb-4">
+                Plan together without stepping on toes
+              </h2>
+              <p className="text-[#5A4A42] font-work mb-8">
+                Invite your partner, family, or planner. Assign tasks, leave notes, and keep everyone in sync.
+              </p>
+              
+              {/* Collaboration Icons */}
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 bg-white flex items-center justify-center">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 bg-white flex items-center justify-center">
+                  <Heart className="w-4 h-4 text-pink-600" />
+                </div>
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 bg-white flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 bg-white flex items-center justify-center">
+                  <Users className="w-4 h-4 text-purple-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Collaboration Image */}
+            <div className="flex justify-center lg:justify-end">
+              <div className="w-full max-w-lg h-80 rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white shadow-lg shadow-black/5 overflow-hidden">
+                <img 
+                  src="/Assign.png" 
+                  alt="Paige Collaboration Features" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -563,6 +817,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
     </div>
   );
 }
