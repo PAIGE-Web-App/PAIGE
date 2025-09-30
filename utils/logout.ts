@@ -41,9 +41,9 @@ export const handleLogout = async (router?: any) => {
     // Small delay to ensure cookie is cleared
     setTimeout(() => {
       if (router) {
-        router.push('/login');
+        router.push('/');
       } else {
-        window.location.href = '/login';
+        window.location.href = '/';
       }
     }, 100);
     
@@ -51,9 +51,9 @@ export const handleLogout = async (router?: any) => {
     console.error("Logout error:", error);
     // Fallback redirect
     if (router) {
-      router.push('/login');
+      router.push('/');
     } else {
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   } finally {
     // Reset the flag after a delay

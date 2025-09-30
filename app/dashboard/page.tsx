@@ -523,9 +523,15 @@ export default function Dashboard() {
     );
   }
 
-  // Don't render if not authenticated - redirect to login
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [loading, user, router]);
+
+  // Don't render if not authenticated
   if (!user) {
-    router.push('/login');
     return null;
   }
 

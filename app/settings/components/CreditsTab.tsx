@@ -17,35 +17,7 @@ export default function CreditsTab() {
   const dailyCredits = credits?.dailyCredits || 0;
   const bonusCredits = credits?.bonusCredits || 0;
 
-  // Check if user has scrolled on this page and trigger completion
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!hasScrolled) {
-        setHasScrolled(true);
-        
-        // Store completion in localStorage for persistence
-        localStorage.setItem('paige-ai-completed', 'true');
-        
-        // Dispatch completion event for dashboard to listen (if it's open)
-        window.dispatchEvent(new CustomEvent('progressItemCompleted', {
-          detail: { itemId: 'paige-ai' }
-        }));
-        
-        // Also show the toast
-        showCompletionToast('paige-ai');
-      }
-    };
-
-    // Add a small delay to ensure the component is fully mounted
-    const timer = setTimeout(() => {
-      window.addEventListener('scroll', handleScroll);
-    }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [hasScrolled, showCompletionToast]);
+  // No completion tracking needed for settings pages
 
   const featureExamples = {
     couple: [

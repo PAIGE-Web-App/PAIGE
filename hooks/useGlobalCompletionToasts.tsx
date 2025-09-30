@@ -15,7 +15,6 @@ export const useGlobalCompletionToasts = () => {
       'moodboard': '🎨 Stunning! Your first moodboard is ready!',
       'seating-chart': '🪑 Perfect! Your seating chart is created!',
       'files': '📁 Excellent! Your first file is uploaded!',
-      'paige-ai': '🤖 Incredible! You\'ve discovered Paige\'s AI magic!',
       'credits': '💡 Great! You now understand how credits work!',
       // Quick Start Guide cards
       'profile': '👤 Perfect! Your profile is complete!',

@@ -89,53 +89,30 @@ export default function LandingPage() {
     let heroConfetti: any = null;
     
     const createConfetti = () => {
-      // Check if we're on mobile
-      const isMobile = window.innerWidth < 1024; // lg breakpoint
-      
-      if (isMobile) {
-        // On mobile, create a custom canvas for the hero section
-        if (!heroConfetti) {
-          const heroElement = document.querySelector('section.relative.overflow-hidden.bg-linen');
-          if (heroElement) {
-            const canvas = document.createElement('canvas');
-            canvas.style.position = 'absolute';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.pointerEvents = 'none';
-            canvas.style.zIndex = '10';
-            heroElement.appendChild(canvas);
-            
-            heroConfetti = confetti.create(canvas, {
-              resize: true,
-              useWorker: false
-            });
-          }
-        }
-        
-        if (heroConfetti) {
-          // Create confetti from left side
-          heroConfetti({
-            particleCount: 5,
-            angle: 60,
-            spread: 45,
-            origin: { x: 0, y: 0.8 },
-            colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
-          });
+      // Create a custom canvas for the hero section on both mobile and desktop
+      if (!heroConfetti) {
+        const heroElement = document.querySelector('section.relative.overflow-hidden.bg-linen');
+        if (heroElement) {
+          const canvas = document.createElement('canvas');
+          canvas.style.position = 'absolute';
+          canvas.style.top = '0';
+          canvas.style.left = '0';
+          canvas.style.width = '100%';
+          canvas.style.height = '100%';
+          canvas.style.pointerEvents = 'none';
+          canvas.style.zIndex = '10';
+          heroElement.appendChild(canvas);
           
-          // Create confetti from right side
-          heroConfetti({
-            particleCount: 5,
-            angle: 120,
-            spread: 45,
-            origin: { x: 1, y: 0.8 },
-            colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
+          heroConfetti = confetti.create(canvas, {
+            resize: true,
+            useWorker: false
           });
         }
-      } else {
-        // On desktop, use global confetti
-        confetti({
+      }
+      
+      if (heroConfetti) {
+        // Create confetti from left side
+        heroConfetti({
           particleCount: 5,
           angle: 60,
           spread: 45,
@@ -143,7 +120,8 @@ export default function LandingPage() {
           colors: ['#A85C36', '#805d93', '#332B42', '#AB9C95', '#F3F2F0']
         });
         
-        confetti({
+        // Create confetti from right side
+        heroConfetti({
           particleCount: 5,
           angle: 120,
           spread: 45,
@@ -271,7 +249,7 @@ export default function LandingPage() {
           <div className="py-8 lg:py-12 flex-shrink-0">
             <div className="text-center">
               <h1 className="font-playfair text-4xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
-                Your AI-Powered <span className="text-[#A85C36]">Wedding Planner</span>
+                <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
               <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work lg:text-xl">
                 Created to minimize stress and maximize celebration.<br />
