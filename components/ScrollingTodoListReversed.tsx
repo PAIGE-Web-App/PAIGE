@@ -52,7 +52,7 @@ export default function ScrollingTodoListReversed() {
   return (
     <div className="relative">
       {/* Clean to-do list with drop shadow - positioned on the left */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-[17rem] lg:-translate-x-[30rem] bg-white rounded-2xl shadow-lg shadow-black/10 w-80 lg:w-96 overflow-hidden z-10 scale-[0.65] lg:scale-100">
+      <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-[15rem] lg:-translate-x-[30rem] bg-white rounded-2xl shadow-lg shadow-black/10 w-80 lg:w-96 overflow-hidden z-10 scale-[0.65] lg:scale-100">
         {/* App header */}
         <div className="bg-[#805d93] px-4 py-3">
           <div className="flex items-center justify-between">

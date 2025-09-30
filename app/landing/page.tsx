@@ -180,7 +180,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="bg-linen text-[#332B42] antialiased">
+    <div className="bg-linen text-[#332B42] antialiased overflow-x-hidden">
       {/* Mobile sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-[0.5px] border-[rgb(236,233,231)] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70 lg:hidden">
         <div className="px-4 mx-auto py-3 flex items-center gap-3 max-w-7xl">
@@ -246,7 +246,7 @@ export default function LandingPage() {
       </div>
 
       {/* HERO - JASPER-STYLE LAYOUT */}
-      <section className="relative overflow-hidden bg-linen -mt-20 pt-20 h-screen flex flex-col">
+      <section className="relative overflow-hidden bg-linen -mt-20 pt-20 h-screen flex flex-col overflow-x-hidden">
         <div className="px-4 lg:px-8 mx-auto max-w-7xl flex-1 flex flex-col">
           {/* Top Section - Text Content */}
           <div className="py-8 lg:py-12 flex-shrink-0">

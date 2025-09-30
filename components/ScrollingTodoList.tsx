@@ -54,7 +54,7 @@ export default function ScrollingTodoList() {
       {/* Background image container */}
       <div className="relative max-w-xs mx-0 lg:mx-0">
         <div 
-          className="relative rounded-2xl overflow-hidden bg-cover bg-center bg-no-repeat aspect-square w-80 p-4 bg-white shadow-2xl shadow-black/20 scale-[0.65] lg:scale-100 -translate-x-6 lg:translate-x-0"
+          className="relative rounded-2xl overflow-hidden bg-cover bg-center bg-no-repeat aspect-square w-80 p-4 bg-white shadow-2xl shadow-black/20 scale-[0.65] lg:scale-100 -translate-x-12 lg:translate-x-0"
           style={{
             backgroundImage: 'url(/todocouple.png)'
           }}
@@ -62,7 +62,7 @@ export default function ScrollingTodoList() {
       </div>
       
       {/* Clean to-do list with drop shadow - overlapping the image */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-6 lg:translate-x-24 bg-white rounded-2xl shadow-lg shadow-black/10 w-72 lg:w-80 overflow-hidden z-10 scale-[0.65] lg:scale-100">
+      <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-12 lg:translate-x-24 bg-white rounded-2xl shadow-lg shadow-black/10 w-72 lg:w-80 overflow-hidden z-10 scale-[0.65] lg:scale-100">
         {/* App header */}
         <div className="bg-[#A85C36] px-4 py-3">
           <div className="flex items-center justify-between">
