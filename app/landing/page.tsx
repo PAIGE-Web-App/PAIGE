@@ -479,7 +479,7 @@ export default function LandingPage() {
       </section>
 
       {/* PAIGE SNEAK PEEK */}
-      <section className="bg-[rgb(31,28,26)]">
+      <section className="bg-[rgb(31,28,26)] hidden lg:block">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="font-playfair text-3xl text-white font-semibold">A Paige Sneak Peek</h2>

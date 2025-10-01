@@ -564,9 +564,9 @@ export default function SignUp() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3F2F0] flex justify-center">
+    <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
       <div className="w-full max-w-[1280px] flex">
-        <div className="w-[40%] min-w-[400px] flex flex-col justify-center items-start px-8">
+        <div className="w-full lg:w-[40%] lg:min-w-[400px] flex flex-col justify-center items-start px-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -578,10 +578,20 @@ export default function SignUp() {
             >
             {step === 1 && (
               <>
-                <div className="flex flex-col justify-center items-center px-12">
+                <div className="flex flex-col justify-center items-center px-4 lg:px-12">
                     <Link href="/" className="flex items-center gap-2 no-underline mb-4">
                       <span className="font-playfair text-xl text-[#5A4A42]">Paige</span>
                     </Link>
+                    
+                    {/* Mobile placeholder image */}
+                    <div className="mb-6 lg:hidden flex justify-center">
+                      <img 
+                        src="/api/optimize-image?src=/cheerslog.png&f=webp&q=85&w=200"
+                        alt="Wedding planning illustration"
+                        className="w-24 h-auto opacity-90"
+                      />
+                    </div>
+                    
                     <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-center w-full">
             Welcome to Paige!
           </h1>
@@ -1645,7 +1655,7 @@ export default function SignUp() {
           </AnimatePresence>
         </div>
 
-        <div className="w-[60%] p-4 m-4 flex items-center justify-center">
+        <div className="hidden lg:flex w-[60%] p-4 m-4 items-center justify-center">
           <div className="flex-1 h-full bg-white shadow-md rounded-tl-[30px] rounded-br-[30px] p-4 flex items-center justify-center relative">
             <AnimatePresence mode="wait">
               {step === 1 && (
