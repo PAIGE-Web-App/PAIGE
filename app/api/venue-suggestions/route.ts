@@ -25,41 +25,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing Google Places API key' }, { status: 500 });
     }
 
-    // Create multiple search queries to get better venue results
-    const searchQueries = [
-      `${searchTerm} wedding venue ${weddingLocation}`,
-      `${searchTerm} event venue ${weddingLocation}`,
-      `${searchTerm} banquet hall ${weddingLocation}`,
-      `${searchTerm} reception venue ${weddingLocation}`,
-      `${searchTerm} wedding reception ${weddingLocation}`,
-      `${searchTerm} event space ${weddingLocation}`,
-    ];
-
+    // Use Google's native wedding_venue type for much better results
+    const searchQuery = `${searchTerm} wedding venue ${weddingLocation}`;
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&type=wedding_venue&key=${apiKey}`;
+    
+    console.log(`🎯 Single venue suggestions query: ${searchQuery}`);
+    
     let allVenues: any[] = [];
-    const seenPlaceIds = new Set();
-
-    // Search with multiple queries to get comprehensive results
-    for (const query of searchQueries) {
-      try {
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=establishment&key=${apiKey}`;
-        const response = await fetch(url);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.results) {
-            // Filter out duplicates and add to results
-            data.results.forEach((venue: any) => {
-              if (!seenPlaceIds.has(venue.place_id)) {
-                seenPlaceIds.add(venue.place_id);
-                allVenues.push(venue);
-              }
-            });
-          }
+    
+    try {
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results) {
+          allVenues = data.results;
         }
-      } catch (error) {
-        console.error(`Error searching with query "${query}":`, error);
-        // Continue with other queries
+      } else {
+        console.error('Venue suggestions API error:', response.status);
       }
+    } catch (error) {
+      console.error('Venue suggestions error:', error);
     }
 
     // Sort venues by relevance (rating, reviews, etc.)
@@ -83,7 +69,7 @@ export async function POST(req: NextRequest) {
     // Limit results
     const venues = allVenues.slice(0, maxResults);
 
-    console.log(`Found ${venues.length} venues for "${searchTerm}" near "${weddingLocation}"`);
+    console.log(`🎯 Found ${venues.length} venues for "${searchTerm}" near "${weddingLocation}" using single wedding_venue query`);
 
     return NextResponse.json({ 
       venues,

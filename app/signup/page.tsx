@@ -20,6 +20,7 @@ import Link from "next/link";
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueSearchInput from '@/components/VenueSearchInput';
+import GoogleMapsLoader from '@/components/GoogleMapsLoader';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -565,6 +566,7 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
+      <GoogleMapsLoader />
       <div className="w-full max-w-[1280px] flex">
         <div className="w-full lg:w-[40%] lg:min-w-[400px] flex flex-col justify-center items-start px-8">
           <AnimatePresence mode="wait">

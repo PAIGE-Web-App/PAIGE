@@ -12,6 +12,7 @@ import FlagVendorModal from '@/components/FlagVendorModal';
 import VendorMap from '@/components/VendorMap';
 import VendorFilters from '@/components/vendor-search/VendorFilters';
 import VendorSearchResults, { VendorSearchResultsRef } from '@/components/vendor-search/VendorSearchResults';
+import GoogleMapsLoader from '@/components/GoogleMapsLoader';
 import { useVendorSearch } from '@/hooks/useVendorSearch';
 import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 import { Vendor } from '@/types/vendor';
@@ -192,6 +193,7 @@ export default function VendorSearchPage() {
 
   return (
     <div className="flex flex-col h-screen bg-linen">
+      <GoogleMapsLoader />
       <WeddingBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">

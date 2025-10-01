@@ -13,6 +13,7 @@ import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { useCustomToast } from "../hooks/useCustomToast";
 import VendorSearchField from "./VendorSearchField";
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { getRelevantCategories } from "../utils/vendorSearchUtils";
 
@@ -35,30 +36,8 @@ function cleanFirestoreData(data: Record<string, any>) {
   return Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));
 }
 
-const VENDOR_CATEGORIES = [
-  'florist',
-  'jewelry_store',
-  'bakery',
-  'restaurant',
-  'hair_care',
-  'photographer',
-  'videographer',
-  'clothing_store',
-  'beauty_salon',
-  'spa',
-  'dj',
-  'band',
-  'wedding_planner',
-  'caterer',
-  'car_rental',
-  'travel_agency',
-  'officiant',
-  'suit_rental',
-  'makeup_artist',
-  'stationery',
-  'rentals',
-  'favors',
-];
+// Extract just the values for the dropdown
+const VENDOR_CATEGORY_VALUES = VENDOR_CATEGORIES.map(cat => cat.value);
 
 
 export default function AddContactModal({ onClose, onSave, userId }: any) {

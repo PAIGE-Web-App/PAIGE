@@ -18,26 +18,25 @@
 export const VENDOR_SEARCH_CATEGORY_MAPPINGS: Record<string, string[]> = {
   'Jeweler': ['jewelry_store'],
   'Florist': ['florist'],
-  'Baker': ['bakery'],
-  'Venue': ['restaurant'],
-  'Hair Stylist': ['hair_care'],
+  'Bakeries & Cakes': ['bakery'],
+  'Venue': ['wedding_venue', 'event_venue', 'banquet_hall'],
+  'Hair & Beauty': ['hair_care'],
   'Photographer': ['photographer'],
   'Videographer': ['videographer'],
-  'Dress Shop': ['clothing_store'],
   'Beauty Salon': ['beauty_salon'],
   'Spa': ['spa'],
   'DJ': ['dj'],
-  'Musician': ['band'],
+  'Band': ['band'],
   'Wedding Planner': ['wedding_planner'],
   'Caterer': ['caterer'],
   'Car Rental': ['car_rental'],
   'Travel Agency': ['travel_agency'],
   'Officiant': ['officiant'],
-  'Suit/Tux Rental': ['suit_rental'],
+  'Suit & Tux Rental': ['suit_rental'],
   'Makeup Artist': ['makeup_artist'],
-  'Stationery': ['stationery'],
-  'Rentals': ['rentals'],
-  'Favors': ['favors'],
+  'Stationery & Invitations': ['stationery'],
+  'Event Rental': ['rentals'],
+  'Wedding Favor': ['favors'],
   'Transportation': ['car_rental']
 };
 
@@ -53,11 +52,12 @@ export const getRelevantCategories = (contactCategory: string): string[] => {
       'florist',
       'jewelry_store',
       'bakery',
-      'restaurant',
+      'wedding_venue',
+      'event_venue',
+      'banquet_hall',
       'hair_care',
       'photographer',
       'videographer',
-      'clothing_store',
       'beauty_salon',
       'spa',
       'dj',
@@ -83,11 +83,12 @@ export const getRelevantCategories = (contactCategory: string): string[] => {
     'florist',
     'jewelry_store',
     'bakery',
-    'restaurant',
+    'wedding_venue',
+    'event_venue',
+    'banquet_hall',
     'hair_care',
     'photographer',
     'videographer',
-    'clothing_store',
     'beauty_salon',
     'spa',
     'dj',
@@ -122,7 +123,7 @@ export const validateVendorSearchMappings = (): {
   // Get all possible contact categories from the dropdown
   const allContactCategories = [
     'Photographer', 'Caterer', 'Florist', 'DJ', 'Venue', 'Wedding Planner', 
-    'Officiant', 'Baker', 'Dress Shop', 'Suit/Tux Rental', 'Hair Stylist', 
+    'Officiant', 'Baker', 'Suit/Tux Rental', 'Hair Stylist', 
     'Makeup Artist', 'Musician', 'Stationery', 'Transportation', 'Rentals', 
     'Favors', 'Jeweler', 'Videographer', 'Beauty Salon', 'Spa', 'Travel Agency', 
     'Car Rental'
@@ -146,8 +147,8 @@ export const validateVendorSearchMappings = (): {
 
   // Validate that all Google Places types are valid
   const validGooglePlacesTypes = [
-    'florist', 'jewelry_store', 'bakery', 'restaurant', 'hair_care', 
-    'photographer', 'videographer', 'clothing_store', 'beauty_salon', 
+    'florist', 'jewelry_store', 'bakery', 'wedding_venue', 'event_venue', 'banquet_hall', 'hair_care', 
+    'photographer', 'videographer', 'beauty_salon', 
     'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 
     'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 
     'stationery', 'rentals', 'favors'
@@ -176,7 +177,7 @@ export const validateVendorSearchMappings = (): {
 export const getAllContactCategories = (): string[] => {
   return [
     'Photographer', 'Caterer', 'Florist', 'DJ', 'Venue', 'Wedding Planner', 
-    'Officiant', 'Baker', 'Dress Shop', 'Suit/Tux Rental', 'Hair Stylist', 
+    'Officiant', 'Baker', 'Suit/Tux Rental', 'Hair Stylist', 
     'Makeup Artist', 'Musician', 'Stationery', 'Transportation', 'Rentals', 
     'Favors', 'Jeweler', 'Videographer', 'Beauty Salon', 'Spa', 'Travel Agency', 
     'Car Rental'
@@ -189,8 +190,8 @@ export const getAllContactCategories = (): string[] => {
  */
 export const getAllGooglePlacesTypes = (): string[] => {
   return [
-    'florist', 'jewelry_store', 'bakery', 'restaurant', 'hair_care', 
-    'photographer', 'videographer', 'clothing_store', 'beauty_salon', 
+    'florist', 'jewelry_store', 'bakery', 'wedding_venue', 'event_venue', 'banquet_hall', 'hair_care', 
+    'photographer', 'videographer', 'beauty_salon', 
     'spa', 'dj', 'band', 'wedding_planner', 'caterer', 'car_rental', 
     'travel_agency', 'officiant', 'suit_rental', 'makeup_artist', 
     'stationery', 'rentals', 'favors'

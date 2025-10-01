@@ -21,7 +21,7 @@ const VendorSearchField = React.memo(function VendorSearchField({
   onClear, 
   placeholder = "Search for a vendor...",
   disabled = false,
-  categories = ['restaurant'],
+  categories = ['wedding_venue'],
   location = 'United States',
 }: VendorSearchFieldProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,16 +38,18 @@ const VendorSearchField = React.memo(function VendorSearchField({
 
   // Load vendors using shared cache service
   const loadVendors = useCallback(async (forceReload = false) => {
-    const searchCategory = categories[0] || 'restaurant';
+    // Use the first category from the categories array (which comes from getRelevantCategories)
+    const searchCategory = categories[0] || 'wedding_venue';
     
-    // For venue searches, always reload when search term changes
-    // For other categories, only load once unless forced
-    if (searchCategory === 'restaurant' || !initialLoad || forceReload) {
+    // Check if this is a venue search (any of the venue types)
+    const isVenueSearch = ['wedding_venue', 'event_venue', 'banquet_hall'].includes(searchCategory);
+    
+    if (isVenueSearch || !initialLoad || forceReload) {
       setLoading(true);
       try {
         // For venue searches, pass the search term to get server-side search
         // For other categories, load all vendors for client-side filtering
-        const searchTermForAPI = searchCategory === 'restaurant' ? searchTerm : undefined;
+        const searchTermForAPI = isVenueSearch ? searchTerm : undefined;
         
         const vendors = await vendorCacheService.getVendors(
           searchCategory,
@@ -57,7 +59,7 @@ const VendorSearchField = React.memo(function VendorSearchField({
         
         if (vendors && vendors.length > 0) {
           setAllVendors(vendors);
-          if (searchCategory !== 'restaurant') {
+          if (!isVenueSearch) {
             setInitialLoad(true);
           }
         }
@@ -101,9 +103,10 @@ const VendorSearchField = React.memo(function VendorSearchField({
   // Load vendors when user starts typing (lazy loading) and handle search
   useEffect(() => {
     if (searchTerm && searchTerm.length >= 2) {
-      const searchCategory = categories[0] || 'restaurant';
+      const searchCategory = categories[0] || 'wedding_venue';
+      const isVenueSearch = ['wedding_venue', 'event_venue', 'banquet_hall'].includes(searchCategory);
       
-      if (searchCategory === 'restaurant') {
+      if (isVenueSearch) {
         // For venues, reload with search term (server-side search)
         loadVendors(true);
       } else {
@@ -117,7 +120,24 @@ const VendorSearchField = React.memo(function VendorSearchField({
     } else {
       setResults([]);
     }
-  }, [searchTerm, initialLoad, allVendors.length, loadVendors, debouncedSearch, categories]);
+  }, [searchTerm, initialLoad, allVendors.length, loadVendors, debouncedSearch]);
+
+  // Handle category changes - reset and reload vendors
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      // Reset state when categories change
+      setAllVendors([]);
+      setResults([]);
+      setInitialLoad(false);
+      setVendorSelected(false);
+      setLoading(false);
+      
+      // If there's a search term, trigger a new search
+      if (searchTerm && searchTerm.length >= 2) {
+        loadVendors(true);
+      }
+    }
+  }, [categories, searchTerm, loadVendors]);
 
   useEffect(() => {
     // Set initial search term if value is provided
@@ -276,7 +296,9 @@ const VendorSearchField = React.memo(function VendorSearchField({
         'caterer': 'Caterer',
         
         // Venues
-        'restaurant': 'Venue',
+        'wedding_venue': 'Venue',
+        'event_venue': 'Venue',
+        'banquet_hall': 'Venue',
         
         // Beauty & Styling
         'hair_care': 'Hair Stylist',
@@ -364,14 +386,16 @@ const VendorSearchField = React.memo(function VendorSearchField({
           ) : (() => {
             // For venue searches, use allVendors directly (server-side search results)
             // For other categories, use client-side filtered results
-            const searchCategory = categories[0] || 'restaurant';
-            const displayVendors = searchCategory === 'restaurant' ? allVendors : results;
+            const searchCategory = categories[0] || 'wedding_venue';
+            const isVenueSearch = ['wedding_venue', 'event_venue', 'banquet_hall'].includes(searchCategory);
+            const displayVendors = isVenueSearch ? allVendors : results;
             return displayVendors.length > 0;
           })() ? (
             <div className="py-2">
               {(() => {
-                const searchCategory = categories[0] || 'restaurant';
-                const displayVendors = searchCategory === 'restaurant' ? allVendors : results;
+                const searchCategory = categories[0] || 'wedding_venue';
+                const isVenueSearch = ['wedding_venue', 'event_venue', 'banquet_hall'].includes(searchCategory);
+            const displayVendors = isVenueSearch ? allVendors : results;
                 return displayVendors.map((vendor, index) => (
                 <button
                   key={vendor.place_id}

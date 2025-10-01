@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing Google Places API key' }, { status: 500 });
     }
 
-    // Use more targeted queries for wedding/reception venues
+    // Use Google's native venue types for much better results
     const venueCategories = [
-      'reception_venue', 'wedding_venue', 'banquet_hall', 'event_venue', 'reception', 'wedding', 'venue'
+      'wedding_venue', 'event_venue', 'banquet_hall', 'reception_venue', 'reception', 'wedding', 'venue'
     ];
 
     // Categories that need special search queries (no direct Google Places API type)
@@ -56,46 +56,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(data);
     } else if (venueCategories.includes(category)) {
       
-      // Run multiple queries and merge results for venues
-      const queries = [
-        'wedding venue',
-        'banquet hall',
-        'event space',
-        'reception hall',
-        'wedding reception',
-        'wedding event venue'
-      ];
+      // Use Google's native wedding_venue type for much better results
+      const searchQuery = searchTerm ? `${searchTerm} ${location}` : `wedding venue ${location}`;
+      let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&type=wedding_venue`;
       
-      let allResults: any[] = [];
-      for (const q of queries) {
-        let baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q + ' ' + location)}&type=${encodeURIComponent(category)}`;
-        if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
-        if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
-        if (radius !== undefined) baseUrl += `&radius=${radius}`;
-        if (opennow) baseUrl += `&opennow=true`;
-        baseUrl += `&key=${apiKey}`;
-        
-        const response = await fetch(baseUrl);
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data.results)) {
-
-            allResults = allResults.concat(data.results);
-          } else {
-
-          }
-        } else {
-          
-        }
+      // Add optional parameters
+      if (minprice !== undefined) baseUrl += `&minprice=${minprice}`;
+      if (maxprice !== undefined) baseUrl += `&maxprice=${maxprice}`;
+      if (radius !== undefined) baseUrl += `&radius=${radius}`;
+      if (opennow) baseUrl += `&opennow=true`;
+      baseUrl += `&key=${apiKey}`;
+      
+      console.log(`🎯 Single venue query: ${searchQuery}`);
+      const response = await fetch(baseUrl);
+      
+      if (!response.ok) {
+        return NextResponse.json({ error: 'Failed to fetch from Google Places' }, { status: 500 });
       }
       
-      // Deduplicate by place_id
-      const seen = new Set();
-      const deduped = allResults.filter(place => {
-        if (!place.place_id || seen.has(place.place_id)) return false;
-        seen.add(place.place_id);
-        return true;
-      });
+      const data = await response.json();
+      const deduped = data.results || [];
       
       return NextResponse.json({ results: deduped });
     } else if (specialSearchCategories[category]) {

@@ -584,8 +584,8 @@ class OptimizedGooglePlaces {
    */
   private isVenueCategory(category: string): boolean {
     const venueCategories = [
-      'reception_venue', 'wedding_venue', 'banquet_hall', 
-      'event_venue', 'reception', 'wedding', 'venue', 'restaurant'
+      'wedding_venue', 'event_venue', 'banquet_hall', 
+      'reception_venue', 'reception', 'wedding', 'venue'
     ];
     return venueCategories.includes(category);
   }
@@ -627,24 +627,19 @@ class OptimizedGooglePlaces {
       const placeName = place.name?.toLowerCase() || '';
       const placeTypes = place.types || [];
       
-      // For venue searches, be more inclusive to catch wineries, farms, etc.
+      // For venue searches, trust Google's native wedding_venue categorization
       if (this.isVenueCategory(category)) {
-        // Allow wineries, vineyards, farms, ranches, estates for venue searches
-        const venueKeywords = ['venue', 'hall', 'center', 'theatre', 'theater', 'convention', 'conference', 'winery', 'vineyard', 'farm', 'ranch', 'estate', 'wedding', 'reception', 'event'];
-        const hasVenueName = venueKeywords.some(keyword => placeName.includes(keyword));
-        const hasVenueType = placeTypes.some(type => type.includes('establishment') || type.includes('food') || type.includes('store'));
+        // Google's wedding_venue type is already well-categorized, so be more permissive
+        // Only block obvious non-venues (residential, etc.)
+        const nonVenueTypes = ['street_address', 'route', 'intersection', 'political', 'country', 'administrative_area_level_1', 'administrative_area_level_2', 'locality', 'sublocality', 'neighborhood', 'premise', 'subpremise'];
+        const isNonVenue = nonVenueTypes.some(type => placeTypes.includes(type));
         
-        // Allow if it has venue-related keywords or is a general establishment
-        if (hasVenueName || hasVenueType) {
-          return true;
+        if (isNonVenue) {
+          return false;
         }
         
-        // Also allow if it's clearly a business (not residential)
-        if (placeTypes.includes('establishment') || placeTypes.includes('point_of_interest')) {
-          return true;
-        }
-        
-        return false;
+        // Allow all other results from Google's wedding_venue type
+        return true;
       }
       
       // BLOCK ALL HOTELS AND VENUES unless specifically searching for venues

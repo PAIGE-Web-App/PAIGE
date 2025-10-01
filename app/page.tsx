@@ -9,7 +9,7 @@ import LandingPage from "./landing/page";
 export default function MainPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-
+  
   useEffect(() => {
     // Only redirect if we're not already loading and we have a definitive auth state
     if (!loading && user) {
@@ -29,10 +29,10 @@ export default function MainPage() {
 
   // If user is authenticated, show loading while redirecting
   if (user) {
-    return (
+  return (
       <div className="min-h-screen bg-linen flex items-center justify-center">
         <LoadingSpinner size="lg" />
-      </div>
+          </div>
     );
   }
 

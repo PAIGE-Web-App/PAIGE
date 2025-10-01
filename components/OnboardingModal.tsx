@@ -18,6 +18,7 @@ import Stepper from './Stepper';
 import OnboardingModalBase from "./OnboardingModalBase";
 import VendorSearchField from "./VendorSearchField";
 import { useUserProfileData } from "../hooks/useUserProfileData";
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 import { getRelevantCategories } from "../utils/vendorSearchUtils";
 import LoadingSpinner from "./LoadingSpinner";
 import GmailReauthBanner from "./GmailReauthBanner";
@@ -60,8 +61,8 @@ const getRandomAvatarColor = () => {
   return adaColors[Math.floor(Math.random() * adaColors.length)];
 };
 
-// Moved outside the component
-const defaultCategories = ["Photographer", "Caterer", "Florist", "DJ", "Venue"];
+// Moved outside the component - use centralized categories
+const defaultCategories = VENDOR_CATEGORIES.slice(0, 5).map(cat => cat.label);
 
 
 

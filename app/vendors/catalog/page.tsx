@@ -3,56 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  Building2, 
-  Camera, 
-  Flower, 
-  Utensils, 
-  Music, 
-  Cake, 
-  Gem, 
-  Scissors, 
-  Sparkles, 
-  Heart, 
-  Car, 
-  Plane, 
-  Calendar, 
-  User, 
-  Briefcase, 
-  Palette, 
-  FileText, 
-  Gift, 
-  Mic,
-  Map 
-} from 'lucide-react';
+import { Map } from 'lucide-react';
 import WeddingBanner from '@/components/WeddingBanner';
 import { useUserProfileData } from '@/hooks/useUserProfileData';
 import SelectField from '@/components/SelectField';
 import FormField from '@/components/FormField';
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 
-const CATEGORIES = [
-  { value: 'venue', label: 'Venues', singular: 'Venue', icon: Building2 },
-  { value: 'photographer', label: 'Photographers', singular: 'Photographer', icon: Camera },
-  { value: 'florist', label: 'Florists', singular: 'Florist', icon: Flower },
-  { value: 'caterer', label: 'Catering', singular: 'Caterer', icon: Utensils },
-  { value: 'dj', label: 'DJs', singular: 'DJ', icon: Music },
-  { value: 'bakery', label: 'Bakeries & Cakes', singular: 'Baker', icon: Cake },
-  { value: 'jewelry_store', label: 'Jewelers', singular: 'Jeweler', icon: Gem },
-  { value: 'hair_care', label: 'Hair & Beauty', singular: 'Hair Stylist', icon: Scissors },
-  { value: 'clothing_store', label: 'Bridal Salons', singular: 'Dress Shop', icon: Sparkles },
-  { value: 'beauty_salon', label: 'Beauty Salons', singular: 'Beauty Salon', icon: Sparkles },
-  { value: 'spa', label: 'Spas', singular: 'Spa', icon: Heart },
-  { value: 'car_rental', label: 'Car Rentals', singular: 'Car Rental', icon: Car },
-  { value: 'travel_agency', label: 'Travel Agencies', singular: 'Travel Agency', icon: Plane },
-  { value: 'wedding_planner', label: 'Wedding Planners', singular: 'Wedding Planner', icon: Calendar },
-  { value: 'officiant', label: 'Officiants', singular: 'Officiant', icon: User },
-  { value: 'suit_rental', label: 'Suit & Tux Rentals', singular: 'Suit & Tux Rental', icon: Briefcase },
-  { value: 'makeup_artist', label: 'Makeup Artists', singular: 'Makeup Artist', icon: Palette },
-  { value: 'stationery', label: 'Stationery & Invitations', singular: 'Stationery', icon: FileText },
-  { value: 'rentals', label: 'Event Rentals', singular: 'Event Rental', icon: Briefcase },
-  { value: 'favors', label: 'Wedding Favors', singular: 'Wedding Favor', icon: Gift },
-  { value: 'band', label: 'Bands', singular: 'Musician', icon: Mic },
-];
+const CATEGORIES = VENDOR_CATEGORIES;
 
 export default function VendorCatalogPage() {
   const [category, setCategory] = useState(CATEGORIES[0].value);
@@ -155,7 +113,7 @@ export default function VendorCatalogPage() {
                     <div className="w-16 h-16 flex items-center justify-center mb-3">
                       <IconComponent className="w-8 h-8 text-[#A85C36] stroke-[1.5]" />
                     </div>
-                    <span className="text-sm font-medium text-[#332B42] text-center leading-tight">{cat.label}</span>                                                                                                   
+                    <span className="text-sm font-medium text-[#332B42] text-center leading-tight">{cat.singular}</span>                                                                                                   
                   </button>
                 );
               })}

@@ -3,6 +3,7 @@ const nextConfig = {
   // Disable React Strict Mode in development to prevent double rendering and improve performance
   reactStrictMode: process.env.NODE_ENV === 'production',
   
+  
   // Optimize images
   images: {
     domains: ['lh3.googleusercontent.com', 'maps.googleapis.com', 'storage.googleapis.com'],

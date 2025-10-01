@@ -17,6 +17,7 @@ import CategoryPill from "./CategoryPill"; // ADD THIS LINE
 import VendorSearchField from "./VendorSearchField"; // ADD THIS LINE
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { getRelevantCategories } from "../utils/vendorSearchUtils";
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 
 
 interface EditContactModalProps {
@@ -56,8 +57,11 @@ export default function EditContactModal({
     orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
   });
 
+  // Get the standard category labels from centralized categories
+  const standardCategoryLabels = VENDOR_CATEGORIES.map(cat => cat.label);
+  
   const [customCategory, setCustomCategory] = useState(
-    contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
+    contact.category && !standardCategoryLabels.includes(contact.category)
       ? contact.category
       : ""
   );
@@ -130,7 +134,7 @@ export default function EditContactModal({
       orderIndex: contact.orderIndex !== undefined ? contact.orderIndex : 0,
     });
     setCustomCategory(
-      contact.category && !["Photographer", "Caterer", "Florist", "DJ", "Venue"].includes(contact.category)
+      contact.category && !standardCategoryLabels.includes(contact.category)
         ? contact.category
         : ""
     );

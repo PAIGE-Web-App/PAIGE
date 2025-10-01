@@ -19,6 +19,7 @@ import SettingsTabSkeleton from "./components/SettingsTabSkeleton";
 import AccountTabSkeleton from "./components/AccountTabSkeleton";
 import NotificationsTabSkeleton from "./components/NotificationsTabSkeleton";
 import { AdminNavigation } from "../../components/AdminNavigation";
+import GoogleMapsLoader from "../../components/GoogleMapsLoader";
 
 // Lazy load tab components - only load when needed
 const AccountTab = dynamic(() => import("./components/AccountTab"), {
@@ -183,6 +184,7 @@ export default function ProfilePage() {
 
   return (
     <>
+      <GoogleMapsLoader />
       <AnimatePresence>
         {weddingDate && (
           <motion.div

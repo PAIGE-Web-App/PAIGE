@@ -1166,7 +1166,7 @@ export default function VendorDetailPage() {
             {/* Left Column - Vendor Details */}
             <div className="lg:col-span-2">
               {/* Desktop Header - Only spans left column */}
-              <div className="hidden lg:block sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4 mb-2">
+              <div className="hidden lg:block sticky top-0 z-10 bg-linen pt-6 -mx-4 px-4 mb-2" style={{ backgroundColor: '#F3F2F0' }}>
                 <div className="flex items-center justify-between gap-4">
                   {/* Back Button */}
                   <button

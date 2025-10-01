@@ -22,7 +22,7 @@ import {
 import { VendorCategory } from '@/types/vendor';
 
 export const VENDOR_CATEGORIES: VendorCategory[] = [
-  { value: 'restaurant', label: 'Venues', singular: 'Venue', icon: Building2 },
+  { value: 'wedding_venue', label: 'Venues', singular: 'Venue', icon: Building2 },
   { value: 'photographer', label: 'Photographers', singular: 'Photographer', icon: Camera },
   { value: 'florist', label: 'Florists', singular: 'Florist', icon: Flower },
   { value: 'caterer', label: 'Catering', singular: 'Caterer', icon: Utensils },
@@ -30,7 +30,6 @@ export const VENDOR_CATEGORIES: VendorCategory[] = [
   { value: 'bakery', label: 'Bakeries & Cakes', singular: 'Baker', icon: Cake },
   { value: 'jewelry_store', label: 'Jewelers', singular: 'Jeweler', icon: Gem },
   { value: 'hair_care', label: 'Hair & Beauty', singular: 'Hair Stylist', icon: Scissors },
-  { value: 'clothing_store', label: 'Bridal Salons', singular: 'Dress Shop', icon: Sparkles },
   { value: 'beauty_salon', label: 'Beauty Salons', singular: 'Beauty Salon', icon: Sparkles },
   { value: 'spa', label: 'Spas', singular: 'Spa', icon: Heart },
   { value: 'car_rental', label: 'Car Rentals', singular: 'Car Rental', icon: Car },

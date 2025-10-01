@@ -1,9 +1,8 @@
 // components/CategorySelectField.tsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import SelectField from "./SelectField";
 import FormField from "./FormField";
-import { getAllCategories } from "../lib/firebaseCategories";
-import { useEdgeConfig } from "@/hooks/useEdgeConfig";
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
 
 interface CategorySelectFieldProps {
   userId: string;
@@ -18,11 +17,6 @@ interface CategorySelectFieldProps {
   className?: string;
 }
 
-// Helper function to identify Firestore document IDs
-const isFirestoreDocumentId = (category: string): boolean => {
-  // Firestore document IDs are typically 20 characters long and contain only letters, numbers, and hyphens
-  return typeof category === 'string' && /^[a-zA-Z0-9_-]{15,}$/.test(category);
-};
 
 const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
   userId,
@@ -36,88 +30,17 @@ const CategorySelectField: React.FC<CategorySelectFieldProps> = ({
   placeholder,
   className,
 }) => {
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-
-  // Fallback categories (used if Edge Config fails)
-  const fallbackCategories = useMemo(
-    () => [
-      "Photographer",
-      "Caterer",
-      "Florist",
-      "DJ",
-      "Venue",
-      "Wedding Planner",
-      "Officiant",
-      "Baker",
-      "Dress Shop",
-      "Suit/Tux Rental",
-      "Hair Stylist",
-      "Makeup Artist",
-      "Musician",
-      "Stationery",
-      "Transportation",
-      "Rentals",
-      "Favors",
-      "Jeweler",
-      "Videographer",
-    ],
-    []
-  );
-
-  const { getCategories } = useEdgeConfig();
-  const [edgeCategories, setEdgeCategories] = useState<string[]>([]);
-
-  // Load categories from Edge Config with fallback
-  useEffect(() => {
-    const loadEdgeCategories = async () => {
-      try {
-        const edgeCategories = await getCategories();
-        // Extract labels from Edge Config categories
-        const edgeLabels = edgeCategories.map(cat => cat.label);
-        setEdgeCategories(edgeLabels);
-      } catch (error) {
-        console.warn('Failed to load categories from Edge Config, using fallback:', error);
-        setEdgeCategories([]);
-      }
-    };
-    
-    loadEdgeCategories();
-  }, [getCategories]);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const fetchedCategories = await getAllCategories(userId);
-        // Filter out Firestore document IDs from the fetched categories
-        const filteredCategories = fetchedCategories.filter(category => !isFirestoreDocumentId(category));
-        setCategoryOptions(filteredCategories);
-      } catch (err) {
-        console.error("Failed to fetch categories:", err);
-      }
-    };
-
-    fetchCategories();
-  }, [userId]);
-
-  // Memoize the combined and sorted list of categories for the dropdown
+  // Use ONLY centralized categories - exactly like vendors catalog
   const allCategoriesCombined = useMemo(() => {
-    // Use Edge Config categories if available, otherwise fallback
-    const defaultCategories = edgeCategories.length > 0 ? edgeCategories : fallbackCategories;
-    const uniqueCategories = new Set([...defaultCategories, ...categoryOptions]);
-    uniqueCategories.delete("Other"); // Ensure 'Other' is not duplicated if it somehow appears in fetched categories
-
-    const sortedCategories = Array.from(uniqueCategories).sort((a, b) =>
-      a.localeCompare(b)
-    );
-
-    // Ensure that the 'Other' option is always at the end
-    // and that all options are objects with value and label for SelectField
+    // Use only the centralized VENDOR_CATEGORIES - no mixing with any other sources
+    const centralizedCategories = VENDOR_CATEGORIES.map(cat => cat.singular);
+    
     return [
       { value: "", label: placeholder }, // Placeholder option
-      ...sortedCategories.map((cat) => ({ value: cat, label: cat })),
+      ...centralizedCategories.map((cat) => ({ value: cat, label: cat })),
       { value: "Other", label: "Other" },
     ];
-  }, [categoryOptions, edgeCategories, fallbackCategories, placeholder]);
+  }, [placeholder]);
 
   return (
     <div className={className}>
