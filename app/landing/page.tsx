@@ -180,7 +180,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="bg-linen text-[#332B42] antialiased overflow-x-hidden">
+    <div className="bg-linen text-[#332B42] antialiased">
       {/* Mobile sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-[0.5px] border-[rgb(236,233,231)] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70 lg:hidden">
         <div className="px-4 mx-auto py-3 flex items-center gap-3 max-w-7xl">
@@ -424,7 +424,7 @@ export default function LandingPage() {
       </section>
 
       {/* TAKE CONTROL OF YOUR TO-DOS */}
-      <section className="bg-white">
+      <section className="bg-white overflow-x-hidden">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-20 items-center">
             {/* Left side - Visual with scrolling to-dos */}
@@ -446,7 +446,7 @@ export default function LandingPage() {
       </section>
 
       {/* TAKE CONTROL OF YOUR TO-DOS - REVERSED */}
-      <section className="bg-white">
+      <section className="bg-white overflow-x-hidden">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-20 items-center">
             {/* Left side - Text content */}
@@ -468,7 +468,7 @@ export default function LandingPage() {
       </section>
 
       {/* CORE OUTCOMES / FEATURES - CAROUSEL */}
-      <section id="features" className="bg-white">
+      <section id="features" className="bg-white overflow-x-hidden">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="mx-auto max-w-2xl text-center mb-12">
             <h2 className="h5 font-semibold">Everything You Need, All in One Place</h2>
