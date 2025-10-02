@@ -16,8 +16,9 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 export default function PlanTab() {
   const { user, userType } = useAuth();
-  const { credits } = useCredits();
+  const { credits, loadCredits } = useCredits();
   const [loading, setLoading] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [downgradeModal, setDowngradeModal] = useState<{
     isOpen: boolean;
     targetPlan: string;
@@ -490,6 +491,38 @@ export default function PlanTab() {
     toast.success('Downgrade cancelled. You\'ll keep your current plan.');
   };
 
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/credits/refresh', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        // Force reload credits
+        await loadCredits();
+        toast.success('Credits refreshed successfully');
+      } else {
+        const error = await response.json();
+        toast.error(`Failed to refresh: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error refreshing credits:', error);
+      toast.error('Failed to refresh credits');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-8">
       {/* Development Testing Tools */}
@@ -498,16 +531,35 @@ export default function PlanTab() {
       {/* Current Plan Status */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
         <h5 className="mb-4">Current Plan</h5>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#805d93]" />
-            <span className="font-medium text-[#332B42]">
-              {plans.find(p => p.tier === currentTier)?.name || 'Free'}
-            </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#805d93]" />
+              <span className="font-medium text-[#332B42]">
+                {plans.find(p => p.tier === currentTier)?.name || 'Free'}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              {plans.find(p => p.tier === currentTier)?.creditsPerDay || 15} credits per day
+            </div>
           </div>
-          <div className="text-sm text-gray-600">
-            {plans.find(p => p.tier === currentTier)?.creditsPerDay || 15} credits per day
-          </div>
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="btn-primaryinverse text-sm px-3 py-1 flex items-center gap-2"
+          >
+            {refreshing ? (
+              <>
+                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <Zap className="w-3 h-3" />
+                Refresh Credits
+              </>
+            )}
+          </button>
         </div>
         
         {/* Pending downgrade info */}
