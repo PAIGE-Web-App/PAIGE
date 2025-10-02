@@ -164,6 +164,7 @@ a {
 
 .btn-primary:disabled {
   background-color: #D7D0CC; /* Updated to #D7D0CC */
+  border-color: #D7D0CC; /* Match stroke color to background */
   color: #ffffff;
   cursor: not-allowed;
 }

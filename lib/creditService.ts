@@ -101,12 +101,17 @@ export class CreditService {
 
       const userCredits = userData.credits as UserCredits;
       
+      // Include billing data if it exists
+      if (userData.billing) {
+        userCredits.billing = userData.billing;
+      }
+      
               // Check if credits need refresh
         if (await this.shouldRefreshCredits(userCredits)) {
           return await this.refreshCredits(userId, userCredits);
         }
 
-      return userCredits;
+        return userCredits;
     } catch (error) {
       console.error('Error getting user credits:', error);
       return null;
@@ -441,7 +446,9 @@ export class CreditService {
         ...currentCredits,
         dailyCredits: newCredits,
         lastCreditRefresh: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        // Preserve billing data
+        billing: currentCredits.billing
       };
     } catch (error) {
       console.error('Error refreshing credits:', error);
@@ -499,6 +506,25 @@ export class CreditService {
     } catch (error) {
       console.error('Error checking feature access:', error);
       return false;
+    }
+  }
+
+  /**
+   * Force refresh credits for a user (public method)
+   */
+  async forceRefreshCredits(userId: string): Promise<UserCredits | null> {
+    try {
+      const userCredits = await this.getUserCredits(userId);
+      
+      if (!userCredits) {
+        console.error(`User ${userId} not found for credit refresh`);
+        return null;
+      }
+
+      return await this.refreshCredits(userId, userCredits);
+    } catch (error) {
+      console.error(`Error forcing credit refresh for user ${userId}:`, error);
+      return null;
     }
   }
 }

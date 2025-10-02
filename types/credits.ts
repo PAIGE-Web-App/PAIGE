@@ -67,6 +67,33 @@ export interface UserCredits {
   lastCreditRefresh: Date;
   creditHistory: CreditTransaction[];
   
+  // Billing information
+  billing?: {
+    subscription?: {
+      tier: string;
+      status: string;
+      currentPeriodEnd: Date | {
+        _seconds: number;
+        _nanoseconds: number;
+      } | {
+        seconds: number;
+        nanoseconds: number;
+      };
+      stripeSubscriptionId?: string;
+      stripeCustomerId?: string;
+      updatedAt?: Date | {
+        seconds: number;
+        nanoseconds: number;
+      };
+    };
+    pendingDowngrade?: {
+      targetPlan: string;
+      targetPlanName: string;
+      effectiveDate: string;
+      createdAt: Date;
+    };
+  };
+  
   // Planner-specific fields
   clientCount?: number;
   maxClients?: number;
@@ -114,8 +141,8 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     maxFiles: 25
   },
   premium: {
-    monthlyCredits: 60,
-    rolloverCredits: 15,
+    monthlyCredits: 22, // Reduced from 60
+    rolloverCredits: 0, // No rollover
     aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'budget_generation_rag', 'vendor_suggestions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1, // unlimited
@@ -124,8 +151,8 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     maxFiles: 100
   },
   pro: {
-    monthlyCredits: 150,
-    rolloverCredits: 50,
+    monthlyCredits: 45, // Reduced from 150
+    rolloverCredits: 0, // No rollover
     aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1,
@@ -145,24 +172,24 @@ export const PLANNER_SUBSCRIPTION_CREDITS: Record<PlannerSubscriptionTier, Credi
     maxVendors: 50
   },
   starter: {
-    monthlyCredits: 100,
-    rolloverCredits: 25,
+    monthlyCredits: 35, // Reduced from 100
+    rolloverCredits: 0, // No rollover
     aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'budget_generation_rag', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 5,
     maxVendors: 200
   },
   professional: {
-    monthlyCredits: 300,
-    rolloverCredits: 100,
+    monthlyCredits: 90, // Reduced from 300
+    rolloverCredits: 0, // No rollover
     aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'vendor_contract_review', 'budget_generation_rag', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 15,
     maxVendors: 1000
   },
   enterprise: {
-    monthlyCredits: 1000,
-    rolloverCredits: 300,
+    monthlyCredits: 200, // Reduced from 1000
+    rolloverCredits: 0, // No rollover
     aiFeatures: ['client_communication', 'vendor_coordination', 'client_planning', 'vendor_analysis', 'client_portal_content', 'business_analytics', 'client_onboarding', 'vendor_contract_review', 'client_timeline_creation', 'budget_generation_rag', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxClients: 50,

@@ -29,6 +29,7 @@ interface CreditContextType {
   useCredits: (feature: AIFeature, metadata?: Record<string, any>) => Promise<boolean>;
   hasAccessToFeature: (feature: AIFeature) => boolean;
   refreshCredits: () => Promise<void>;
+  clearCache: () => void;
   
   // Credit change detection for UI
   getPreviousCredits: () => number;
@@ -41,7 +42,7 @@ const CreditContext = createContext<CreditContextType | undefined>(undefined);
 const creditCache = {
   data: null as UserCredits | null,
   timestamp: 0,
-  duration: 30000, // 30 seconds
+  duration: 0, // No automatic expiration - only refresh on events
 };
 
 export function CreditProvider({ children }: { children: React.ReactNode }) {
@@ -69,9 +70,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     }
     setError(null);
 
-    // Check cache first
-    const now = Date.now();
-    if (creditCache.data && (now - creditCache.timestamp) < creditCache.duration) {
+    // Check cache first (no time-based expiration - only refresh on events)
+    if (creditCache.data) {
       setCredits(creditCache.data);
       if (showLoading) {
         setLoading(false);
@@ -87,7 +87,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         setCredits(userCredits);
         // Update cache
         creditCache.data = userCredits;
-        creditCache.timestamp = now;
+        creditCache.timestamp = new Date().getTime();
       } else {
         // Initialize credits for new user
         try {
@@ -244,22 +244,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadCredits]);
 
-  // Polling mechanism to check for credit updates
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const pollInterval = setInterval(() => {
-      // Only poll if we have credits and it's been more than 5 seconds since last update
-      const now = Date.now();
-      if (credits && (now - creditCache.timestamp) > 5000) {
-        // Check if credits might have changed by doing a quick validation
-        // This is a lightweight check that doesn't invalidate cache
-        loadCredits(false); // Don't show loading for background polling
-      }
-    }, 10000); // Poll every 10 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [user?.uid, credits, loadCredits]);
+  // No polling - only refresh on events (webhooks, credit usage, etc.)
 
   // Clean up on unmount
   useEffect(() => {
@@ -282,6 +267,20 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     await loadCredits(false);
   }, [user?.uid, loadCredits]);
 
+  const clearCache = useCallback(() => {
+    creditCache.data = null;
+    creditCache.timestamp = 0;
+    console.log('🧹 Credit cache cleared');
+  }, []);
+
+  // Expose clearCache globally for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).clearCreditCache = clearCache;
+      (window as any).refreshCredits = refreshCredits;
+    }
+  }, [clearCache, refreshCredits]);
+
   const value: CreditContextType = {
     credits,
     loading,
@@ -294,6 +293,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     useCredits,
     hasAccessToFeature,
     refreshCredits,
+    clearCache,
     getPreviousCredits: () => previousCredits,
     setPreviousCredits,
   };

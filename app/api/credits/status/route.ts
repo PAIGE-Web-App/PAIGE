@@ -21,6 +21,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Debug logging
+    console.log('🔍 Credits API returning:', {
+      subscriptionTier: credits.subscriptionTier,
+      dailyCredits: credits.dailyCredits,
+      bonusCredits: credits.bonusCredits,
+      userType: credits.userType
+    });
+
     return NextResponse.json({ credits });
   } catch (error) {
     console.error('Error getting user credits:', error);

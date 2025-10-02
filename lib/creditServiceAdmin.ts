@@ -1,4 +1,4 @@
-import { getAdminDb } from './firebaseAdmin';
+import { getAdminDb, adminDb } from './firebaseAdmin';
 import { 
   UserCredits,
   CreditTransaction,
@@ -452,6 +452,63 @@ export class CreditServiceAdmin {
       return true;
     } catch (error) {
       console.error(`[CreditServiceAdmin] Error repairing credits for ${userId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Add bonus credits to user (for purchases or upgrades)
+   */
+  async addBonusCredits(
+    userId: string, 
+    credits: number, 
+    source: 'purchase' | 'upgrade' | 'admin'
+  ): Promise<boolean> {
+    try {
+      const userRef = adminDb.collection('users').doc(userId);
+      const userSnap = await userRef.get();
+      
+      if (!userSnap.exists) {
+        console.error(`User ${userId} not found`);
+        return false;
+      }
+
+      const userData = userSnap.data();
+      if (!userData?.credits) {
+        console.error(`User ${userId} has no credits data`);
+        return false;
+      }
+
+      const currentCredits = userData.credits as UserCredits;
+      
+      // Create transaction record
+      const transaction: CreditTransaction = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'added',
+        amount: credits,
+        feature: source === 'purchase' ? 'credit_purchase' : 
+                source === 'upgrade' ? 'subscription_upgrade' : 'admin_grant',
+        timestamp: new Date(),
+        description: `${source === 'purchase' ? 'Credit pack purchase' : 
+                     source === 'upgrade' ? 'Subscription upgrade bonus' : 
+                     'Admin credit grant'}: +${credits} credits`
+      };
+
+      // Update user credits
+      await adminDb.runTransaction(async (firestoreTransaction) => {
+        const updatedCreditHistory = [...(currentCredits.creditHistory || []), transaction];
+        
+        firestoreTransaction.update(userRef, {
+          'credits.bonusCredits': currentCredits.bonusCredits + credits,
+          'credits.creditHistory': updatedCreditHistory,
+          'credits.updatedAt': new Date()
+        });
+      });
+
+      console.log(`Added ${credits} bonus credits to user ${userId} from ${source}`);
+      return true;
+    } catch (error) {
+      console.error(`Error adding bonus credits to user ${userId}:`, error);
       return false;
     }
   }
