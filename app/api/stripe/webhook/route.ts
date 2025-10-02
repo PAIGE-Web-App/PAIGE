@@ -159,6 +159,15 @@ async function handleSubscriptionChange(subscription: any) {
       const { creditService } = await import('@/lib/creditService');
       const refreshedCredits = await creditService.forceRefreshCredits(userId);
       console.log(`✅ Forced credit refresh completed for user ${userId}:`, refreshedCredits);
+      
+      // Notify frontend that credits have been updated
+      try {
+        const { creditEventEmitter } = await import('@/lib/creditEventEmitter');
+        creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
+        console.log(`📡 Emitted credit update event for user ${userId}`);
+      } catch (eventError) {
+        console.error(`❌ Error emitting credit update event for user ${userId}:`, eventError);
+      }
     } catch (error) {
       console.error(`❌ Error forcing credit refresh for user ${userId}:`, error);
     }
@@ -238,6 +247,15 @@ async function handleCreditPackPurchase(userId: string, pack: string) {
       timestamp: new Date()
     })
   });
+
+  // Notify frontend that credits have been updated
+  try {
+    const { creditEventEmitter } = await import('@/lib/creditEventEmitter');
+    creditEventEmitter.emit('creditsUpdated', { userId, credits: credits });
+    console.log(`📡 Emitted credit update event for user ${userId}`);
+  } catch (eventError) {
+    console.error(`❌ Error emitting credit update event for user ${userId}:`, eventError);
+  }
 
   console.log(`Added ${credits} credits to user ${userId} from pack ${pack}`);
 }
