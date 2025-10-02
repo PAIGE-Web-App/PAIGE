@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid subscription tier' }, { status: 400 });
       }
 
-      successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/settings?tab=plan&success=true&type=subscription`;
-      cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/settings?tab=plan&canceled=true`;
+      successUrl = `https://www.weddingpaige.com/settings?tab=plan&success=true&type=subscription`;
+      cancelUrl = `https://www.weddingpaige.com/settings?tab=plan&canceled=true`;
 
     } else if (type === 'credits') {
       // Handle credit pack checkout
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid credit pack' }, { status: 400 });
       }
 
-      successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/settings?tab=credits&success=true&type=credits`;
-      cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/settings?tab=credits&canceled=true`;
+      successUrl = `https://www.weddingpaige.com/settings?tab=plan&success=true&type=credits`;
+      cancelUrl = `https://www.weddingpaige.com/settings?tab=plan&canceled=true`;
 
     } else {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 });

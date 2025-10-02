@@ -443,34 +443,16 @@ export default function PlanTab() {
       console.log('✅ Got checkout URL:', url);
       
       if (url) {
-        // Set pending downgrade state
-        const renewalDate = credits?.billing?.subscription?.currentPeriodEnd ? 
-          parseFirestoreDate(credits.billing.subscription.currentPeriodEnd) : 'Date unavailable';
-
-        console.log('📅 Renewal date:', renewalDate);
-
-        setPendingDowngrade({
-          targetPlan: targetPlan,
-          targetPlanName: targetPlanName,
-          effectiveDate: renewalDate
-        });
-
         // Close modal first
         setDowngradeModal({ isOpen: false, targetPlan: '', targetPlanName: '', targetCredits: 0 });
         
-        // Show success toast after a brief delay to ensure modal is closed
-        setTimeout(() => {
-          console.log('🎉 Showing success toast');
-          toast.success(`Downgrade scheduled! You'll switch to ${targetPlanName} on ${renewalDate}.`, {
-            duration: 5000,
-          });
-        }, 100);
+        // Show redirect toast
+        toast.success(`Redirecting to checkout for ${targetPlanName}...`, {
+          duration: 3000,
+        });
 
-        // Redirect to Stripe after showing the toast
-        setTimeout(() => {
-          console.log('🔗 Redirecting to Stripe...');
-          window.location.href = url;
-        }, 2000);
+        // Redirect to Stripe checkout immediately
+        window.location.href = url;
       } else {
         console.error('No checkout URL received');
         toast.error('Failed to create checkout session. Please try again.');

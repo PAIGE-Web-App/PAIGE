@@ -243,6 +243,21 @@ async function handleCreditPackPurchase(userId: string, pack: string) {
 }
 
 async function handleSubscriptionActivation(userId: string, tier: string) {
+  // Check if we've already processed this upgrade to prevent duplicate bonus credits
+  const userRef = adminDb.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  
+  if (userSnap.exists) {
+    const userData = userSnap.data();
+    const currentTier = userData?.credits?.subscriptionTier;
+    
+    // If user is already on this tier, don't add bonus credits again
+    if (currentTier === tier) {
+      console.log(`User ${userId} already on ${tier} tier, skipping bonus credits`);
+      return;
+    }
+  }
+
   // Add bonus credits for upgrade
   const bonusCredits = {
     couple_premium: 60,
