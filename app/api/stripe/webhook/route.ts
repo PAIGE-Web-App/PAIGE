@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe';
 import { headers } from 'next/headers';
 import { creditServiceAdmin } from '@/lib/creditServiceAdmin';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -228,9 +229,9 @@ async function handleCreditPackPurchase(userId: string, pack: string) {
 
   // Update billing record
   await adminDb.collection('users').doc(userId).update({
-    'billing.creditPurchases.totalPurchased': adminDb.FieldValue.increment(credits),
+    'billing.creditPurchases.totalPurchased': FieldValue.increment(credits),
     'billing.creditPurchases.lastPurchase': new Date(),
-    'billing.creditPurchases.purchaseHistory': adminDb.FieldValue.arrayUnion({
+    'billing.creditPurchases.purchaseHistory': FieldValue.arrayUnion({
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       amount: credits,
       pack: pack,

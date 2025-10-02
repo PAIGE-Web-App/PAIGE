@@ -99,7 +99,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
           setCredits(newCredits);
           // Update cache
           creditCache.data = newCredits;
-          creditCache.timestamp = now;
+          creditCache.timestamp = new Date().getTime();
         } catch (initError) {
           logger.error('Failed to initialize credits', initError);
           setError('Failed to initialize credits');

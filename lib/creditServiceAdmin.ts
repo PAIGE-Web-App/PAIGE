@@ -484,10 +484,9 @@ export class CreditServiceAdmin {
       // Create transaction record
       const transaction: CreditTransaction = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type: 'added',
+        type: 'bonus',
         amount: credits,
-        feature: source === 'purchase' ? 'credit_purchase' : 
-                source === 'upgrade' ? 'subscription_upgrade' : 'admin_grant',
+        feature: 'budget_generation', // Generic feature for bonus credits
         timestamp: new Date(),
         description: `${source === 'purchase' ? 'Credit pack purchase' : 
                      source === 'upgrade' ? 'Subscription upgrade bonus' : 
