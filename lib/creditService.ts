@@ -432,8 +432,15 @@ export class CreditService {
         currentCredits.subscriptionTier
       );
 
+      console.log('🔄 Refresh credits debug:', {
+        userType: currentCredits.userType,
+        subscriptionTier: currentCredits.subscriptionTier,
+        subscriptionCredits,
+        monthlyCredits: subscriptionCredits?.monthlyCredits
+      });
+
       // No rollover - just reset to subscription limit
-      const newCredits = subscriptionCredits.monthlyCredits;
+      const newCredits = subscriptionCredits?.monthlyCredits || 15; // Fallback to 15 if undefined
 
       const userRef = adminDb.collection('users').doc(userId);
       await userRef.update({

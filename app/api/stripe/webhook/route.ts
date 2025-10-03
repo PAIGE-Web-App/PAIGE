@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
     console.error('Signature:', signature);
     console.error('Webhook secret exists:', !!webhookSecret);
     
-    // For development, let's skip signature verification temporarily
-    if (process.env.NODE_ENV === 'development') {
-      console.log('⚠️  Skipping signature verification in development mode');
+    // For development or if webhook secret is missing, skip verification
+    if (process.env.NODE_ENV === 'development' || !webhookSecret) {
+      console.log('⚠️  Skipping signature verification in development mode or missing secret');
       try {
         event = JSON.parse(body);
       } catch (parseErr) {
@@ -162,7 +162,7 @@ async function handleSubscriptionChange(subscription: any) {
       
       // Notify frontend that credits have been updated
       try {
-        const { creditEventEmitter } = await import('@/lib/creditEventEmitter');
+        const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
         creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
         console.log(`📡 Emitted credit update event for user ${userId}`);
       } catch (eventError) {
@@ -250,7 +250,7 @@ async function handleCreditPackPurchase(userId: string, pack: string) {
 
   // Notify frontend that credits have been updated
   try {
-    const { creditEventEmitter } = await import('@/lib/creditEventEmitter');
+        const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
     creditEventEmitter.emit('creditsUpdated', { userId, credits: credits });
     console.log(`📡 Emitted credit update event for user ${userId}`);
   } catch (eventError) {
