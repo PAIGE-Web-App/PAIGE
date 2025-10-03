@@ -48,12 +48,30 @@ const CreditsTab = dynamic(() => import("./components/CreditsTab"), {
 
 
 export default function ProfilePage() {
-  const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();
+  const { user, profileImageUrl, setProfileImageUrl, updateUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
+
+  // Show loading state while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#805d93] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    router.push('/login');
+    return null;
+  }
 
   const getInitialTab = () => {
     const tabFromUrl = searchParams?.get('tab');
