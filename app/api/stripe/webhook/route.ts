@@ -7,6 +7,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const headersList = await headers();
@@ -168,6 +169,7 @@ async function handleSubscriptionChange(subscription: any) {
       } catch (eventError) {
         console.error(`❌ Error emitting credit update event for user ${userId}:`, eventError);
       }
+
     } catch (error) {
       console.error(`❌ Error forcing credit refresh for user ${userId}:`, error);
     }

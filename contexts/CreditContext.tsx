@@ -278,6 +278,28 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user?.uid, loadCredits]);
 
+  // More aggressive subscription change detection
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const checkForSubscriptionChanges = async () => {
+      try {
+        console.log('🔄 Checking for subscription changes...');
+        // Always force refresh to get latest data
+        creditCache.data = null;
+        creditCache.timestamp = 0;
+        await loadCredits(false, true);
+      } catch (error) {
+        console.error('Error checking subscription changes:', error);
+      }
+    };
+
+    // Check every 10 seconds when user is active
+    const interval = setInterval(checkForSubscriptionChanges, 10000);
+    
+    return () => clearInterval(interval);
+  }, [user?.uid, loadCredits]);
+
   // No polling - only refresh on events (webhooks, credit usage, etc.)
 
   // Clean up on unmount

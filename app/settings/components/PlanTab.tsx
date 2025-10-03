@@ -279,7 +279,39 @@ export default function PlanTab() {
       return;
     }
     
-    // This is an upgrade - proceed normally
+    // This is an upgrade - set pending upgrade state
+    const targetPlan = plans.find(p => p.tier === tier);
+    if (targetPlan) {
+      const renewalDate = credits?.billing?.subscription?.currentPeriodEnd ? 
+        parseFirestoreDate(credits.billing.subscription.currentPeriodEnd) : 'Date unavailable';
+
+      const pendingUpgradeData = {
+        targetPlan: tier,
+        targetPlanName: targetPlan.name,
+        effectiveDate: renewalDate
+      };
+
+      setPendingDowngrade(pendingUpgradeData); // Reuse the same state for upgrades
+
+      // Save to Firestore
+      try {
+        const token = await user?.getIdToken();
+        if (token) {
+          await fetch('/api/billing/pending-downgrade', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(pendingUpgradeData),
+          });
+        }
+      } catch (error) {
+        console.error('Error saving pending upgrade:', error);
+      }
+    }
+    
+    // Proceed with Stripe checkout
     setLoading(tier);
     try {
       // Get Firebase token
@@ -568,7 +600,7 @@ export default function PlanTab() {
           </button>
         </div>
         
-        {/* Pending downgrade info */}
+        {/* Pending plan change info */}
         {pendingDowngrade && (
           <div className="mt-4 pt-4 border-t border-orange-200">
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -577,15 +609,15 @@ export default function PlanTab() {
                   <X className="w-3 h-3 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <h5 className="text-orange-800 mb-1">Downgrade Scheduled</h5>
+                  <h5 className="text-orange-800 mb-1">Plan Change Scheduled</h5>
                   <p className="text-sm text-orange-700 mb-3">
-                    You'll be downgraded to <strong>{pendingDowngrade.targetPlanName}</strong> on {pendingDowngrade.effectiveDate}.
+                    You'll switch to <strong>{pendingDowngrade.targetPlanName}</strong> on {pendingDowngrade.effectiveDate}.
                   </p>
                   <button
                     onClick={handleCancelDowngrade}
                     className="btn-primaryinverse text-sm px-3 py-1"
                   >
-                    Cancel Downgrade
+                    Cancel Change
                   </button>
                 </div>
               </div>
