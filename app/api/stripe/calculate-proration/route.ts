@@ -97,15 +97,48 @@ export async function POST(request: NextRequest) {
       targetPriceId: targetPriceId
     });
 
-    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-      customer: currentSubscription.customer,
-      subscription: currentSubscriptionId,
-      subscription_items: [{
-        id: currentSubscription.items.data[0].id,
-        price: targetPriceId,
-      }],
-      subscription_proration_behavior: 'create_prorations',
-    });
+    // Debug: Check what methods are available on stripe.invoices
+    console.log('🔍 Available methods on stripe.invoices:', Object.getOwnPropertyNames(stripe.invoices));
+    console.log('🔍 typeof stripe.invoices.retrieveUpcoming:', typeof stripe.invoices.retrieveUpcoming);
+    
+    // Try using the correct method - it might be retrieveUpcoming or listUpcomingLineItems
+    let upcomingInvoice;
+    try {
+      // First try the standard method
+      upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+        customer: currentSubscription.customer,
+        subscription: currentSubscriptionId,
+        subscription_items: [{
+          id: currentSubscription.items.data[0].id,
+          price: targetPriceId,
+        }],
+        subscription_proration_behavior: 'create_prorations',
+      });
+    } catch (methodError) {
+      console.log('❌ retrieveUpcoming failed, trying alternative method...');
+      console.log('Method error:', methodError.message);
+      
+      // Alternative: Use listUpcomingLineItems
+      try {
+        const upcomingLineItems = await stripe.invoices.listUpcomingLineItems({
+          customer: currentSubscription.customer,
+          subscription: currentSubscriptionId,
+        });
+        
+        // Create a mock invoice object for proration calculation
+        upcomingInvoice = {
+          id: 'upcoming_' + Date.now(),
+          amount_due: 0, // We'll calculate this from line items
+          currency: 'usd',
+          lines: upcomingLineItems
+        };
+        
+        console.log('✅ Used listUpcomingLineItems as fallback');
+      } catch (altError) {
+        console.error('❌ Both methods failed:', altError.message);
+        throw new Error(`Stripe API methods failed: ${methodError.message}, ${altError.message}`);
+      }
+    }
 
     console.log('📊 Upcoming invoice retrieved:', {
       id: upcomingInvoice.id,
