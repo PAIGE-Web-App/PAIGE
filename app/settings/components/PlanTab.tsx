@@ -500,7 +500,9 @@ export default function PlanTab() {
         return;
       }
 
-      const response = await fetch('/api/credits/refresh', {
+      console.log('🔄 Manually refreshing credits...');
+
+      const response = await fetch('/api/credits/force-refresh', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -508,11 +510,15 @@ export default function PlanTab() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Force refresh result:', result);
+        
         // Force reload credits
         await loadCredits();
-        toast.success('Credits refreshed successfully');
+        toast.success(`Credits updated to ${result.dailyCredits} for ${result.subscriptionTier} tier`);
       } else {
         const error = await response.json();
+        console.error('❌ Force refresh failed:', error);
         toast.error(`Failed to refresh: ${error.error}`);
       }
     } catch (error) {

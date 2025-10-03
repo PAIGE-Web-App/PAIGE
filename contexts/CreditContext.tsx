@@ -225,6 +225,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!eventListenerRef.current) {
       const handleCreditEvent = (data?: any) => {
+        console.log('🔄 Credit event received:', data);
         // Invalidate cache immediately to force fresh data
         creditCache.data = null;
         creditCache.timestamp = 0;
@@ -243,6 +244,25 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [loadCredits]);
+
+  // Listen for page visibility changes to refresh credits when user returns
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.uid) {
+        console.log('🔄 Page became visible, refreshing credits...');
+        // Invalidate cache and reload
+        creditCache.data = null;
+        creditCache.timestamp = 0;
+        loadCredits(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.uid, loadCredits]);
 
   // No polling - only refresh on events (webhooks, credit usage, etc.)
 
