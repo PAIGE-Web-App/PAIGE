@@ -16,7 +16,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 export default function PlanTab() {
   const { user, userType } = useAuth();
-  const { credits, loadCredits } = useCredits();
+  const { credits, loadCredits, refreshCredits } = useCredits();
   const [loading, setLoading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [downgradeModal, setDowngradeModal] = useState<{
@@ -513,8 +513,8 @@ export default function PlanTab() {
         const result = await response.json();
         console.log('✅ Force refresh result:', result);
         
-        // Force reload credits
-        await loadCredits();
+        // Force reload credits with cache bypass
+        await refreshCredits(); // Use refreshCredits which bypasses cache
         toast.success(`Credits updated to ${result.dailyCredits} for ${result.subscriptionTier} tier`);
       } else {
         const error = await response.json();

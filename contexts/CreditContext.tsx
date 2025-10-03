@@ -58,7 +58,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   const eventListenerRef = useRef<(() => void) | null>(null);
 
   // Load user credits with caching
-  const loadCredits = useCallback(async (showLoading = true) => {
+  const loadCredits = useCallback(async (showLoading = true, forceRefresh = false) => {
     if (!user?.uid) {
       setLoading(false);
       return;
@@ -71,7 +71,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     // Check cache first (no time-based expiration - only refresh on events)
-    if (creditCache.data) {
+    // But allow force refresh to bypass cache
+    if (creditCache.data && !forceRefresh) {
       setCredits(creditCache.data);
       if (showLoading) {
         setLoading(false);
@@ -229,8 +230,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         // Invalidate cache immediately to force fresh data
         creditCache.data = null;
         creditCache.timestamp = 0;
-        // Load credits immediately to get fresh data
-        loadCredits(false); // Don't show loading for event-triggered updates
+        // Load credits immediately to get fresh data with force refresh
+        loadCredits(false, true); // Don't show loading, but force refresh
       };
 
       const unsubscribe = creditEventEmitter.subscribe(handleCreditEvent);
@@ -253,14 +254,27 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         // Invalidate cache and reload
         creditCache.data = null;
         creditCache.timestamp = 0;
-        loadCredits(false);
+        loadCredits(false, true); // Force refresh
+      }
+    };
+
+    // Also listen for focus events (when user switches back to tab)
+    const handleFocus = () => {
+      if (user?.uid) {
+        console.log('🔄 Window focused, refreshing credits...');
+        // Invalidate cache and reload
+        creditCache.data = null;
+        creditCache.timestamp = 0;
+        loadCredits(false, true); // Force refresh
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [user?.uid, loadCredits]);
 
@@ -283,8 +297,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     creditCache.data = null;
     creditCache.timestamp = 0;
     
-    // Load fresh credits without showing loading screen
-    await loadCredits(false);
+    // Load fresh credits without showing loading screen, with force refresh
+    await loadCredits(false, true);
   }, [user?.uid, loadCredits]);
 
   const clearCache = useCallback(() => {
