@@ -97,32 +97,59 @@ export async function POST(request: NextRequest) {
       targetPriceId: targetPriceId
     });
 
-    // Use the correct Stripe API method for proration calculation
+    // Use Stripe's subscription update preview to calculate proration
     let upcomingInvoice;
     try {
-      console.log('🔄 Calling stripe.invoices.retrieveUpcoming...');
+      console.log('🔄 Using Stripe subscription update preview...');
       
-      // Use the correct Stripe API method with proper parameters
-      upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+      // First, let's try to get the upcoming invoice without changes
+      const baseInvoice = await stripe.invoices.retrieveUpcoming({
+        customer: currentSubscription.customer,
+        subscription: currentSubscriptionId,
+      });
+      
+      console.log('📊 Base upcoming invoice:', {
+        id: baseInvoice.id,
+        amount_due: baseInvoice.amount_due,
+        currency: baseInvoice.currency
+      });
+      
+      // Now try to get the invoice with the new price
+      const updatedInvoice = await stripe.invoices.retrieveUpcoming({
         customer: currentSubscription.customer,
         subscription: currentSubscriptionId,
         subscription_items: [{
           id: currentSubscription.items.data[0].id,
           price: targetPriceId,
         }],
-        subscription_proration_date: Math.floor(Date.now() / 1000), // Current time for proration
       });
       
-      console.log('✅ Successfully retrieved upcoming invoice from Stripe');
-      console.log('📊 Stripe invoice details:', {
-        id: upcomingInvoice.id,
-        amount_due: upcomingInvoice.amount_due,
-        currency: upcomingInvoice.currency,
-        lines_count: upcomingInvoice.lines?.data?.length || 0
+      console.log('📊 Updated upcoming invoice:', {
+        id: updatedInvoice.id,
+        amount_due: updatedInvoice.amount_due,
+        currency: updatedInvoice.currency
+      });
+      
+      // Calculate the difference (refund amount)
+      const refundAmount = Math.max(0, baseInvoice.amount_due - updatedInvoice.amount_due);
+      
+      upcomingInvoice = {
+        id: updatedInvoice.id,
+        amount_due: -refundAmount, // Negative for refund
+        currency: updatedInvoice.currency,
+        lines: updatedInvoice.lines
+      };
+      
+      console.log('✅ Successfully calculated proration using Stripe API');
+      console.log('💰 Proration calculation:', {
+        baseAmount: baseInvoice.amount_due,
+        updatedAmount: updatedInvoice.amount_due,
+        refundAmount: refundAmount,
+        refundAmountDollars: (refundAmount / 100).toFixed(2)
       });
       
     } catch (methodError) {
-      console.log('❌ Stripe retrieveUpcoming failed, trying alternative approach...');
+      console.log('❌ Stripe API failed, trying alternative approach...');
       console.log('Method error:', methodError.message);
       
       // Alternative: Use subscription update preview
