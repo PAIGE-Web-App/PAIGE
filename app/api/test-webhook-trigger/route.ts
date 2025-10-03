@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       // Emit event to update UI
       try {
         const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-        creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
+        creditEventEmitter.emit({ userId, credits: refreshedCredits });
         console.log(`[TEST] Emitted credit update event for user ${userId}`);
       } catch (eventError) {
         console.error(`[TEST] Error emitting credit update event for user ${userId}:`, eventError);

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         dailyCredits: correctDailyCredits,
         updatedAt: new Date()
       };
-      creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
+      creditEventEmitter.emit({ userId, credits: refreshedCredits });
       console.log(`📡 Emitted creditsUpdated event for user ${userId}`);
     } catch (error) {
       console.error('Failed to emit credit event:', error);

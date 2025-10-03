@@ -198,7 +198,7 @@ async function handleSubscriptionChange(subscription: any) {
       // Notify frontend that credits have been updated
       try {
         const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-        creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
+        creditEventEmitter.emit({ userId, credits: refreshedCredits });
         console.log(`📡 Emitted credit update event for user ${userId}`);
       } catch (eventError) {
         console.error(`❌ Error emitting credit update event for user ${userId}:`, eventError);
@@ -286,7 +286,7 @@ async function handleCreditPackPurchase(userId: string, pack: string) {
   // Notify frontend that credits have been updated
   try {
         const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
-    creditEventEmitter.emit('creditsUpdated', { userId, credits: credits });
+    creditEventEmitter.emit({ userId, credits: credits });
     console.log(`📡 Emitted credit update event for user ${userId}`);
   } catch (eventError) {
     console.error(`❌ Error emitting credit update event for user ${userId}:`, eventError);
