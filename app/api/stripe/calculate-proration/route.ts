@@ -3,30 +3,56 @@ import { stripe } from '@/lib/stripe';
 import { adminAuth } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
+  let userId: string | undefined;
+  let targetTier: string | undefined;
+  
   try {
+    console.log('🔄 Starting proration calculation...');
+    
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No auth header found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Verify the Firebase token
     const token = authHeader.split('Bearer ')[1];
+    console.log('🔑 Verifying token...');
     const decodedToken = await adminAuth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    userId = decodedToken.uid;
+    console.log('✅ Token verified for user:', userId);
 
-    const { targetTier } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+      console.log('📝 Request body:', body);
+    } catch (jsonError) {
+      console.error('❌ Failed to parse JSON:', jsonError);
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    }
+    
+    targetTier = body.targetTier;
 
     if (!targetTier) {
       return NextResponse.json({ error: 'Missing targetTier parameter' }, { status: 400 });
     }
 
     // Get user's current subscription from Firestore
+    console.log('🔍 Fetching user data from Firestore...');
     const { adminDb } = await import('@/lib/firebaseAdmin');
     const userDoc = await adminDb.collection('users').doc(userId).get();
     const userData = userDoc.data();
     
+    console.log('👤 User data:', {
+      hasUserData: !!userData,
+      hasBilling: !!userData?.billing,
+      hasSubscription: !!userData?.billing?.subscription,
+      stripeSubscriptionId: userData?.billing?.subscription?.stripeSubscriptionId
+    });
+    
     if (!userData?.billing?.subscription?.stripeSubscriptionId) {
+      console.log('❌ No active subscription found');
       return NextResponse.json({ error: 'No active subscription found' }, { status: 400 });
     }
 
