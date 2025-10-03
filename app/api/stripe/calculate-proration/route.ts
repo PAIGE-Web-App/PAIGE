@@ -97,59 +97,66 @@ export async function POST(request: NextRequest) {
       targetPriceId: targetPriceId
     });
 
-    // Use Stripe's subscription update preview to calculate proration
+    // Calculate proration using subscription data directly
     let upcomingInvoice;
     try {
-      console.log('🔄 Using Stripe subscription update preview...');
+      console.log('🔄 Calculating proration using subscription data...');
       
-      // First, let's try to get the upcoming invoice without changes
-      const baseInvoice = await stripe.invoices.retrieveUpcoming({
-        customer: currentSubscription.customer,
-        subscription: currentSubscriptionId,
+      // Get current subscription details
+      const currentSub = await stripe.subscriptions.retrieve(currentSubscriptionId);
+      const currentPrice = await stripe.prices.retrieve(currentPriceId);
+      const targetPrice = await stripe.prices.retrieve(targetPriceId);
+      
+      console.log('📊 Subscription and price details:', {
+        currentPriceAmount: currentPrice.unit_amount,
+        targetPriceAmount: targetPrice.unit_amount,
+        currentPeriodEnd: currentSub.current_period_end,
+        currentPeriodStart: currentSub.current_period_start
       });
       
-      console.log('📊 Base upcoming invoice:', {
-        id: baseInvoice.id,
-        amount_due: baseInvoice.amount_due,
-        currency: baseInvoice.currency
-      });
+      // Calculate proration using proper time calculations
+      const now = Math.floor(Date.now() / 1000);
+      const periodStart = currentSub.current_period_start;
+      const periodEnd = currentSub.current_period_end;
       
-      // Now try to get the invoice with the new price
-      const updatedInvoice = await stripe.invoices.retrieveUpcoming({
-        customer: currentSubscription.customer,
-        subscription: currentSubscriptionId,
-        subscription_items: [{
-          id: currentSubscription.items.data[0].id,
-          price: targetPriceId,
-        }],
-      });
+      if (!periodEnd || !periodStart) {
+        throw new Error('Invalid subscription period data');
+      }
       
-      console.log('📊 Updated upcoming invoice:', {
-        id: updatedInvoice.id,
-        amount_due: updatedInvoice.amount_due,
-        currency: updatedInvoice.currency
-      });
+      const timeRemaining = periodEnd - now;
+      const totalPeriod = periodEnd - periodStart;
+      const prorationRatio = Math.max(0, timeRemaining / totalPeriod);
       
-      // Calculate the difference (refund amount)
-      const refundAmount = Math.max(0, baseInvoice.amount_due - updatedInvoice.amount_due);
+      const currentAmount = (currentPrice.unit_amount || 0) * prorationRatio;
+      const targetAmount = (targetPrice.unit_amount || 0) * prorationRatio;
+      const refundAmount = Math.max(0, currentAmount - targetAmount);
       
+      // Create invoice object for proration calculation
       upcomingInvoice = {
-        id: updatedInvoice.id,
+        id: 'upcoming_calculated_' + Date.now(),
         amount_due: -refundAmount, // Negative for refund
-        currency: updatedInvoice.currency,
-        lines: updatedInvoice.lines
+        currency: 'usd',
+        lines: {
+          data: [{
+            amount: -refundAmount,
+            description: 'Proration refund'
+          }]
+        }
       };
       
-      console.log('✅ Successfully calculated proration using Stripe API');
+      console.log('✅ Successfully calculated proration');
       console.log('💰 Proration calculation:', {
-        baseAmount: baseInvoice.amount_due,
-        updatedAmount: updatedInvoice.amount_due,
-        refundAmount: refundAmount,
-        refundAmountDollars: (refundAmount / 100).toFixed(2)
+        refundAmountCents: refundAmount,
+        refundAmountDollars: (refundAmount / 100).toFixed(2),
+        prorationRatio: prorationRatio.toFixed(4),
+        timeRemaining: timeRemaining,
+        totalPeriod: totalPeriod,
+        currentAmount: currentAmount,
+        targetAmount: targetAmount
       });
       
     } catch (methodError) {
-      console.log('❌ Stripe API failed, trying alternative approach...');
+      console.log('❌ Proration calculation failed, using fallback...');
       console.log('Method error:', methodError.message);
       
       // Alternative: Use subscription update preview
