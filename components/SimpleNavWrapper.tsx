@@ -12,11 +12,23 @@ interface SimpleNavWrapperProps {
 }
 
 export default function SimpleNavWrapper({ children }: SimpleNavWrapperProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { isMobile, isDesktop } = useMobileDetection();
 
-  // Simplified: Only check if user exists, let middleware handle auth redirects
-  // If no user, just render children without nav (middleware will redirect)
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#805d93] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no user after loading is complete, render children without nav
+  // The individual page components will handle the redirect
   if (!user) {
     return <div className="min-h-screen">{children}</div>;
   }
