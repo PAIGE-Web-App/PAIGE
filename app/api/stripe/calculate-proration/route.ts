@@ -100,11 +100,14 @@ export async function POST(request: NextRequest) {
     // Debug: Check what methods are available on stripe.invoices
     console.log('🔍 Available methods on stripe.invoices:', Object.getOwnPropertyNames(stripe.invoices));
     console.log('🔍 typeof stripe.invoices.retrieveUpcoming:', typeof stripe.invoices.retrieveUpcoming);
+    console.log('🔍 Stripe instance type:', typeof stripe);
+    console.log('🔍 Stripe instance methods:', Object.getOwnPropertyNames(stripe));
     
-    // Try using the correct method - it might be retrieveUpcoming or listUpcomingLineItems
+    // The issue is that we need to use the correct Stripe API method
+    // Let's try using the direct Stripe API call
     let upcomingInvoice;
     try {
-      // First try the standard method
+      // Use the correct Stripe API method - it should be available
       upcomingInvoice = await stripe.invoices.retrieveUpcoming({
         customer: currentSubscription.customer,
         subscription: currentSubscriptionId,
@@ -114,29 +117,59 @@ export async function POST(request: NextRequest) {
         }],
         subscription_proration_behavior: 'create_prorations',
       });
+      console.log('✅ Successfully retrieved upcoming invoice');
     } catch (methodError) {
-      console.log('❌ retrieveUpcoming failed, trying alternative method...');
+      console.log('❌ retrieveUpcoming failed, trying alternative approach...');
       console.log('Method error:', methodError.message);
       
-      // Alternative: Use listUpcomingLineItems
+      // Alternative: Calculate proration manually using subscription data
       try {
-        const upcomingLineItems = await stripe.invoices.listUpcomingLineItems({
-          customer: currentSubscription.customer,
-          subscription: currentSubscriptionId,
+        // Get the current subscription to calculate proration manually
+        const currentSub = await stripe.subscriptions.retrieve(currentSubscriptionId);
+        const currentPrice = await stripe.prices.retrieve(currentPriceId);
+        const targetPrice = await stripe.prices.retrieve(targetPriceId);
+        
+        console.log('📊 Price details:', {
+          currentPriceAmount: currentPrice.unit_amount,
+          targetPriceAmount: targetPrice.unit_amount,
+          currentPeriodEnd: currentSub.current_period_end
         });
+        
+        // Calculate proration manually
+        const now = Math.floor(Date.now() / 1000);
+        const periodEnd = currentSub.current_period_end;
+        const timeRemaining = periodEnd - now;
+        const totalPeriod = periodEnd - currentSub.current_period_start;
+        const prorationRatio = timeRemaining / totalPeriod;
+        
+        const currentAmount = (currentPrice.unit_amount || 0) * prorationRatio;
+        const targetAmount = (targetPrice.unit_amount || 0) * prorationRatio;
+        const refundAmount = Math.max(0, currentAmount - targetAmount);
         
         // Create a mock invoice object for proration calculation
         upcomingInvoice = {
-          id: 'upcoming_' + Date.now(),
-          amount_due: 0, // We'll calculate this from line items
+          id: 'upcoming_manual_' + Date.now(),
+          amount_due: -refundAmount, // Negative for refund
           currency: 'usd',
-          lines: upcomingLineItems
+          lines: {
+            data: [{
+              amount: -refundAmount,
+              description: 'Proration refund'
+            }]
+          }
         };
         
-        console.log('✅ Used listUpcomingLineItems as fallback');
+        console.log('✅ Used manual proration calculation');
+        console.log('💰 Manual proration:', {
+          refundAmountCents: refundAmount,
+          refundAmountDollars: (refundAmount / 100).toFixed(2),
+          prorationRatio,
+          timeRemaining,
+          totalPeriod
+        });
       } catch (altError) {
-        console.error('❌ Both methods failed:', altError.message);
-        throw new Error(`Stripe API methods failed: ${methodError.message}, ${altError.message}`);
+        console.error('❌ Manual calculation failed:', altError.message);
+        throw new Error(`Stripe API methods failed: ${methodError.message}, Manual calculation failed: ${altError.message}`);
       }
     }
 
