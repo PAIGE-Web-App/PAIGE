@@ -18,7 +18,8 @@ import VendorEmailFlagReviewModal from "../../components/VendorEmailFlagReviewMo
 import SettingsTabSkeleton from "./components/SettingsTabSkeleton";
 import AccountTabSkeleton from "./components/AccountTabSkeleton";
 import NotificationsTabSkeleton from "./components/NotificationsTabSkeleton";
-import { AdminNavigation } from "../../components/AdminNavigation";
+import AdminActionsDropdown from "../../components/AdminActionsDropdown";
+import { usePermissions } from "../../hooks/usePermissions";
 import GoogleMapsLoader from "../../components/GoogleMapsLoader";
 
 // Lazy load tab components - only load when needed
@@ -49,6 +50,7 @@ const CreditsTab = dynamic(() => import("./components/CreditsTab"), {
 
 export default function ProfilePage() {
   const { user, profileImageUrl, setProfileImageUrl, updateUser } = useAuth();
+  const { isAdmin } = usePermissions();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -199,12 +201,12 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
       
-      {/* Admin Navigation - Only shows for admin users */}
-      <AdminNavigation />
-      
       <div className="app-content-container">
         <div className="max-w-[900px] mx-auto w-full">
-          <h3 className="mb-8">Settings</h3>
+          <div className="flex items-center justify-between mb-8">
+            <h3>Settings</h3>
+            <AdminActionsDropdown isVisible={isAdmin} />
+          </div>
           <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
           {activeTab === "account" && (
             <AccountTab
