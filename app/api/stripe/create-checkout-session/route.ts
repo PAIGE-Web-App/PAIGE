@@ -39,10 +39,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid subscription tier' }, { status: 400 });
       }
 
-      // Force correct domain for production
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://www.weddingpaige.com' 
-        : 'http://localhost:3000';
+      // Determine base URL from request origin or environment
+      const origin = request.headers.get('origin') || request.headers.get('referer');
+      let baseUrl = 'https://www.weddingpaige.com'; // Default to production
+      
+      if (origin?.includes('localhost:3000')) {
+        baseUrl = 'http://localhost:3000';
+      } else if (origin?.includes('weddingpaige.com')) {
+        baseUrl = 'https://www.weddingpaige.com';
+      } else if (process.env.NODE_ENV !== 'production') {
+        baseUrl = 'http://localhost:3000';
+      }
+      
+      console.log('🔗 Checkout redirect URLs:', { origin, baseUrl });
       
       successUrl = `${baseUrl}/settings?tab=plan&success=true&type=subscription`;
       cancelUrl = `${baseUrl}/settings?tab=plan&canceled=true`;
