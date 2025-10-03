@@ -97,17 +97,12 @@ export async function POST(request: NextRequest) {
       targetPriceId: targetPriceId
     });
 
-    // Debug: Check what methods are available on stripe.invoices
-    console.log('🔍 Available methods on stripe.invoices:', Object.getOwnPropertyNames(stripe.invoices));
-    console.log('🔍 typeof stripe.invoices.retrieveUpcoming:', typeof stripe.invoices.retrieveUpcoming);
-    console.log('🔍 Stripe instance type:', typeof stripe);
-    console.log('🔍 Stripe instance methods:', Object.getOwnPropertyNames(stripe));
-    
-    // The issue is that we need to use the correct Stripe API method
-    // Let's try using the direct Stripe API call
+    // Use the correct Stripe API method for proration calculation
     let upcomingInvoice;
     try {
-      // Use the correct Stripe API method - it should be available
+      console.log('🔄 Calling stripe.invoices.retrieveUpcoming...');
+      
+      // Use the correct Stripe API method with proper parameters
       upcomingInvoice = await stripe.invoices.retrieveUpcoming({
         customer: currentSubscription.customer,
         subscription: currentSubscriptionId,
@@ -115,32 +110,49 @@ export async function POST(request: NextRequest) {
           id: currentSubscription.items.data[0].id,
           price: targetPriceId,
         }],
-        subscription_proration_behavior: 'create_prorations',
+        subscription_proration_date: Math.floor(Date.now() / 1000), // Current time for proration
       });
-      console.log('✅ Successfully retrieved upcoming invoice');
+      
+      console.log('✅ Successfully retrieved upcoming invoice from Stripe');
+      console.log('📊 Stripe invoice details:', {
+        id: upcomingInvoice.id,
+        amount_due: upcomingInvoice.amount_due,
+        currency: upcomingInvoice.currency,
+        lines_count: upcomingInvoice.lines?.data?.length || 0
+      });
+      
     } catch (methodError) {
-      console.log('❌ retrieveUpcoming failed, trying alternative approach...');
+      console.log('❌ Stripe retrieveUpcoming failed, trying alternative approach...');
       console.log('Method error:', methodError.message);
       
-      // Alternative: Calculate proration manually using subscription data
+      // Alternative: Use subscription update preview
       try {
-        // Get the current subscription to calculate proration manually
+        console.log('🔄 Trying subscription update preview...');
+        
+        // Get current subscription details
         const currentSub = await stripe.subscriptions.retrieve(currentSubscriptionId);
         const currentPrice = await stripe.prices.retrieve(currentPriceId);
         const targetPrice = await stripe.prices.retrieve(targetPriceId);
         
-        console.log('📊 Price details:', {
+        console.log('📊 Subscription and price details:', {
           currentPriceAmount: currentPrice.unit_amount,
           targetPriceAmount: targetPrice.unit_amount,
-          currentPeriodEnd: currentSub.current_period_end
+          currentPeriodEnd: currentSub.current_period_end,
+          currentPeriodStart: currentSub.current_period_start
         });
         
-        // Calculate proration manually
+        // Calculate proration manually using proper time calculations
         const now = Math.floor(Date.now() / 1000);
+        const periodStart = currentSub.current_period_start;
         const periodEnd = currentSub.current_period_end;
+        
+        if (!periodEnd || !periodStart) {
+          throw new Error('Invalid subscription period data');
+        }
+        
         const timeRemaining = periodEnd - now;
-        const totalPeriod = periodEnd - currentSub.current_period_start;
-        const prorationRatio = timeRemaining / totalPeriod;
+        const totalPeriod = periodEnd - periodStart;
+        const prorationRatio = Math.max(0, timeRemaining / totalPeriod);
         
         const currentAmount = (currentPrice.unit_amount || 0) * prorationRatio;
         const targetAmount = (targetPrice.unit_amount || 0) * prorationRatio;
@@ -160,12 +172,14 @@ export async function POST(request: NextRequest) {
         };
         
         console.log('✅ Used manual proration calculation');
-        console.log('💰 Manual proration:', {
+        console.log('💰 Manual proration details:', {
           refundAmountCents: refundAmount,
           refundAmountDollars: (refundAmount / 100).toFixed(2),
-          prorationRatio,
-          timeRemaining,
-          totalPeriod
+          prorationRatio: prorationRatio.toFixed(4),
+          timeRemaining: timeRemaining,
+          totalPeriod: totalPeriod,
+          currentAmount: currentAmount,
+          targetAmount: targetAmount
         });
       } catch (altError) {
         console.error('❌ Manual calculation failed:', altError.message);
