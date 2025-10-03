@@ -163,6 +163,11 @@ async function handleSubscriptionChange(subscription: any) {
   console.log(`Credit tier: ${creditTier}`);
   console.log(`Status: ${status}`);
   
+  // Get the correct daily credits for the new tier
+  const { getSubscriptionCredits } = await import('@/lib/creditConfigEdge');
+  const subscriptionCredits = await getSubscriptionCredits('couple', creditTier);
+  const newDailyCredits = subscriptionCredits?.dailyCredits || subscriptionCredits?.monthlyCredits || 15;
+
   await adminDb.collection('users').doc(userId).update({
     'billing.subscription': {
       status,
@@ -173,6 +178,7 @@ async function handleSubscriptionChange(subscription: any) {
       updatedAt: new Date()
     },
     'credits.subscriptionTier': creditTier,
+    'credits.dailyCredits': newDailyCredits,
     'credits.updatedAt': new Date()
   });
   
