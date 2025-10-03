@@ -505,6 +505,38 @@ export default function PlanTab() {
     }
   };
 
+  const handleWebhookTrigger = async () => {
+    setRefreshing(true);
+    try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/test-webhook-trigger', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Webhook trigger result:', result);
+        toast.success('Webhook logic triggered - sidebar should update');
+      } else {
+        const error = await response.json();
+        toast.error(`Webhook trigger failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error triggering webhook:', error);
+      toast.error('Failed to trigger webhook');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
 
   return (
     <div className="space-y-8 pb-8">
@@ -526,23 +558,42 @@ export default function PlanTab() {
               {plans.find(p => p.tier === currentTier)?.creditsPerDay || 15} credits per day
             </div>
           </div>
-          <button
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            className="btn-primaryinverse text-sm px-3 py-1 flex items-center gap-2"
-          >
-            {refreshing ? (
-              <>
-                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <Zap className="w-3 h-3" />
-                Refresh Credits
-              </>
-            )}
-          </button>
+                 <div className="flex gap-2">
+                   <button
+                     onClick={handleManualRefresh}
+                     disabled={refreshing}
+                     className="btn-primaryinverse text-sm px-3 py-1 flex items-center gap-2"
+                   >
+                     {refreshing ? (
+                       <>
+                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                         Refreshing...
+                       </>
+                     ) : (
+                       <>
+                         <Zap className="w-3 h-3" />
+                         Refresh Credits
+                       </>
+                     )}
+                   </button>
+                   <button
+                     onClick={handleWebhookTrigger}
+                     disabled={refreshing}
+                     className="btn-primary text-sm px-3 py-1 flex items-center gap-2"
+                   >
+                     {refreshing ? (
+                       <>
+                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                         Triggering...
+                       </>
+                     ) : (
+                       <>
+                         <Zap className="w-3 h-3" />
+                         Trigger Webhook
+                       </>
+                     )}
+                   </button>
+                 </div>
         </div>
         
         {/* Pending downgrade info */}
