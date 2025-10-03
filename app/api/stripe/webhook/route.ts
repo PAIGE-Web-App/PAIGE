@@ -5,33 +5,62 @@ import { creditServiceAdmin } from '@/lib/creditServiceAdmin';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+// Debug webhook secret configuration
+console.log('🔧 Webhook configuration:', {
+  hasWebhookSecret: !!webhookSecret,
+  webhookSecretLength: webhookSecret?.length || 0,
+  webhookSecretPrefix: webhookSecret?.substring(0, 10) + '...' || 'undefined',
+  nodeEnv: process.env.NODE_ENV
+});
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const headersList = await headers();
-  const signature = headersList.get('stripe-signature')!;
+  const signature = headersList.get('stripe-signature');
+
+  console.log('🔔 Webhook received:', {
+    bodyLength: body.length,
+    hasSignature: !!signature,
+    hasWebhookSecret: !!webhookSecret,
+    nodeEnv: process.env.NODE_ENV
+  });
 
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    console.error('Body length:', body.length);
-    console.error('Signature:', signature);
-    console.error('Webhook secret exists:', !!webhookSecret);
+    if (!signature) {
+      throw new Error('No signature provided');
+    }
     
-    // For development or if webhook secret is missing, skip verification
-    if (process.env.NODE_ENV === 'development' || !webhookSecret) {
-      console.log('⚠️  Skipping signature verification in development mode or missing secret');
+    if (!webhookSecret) {
+      throw new Error('No webhook secret configured');
+    }
+
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    console.log('✅ Webhook signature verified successfully');
+  } catch (err) {
+    console.error('❌ Webhook signature verification failed:', err);
+    console.error('Error details:', {
+      message: err instanceof Error ? err.message : 'Unknown error',
+      signature: signature?.substring(0, 20) + '...',
+      webhookSecretLength: webhookSecret?.length || 0,
+      bodyPreview: body.substring(0, 100) + '...'
+    });
+    
+    // For development, skip verification and parse JSON directly
+    if (process.env.NODE_ENV === 'development') {
+      console.log('⚠️  Development mode: Skipping signature verification');
       try {
         event = JSON.parse(body);
+        console.log('✅ Parsed webhook event in development mode');
       } catch (parseErr) {
-        console.error('Failed to parse body as JSON:', parseErr);
+        console.error('❌ Failed to parse body as JSON:', parseErr);
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
       }
     } else {
+      console.error('❌ Production mode: Signature verification required');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
   }
