@@ -396,6 +396,7 @@ export default function PlanTab() {
 
   const handleDowngradeConfirm = async () => {
     console.log('🔄 Starting downgrade confirmation...');
+    console.log('📊 Downgrade modal data:', downgradeModal);
     setLoading(downgradeModal.targetPlan);
     
     // Store modal data before closing
