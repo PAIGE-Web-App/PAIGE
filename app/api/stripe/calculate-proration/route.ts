@@ -116,11 +116,22 @@ export async function POST(request: NextRequest) {
       
       // Calculate proration using proper time calculations
       const now = Math.floor(Date.now() / 1000);
-      const periodStart = currentSub.current_period_start;
-      const periodEnd = currentSub.current_period_end;
+      
+      // Get period data from subscription items (the correct location)
+      const subscriptionItem = currentSub.items.data[0];
+      const periodStart = subscriptionItem.current_period_start;
+      const periodEnd = subscriptionItem.current_period_end;
+      
+      console.log('📅 Period data from subscription item:', {
+        periodStart,
+        periodEnd,
+        now,
+        timeRemaining: periodEnd ? periodEnd - now : 'undefined',
+        totalPeriod: periodEnd && periodStart ? periodEnd - periodStart : 'undefined'
+      });
       
       if (!periodEnd || !periodStart) {
-        throw new Error('Invalid subscription period data');
+        throw new Error('Invalid subscription period data from subscription item');
       }
       
       const timeRemaining = periodEnd - now;
