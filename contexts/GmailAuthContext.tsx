@@ -80,6 +80,24 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user?.uid, checkGmailAuth]);
 
+  // Check Gmail auth when app becomes visible (user returns from background)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // App became visible, check Gmail auth immediately
+        checkGmailAuth(true); // Force check
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.uid, checkGmailAuth]);
+
   return (
     <GmailAuthContext.Provider value={{
       needsReauth,

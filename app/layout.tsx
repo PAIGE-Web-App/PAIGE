@@ -67,6 +67,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <CreditProvider>
               <MoodBoardsProvider>
                 <GmailAuthProvider>
+                  {/* Global Gmail Banner - always present */}
+                  <GlobalGmailBanner />
+                  
                   {isAuthPage ? (
                   // For auth pages (login/signup), don't use LoadingProvider
                   <GlobalErrorBoundary>

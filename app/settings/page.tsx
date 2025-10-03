@@ -7,7 +7,7 @@ import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import WeddingBanner from "../../components/WeddingBanner";
-import GlobalGmailBanner from "../../components/GlobalGmailBanner";
+// GlobalGmailBanner now handled globally in layout.tsx
 import UnsavedChangesModal from "../../components/UnsavedChangesModal";
 import GmailConfirmModal from "../../components/GmailConfirmModal";
 
@@ -194,7 +194,7 @@ export default function ProfilePage() {
             transition={{ duration: 0.3 }}
           >
             <WeddingBanner localWeddingDate={weddingDate} />
-            <GlobalGmailBanner />
+            {/* GlobalGmailBanner now handled globally in layout.tsx */}
           </motion.div>
         )}
       </AnimatePresence>
