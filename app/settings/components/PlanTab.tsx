@@ -290,6 +290,8 @@ export default function PlanTab() {
       } else {
         const error = await response.json();
         console.error('Proration API error:', error);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
       }
     } catch (error) {
       console.error('Error calculating proration:', error);

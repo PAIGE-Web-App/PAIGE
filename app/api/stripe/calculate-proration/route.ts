@@ -63,6 +63,14 @@ export async function POST(request: NextRequest) {
     const currentPriceId = currentSubscription.items.data[0].price.id;
 
     // Calculate proration using Stripe's preview
+    console.log('🔄 Retrieving upcoming invoice for proration calculation...');
+    console.log('Subscription details:', {
+      customer: currentSubscription.customer,
+      subscriptionId: currentSubscriptionId,
+      currentPriceId: currentPriceId,
+      targetPriceId: targetPriceId
+    });
+
     const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
       customer: currentSubscription.customer,
       subscription: currentSubscriptionId,
@@ -71,6 +79,12 @@ export async function POST(request: NextRequest) {
         price: targetPriceId,
       }],
       subscription_proration_behavior: 'create_prorations',
+    });
+
+    console.log('📊 Upcoming invoice retrieved:', {
+      id: upcomingInvoice.id,
+      amount_due: upcomingInvoice.amount_due,
+      currency: upcomingInvoice.currency
     });
 
     // Calculate refund amount (negative amount_due means refund)
@@ -99,6 +113,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error calculating proration:', error);
-    return NextResponse.json({ error: 'Failed to calculate proration' }, { status: 500 });
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId,
+      targetTier
+    });
+    return NextResponse.json({ 
+      error: 'Failed to calculate proration',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
