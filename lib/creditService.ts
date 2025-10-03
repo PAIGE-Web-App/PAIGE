@@ -436,7 +436,9 @@ export class CreditService {
         userType: currentCredits.userType,
         subscriptionTier: currentCredits.subscriptionTier,
         subscriptionCredits,
-        monthlyCredits: subscriptionCredits?.monthlyCredits
+        monthlyCredits: subscriptionCredits?.monthlyCredits,
+        isNull: subscriptionCredits === null,
+        isUndefined: subscriptionCredits === undefined
       });
 
       // No rollover - just reset to subscription limit

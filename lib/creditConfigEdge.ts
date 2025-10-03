@@ -122,9 +122,11 @@ export async function getSubscriptionCredits(userType: UserType, tier: string): 
   try {
     if (userType === 'couple') {
       const coupleCredits = await getCoupleSubscriptionCredits();
+      console.log('🔍 Edge Config couple credits:', { tier, coupleCredits, found: coupleCredits[tier as CoupleSubscriptionTier] });
       return coupleCredits[tier as CoupleSubscriptionTier] || null;
     } else {
       const plannerCredits = await getPlannerSubscriptionCredits();
+      console.log('🔍 Edge Config planner credits:', { tier, plannerCredits, found: plannerCredits[tier as PlannerSubscriptionTier] });
       return plannerCredits[tier as PlannerSubscriptionTier] || null;
     }
   } catch (error) {
