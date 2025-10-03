@@ -8,8 +8,7 @@ import PlanCard from '@/components/billing/PlanCard';
 import CreditPackCard from '@/components/billing/CreditPackCard';
 import CreditPackSelector from '@/components/billing/CreditPackSelector';
 import DowngradeConfirmationModal from '@/components/billing/DowngradeConfirmationModal';
-import DowngradeTester from '@/components/billing/DowngradeTester';
-import { Sparkles, CreditCard, Zap, X } from 'lucide-react';
+import { Sparkles, CreditCard, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -500,118 +499,10 @@ export default function PlanTab() {
     toast.success('Downgrade cancelled. You\'ll keep your current plan.');
   };
 
-  const handleManualRefresh = async () => {
-    setRefreshing(true);
-    try {
-      console.log('🔄 Manual refresh clicked - before refresh:', credits);
-      // Force refresh credits (bypasses cache)
-      await refreshCredits();
-      console.log('🔄 Manual refresh clicked - after refresh:', credits);
-      toast.success('Credits refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing credits:', error);
-      toast.error('Failed to refresh credits');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleWebhookTrigger = async () => {
-    setRefreshing(true);
-    try {
-      const token = await user?.getIdToken();
-      if (!token) {
-        toast.error('Authentication required');
-        return;
-      }
-
-      const response = await fetch('/api/test-webhook-trigger', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Webhook trigger result:', result);
-        toast.success('Webhook logic triggered - sidebar should update');
-      } else {
-        const error = await response.json();
-        toast.error(`Webhook trigger failed: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error triggering webhook:', error);
-      toast.error('Failed to trigger webhook');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleDebugCredits = async () => {
-    try {
-      const token = await user?.getIdToken();
-      if (!token) {
-        toast.error('Authentication required');
-        return;
-      }
-
-      const response = await fetch('/api/debug-credits', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('🔍 Debug credits result:', result);
-        toast.success('Check console for debug info');
-      } else {
-        const error = await response.json();
-        toast.error(`Debug failed: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error debugging credits:', error);
-      toast.error('Failed to debug credits');
-    }
-  };
-
-  const handleFixCredits = async () => {
-    try {
-      const token = await user?.getIdToken();
-      if (!token) {
-        toast.error('Authentication required');
-        return;
-      }
-
-      const response = await fetch('/api/fix-credits', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('🔧 Fix credits result:', result);
-        toast.success(`Fixed credits: ${result.dailyCredits} for ${result.subscriptionTier}`);
-        // UI should update automatically via creditEventEmitter
-      } else {
-        const error = await response.json();
-        toast.error(`Fix failed: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error fixing credits:', error);
-      toast.error('Failed to fix credits');
-    }
-  };
 
 
   return (
     <div className="space-y-8 pb-8">
-      {/* Development Testing Tools */}
-      <DowngradeTester />
       
       {/* Current Plan Status */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
@@ -628,54 +519,6 @@ export default function PlanTab() {
               {plans.find(p => p.tier === currentTier)?.creditsPerDay || 15} credits per day
             </div>
           </div>
-                 <div className="flex gap-2">
-                   <button
-                     onClick={handleManualRefresh}
-                     disabled={refreshing}
-                     className="btn-primaryinverse text-sm px-3 py-1 flex items-center gap-2"
-                   >
-                     {refreshing ? (
-                       <>
-                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
-                         Refreshing...
-                       </>
-                     ) : (
-                       <>
-                         <Zap className="w-3 h-3" />
-                         Refresh Credits
-                       </>
-                     )}
-                   </button>
-                   <button
-                     onClick={handleWebhookTrigger}
-                     disabled={refreshing}
-                     className="btn-primary text-sm px-3 py-1 flex items-center gap-2"
-                   >
-                     {refreshing ? (
-                       <>
-                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
-                         Triggering...
-                       </>
-                     ) : (
-                       <>
-                         <Zap className="w-3 h-3" />
-                         Trigger Webhook
-                       </>
-                     )}
-                   </button>
-                   <button
-                     onClick={handleDebugCredits}
-                     className="bg-gray-500 text-white text-sm px-3 py-1 flex items-center gap-2 rounded"
-                   >
-                     Debug Credits
-                   </button>
-                   <button
-                     onClick={handleFixCredits}
-                     className="bg-green-500 text-white text-sm px-3 py-1 flex items-center gap-2 rounded"
-                   >
-                     Fix Credits
-                   </button>
-                 </div>
         </div>
         
         {/* Pending downgrade info */}
