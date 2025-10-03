@@ -113,6 +113,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
     }
 
+    // Handle subscription changes (upgrades/downgrades) with proration
+    if (type === 'subscription') {
+      try {
+        // Get user's current subscription from Firestore
+        const { adminDb } = await import('@/lib/firebaseAdmin');
+        const userDoc = await adminDb.collection('users').doc(userId).get();
+        const userData = userDoc.data();
+        
+        if (userData?.billing?.subscription?.stripeSubscriptionId) {
+          const currentSubscriptionId = userData.billing.subscription.stripeSubscriptionId;
+          const currentTier = userData.billing.subscription.tier;
+          
+          console.log('🔄 Subscription change detected:', { 
+            currentTier, 
+            newTier: tier, 
+            subscriptionId: currentSubscriptionId 
+          });
+          
+          // Check if this is a downgrade (lower tier)
+          const tierOrder = { 'free': 0, 'couple_premium': 1, 'couple_pro': 2, 'planner_starter': 1, 'planner_professional': 2 };
+          const currentTierLevel = tierOrder[currentTier as keyof typeof tierOrder] || 0;
+          const newTierLevel = tierOrder[tier as keyof typeof tierOrder] || 0;
+          
+          if (newTierLevel < currentTierLevel) {
+            console.log('📉 Downgrade detected - using proration');
+            
+            // Update existing subscription with proration
+            const subscription = await stripe.subscriptions.update(currentSubscriptionId, {
+              items: [{
+                id: (await stripe.subscriptions.retrieve(currentSubscriptionId)).items.data[0].id,
+                price: priceId,
+              }],
+              proration_behavior: 'create_prorations',
+              metadata: {
+                userId: userId,
+                tier: tier,
+              },
+            });
+            
+            console.log('✅ Subscription updated with proration:', subscription.id);
+            
+            return NextResponse.json({ 
+              url: successUrl + '&prorated=true',
+              message: 'Subscription updated with proration'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error handling subscription change:', error);
+        // Fall through to regular checkout if subscription update fails
+      }
+    }
+
     // Create checkout session
     const sessionConfig: any = {
       customer: customerId,
