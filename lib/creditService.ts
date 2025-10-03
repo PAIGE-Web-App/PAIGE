@@ -87,8 +87,7 @@ export class CreditService {
   async getUserCredits(userId: string): Promise<UserCredits | null> {
     try {
       const userRef = adminDb.collection('users').doc(userId);
-      // Force fresh read from Firestore by using get() with source: 'server'
-      const userSnap = await userRef.get({ source: 'server' });
+      const userSnap = await userRef.get();
 
       if (!userSnap.exists) {
         return null;

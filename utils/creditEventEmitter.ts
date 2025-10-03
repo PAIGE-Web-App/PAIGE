@@ -17,7 +17,7 @@ type CreditEventListener = (data?: CreditEventData | CreditUpdateEventData) => v
 class CreditEventEmitter {
   private listeners: CreditEventListener[] = [];
   private readonly STORAGE_KEY = 'creditUpdateEvent';
-  private pendingEventData: CreditEventData | undefined = undefined; // Store pending event data
+  private pendingEventData: CreditEventData | CreditUpdateEventData | undefined = undefined; // Store pending event data
 
           // Subscribe to credit updates
         subscribe(listener: CreditEventListener): () => void {
