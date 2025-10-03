@@ -55,7 +55,6 @@ export default function ProfilePage() {
   // Track Quick Start Guide completion
   useQuickStartCompletion();
 
-
   const getInitialTab = () => {
     const tabFromUrl = searchParams?.get('tab');
     return TABS.find(tab => tab.key === tabFromUrl)?.key || "account";

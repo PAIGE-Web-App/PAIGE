@@ -306,8 +306,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Auth state changed
       setUser(user);
-      
-      // Set loading to false immediately - the component will handle the auth check
       setLoading(false);
       
       // If user exists, validate session and set up token refresh

@@ -18,7 +18,6 @@ export default function PlanTab() {
   const { user, userType } = useAuth();
   const { credits, loadCredits, refreshCredits } = useCredits();
   const [loading, setLoading] = useState<string | null>(null);
-
   const [refreshing, setRefreshing] = useState(false);
   const [downgradeModal, setDowngradeModal] = useState<{
     isOpen: boolean;
@@ -280,7 +279,7 @@ export default function PlanTab() {
       return;
     }
     
-    // This is an upgrade - proceed directly to Stripe checkout
+    // This is an upgrade - proceed normally
     setLoading(tier);
     try {
       // Get Firebase token
@@ -495,33 +494,9 @@ export default function PlanTab() {
   const handleManualRefresh = async () => {
     setRefreshing(true);
     try {
-      const token = await user?.getIdToken();
-      if (!token) {
-        toast.error('Authentication required');
-        return;
-      }
-
-      console.log('🔄 Manually refreshing credits...');
-
-      const response = await fetch('/api/credits/force-refresh', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Force refresh result:', result);
-        
-        // Force reload credits with cache bypass
-        await refreshCredits(); // Use refreshCredits which bypasses cache
-        toast.success(`Credits updated to ${result.dailyCredits} for ${result.subscriptionTier} tier`);
-      } else {
-        const error = await response.json();
-        console.error('❌ Force refresh failed:', error);
-        toast.error(`Failed to refresh: ${error.error}`);
-      }
+      // Force refresh credits (bypasses cache)
+      await refreshCredits();
+      toast.success('Credits refreshed successfully');
     } catch (error) {
       console.error('Error refreshing credits:', error);
       toast.error('Failed to refresh credits');
@@ -529,6 +504,7 @@ export default function PlanTab() {
       setRefreshing(false);
     }
   };
+
 
   return (
     <div className="space-y-8 pb-8">
