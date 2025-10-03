@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
       console.log('📊 Subscription and price details:', {
         currentPriceAmount: currentPrice.unit_amount,
         targetPriceAmount: targetPrice.unit_amount,
-        currentPeriodEnd: currentSub.current_period_end,
-        currentPeriodStart: currentSub.current_period_start
+        currentPeriodEnd: (currentSub as any).current_period_end,
+        currentPeriodStart: (currentSub as any).current_period_start
       });
       
       // Calculate proration using proper time calculations
@@ -182,14 +182,14 @@ export async function POST(request: NextRequest) {
         console.log('📊 Subscription and price details:', {
           currentPriceAmount: currentPrice.unit_amount,
           targetPriceAmount: targetPrice.unit_amount,
-          currentPeriodEnd: currentSub.current_period_end,
-          currentPeriodStart: currentSub.current_period_start
+          currentPeriodEnd: (currentSub as any).current_period_end,
+          currentPeriodStart: (currentSub as any).current_period_start
         });
         
         // Calculate proration manually using proper time calculations
         const now = Math.floor(Date.now() / 1000);
-        const periodStart = currentSub.current_period_start;
-        const periodEnd = currentSub.current_period_end;
+        const periodStart = (currentSub as any).current_period_start;
+        const periodEnd = (currentSub as any).current_period_end;
         
         if (!periodEnd || !periodStart) {
           throw new Error('Invalid subscription period data');
