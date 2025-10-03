@@ -112,7 +112,9 @@ export function middleware(request: NextRequest) {
 // Configure which paths the middleware should run on
 export const config = {
   matcher: [
-    // Only handle API routes for rate limiting
+    // Handle API routes for rate limiting
     '/api/:path*',
+    // Handle page routes for authentication
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 } 

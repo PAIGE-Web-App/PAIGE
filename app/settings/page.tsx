@@ -69,8 +69,18 @@ export default function ProfilePage() {
 
   // Redirect to login if not authenticated
   if (!user) {
-    router.push('/login');
-    return null;
+    // Use useEffect to prevent hydration issues
+    useEffect(() => {
+      router.push('/login');
+    }, [router]);
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#805d93] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   const getInitialTab = () => {
