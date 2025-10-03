@@ -23,11 +23,13 @@ export default function PlanTab() {
     targetPlan: string;
     targetPlanName: string;
     targetCredits: number;
+    prorationAmount?: string;
   }>({
     isOpen: false,
     targetPlan: '',
     targetPlanName: '',
-    targetCredits: 0
+    targetCredits: 0,
+    prorationAmount: undefined
   });
 
   const [pendingDowngrade, setPendingDowngrade] = useState<{
@@ -262,6 +264,30 @@ export default function PlanTab() {
     }
   };
 
+  const calculateProration = async (targetTier: string): Promise<string | undefined> => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) return undefined;
+
+      const response = await fetch('/api/stripe/calculate-proration', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ targetTier })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.isDowngrade ? result.refundAmountDollars : undefined;
+      }
+    } catch (error) {
+      console.error('Error calculating proration:', error);
+    }
+    return undefined;
+  };
+
   const handleUpgrade = async (tier: string) => {
     // Check if this is a downgrade
     const tierOrder = ['free', 'couple_premium', 'couple_pro', 'planner_starter', 'planner_professional'];
@@ -269,14 +295,16 @@ export default function PlanTab() {
     const targetIndex = tierOrder.indexOf(tier);
     
     if (targetIndex < currentIndex) {
-      // This is a downgrade - show confirmation modal
+      // This is a downgrade - calculate proration and show confirmation modal
       const targetPlan = plans.find(p => p.tier === tier);
       if (targetPlan) {
+        const prorationAmount = await calculateProration(tier);
         setDowngradeModal({
           isOpen: true,
           targetPlan: tier,
           targetPlanName: targetPlan.name,
-          targetCredits: targetPlan.creditsPerDay
+          targetCredits: targetPlan.creditsPerDay,
+          prorationAmount
         });
       }
       return;
@@ -624,6 +652,7 @@ export default function PlanTab() {
         renewalDate={credits?.billing?.subscription?.currentPeriodEnd ? 
           parseFirestoreDate(credits.billing.subscription.currentPeriodEnd) : undefined
         }
+        prorationAmount={downgradeModal.prorationAmount}
         isLoading={loading === downgradeModal.targetPlan}
       />
     </div>
