@@ -64,6 +64,15 @@ export default function PlanTab() {
     loadPendingDowngrade();
   }, [user]);
 
+  // Auto-refresh credits when component mounts (fallback for webhook failures)
+  useEffect(() => {
+    if (user?.uid) {
+      // Always refresh credits when visiting the plan tab to ensure accuracy
+      console.log('🔄 Plan tab: Refreshing credits on mount...');
+      refreshCredits();
+    }
+  }, [user?.uid, refreshCredits]);
+
   // Convert Stripe tier to plan tier for matching
   const getPlanTier = (stripeTier: string) => {
     if (stripeTier === 'couple_premium' || stripeTier === 'premium') return 'couple_premium';

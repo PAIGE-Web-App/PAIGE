@@ -42,10 +42,20 @@ export default function VerticalNavCreditDisplay() {
     }
   }, [credits, hasInitialized, previousCredits]);
 
-  // Removed aggressive polling to prevent infinite loops
-
-  // Credit refresh is now handled centrally in CreditProvider
-  // No need for individual event listeners
+  // Auto-refresh credits when component mounts (fallback for webhook failures)
+  useEffect(() => {
+    if (credits) {
+      // Only refresh if credits seem stale (older than 2 minutes)
+      const lastUpdate = credits.updatedAt;
+      const now = new Date();
+      const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+      
+      if (lastUpdate && new Date(lastUpdate) < twoMinutesAgo) {
+        console.log('🔄 Sidebar: Auto-refreshing stale credits...');
+        loadCredits();
+      }
+    }
+  }, [credits, loadCredits]);
 
   if (loading) {
     return (
