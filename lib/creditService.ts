@@ -106,11 +106,23 @@ export class CreditService {
         userCredits.billing = userData.billing;
       }
       
+      // Debug logging for credit updates
+      console.log('🔍 getUserCredits from Firestore:', {
+        userId,
+        subscriptionTier: userCredits.subscriptionTier,
+        dailyCredits: userCredits.dailyCredits,
+        bonusCredits: userCredits.bonusCredits,
+        lastCreditRefresh: userCredits.lastCreditRefresh,
+        updatedAt: userCredits.updatedAt
+      });
+      
               // Check if credits need refresh
         if (await this.shouldRefreshCredits(userCredits)) {
+          console.log('🔄 Credits need refresh, calling refreshCredits...');
           return await this.refreshCredits(userId, userCredits);
         }
 
+        console.log('✅ Returning existing credits without refresh');
         return userCredits;
     } catch (error) {
       console.error('Error getting user credits:', error);
