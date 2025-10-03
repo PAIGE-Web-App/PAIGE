@@ -7,7 +7,12 @@ export type CreditEventData = {
   requiredCredits: number;
 } | undefined; // Allow undefined for generic emits
 
-type CreditEventListener = (data?: CreditEventData) => void;
+export type CreditUpdateEventData = {
+  userId: string;
+  credits: any; // UserCredits object
+};
+
+type CreditEventListener = (data?: CreditEventData | CreditUpdateEventData) => void;
 
 class CreditEventEmitter {
   private listeners: CreditEventListener[] = [];
@@ -31,7 +36,7 @@ class CreditEventEmitter {
         }
 
           // Emit credit update event
-        emit(data?: CreditEventData): void {
+        emit(data?: CreditEventData | CreditUpdateEventData): void {
           // If there are listeners, call them immediately
           if (this.listeners.length > 0) {
             this.listeners.forEach((listener) => {

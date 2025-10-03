@@ -577,6 +577,36 @@ export default function PlanTab() {
     }
   };
 
+  const handleFixCredits = async () => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/fix-credits', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('🔧 Fix credits result:', result);
+        toast.success(`Fixed credits: ${result.dailyCredits} for ${result.subscriptionTier}`);
+        // UI should update automatically via creditEventEmitter
+      } else {
+        const error = await response.json();
+        toast.error(`Fix failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error fixing credits:', error);
+      toast.error('Failed to fix credits');
+    }
+  };
+
 
   return (
     <div className="space-y-8 pb-8">
@@ -638,6 +668,12 @@ export default function PlanTab() {
                      className="bg-gray-500 text-white text-sm px-3 py-1 flex items-center gap-2 rounded"
                    >
                      Debug Credits
+                   </button>
+                   <button
+                     onClick={handleFixCredits}
+                     className="bg-green-500 text-white text-sm px-3 py-1 flex items-center gap-2 rounded"
+                   >
+                     Fix Credits
                    </button>
                  </div>
         </div>

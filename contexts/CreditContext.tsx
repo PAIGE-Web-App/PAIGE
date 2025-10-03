@@ -225,6 +225,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!eventListenerRef.current) {
       const handleCreditEvent = (data?: any) => {
+        console.log('🎯 CreditContext: Received credit event:', data);
         // Invalidate cache immediately to force fresh data
         creditCache.data = null;
         creditCache.timestamp = 0;
