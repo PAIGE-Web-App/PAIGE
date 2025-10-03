@@ -73,6 +73,15 @@ export default function VerticalNavCreditDisplay() {
   const remainingCredits = dailyCredits + bonusCredits;
   const hasBonusCredits = bonusCredits > 0;
   
+  // Debug logging
+  console.log('🔍 Sidebar credits debug:', {
+    credits,
+    dailyCredits,
+    bonusCredits,
+    remainingCredits,
+    subscriptionTier: credits?.subscriptionTier
+  });
+  
 
 
   const handleUpgradeClick = () => {

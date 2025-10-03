@@ -503,8 +503,10 @@ export default function PlanTab() {
   const handleManualRefresh = async () => {
     setRefreshing(true);
     try {
+      console.log('🔄 Manual refresh clicked - before refresh:', credits);
       // Force refresh credits (bypasses cache)
       await refreshCredits();
+      console.log('🔄 Manual refresh clicked - after refresh:', credits);
       toast.success('Credits refreshed successfully');
     } catch (error) {
       console.error('Error refreshing credits:', error);
@@ -543,6 +545,35 @@ export default function PlanTab() {
       toast.error('Failed to trigger webhook');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleDebugCredits = async () => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/debug-credits', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('🔍 Debug credits result:', result);
+        toast.success('Check console for debug info');
+      } else {
+        const error = await response.json();
+        toast.error(`Debug failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error debugging credits:', error);
+      toast.error('Failed to debug credits');
     }
   };
 
@@ -601,6 +632,12 @@ export default function PlanTab() {
                          Trigger Webhook
                        </>
                      )}
+                   </button>
+                   <button
+                     onClick={handleDebugCredits}
+                     className="bg-gray-500 text-white text-sm px-3 py-1 flex items-center gap-2 rounded"
+                   >
+                     Debug Credits
                    </button>
                  </div>
         </div>
