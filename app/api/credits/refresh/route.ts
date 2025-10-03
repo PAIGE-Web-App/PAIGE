@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Notify frontend that credits have been updated
     try {
-      const { creditEventEmitter } = await import('@/lib/creditEventEmitter');
+      const { creditEventEmitter } = await import('@/utils/creditEventEmitter');
       creditEventEmitter.emit('creditsUpdated', { userId, credits: refreshedCredits });
       console.log(`📡 Emitted credit update event for user ${userId}`);
     } catch (eventError) {
