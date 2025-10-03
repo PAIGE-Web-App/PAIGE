@@ -132,6 +132,7 @@ export interface CreditCosts {
 export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditAllocation> = {
   free: {
     monthlyCredits: 15,
+    dailyCredits: 15, // Same as monthlyCredits for clarity
     rolloverCredits: 0,
     aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'bulk_vibe_generation'],
     creditRefresh: 'daily',
@@ -142,6 +143,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   },
   premium: {
     monthlyCredits: 22, // Reduced from 60
+    dailyCredits: 22, // Same as monthlyCredits for clarity
     rolloverCredits: 0, // No rollover
     aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'budget_generation_rag', 'vendor_suggestions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
@@ -152,6 +154,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
   },
   pro: {
     monthlyCredits: 45, // Reduced from 150
+    dailyCredits: 45, // Same as monthlyCredits for clarity
     rolloverCredits: 0, // No rollover
     aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',

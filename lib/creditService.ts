@@ -60,7 +60,7 @@ export class CreditService {
         userId,
         userType,
         subscriptionTier,
-        dailyCredits: subscriptionCredits.monthlyCredits,
+        dailyCredits: subscriptionCredits.dailyCredits || subscriptionCredits.monthlyCredits,
         bonusCredits: 0,
         totalCreditsUsed: 0,
         lastCreditRefresh: new Date(),
@@ -442,7 +442,8 @@ export class CreditService {
       });
 
       // No rollover - just reset to subscription limit
-      const newCredits = subscriptionCredits?.monthlyCredits || 15; // Fallback to 15 if undefined
+      // Use dailyCredits if available, otherwise fall back to monthlyCredits (legacy naming)
+      const newCredits = subscriptionCredits?.dailyCredits || subscriptionCredits?.monthlyCredits || 15;
 
       const userRef = adminDb.collection('users').doc(userId);
       await userRef.update({
