@@ -8,7 +8,7 @@ import PlanCard from '@/components/billing/PlanCard';
 import CreditPackCard from '@/components/billing/CreditPackCard';
 import CreditPackSelector from '@/components/billing/CreditPackSelector';
 import DowngradeConfirmationModal from '@/components/billing/DowngradeConfirmationModal';
-import { Sparkles, CreditCard, X } from 'lucide-react';
+import { Sparkles, CreditCard, Zap, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
