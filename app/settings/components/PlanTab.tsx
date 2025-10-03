@@ -267,7 +267,12 @@ export default function PlanTab() {
   const calculateProration = async (targetTier: string): Promise<string | undefined> => {
     try {
       const token = await user?.getIdToken();
-      if (!token) return undefined;
+      if (!token) {
+        console.log('No auth token for proration calculation');
+        return undefined;
+      }
+
+      console.log('🔄 Calculating proration for downgrade to:', targetTier);
 
       const response = await fetch('/api/stripe/calculate-proration', {
         method: 'POST',
@@ -280,7 +285,11 @@ export default function PlanTab() {
 
       if (response.ok) {
         const result = await response.json();
+        console.log('💰 Proration result:', result);
         return result.isDowngrade ? result.refundAmountDollars : undefined;
+      } else {
+        const error = await response.json();
+        console.error('Proration API error:', error);
       }
     } catch (error) {
       console.error('Error calculating proration:', error);

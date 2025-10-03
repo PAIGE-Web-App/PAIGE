@@ -67,7 +67,7 @@ const DowngradeConfirmationModal: React.FC<DowngradeConfirmationModalProps> = ({
             <p className="text-sm text-gray-600 text-left">
               Are you sure you want to downgrade from <strong>{currentPlan}</strong> to <strong>{targetPlan}</strong>?
             </p>
-            {prorationAmount && (
+            {prorationAmount ? (
               <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm text-green-800 font-medium">
                   💰 You'll receive a refund of <strong>${prorationAmount}</strong> for the unused portion of your current plan.
@@ -76,12 +76,11 @@ const DowngradeConfirmationModal: React.FC<DowngradeConfirmationModalProps> = ({
                   The refund will be processed immediately to your original payment method.
                 </p>
               </div>
-            )}
-            {renewalDate && !prorationAmount && (
+            ) : renewalDate ? (
               <p className="text-sm text-gray-500 text-left mt-2">
                 You'll keep your current plan benefits until {renewalDate}, then switch to {targetPlan}.
               </p>
-            )}
+            ) : null}
           </div>
 
           {/* Warning section */}
