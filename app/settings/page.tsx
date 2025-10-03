@@ -55,8 +55,12 @@ export default function ProfilePage() {
   // Track Quick Start Guide completion
   useQuickStartCompletion();
 
+  // Debug logging
+  console.log('Settings page render:', { authLoading, user: !!user, userUid: user?.uid });
+
   // Show loading state while authentication is being checked
   if (authLoading) {
+    console.log('Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -67,8 +71,9 @@ export default function ProfilePage() {
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!user) {
+  // Only redirect to login if we're sure there's no user (not just loading)
+  if (!user && !authLoading) {
+    console.log('No user found, redirecting to login');
     // Use useEffect to prevent hydration issues
     useEffect(() => {
       router.push('/login');

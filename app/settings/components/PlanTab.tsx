@@ -18,6 +18,17 @@ export default function PlanTab() {
   const { user, userType } = useAuth();
   const { credits, loadCredits, refreshCredits } = useCredits();
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Debug logging
+  console.log('PlanTab render:', { 
+    user: !!user, 
+    userUid: user?.uid, 
+    credits: credits ? {
+      subscriptionTier: credits.subscriptionTier,
+      dailyCredits: credits.dailyCredits,
+      bonusCredits: credits.bonusCredits
+    } : null
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [downgradeModal, setDowngradeModal] = useState<{
     isOpen: boolean;
