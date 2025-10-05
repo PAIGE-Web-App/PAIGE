@@ -20,7 +20,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import CreditsExplanationModal from "../../components/CreditsExplanationModal";
 import WelcomeModal from "../../components/WelcomeModal";
-import AIOnboardingFlow from "../../components/onboarding/AIOnboardingFlow";
+import AIGenerationModal from "../../components/onboarding/AIGenerationModal";
 import { 
   QuickGuide, 
   QuickGuideCards,
@@ -659,13 +659,14 @@ export default function Dashboard() {
       showCloseButton={isManualWelcomeModal}
     />
 
-    {/* AI Onboarding Flow */}
-    <AIOnboardingFlow
+    {/* AI Generation Modal */}
+    <AIGenerationModal
       isOpen={showAIGenerationModal}
       onClose={() => setShowAIGenerationModal(false)}
-      onComplete={() => {
+      onComplete={(data) => {
         setShowAIGenerationModal(false);
-        console.log('AI Onboarding Flow completed');
+        showSuccessToast('Welcome to Paige! Creating your personalized wedding plan...');
+        console.log('AI Generation completed:', data);
       }}
       userName={userData?.userName || ''}
       partnerName={userData?.partnerName || ''}
@@ -675,7 +676,7 @@ export default function Dashboard() {
       maxBudget={userData?.maxBudget || 0}
       guestCount={userData?.guestCount || 0}
       vibe={userData?.vibe || []}
-      additionalContext={localStorage.getItem('paige_ai_generation_context') || ''}
+      additionalContext={typeof window !== 'undefined' ? localStorage.getItem('paige_ai_generation_context') || '' : ''}
     />
     </ClientOnly>
   );
