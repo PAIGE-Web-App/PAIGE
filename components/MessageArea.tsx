@@ -26,6 +26,7 @@ import GmailImportConfigModal, { ImportConfig } from './GmailImportConfigModal';
 import GmailTodoReviewModal from './GmailTodoReviewModal';
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { useCredits } from "../contexts/CreditContext";
+import { useGmailAuth } from "../contexts/GmailAuthContext";
 
 
 // Define interfaces for types needed in this component
@@ -201,6 +202,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   onMobileBackToContacts,
 }) => {
   const router = useRouter();
+  const { checkGmailAuth } = useGmailAuth();
   const [state, dispatch] = useReducer(messageReducer, { 
     messages: [], 
     loading: false, 
@@ -554,7 +556,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           }),
         });
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Failed to send Gmail reply');
+        if (!data.success) {
+          if (data.needsReauth) {
+            // Trigger Gmail auth check to show the global banner
+            checkGmailAuth(true); // Force check
+            showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
+            return; // Don't throw error, just return
+          }
+          throw new Error(data.error || 'Failed to send Gmail reply');
+        }
         showSuccessToast('Gmail reply sent!');
         
         // Extract Gmail message ID from response for local storage
@@ -582,8 +592,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         const data = await res.json();
         if (!data.success) {
           if (data.needsReauth) {
-            setShowReauthNotification(true);
-            // Gmail reauth banner now handled globally
+            // Trigger Gmail auth check to show the global banner
+            checkGmailAuth(true); // Force check
+            showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
             return; // Don't throw error, just return
           }
           throw new Error(data.error || 'Failed to send Gmail message');
@@ -1069,7 +1080,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
     } catch (error) {
       console.error('Error importing Gmail:', error);
-      showErrorToast('Failed to import Gmail messages');
+      
+      // Check if this is a Gmail authentication error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Gmail access token expired') || 
+          errorMessage.includes('Please re-authorize Gmail access') ||
+          errorMessage.includes('invalid_grant') || 
+          errorMessage.includes('invalid_token')) {
+        // Trigger Gmail auth check to show the global banner
+        checkGmailAuth(true); // Force check
+        showErrorToast('Gmail access expired. Please re-authenticate to import messages.');
+      } else {
+        showErrorToast('Failed to import Gmail messages');
+      }
     } finally {
       setIsImportingGmail(false);
     }
@@ -1213,7 +1236,21 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
     } catch (error) {
       console.error('Error checking for new Gmail messages:', error);
-      if (userInitiated) showErrorToast('Failed to check for new Gmail messages');
+      
+      if (userInitiated) {
+        // Check if this is a Gmail authentication error
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Gmail access token expired') || 
+            errorMessage.includes('Please re-authorize Gmail access') ||
+            errorMessage.includes('invalid_grant') || 
+            errorMessage.includes('invalid_token')) {
+          // Trigger Gmail auth check to show the global banner
+          checkGmailAuth(true); // Force check
+          showErrorToast('Gmail access expired. Please re-authenticate to check for new messages.');
+        } else {
+          showErrorToast('Failed to check for new Gmail messages');
+        }
+      }
     } finally {
       if (userInitiated) setIsCheckingGmail(false);
     }

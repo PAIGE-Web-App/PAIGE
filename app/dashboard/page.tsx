@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import CreditsExplanationModal from "../../components/CreditsExplanationModal";
 import WelcomeModal from "../../components/WelcomeModal";
+import AIOnboardingFlow from "../../components/onboarding/AIOnboardingFlow";
 import { 
   QuickGuide, 
   QuickGuideCards,
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [aiCompleted, setAiCompleted] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isManualWelcomeModal, setIsManualWelcomeModal] = useState(false);
+  const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
 
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
@@ -234,7 +236,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       const cachedOnboardingStatus = localStorage.getItem('paige_onboarding_status');
-      if (cachedOnboardingStatus === 'not-onboarded') {
+      const aiGenerationContext = localStorage.getItem('paige_ai_generation_context');
+      
+      // Don't redirect if user is coming from signup with AI generation context
+      if (cachedOnboardingStatus === 'not-onboarded' && !aiGenerationContext) {
         console.log('User is not onboarded, redirecting to signup...');
         window.location.href = '/signup?onboarding=1';
       }
@@ -264,19 +269,42 @@ export default function Dashboard() {
     }
   }, [showSuccessToast]);
 
+  // Check for AI generation context from signup flow
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const aiGenerationContext = localStorage.getItem('paige_ai_generation_context');
+      console.log('AI Generation check:', {
+        aiGenerationContext,
+        userData: !!userData,
+        hasUserData: !!userData
+      });
+      
+      if (aiGenerationContext && userData) {
+        console.log('Showing AI generation modal');
+        // Clear the context from localStorage
+        localStorage.removeItem('paige_ai_generation_context');
+        // Show AI generation modal
+        setShowAIGenerationModal(true);
+      }
+    }
+  }, [userData, loading]);
+
   // Show welcome modal for first-time users
   useEffect(() => {
     if (userData && !loading) {
       // Check if user has seen the welcome modal before (from Firestore)
       const hasSeenWelcomeModal = userData.hasSeenWelcomeModal;
+      const aiGenerationContext = localStorage.getItem('paige_ai_generation_context');
       
       console.log('Welcome modal check:', {
         hasSeenWelcomeModal,
-        shouldShow: !hasSeenWelcomeModal
+        shouldShow: !hasSeenWelcomeModal,
+        hasAIContext: !!aiGenerationContext
       });
       
       // Show welcome modal for ALL new users who haven't seen it before
-      if (!hasSeenWelcomeModal) {
+      // BUT only if they're not coming from the AI generation flow
+      if (!hasSeenWelcomeModal && !aiGenerationContext) {
         console.log('Showing welcome modal automatically for new user');
         setShowWelcomeModal(true);
         setIsManualWelcomeModal(false); // This is automatic, not manual
@@ -572,7 +600,6 @@ export default function Dashboard() {
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
           <WeddingBanner />
-          <GlobalGmailBanner />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ width: '100%', maxWidth: '1152px' }}>
         <div className="space-y-8">
@@ -630,6 +657,25 @@ export default function Dashboard() {
       }}
       firstName={getFirstName(userData?.userName)}
       showCloseButton={isManualWelcomeModal}
+    />
+
+    {/* AI Onboarding Flow */}
+    <AIOnboardingFlow
+      isOpen={showAIGenerationModal}
+      onClose={() => setShowAIGenerationModal(false)}
+      onComplete={() => {
+        setShowAIGenerationModal(false);
+        console.log('AI Onboarding Flow completed');
+      }}
+      userName={userData?.userName || ''}
+      partnerName={userData?.partnerName || ''}
+      weddingDate={userData?.weddingDate || null}
+      weddingLocation={userData?.weddingLocation || ''}
+      selectedVenueMetadata={userData?.selectedVenueMetadata || null}
+      maxBudget={userData?.maxBudget || 0}
+      guestCount={userData?.guestCount || 0}
+      vibe={userData?.vibe || []}
+      additionalContext={localStorage.getItem('paige_ai_generation_context') || ''}
     />
     </ClientOnly>
   );

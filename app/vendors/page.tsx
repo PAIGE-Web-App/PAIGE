@@ -487,7 +487,6 @@ export default function VendorsPage() {
       `}</style>
       <div className="min-h-screen bg-linen mobile-scroll-container">
         <WeddingBanner />
-        <GlobalGmailBanner />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
         {/* Check if we should show empty state */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, RefreshCw, ExternalLink, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useGmailAuth } from '@/contexts/GmailAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -34,6 +35,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
   compact
 }) => {
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  const { checkGmailAuth } = useGmailAuth();
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus>({ isLinked: false });
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -98,11 +100,32 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         setFoundExistingCalendar(false);
         setExistingCalendarName('');
       } else {
-        showErrorToast(data.message || 'Failed to create Google Calendar');
+        // Check if this is a Google authentication error
+        const errorMessage = data.message || '';
+        if (errorMessage.includes('Google authentication expired') || 
+            errorMessage.includes('Google authentication required') ||
+            errorMessage.includes('invalid_grant')) {
+          // Trigger Gmail auth check to show the global banner
+          checkGmailAuth(true); // Force check
+          showErrorToast('Google authentication expired. Please re-authenticate to create Google Calendar.');
+        } else {
+          showErrorToast(errorMessage || 'Failed to create Google Calendar');
+        }
       }
     } catch (error) {
       console.error('Error creating calendar:', error);
-      showErrorToast('Failed to create Google Calendar');
+      
+      // Check if this is a Google authentication error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Google authentication expired') || 
+          errorMessage.includes('Google authentication required') ||
+          errorMessage.includes('invalid_grant')) {
+        // Trigger Gmail auth check to show the global banner
+        checkGmailAuth(true); // Force check
+        showErrorToast('Google authentication expired. Please re-authenticate to create Google Calendar.');
+      } else {
+        showErrorToast('Failed to create Google Calendar');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -134,14 +157,34 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         await fetchCalendarStatus();
         onSyncComplete?.();
       } else {
-        showErrorToast(data.message || 'Failed to sync to Google Calendar');
+        // Check if this is a Google authentication error
+        const errorMessage = data.message || '';
+        if (errorMessage.includes('Google authentication expired') || 
+            errorMessage.includes('Google authentication required') ||
+            errorMessage.includes('invalid_grant')) {
+          // Trigger Gmail auth check to show the global banner
+          checkGmailAuth(true); // Force check
+          showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+        } else {
+          showErrorToast(errorMessage || 'Failed to sync to Google Calendar');
+        }
       }
     } catch (error) {
       console.error('Error syncing to calendar:', error);
-      showErrorToast('Failed to sync to Google Calendar');
+      
+      // Check if this is a Google authentication error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Google authentication expired') || 
+          errorMessage.includes('Google authentication required') ||
+          errorMessage.includes('invalid_grant')) {
+        // Trigger Gmail auth check to show the global banner
+        checkGmailAuth(true); // Force check
+        showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+      } else {
+        showErrorToast('Failed to sync to Google Calendar');
+      }
     } finally {
       setIsSyncingTo(false);
-
     }
   };
 
@@ -164,14 +207,34 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         await fetchCalendarStatus();
         onSyncComplete?.();
       } else {
-        showErrorToast(data.message || 'Failed to sync from Google Calendar');
+        // Check if this is a Google authentication error
+        const errorMessage = data.message || '';
+        if (errorMessage.includes('Google authentication expired') || 
+            errorMessage.includes('Google authentication required') ||
+            errorMessage.includes('invalid_grant')) {
+          // Trigger Gmail auth check to show the global banner
+          checkGmailAuth(true); // Force check
+          showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+        } else {
+          showErrorToast(errorMessage || 'Failed to sync from Google Calendar');
+        }
       }
     } catch (error) {
       console.error('Error syncing from calendar:', error);
-      showErrorToast('Failed to sync from Google Calendar');
+      
+      // Check if this is a Google authentication error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Google authentication expired') || 
+          errorMessage.includes('Google authentication required') ||
+          errorMessage.includes('invalid_grant')) {
+        // Trigger Gmail auth check to show the global banner
+        checkGmailAuth(true); // Force check
+        showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+      } else {
+        showErrorToast('Failed to sync from Google Calendar');
+      }
     } finally {
       setIsSyncingFrom(false);
-
     }
   };
 

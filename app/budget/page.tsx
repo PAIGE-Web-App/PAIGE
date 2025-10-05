@@ -394,7 +394,6 @@ export default function BudgetPage() {
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner />
-      <GlobalGmailBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
 

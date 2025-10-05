@@ -8,7 +8,6 @@ import { SWRProvider } from "../contexts/SWRProvider";
 import { CreditProvider } from "../contexts/CreditContext";
 import { MoodBoardsProvider } from "../contexts/MoodBoardsContext";
 import { GmailAuthProvider } from "../contexts/GmailAuthContext";
-import GlobalGmailBanner from "../components/GlobalGmailBanner";
 // Removed LoadingProvider - using progressive loading instead
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -67,9 +66,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <CreditProvider>
               <MoodBoardsProvider>
                 <GmailAuthProvider>
-                  {/* Global Gmail Banner - always present */}
-                  <GlobalGmailBanner />
-                  
                   {isAuthPage ? (
                   // For auth pages (login/signup), don't use LoadingProvider
                   <GlobalErrorBoundary>

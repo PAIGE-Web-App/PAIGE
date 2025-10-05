@@ -12,7 +12,6 @@ import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 // UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
-import GlobalGmailBanner from '@/components/GlobalGmailBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import TodoDeadlineGenerationProgress from '@/components/TodoDeadlineGenerationProgress';
 
@@ -536,7 +535,6 @@ export default function TodoPage() {
     return (
       <div className="flex flex-col h-full bg-linen">
         <WeddingBanner />
-        <GlobalGmailBanner />
         <div className="flex-1 flex">
           {/* Sidebar Skeleton */}
           <div className="w-72 bg-white border-r border-gray-200 p-4">
@@ -577,7 +575,6 @@ export default function TodoPage() {
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner />
-      <GlobalGmailBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full gap-4 lg:flex-row flex-col">

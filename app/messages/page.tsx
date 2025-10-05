@@ -175,6 +175,7 @@ export default function MessagesPage() {
   const todoListsHook = useTodoLists();
   const { handleAddList } = todoListsHook;
   
+  
   // Import the same template selection logic from todo page
   const [isGeneratingDeadlines, setIsGeneratingDeadlines] = useState(false);
   const [deadlineGenerationProgress, setDeadlineGenerationProgress] = useState<{
@@ -837,7 +838,7 @@ export default function MessagesPage() {
 
 
   // Only show content when both loading is complete AND minimum time has passed
-  const isLoading = !minLoadTimeReached;
+  const isPageLoading = !minLoadTimeReached;
 
 
   // Handle Gmail re-authentication success - just clear URL parameters
@@ -1033,6 +1034,8 @@ export default function MessagesPage() {
     <div className="flex flex-col h-full bg-linen">
         {/* Loading is now handled by LoadingProvider in layout.tsx */}
         <WeddingBanner />
+        
+        {/* Global Gmail Banner - positioned after WeddingBanner */}
         <GlobalGmailBanner />
 
           <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">

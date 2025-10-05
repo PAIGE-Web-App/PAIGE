@@ -6,7 +6,6 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Edit3, Upload, Heart, Palette, Camera, X, Save, Plus, Star, MapPin, Flag } from "lucide-react";
 import WeddingBanner from "../../components/WeddingBanner";
-import GlobalGmailBanner from "../../components/GlobalGmailBanner";
 import { useUserProfileData } from "../../hooks/useUserProfileData";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -711,7 +710,6 @@ export default function MoodBoardsPage() {
     return (
       <div className="flex flex-col h-full bg-linen">
         <WeddingBanner />
-        <GlobalGmailBanner />
         
         <div className="app-content-container flex-1 overflow-hidden">
           <div className="flex h-full gap-4 lg:flex-row flex-col">
@@ -779,7 +777,6 @@ export default function MoodBoardsPage() {
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner />
-      <GlobalGmailBanner />
       
       <div className="app-content-container flex-1 overflow-hidden">
         <div className="flex h-full gap-4 lg:flex-row flex-col">

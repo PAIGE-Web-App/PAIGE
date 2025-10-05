@@ -35,7 +35,7 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/check-gmail-auth-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify({ userId: user.uid, force }),
       });
       
       const data = await response.json();
