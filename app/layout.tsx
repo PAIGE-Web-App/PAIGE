@@ -35,7 +35,7 @@ const workSans = Work_Sans({
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideNav = pathname === '/login' || pathname === '/signup';
+  const hideNav = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/onboarding');
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   
   return (

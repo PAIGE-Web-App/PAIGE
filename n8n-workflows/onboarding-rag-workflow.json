@@ -1,0 +1,360 @@
+{
+  "name": "Wedding Onboarding RAG Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-rag",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "onboarding-rag-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.requestType }}",
+              "rightValue": "generate_preliminary",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-request-type",
+      "name": "Check Request Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinecone.io/v1/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pineconeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vector",
+              "value": "={{ $json.weddingContext }}"
+            },
+            {
+              "name": "topK",
+              "value": "10"
+            },
+            {
+              "name": "includeMetadata",
+              "value": "true"
+            },
+            {
+              "name": "filter",
+              "value": "={{ { \"wedding_type\": \"planning_guide\" } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pinecone-search-todos",
+      "name": "Search Todo Planning Vectors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinecone.io/v1/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pineconeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vector",
+              "value": "={{ $json.weddingContext }}"
+            },
+            {
+              "name": "topK",
+              "value": "8"
+            },
+            {
+              "name": "includeMetadata",
+              "value": "true"
+            },
+            {
+              "name": "filter",
+              "value": "={{ { \"wedding_type\": \"budget_planning\" } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pinecone-search-budget",
+      "name": "Search Budget Planning Vectors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinecone.io/v1/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pineconeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vector",
+              "value": "={{ $json.weddingContext }}"
+            },
+            {
+              "name": "topK",
+              "value": "15"
+            },
+            {
+              "name": "includeMetadata",
+              "value": "true"
+            },
+            {
+              "name": "filter",
+              "value": "={{ { \"wedding_type\": \"vendor_recommendations\" } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pinecone-search-vendors",
+      "name": "Search Vendor Vectors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4o-mini"
+            },
+            {
+              "name": "messages",
+              "value": "={{ [\n  {\n    \"role\": \"system\",\n    \"content\": \"You are Paige, an AI wedding planning assistant. Use the provided wedding planning knowledge to create personalized recommendations.\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": `Wedding Details:\\n- Couple: ${$json.weddingContext.couple}\\n- Date: ${$json.weddingContext.weddingDate}\\n- Location: ${$json.weddingContext.location}\\n- Venue: ${$json.weddingContext.venue}\\n- Budget: $${$json.weddingContext.budget.toLocaleString()}\\n- Guests: ${$json.weddingContext.guestCount}\\n- Style: ${$json.weddingContext.style}\\n- Additional Context: ${$json.weddingContext.additionalContext}\\n\\nRelevant Wedding Planning Knowledge:\\n${$json.todoKnowledge}\\n\\nBudget Planning Knowledge:\\n${$json.budgetKnowledge}\\n\\nVendor Knowledge:\\n${$json.vendorKnowledge}\\n\\nPlease generate:\\n1. 15-20 personalized todos with deadlines, priorities, and categories\\n2. Budget breakdown with 8-12 categories and realistic percentages\\n3. Vendor recommendations (5 per category: venues, photographers, florists, caterers, music)\\n\\nReturn ONLY a JSON object with this structure:\\n{\\n  \"todos\": [{\"title\": \"...\", \"category\": \"...\", \"deadline\": \"...\", \"priority\": \"...\", \"description\": \"...\"}],\\n  \"budget\": {\"total\": 0, \"categories\": [{\"name\": \"...\", \"amount\": 0, \"percentage\": 0, \"description\": \"...\"}]},\\n  \"vendors\": {\"venues\": [...], \"photographers\": [...], \"florists\": [...], \"caterers\": [...], \"music\": [...]}\\n}`\n  }\n] }}"
+            },
+            {
+              "name": "temperature",
+              "value": "0.7"
+            },
+            {
+              "name": "max_tokens",
+              "value": "4000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "openai-generate",
+      "name": "Generate with OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine Pinecone search results\nconst todoResults = $input.first().json.matches || [];\nconst budgetResults = $input.all()[1].json.matches || [];\nconst vendorResults = $input.all()[2].json.matches || [];\n\n// Extract knowledge from Pinecone results\nconst todoKnowledge = todoResults.map(match => match.metadata?.content || '').join('\\n\\n');\nconst budgetKnowledge = budgetResults.map(match => match.metadata?.content || '').join('\\n\\n');\nconst vendorKnowledge = vendorResults.map(match => match.metadata?.content || '').join('\\n\\n');\n\nreturn {\n  todoKnowledge,\n  budgetKnowledge,\n  vendorKnowledge,\n  weddingContext: $('Webhook Trigger').first().json.weddingContext\n};"
+      },
+      "id": "combine-knowledge",
+      "name": "Combine Knowledge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and structure data\nconst openaiResponse = $input.first().json.choices[0].message.content;\nconst parsedData = JSON.parse(openaiResponse);\n\n// Ensure vendors have proper structure\nconst vendors = {\n  venues: parsedData.vendors?.venues || [],\n  photographers: parsedData.vendors?.photographers || [],\n  florists: parsedData.vendors?.florists || [],\n  caterers: parsedData.vendors?.caterers || [],\n  music: parsedData.vendors?.music || []\n};\n\nreturn {\n  success: true,\n  data: {\n    todos: parsedData.todos || [],\n    budget: parsedData.budget || { total: 0, categories: [] },\n    vendors: vendors\n  }\n};"
+      },
+      "id": "parse-response",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1600, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Request Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Request Type": {
+      "main": [
+        [
+          {
+            "node": "Search Todo Planning Vectors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Budget Planning Vectors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Vendor Vectors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Todo Planning Vectors": {
+      "main": [
+        [
+          {
+            "node": "Combine Knowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Budget Planning Vectors": {
+      "main": [
+        [
+          {
+            "node": "Combine Knowledge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Search Vendor Vectors": {
+      "main": [
+        [
+          {
+            "node": "Combine Knowledge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Combine Knowledge": {
+      "main": [
+        [
+          {
+            "node": "Generate with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-10-06T16:00:00.000Z",
+  "versionId": "1"
+}

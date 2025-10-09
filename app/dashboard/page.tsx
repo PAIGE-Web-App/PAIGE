@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isManualWelcomeModal, setIsManualWelcomeModal] = useState(false);
   const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
+  const [generatedData, setGeneratedData] = useState<any>(null);
 
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
@@ -64,30 +65,41 @@ export default function Dashboard() {
   };
   
   // Fetch user data and progress information
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) return;
-      
-      setProgressLoading(true);
-      try {
-        // Fetch user profile data
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserData(userData);
-          
-          // Check progress data
-          const progressChecks = await checkProgressData(user.uid, userData);
-          setProgressData(progressChecks);
-        }
-  } catch (error) {
-        console.error('Error fetching user data:', error);
-      } finally {
-        setProgressLoading(false);
+  const fetchUserData = async () => {
+    if (!user) return;
+    
+    setProgressLoading(true);
+    try {
+      // Fetch user profile data
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserData(userData);
+        
+        // Check progress data
+        const progressChecks = await checkProgressData(user.uid, userData);
+        setProgressData(progressChecks);
       }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setProgressLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, [user]);
+
+  // Listen for user profile refresh events
+  useEffect(() => {
+    const handleRefreshUserProfile = () => {
+      console.log('🔄 Dashboard refreshing user data due to profile update');
+      fetchUserData();
     };
 
-    fetchUserData();
+    window.addEventListener('refreshUserProfile', handleRefreshUserProfile);
+    return () => window.removeEventListener('refreshUserProfile', handleRefreshUserProfile);
   }, [user]);
 
   // Refresh progress data when page becomes visible (e.g., when navigating back from other pages)
@@ -273,17 +285,19 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const aiGenerationContext = localStorage.getItem('paige_ai_generation_context');
-      console.log('AI Generation check:', {
-        aiGenerationContext,
-        userData: !!userData,
-        hasUserData: !!userData
-      });
+      const enhancedOnboardingActive = localStorage.getItem('paige_enhanced_onboarding_active');
+      // Check AI generation status
       
       if (aiGenerationContext && userData) {
-        console.log('Showing AI generation modal');
         // Clear the context from localStorage
         localStorage.removeItem('paige_ai_generation_context');
         // Show AI generation modal
+        setShowAIGenerationModal(true);
+      } else if (enhancedOnboardingActive === 'true' && userData) {
+        // Resume enhanced onboarding flow
+        // Clear old cached data and force fresh generation
+        localStorage.removeItem('paige_generated_data');
+        // Force fresh data generation
         setShowAIGenerationModal(true);
       }
     }
@@ -296,15 +310,12 @@ export default function Dashboard() {
       const hasSeenWelcomeModal = userData.hasSeenWelcomeModal;
       const aiGenerationContext = localStorage.getItem('paige_ai_generation_context');
       
-      console.log('Welcome modal check:', {
-        hasSeenWelcomeModal,
-        shouldShow: !hasSeenWelcomeModal,
-        hasAIContext: !!aiGenerationContext
-      });
+      // Check welcome modal status
       
       // Show welcome modal for ALL new users who haven't seen it before
-      // BUT only if they're not coming from the AI generation flow
-      if (!hasSeenWelcomeModal && !aiGenerationContext) {
+      // BUT only if they're not coming from the AI generation flow or enhanced onboarding
+      const enhancedOnboardingActive = localStorage.getItem('paige_enhanced_onboarding_active');
+      if (!hasSeenWelcomeModal && !aiGenerationContext && enhancedOnboardingActive !== 'true') {
         console.log('Showing welcome modal automatically for new user');
         setShowWelcomeModal(true);
         setIsManualWelcomeModal(false); // This is automatic, not manual
@@ -614,6 +625,24 @@ export default function Dashboard() {
             }}
           />
 
+          {/* Enhanced Onboarding Trigger Button */}
+          <div className="bg-white rounded-lg border border-[#AB9C95] p-6 text-center">
+            <h3 className="text-lg font-semibold text-[#332B42] mb-2">Let Paige Create Your Wedding Plan</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Get personalized todos, budget, and vendor recommendations based on your wedding details.
+            </p>
+            <button
+              onClick={() => {
+                console.log('Starting enhanced onboarding from dashboard');
+                setShowAIGenerationModal(true);
+              }}
+              className="btn-primary flex items-center justify-center gap-2 mx-auto"
+            >
+              <Sparkles className="w-4 h-4" />
+              Create My Wedding Plan
+            </button>
+          </div>
+
 
               </div>
             </div>
@@ -665,19 +694,116 @@ export default function Dashboard() {
       onClose={() => setShowAIGenerationModal(false)}
       onComplete={(data) => {
         setShowAIGenerationModal(false);
-        showSuccessToast('Welcome to Paige! Creating your personalized wedding plan...');
-        console.log('AI Generation completed:', data);
+        setGeneratedData(data);
+        localStorage.setItem('paige_enhanced_onboarding_active', 'true');
+        localStorage.setItem('paige_generated_data', JSON.stringify(data));
+        
+        // Clear updated wedding details after use
+        localStorage.removeItem('paige_updated_wedding_details');
+        
+        showSuccessToast('Welcome to Paige! Your personalized wedding plan is ready!');
+        // Navigate to the new dedicated onboarding page
+        router.push('/onboarding/vendors');
       }}
+      userId={user?.uid || ''}
       userName={userData?.userName || ''}
       partnerName={userData?.partnerName || ''}
-      weddingDate={userData?.weddingDate || null}
-      weddingLocation={userData?.weddingLocation || ''}
+      weddingDate={(() => {
+        // Check for updated wedding details first
+        const updatedDetails = typeof window !== 'undefined' ? localStorage.getItem('paige_updated_wedding_details') : null;
+        let weddingDate = userData?.weddingDate;
+        
+        if (updatedDetails) {
+          try {
+            const parsed = JSON.parse(updatedDetails);
+            if (parsed.weddingDateUndecided || !parsed.weddingDate) {
+              return null; // TBD or undecided
+            }
+            weddingDate = parsed.weddingDate;
+          } catch (error) {
+            console.error('Error parsing updated wedding details:', error);
+          }
+        }
+        
+        if (!weddingDate) return null;
+        
+        try {
+          // If it's already a string, return it
+          if (typeof weddingDate === 'string') {
+            return weddingDate;
+          }
+          
+          // If it's a Firestore Timestamp, convert it
+          if (weddingDate && typeof weddingDate === 'object' && 'toDate' in weddingDate) {
+            const date = weddingDate.toDate();
+            return date.toISOString();
+          }
+          
+          // If it's a Firestore Timestamp object (plain object with seconds/nanoseconds)
+          if (weddingDate && typeof weddingDate === 'object' && 'seconds' in weddingDate) {
+            const timestamp = weddingDate as { seconds: number; nanoseconds: number };
+            const date = new Date(timestamp.seconds * 1000);
+            return date.toISOString();
+          }
+          
+          // If it's a Date object, convert it
+          if (weddingDate instanceof Date) {
+            return weddingDate.toISOString();
+          }
+          
+          // Fallback: try to create a Date object, but check if it's valid first
+          const fallbackDate = new Date(weddingDate);
+          if (isNaN(fallbackDate.getTime())) {
+            console.warn('Invalid wedding date:', weddingDate);
+            return null;
+          }
+          return fallbackDate.toISOString();
+        } catch (error) {
+          console.error('Error converting wedding date:', error, 'Date value:', weddingDate);
+          return null;
+        }
+      })()}
+      weddingLocation={(() => {
+        const updatedDetails = typeof window !== 'undefined' ? localStorage.getItem('paige_updated_wedding_details') : null;
+        if (updatedDetails) {
+          try {
+            const parsed = JSON.parse(updatedDetails);
+            return parsed.location || userData?.weddingLocation || '';
+          } catch (error) {
+            console.error('Error parsing updated wedding details:', error);
+          }
+        }
+        return userData?.weddingLocation || '';
+      })()}
       selectedVenueMetadata={userData?.selectedVenueMetadata || null}
-      maxBudget={userData?.maxBudget || 0}
-      guestCount={userData?.guestCount || 0}
+      maxBudget={(() => {
+        const updatedDetails = typeof window !== 'undefined' ? localStorage.getItem('paige_updated_wedding_details') : null;
+        if (updatedDetails) {
+          try {
+            const parsed = JSON.parse(updatedDetails);
+            return parsed.budgetAmount || userData?.maxBudget || 0;
+          } catch (error) {
+            console.error('Error parsing updated wedding details:', error);
+          }
+        }
+        return userData?.maxBudget || 0;
+      })()}
+      guestCount={(() => {
+        const updatedDetails = typeof window !== 'undefined' ? localStorage.getItem('paige_updated_wedding_details') : null;
+        if (updatedDetails) {
+          try {
+            const parsed = JSON.parse(updatedDetails);
+            return parsed.guestCount || userData?.guestCount || 0;
+          } catch (error) {
+            console.error('Error parsing updated wedding details:', error);
+          }
+        }
+        return userData?.guestCount || 0;
+      })()}
       vibe={userData?.vibe || []}
       additionalContext={typeof window !== 'undefined' ? localStorage.getItem('paige_ai_generation_context') || '' : ''}
     />
+
     </ClientOnly>
   );
 }

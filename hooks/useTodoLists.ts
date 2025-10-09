@@ -182,10 +182,12 @@ export function useTodoLists() {
       return;
     }
 
-    // Check if list name already exists
-    if (todoLists.some(list => list.name.toLowerCase() === listName.toLowerCase())) {
-      showErrorToast('A list with this name already exists.');
-      return;
+    // Handle duplicate list names by adding numbering
+    let finalListName = listName;
+    let counter = 1;
+    while (todoLists.some(list => list.name.toLowerCase() === finalListName.toLowerCase())) {
+      finalListName = `${listName} (${counter})`;
+      counter++;
     }
 
     // Check tier limits
@@ -197,7 +199,7 @@ export function useTodoLists() {
     try {
       const maxOrderIndex = todoLists.length > 0 ? Math.max(...todoLists.map(list => list.orderIndex)) : -1;
       const newListRef = await addDoc(getUserCollectionRef('todoLists', user.uid), {
-        name: listName,
+        name: finalListName,
         order: todoLists.length,
         userId: user.uid,
         createdAt: new Date(),
@@ -248,23 +250,20 @@ export function useTodoLists() {
           if (task.deadline) {
             taskData.deadline = Timestamp.fromDate(new Date(task.deadline));
           }
-          if (task.endDate) {
-            taskData.endDate = Timestamp.fromDate(new Date(task.endDate));
-          }
 
           batch.set(taskRef, taskData);
         });
         await batch.commit();
       }
 
-      showSuccessToast(`List "${listName}" created!`);
+      showSuccessToast(`List "${finalListName}" created!`);
       setNewListName('');
       setShowNewListInput(false);
 
       // Select the new list
       const newList = {
         id: newListRef.id,
-        name: listName,
+        name: finalListName,
         order: todoLists.length,
         userId: user.uid,
         createdAt: new Date(),

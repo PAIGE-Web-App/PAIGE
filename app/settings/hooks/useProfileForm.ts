@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import { useUserProfileData } from "../../../hooks/useUserProfileData";
@@ -15,6 +15,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
   const {
     weddingDate: firestoreWeddingDate,
+    weddingDateUndecided: firestoreWeddingDateUndecided,
     userName: firestoreUserName,
     partnerName: firestorePartnerName,
     partnerEmail: firestorePartnerEmail,
@@ -30,6 +31,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     vibeInputMethod: firestoreVibeInputMethod,
     generatedVibes: firestoreGeneratedVibes,
     maxBudget: firestoreMaxBudget,
+    additionalContext: firestoreAdditionalContext,
     profileLoading,
     reload: reloadUserProfile,
   } = useUserProfileData();
@@ -44,6 +46,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
   // Wedding form state
   const [weddingDate, setWeddingDate] = useState<string>("");
+  const [weddingDateUndecided, setWeddingDateUndecided] = useState(false);
   const [weddingLocation, setWeddingLocation] = useState("");
   const [weddingLocationUndecided, setWeddingLocationUndecided] = useState(false);
   const [hasVenue, setHasVenue] = useState<boolean | null>(null);
@@ -56,6 +59,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
   const [maxBudget, setMaxBudget] = useState<number>(40000);
   const [guestCount, setGuestCount] = useState(120);
+  const [additionalContext, setAdditionalContext] = useState("");
   const [selectedLocationType, setSelectedLocationType] = useState<string | null>(null);
   const [weddingLocationCoords, setWeddingLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -72,6 +76,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
       // Wedding
       setWeddingDate(firestoreWeddingDate ? new Date(firestoreWeddingDate).toISOString().split('T')[0] : "");
+      setWeddingDateUndecided(firestoreWeddingDateUndecided || false);
       setWeddingLocation(firestoreWeddingLocation || "");
       setWeddingLocationUndecided(firestoreWeddingLocationUndecided || false);
       setHasVenue(firestoreHasVenue);
@@ -91,6 +96,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
       setGeneratedVibes(firestoreGeneratedVibes || []);
       setMaxBudget(firestoreMaxBudget || 40000);
       setGuestCount(firestoreGuestCount || 120);
+      setAdditionalContext(firestoreAdditionalContext || "");
     }
   }, [
     profileLoading,
@@ -111,6 +117,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     firestoreGeneratedVibes,
     firestoreMaxBudget,
     firestoreGuestCount,
+    firestoreAdditionalContext,
   ]);
 
   const hasUnsavedAccountChanges =
@@ -122,6 +129,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
 
   const hasUnsavedWeddingChanges = 
     weddingDate !== (firestoreWeddingDate ? new Date(firestoreWeddingDate).toISOString().split('T')[0] : "") ||
+    weddingDateUndecided !== (firestoreWeddingDateUndecided || false) ||
     weddingLocation !== (firestoreWeddingLocation || "") ||
     weddingLocationUndecided !== (firestoreWeddingLocationUndecided || false) ||
     hasVenue !== firestoreHasVenue ||
@@ -130,7 +138,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     vibeInputMethod !== (firestoreVibeInputMethod || 'pills') ||
     JSON.stringify(generatedVibes) !== JSON.stringify(firestoreGeneratedVibes || []) ||
     maxBudget !== firestoreMaxBudget ||
-    guestCount !== (firestoreGuestCount || 120);
+    guestCount !== (firestoreGuestCount || 120) ||
+    additionalContext !== (firestoreAdditionalContext || "");
 
   const handleWeddingSave = async () => {
     if (!user?.uid) return;
@@ -139,7 +148,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     try {
       const userRef = doc(db, "users", user.uid);
       const updateData: any = {
-        weddingDate: weddingDate ? new Date(weddingDate) : null,
+        weddingDate: weddingDate ? new Date(weddingDate) : deleteField(),
+        weddingDateUndecided,
         weddingLocation,
         weddingLocationUndecided,
         hasVenue,
@@ -148,6 +158,7 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
         generatedVibes,
         maxBudget: maxBudget,
         guestCount,
+        additionalContext,
       };
 
       if (selectedVenueMetadata) {
@@ -469,6 +480,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     // Wedding form state
     weddingDate,
     setWeddingDate,
+    weddingDateUndecided,
+    setWeddingDateUndecided,
     weddingLocation,
     setWeddingLocation: handleSetWeddingLocation,
     weddingLocationUndecided,
@@ -494,6 +507,8 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
     setMaxBudget,
     guestCount,
     setGuestCount,
+    additionalContext,
+    setAdditionalContext,
     selectedLocationType,
     setSelectedLocationType,
     weddingLocationCoords,

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft } from 'lucide-react';
+import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft, Phone, Clock } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
@@ -35,6 +35,37 @@ import { getVendorImages } from '@/utils/vendorImageUtils';
 import ConfirmVenueUnmarkModal from '@/components/ConfirmVenueUnmarkModal';
 import { isSelectedVenue, clearSelectedVenue } from '@/utils/venueUtils';
 
+// Utility function to filter wedding-related reviews
+const filterWeddingReviews = (reviews: any[]) => {
+  if (!reviews || reviews.length === 0) return { weddingReviews: [], otherReviews: [] };
+  
+  const weddingKeywords = [
+    'wedding', 'bride', 'groom', 'ceremony', 'reception', 'bridal', 
+    'anniversary', 'engagement', 'married', 'nuptials', 'vows', 
+    'wedding party', 'bridal party', 'wedding day', 'special day',
+    'walked down the aisle', 'first dance', 'wedding cake', 'bouquet',
+    'wedding venue', 'wedding reception', 'wedding ceremony'
+  ];
+  
+  const weddingReviews: any[] = [];
+  const otherReviews: any[] = [];
+  
+  reviews.forEach(review => {
+    const reviewText = review.text?.toLowerCase() || '';
+    const isWeddingReview = weddingKeywords.some(keyword => 
+      reviewText.includes(keyword.toLowerCase())
+    );
+    
+    if (isWeddingReview) {
+      weddingReviews.push(review);
+    } else {
+      otherReviews.push(review);
+    }
+  });
+  
+  return { weddingReviews, otherReviews };
+};
+
 interface VendorDetails {
   id: string;
   name: string;
@@ -47,9 +78,21 @@ interface VendorDetails {
   category: string;
   address?: string;
   website?: string;
+  phone?: string;
+  googleUrl?: string;
+  openingHours?: {
+    weekday_text: string[];
+  };
   about?: string;
   images?: string[];
   currentImageIndex?: number;
+  reviews?: Array<{
+    text: string;
+    author_name: string;
+    rating: number;
+    time: number;
+  }>;
+  totalReviews?: number;
 }
 
 export default function VendorDetailPage() {
@@ -312,11 +355,21 @@ export default function VendorDetailPage() {
       name: googleData.result?.name || 'Unknown Vendor',
       rating: googleData.result?.rating,
       reviewCount: googleData.result?.user_ratings_total,
-      price: googleData.result?.price_level ? '$'.repeat(googleData.result.price_level) : undefined,
+      price: googleData.result?.price_level !== undefined && googleData.result.price_level > 0 ? '$'.repeat(googleData.result.price_level) : 'Contact for pricing',
       amenities: googleData.result?.types || [],
       category: mapGoogleTypesToCategory(googleData.result?.types || [], googleData.result?.name),
       address: googleData.result?.formatted_address,
       website: googleData.result?.website,
+      phone: googleData.result?.formatted_phone_number,
+      googleUrl: googleData.result?.url,
+      openingHours: googleData.result?.opening_hours,
+      reviews: googleData.result?.reviews ? googleData.result.reviews.slice(0, 3).map((review: any) => ({
+        text: review.text,
+        author_name: review.author_name,
+        rating: review.rating,
+        time: review.time
+      })) : undefined,
+      totalReviews: googleData.result?.user_ratings_total,
       about: (() => {
         // Use Google's editorial summary if available (best quality)
         if (googleData.result?.editorial_summary?.overview) {
@@ -429,6 +482,7 @@ export default function VendorDetailPage() {
       })(),
       images: Array(16).fill("/Venue.png") // Start with placeholders, will be updated with real images
     };
+
 
     // Fetch photos and community data using unified image handling
     const fetchAdditionalData = async () => {
@@ -1050,6 +1104,12 @@ export default function VendorDetailPage() {
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-current" />
                   <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                  {vendor.price && (
+                    <>
+                      <span className="text-[#A85C36]">•</span>
+                      <span className="text-sm font-medium text-[#A85C36]">{vendor.price}</span>
+                    </>
+                  )}
                 </div>
               )}
               <CategoryPill category={vendor.category} />
@@ -1288,6 +1348,12 @@ export default function VendorDetailPage() {
                     <div className="flex items-center gap-1">
                       <Star className="w-3 h-3 text-yellow-500 fill-current" />
                       <span className="text-sm font-medium">{vendor.rating} ({vendor.reviewCount})</span>
+                      {vendor.price && (
+                        <>
+                          <span className="text-[#A85C36]">•</span>
+                          <span className="text-sm font-medium text-[#A85C36]">{vendor.price}</span>
+                        </>
+                      )}
                     </div>
                   )}
                   <CategoryPill category={vendor.category} />
@@ -1323,96 +1389,219 @@ export default function VendorDetailPage() {
 
               </div>
 
-              {/* Image Gallery */}
+              {/* Image Gallery - Google Style Grid */}
               <div className="mb-8">
-                <div className="relative h-96 bg-[#F3F2F0] rounded-lg overflow-hidden mb-4">
-                  {vendor.images && vendor.images.length > 0 && (
-                    <>
-                      <ProgressiveImage
-                        key={`main-${vendor.images[currentImageIndex]}-${currentImageIndex}`}
-                        src={vendor.images[currentImageIndex]}
-                        alt={`${vendor.name} - Image ${currentImageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                        priority={true}
-                        threshold={0.1}
-                      />
-                      
-                      {/* Navigation Arrows */}
-                      <button
-                        onClick={handlePreviousImage}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      
-                      <button
-                        onClick={handleNextImage}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Image Counter and Actions */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#364257]">
-                    {currentImageIndex + 1} of {vendor.images?.length || 0}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors">
-                      <MapPin className="w-3 h-3" />
-                      Map
-                    </button>
-                    <button 
-                      onClick={() => setShowImageGallery(true)}
-                      className="flex items-center gap-1 px-3 py-1 text-sm text-[#364257] hover:text-[#A85C36] transition-colors"
-                    >
-                      <Grid className="w-3 h-3" />
-                      View all
-                    </button>
-                  </div>
+                <div className="grid grid-cols-3 gap-2 mb-4 h-64">
+                  {/* Google-style layout: 1 large image + 2 smaller images + 1 more indicator */}
+                  {(() => {
+                    const images = vendor.images || [];
+                    const hasMoreImages = images.length > 3;
+                    
+                    // If no images, show placeholder
+                    if (images.length === 0) {
+                      return (
+                        <div className="col-span-3 aspect-video bg-[#F3F2F0] rounded-lg flex items-center justify-center">
+                          <div className="text-center text-gray-500">
+                            <div className="w-12 h-12 mx-auto mb-2 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <MapPin className="w-6 h-6 text-gray-400" />
+                            </div>
+                            <p className="text-sm">No images available</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        {/* Main large image (left side) */}
+                        <div className="col-span-2 row-span-2 bg-[#F3F2F0] rounded-lg overflow-hidden">
+                          <ProgressiveImage
+                            key={`main-${images[0]}-0`}
+                            src={images[0]}
+                            alt={`${vendor.name} - Main image`}
+                            className="w-full h-full object-cover"
+                            priority={true}
+                            threshold={0.1}
+                          />
+                        </div>
+                        
+                        {/* Second image (top right) */}
+                        <div className="col-span-1 row-span-1 bg-[#F3F2F0] rounded-lg overflow-hidden">
+                          <ProgressiveImage
+                            key={`thumb-${images[1]}-1`}
+                            src={images[1]}
+                            alt={`${vendor.name} - Image 2`}
+                            className="w-full h-full object-cover"
+                            priority={true}
+                            threshold={0.1}
+                          />
+                        </div>
+                        
+                        {/* Third image or "more" indicator (bottom right) */}
+                        <div 
+                          className="col-span-1 row-span-1 bg-[#F3F2F0] rounded-lg overflow-hidden relative cursor-pointer"
+                          onClick={() => setShowImageGallery(true)}
+                        >
+                          {images[2] ? (
+                            <>
+                              <ProgressiveImage
+                                key={`thumb-${images[2]}-2`}
+                                src={images[2]}
+                                alt={`${vendor.name} - Image 3`}
+                                className="w-full h-full object-cover"
+                                priority={true}
+                                threshold={0.1}
+                              />
+                              {/* Overlay for "more" indicator */}
+                              {hasMoreImages && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <div className="text-white text-center">
+                                    <div className="text-lg font-semibold">+{images.length - 3}</div>
+                                    <div className="text-xs">more</div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="text-center text-gray-500">
+                                <div className="text-lg font-semibold">+{images.length - 2}</div>
+                                <div className="text-xs">more</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
               {/* Basic Details */}
               <div className="mb-8">
-                <h5 className="mb-4">
+                <h6 className="mb-4">
                   Basic Details
-                </h5>
+                </h6>
                 <div className="space-y-3">
                   {vendor.address && (
+                    <div className="flex items-start gap-2 text-[#364257]">
+                      <MapPin className="w-3 h-3 text-[#A85C36] mt-0.5 flex-shrink-0" />
+                      <span className="text-sm break-words font-work">{vendor.address}</span>
+                    </div>
+                  )}
+                  {vendor.phone && (
                     <div className="flex items-center gap-2 text-[#364257]">
-                      <MapPin className="w-3 h-3 text-[#A85C36]" />
-                      <span>{vendor.address}</span>
+                      <Phone className="w-3 h-3 text-[#A85C36] flex-shrink-0" />
+                      <span className="text-sm font-work">{vendor.phone}</span>
                     </div>
                   )}
                   {vendor.website && (
                     <div className="flex items-center gap-2">
-                      <Globe className="w-3 h-3 text-[#A85C36]" />
+                      <Globe className="w-3 h-3 text-[#A85C36] flex-shrink-0" />
                       <a 
                         href={vendor.website} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-[#A85C36] hover:text-[#784528] underline"
+                        className="text-[#A85C36] hover:text-[#784528] underline text-sm break-all font-work"
                       >
                         Website
                       </a>
+                      {vendor.googleUrl && (
+                        <>
+                          <span className="text-[#A85C36]">•</span>
+                          <a 
+                            href={vendor.googleUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[#A85C36] hover:text-[#784528] underline text-sm break-all font-work"
+                          >
+                            View on Google
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {!vendor.website && vendor.googleUrl && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3 h-3 text-[#A85C36] flex-shrink-0" />
+                      <a 
+                        href={vendor.googleUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#A85C36] hover:text-[#784528] underline text-sm break-all font-work"
+                      >
+                        View on Google
+                      </a>
+                    </div>
+                  )}
+                  {vendor.openingHours && vendor.openingHours.weekday_text && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-[#364257]">
+                        <Clock className="w-3 h-3 text-[#A85C36] flex-shrink-0" />
+                        <span className="text-sm font-work">Hours:</span>
+                      </div>
+                      <div className="ml-5 space-y-1">
+                        {vendor.openingHours.weekday_text.map((day: string, index: number) => (
+                          <p key={index} className="text-sm text-[#364257] font-work">{day}</p>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* About */}
-              {vendor.about && (
+              {/* About / Reviews */}
+              {(vendor.about || (vendor.reviews && vendor.reviews.length > 0)) && (
                 <div className="mb-8">
-                  <h5 className="mb-4">
-                    About
-                  </h5>
-                  <p className="text-[#364257] leading-relaxed">
-                    {vendor.about}
-                  </p>
+                  <h6 className="mb-4">
+                    About / Reviews
+                  </h6>
+                  
+                  {/* About Description */}
+                  {vendor.about && (
+                    <div className="mb-6">
+                      <p className="text-[#364257] leading-relaxed text-sm break-words font-work">
+                        {vendor.about}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Reviews */}
+                  {vendor.reviews && vendor.reviews.length > 0 && (() => {
+                    const { weddingReviews, otherReviews } = filterWeddingReviews(vendor.reviews);
+                    const reviewsToShow = weddingReviews.length > 0 ? weddingReviews : otherReviews;
+                    const reviewType = weddingReviews.length > 0 ? 'Wedding Reviews' : 'Reviews';
+                    
+                    return (
+                      <div className="space-y-3">
+                        {weddingReviews.length > 0 && otherReviews.length > 0 && (
+                          <div className="text-xs text-[#7A7A7A] font-work mb-2">
+                            Showing {reviewType} ({weddingReviews.length} wedding, {otherReviews.length} other)
+                          </div>
+                        )}
+                        {reviewsToShow.map((review: any, index: number) => (
+                          <div key={index} className="border-l-2 border-[#A85C36] pl-3 py-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`w-3 h-3 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs text-[#7A7A7A] font-work">
+                                {review.author_name}
+                              </span>
+                            </div>
+                            <p className="text-[#364257] leading-relaxed text-sm break-words font-work">
+                              {review.text}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

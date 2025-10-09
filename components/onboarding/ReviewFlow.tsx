@@ -2,14 +2,24 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Calendar, DollarSign, Users, ArrowRight, Edit3 } from 'lucide-react';
+import { Calendar, DollarSign, Users, Sparkles } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import ToDoListEditor from '@/components/ToDoListEditor';
+import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Todo {
   id: string;
-  title: string;
-  completed: boolean;
-  priority: 'high' | 'medium' | 'low';
+  title?: string;
+  name?: string; // Support optimized API format
+  description?: string;
+  note?: string; // Support optimized API format
+  completed?: boolean;
+  isCompleted?: boolean; // Support optimized API format
+  priority?: 'high' | 'medium' | 'low';
+  category?: string;
+  deadline?: string;
 }
 
 interface BudgetCategory {
@@ -37,38 +47,24 @@ interface ReviewFlowProps {
   likedVendors: Vendor[];
   onComplete: () => void;
   onBack: () => void;
-  onEdit: (section: 'todos' | 'budget' | 'vendors') => void;
+  templateName?: string;
+  templateDescription?: string;
+  usedFallbackTodos?: boolean;
 }
 
 const ReviewFlow: React.FC<ReviewFlowProps> = ({
-  todos,
+  todos: initialTodos,
   budget,
   likedVendors,
   onComplete,
   onBack,
-  onEdit
+  templateName = "Full Wedding Checklist",
+  templateDescription = "tasks to help you stay on track",
+  usedFallbackTodos = false
 }) => {
-  const [currentSection, setCurrentSection] = useState<'todos' | 'budget' | 'vendors'>('todos');
-  const [completedSections, setCompletedSections] = useState<Set<string>>(new Set());
-  const { showSuccessToast } = useCustomToast();
-
-  const handleSectionComplete = (section: string) => {
-    setCompletedSections(prev => new Set([...prev, section]));
-    showSuccessToast(`${section} reviewed!`);
-  };
-
-  const handleNext = () => {
-    if (currentSection === 'todos') {
-      handleSectionComplete('todos');
-      setCurrentSection('budget');
-    } else if (currentSection === 'budget') {
-      handleSectionComplete('budget');
-      setCurrentSection('vendors');
-    } else {
-      handleSectionComplete('vendors');
-      onComplete();
-    }
-  };
+  const { user } = useAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [todos, setTodos] = useState<Todo[]>(initialTodos);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -79,14 +75,64 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
     }).format(amount);
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+  // Save todos to Firestore
+  const saveTodosToFirestore = async (todosToSave: Todo[]) => {
+    if (!user) return;
+    
+    try {
+      // For now, we'll save the todos to localStorage since this is part of the onboarding flow
+      // The todos will be properly saved when the user completes the onboarding
+      const savedData = localStorage.getItem('paige_generated_data');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        parsedData.todos = todosToSave;
+        localStorage.setItem('paige_generated_data', JSON.stringify(parsedData));
+      }
+    } catch (error) {
+      console.error('Error saving todos:', error);
     }
   };
+
+  const handleTaskUpdate = (updatedTasks: any) => {
+    // Handle both array and object formats
+    const tasksArray = Array.isArray(updatedTasks) ? updatedTasks : [updatedTasks];
+    
+    // Convert back to Todo format
+    const updatedTodos = tasksArray.map(task => ({
+      id: task.id,
+      name: task.name,
+      title: task.name, // Keep both for compatibility
+      note: task.note,
+      description: task.note, // Keep both for compatibility
+      category: task.category,
+      deadline: task.deadline,
+      priority: task.priority,
+      completed: task.isCompleted,
+      isCompleted: task.isCompleted
+    }));
+    
+    // Update the todos state by merging the updated tasks with existing todos
+    setTodos(prevTodos => {
+      let newTodos;
+      
+      // If we received the full array, use it directly
+      if (Array.isArray(updatedTasks)) {
+        newTodos = updatedTodos;
+      } else {
+        // If we received a single task update, merge it with existing todos
+        newTodos = prevTodos.map(todo => {
+          const updatedTask = updatedTodos.find(updated => updated.id === todo.id);
+          return updatedTask || todo;
+        });
+      }
+      
+      // Save the updated todos
+      saveTodosToFirestore(newTodos);
+      
+      return newTodos;
+    });
+  };
+
 
   const renderTodos = () => (
     <motion.div
@@ -96,51 +142,46 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
       exit={{ opacity: 0, x: -20 }}
       className="space-y-4"
     >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-            <Calendar className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-playfair font-semibold text-[#332B42]">
-              Your Wedding Timeline
-            </h2>
-            <p className="text-[#364257]">
-              {todos.length} tasks to help you stay on track
-            </p>
+      <div className="bg-white rounded-lg border border-[#AB9C95] max-h-[600px] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-[#AB9C95] p-4 mb-4 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-[#332B42] mb-1">{templateName}</h3>
+                <p className="text-xs text-[#6B7280]">
+                  {templateDescription === "This is the first step to successful wedding prep!" 
+                    ? templateDescription 
+                    : `${todos.length} ${templateDescription}`
+                  }
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <button
-          onClick={() => onEdit('todos')}
-          className="flex items-center gap-2 text-[#A85C36] hover:text-[#8B4513] transition-colors"
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        {todos.map((todo, index) => (
-          <motion.div
-            key={todo.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="flex items-center gap-4 p-4 bg-white rounded-lg border border-[#AB9C95]"
-          >
-            <div className={`w-6 h-6 rounded-full border-2 border-[#A85C36] flex items-center justify-center ${
-              todo.completed ? 'bg-[#A85C36]' : 'bg-white'
-            }`}>
-              {todo.completed && <CheckCircle className="w-4 h-4 text-white" />}
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-[#332B42]">{todo.title}</p>
-            </div>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(todo.priority)}`}>
-              {todo.priority}
-            </span>
-          </motion.div>
-        ))}
+        <div className="p-4 pt-0">
+        <ToDoListEditor
+          tasks={todos.map(todo => ({
+            id: todo.id,
+            _id: todo.id,
+            name: todo.name || todo.title, // Support both formats
+            note: todo.note || todo.description || '',
+            category: todo.category || '',
+            deadline: todo.deadline || null,
+            isCompleted: todo.isCompleted || todo.completed || false,
+            priority: todo.priority || 'Medium'
+          }))}
+          setTasks={handleTaskUpdate} // ✅ Now editable!
+          customCategoryValue=""
+          setCustomCategoryValue={() => {}}
+          allCategories={['Planning', 'Vendor', 'Venue', 'Attire', 'Beauty', 'Transportation', 'Photography', 'Music', 'Food', 'Decor', 'Stationery', 'Guest', 'Honeymoon', 'Legal']}
+          contacts={[]}
+          currentUser={user}
+          onAssign={undefined}
+        />
+        </div>
       </div>
     </motion.div>
   );
@@ -167,13 +208,6 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => onEdit('budget')}
-          className="flex items-center gap-2 text-[#A85C36] hover:text-[#8B4513] transition-colors"
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit
-        </button>
       </div>
 
       <div className="space-y-4">
@@ -230,20 +264,13 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => onEdit('vendors')}
-          className="flex items-center gap-2 text-[#A85C36] hover:text-[#8B4513] transition-colors"
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit
-        </button>
       </div>
 
       {likedVendors.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {likedVendors.map((vendor, index) => (
             <motion.div
-              key={vendor.id}
+              key={vendor.id || `vendor-${index}-${vendor.name}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
@@ -281,23 +308,7 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
     </motion.div>
   );
 
-  const getSectionTitle = () => {
-    switch (currentSection) {
-      case 'todos': return 'Review Your Timeline';
-      case 'budget': return 'Review Your Budget';
-      case 'vendors': return 'Review Your Vendors';
-      default: return 'Review Your Plan';
-    }
-  };
 
-  const getNextButtonText = () => {
-    switch (currentSection) {
-      case 'todos': return 'Review Budget';
-      case 'budget': return 'Review Vendors';
-      case 'vendors': return 'Complete Setup';
-      default: return 'Next';
-    }
-  };
 
   return (
     <motion.div
@@ -307,74 +318,35 @@ const ReviewFlow: React.FC<ReviewFlowProps> = ({
       className="w-full max-w-4xl mx-auto"
     >
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-playfair font-semibold text-[#332B42] mb-4">
-          {getSectionTitle()}
+      <div className="text-left mb-6">
+        <h1 className="h6 text-[#332B42] mb-2">
+          Review Your To-dos
         </h1>
-        <p className="text-[#364257] text-lg">
+        <p className="text-sm text-[#6B7280] leading-relaxed">
           Take a look at what Paige has prepared for you. You can edit anything you'd like to change.
         </p>
       </div>
 
-      {/* Progress Indicator */}
-      <div className="flex justify-center mb-8">
-        <div className="flex items-center gap-2">
-          {['todos', 'budget', 'vendors'].map((section, index) => {
-            const isCompleted = completedSections.has(section);
-            const isCurrent = currentSection === section;
-            const isPast = ['todos', 'budget', 'vendors'].indexOf(currentSection) > index;
-            
-            return (
-              <React.Fragment key={section}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isCompleted || isPast
-                    ? 'bg-green-500 text-white'
-                    : isCurrent
-                      ? 'bg-[#A85C36] text-white'
-                      : 'bg-gray-300 text-gray-600'
-                }`}>
-                  {isCompleted || isPast ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <span className="text-sm font-semibold">{index + 1}</span>
-                  )}
-                </div>
-                {index < 2 && (
-                  <div className={`w-8 h-0.5 ${
-                    isPast ? 'bg-green-500' : 'bg-gray-300'
-                  }`} />
-                )}
-              </React.Fragment>
-            );
-          })}
+      {/* Fallback Banner - shown when AI deadline generation failed */}
+      {usedFallbackTodos && (
+        <div className="mb-6 bg-[#EDE7F6] border border-[#B39DDB] rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-[#7E57C2] flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-[#332B42]">
+                We had trouble generating intelligent deadlines for your tasks, but don't worry! 
+                All your tasks are ready to go and you can add deadlines manually later.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="mb-8">
-        <AnimatePresence mode="wait">
-          {currentSection === 'todos' && renderTodos()}
-          {currentSection === 'budget' && renderBudget()}
-          {currentSection === 'vendors' && renderVendors()}
-        </AnimatePresence>
+        {renderTodos()}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4 justify-center">
-        <button
-          onClick={onBack}
-          className="btn-primaryinverse px-8 py-3 rounded-lg font-semibold text-base"
-        >
-          Back
-        </button>
-        <button
-          onClick={handleNext}
-          className="btn-primary px-8 py-3 rounded-lg font-semibold text-base flex items-center gap-2"
-        >
-          {getNextButtonText()}
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
     </motion.div>
   );
 };

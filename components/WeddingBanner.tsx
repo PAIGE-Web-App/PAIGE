@@ -16,6 +16,7 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
   const { user, userName, loading: authLoading } = useAuth();
   const router = useRouter();
   const [firestoreWeddingDate, setFirestoreWeddingDate] = useState<Date | null>(null);
+  const [weddingDateUndecided, setWeddingDateUndecided] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch wedding date for banner
@@ -29,7 +30,11 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
           const userSnap = await getDoc(userRef);
           if (userSnap.exists()) {
             const data = userSnap.data();
-            if (data.weddingDate?.seconds) {
+            // Check if wedding date is undecided
+            setWeddingDateUndecided(data.weddingDateUndecided || false);
+            
+            // Only set the wedding date if it exists AND is not undecided
+            if (data.weddingDate?.seconds && !data.weddingDateUndecided) {
               setFirestoreWeddingDate(new Date(data.weddingDate.seconds * 1000));
             } else {
               setFirestoreWeddingDate(null);
@@ -118,7 +123,7 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
   return (
     <div className="bg-[#332B42] text-white text-center py-2 font-playfair text-sm tracking-wide">
       <div className="app-container px-4">
-      {daysLeft !== null ? (
+      {daysLeft !== null && !weddingDateUndecided && firestoreWeddingDate ? (
         (() => {
           if (daysLeft === 0) {
             return "Today is the big day!";

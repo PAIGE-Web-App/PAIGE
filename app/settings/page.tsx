@@ -102,6 +102,8 @@ export default function ProfilePage() {
     setPlannerEmail,
     weddingDate,
     setWeddingDate,
+    weddingDateUndecided,
+    setWeddingDateUndecided,
     weddingLocation,
     setWeddingLocation,
     weddingLocationUndecided,
@@ -123,6 +125,8 @@ export default function ProfilePage() {
     setGuestCount,
     maxBudget,
     setMaxBudget,
+    additionalContext,
+    setAdditionalContext,
     selectedLocationType,
     setSelectedLocationType,
     weddingLocationCoords,
@@ -239,6 +243,8 @@ export default function ProfilePage() {
             <WeddingTab
               weddingDate={weddingDate}
               setWeddingDate={setWeddingDate}
+              weddingDateUndecided={weddingDateUndecided}
+              setWeddingDateUndecided={setWeddingDateUndecided}
               weddingLocation={weddingLocation}
               setWeddingLocation={setWeddingLocation}
               weddingLocationUndecided={weddingLocationUndecided}
@@ -255,6 +261,8 @@ export default function ProfilePage() {
               setGuestCount={setGuestCount}
               maxBudget={maxBudget}
               setMaxBudget={setMaxBudget}
+              additionalContext={additionalContext}
+              setAdditionalContext={setAdditionalContext}
               selectedLocationType={selectedLocationType}
               setSelectedLocationType={setSelectedLocationType}
               weddingLocationCoords={weddingLocationCoords}

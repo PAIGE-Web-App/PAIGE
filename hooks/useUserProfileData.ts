@@ -7,6 +7,7 @@ export function useUserProfileData() {
   const { user, loading: authLoading } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
   const [weddingDate, setWeddingDate] = useState<Date | null>(null);
+  const [weddingDateUndecided, setWeddingDateUndecided] = useState<boolean>(false);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [partnerName, setPartnerName] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export function useUserProfileData() {
   const [vibeInputMethod, setVibeInputMethod] = useState<string>('pills');
   const [generatedVibes, setGeneratedVibes] = useState<string[]>([]);
   const [maxBudget, setMaxBudget] = useState<number | null>(null);
+  const [additionalContext, setAdditionalContext] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Notification preferences
@@ -64,6 +66,7 @@ export function useUserProfileData() {
           setBudget(data.budget || null);
           setCityState(data.cityState || null);
           setStyle(data.style || null);
+          setWeddingDateUndecided(data.weddingDateUndecided || false);
 
           // Additional onboarding fields
           setWeddingLocation(data.weddingLocation || null);
@@ -75,6 +78,7 @@ export function useUserProfileData() {
           setVibeInputMethod(data.vibeInputMethod || 'pills');
           setGeneratedVibes(data.generatedVibes || []);
           setMaxBudget(data.maxBudget || null);
+          setAdditionalContext(data.additionalContext || null);
           // Note: imagePreview is not stored in Firestore due to size limits
 
           // Notification preferences
@@ -86,7 +90,8 @@ export function useUserProfileData() {
             inApp: data.notificationPreferences?.inApp || false
           });
 
-          if (data.weddingDate?.seconds) {
+          // Only set wedding date if it exists AND is not undecided
+          if (data.weddingDate?.seconds && !data.weddingDateUndecided) {
             const date = new Date(data.weddingDate.seconds * 1000);
             setWeddingDate(date);
             const today = new Date();
@@ -115,6 +120,7 @@ export function useUserProfileData() {
   return {
     userName,
     weddingDate,
+    weddingDateUndecided,
     daysLeft,
     profileLoading,
     partnerName,
@@ -134,6 +140,7 @@ export function useUserProfileData() {
     vibeInputMethod,
     generatedVibes,
     maxBudget,
+    additionalContext,
     imagePreview,
     phoneNumber,
     notificationPreferences,

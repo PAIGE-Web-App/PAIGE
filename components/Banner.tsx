@@ -8,10 +8,11 @@ interface BannerProps {
   onDismiss?: () => void;
   className?: string;
   expandableContent?: React.ReactNode;
+  defaultExpanded?: boolean;
 }
 
-const Banner: React.FC<BannerProps> = ({ message, type, onDismiss, className = '', expandableContent }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const Banner: React.FC<BannerProps> = ({ message, type, onDismiss, className = '', expandableContent, defaultExpanded = false }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const bgColor = type === 'info' ? 'bg-blue-100' : type === 'warning' ? 'bg-yellow-100' : 'bg-red-600';
   const textColor = type === 'info' ? 'text-blue-800' : type === 'warning' ? 'text-yellow-800' : 'text-white';
 
@@ -95,7 +96,7 @@ const Banner: React.FC<BannerProps> = ({ message, type, onDismiss, className = '
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.2 }}
-          className={`${bgColor} ${textColor} p-2 text-sm shadow-md border-t border-opacity-20 border-current`}
+          className={`${bgColor} ${textColor} p-2 text-sm shadow-md`}
         >
           {expandableContent}
         </motion.div>

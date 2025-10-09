@@ -263,9 +263,9 @@ const AIOnboardingFlow: React.FC<AIOnboardingFlowProps> = ({
                 exit={{ opacity: 0, y: -20 }}
               >
                 <VendorSwipeInterface
-                  vendors={generatedData.vendors.venues.concat(generatedData.vendors.photographers)}
+                  vendors={generatedData.vendors}
                   onComplete={handleVendorSwipingComplete}
-                  onBack={() => setCurrentStep('generating')}
+                  onSkip={() => setCurrentStep('review')}
                 />
               </motion.div>
             )}
@@ -283,7 +283,6 @@ const AIOnboardingFlow: React.FC<AIOnboardingFlowProps> = ({
                   likedVendors={likedVendors}
                   onComplete={handleReviewComplete}
                   onBack={() => setCurrentStep('swiping')}
-                  onEdit={handleEdit}
                 />
               </motion.div>
             )}

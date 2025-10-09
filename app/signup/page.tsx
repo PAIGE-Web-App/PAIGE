@@ -1,7 +1,7 @@
 "use client";
 
 import { db } from "../../lib/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -14,13 +14,14 @@ import { updateProfile } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from '../../contexts/AuthContext';
 import { useCustomToast } from '../../hooks/useCustomToast';
-import { WandSparkles, X, User, Pencil, Upload, Info } from 'lucide-react';
+import { WandSparkles, X, User, Pencil, Upload, Info, Sparkles } from 'lucide-react';
 import Link from "next/link";
 
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueSearchInput from '@/components/VenueSearchInput';
 import GoogleMapsLoader from '@/components/GoogleMapsLoader';
+import DreamDayConfirmation from '@/components/onboarding/DreamDayConfirmation';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -36,6 +37,7 @@ export default function SignUp() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [additionalContext, setAdditionalContext] = useState('');
   const [step, setStep] = useState(1);
   const [step2Errors, setStep2Errors] = useState<{ userName?: string; partnerName?: string }>({});
   const [userName, setUserName] = useState("");
@@ -194,6 +196,7 @@ export default function SignUp() {
       setStep(2);
     }
   }, [user, authLoading, onboarded, step]);
+
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -564,6 +567,8 @@ export default function SignUp() {
     }
   };
 
+  // Enhanced onboarding is now handled in the dashboard after signup completion
+
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
       <GoogleMapsLoader />
@@ -904,7 +909,8 @@ export default function SignUp() {
       const success = await saveOnboardingData({
           userName: userName.trim(),
           partnerName: partnerName.trim(),
-          weddingDate: weddingDate ? Timestamp.fromDate(new Date(weddingDate)) : null,
+          ...(weddingDate ? { weddingDate: Timestamp.fromDate(new Date(weddingDate)) } : {}),
+          weddingDateUndecided: undecidedDate,
         onboarded: false,
           createdAt: new Date(),
         });
@@ -922,7 +928,7 @@ export default function SignUp() {
 </button>
        </div>
        <div className="flex justify-center items-center gap-2 mt-4">
-         {[0, 1, 2, 3].map((n) => (
+         {[0, 1, 2, 3, 4].map((n) => (
            <span
              key={n}
              className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -1140,7 +1146,7 @@ export default function SignUp() {
           </button>
         </div>
         <div className="flex justify-center items-center gap-2 mt-4">
-          {[0, 1, 2, 3].map((n) => (
+          {[0, 1, 2, 3, 4].map((n) => (
             <span
               key={n}
               className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -1539,7 +1545,7 @@ export default function SignUp() {
           </button>
         </div>
         <div className="flex justify-center items-center gap-2 mt-4">
-          {[0, 1, 2, 3].map((n) => (
+          {[0, 1, 2, 3, 4].map((n) => (
             <span
               key={n}
               className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -1603,45 +1609,34 @@ export default function SignUp() {
             type="button"
             className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base"
             onClick={async () => {
-              // Save step 5 data and mark as onboarded
-              const saveAndComplete = async () => {
-              const step5Data = {
-                maxBudget: maxBudget,
-                guestCount: guestCount,
-                onboarded: true,
-                onboardingCompletedAt: new Date(),
-              };
-                
-                console.log('Completing onboarding with data:', step5Data);
-                const success = await saveOnboardingData(step5Data);
-                if (success) {
-                  console.log('Onboarding completed successfully, showing toast and redirecting...');
-                  showSuccessToast("Welcome to Paige! Your wedding planning journey begins now.");
+              // Save step 5 data and proceed to enhanced onboarding
+              const saveAndProceed = async () => {
+                const step5Data = {
+                  maxBudget: maxBudget,
+                  guestCount: guestCount,
+                  onboarded: false, // Don't mark as onboarded yet
+                };
                   
-                  // Clear any cached onboarding status to force refresh
-                  if (typeof window !== 'undefined') {
-                    localStorage.removeItem('onboardingStatus');
+                  console.log('Saving step 5 data:', step5Data);
+                  const success = await saveOnboardingData(step5Data);
+                  if (success) {
+                    console.log('Step 5 data saved, proceeding to step 6...');
+                    setStep(6);
+                  } else {
+                    console.error('Failed to save step 5 data');
+                    showErrorToast('Failed to save your data. Please try again.');
                   }
-                  
-                  // Add a longer delay to ensure Firestore has fully propagated the changes
-                  setTimeout(() => {
-                    console.log('Redirecting to dashboard...');
-                    window.location.href = "/dashboard";
-                  }, 3000);
-                } else {
-                  console.error('Failed to complete onboarding');
-                }
-              };
-              
-              saveAndComplete();
-            }}
+                };
+                
+                saveAndProceed();
+              }}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Complete"}
+            {saving ? "Saving..." : "Continue"}
           </button>
         </div>
         <div className="flex justify-center items-center gap-2 mt-4">
-          {[0, 1, 2, 3].map((n) => (
+          {[0, 1, 2, 3, 4].map((n) => (
             <span
               key={n}
               className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
@@ -1652,6 +1647,81 @@ export default function SignUp() {
     </form>
   </>
 )}
+{step === 6 && (
+  <>
+    <h1 className="text-[#332B42] text-2xl font-playfair font-semibold mb-4 text-left w-full">
+      Confirm your Dream Day Details
+    </h1>
+    <h4 className="text-[#364257] text-sm font-playfair font-normal mb-6 text-left w-full">
+      Here's what we know about your special day.
+    </h4>
+    <form className="w-full max-w-md space-y-8">
+             <DreamDayConfirmation
+               userName={userName}
+               partnerName={partnerName}
+               weddingDate={weddingDate}
+               weddingLocation={weddingLocation}
+               selectedVenueMetadata={selectedVenueMetadata}
+               maxBudget={maxBudget}
+               guestCount={guestCount}
+               vibe={vibe}
+               additionalContext={additionalContext}
+               setAdditionalContext={setAdditionalContext}
+             />
+      <div className="flex gap-4">
+        <button
+          type="button"
+          onClick={() => setStep(5)}
+          className="btn-primaryinverse flex-1 py-2 rounded-[5px] font-semibold text-base"
+        >
+          Back
+        </button>
+               <button
+                 type="button"
+                 onClick={async () => {
+                   // Save the additional context to localStorage for the AI generation modal
+                   if (additionalContext) {
+                     localStorage.setItem('paige_ai_generation_context', additionalContext);
+                     console.log('Set AI generation context:', additionalContext);
+                   } else {
+                     localStorage.setItem('paige_ai_generation_context', 'no-context');
+                     console.log('Set AI generation context: no-context');
+                   }
+                   // Mark user as onboarded to prevent redirect back to signup
+                   localStorage.setItem('paige_onboarding_status', 'onboarded');
+                   console.log('Set onboarding status to onboarded');
+                   
+                   // Also update Firestore to mark user as onboarded and save additional context
+                   try {
+                     await updateDoc(doc(db, 'users', user.uid), {
+                       onboarded: true,
+                       additionalContext: additionalContext || null
+                     });
+                     console.log('Updated Firestore: user marked as onboarded and additional context saved');
+                   } catch (error) {
+                     console.error('Error updating onboarded status and additional context in Firestore:', error);
+                   }
+                   // Redirect to dashboard
+                   router.push('/dashboard');
+                 }}
+                 className="btn-primary flex-1 py-2 rounded-[5px] font-semibold text-base flex items-center justify-center gap-2"
+               >
+                 <Sparkles className="w-4 h-4" />
+                 Create my plan
+               </button>
+      </div>
+    </form>
+    <div className="flex justify-center items-center gap-2 mt-4">
+      {[0, 1, 2, 3, 4].map((n) => (
+        <span
+          key={n}
+          className={`h-2 w-2 rounded-full transition-all duration-200 ${step - 2 === n ? 'bg-[#A85C36]' : 'bg-[#E0D6D0]'}`}
+        />
+      ))}
+    </div>
+  </>
+)}
+
 
             </motion.div>
           </AnimatePresence>
@@ -1717,6 +1787,19 @@ export default function SignUp() {
                   key="budget"
                   src="/api/optimize-image?src=/budget.png&f=webp&q=85&w=320"
                   alt="Budget illustration"
+                  className="max-w-[320px] w-full h-auto opacity-90 absolute"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4 }}
+                  loading="eager"
+                />
+              )}
+              {step === 6 && (
+                <motion.img
+                  key="confirmation"
+                  src="/api/optimize-image?src=/heart.png&f=webp&q=85&w=320"
+                  alt="Confirmation illustration"
                   className="max-w-[320px] w-full h-auto opacity-90 absolute"
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}

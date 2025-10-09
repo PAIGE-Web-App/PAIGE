@@ -11,6 +11,8 @@ import MaxBudgetInput from '@/components/MaxBudgetSlider';
 interface WeddingTabProps {
   weddingDate: string;
   setWeddingDate: (date: string) => void;
+  weddingDateUndecided: boolean;
+  setWeddingDateUndecided: (undecided: boolean) => void;
   weddingLocation: string;
   setWeddingLocation: (location: string) => void;
   weddingLocationUndecided: boolean;
@@ -27,6 +29,8 @@ interface WeddingTabProps {
   setGuestCount: (count: number) => void;
   maxBudget: number;
   setMaxBudget: (budget: number) => void;
+  additionalContext: string;
+  setAdditionalContext: (context: string) => void;
   selectedLocationType: string | null;
   setSelectedLocationType: (type: string | null) => void;
   weddingLocationCoords: { lat: number; lng: number } | null;
@@ -40,6 +44,8 @@ interface WeddingTabProps {
 export default function WeddingTab({
   weddingDate,
   setWeddingDate,
+  weddingDateUndecided,
+  setWeddingDateUndecided,
   weddingLocation,
   setWeddingLocation,
   weddingLocationUndecided,
@@ -56,6 +62,8 @@ export default function WeddingTab({
   setGuestCount,
   maxBudget,
   setMaxBudget,
+  additionalContext,
+  setAdditionalContext,
   selectedLocationType,
   setSelectedLocationType,
   weddingLocationCoords,
@@ -94,9 +102,27 @@ export default function WeddingTab({
               type="date"
               value={weddingDate}
               onChange={(e) => setWeddingDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none"
-              placeholder="mm/dd/yyyy"
+              disabled={weddingDateUndecided}
+              min={new Date().toISOString().split("T")[0]}
+              className={`w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${weddingDateUndecided ? "text-[#AB9C95] cursor-not-allowed opacity-50" : ""}`}
+              placeholder={weddingDateUndecided ? "We're working on it!" : "mm/dd/yyyy"}
             />
+            <div className="mt-2">
+              <label className="flex items-center text-sm text-[#332B42]">
+                <input
+                  type="checkbox"
+                  checked={weddingDateUndecided}
+                  onChange={(e) => {
+                    if (!weddingDateUndecided) {
+                      setWeddingDate("");
+                    }
+                    setWeddingDateUndecided(e.target.checked);
+                  }}
+                  className="form-checkbox rounded border-[#AB9C95] text-[#A85C36] mr-2"
+                />
+                We haven't decided yet
+              </label>
+            </div>
           </div>
           <div className={`${highlightWeddingLocation ? 'animate-jiggle' : ''}`}>
             <label className="block text-xs font-work-sans text-[#332B42] mb-1">Where do you want to get married?*</label>
@@ -217,6 +243,20 @@ export default function WeddingTab({
               onChange={setMaxBudget}
               placeholder="Enter your maximum budget"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-work-sans text-[#332B42] mb-1">Additional Context</label>
+            <textarea
+              value={additionalContext}
+              onChange={(e) => setAdditionalContext(e.target.value)}
+              placeholder="E.g. I went to college in the area so local vendors are important, or I want eco-friendly options, or we're having a destination wedding."
+              className="w-full px-3 py-2 border rounded border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] resize-none font-work"
+              rows={4}
+            />
+            <p className="text-xs text-[#7A7A7A] mt-1">
+              This helps Paige understand your unique preferences and find the perfect local vendors for you.
+            </p>
           </div>
         </div>
         <div className="flex justify-end items-center mt-6 gap-3">

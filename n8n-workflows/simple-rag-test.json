@@ -1,0 +1,52 @@
+{
+  "name": "Simple RAG Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "paige-rag",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "paige-rag-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"data\": { \"todos\": [{ \"title\": \"Test Todo\", \"category\": \"Test\", \"deadline\": \"1 month\", \"priority\": \"High\", \"description\": \"This is a test todo from n8n\" }], \"budget\": { \"total\": 25000, \"categories\": [{ \"name\": \"Test Category\", \"amount\": 5000, \"percentage\": 20, \"description\": \"Test budget category\" }] }, \"vendors\": { \"venues\": [{ \"name\": \"Test Venue\", \"location\": \"Test City\", \"price\": \"$$\", \"rating\": 4.5, \"description\": \"Test venue description\" }], \"photographers\": [], \"florists\": [], \"caterers\": [], \"music\": [] } } } }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-10-06T16:00:00.000Z",
+  "versionId": "1"
+}

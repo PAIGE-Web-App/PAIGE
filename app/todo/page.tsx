@@ -76,6 +76,8 @@ import { saveCategoryIfNew, deleteCategoryByName, defaultCategories } from "@/li
 import { useCustomToast } from "../../hooks/useCustomToast";
 import { useMobileTodoState } from "../../hooks/useMobileTodoState";
 import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
+import { CreditServiceClient } from "@/lib/creditServiceClient";
+import { creditEventEmitter } from "@/utils/creditEventEmitter";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
@@ -319,13 +321,12 @@ export default function TodoPage() {
           note: taskNote,
           category: null, // No default category for template items
           deadline: null,
-          endDate: null,
           planningPhase: planningPhase,
           allowAIDeadlines: allowAIDeadlines
         };
       });
 
-      // If AI deadlines are enabled and user has a wedding date, generate AI deadlines
+      // If AI deadlines are enabled and user has a wedding date, generate intelligent deadlines
       if (allowAIDeadlines && weddingDate && user?.uid) {
         
         // Declare progress interval outside try block for error handling
@@ -337,7 +338,7 @@ export default function TodoPage() {
           setDeadlineGenerationProgress({
             current: 0,
             total: tasks.length,
-            currentItem: 'Initializing AI deadline generation...'
+            currentItem: 'Generating intelligent deadlines...'
           });
           
           // Simulate progress updates
@@ -348,7 +349,7 @@ export default function TodoPage() {
               const messages = [
                 'Analyzing wedding timeline...',
                 'Calculating optimal deadlines...',
-                'Prioritizing critical tasks...',
+                'Preserving template order...',
                 'Generating intelligent schedules...',
                 'Finalizing deadline assignments...'
               ];
@@ -358,66 +359,67 @@ export default function TodoPage() {
                 currentItem: messages[Math.floor((newCurrent / prev.total) * messages.length)] || 'Processing...'
               };
             });
-          }, 800);
+          }, 400);
 
-          const response = await fetch('/api/generate-todo-deadlines', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              todos: tasks,
-              weddingDate: weddingDate,
-              userId: user.uid,
-              userEmail: user.email,
-              listName: template.name
-            }),
+          // Use the same deadline generation logic as onboarding flow
+          const tasksWithDeadlines = tasks.map((task, index) => {
+            const deadline = getIntelligentDeadline(index, task, weddingDate.toString(), template.id);
+            const deadlineReasoning = getDeadlineReasoning(index, task, template.id);
+            
+            return {
+              ...task,
+              deadline: deadline,
+              deadlineReasoning: deadlineReasoning
+            };
           });
 
           // Clear progress interval
           if (progressInterval) clearInterval(progressInterval);
+          
+          // Update progress to completion
+          setDeadlineGenerationProgress({
+            current: tasks.length,
+            total: tasks.length,
+            currentItem: 'Creating todo list with intelligent deadlines...'
+          });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            if (response.status === 402) {
-              // Insufficient credits
-              showInfoToast(errorData.message || 'Insufficient credits for AI deadline generation');
-              // Continue with template creation without AI deadlines
-            } else {
-              throw new Error(errorData.message || 'Failed to generate AI deadlines');
+          // Deduct credits for AI deadline generation (2 credits)
+          try {
+            const creditService = new CreditServiceClient();
+            const success = await creditService.deductCredits(user.uid, 'todo_generation', {
+              listName: template.name,
+              taskCount: tasks.length,
+              weddingDate: weddingDate,
+              timestamp: new Date().toISOString()
+            });
+
+            if (!success) {
+              throw new Error('Insufficient credits for AI deadline generation');
             }
-          } else {
-            const result = await response.json();
-            
-            if (result.success && result.todos) {
-              // Use AI-generated deadlines
-              const tasksWithDeadlines = result.todos.map((todo: any) => ({
-                ...todo,
-                deadline: todo.deadline ? new Date(todo.deadline) : null,
-                endDate: todo.endDate ? new Date(todo.endDate) : null
-              }));
-              
-              // Update progress to completion
-              setDeadlineGenerationProgress({
-                current: tasks.length,
-                total: tasks.length,
-                currentItem: 'Creating todo list with AI deadlines...'
-              });
-              
-              // Create the list with AI-generated deadlines
-              await todoLists.handleAddList(template.name, tasksWithDeadlines);
-              
-              // Close progress modal
-              setIsGeneratingDeadlines(false);
-              setDeadlineGenerationProgress(null);
-              
-              showSuccessToast('Todo list created with AI-powered deadlines!');
-            } else {
-              throw new Error('Invalid response from AI deadline generation');
-            }
+
+            // Emit credit update event to refresh UI immediately
+            creditEventEmitter.emit();
+          } catch (creditError) {
+            console.error('Credit deduction failed:', creditError);
+            showInfoToast('Insufficient credits for AI deadline generation. Creating list without deadlines.');
+            // Fall back to creating list without deadlines
+            await todoLists.handleAddList(template.name, tasks);
+            setIsGeneratingDeadlines(false);
+            setDeadlineGenerationProgress(null);
+            showCompletionToast('todos');
+            return;
           }
+          
+          // Create the list with intelligent deadlines
+          await todoLists.handleAddList(template.name, tasksWithDeadlines);
+          
+          // Close progress modal
+          setIsGeneratingDeadlines(false);
+          setDeadlineGenerationProgress(null);
+          
+          showSuccessToast('Todo list created with intelligent deadlines!');
         } catch (aiError) {
-          console.error('AI deadline generation failed:', aiError);
+          console.error('Deadline generation failed:', aiError);
           
           // Clear any remaining progress interval
           if (progressInterval) clearInterval(progressInterval);
@@ -426,8 +428,8 @@ export default function TodoPage() {
           setIsGeneratingDeadlines(false);
           setDeadlineGenerationProgress(null);
           
-          showInfoToast('AI deadline generation failed. Creating list with template deadlines.');
-          // Fall back to creating list without AI deadlines
+          showInfoToast('Deadline generation failed. Creating list without deadlines.');
+          // Fall back to creating list without deadlines
           await todoLists.handleAddList(template.name, tasks);
           showCompletionToast('todos');
         }
@@ -872,4 +874,188 @@ export default function TodoPage() {
       {/* Mobile Navigation is handled by VerticalNavWrapper */}
     </div>
   );
+}
+
+/**
+ * Generate intelligent deadline based on task index, task content, and wedding date
+ * Uses the same logic as the onboarding flow to preserve template order
+ */
+function getIntelligentDeadline(index: number, task: any, weddingDate: string, templateId: string): Date {
+  const now = new Date();
+  const wedding = new Date(weddingDate);
+  const daysUntilWedding = Math.ceil((wedding.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Generate realistic time based on task content
+  const getRealisticTime = (taskName: string, index: number): { hours: number; minutes: number } => {
+    const taskLower = taskName.toLowerCase();
+    
+    // Administrative/research tasks - morning
+    if (taskLower.includes('budget') || taskLower.includes('define') || taskLower.includes('research') || 
+        taskLower.includes('browse') || taskLower.includes('shortlist')) {
+      return { hours: 9, minutes: 30 }; // 9:30 AM
+    }
+    
+    // Vendor communications - afternoon
+    if (taskLower.includes('venue') || taskLower.includes('vendor') || taskLower.includes('photographer') || 
+        taskLower.includes('caterer') || taskLower.includes('hire') || taskLower.includes('book')) {
+      return { hours: 14, minutes: 0 }; // 2:00 PM
+    }
+    
+    // Personal tasks - evening
+    if (taskLower.includes('attire') || taskLower.includes('guest') || taskLower.includes('invitation') || 
+        taskLower.includes('personal') || taskLower.includes('dress') || taskLower.includes('suit')) {
+      return { hours: 19, minutes: 0 }; // 7:00 PM
+    }
+    
+    // Default to rotating time slots to avoid clustering
+    const timeSlots = [
+      { hours: 9, minutes: 0 },   // 9:00 AM
+      { hours: 9, minutes: 30 },  // 9:30 AM
+      { hours: 10, minutes: 0 },  // 10:00 AM
+      { hours: 14, minutes: 0 },  // 2:00 PM
+      { hours: 14, minutes: 30 }, // 2:30 PM
+      { hours: 19, minutes: 0 },  // 7:00 PM
+      { hours: 19, minutes: 30 }  // 7:30 PM
+    ];
+    
+    return timeSlots[index % timeSlots.length];
+  };
+
+  const time = getRealisticTime(task.name, index);
+  
+  // For tight timelines (< 90 days), compress all deadlines
+  if (daysUntilWedding < 90) {
+    let deadline: Date;
+    
+    // Use index-based distribution for tight timelines
+    if (index < 5) {
+      // Kickoff tasks - ASAP (1-3 days)
+      deadline = new Date(now.getTime() + (index + 1) * 24 * 60 * 60 * 1000);
+    } else if (index < 9) {
+      // Lock Venue + Date - early (4-7 days)
+      deadline = new Date(now.getTime() + (index + 3) * 24 * 60 * 60 * 1000);
+    } else if (index < 13) {
+      // Core Team - 9-12 months out (1-2 weeks)
+      deadline = new Date(now.getTime() + (index + 7) * 24 * 60 * 60 * 1000);
+    } else if (index < 16) {
+      // Looks + Attire - 8-10 months out (2-3 weeks)
+      deadline = new Date(now.getTime() + (index + 14) * 24 * 60 * 60 * 1000);
+    } else if (index < 21) {
+      // Food + Flow - 6-8 months out (3-4 weeks)
+      deadline = new Date(now.getTime() + (index + 21) * 24 * 60 * 60 * 1000);
+    } else if (index < 25) {
+      // Paper + Details - 4-6 months out (4-5 weeks)
+      deadline = new Date(now.getTime() + (index + 28) * 24 * 60 * 60 * 1000);
+    } else if (index < 30) {
+      // Send + Finalize - 2-4 months out (5-6 weeks)
+      deadline = new Date(now.getTime() + (index + 35) * 24 * 60 * 60 * 1000);
+    } else if (index < 35) {
+      // Tighten Up - 4-6 weeks out (6-7 weeks)
+      deadline = new Date(now.getTime() + (index + 42) * 24 * 60 * 60 * 1000);
+    } else if (index < 40) {
+      // Week Of (1 week before)
+      deadline = new Date(wedding.getTime() - (40 - index) * 24 * 60 * 60 * 1000);
+    } else if (index < 43) {
+      // Day Before
+      deadline = new Date(wedding.getTime() - 24 * 60 * 60 * 1000);
+    } else if (index < 47) {
+      // Wedding Day
+      deadline = new Date(wedding);
+    } else {
+      // After
+      deadline = new Date(wedding.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+    
+    // Ensure deadline is not after wedding (except for "after" items)
+    if (deadline > wedding && !task.name.toLowerCase().includes('after')) {
+      deadline = new Date(wedding.getTime() - 1 * 24 * 60 * 60 * 1000); // 1 day before
+    }
+    
+    // Set the realistic time
+    deadline.setHours(time.hours, time.minutes, 0, 0);
+    return deadline;
+  }
+  
+  // Normal timeline (90+ days) - use original planning phases
+  let deadline: Date;
+  
+  if (index < 5) {
+    // Kickoff tasks - ASAP (1 week)
+    deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  } else if (index < 9) {
+    // Lock Venue + Date - early (2-4 weeks)
+    deadline = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+  } else if (index < 13) {
+    // Core Team - 9-12 months out (6-9 months)
+    deadline = new Date(now.getTime() + 240 * 24 * 60 * 60 * 1000);
+  } else if (index < 16) {
+    // Looks + Attire - 8-10 months out (5-8 months)
+    deadline = new Date(now.getTime() + 200 * 24 * 60 * 60 * 1000);
+  } else if (index < 21) {
+    // Food + Flow - 6-8 months out (4-6 months)
+    deadline = new Date(now.getTime() + 150 * 24 * 60 * 60 * 1000);
+  } else if (index < 25) {
+    // Paper + Details - 4-6 months out (3-5 months)
+    deadline = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+  } else if (index < 30) {
+    // Send + Finalize - 2-4 months out (2-4 months)
+    deadline = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  } else if (index < 35) {
+    // Tighten Up - 4-6 weeks out (1-2 months)
+    deadline = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+  } else if (index < 40) {
+    // Week Of (2 weeks before)
+    deadline = new Date(wedding.getTime() - 14 * 24 * 60 * 60 * 1000);
+  } else if (index < 43) {
+    // Day Before
+    deadline = new Date(wedding.getTime() - 24 * 60 * 60 * 1000);
+  } else if (index < 47) {
+    // Wedding Day
+    deadline = new Date(wedding);
+  } else {
+    // After
+    deadline = new Date(wedding.getTime() + 7 * 24 * 60 * 60 * 1000);
+  }
+  
+  // Ensure deadline is not after wedding (except for "after" items)
+  if (deadline > wedding && !task.name.toLowerCase().includes('after')) {
+    deadline = new Date(wedding.getTime() - 1 * 24 * 60 * 60 * 1000); // 1 day before
+  }
+  
+  // Set the realistic time
+  deadline.setHours(time.hours, time.minutes, 0, 0);
+  return deadline;
+}
+
+/**
+ * Generate reasoning for deadline assignment
+ */
+function getDeadlineReasoning(index: number, task: any, templateId: string): string {
+  const taskName = task.name.toLowerCase();
+  
+  if (taskName.includes('budget') || taskName.includes('define')) {
+    return 'Budget planning should be done early to guide all other decisions';
+  } else if (taskName.includes('venue') || taskName.includes('book venue')) {
+    return 'Venue booking is critical and should be prioritized early in planning';
+  } else if (taskName.includes('photographer') || taskName.includes('hire')) {
+    return 'Photographer booking requires early planning due to high demand';
+  } else if (taskName.includes('attire') || taskName.includes('dress')) {
+    return 'Attire selection takes time for fittings and alterations';
+  } else if (taskName.includes('invitation') || taskName.includes('send')) {
+    return 'Invitations need time for design, printing, and mailing';
+  } else if (taskName.includes('week of') || taskName.includes('day before')) {
+    return 'Final preparations scheduled close to wedding date';
+  } else if (taskName.includes('after')) {
+    return 'Post-wedding tasks scheduled after the big day';
+  } else if (index < 5) {
+    return 'Kickoff task scheduled early in planning process';
+  } else if (index < 13) {
+    return 'Core planning task scheduled based on wedding timeline';
+  } else if (index < 21) {
+    return 'Mid-planning task scheduled for optimal timing';
+  } else if (index < 30) {
+    return 'Final planning task scheduled closer to wedding date';
+  } else {
+    return 'Task scheduled based on optimal wedding planning timeline';
+  }
 }

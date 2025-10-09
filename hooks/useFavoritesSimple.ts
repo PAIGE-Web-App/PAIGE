@@ -237,12 +237,22 @@ export const useFavoritesSimple = (): UseFavoritesSimpleReturn => {
 
   // Toggle favorite
   const toggleFavorite = useCallback(async (vendorData: VendorData) => {
-    if (isFavorite(vendorData.placeId)) {
+    const isCurrentlyFavorited = isFavorite(vendorData.placeId);
+    console.log('🔄 Toggle favorite called:', {
+      vendorName: vendorData.name,
+      placeId: vendorData.placeId,
+      isCurrentlyFavorited,
+      currentFavorites: favorites.map(f => f.placeId)
+    });
+    
+    if (isCurrentlyFavorited) {
+      console.log('🔄 Removing favorite...');
       await removeFavorite(vendorData.placeId);
     } else {
+      console.log('🔄 Adding favorite...');
       await addFavorite(vendorData);
     }
-  }, [isFavorite, addFavorite, removeFavorite]);
+  }, [isFavorite, addFavorite, removeFavorite, favorites]);
 
   // Batch toggle favorites for multiple vendors
   const batchToggleFavorites = useCallback(async (vendors: VendorData[], isFavoriting: boolean) => {

@@ -11,6 +11,14 @@ html, body {
 @tailwind components;
 @tailwind utilities;
 
+/* Line clamp utilities */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
 body {
   @apply font-work tracking-normal;
   background-color: #F3F2F0;

@@ -1,0 +1,81 @@
+{
+  "success": true,
+  "data": {
+    "todos": [
+      {
+        "title": "Book ceremony venue",
+        "category": "Venue",
+        "deadline": "6 months before",
+        "priority": "High",
+        "description": "Secure your ceremony location"
+      },
+      {
+        "title": "Hire photographer",
+        "category": "Photography",
+        "deadline": "8 months before",
+        "priority": "High",
+        "description": "Research and book wedding photographer"
+      },
+      {
+        "title": "Order wedding dress",
+        "category": "Attire",
+        "deadline": "6 months before",
+        "priority": "High",
+        "description": "Find and order your dream dress"
+      }
+    ],
+    "budget": {
+      "total": 25000,
+      "categories": [
+        {
+          "name": "Venue & Reception",
+          "amount": 10000,
+          "percentage": 40,
+          "description": "Ceremony and reception venue costs"
+        },
+        {
+          "name": "Photography & Videography",
+          "amount": 3750,
+          "percentage": 15,
+          "description": "Professional photo and video services"
+        },
+        {
+          "name": "Food & Beverage",
+          "amount": 7500,
+          "percentage": 30,
+          "description": "Catering and bar services"
+        }
+      ]
+    },
+    "vendors": {
+      "venues": [
+        {
+          "name": "Garden Manor",
+          "location": "Downtown",
+          "price": "$$$",
+          "rating": 4.8,
+          "description": "Beautiful garden venue with outdoor ceremony space"
+        },
+        {
+          "name": "Historic Hall",
+          "location": "Old Town",
+          "price": "$$",
+          "rating": 4.5,
+          "description": "Charming historic building with character"
+        }
+      ],
+      "photographers": [
+        {
+          "name": "Sarah Johnson Photography",
+          "location": "Local",
+          "price": "$$$",
+          "rating": 4.9,
+          "description": "Award-winning wedding photographer"
+        }
+      ],
+      "florists": [],
+      "caterers": [],
+      "music": []
+    }
+  }
+}

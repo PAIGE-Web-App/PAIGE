@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, ArrowDown } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface DowngradeConfirmationModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ const DowngradeConfirmationModal: React.FC<DowngradeConfirmationModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -135,7 +136,8 @@ const DowngradeConfirmationModal: React.FC<DowngradeConfirmationModalProps> = ({
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

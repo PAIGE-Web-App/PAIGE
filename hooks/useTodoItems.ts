@@ -107,7 +107,7 @@ export function useTodoItems(selectedList: TodoList | null) {
     
     const q = query(
       getUserCollectionRef('todoItems', user.uid),
-      orderBy('createdAt', 'desc'),
+      orderBy('orderIndex', 'asc'),
       limit(100) // Limit to 100 most recent items for better performance
     );
     
