@@ -422,6 +422,36 @@ a {
   transform: translateY(0);
 }
 
+.btn-gradient-purple-inverse {
+  background: transparent;
+  color: #F3F2F0;
+  border: 1px solid #F3F2F0;
+  font-family: var(--font-work-sans);
+  font-weight: 600;
+  font-size: 0.75rem; /* Same as btn-gradient-purple */
+  padding: 4px 12px; /* Same as btn-gradient-purple */
+  border-radius: 5px; /* Same as btn-gradient-purple */
+  gap: 8px; /* Same as btn-gradient-purple */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+.btn-gradient-purple-inverse:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #F3F2F0;
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-gradient-purple-inverse:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
 .icon-button {
   color: #332B42; /* Equivalent to text-[#332B42] */
   font-size: 0.875rem; /* Equivalent to text-sm */

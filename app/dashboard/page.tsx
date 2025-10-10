@@ -13,7 +13,7 @@ import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts
 import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import toast from "react-hot-toast";
 import confetti from 'canvas-confetti';
-import { doc, getDoc, collection, getDocs, query, limit, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { ProgressItem } from "../../types/seatingChart";
 import { CheckCircle, Circle, Users, Heart, ClipboardList, Palette, DollarSign, Calendar, MessageSquare, Sparkles, ArrowRight, ChevronDown, ChevronUp, MapPin, Home, Star, FileText, Bot } from "lucide-react";
@@ -22,13 +22,15 @@ import Link from "next/link";
 import CreditsExplanationModal from "../../components/CreditsExplanationModal";
 import WelcomeModal from "../../components/WelcomeModal";
 import AIGenerationModal from "../../components/onboarding/AIGenerationModal";
-import { 
-  QuickGuide, 
-  QuickGuideCards,
+import {
   QuickActions, 
   ProgressOverview, 
   ProgressAccordion 
 } from "../../components/dashboard";
+import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWeddingInfoSidebar";
+import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
+import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
+import { DashboardDataProvider } from "../../contexts/DashboardDataContext";
 
 
 export default function Dashboard() {
@@ -54,6 +56,9 @@ export default function Dashboard() {
   const [isManualWelcomeModal, setIsManualWelcomeModal] = useState(false);
   const [showAIGenerationModal, setShowAIGenerationModal] = useState(false);
   const [generatedData, setGeneratedData] = useState<any>(null);
+  
+  // Real data for conditional blocks
+  // todoData and budgetData are now provided by DashboardDataProvider
 
   const { showInfoToast, showSuccessToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
@@ -65,6 +70,8 @@ export default function Dashboard() {
     return nameParts[0] || 'there';
   };
   
+  // Data fetching is now handled by DashboardDataProvider
+
   // Fetch user data and progress information
   const fetchUserData = async () => {
     if (!user) return;
@@ -77,9 +84,7 @@ export default function Dashboard() {
         const userData = userDoc.data();
         setUserData(userData);
         
-        // Check progress data
-        const progressChecks = await checkProgressData(user.uid, userData);
-        setProgressData(progressChecks);
+        // Progress data is now handled by DashboardDataProvider
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -107,39 +112,13 @@ export default function Dashboard() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && user) {
-        // Page became visible, refresh progress data
-        const refreshProgress = async () => {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              const progressChecks = await checkProgressData(user.uid, userData);
-              setProgressData(progressChecks);
-            }
-          } catch (error) {
-            console.error('Error refreshing progress data:', error);
-          }
-        };
-        refreshProgress();
+        // Progress data refresh is now handled by DashboardDataProvider
       }
     };
 
     const handleFocus = () => {
       if (user) {
-        // Window gained focus, refresh progress data
-        const refreshProgress = async () => {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              const progressChecks = await checkProgressData(user.uid, userData);
-              setProgressData(progressChecks);
-      }
-    } catch (error) {
-            console.error('Error refreshing progress data:', error);
-          }
-        };
-        refreshProgress();
+        // Progress data refresh is now handled by DashboardDataProvider
       }
     };
 
@@ -153,42 +132,7 @@ export default function Dashboard() {
   }, [user]);
 
   // Check progress data for all items - optimized with batched queries
-  const checkProgressData = async (userId: string, userData: any) => {
-    const checks: any = {};
-    
-    try {
-      // Batch all Firestore queries in parallel with limit(1) for existence checks
-      const [contacts, todos, budget, seating, files, vendors] = await Promise.all([
-        getDocs(query(collection(db, 'users', userId, 'contacts'), limit(1))),
-        getDocs(query(collection(db, 'users', userId, 'todoLists'), limit(1))),
-        getDocs(query(collection(db, 'users', userId, 'budgetCategories'), limit(1))),
-        getDocs(query(collection(db, 'users', userId, 'seatingCharts'), limit(1))),
-        getDocs(query(collection(db, 'users', userId, 'files'), limit(1))),
-        getDocs(query(collection(db, 'users', userId, 'vendors'), limit(1)))
-      ]);
-      
-      // Process results
-      checks.hasContacts = contacts.size > 0;
-      checks.hasTodos = todos.size > 0;
-      checks.hasBudget = budget.size > 0;
-      checks.hasSeatingCharts = seating.size > 0;
-      checks.hasVisitedFiles = files.size > 0;
-      checks.hasVendors = vendors.size > 0;
-      
-      
-      // Check moodboards (no Firestore query needed - uses userData)
-      checks.hasMoodboards = (userData.moodBoards && userData.moodBoards.length > 0) || 
-                            (userData.vibe && userData.vibe.length > 0);
-      
-      // Check AI functions usage (no Firestore query needed - uses userData)
-      checks.hasUsedAI = userData.aiFunctionsUsed || false;
-      
-    } catch (error) {
-      console.error('Error checking progress data:', error);
-    }
-    
-    return checks;
-  };
+  // checkProgressData function moved to DashboardDataContext
 
   // Toggle accordion item
   const toggleAccordion = (itemId: string) => {
@@ -596,6 +540,7 @@ export default function Dashboard() {
 
   return (
     <ClientOnly>
+      <DashboardDataProvider>
       <style jsx global>{`
         html, body {
           overflow-x: hidden;
@@ -630,43 +575,69 @@ export default function Dashboard() {
       <div className="min-h-screen bg-linen mobile-scroll-container">
           <WeddingBanner />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ width: '100%', maxWidth: '1152px' }}>
-        <div className="space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ width: '100%', maxWidth: '1400px' }}>
+        <div className="flex gap-6">
+          {/* Main Content */}
+          <div className="flex-1 space-y-4">
+          
+          {/* AI Wedding Planning Banner */}
+          <div 
+            className="rounded-lg py-6 px-8 relative overflow-hidden shadow-lg bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: 'url(/banner.png)' }}
+          >
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-black/50 z-0"></div>
+            <div className="relative z-10 max-w-1/2">
+              <div className="flex items-center gap-3 mb-4">
+                <h5 className="text-white">
+                  Let Paige Create Your Wedding Plan
+                </h5>
+                <span
+                  className="inline-flex items-center text-[10px] lg:text-xs font-medium rounded-full px-2 lg:px-2 py-0 lg:py-0.5 border"
+                  style={{ backgroundColor: 'white', borderColor: 'white', color: '#805d93' }}
+                >
+                  New
+                </span>
+              </div>
+                <p className="text-white text-sm mb-6 w-1/2 font-work">
+                  Get personalized todos, budget, and vendor recommendations based on your wedding details.
+                </p>
+              <button
+                onClick={() => {
+                  console.log('Starting enhanced onboarding from banner');
+                  setShowAIGenerationModal(true);
+                }}
+                className="btn-gradient-purple-inverse flex items-center gap-2"
+              >
+                <Sparkles className="w-5 h-5" />
+                Create My Wedding Plan
+              </button>
+            </div>
+          </div>
+
+          {/* Conditional Dashboard Blocks */}
+          <OptimizedConditionalDashboardBlocks />
           
           {/* Quick Guide Cards Section */}
-          <QuickGuideCards 
-            userData={userData}
-            progressData={progressData}
+          <OptimizedQuickGuideCards 
             onOpenWelcomeModal={() => {
               setShowWelcomeModal(true);
               setIsManualWelcomeModal(true);
             }}
           />
-
-          {/* Enhanced Onboarding Trigger Button */}
-          <div className="bg-white rounded-lg border border-[#AB9C95] p-6 text-center">
-            <h3 className="text-lg font-semibold text-[#332B42] mb-2">Let Paige Create Your Wedding Plan</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Get personalized todos, budget, and vendor recommendations based on your wedding details.
-            </p>
-            <button
-              onClick={() => {
-                console.log('Starting enhanced onboarding from dashboard');
-                setShowAIGenerationModal(true);
-              }}
-              className="btn-primary flex items-center justify-center gap-2 mx-auto"
-            >
-              <Sparkles className="w-4 h-4" />
-              Create My Wedding Plan
-            </button>
           </div>
 
-
-              </div>
+          {/* Wedding Info Sidebar */}
+          {userData && (
+            <div className="hidden lg:block">
+              <OptimizedWeddingInfoSidebar />
             </div>
-          </div>
+          )}
+        </div>
+      </div>
+      </div>
 
-    {/* Credits Explanation Modal */}
+      {/* Credits Explanation Modal */}
     <CreditsExplanationModal
       isOpen={showCreditsModal}
       onClose={() => setShowCreditsModal(false)}
@@ -684,8 +655,8 @@ export default function Dashboard() {
       }}
     />
 
-    {/* Welcome Modal */}
-    <WelcomeModal
+      {/* Welcome Modal */}
+      <WelcomeModal
       isOpen={showWelcomeModal}
       onClose={async () => {
         setShowWelcomeModal(false);
@@ -706,8 +677,8 @@ export default function Dashboard() {
       showCloseButton={isManualWelcomeModal}
     />
 
-    {/* AI Generation Modal */}
-    <AIGenerationModal
+      {/* AI Generation Modal */}
+      <AIGenerationModal
       isOpen={showAIGenerationModal}
       onClose={() => setShowAIGenerationModal(false)}
       onComplete={(data) => {
@@ -824,6 +795,7 @@ export default function Dashboard() {
       additionalContext={typeof window !== 'undefined' ? localStorage.getItem('paige_ai_generation_context') || '' : ''}
     />
 
+      </DashboardDataProvider>
     </ClientOnly>
   );
 }
