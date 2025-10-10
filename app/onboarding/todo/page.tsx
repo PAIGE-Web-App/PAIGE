@@ -217,19 +217,21 @@ export default function OnboardingTodoPage() {
       // Save updated wedding details to localStorage for AI generation
       localStorage.setItem('paige_updated_wedding_details', JSON.stringify(updatedWeddingDetails));
 
-      // Update localStorage with the new data to refresh the current page
-      localStorage.setItem('paige_generated_data', JSON.stringify(updatedData));
-      setGeneratedData(updatedData);
-
-      // Force refresh of user profile data to update WeddingBanner and other components
-      reloadUserProfile();
+      // Set the AI generation context to trigger full plan regeneration on dashboard
+      const contextValue = editedValues.additionalContext || updatedWeddingDetails.additionalContext || 'Regenerating plan with updated details';
+      localStorage.setItem('paige_ai_generation_context', contextValue);
       
-      // Also dispatch a global event to refresh dashboard data
-      window.dispatchEvent(new CustomEvent('refreshUserProfile'));
-
-      // Show the AI generation modal
+      // Clear generated data so the AI generation modal can show
+      localStorage.removeItem('paige_generated_data');
+      
+      // Keep the onboarding flag active so dashboard knows this is part of onboarding
       localStorage.setItem('paige_enhanced_onboarding_active', 'true');
+      
+      
+      setShowEditModal(false);
       router.push('/dashboard');
+      
+      return;
       
     } catch (error) {
       console.error('Error updating wedding plan:', error);
@@ -239,7 +241,7 @@ export default function OnboardingTodoPage() {
 
   const handleComplete = () => {
     console.log('✅ Review flow completed');
-    router.push('/dashboard');
+    router.push('/onboarding/budget');
   };
 
   if (isLoading) {

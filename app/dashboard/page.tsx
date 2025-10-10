@@ -12,6 +12,7 @@ import { useCustomToast } from "../../hooks/useCustomToast";
 import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
 import { useQuickStartCompletion } from "../../hooks/useQuickStartCompletion";
 import toast from "react-hot-toast";
+import confetti from 'canvas-confetti';
 import { doc, getDoc, collection, getDocs, query, limit, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { ProgressItem } from "../../types/seatingChart";
@@ -315,10 +316,27 @@ export default function Dashboard() {
       // Show welcome modal for ALL new users who haven't seen it before
       // BUT only if they're not coming from the AI generation flow or enhanced onboarding
       const enhancedOnboardingActive = localStorage.getItem('paige_enhanced_onboarding_active');
-      if (!hasSeenWelcomeModal && !aiGenerationContext && enhancedOnboardingActive !== 'true') {
-        console.log('Showing welcome modal automatically for new user');
+      const showWelcomeModalFlag = localStorage.getItem('paige_show_welcome_modal');
+      
+      if ((!hasSeenWelcomeModal && !aiGenerationContext && enhancedOnboardingActive !== 'true') || showWelcomeModalFlag === 'true') {
+        console.log('Showing welcome modal automatically for new user or after onboarding completion');
         setShowWelcomeModal(true);
         setIsManualWelcomeModal(false); // This is automatic, not manual
+        
+        // Clear the flag after showing the modal
+        if (showWelcomeModalFlag === 'true') {
+          localStorage.removeItem('paige_show_welcome_modal');
+          
+          // Trigger confetti effect for onboarding completion
+          setTimeout(() => {
+            // Single confetti burst for celebration
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+          }, 500); // Delay to let modal appear first
+        }
       }
     }
   }, [userData, loading]);
@@ -702,6 +720,8 @@ export default function Dashboard() {
         localStorage.removeItem('paige_updated_wedding_details');
         
         showSuccessToast('Welcome to Paige! Your personalized wedding plan is ready!');
+        // Set flag to prevent welcome modal during onboarding
+        localStorage.setItem('paige_enhanced_onboarding_active', 'true');
         // Navigate to the new dedicated onboarding page
         router.push('/onboarding/vendors');
       }}

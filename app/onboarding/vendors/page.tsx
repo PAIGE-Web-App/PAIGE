@@ -216,9 +216,21 @@ export default function OnboardingVendorsPage() {
       // Save updated wedding details to localStorage for AI generation
       localStorage.setItem('paige_updated_wedding_details', JSON.stringify(updatedWeddingDetails));
 
-      // Show the AI generation modal
+      // Set the AI generation context to trigger full plan regeneration on dashboard
+      const contextValue = editedValues.additionalContext || updatedWeddingDetails.additionalContext || 'Regenerating plan with updated details';
+      localStorage.setItem('paige_ai_generation_context', contextValue);
+      
+      // Clear generated data so the AI generation modal can show
+      localStorage.removeItem('paige_generated_data');
+      
+      // Keep the onboarding flag active so dashboard knows this is part of onboarding
       localStorage.setItem('paige_enhanced_onboarding_active', 'true');
+      
+      
+      setShowEditModal(false);
       router.push('/dashboard');
+      
+      return;
       
     } catch (error) {
       console.error('Error updating wedding plan:', error);

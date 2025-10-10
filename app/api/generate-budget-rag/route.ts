@@ -341,10 +341,22 @@ function parseBudgetResponse(response: string, totalBudget: number) {
   };
 }
 
-// Export the handler with credit validation
-export const POST = withCreditValidation(handleRAGBudgetGeneration, {
-  feature: 'budget_generation_rag',
-  userIdField: 'userId',
-  requireAuth: true,
-  errorMessage: 'Insufficient credits for budget generation with RAG. Please upgrade your plan to continue using AI features.'
-});
+// Export the handler with conditional credit validation
+export const POST = async (request: NextRequest) => {
+  // Check if this is from onboarding (should be free)
+  const isOnboarding = request.headers.get('x-onboarding-free') === 'true';
+  
+  if (isOnboarding) {
+    // For onboarding, skip credit validation and call handler directly
+    console.log('🎉 Budget generation from onboarding - skipping credit validation');
+    return await handleRAGBudgetGeneration(request);
+  } else {
+    // For regular usage, apply credit validation
+    return await withCreditValidation(handleRAGBudgetGeneration, {
+      feature: 'budget_generation_rag',
+      userIdField: 'userId',
+      requireAuth: true,
+      errorMessage: 'Insufficient credits for budget generation with RAG. Please upgrade your plan to continue using AI features.'
+    })(request);
+  }
+};

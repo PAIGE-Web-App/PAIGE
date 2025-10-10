@@ -142,11 +142,11 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
               />
             </div>
             <h2 className="text-xl font-medium text-[#332B42] mb-6">
-              That's it! Let's get started.
+              You're already well on your way.
             </h2>
             <div className="text-left">
               <p className="text-[#5A4A42] text-base mb-8 font-work">
-                Select one of the most common wedding planning items below to kick off your journey with Paige. You can always access this popup again on your dashboard!
+                Check out the To-do list, Budget, or Vendors you've interacted with in the onboarding flow below!
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -164,7 +164,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
                 className="flex flex-col items-center p-4 border border-[#E0DBD7] rounded-lg hover:bg-[#F3F2F0] transition-colors no-underline"
               >
                 <ClipboardList className="w-6 h-6 text-[#8B5CF6] mb-2" style={{ strokeWidth: 1.5 }} />
-                <span className="font-medium text-[#332B42] text-sm">Create your first to-do list</span>
+                <span className="font-medium text-[#332B42] text-sm">Check out your to-do list</span>
               </Link>
               <Link
                 href="/budget"
@@ -172,7 +172,7 @@ export default function WelcomeModal({ isOpen, onClose, firstName, showCloseButt
                 className="flex flex-col items-center p-4 border border-[#E0DBD7] rounded-lg hover:bg-[#F3F2F0] transition-colors no-underline"
               >
                 <DollarSign className="w-6 h-6 text-[#8B5CF6] mb-2" style={{ strokeWidth: 1.5 }} />
-                <span className="font-medium text-[#332B42] text-sm">Create your budget plan</span>
+                <span className="font-medium text-[#332B42] text-sm">Review your budget plan</span>
               </Link>
             </div>
             <div className="mt-6">
