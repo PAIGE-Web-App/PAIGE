@@ -27,6 +27,7 @@ import GmailTodoReviewModal from './GmailTodoReviewModal';
 import { useUserProfileData } from "../hooks/useUserProfileData";
 import { useCredits } from "../contexts/CreditContext";
 import { useGmailAuth } from "../contexts/GmailAuthContext";
+import { dispatchGmailApiError } from '../utils/gmailApiErrorHandler';
 
 
 // Define interfaces for types needed in this component
@@ -561,9 +562,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         });
         const data = await res.json();
         if (!data.success) {
-          if (data.needsReauth) {
-            // Trigger Gmail auth check to show the global banner
-            checkGmailAuth(true); // Force check
+          if (data.requiresReauth || data.needsReauth) {
+            // Dispatch Gmail API error to trigger global auth check
+            dispatchGmailApiError({
+              status: 401,
+              message: data.error || 'Gmail authentication required',
+              requiresReauth: true
+            });
             showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
             return; // Don't throw error, just return
           }
@@ -595,9 +600,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         });
         const data = await res.json();
         if (!data.success) {
-          if (data.needsReauth) {
-            // Trigger Gmail auth check to show the global banner
-            checkGmailAuth(true); // Force check
+          if (data.requiresReauth || data.needsReauth) {
+            // Dispatch Gmail API error to trigger global auth check
+            dispatchGmailApiError({
+              status: 401,
+              message: data.error || 'Gmail authentication required',
+              requiresReauth: true
+            });
             showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
             return; // Don't throw error, just return
           }
