@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import HomepageNavbar from '@/components/navigation/HomepageNavbar';
+import HomepageFooter from '@/components/navigation/HomepageFooter';
 
 export default function PrivacyPolicy() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -23,29 +25,8 @@ export default function PrivacyPolicy() {
 
   return (
     <div className="bg-linen text-[#332B42] antialiased min-h-screen">
-      {/* NAVBAR - Only show if not logged in */}
-      {!isLoggedIn && (
-        <div className="sticky top-0 z-30 pt-4 px-4">
-          <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
-            <div className="px-4 flex h-16 items-center justify-between">
-              <Link href="/" className="flex items-center gap-2 no-underline">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
-                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
-              </Link>
-                      <nav className="hidden md:flex items-center gap-8 text-sm">
-                        <Link href="/#features" className="text-[#332B42] hover:text-[#332B42] no-underline">Features</Link>
-                        <Link href="/#how-it-works" className="text-[#332B42] hover:text-[#332B42] no-underline">How It Works</Link>
-                        <Link href="/#faq" className="text-[#332B42] hover:text-[#332B42] no-underline">FAQ</Link>
-                        <Link href="/#pricing" className="text-[#332B42] hover:text-[#332B42] no-underline">Pricing</Link>
-                      </nav>
-                      <div className="flex items-center gap-3">
-                        <Link href="/login" className="btn-primaryinverse">Login</Link>
-                        <Link href="/signup" className="btn-gradient-purple">Start for Free</Link>
-                      </div>
-            </div>
-          </header>
-        </div>
-      )}
+      {/* NAVBAR */}
+      <HomepageNavbar isLoggedIn={isLoggedIn} />
 
       {/* HERO SECTION */}
       <section 
@@ -186,25 +167,8 @@ export default function PrivacyPolicy() {
         </div>
       </section>
 
-      {/* FOOTER - Only show if not logged in */}
-      {!isLoggedIn && (
-        <footer className="border-t-[0.5px] border-[rgb(236,233,231)] bg-white">
-          <div className="px-4 lg:px-8 mx-auto py-6 max-w-7xl">
-            <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
-                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
-              </div>
-              <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
-                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
-                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
-              </nav>
-              <p className="text-sm text-[#5A4A42]">© {new Date().getFullYear()} Paige. All rights reserved.</p>
-            </div>
-          </div>
-        </footer>
-      )}
+      {/* FOOTER */}
+      <HomepageFooter isLoggedIn={isLoggedIn} />
     </div>
   );
 }

@@ -29,6 +29,8 @@ import {
   Armchair
 } from "lucide-react";
 import Link from "next/link";
+import HomepageNavbar from '@/components/navigation/HomepageNavbar';
+import HomepageFooter from '@/components/navigation/HomepageFooter';
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
@@ -197,9 +199,12 @@ export default function LandingPage() {
       <div className="sticky top-0 z-30 pt-4 px-4">
         <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
           <div className="px-4 flex h-16 items-center justify-between">
-          <Link href="#" className="flex items-center gap-2 no-underline">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
-            <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+          <Link href="#" className="flex items-center no-underline">
+            <img 
+              src="/PaigeFinal.png" 
+              alt="Paige" 
+              className="h-[32px] w-auto max-w-none"
+            />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm">
             <a href="#features" className="text-[#332B42] hover:text-[#332B42] no-underline">Features</a>
@@ -798,9 +803,12 @@ export default function LandingPage() {
       <footer className="border-t-[0.5px] border-[rgb(236,233,231)] bg-white">
         <div className="px-4 lg:px-8 mx-auto py-6 max-w-7xl">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
-              <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+            <div className="flex items-center">
+              <img 
+                src="/PaigeFinal.png" 
+                alt="Paige" 
+                className="h-[32px] w-auto max-w-none"
+              />
             </div>
             <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
               <a href="#features" className="text-[#332B42] hover:text-[#332B42] no-underline">Features</a>

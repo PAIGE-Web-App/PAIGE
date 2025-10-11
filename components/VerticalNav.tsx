@@ -97,9 +97,13 @@ export default function VerticalNav() {
       {/* Top Section: Logo and Navigation Items - Centered with padding */}
       <div className="flex flex-col items-center flex-1 justify-center pt-4">
         {/* Logo */}
-        <div className="mb-8">
-          <h5 className="text-[#332B42]">P</h5>
-        </div>
+        <a href="/dashboard" className="mb-8 no-underline">
+          <img 
+            src="/PaigeFav.png" 
+            alt="Paige" 
+            className="w-10 h-10"
+          />
+        </a>
 
         {/* Main Navigation Items */}
         <div className="flex flex-col items-center space-y-6">

@@ -41,6 +41,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${playfair.variable} ${workSans.variable}`}>
       <head>
+        {/* Favicon */}
+        <link rel="icon" href="/pcirclealt.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/pcirclealt.png" />
+        
         {/* Prevent white screen flash */}
         <style jsx global>{`
           html, body {

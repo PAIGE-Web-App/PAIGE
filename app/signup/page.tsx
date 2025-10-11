@@ -586,8 +586,12 @@ export default function SignUp() {
             {step === 1 && (
               <>
                 <div className="flex flex-col justify-center items-center px-4 lg:px-12">
-                    <Link href="/" className="flex items-center gap-2 no-underline mb-4">
-                      <span className="font-playfair text-xl text-[#5A4A42]">Paige</span>
+                    <Link href="/" className="flex items-center no-underline mb-8">
+                      <img 
+                        src="/PaigeFinal.png" 
+                        alt="Paige" 
+                        className="h-[32px] w-auto max-w-none"
+                      />
                     </Link>
                     
                     {/* Mobile placeholder image */}
