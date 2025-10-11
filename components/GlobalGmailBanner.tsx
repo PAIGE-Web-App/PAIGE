@@ -10,9 +10,11 @@ export default function GlobalGmailBanner() {
   const { needsReauth, isLoading, checkGmailAuth, dismissBanner } = useGmailAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [showLearnMoreModal, setShowLearnMoreModal] = useState(false);
+  const [isReauthLoading, setIsReauthLoading] = useState(false);
 
   const handleReauth = async () => {
-    if (isLoading) return; // Prevent multiple simultaneous reauth attempts
+    if (isReauthLoading) return; // Prevent multiple simultaneous reauth attempts
+    setIsReauthLoading(true);
     
     try {
       // Import Firebase auth dynamically to avoid SSR issues
@@ -96,6 +98,8 @@ export default function GlobalGmailBanner() {
     } catch (error: any) {
       console.error('❌ Gmail reauth error:', error);
       showErrorToast('Failed to re-enable Gmail integration');
+    } finally {
+      setIsReauthLoading(false);
     }
   };
 
@@ -136,10 +140,10 @@ export default function GlobalGmailBanner() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleReauth}
-                    disabled={isLoading}
+                    disabled={isReauthLoading}
                     className="btn-primary flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3 h-3 ${isReauthLoading ? 'animate-spin' : ''}`} />
                     Re-authenticate
                   </button>
                   <button
