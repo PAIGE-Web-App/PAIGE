@@ -1,163 +1,205 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function PrivacyPolicy() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoggedIn(!!user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return null; // or a loading spinner
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <Link href="/" className="text-2xl font-bold text-[#805d93] hover:text-[#6b4c7f] transition-colors">
-              Paige
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900 mt-4">Privacy Policy</h1>
-            <p className="text-gray-600 mt-2">Last updated: {new Date().toLocaleDateString()}</p>
-          </div>
+    <div className="bg-linen text-[#332B42] antialiased min-h-screen">
+      {/* NAVBAR - Only show if not logged in */}
+      {!isLoggedIn && (
+        <div className="sticky top-0 z-30 pt-4 px-4">
+          <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
+            <div className="px-4 flex h-16 items-center justify-between">
+              <Link href="/" className="flex items-center gap-2 no-underline">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
+                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+              </Link>
+              <nav className="hidden md:flex items-center gap-8 text-sm">
+                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
+                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
+              </nav>
+            </div>
+          </header>
+        </div>
+      )}
 
-          <div className="prose prose-lg max-w-none">
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
-              <p className="text-gray-700 leading-relaxed">
-                Welcome to Paige ("we," "our," or "us"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our wedding planning application and services (the "Service"). Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the Service.
+      {/* HERO SECTION */}
+      <section 
+        className="bg-linen py-12 bg-cover bg-center bg-no-repeat relative"
+        style={{ backgroundImage: 'url(/termsandprivacy.png)' }}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <h1 className="font-playfair text-2xl font-medium text-[#332B42] mb-4">
+            Privacy Policy
+          </h1>
+          <p className="text-[#5A4A42] font-work text-base max-w-3xl mx-auto">
+            We built Paige to help you plan your wedding, not to complicate your life. Here's how we protect your privacy.
+          </p>
+          <p className="text-[#5A4A42] mt-4 font-work text-sm">
+            Last updated: {new Date().toLocaleDateString()}
+          </p>
+        </div>
+      </section>
+
+      {/* CONTENT SECTION */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-12">
+
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">How We Handle Your Information</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                We built Paige to help you plan your wedding, not to complicate your life. This policy explains what information we collect and how we keep it safe.
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Information We Collect</h2>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">What We Collect</h2>
               
-              <h3 className="text-xl font-medium text-gray-900 mb-3">2.1 Personal Information</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We may collect personal information that you voluntarily provide to us when you register for an account, use our Service, or communicate with us, including:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li>Name and contact information (email address, phone number)</li>
-                <li>Wedding planning details (wedding date, location, budget, guest count)</li>
-                <li>Partner and family member information</li>
-                <li>Vendor preferences and selections</li>
-                <li>Photos and documents uploaded to the Service</li>
-                <li>Messages and communications with vendors</li>
-                <li>Payment information (processed securely through third-party providers)</li>
-              </ul>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6 mb-6">
+                <h3 className="text-base font-medium text-[#332B42] mb-4 font-playfair">Wedding Planning Information</h3>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• Your wedding details (date, location, budget, guest count)</li>
+                  <li>• Partner and family information you choose to share</li>
+                  <li>• Vendor preferences and selections</li>
+                  <li>• Photos and documents you upload</li>
+                  <li>• Messages between you and vendors</li>
+                </ul>
+              </div>
 
-              <h3 className="text-xl font-medium text-gray-900 mb-3">2.2 Automatically Collected Information</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We may automatically collect certain information when you use our Service, including:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li>Device information (IP address, browser type, operating system)</li>
-                <li>Usage data (pages visited, features used, time spent on Service)</li>
-                <li>Cookies and similar tracking technologies</li>
-                <li>Location data (if you grant permission)</li>
-              </ul>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <h3 className="text-base font-medium text-[#332B42] mb-4 font-playfair">Technical Information</h3>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• Basic device info to make Paige work smoothly</li>
+                  <li>• How you use Paige (to improve your experience)</li>
+                  <li>• Gmail integration data (only if you connect it)</li>
+                </ul>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. How We Use Your Information</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We use the information we collect to:
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">How We Use Your Information</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work mb-6">
+                We use your information to make Paige work better for you:
               </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li>Provide, maintain, and improve our wedding planning services</li>
-                <li>Generate personalized recommendations for vendors, budgets, and tasks</li>
-                <li>Facilitate communication between you and wedding vendors</li>
-                <li>Process payments and manage subscriptions</li>
-                <li>Send you important updates about your account and the Service</li>
-                <li>Provide customer support and respond to your inquiries</li>
-                <li>Analyze usage patterns to improve our Service</li>
-                <li>Comply with legal obligations and enforce our Terms of Service</li>
-              </ul>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">AI-Powered Features</h3>
+                  <ul className="text-[#5A4A42] text-sm space-y-1 font-work">
+                    <li>• Generate personalized budgets</li>
+                    <li>• Draft vendor emails</li>
+                    <li>• Create custom to-do lists</li>
+                    <li>• Analyze your wedding documents</li>
+                  </ul>
+                </div>
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">Service Features</h3>
+                  <ul className="text-[#5A4A42] text-sm space-y-1 font-work">
+                    <li>• Sync with Gmail (if connected)</li>
+                    <li>• Manage your vendor communications</li>
+                    <li>• Process payments securely</li>
+                    <li>• Send important updates</li>
+                  </ul>
+                </div>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Information Sharing and Disclosure</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We do not sell, trade, or otherwise transfer your personal information to third parties, except in the following circumstances:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li><strong>With Your Consent:</strong> We may share information when you explicitly consent to such sharing</li>
-                <li><strong>Service Providers:</strong> We may share information with trusted third-party service providers who assist us in operating our Service (e.g., payment processors, email services, cloud storage)</li>
-                <li><strong>Legal Requirements:</strong> We may disclose information when required by law or to protect our rights, property, or safety</li>
-                <li><strong>Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets, user information may be transferred as part of the transaction</li>
-              </ul>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">We Don't Sell Your Data</h2>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  We never sell your personal information. We only share data when:
+                </p>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• You give us permission</li>
+                  <li>• We need to work with trusted partners (like payment processors)</li>
+                  <li>• Required by law</li>
+                </ul>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. Data Security</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We implement appropriate technical and organizational security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Third-Party Services</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Our Service may integrate with third-party services (such as Google Calendar, Gmail, Stripe, etc.). These services have their own privacy policies, and we encourage you to review them. We are not responsible for the privacy practices of these third-party services.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Your Rights and Choices</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You have certain rights regarding your personal information:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li><strong>Access:</strong> You can request access to the personal information we hold about you</li>
-                <li><strong>Correction:</strong> You can request correction of inaccurate or incomplete information</li>
-                <li><strong>Deletion:</strong> You can request deletion of your personal information</li>
-                <li><strong>Portability:</strong> You can request a copy of your data in a structured format</li>
-                <li><strong>Opt-out:</strong> You can opt-out of certain communications from us</li>
-              </ul>
-              <p className="text-gray-700 leading-relaxed">
-                To exercise these rights, please contact us at the information provided below.
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Keeping Your Data Safe</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                We use industry-standard security measures to protect your information. While no system is 100% secure, we work hard to keep your wedding planning data safe and private.
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Data Retention</h2>
-              <p className="text-gray-700 leading-relaxed">
-                We retain your personal information for as long as necessary to provide our Service and fulfill the purposes outlined in this Privacy Policy, unless a longer retention period is required or permitted by law.
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Third-Party Integrations</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                Paige integrates with Google Calendar, Gmail, and Stripe to make your planning easier. These services have their own privacy policies that you should review when you connect them.
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Children's Privacy</h2>
-              <p className="text-gray-700 leading-relaxed">
-                Our Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will take steps to delete such information.
-              </p>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Your Rights</h2>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  You control your data. You can:
+                </p>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• Access, update, or delete your information anytime</li>
+                  <li>• Download your wedding planning data</li>
+                  <li>• Unsubscribe from our emails</li>
+                  <li>• Disconnect third-party integrations</li>
+                </ul>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Changes to This Privacy Policy</h2>
-              <p className="text-gray-700 leading-relaxed">
-                We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Contact Us</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">
-                  <strong>Email:</strong> privacy@weddingpaige.com<br />
-                  <strong>Website:</strong> <Link href="/" className="text-[#805d93] hover:underline">weddingpaige.com</Link><br />
-                  <strong>Address:</strong> [Your Business Address]
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Questions?</h2>
+              <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  Have questions about your privacy? We're here to help.
+                </p>
+                <p className="text-[#5A4A42] font-work">
+                  <strong>Email:</strong> <a href="mailto:dave@weddingpaige.com" className="text-[#A85C36] hover:underline">dave@weddingpaige.com</a>
                 </p>
               </div>
             </section>
           </div>
-
-          <div className="text-center mt-8 pt-8 border-t border-gray-200">
-            <Link 
-              href="/" 
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[#805d93] hover:bg-[#6b4c7f] transition-colors"
-            >
-              Return to Paige
-            </Link>
-          </div>
         </div>
-      </div>
+      </section>
+
+      {/* FOOTER - Only show if not logged in */}
+      {!isLoggedIn && (
+        <footer className="border-t-[0.5px] border-[rgb(236,233,231)] bg-white">
+          <div className="px-4 lg:px-8 mx-auto py-6 max-w-7xl">
+            <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
+                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+              </div>
+              <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
+                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
+              </nav>
+              <p className="text-sm text-[#5A4A42]">© {new Date().getFullYear()} Paige. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

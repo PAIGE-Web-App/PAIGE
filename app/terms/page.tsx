@@ -1,201 +1,202 @@
-import React from 'react';
+'use client';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function TermsOfService() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoggedIn(!!user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return null; // or a loading spinner
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <Link href="/" className="text-2xl font-bold text-[#805d93] hover:text-[#6b4c7f] transition-colors">
-              Paige
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900 mt-4">Terms of Service</h1>
-            <p className="text-gray-600 mt-2">Last updated: {new Date().toLocaleDateString()}</p>
-          </div>
+    <div className="bg-linen text-[#332B42] antialiased min-h-screen">
+      {/* NAVBAR - Only show if not logged in */}
+      {!isLoggedIn && (
+        <div className="sticky top-0 z-30 pt-4 px-4">
+          <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
+            <div className="px-4 flex h-16 items-center justify-between">
+              <Link href="/" className="flex items-center gap-2 no-underline">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
+                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+              </Link>
+              <nav className="hidden md:flex items-center gap-8 text-sm">
+                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
+                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
+              </nav>
+            </div>
+          </header>
+        </div>
+      )}
 
-          <div className="prose prose-lg max-w-none">
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h2>
-              <p className="text-gray-700 leading-relaxed">
-                Welcome to Paige, a wedding planning application and service ("Service") provided by [Your Company Name] ("Company," "we," "our," or "us"). These Terms of Service ("Terms") govern your use of our Service. By accessing or using our Service, you agree to be bound by these Terms. If you do not agree to these Terms, please do not use our Service.
+      {/* HERO SECTION */}
+      <section 
+        className="bg-linen py-12 bg-cover bg-center bg-no-repeat relative"
+        style={{ backgroundImage: 'url(/termsandprivacy.png)' }}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <h1 className="font-playfair text-2xl font-medium text-[#332B42] mb-4">
+            Terms of Service
+          </h1>
+          <p className="text-[#5A4A42] font-work text-base max-w-3xl mx-auto">
+            By using Paige, you agree to these simple terms. We built Paige to make wedding planning easier, not more complicated.
+          </p>
+          <p className="text-[#5A4A42] mt-4 font-work text-sm">
+            Last updated: {new Date().toLocaleDateString()}
+          </p>
+        </div>
+      </section>
+
+      {/* CONTENT SECTION */}
+      <section className="bg-white py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-12">
+
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Welcome to Paige</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                By using Paige, you agree to these simple terms. We built Paige to make wedding planning easier, not more complicated.
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Description of Service</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Paige is a comprehensive wedding planning platform that provides:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li>Personalized wedding planning tools and recommendations</li>
-                <li>Vendor discovery and communication features</li>
-                <li>Budget planning and tracking capabilities</li>
-                <li>Task and timeline management</li>
-                <li>Integration with third-party services (Google Calendar, Gmail, etc.)</li>
-                <li>AI-powered assistance for wedding planning decisions</li>
-              </ul>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">What Paige Does</h2>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  Paige helps you plan your wedding with:
+                </p>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• AI-powered budget planning and vendor recommendations</li>
+                  <li>• Smart to-do lists and timeline management</li>
+                  <li>• Automated vendor email drafting</li>
+                  <li>• Gmail integration for seamless communication</li>
+                  <li>• Mood board generation and seating charts</li>
+                  <li>• Document analysis and insights</li>
+                </ul>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. User Accounts</h2>
-              
-              <h3 className="text-xl font-medium text-gray-900 mb-3">3.1 Account Creation</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                To use certain features of our Service, you must create an account. You agree to provide accurate, current, and complete information during registration and to update such information to keep it accurate, current, and complete.
-              </p>
-
-              <h3 className="text-xl font-medium text-gray-900 mb-3">3.2 Account Security</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately of any unauthorized use of your account.
-              </p>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Your Account</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">Account Setup</h3>
+                  <p className="text-[#5A4A42] text-sm font-work">
+                    Create an account with accurate information to get the most out of Paige's personalized features.
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">Keep It Secure</h3>
+                  <p className="text-[#5A4A42] text-sm font-work">
+                    You're responsible for keeping your account safe. Let us know if you notice anything suspicious.
+                  </p>
+                </div>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Acceptable Use</h2>
-              
-              <h3 className="text-xl font-medium text-gray-900 mb-3">4.1 Permitted Use</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You may use our Service only for lawful purposes and in accordance with these Terms. You agree to use the Service in a manner that does not violate any applicable laws or regulations.
-              </p>
-
-              <h3 className="text-xl font-medium text-gray-900 mb-3">4.2 Prohibited Activities</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You agree not to:
-              </p>
-              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li>Use the Service for any unlawful purpose or to solicit others to perform unlawful acts</li>
-                <li>Violate any international, federal, provincial, or state regulations, rules, laws, or local ordinances</li>
-                <li>Infringe upon or violate our intellectual property rights or the intellectual property rights of others</li>
-                <li>Harass, abuse, insult, harm, defame, slander, disparage, intimidate, or discriminate</li>
-                <li>Submit false or misleading information</li>
-                <li>Upload or transmit viruses or any other type of malicious code</li>
-                <li>Attempt to gain unauthorized access to our Service or related systems</li>
-                <li>Interfere with or disrupt the Service or servers connected to the Service</li>
-              </ul>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Use Paige Responsibly</h2>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  Please don't use Paige to:
+                </p>
+                <ul className="text-[#5A4A42] space-y-2 font-work">
+                  <li>• Break any laws or harass others</li>
+                  <li>• Share false information or spam</li>
+                  <li>• Try to hack or damage our systems</li>
+                  <li>• Violate anyone's intellectual property</li>
+                </ul>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. User Content</h2>
-              
-              <h3 className="text-xl font-medium text-gray-900 mb-3">5.1 Content Ownership</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You retain ownership of any content you submit, post, or display on or through the Service ("User Content"). By submitting User Content, you grant us a non-exclusive, royalty-free, worldwide license to use, modify, and display such content in connection with providing the Service.
-              </p>
-
-              <h3 className="text-xl font-medium text-gray-900 mb-3">5.2 Content Responsibility</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                You are solely responsible for your User Content and the consequences of posting it. You represent and warrant that you have all necessary rights to your User Content and that it does not violate any third-party rights or applicable laws.
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Your Content</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                You own your wedding planning content. We just need permission to use it to make Paige work for you (like generating personalized recommendations).
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Payment and Billing</h2>
-              
-              <h3 className="text-xl font-medium text-gray-900 mb-3">6.1 Subscription Services</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Some features of our Service may require payment. If you purchase a subscription, you agree to pay all applicable fees and taxes. Subscription fees are billed in advance and are non-refundable except as required by law.
-              </p>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Payment & Subscriptions</h2>
+              <div className="bg-[rgb(247,246,245)] rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  Paige Plus subscriptions are billed in advance. We use Stripe for secure payments. Need a refund? Just ask - we'll work with you.
+                </p>
+              </div>
+            </section>
 
-              <h3 className="text-xl font-medium text-gray-900 mb-3">6.2 Payment Processing</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We use third-party payment processors to handle payment transactions. You agree to comply with the terms and conditions of such payment processors.
-              </p>
-
-              <h3 className="text-xl font-medium text-gray-900 mb-3">6.3 Refunds</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Refunds are handled on a case-by-case basis and are subject to our refund policy. Contact our support team for refund requests.
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Privacy & Third-Party Services</h2>
+              <p className="text-[#5A4A42] leading-relaxed font-work">
+                Your privacy matters to us. Check out our <Link href="/privacy" className="text-[#A85C36] hover:underline">Privacy Policy</Link> to see how we protect your data. When you connect Gmail or other services, they have their own terms too.
               </p>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Intellectual Property Rights</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                The Service and its original content, features, and functionality are and will remain the exclusive property of [Your Company Name] and its licensors. The Service is protected by copyright, trademark, and other laws. Our trademarks and trade dress may not be used in connection with any product or service without our prior written consent.
-              </p>
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Our Commitment to You</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">Service Availability</h3>
+                  <p className="text-[#5A4A42] text-sm font-work">
+                    We work hard to keep Paige running smoothly, but sometimes things happen. We'll do our best to minimize disruptions.
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-4">
+                  <h3 className="text-base font-medium text-[#332B42] mb-3 font-playfair">Changes to Terms</h3>
+                  <p className="text-[#5A4A42] text-sm font-work">
+                    If we make important changes, we'll give you 30 days notice. Small updates happen as we improve Paige.
+                  </p>
+                </div>
+              </div>
             </section>
 
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Privacy Policy</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Your privacy is important to us. Please review our Privacy Policy, which also governs your use of the Service, to understand our practices. You can find our Privacy Policy at <Link href="/privacy" className="text-[#805d93] hover:underline">weddingpaige.com/privacy</Link>.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Third-Party Services</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                Our Service may integrate with third-party services (such as Google Calendar, Gmail, Stripe, etc.). Your use of such third-party services is subject to their respective terms of service and privacy policies. We are not responsible for the content, privacy policies, or practices of any third-party services.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Disclaimers and Limitation of Liability</h2>
-              
-              <h3 className="text-xl font-medium text-gray-900 mb-3">10.1 Service Availability</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We strive to provide a reliable Service, but we cannot guarantee that the Service will be available at all times. The Service is provided "as is" and "as available" without warranties of any kind.
-              </p>
-
-              <h3 className="text-xl font-medium text-gray-900 mb-3">10.2 Limitation of Liability</h3>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                To the fullest extent permitted by law, [Your Company Name] shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your use of the Service.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Indemnification</h2>
-              <p className="text-gray-700 leading-relaxed">
-                You agree to defend, indemnify, and hold harmless [Your Company Name] and its officers, directors, employees, and agents from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees arising out of or relating to your violation of these Terms or your use of the Service.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">12. Termination</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                We may terminate or suspend your account and bar access to the Service immediately, without prior notice or liability, under our sole discretion, for any reason whatsoever, including without limitation if you breach the Terms.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">13. Governing Law</h2>
-              <p className="text-gray-700 leading-relaxed">
-                These Terms shall be interpreted and governed by the laws of [Your Jurisdiction], without regard to its conflict of law provisions. Any disputes arising from these Terms or your use of the Service shall be subject to the exclusive jurisdiction of the courts in [Your Jurisdiction].
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">14. Changes to Terms</h2>
-              <p className="text-gray-700 leading-relaxed">
-                We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days notice prior to any new terms taking effect. Your continued use of the Service after any such changes constitutes your acceptance of the new Terms.
-              </p>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">15. Contact Information</h2>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                If you have any questions about these Terms of Service, please contact us at:
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">
-                  <strong>Email:</strong> legal@weddingpaige.com<br />
-                  <strong>Website:</strong> <Link href="/" className="text-[#805d93] hover:underline">weddingpaige.com</Link><br />
-                  <strong>Address:</strong> [Your Business Address]
+            <section className="mb-12">
+              <h2 className="text-base font-semibold text-[#332B42] mb-6 font-playfair">Questions?</h2>
+              <div className="bg-white rounded-2xl border-[0.5px] border-[rgb(236,233,231)] p-6">
+                <p className="text-[#5A4A42] leading-relaxed font-work mb-4">
+                  Need help understanding these terms? We're here to help.
+                </p>
+                <p className="text-[#5A4A42] font-work">
+                  <strong>Email:</strong> <a href="mailto:dave@weddingpaige.com" className="text-[#A85C36] hover:underline">dave@weddingpaige.com</a>
                 </p>
               </div>
             </section>
           </div>
-
-          <div className="text-center mt-8 pt-8 border-t border-gray-200">
-            <Link 
-              href="/" 
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[#805d93] hover:bg-[#6b4c7f] transition-colors"
-            >
-              Return to Paige
-            </Link>
-          </div>
         </div>
-      </div>
+      </section>
+
+      {/* FOOTER - Only show if not logged in */}
+      {!isLoggedIn && (
+        <footer className="border-t-[0.5px] border-[rgb(236,233,231)] bg-white">
+          <div className="px-4 lg:px-8 mx-auto py-6 max-w-7xl">
+            <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
+                <span className="font-playfair text-xl text-[#332B42]">Paige</span>
+              </div>
+              <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
+                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
+              </nav>
+              <p className="text-sm text-[#5A4A42]">© {new Date().getFullYear()} Paige. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
