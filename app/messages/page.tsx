@@ -29,6 +29,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useTodoSuggestions } from '../../hooks/useTodoSuggestions';
 import Banner from "../../components/Banner";
 import WeddingBanner from "../../components/WeddingBanner";
 import GlobalGmailBanner from "../../components/GlobalGmailBanner";
@@ -375,6 +376,10 @@ export default function MessagesPage() {
   
   // Use notifications hook for unread message counts
   const { contactUnreadCounts } = useNotifications();
+  
+  // Track todo suggestions per contact for purple AI badges
+  const contactIds = useMemo(() => contacts.map(c => c.id), [contacts]);
+  const { suggestionCounts: todoSuggestionCounts } = useTodoSuggestions(user?.uid || null, contactIds);
 
   // Gmail authentication status now checked globally in GmailAuthContext
 
@@ -1064,6 +1069,7 @@ export default function MessagesPage() {
                   deletingContactId={deletingContactId}
                   setIsAdding={setIsAdding}
                   unreadCounts={contactUnreadCounts}
+                  todoSuggestionCounts={todoSuggestionCounts}
                   mobileViewMode={mobileViewMode}
                   onMobileBackToContacts={handleMobileBackToContacts}
                   currentUserId={user?.uid || null}

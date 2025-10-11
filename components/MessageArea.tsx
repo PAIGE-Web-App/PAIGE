@@ -525,6 +525,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [showGmailTodoReview, setShowGmailTodoReview] = useState(false);
   const [gmailTodoAnalysisResults, setGmailTodoAnalysisResults] = useState<any>(null);
   const [isAnalyzingMessages, setIsAnalyzingMessages] = useState(false);
+  
+  // Todo suggestions banner state
+  const [showTodoSuggestionsBanner, setShowTodoSuggestionsBanner] = useState(false);
+  const [pendingSuggestions, setPendingSuggestions] = useState<any>(null);
 
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
@@ -1122,6 +1126,37 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       console.error('Error dismissing banner:', e);
     }
   };
+  
+  // Handle reviewing todo suggestions from stored data
+  const handleReviewTodoSuggestions = () => {
+    if (!pendingSuggestions) return;
+    
+    // Open the todo review modal with the stored suggestions
+    setGmailTodoAnalysisResults({
+      newTodos: pendingSuggestions.suggestions || [],
+      todoUpdates: pendingSuggestions.todoUpdates || [],
+      completedTodos: pendingSuggestions.completedTodos || [],
+      messagesAnalyzed: pendingSuggestions.suggestions?.length || 0
+    });
+    setShowGmailTodoReview(true);
+    setShowTodoSuggestionsBanner(false);
+  };
+  
+  // Handle dismissing todo suggestions
+  const handleDismissTodoSuggestions = async () => {
+    if (!currentUser?.uid || !selectedContact?.id) return;
+    
+    try {
+      const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+      await updateDoc(contactRef, {
+        'pendingTodoSuggestions.status': 'dismissed'
+      });
+      setShowTodoSuggestionsBanner(false);
+      setPendingSuggestions(null);
+    } catch (error) {
+      console.error('Error dismissing todo suggestions:', error);
+    }
+  };
 
   const createSuggestedTodo = async (todoData: any, message: any, userId: string) => {
     try {
@@ -1198,12 +1233,22 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       
       showSuccessToast(`Applied ${selectedTodos.newTodos.length + selectedTodos.todoUpdates.length + selectedTodos.completedTodos.length} todo changes!`);
       
+      // Clear pending suggestions from contact document after user reviews
+      if (selectedContact?.id) {
+        const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+        await updateDoc(contactRef, {
+          'pendingTodoSuggestions.status': 'reviewed',
+          'pendingTodoSuggestions.reviewedAt': new Date()
+        });
+      }
+      
     } catch (error) {
       console.error('Error applying todo changes:', error);
       showErrorToast('Failed to apply some todo changes');
     } finally {
       setShowGmailTodoReview(false);
       setGmailTodoAnalysisResults(null);
+      setPendingSuggestions(null);
     }
   };
 
@@ -1212,7 +1257,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     if (!currentUser?.uid || !selectedContact?.email) return;
     try {
       if (userInitiated) setIsCheckingGmail(true);
+      
       // Call the actual import API to fetch new messages
+      // Use storeSuggestionsMode for background checks, immediate modal for manual checks
       const response = await fetch('/api/start-gmail-import-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1220,19 +1267,31 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           userId: currentUser.uid, 
           contacts: [selectedContact],
           config: { checkForNewOnly: true }, // Flag to only check for new messages
-          enableTodoScanning: true
+          enableTodoScanning: true,
+          storeSuggestionsMode: !userInitiated // Store in background, show modal when manual
         }),
       });
       if (!response.ok) {
         throw new Error('Failed to check for new Gmail messages');
       }
       const data = await response.json();
+      
+      // Handle user-initiated checks (show modal immediately)
       if (userInitiated) {
         if (data.newMessages && data.newMessages.length > 0) {
           showSuccessToast(`${data.newMessages.length} new Gmail message(s) imported!`);
         } else {
           showInfoToast('No new Gmail messages found.');
         }
+        
+        // If todo scanning returned results, show modal immediately
+        if (data.todoAnalysis && data.todoAnalysis.analysisResults) {
+          setGmailTodoAnalysisResults(data.todoAnalysis.analysisResults);
+          setShowGmailTodoReview(true);
+        }
+      } else {
+        // Background check - suggestions are stored, badge will appear automatically
+        console.log('[AUTO-CHECK] Background check complete:', data.todoSuggestionsStored ? `${data.suggestionsCount} suggestions stored` : 'no suggestions');
       }
     } catch (error) {
       console.error('Error checking for new Gmail messages:', error);
@@ -1255,6 +1314,39 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       if (userInitiated) setIsCheckingGmail(false);
     }
   };
+
+  // Check for pending todo suggestions when contact changes
+  useEffect(() => {
+    const checkPendingSuggestions = async () => {
+      if (!currentUser?.uid || !selectedContact?.id) {
+        setShowTodoSuggestionsBanner(false);
+        setPendingSuggestions(null);
+        return;
+      }
+      
+      try {
+        const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+        const contactSnap = await getDoc(contactRef);
+        
+        if (contactSnap.exists()) {
+          const contactData = contactSnap.data();
+          const suggestions = contactData?.pendingTodoSuggestions;
+          
+          if (suggestions && suggestions.status === 'pending' && suggestions.count > 0) {
+            setPendingSuggestions(suggestions);
+            setShowTodoSuggestionsBanner(true);
+          } else {
+            setShowTodoSuggestionsBanner(false);
+            setPendingSuggestions(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking pending suggestions:', error);
+      }
+    };
+    
+    checkPendingSuggestions();
+  }, [selectedContact?.id, currentUser?.uid]);
 
   useEffect(() => {
     if (showGmailImport && importedOnce && selectedContact && currentUser) {
@@ -1697,6 +1789,44 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                 type="info"
                 onDismiss={handleDismissBanner}
               />
+            </div>
+          )}
+          
+          {/* Todo Suggestions Banner - Shows when AI found action items in recent emails */}
+          {showTodoSuggestionsBanner && pendingSuggestions && (
+            <div className="mt-0">
+              <div 
+                className="px-4 py-3 rounded-lg border flex items-start gap-3"
+                style={{ 
+                  backgroundColor: '#f8f5ff',
+                  borderColor: '#805d93'
+                }}
+              >
+                <WandSparkles className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#805d93' }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-[#332B42] mb-1">
+                    Paige analyzed {pendingSuggestions.suggestions?.length || 0} recent email{(pendingSuggestions.suggestions?.length || 0) !== 1 ? 's' : ''} and found {pendingSuggestions.count} action item{pendingSuggestions.count !== 1 ? 's' : ''}
+                  </div>
+                  <div className="text-xs text-[#5A4A42]">
+                    Review these suggestions and add them to your to-do lists with one click.
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={handleReviewTodoSuggestions}
+                    className="px-3 py-1.5 rounded text-xs font-medium text-white transition-colors"
+                    style={{ backgroundColor: '#805d93' }}
+                  >
+                    Review & Add
+                  </button>
+                  <button
+                    onClick={handleDismissTodoSuggestions}
+                    className="px-3 py-1.5 rounded text-xs font-medium border border-[#AB9C95] text-[#332B42] hover:bg-gray-50 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
             </div>
           )}
                     </>

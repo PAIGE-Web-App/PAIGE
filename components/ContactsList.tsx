@@ -55,6 +55,7 @@ interface ContactCardProps {
     unreadCount: number;
   };
   unreadCount: number;
+  todoSuggestionCount?: number; // Purple AI badge count
   onSelect: () => void;
 }
 
@@ -65,7 +66,8 @@ const ContactCard = memo(({
   isDeleting, 
   searchQuery, 
   messageData, 
-  unreadCount, 
+  unreadCount,
+  todoSuggestionCount = 0,
   onSelect 
 }: ContactCardProps) => {
   const name = contact.name;
@@ -121,6 +123,16 @@ const ContactCard = memo(({
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
+              {/* AI Todo Suggestions badge (purple) */}
+              {todoSuggestionCount > 0 && (
+                <span 
+                  className="text-white text-xs px-2.5 py-0.5 rounded-full min-w-[20px] text-center"
+                  style={{ backgroundColor: '#805d93' }}
+                  title={`${todoSuggestionCount} action item${todoSuggestionCount > 1 ? 's' : ''} found in emails`}
+                >
+                  {todoSuggestionCount > 9 ? '9+' : todoSuggestionCount}
+                </span>
+              )}
             </div>
           </div>
           {/* Show message snippet on both mobile and desktop */}
@@ -163,6 +175,7 @@ interface ContactsListProps {
   deletingContactId: string | null;
   setIsAdding: (adding: boolean) => void;
   unreadCounts?: { [contactId: string]: number };
+  todoSuggestionCounts?: { [contactId: string]: number }; // Purple AI badge counts
   mobileViewMode?: 'contacts' | 'messages';
   onMobileBackToContacts?: () => void;
   currentUserId: string | null;
@@ -189,6 +202,7 @@ const ContactsList = memo(({
   deletingContactId,
   setIsAdding,
   unreadCounts = {}, // New prop for unread message counts per contact
+  todoSuggestionCounts = {}, // Purple AI badge counts per contact
   mobileViewMode = 'contacts',
   onMobileBackToContacts,
   currentUserId, // Add currentUserId prop
@@ -340,6 +354,7 @@ const ContactsList = memo(({
                 unreadCount: 0
               };
               const unreadCount = unreadCounts[contact.id] || messageData.unreadCount || 0;
+              const todoSuggestionCount = todoSuggestionCounts[contact.id] || 0;
               
               return (
                 <ContactCard
@@ -350,6 +365,7 @@ const ContactsList = memo(({
                   searchQuery={searchQuery}
                   messageData={messageData}
                   unreadCount={unreadCount}
+                  todoSuggestionCount={todoSuggestionCount}
                   onSelect={() => handleContactSelect(contact)}
                 />
               );

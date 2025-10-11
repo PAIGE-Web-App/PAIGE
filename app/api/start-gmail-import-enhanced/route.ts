@@ -5,9 +5,10 @@ export async function POST(req: Request) {
     console.log('START: /api/start-gmail-import-enhanced route hit');
     
     const requestBody = await req.json();
-    const { enableTodoScanning = false, ...originalParams } = requestBody;
+    const { enableTodoScanning = false, storeSuggestionsMode = false, ...originalParams } = requestBody;
     
     console.log('DEBUG: Todo scanning enabled:', enableTodoScanning);
+    console.log('DEBUG: Store suggestions mode:', storeSuggestionsMode);
     
     // Call the original Gmail import API (same foundation)
     const originalResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/start-gmail-import`, {
@@ -29,9 +30,24 @@ export async function POST(req: Request) {
         console.log('Starting todo analysis for imported messages...');
         // Add a delay to ensure messages are fully committed to Firestore
         await new Promise(resolve => setTimeout(resolve, 5000));
-        const todoAnalysis = await performTodoAnalysis(requestBody.userId);
+        const todoAnalysis = await performTodoAnalysis(
+          requestBody.userId, 
+          requestBody.contacts,
+          storeSuggestionsMode
+        );
         console.log('Todo analysis completed:', todoAnalysis);
         
+        // If storeSuggestionsMode is enabled, suggestions are already stored
+        // Return success without the full analysis data
+        if (storeSuggestionsMode) {
+          return NextResponse.json({
+            ...originalResult,
+            todoSuggestionsStored: true,
+            suggestionsCount: todoAnalysis.totalSuggestions || 0
+          }, { status: 200 });
+        }
+        
+        // Legacy behavior: return analysis in response for immediate modal
         return NextResponse.json({
           ...originalResult,
           todoAnalysis: todoAnalysis
@@ -58,7 +74,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function performTodoAnalysis(userId: string) {
+async function performTodoAnalysis(userId: string, contacts: any[], storeSuggestionsMode: boolean = false) {
   try {
     // Get recent messages for analysis
     const { getAdminDb } = await import('@/lib/firebaseAdmin');
@@ -68,21 +84,29 @@ async function performTodoAnalysis(userId: string) {
       throw new Error('Firestore Admin DB not initialized');
     }
     
-    // Get all contacts first to find their message collections
-    const contactsSnapshot = await adminDb
-      .collection(`users/${userId}/contacts`)
-      .get();
+    // Only analyze messages for the specific contacts being imported
+    // This is more efficient than checking all contacts
+    const targetContactIds = contacts?.map(c => c.id) || [];
     
     let allMessages: any[] = [];
+    let messagesPerContact: Map<string, any[]> = new Map();
+    
+    // Get contacts to analyze (either specific ones or all)
+    const contactsToAnalyze = targetContactIds.length > 0 
+      ? targetContactIds 
+      : (await adminDb.collection(`users/${userId}/contacts`).get()).docs.map(d => d.id);
     
     // Check each contact's message collection
-    for (const contactDoc of contactsSnapshot.docs) {
-      const contactId = contactDoc.id;
+    for (const contactId of contactsToAnalyze) {
+      const contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
+      if (!contactDoc.exists) continue;
+      
       const contactData = contactDoc.data();
       
       const messagesSnapshot = await adminDb
         .collection(`users/${userId}/contacts/${contactId}/messages`)
         .orderBy('timestamp', 'desc')
+        .limit(10) // Only check last 10 messages per contact for efficiency
         .get();
       
       const contactMessages = messagesSnapshot.docs.map(doc => ({ 
@@ -94,6 +118,7 @@ async function performTodoAnalysis(userId: string) {
         ...doc.data()
       }));
       
+      messagesPerContact.set(contactId, contactMessages);
       allMessages = allMessages.concat(contactMessages);
     }
     
@@ -101,7 +126,7 @@ async function performTodoAnalysis(userId: string) {
     allMessages.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
     const messages = allMessages.slice(0, 25);
 
-    console.log(`DEBUG: Found ${messages.length} messages for analysis`);
+    console.log(`DEBUG: Found ${messages.length} messages for analysis from ${contactsToAnalyze.length} contacts`);
     console.log(`DEBUG: Collection paths: users/${userId}/contacts/*/messages`);
     console.log(`DEBUG: Message IDs found:`, messages.map(m => m.id));
     console.log(`DEBUG: Message subjects:`, messages.map(m => m.subject));
@@ -141,6 +166,9 @@ async function performTodoAnalysis(userId: string) {
     let allTodoUpdates: any[] = [];
     let allCompletedTodos: any[] = [];
     
+    // Track suggestions per contact for storage mode
+    const suggestionsPerContact: Map<string, any> = new Map();
+    
     for (const batch of batches) {
       // Process batch in parallel
       const batchPromises = batch.map(async (message) => {
@@ -176,21 +204,62 @@ async function performTodoAnalysis(userId: string) {
           ...todo,
           id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           sourceMessage: message.subject,
-          sourceContact: message.contactEmail || message.from || 'unknown'
+          sourceContact: message.contactEmail || message.from || 'unknown',
+          sourceMessageId: message.id
         }));
         
         allNewTodos = allNewTodos.concat(todosWithIds);
         allTodoUpdates = allTodoUpdates.concat(analysisResult.todoUpdates);
         allCompletedTodos = allCompletedTodos.concat(analysisResult.completedTodos);
+        
+        // Group by contact for storage mode
+        if (storeSuggestionsMode && message.contactId) {
+          const contactId = message.contactId;
+          if (!suggestionsPerContact.has(contactId)) {
+            suggestionsPerContact.set(contactId, {
+              newTodos: [],
+              todoUpdates: [],
+              completedTodos: []
+            });
+          }
+          const contactSuggestions = suggestionsPerContact.get(contactId);
+          contactSuggestions.newTodos = contactSuggestions.newTodos.concat(todosWithIds);
+          contactSuggestions.todoUpdates = contactSuggestions.todoUpdates.concat(analysisResult.todoUpdates);
+          contactSuggestions.completedTodos = contactSuggestions.completedTodos.concat(analysisResult.completedTodos);
+        }
       }
     }
     
-    // Return analysis results for review instead of creating todos directly
+    // If storeSuggestionsMode is enabled, save suggestions to each contact document
+    if (storeSuggestionsMode && adminDb) {
+      const { default: admin } = await import('firebase-admin');
+      
+      for (const [contactId, suggestions] of suggestionsPerContact.entries()) {
+        const totalSuggestions = suggestions.newTodos.length + suggestions.todoUpdates.length + suggestions.completedTodos.length;
+        
+        if (totalSuggestions > 0) {
+          await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update({
+            pendingTodoSuggestions: {
+              count: suggestions.newTodos.length,
+              suggestions: suggestions.newTodos,
+              todoUpdates: suggestions.todoUpdates,
+              completedTodos: suggestions.completedTodos,
+              lastAnalyzedAt: admin.firestore.Timestamp.now(),
+              status: 'pending'
+            }
+          });
+          console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
+        }
+      }
+    }
+    
+    // Return analysis results for review (legacy mode) or summary (store mode)
     return {
       messagesAnalyzed: messages.length,
       newTodosSuggested: allNewTodos.length,
       todosUpdated: allTodoUpdates.length,
       todosCompleted: allCompletedTodos.length,
+      totalSuggestions: allNewTodos.length + allTodoUpdates.length + allCompletedTodos.length,
       analysisResults: {
         newTodos: allNewTodos,
         todoUpdates: allTodoUpdates,
