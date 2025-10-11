@@ -479,8 +479,8 @@ export default function LandingPage() {
       </section>
 
       {/* PAIGE SNEAK PEEK */}
-      <section className="bg-[rgb(31,28,26)] hidden lg:block">
-        <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
+      <section className="hidden lg:block relative" style={{ backgroundColor: '#805d93' }}>
+        <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl relative z-10">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="font-playfair text-3xl text-white font-semibold">A Paige Sneak Peek</h2>
             <p className="mt-2 text-gray-200 font-work">See how Paige transforms wedding planning from chaos to calm</p>
