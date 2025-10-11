@@ -256,7 +256,12 @@ const OptimizedWeddingInfoSidebar: React.FC<OptimizedWeddingInfoSidebarProps> = 
             </a>
           </div>
           <div className="text-sm text-[#332B42] font-work">
-            {userData?.planType === 'premium' ? 'Premium' : 'Free'}
+            {userData?.credits?.subscriptionTier === 'pro' ? 'Pro' : 
+             userData?.credits?.subscriptionTier === 'premium' ? 'Premium' : 
+             userData?.subscription?.tier === 'pro' ? 'Pro' :
+             userData?.subscription?.tier === 'premium' ? 'Premium' :
+             userData?.planType === 'pro' ? 'Pro' :
+             userData?.planType === 'premium' ? 'Premium' : 'Free'}
           </div>
         </div>
       </div>
