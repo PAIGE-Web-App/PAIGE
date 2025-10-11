@@ -60,8 +60,8 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
       // Add a small delay to ensure user document is fully created
       const timeoutId = setTimeout(async () => {
         // Try to check Gmail auth once
-        await checkGmailAuth();
-      }, 2000); // Initial 2 second delay
+        await checkGmailAuth(true); // Force immediate check
+      }, 1000); // Reduced delay to 1 second
       
       return () => clearTimeout(timeoutId);
     } else {
@@ -69,13 +69,13 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.uid, checkGmailAuth]);
 
-  // Periodic check every 10 minutes
+  // Periodic check every 5 minutes (more frequent)
   useEffect(() => {
     if (!user?.uid) return;
     
     const interval = setInterval(() => {
       checkGmailAuth();
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 5 * 60 * 1000); // 5 minutes instead of 10
     
     return () => clearInterval(interval);
   }, [user?.uid, checkGmailAuth]);
@@ -95,6 +95,26 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.uid, checkGmailAuth]);
+
+  // Add global error handler for Gmail API failures
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const handleGmailError = (event: any) => {
+      // Listen for Gmail API errors that might indicate auth issues
+      if (event.detail?.error?.status === 401 || event.detail?.requiresReauth) {
+        console.log('🔍 Gmail API error detected, checking auth status...');
+        checkGmailAuth(true); // Force immediate check
+      }
+    };
+    
+    // Listen for custom Gmail error events
+    window.addEventListener('gmail-api-error', handleGmailError);
+    
+    return () => {
+      window.removeEventListener('gmail-api-error', handleGmailError);
     };
   }, [user?.uid, checkGmailAuth]);
 

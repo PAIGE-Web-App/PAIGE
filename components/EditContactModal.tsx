@@ -8,6 +8,7 @@ import { getCategoryStyle } from "../utils/categoryStyle";
 import LoadingSpinner from "./LoadingSpinner";
 
 import FormField from "./FormField";
+import EmailFormField from "./EmailFormField";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import CategorySelectField from "./CategorySelectField";
 import Banner from './Banner'; // NEW: Import the Banner component
@@ -467,13 +468,20 @@ export default function EditContactModal({
         />
 
         <div className={jiggleEmailField ? 'animate-jiggle' : ''}>
-          <FormField
+          <EmailFormField
             label="Email"
             name="email"
             value={formData.email}
             onChange={handleChange}
             placeholder="Enter email"
             error={errors.email}
+            onValidationChange={(isValid, warning) => {
+              if (!isValid && warning) {
+                setErrors(prev => ({ ...prev, email: warning }));
+              } else if (errors.email && isValid) {
+                setErrors(prev => ({ ...prev, email: undefined }));
+              }
+            }}
           />
         </div>
 

@@ -137,20 +137,31 @@ export async function POST(req: NextRequest) {
     // Check if token needs refresh
     const tokenExpiry = oAuth2Client.credentials.expiry_date;
     if (tokenExpiry && tokenExpiry < Date.now()) {
-      try {
-        const { credentials } = await oAuth2Client.refreshAccessToken();
-        oAuth2Client.setCredentials(credentials);
-        const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
-        await adminDb.collection('users').doc(userId).set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || tokens.refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-      } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
-        return NextResponse.json({ error: 'Failed to refresh Google authentication' }, { status: 401 });
+      if (tokens.refreshToken) {
+        try {
+          const { credentials } = await oAuth2Client.refreshAccessToken();
+          oAuth2Client.setCredentials(credentials);
+          const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
+          await adminDb.collection('users').doc(userId).set({
+            googleTokens: {
+              accessToken: credentials.access_token,
+              refreshToken: credentials.refresh_token || tokens.refreshToken,
+              expiryDate: credentials.expiry_date,
+            },
+          }, { merge: true });
+        } catch (refreshError) {
+          console.error('Error refreshing token:', refreshError);
+          return NextResponse.json({ 
+            error: 'Failed to refresh Google authentication. Please re-authorize Gmail access.',
+            requiresReauth: true 
+          }, { status: 401 });
+        }
+      } else {
+        console.log('Access token expired and no refresh token available (Firebase popup flow)');
+        return NextResponse.json({ 
+          error: 'Gmail access token expired. Please re-authorize Gmail access.',
+          requiresReauth: true 
+        }, { status: 401 });
       }
     }
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { shouldBlockEmail, FailedEmailTracker, validateEmail } from '@/utils/emailValidation';
 
 // Create reusable transporter object using Gmail API OAuth
 const createGmailTransporter = async (userId: string) => {
@@ -129,14 +130,65 @@ const createSendGridTransporter = () => {
 };
 
 export async function POST(request: NextRequest) {
-  try {
-    const { to, subject, body, from, userId } = await request.json();
+  // Initialize tracker outside try-catch for scope access
+  const tracker = FailedEmailTracker.getInstance();
+  
+  // Parse request data outside try-catch for scope access
+  const { to, subject, body, from, userId } = await request.json();
 
-    if (!to || !subject || !body) {
+  if (!to || !subject || !body) {
+    return NextResponse.json(
+      { error: 'Missing required fields: to, subject, body' },
+      { status: 400 }
+    );
+  }
+
+  try {
+
+    // Validate email address and check for fake/test domains
+    const validation = validateEmail(to);
+    if (!validation.isValid) {
+      console.log(`🚫 Blocked email to invalid address: ${to} - ${validation.reason}`);
       return NextResponse.json(
-        { error: 'Missing required fields: to, subject, body' },
+        { 
+          error: `Cannot send email: ${validation.reason}`,
+          blocked: true,
+          reason: validation.reason
+        },
         { status: 400 }
       );
+    }
+
+    // Check if email should be blocked (fake domains)
+    if (shouldBlockEmail(to)) {
+      console.log(`🚫 Blocked email to fake/test domain: ${to}`);
+      return NextResponse.json(
+        { 
+          error: `Cannot send email to test/fake domains. Please use a real email address.`,
+          blocked: true,
+          reason: 'Fake/test domain detected'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if email is blocked due to previous failures
+    if (tracker.isBlocked(to)) {
+      const failureInfo = tracker.getFailureInfo(to);
+      console.log(`🚫 Blocked email due to previous failures: ${to} (${failureInfo?.count} attempts)`);
+      return NextResponse.json(
+        { 
+          error: `Email blocked due to ${failureInfo?.count} previous delivery failures. Try again in 24 hours.`,
+          blocked: true,
+          reason: 'Previous delivery failures'
+        },
+        { status: 429 }
+      );
+    }
+
+    // Warn about potentially fake emails but allow sending
+    if (!validation.isReal) {
+      console.warn(`⚠️ Sending email to potentially fake address: ${to} - ${validation.reason}`);
     }
 
     let transporter: any = null;
@@ -168,6 +220,9 @@ export async function POST(request: NextRequest) {
     const info = await transporter.sendMail(mailOptions);
     console.log('Email sent successfully:', info.messageId);
     
+    // Record success to clear any previous failures
+    tracker.recordSuccess(to);
+    
     return NextResponse.json({
       success: true,
       messageId: info.messageId,
@@ -177,10 +232,18 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Email sending error:', error);
     
+    // Record failure for tracking
+    tracker.recordFailure(to);
+    
+    // Check if this email is now blocked
+    const isNowBlocked = tracker.isBlocked(to);
+    
     return NextResponse.json(
       { 
         error: 'Failed to send email',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : 'Unknown error',
+        blocked: isNowBlocked,
+        reason: isNowBlocked ? 'Too many delivery failures' : undefined
       },
       { status: 500 }
     );
