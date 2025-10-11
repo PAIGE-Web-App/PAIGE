@@ -72,12 +72,10 @@ export default function EditContactModal({
 
   // Memoized callback to prevent infinite re-renders
   const handleEmailValidationChange = useCallback((isValid: boolean, warning?: string) => {
-    if (!isValid && warning) {
-      setErrors(prev => ({ ...prev, email: warning }));
-    } else if (errors.email && isValid) {
-      setErrors(prev => ({ ...prev, email: undefined }));
-    }
-  }, [errors.email]);
+    // EmailFormField handles its own validation display
+    // We just need to track validation state for form submission
+    // No need to update errors.email since EmailFormField shows validation
+  }, []);
   
   // Use centralized vendor search utility
   // getRelevantCategories is now imported from utils/vendorSearchUtils
@@ -483,7 +481,6 @@ export default function EditContactModal({
             value={formData.email}
             onChange={handleChange}
             placeholder="Enter email"
-            error={errors.email}
             onValidationChange={handleEmailValidationChange}
           />
         </div>
