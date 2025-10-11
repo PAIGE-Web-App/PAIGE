@@ -20,6 +20,48 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
   const [loading, setLoading] = useState(true);
   const [isCreatingCalendar, setIsCreatingCalendar] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  
+  // Gmail data purge states
+  const [gmailDataStats, setGmailDataStats] = useState<{
+    totalMessages: number;
+    contactsWithGmailData: number;
+  } | null>(null);
+  const [loadingGmailStats, setLoadingGmailStats] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [isPurgingData, setIsPurgingData] = useState(false);
+
+  // Fetch Gmail data stats when Gmail is connected
+  useEffect(() => {
+    const fetchGmailStats = async () => {
+      if (!user?.uid || !googleConnected) {
+        setGmailDataStats(null);
+        return;
+      }
+      
+      setLoadingGmailStats(true);
+      try {
+        const response = await fetch(`/api/gmail/purge-data?userId=${user.uid}`, {
+          method: 'GET',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setGmailDataStats({
+              totalMessages: data.totalMessages,
+              contactsWithGmailData: data.contactsWithGmailData,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Gmail stats:', error);
+      } finally {
+        setLoadingGmailStats(false);
+      }
+    };
+    
+    fetchGmailStats();
+  }, [user?.uid, googleConnected]);
 
   useEffect(() => {
     const fetchGoogleIntegration = async () => {
@@ -175,11 +217,70 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     });
   };
 
+  const handlePurgeGmailData = async () => {
+    if (!user?.uid) return;
+    
+    setIsPurgingData(true);
+    try {
+      const response = await fetch('/api/gmail/purge-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        showSuccessToast(data.message || 'Gmail data deleted successfully');
+        setGmailDataStats({ totalMessages: 0, contactsWithGmailData: 0 });
+        setShowPurgeModal(false);
+      } else {
+        showErrorToast(data.error || 'Failed to delete Gmail data');
+      }
+    } catch (error) {
+      console.error('Failed to purge Gmail data:', error);
+      showErrorToast('Failed to delete Gmail data');
+    } finally {
+      setIsPurgingData(false);
+    }
+  };
+
   const handleDisconnectGmail = () => {
     onGoogleAction(async () => {
       try {
+        // Check if there's imported Gmail data
+        const hasGmailData = gmailDataStats && gmailDataStats.totalMessages > 0;
+        
+        if (hasGmailData) {
+          // Prompt user about imported data
+          const shouldDeleteData = window.confirm(
+            `You have ${gmailDataStats.totalMessages} imported Gmail messages from ${gmailDataStats.contactsWithGmailData} contacts.\n\n` +
+            `Would you like to delete this imported data?\n\n` +
+            `• Click "OK" to disconnect Gmail AND delete all imported messages\n` +
+            `• Click "Cancel" to disconnect Gmail but keep imported messages\n\n` +
+            `Note: This does NOT affect your actual Gmail account.`
+          );
+          
+          if (shouldDeleteData) {
+            // Purge data first
+            setIsPurgingData(true);
+            const purgeResponse = await fetch('/api/gmail/purge-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.uid }),
+            });
+            setIsPurgingData(false);
+            
+            const purgeData = await purgeResponse.json();
+            if (purgeData.success) {
+              showSuccessToast(`Deleted ${purgeData.deletedCount} imported messages`);
+              setGmailDataStats({ totalMessages: 0, contactsWithGmailData: 0 });
+            }
+          }
+        }
+        
+        // Disconnect Gmail
         const userRef = doc(db, "users", user.uid);
-        // Only remove Gmail-related data, keep calendar if it exists
         await updateDoc(userRef, {
           googleTokens: deleteField(),
           gmailImportCompleted: deleteField(),
@@ -435,6 +536,41 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                 )}
               </div>
             </div>
+            
+            {/* Gmail Data Stats & Purge Controls */}
+            {googleConnected && (
+              <div className="mt-4 pt-4 border-t border-[#AB9C95]/30">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Mail className="w-4 h-4 text-[#332B42]" />
+                      <span className="font-medium text-[#332B42] text-sm">Imported Gmail Data</span>
+                    </div>
+                    {loadingGmailStats ? (
+                      <p className="text-xs text-[#7A7A7A] ml-6">Loading...</p>
+                    ) : gmailDataStats && gmailDataStats.totalMessages > 0 ? (
+                      <div className="ml-6 text-xs text-[#7A7A7A]">
+                        <p>{gmailDataStats.totalMessages} messages from {gmailDataStats.contactsWithGmailData} contacts</p>
+                        <p className="mt-0.5 text-[10px] text-[#7A7A7A]">
+                          These are copies stored in Paige. Your Gmail is not affected.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#7A7A7A] ml-6">No imported messages</p>
+                    )}
+                  </div>
+                  {gmailDataStats && gmailDataStats.totalMessages > 0 && (
+                    <button
+                      onClick={() => setShowPurgeModal(true)}
+                      disabled={isPurgingData}
+                      className="px-3 py-1.5 rounded text-xs font-medium transition-colors duration-150 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPurgingData ? 'Deleting...' : 'Delete Data'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Calendar controls/status */}
             {googleConnected && (
               <div className="mt-2 space-y-2">
@@ -513,6 +649,49 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
           </div>
         </div>
       </div>
+      
+      {/* Gmail Data Purge Confirmation Modal */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h6 className="font-playfair font-medium text-[#332B42] mb-2">
+                  Delete Imported Gmail Data?
+                </h6>
+                <p className="text-sm text-[#5A4A42] mb-3">
+                  This will permanently delete <strong>{gmailDataStats?.totalMessages} imported messages</strong> from <strong>{gmailDataStats?.contactsWithGmailData} contacts</strong> in Paige.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Important:</strong> This only deletes the copies stored in Paige. Your actual Gmail account and emails are not affected in any way.
+                  </p>
+                </div>
+                <p className="text-xs text-[#7A7A7A]">
+                  Manually created messages in Paige will not be deleted. You can re-import Gmail messages at any time.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowPurgeModal(false)}
+                disabled={isPurgingData}
+                className="px-4 py-2 rounded font-work-sans text-sm font-medium border border-[#AB9C95] text-[#332B42] hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePurgeGmailData}
+                disabled={isPurgingData}
+                className="px-4 py-2 rounded font-work-sans text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isPurgingData ? 'Deleting...' : 'Delete Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
