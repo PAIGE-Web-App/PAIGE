@@ -32,11 +32,16 @@ export default function TermsOfService() {
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#A85C36] text-white font-semibold">P</span>
                 <span className="font-playfair text-xl text-[#332B42]">Paige</span>
               </Link>
-              <nav className="hidden md:flex items-center gap-8 text-sm">
-                <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
-                <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
-                <a href="mailto:dave@weddingpaige.com" className="text-[#332B42] hover:text-[#332B42] no-underline">Contact</a>
-              </nav>
+                      <nav className="hidden md:flex items-center gap-8 text-sm">
+                        <Link href="/#features" className="text-[#332B42] hover:text-[#332B42] no-underline">Features</Link>
+                        <Link href="/#how-it-works" className="text-[#332B42] hover:text-[#332B42] no-underline">How It Works</Link>
+                        <Link href="/#faq" className="text-[#332B42] hover:text-[#332B42] no-underline">FAQ</Link>
+                        <Link href="/#pricing" className="text-[#332B42] hover:text-[#332B42] no-underline">Pricing</Link>
+                      </nav>
+                      <div className="flex items-center gap-3">
+                        <Link href="/login" className="btn-primaryinverse">Login</Link>
+                        <Link href="/signup" className="btn-gradient-purple">Start for Free</Link>
+                      </div>
             </div>
           </header>
         </div>
