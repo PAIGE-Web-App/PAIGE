@@ -3,7 +3,7 @@
  * Extends FormField with email validation and fake domain detection
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { validateEmail, getValidationMessage } from '@/utils/emailValidation';
 
 type EmailFormFieldProps = {
@@ -29,12 +29,16 @@ export default function EmailFormField({
 }: EmailFormFieldProps) {
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [isValid, setIsValid] = useState<boolean>(true);
+  
+  // Use ref to store the callback to avoid dependency issues
+  const onValidationChangeRef = useRef(onValidationChange);
+  onValidationChangeRef.current = onValidationChange;
 
   useEffect(() => {
     if (!value.trim()) {
       setValidationMessage(null);
       setIsValid(true);
-      onValidationChange?.(true);
+      onValidationChangeRef.current?.(true);
       return;
     }
 
@@ -43,8 +47,8 @@ export default function EmailFormField({
     
     setValidationMessage(message);
     setIsValid(validation.isValid);
-    onValidationChange?.(validation.isValid, message || undefined);
-  }, [value, onValidationChange]);
+    onValidationChangeRef.current?.(validation.isValid, message || undefined);
+  }, [value]); // Remove onValidationChange from dependencies
 
   const getInputStyles = () => {
     const baseStyles = "w-full border px-4 py-2 text-sm rounded-[5px] focus:outline-none focus:ring-2";

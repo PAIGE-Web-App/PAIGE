@@ -1,5 +1,5 @@
 // components/EditContactModal.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { doc, deleteDoc, updateDoc, collection, getDocs, writeBatch } from "firebase/firestore";
@@ -69,6 +69,15 @@ export default function EditContactModal({
   const [errors, setErrors] = useState<{ email?: string; phone?: string; name?: string; category?: string; customCategory?: string }>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { showSuccessToast, showErrorToast, showInfoToast } = useCustomToast(); // ADD THIS LINE
+
+  // Memoized callback to prevent infinite re-renders
+  const handleEmailValidationChange = useCallback((isValid: boolean, warning?: string) => {
+    if (!isValid && warning) {
+      setErrors(prev => ({ ...prev, email: warning }));
+    } else if (errors.email && isValid) {
+      setErrors(prev => ({ ...prev, email: undefined }));
+    }
+  }, [errors.email]);
   
   // Use centralized vendor search utility
   // getRelevantCategories is now imported from utils/vendorSearchUtils
@@ -475,13 +484,7 @@ export default function EditContactModal({
             onChange={handleChange}
             placeholder="Enter email"
             error={errors.email}
-            onValidationChange={(isValid, warning) => {
-              if (!isValid && warning) {
-                setErrors(prev => ({ ...prev, email: warning }));
-              } else if (errors.email && isValid) {
-                setErrors(prev => ({ ...prev, email: undefined }));
-              }
-            }}
+            onValidationChange={handleEmailValidationChange}
           />
         </div>
 
