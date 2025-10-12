@@ -17,14 +17,15 @@ export default function AuthGuard({ children, redirectTo = '/login' }: AuthGuard
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        console.log('🚫 No user found, redirecting to login');
-        router.push(redirectTo);
+        console.log('🚫 No user found, redirecting to homepage');
+        // Use hard redirect for reliable navigation (especially when session expires mid-session)
+        window.location.href = '/';
       } else {
         console.log('✅ User authenticated:', user.uid);
         setIsChecking(false);
       }
     }
-  }, [user, loading, router, redirectTo]);
+  }, [user, loading]);
 
   // Show loading while checking authentication
   if (loading || isChecking) {
