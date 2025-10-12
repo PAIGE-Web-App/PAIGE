@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useCustomToast } from "../../../hooks/useCustomToast";
 import { doc, getDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
-import { Calendar, Mail, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
+import { Calendar, Mail, CheckCircle, AlertCircle, ExternalLink, Clock, Bell } from 'lucide-react';
 import SettingsTabSkeleton from './SettingsTabSkeleton';
 
 interface IntegrationsTabProps {
@@ -29,6 +29,15 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
   const [loadingGmailStats, setLoadingGmailStats] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [isPurgingData, setIsPurgingData] = useState(false);
+
+  // Gmail push notifications states
+  const [gmailWatchStatus, setGmailWatchStatus] = useState<{
+    isActive: boolean;
+    expiration?: string;
+    lastProcessedAt?: string;
+  } | null>(null);
+  const [loadingGmailWatch, setLoadingGmailWatch] = useState(false);
+  const [isSettingUpWatch, setIsSettingUpWatch] = useState(false);
 
   // Fetch Gmail data stats when Gmail is connected
   useEffect(() => {
@@ -61,6 +70,45 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     };
     
     fetchGmailStats();
+  }, [user?.uid, googleConnected]);
+
+  // Fetch Gmail watch status when Gmail is connected
+  useEffect(() => {
+    const fetchGmailWatchStatus = async () => {
+      if (!user?.uid || !googleConnected) {
+        setGmailWatchStatus(null);
+        return;
+      }
+      
+      setLoadingGmailWatch(true);
+      try {
+        // Get user data to check gmailWatch status
+        const response = await fetch(`/api/check-gmail-auth-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.userData?.gmailWatch) {
+            setGmailWatchStatus({
+              isActive: data.userData.gmailWatch.isActive || false,
+              expiration: data.userData.gmailWatch.expiration,
+              lastProcessedAt: data.userData.gmailWatch.lastProcessedAt,
+            });
+          } else {
+            setGmailWatchStatus({ isActive: false });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Gmail watch status:', error);
+      } finally {
+        setLoadingGmailWatch(false);
+      }
+    };
+    
+    fetchGmailWatchStatus();
   }, [user?.uid, googleConnected]);
 
   useEffect(() => {
@@ -442,6 +490,35 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     }
   };
 
+  const handleSetupGmailPushNotifications = async () => {
+    if (!user?.uid) return;
+    
+    setIsSettingUpWatch(true);
+    try {
+      const response = await fetch('/api/gmail/setup-watch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setGmailWatchStatus({
+          isActive: true,
+          expiration: data.watchData?.expiration,
+        });
+        showSuccessToast('Gmail push notifications enabled! You\'ll now get automatic todo suggestions from new emails.');
+      } else {
+        showErrorToast(data.message || 'Failed to enable Gmail push notifications');
+      }
+    } catch (error) {
+      console.error('Failed to setup Gmail push notifications:', error);
+      showErrorToast('Failed to enable Gmail push notifications');
+    } finally {
+      setIsSettingUpWatch(false);
+    }
+  };
+
   const formatLastSync = (timestamp?: string) => {
     if (!timestamp) return 'Never';
     const date = new Date(timestamp);
@@ -571,6 +648,60 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                 </div>
               </div>
             )}
+
+            {/* Gmail Push Notifications Section */}
+            {googleConnected && (
+              <div className="mt-4 pt-4 border-t border-[#AB9C95]/30">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bell className="w-4 h-4 text-[#332B42]" />
+                      <span className="font-medium text-[#332B42] text-sm">Gmail Push Notifications</span>
+                    </div>
+                    {loadingGmailWatch ? (
+                      <p className="text-xs text-[#7A7A7A] ml-6">Loading...</p>
+                    ) : gmailWatchStatus?.isActive ? (
+                      <div className="ml-6 text-xs text-[#7A7A7A]">
+                        <p className="flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3 text-green-600" />
+                          Active - Auto-generating todo suggestions from new emails
+                        </p>
+                        {gmailWatchStatus.expiration && (
+                          <p className="mt-0.5">
+                            Expires: {new Date(gmailWatchStatus.expiration).toLocaleDateString()}
+                          </p>
+                        )}
+                        {gmailWatchStatus.lastProcessedAt && (
+                          <p className="mt-0.5">
+                            Last processed: {formatLastSync(gmailWatchStatus.lastProcessedAt)}
+                          </p>
+                        )}
+                        <p className="mt-0.5 text-[10px] text-[#7A7A7A]">
+                          When you receive emails from contacts, Paige will automatically suggest relevant todo items.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="ml-6 text-xs text-[#7A7A7A]">
+                        <p>Disabled - Enable to get automatic todo suggestions from new emails</p>
+                        <p className="mt-0.5 text-[10px] text-[#7A7A7A]">
+                          This will monitor your Gmail inbox and create todo suggestions when emails arrive from your contacts.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!gmailWatchStatus?.isActive && (
+                    <button
+                      onClick={handleSetupGmailPushNotifications}
+                      disabled={isSettingUpWatch}
+                      className="px-3 py-1.5 rounded text-xs font-medium transition-colors duration-150 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSettingUpWatch ? 'Setting up...' : 'Enable'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Calendar controls/status */}
             {googleConnected && (
               <div className="mt-2 space-y-2">
