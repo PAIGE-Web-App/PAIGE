@@ -45,11 +45,15 @@ export async function POST(req: NextRequest) {
       'https://www.googleapis.com/auth/calendar.events'
     ];
 
+    // Use the correct redirect URI that matches our callback endpoint
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/api/gmail/oauth-callback`;
+    
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline', // This is crucial for getting refresh tokens
       scope: scopes,
       prompt: 'consent', // Force consent screen to ensure refresh token
       state: userId, // Pass userId in state for callback
+      redirect_uri: redirectUri, // Use the correct redirect URI
     });
 
     console.log('Gmail Watch OAuth: Generated auth URL for user:', userId);
