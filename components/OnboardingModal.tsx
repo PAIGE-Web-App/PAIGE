@@ -444,6 +444,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
       // Force account selection
       provider.setCustomParameters({
         prompt: 'select_account'

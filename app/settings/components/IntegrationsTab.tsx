@@ -37,7 +37,6 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     lastProcessedAt?: string;
   } | null>(null);
   const [loadingGmailWatch, setLoadingGmailWatch] = useState(false);
-  const [isSettingUpWatch, setIsSettingUpWatch] = useState(false);
 
   // Fetch Gmail data stats when Gmail is connected
   useEffect(() => {
@@ -111,26 +110,6 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         fetchGmailWatchStatus();
       }, [user?.uid, googleConnected]);
 
-      // Handle OAuth callback results
-      useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const gmailOauth = urlParams.get('gmail_oauth');
-        const errorMessage = urlParams.get('message');
-        
-        if (gmailOauth === 'success') {
-          showSuccessToast('Gmail push notifications enabled! You\'ll now get automatic todo suggestions from new emails.');
-          // Clear URL params and refresh status
-          window.history.replaceState({}, document.title, window.location.pathname);
-          // Re-fetch status
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
-        } else if (gmailOauth === 'error') {
-          showErrorToast(errorMessage || 'Failed to enable Gmail push notifications');
-          // Clear URL params
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }, [showSuccessToast, showErrorToast]);
 
   useEffect(() => {
     const fetchGoogleIntegration = async () => {
@@ -399,6 +378,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       // Request all scopes for full re-authorization in settings
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
       provider.addScope('https://www.googleapis.com/auth/calendar');
       provider.addScope('https://www.googleapis.com/auth/calendar.events');
       // Force account selection and consent to show scope selection
@@ -465,7 +445,23 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
           setGoogleEmail(userData.googleTokens.email || userData.googleEmail || "");
         }
         
-        showSuccessToast("Google account re-authorized successfully!");
+        // Automatically set up Gmail Watch for push notifications
+        try {
+          const watchResponse = await fetch('/api/gmail/setup-watch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid }),
+          });
+          
+          if (watchResponse.ok) {
+            showSuccessToast("Google account re-authorized and Gmail push notifications enabled!");
+          } else {
+            showSuccessToast("Google account re-authorized successfully!");
+          }
+        } catch (watchError) {
+          console.error('Failed to setup Gmail Watch after reauth:', watchError);
+          showSuccessToast("Google account re-authorized successfully!");
+        }
       } else {
         console.error('❌ Google reauth failed');
         showErrorToast("Failed to re-authorize Google account. Please try again.");
@@ -511,32 +507,6 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     }
   };
 
-      const handleSetupGmailPushNotifications = async () => {
-        if (!user?.uid) return;
-        
-        setIsSettingUpWatch(true);
-        try {
-          // Use OAuth flow instead of Firebase popup to get refresh tokens
-          const response = await fetch('/api/gmail/setup-watch-oauth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.uid }),
-          });
-          
-          const data = await response.json();
-          if (data.success && data.authUrl) {
-            // Redirect to Google OAuth
-            window.location.href = data.authUrl;
-          } else {
-            showErrorToast(data.message || 'Failed to start Gmail push notifications setup');
-            setIsSettingUpWatch(false);
-          }
-        } catch (error) {
-          console.error('Failed to setup Gmail push notifications:', error);
-          showErrorToast('Failed to enable Gmail push notifications');
-          setIsSettingUpWatch(false);
-        }
-      };
 
   const formatLastSync = (timestamp?: string) => {
     if (!timestamp) return 'Never';
@@ -668,11 +638,9 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
               </div>
             )}
 
-            {/* Gmail Push Notifications Section */}
-            {googleConnected && (
-              <div className="mt-4 pt-4 border-t border-[#AB9C95]/30">
-                <div className="flex items-start justify-between">
-                  <div>
+                {/* Gmail Push Notifications Status (Read-only) */}
+                {googleConnected && (
+                  <div className="mt-4 pt-4 border-t border-[#AB9C95]/30">
                     <div className="flex items-center gap-2 mb-1">
                       <Bell className="w-4 h-4 text-[#332B42]" />
                       <span className="font-medium text-[#332B42] text-sm">Gmail Push Notifications</span>
@@ -701,25 +669,14 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                       </div>
                     ) : (
                       <div className="ml-6 text-xs text-[#7A7A7A]">
-                        <p>Disabled - Enable to get automatic todo suggestions from new emails</p>
+                        <p>Disabled - Re-authorize Google to enable automatic todo suggestions from new emails</p>
                         <p className="mt-0.5 text-[10px] text-[#7A7A7A]">
-                          This will monitor your Gmail inbox and create todo suggestions when emails arrive from your contacts.
+                          Use the "Re-authorize" button above to enable Gmail push notifications.
                         </p>
                       </div>
                     )}
                   </div>
-                  {!gmailWatchStatus?.isActive && (
-                    <button
-                      onClick={handleSetupGmailPushNotifications}
-                      disabled={isSettingUpWatch}
-                      className="px-3 py-1.5 rounded text-xs font-medium transition-colors duration-150 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSettingUpWatch ? 'Setting up...' : 'Enable'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+                )}
 
             {/* Calendar controls/status */}
             {googleConnected && (

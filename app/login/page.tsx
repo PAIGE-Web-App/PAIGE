@@ -371,6 +371,7 @@ export default function Login() {
         const provider = new GoogleAuthProvider();
         provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
         provider.addScope('https://www.googleapis.com/auth/gmail.send');
+        provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
         
         const result = await signInWithPopup(auth, provider);
         
