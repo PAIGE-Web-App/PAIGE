@@ -535,7 +535,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Gmail credentials check state
   const [showGmailReauthModal, setShowGmailReauthModal] = useState(false);
-  const { checkGmailCredentials, isLoading: isCheckingCredentials } = useGmailCredentialsCheck();
+  const { checkGmailCredentials, isLoading: isCheckingCredentials, clearCache } = useGmailCredentialsCheck();
 
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
@@ -1301,6 +1301,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         }
         
         showSuccessToast('Gmail re-authorized successfully! You can now send emails.');
+        
+        // Clear credentials cache since we just re-authenticated
+        clearCache();
         
         // Automatically set up Gmail Watch for push notifications
         try {

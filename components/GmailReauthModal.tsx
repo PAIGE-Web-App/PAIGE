@@ -34,11 +34,10 @@ const GmailReauthModal: React.FC<GmailReauthModalProps> = ({
           >
             {/* Header row with title and close button */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex-1"></div>
-              <h5 className="h5 text-center flex-1">Gmail Re-authorization Required</h5>
+              <h5 className="h5 text-left flex-1">Gmail Re-authorization Required</h5>
               <button
                 onClick={onClose}
-                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full flex-1 flex justify-end"
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
                 title="Close"
                 disabled={isLoading}
               >

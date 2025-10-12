@@ -8,6 +8,10 @@ interface GmailCredentialsCheck {
   error: string | null;
 }
 
+// Cache to avoid repeated API calls
+let credentialsCache: { userId: string; result: boolean; timestamp: number } | null = null;
+const CACHE_DURATION = 30000; // 30 seconds
+
 export function useGmailCredentialsCheck() {
   const [checkState, setCheckState] = useState<GmailCredentialsCheck>({
     hasValidCredentials: false,
@@ -29,6 +33,19 @@ export function useGmailCredentialsCheck() {
       return false;
     }
 
+    // Check cache first
+    if (credentialsCache && 
+        credentialsCache.userId === userId && 
+        Date.now() - credentialsCache.timestamp < CACHE_DURATION) {
+      setCheckState({
+        hasValidCredentials: credentialsCache.result,
+        needsReauth: !credentialsCache.result,
+        isLoading: false,
+        error: null
+      });
+      return credentialsCache.result;
+    }
+
     setCheckState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -39,6 +56,17 @@ export function useGmailCredentialsCheck() {
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          // Rate limit hit - assume credentials are valid to avoid blocking user
+          console.warn('Rate limit hit on Gmail credentials check, assuming valid credentials');
+          setCheckState({
+            hasValidCredentials: true,
+            needsReauth: false,
+            isLoading: false,
+            error: null
+          });
+          return true;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -95,6 +123,14 @@ export function useGmailCredentialsCheck() {
         isLoading: false,
         error: null
       });
+      
+      // Cache the result
+      credentialsCache = {
+        userId,
+        result: true,
+        timestamp: Date.now()
+      };
+      
       return true;
 
     } catch (error: any) {
@@ -116,11 +152,18 @@ export function useGmailCredentialsCheck() {
       isLoading: false,
       error: null
     });
+    // Clear cache when resetting
+    credentialsCache = null;
+  }, []);
+
+  const clearCache = useCallback(() => {
+    credentialsCache = null;
   }, []);
 
   return {
     ...checkState,
     checkGmailCredentials,
-    resetCheck
+    resetCheck,
+    clearCache
   };
 }
