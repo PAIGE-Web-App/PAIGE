@@ -120,7 +120,8 @@ export async function POST(req: NextRequest) {
         console.log('Gmail auth check: Gmail read and send access confirmed for user:', userId);
         return NextResponse.json({ 
           needsReauth: false, 
-          message: 'Gmail authentication valid' 
+          message: 'Gmail authentication valid',
+          userData: userData // Include full user data so UI can check gmailWatch
         });
       } catch (sendError: any) {
         console.log('Gmail auth check: Send access test failed for user:', userId, 'Error:', sendError.message, 'Status:', sendError.status);
@@ -165,7 +166,8 @@ export async function POST(req: NextRequest) {
       console.log('Gmail auth check: Non-auth API error, not requiring re-auth:', apiError.message);
       return NextResponse.json({ 
         needsReauth: false, 
-        message: 'Gmail authentication valid (API test failed due to non-auth issue)' 
+        message: 'Gmail authentication valid (API test failed due to non-auth issue)',
+        userData: userData // Include full user data so UI can check gmailWatch
       });
     }
 
