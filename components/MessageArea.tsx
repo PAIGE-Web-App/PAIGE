@@ -578,6 +578,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
             return; // Don't throw error, just return
           }
+          
+          // Handle Gmail API rate limits gracefully
+          if (data.error && data.error.includes('User-rate limit exceeded')) {
+            showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
+            return; // Don't throw error, just return
+          }
+          
+          // Handle other Gmail API errors
+          if (data.error && data.error.includes('Quota exceeded')) {
+            showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
+            return; // Don't throw error, just return
+          }
+          
           throw new Error(data.error || 'Failed to send Gmail reply');
         }
         showSuccessToast('Gmail reply sent!');
@@ -616,6 +629,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
             return; // Don't throw error, just return
           }
+          
+          // Handle Gmail API rate limits gracefully
+          if (data.error && data.error.includes('User-rate limit exceeded')) {
+            showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
+            return; // Don't throw error, just return
+          }
+          
+          // Handle other Gmail API errors
+          if (data.error && data.error.includes('Quota exceeded')) {
+            showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
+            return; // Don't throw error, just return
+          }
+          
           throw new Error(data.error || 'Failed to send Gmail message');
         }
         showSuccessToast('Gmail email sent!');
