@@ -72,44 +72,65 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     fetchGmailStats();
   }, [user?.uid, googleConnected]);
 
-  // Fetch Gmail watch status when Gmail is connected
-  useEffect(() => {
-    const fetchGmailWatchStatus = async () => {
-      if (!user?.uid || !googleConnected) {
-        setGmailWatchStatus(null);
-        return;
-      }
-      
-      setLoadingGmailWatch(true);
-      try {
-        // Get user data to check gmailWatch status
-        const response = await fetch(`/api/check-gmail-auth-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.uid }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.userData?.gmailWatch) {
-            setGmailWatchStatus({
-              isActive: data.userData.gmailWatch.isActive || false,
-              expiration: data.userData.gmailWatch.expiration,
-              lastProcessedAt: data.userData.gmailWatch.lastProcessedAt,
-            });
-          } else {
-            setGmailWatchStatus({ isActive: false });
+      // Fetch Gmail watch status when Gmail is connected
+      useEffect(() => {
+        const fetchGmailWatchStatus = async () => {
+          if (!user?.uid || !googleConnected) {
+            setGmailWatchStatus(null);
+            return;
           }
+          
+          setLoadingGmailWatch(true);
+          try {
+            // Get user data to check gmailWatch status
+            const response = await fetch(`/api/check-gmail-auth-status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.uid }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.userData?.gmailWatch) {
+                setGmailWatchStatus({
+                  isActive: data.userData.gmailWatch.isActive || false,
+                  expiration: data.userData.gmailWatch.expiration,
+                  lastProcessedAt: data.userData.gmailWatch.lastProcessedAt,
+                });
+              } else {
+                setGmailWatchStatus({ isActive: false });
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch Gmail watch status:', error);
+          } finally {
+            setLoadingGmailWatch(false);
+          }
+        };
+        
+        fetchGmailWatchStatus();
+      }, [user?.uid, googleConnected]);
+
+      // Handle OAuth callback results
+      useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const gmailOauth = urlParams.get('gmail_oauth');
+        const errorMessage = urlParams.get('message');
+        
+        if (gmailOauth === 'success') {
+          showSuccessToast('Gmail push notifications enabled! You\'ll now get automatic todo suggestions from new emails.');
+          // Clear URL params and refresh status
+          window.history.replaceState({}, document.title, window.location.pathname);
+          // Re-fetch status
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else if (gmailOauth === 'error') {
+          showErrorToast(errorMessage || 'Failed to enable Gmail push notifications');
+          // Clear URL params
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
-      } catch (error) {
-        console.error('Failed to fetch Gmail watch status:', error);
-      } finally {
-        setLoadingGmailWatch(false);
-      }
-    };
-    
-    fetchGmailWatchStatus();
-  }, [user?.uid, googleConnected]);
+      }, [showSuccessToast, showErrorToast]);
 
   useEffect(() => {
     const fetchGoogleIntegration = async () => {
@@ -490,34 +511,32 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     }
   };
 
-  const handleSetupGmailPushNotifications = async () => {
-    if (!user?.uid) return;
-    
-    setIsSettingUpWatch(true);
-    try {
-      const response = await fetch('/api/gmail/setup-watch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setGmailWatchStatus({
-          isActive: true,
-          expiration: data.watchData?.expiration,
-        });
-        showSuccessToast('Gmail push notifications enabled! You\'ll now get automatic todo suggestions from new emails.');
-      } else {
-        showErrorToast(data.message || 'Failed to enable Gmail push notifications');
-      }
-    } catch (error) {
-      console.error('Failed to setup Gmail push notifications:', error);
-      showErrorToast('Failed to enable Gmail push notifications');
-    } finally {
-      setIsSettingUpWatch(false);
-    }
-  };
+      const handleSetupGmailPushNotifications = async () => {
+        if (!user?.uid) return;
+        
+        setIsSettingUpWatch(true);
+        try {
+          // Use OAuth flow instead of Firebase popup to get refresh tokens
+          const response = await fetch('/api/gmail/setup-watch-oauth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid }),
+          });
+          
+          const data = await response.json();
+          if (data.success && data.authUrl) {
+            // Redirect to Google OAuth
+            window.location.href = data.authUrl;
+          } else {
+            showErrorToast(data.message || 'Failed to start Gmail push notifications setup');
+            setIsSettingUpWatch(false);
+          }
+        } catch (error) {
+          console.error('Failed to setup Gmail push notifications:', error);
+          showErrorToast('Failed to enable Gmail push notifications');
+          setIsSettingUpWatch(false);
+        }
+      };
 
   const formatLastSync = (timestamp?: string) => {
     if (!timestamp) return 'Never';
