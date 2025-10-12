@@ -60,7 +60,36 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Health check endpoint
+    // Handle both health check and cron execution for external services
+    // Some cron services might send GET requests instead of POST
+    
+    const authHeader = request.headers.get('authorization');
+    const expectedToken = process.env.CRON_SECRET || process.env.SCHEDULED_TASK_SECRET;
+    
+    // If authorization header is present, treat as cron execution
+    if (authHeader && expectedToken && authHeader === `Bearer ${expectedToken}`) {
+      console.log('🔄 Starting credit refresh via external cron (GET request)...');
+      
+      const result = await refreshAllUserCredits();
+      
+      if (result.success) {
+        console.log('✅ Credit refresh completed successfully (GET)');
+        return NextResponse.json({
+          success: true,
+          message: 'Credit refresh completed successfully',
+          ...result
+        });
+      } else {
+        console.error('❌ Credit refresh failed (GET)');
+        return NextResponse.json({
+          success: false,
+          message: 'Credit refresh failed',
+          ...result
+        }, { status: 500 });
+      }
+    }
+    
+    // Otherwise, return health check
     const health = await healthCheck();
     
     return NextResponse.json({
@@ -69,6 +98,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    console.error('❌ Error in GET endpoint:', error);
     return NextResponse.json({
       status: 'unhealthy',
       error: error.message
