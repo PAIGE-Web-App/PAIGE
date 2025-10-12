@@ -24,6 +24,7 @@ export default function GmailReauthBanner({ onReauth, currentUser }: GmailReauth
       // Only request Gmail scopes for Gmail re-authentication
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
       // Force account selection and consent
       provider.setCustomParameters({
         prompt: 'consent',
