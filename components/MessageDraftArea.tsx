@@ -1,6 +1,7 @@
 import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { FileUp, SmilePlus, WandSparkles, MoveRight, X, Reply, MessageSquareText, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useGmailAuth } from '@/contexts/GmailAuthContext';
 
 interface MessageDraftAreaProps {
   selectedChannel: string;
@@ -62,6 +63,9 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
   subject,
   setSubject,
 }) => {
+  // Get Gmail auth status (no additional API calls - uses existing banner logic)
+  const { needsReauth } = useGmailAuth();
+  
   const [showChannelDropdown, setShowChannelDropdown] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const subjectMeasureRef = useRef<HTMLSpanElement>(null);
@@ -286,9 +290,9 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
         </div>
         <button
           onClick={handleSendMessage}
-          disabled={isAnimatingOrGenerating}
-          className="btn-primary flex items-center gap-1"
-          title="Send Message"
+          disabled={isAnimatingOrGenerating || (selectedChannel === 'Gmail' && needsReauth)}
+          className={`btn-primary flex items-center gap-1 ${(selectedChannel === 'Gmail' && needsReauth) ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={selectedChannel === 'Gmail' && needsReauth ? 'Please re-authenticate with Gmail to send emails via Gmail' : 'Send Message'}
         >
           Send <MoveRight className="w-4 h-4" />
         </button>
