@@ -448,11 +448,16 @@ export async function POST(req: NextRequest) {
 
           const encodedEmail = Buffer.from(emailContent).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
 
-          const sentMessage = await gmail.users.messages.send({
-            userId: 'me',
-            requestBody: {
-              raw: encodedEmail,
-            },
+          // Import rate limit handler
+          const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
+
+          const sentMessage = await GmailRateLimitHandler.executeWithRetry(async () => {
+            return await gmail.users.messages.send({
+              userId: 'me',
+              requestBody: {
+                raw: encodedEmail,
+              },
+            });
           });
 
           // Save vendor as contact

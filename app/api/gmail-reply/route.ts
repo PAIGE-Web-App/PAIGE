@@ -112,6 +112,24 @@ export async function POST(req: NextRequest) {
       userId,
     } = await req.json();
 
+    // Check Gmail quota before sending
+    const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+    const quotaCheck = await GmailQuotaService.canSendEmail(userId);
+    
+    if (!quotaCheck.allowed) {
+      console.log(`🚫 Gmail quota exceeded for user ${userId}: ${quotaCheck.reason}`);
+      return NextResponse.json(
+        { 
+          success: false,
+          error: quotaCheck.reason || 'Daily email limit reached',
+          quotaExceeded: true,
+          remaining: quotaCheck.remaining,
+          resetAt: quotaCheck.resetAt
+        },
+        { status: 429 }
+      );
+    }
+
     // Retrieve user's Gmail OAuth tokens from Firestore
     const tokens = await getUserGmailTokens(userId);
     if (!tokens) throw new Error('No Gmail OAuth tokens found for user.');
@@ -190,18 +208,46 @@ export async function POST(req: NextRequest) {
     });
     const encodedMessage = Buffer.from(rawMessage).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-    // Send the message
-    const gmailRes = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage,
-        ...(threadId && { threadId }),
-      },
-    });
+    // Send the message with retry logic for rate limits
+    const sendMessageWithRetry = async (attempt = 1): Promise<any> => {
+      try {
+        const gmailRes = await gmail.users.messages.send({
+          userId: 'me',
+          requestBody: {
+            raw: encodedMessage,
+            ...(threadId && { threadId }),
+          },
+        });
+        return gmailRes;
+      } catch (error: any) {
+        // Handle rate limit with exponential backoff
+        if (error.status === 429 && attempt <= 3) {
+          const retryAfter = error.response?.headers?.['retry-after'] || Math.pow(2, attempt) * 1000;
+          console.log(`Gmail rate limit hit, retrying after ${retryAfter}ms (attempt ${attempt}/3)`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter));
+          return sendMessageWithRetry(attempt + 1);
+        }
+        throw error;
+      }
+    };
 
+    const gmailRes = await sendMessageWithRetry();
+    
+    // Increment Gmail quota counter after successful send
+    await GmailQuotaService.incrementEmailSent(userId);
+    
     return NextResponse.json({ success: true, gmailRes: gmailRes.data });
   } catch (error: any) {
     console.error('Gmail reply error:', error);
+    
+    // Handle rate limit errors
+    if (error.status === 429 || error.message?.includes('rate limit') || error.message?.includes('quota')) {
+      return NextResponse.json({ 
+        success: false, 
+        error: error.message || 'Gmail rate limit exceeded. Please wait before sending another email.',
+        requiresReauth: false // This is not an auth issue
+      }, { status: 429 });
+    }
     
     // Handle specific Google OAuth errors
     if (error.message?.includes('invalid_grant') || error.message?.includes('invalid_token')) {

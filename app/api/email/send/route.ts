@@ -94,13 +94,29 @@ const createGmailTransporter = async (userId: string) => {
 
         const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-        const response = await gmail.users.messages.send({
-          userId: 'me',
-          requestBody: {
-            raw: encodedMessage,
-          },
-        });
+        // Send with retry logic for rate limits
+        const sendMessageWithRetry = async (attempt = 1): Promise<any> => {
+          try {
+            const response = await gmail.users.messages.send({
+              userId: 'me',
+              requestBody: {
+                raw: encodedMessage,
+              },
+            });
+            return response;
+          } catch (error: any) {
+            // Handle rate limit with exponential backoff
+            if (error.status === 429 && attempt <= 3) {
+              const retryAfter = error.response?.headers?.['retry-after'] || Math.pow(2, attempt) * 1000;
+              console.log(`Gmail rate limit hit in email/send, retrying after ${retryAfter}ms (attempt ${attempt}/3)`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter));
+              return sendMessageWithRetry(attempt + 1);
+            }
+            throw error;
+          }
+        };
 
+        const response = await sendMessageWithRetry();
         return {
           messageId: response.data.id,
           response: response.data
@@ -144,6 +160,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Check Gmail quota if user is sending via Gmail
+    if (userId) {
+      const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+      const quotaCheck = await GmailQuotaService.canSendEmail(userId);
+      
+      if (!quotaCheck.allowed) {
+        console.log(`🚫 Gmail quota exceeded for user ${userId}: ${quotaCheck.reason}`);
+        return NextResponse.json(
+          { 
+            error: quotaCheck.reason || 'Daily email limit reached',
+            quotaExceeded: true,
+            remaining: quotaCheck.remaining,
+            resetAt: quotaCheck.resetAt
+          },
+          { status: 429 }
+        );
+      }
+    }
 
     // Validate email address and check for fake/test domains
     const validation = validateEmail(to);
@@ -222,6 +256,12 @@ export async function POST(request: NextRequest) {
     
     // Record success to clear any previous failures
     tracker.recordSuccess(to);
+    
+    // Increment Gmail quota counter if user is authenticated
+    if (userId) {
+      const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+      await GmailQuotaService.incrementEmailSent(userId);
+    }
     
     return NextResponse.json({
       success: true,

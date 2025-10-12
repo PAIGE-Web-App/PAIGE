@@ -71,105 +71,22 @@ export async function POST(req: NextRequest) {
 
     console.log('Gmail auth check: Valid tokens for user:', userId, 'Expiry:', expiryDate ? new Date(expiryDate) : 'No expiry');
 
-    // Test actual Gmail API access with a lightweight call
-    try {
-      const { google } = await import('googleapis');
-      
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-      );
-
-      oauth2Client.setCredentials({
-        access_token: accessToken,
-        refresh_token: refreshToken || undefined,
-      });
-
-      // Make a Gmail API call to test actual access - test both read and send permissions
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-      
-      // Test read access
-      await gmail.users.getProfile({ userId: 'me' });
-      
-      // Test send access by trying to create a minimal test message (requires gmail.send scope)
-      try {
-        // Create a minimal test message to check send permissions
-        const testMessage = [
-          'To: test@example.com',
-          'From: test@example.com', 
-          'Subject: Test',
-          'Content-Type: text/plain; charset="UTF-8"',
-          '',
-          'Test message for permission check'
-        ].join('\n');
-        
-        const encodedMessage = Buffer.from(testMessage).toString('base64')
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=+$/, '');
-        
-        // Try to send (this will fail but tell us about permissions)
-        await gmail.users.messages.send({
-          userId: 'me',
-          requestBody: {
-            raw: encodedMessage,
-          },
-        });
-        
-        console.log('Gmail auth check: Gmail read and send access confirmed for user:', userId);
-        return NextResponse.json({ 
-          needsReauth: false, 
-          message: 'Gmail authentication valid',
-          userData: userData // Include full user data so UI can check gmailWatch
-        });
-      } catch (sendError: any) {
-        console.log('Gmail auth check: Send access test failed for user:', userId, 'Error:', sendError.message, 'Status:', sendError.status);
-        
-        // If we can read but can't send, we need re-auth
-        if (sendError.message?.includes('insufficient') || 
-            sendError.message?.includes('permission') ||
-            sendError.message?.includes('forbidden') ||
-            sendError.message?.includes('403') ||
-            sendError.message?.includes('Insufficient Permission') ||
-            sendError.status === 403) {
-          console.log('Gmail auth check: Gmail read access OK but send access denied for user:', userId);
-          return NextResponse.json({ 
-            needsReauth: true, 
-            message: 'Gmail send permissions missing - re-authentication required' 
-          }, { status: 401 });
-        }
-        
-        // For other errors (like invalid recipient), log them but don't require re-auth
-        console.log('Gmail auth check: Non-permission error in send test, not requiring re-auth:', sendError.message);
-        throw sendError; // Re-throw other errors
-      }
-    } catch (apiError: any) {
-      console.log('Gmail auth check: Gmail API test failed for user:', userId, 'Error:', apiError.message);
-      
-      // If the API call fails, it's likely an authentication issue
-      if (apiError.message?.includes('invalid_grant') || 
-          apiError.message?.includes('invalid_token') ||
-          apiError.message?.includes('unauthorized') ||
-          apiError.message?.includes('forbidden') ||
-          apiError.message?.includes('Insufficient Permission') ||
-          apiError.message?.includes('insufficient') ||
-          apiError.message?.includes('permission')) {
-        console.log('Gmail auth check: Gmail API access failed - re-authentication required for user:', userId);
-        return NextResponse.json({ 
-          needsReauth: true, 
-          message: 'Gmail API access failed - re-authentication required' 
-        }, { status: 401 });
-      }
-      
-      // For other errors (network, quota, etc.), don't require re-auth
-      console.log('Gmail auth check: Non-auth API error, not requiring re-auth:', apiError.message);
+    // Check if gmail.modify scope is present (required for Gmail Watch API)
+    const scope = userData?.googleTokens?.scope || '';
+    if (!scope.includes('https://www.googleapis.com/auth/gmail.modify')) {
+      console.log('Gmail auth check: Missing gmail.modify scope for user:', userId);
       return NextResponse.json({ 
-        needsReauth: false, 
-        message: 'Gmail authentication valid (API test failed due to non-auth issue)',
-        userData: userData // Include full user data so UI can check gmailWatch
-      });
+        needsReauth: true, 
+        message: 'Missing required Gmail permissions - re-authentication required' 
+      }, { status: 401 });
     }
+
+    console.log('Gmail auth check: Valid tokens and scopes for user:', userId, 'Expiry:', expiryDate ? new Date(expiryDate) : 'No expiry');
+    return NextResponse.json({ 
+      needsReauth: false, 
+      message: 'Gmail authentication valid',
+      userData: userData // Include full user data so UI can check gmailWatch
+    });
 
   } catch (error) {
     console.error('Error checking Gmail auth status:', error);

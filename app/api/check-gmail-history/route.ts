@@ -86,10 +86,15 @@ export async function POST(req: Request) {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     console.log('[check-gmail-history] Querying Gmail for:', contactEmail);
     
-    const res = await gmail.users.messages.list({
-      userId: 'me',
-      q: `from:${contactEmail} OR to:${contactEmail}`,
-      maxResults: 1,
+    // Import rate limit handler
+    const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
+    
+    const res = await GmailRateLimitHandler.executeWithRetry(async () => {
+      return await gmail.users.messages.list({
+        userId: 'me',
+        q: `from:${contactEmail} OR to:${contactEmail}`,
+        maxResults: 1,
+      });
     });
 
     const hasHistory = !!(res.data.messages && res.data.messages.length > 0);

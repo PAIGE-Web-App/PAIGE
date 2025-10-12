@@ -98,14 +98,19 @@ export async function POST(req: NextRequest) {
       
       console.log('Gmail Watch setup: Setting up watch for user:', userId, 'with topic:', topicName);
 
-      // Set up Gmail Watch
-      const watchResponse = await gmail.users.watch({
-        userId: 'me',
-        requestBody: {
-          topicName: topicName,
-          labelIds: ['INBOX'], // Only watch INBOX for efficiency
-          labelFilterBehavior: 'include',
-        },
+      // Import rate limit handler
+      const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
+
+      // Set up Gmail Watch with rate limit handling
+      const watchResponse = await GmailRateLimitHandler.executeWithRetry(async () => {
+        return await gmail.users.watch({
+          userId: 'me',
+          requestBody: {
+            topicName: topicName,
+            labelIds: ['INBOX'], // Only watch INBOX for efficiency
+            labelFilterBehavior: 'include',
+          },
+        });
       });
 
       // Store watch information in Firestore for management

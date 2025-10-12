@@ -186,10 +186,15 @@ export async function POST(req: Request) {
           checkForNewOnly: config?.checkForNewOnly
         });
         
-        const res = await gmail.users.messages.list({
-          userId: 'me',
-          q: gmailQuery,
-          maxResults: config?.checkForNewOnly ? 10 : 50, // Limit results for new message checks
+        // Import rate limit handler
+        const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
+        
+        const res = await GmailRateLimitHandler.executeWithRetry(async () => {
+          return await gmail.users.messages.list({
+            userId: 'me',
+            q: gmailQuery,
+            maxResults: config?.checkForNewOnly ? 10 : 50, // Limit results for new message checks
+          });
         });
 
         const messages = res.data.messages;
@@ -199,6 +204,25 @@ export async function POST(req: Request) {
           query: gmailQuery,
           checkForNewOnly: config?.checkForNewOnly
         });
+
+        // Check import quota before processing messages
+        const messageCount = messages?.length || 0;
+        if (messageCount > 0) {
+          const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+          const quotaCheck = await GmailQuotaService.canImportMessages(userId, messageCount);
+          
+          if (!quotaCheck.allowed) {
+            console.log(`🚫 Gmail import quota exceeded for user ${userId}: ${quotaCheck.reason}`);
+            return NextResponse.json({
+              success: false,
+              message: quotaCheck.reason || 'Daily import limit reached',
+              quotaExceeded: true,
+              remaining: quotaCheck.remaining,
+              resetAt: quotaCheck.resetAt,
+              contactEmail
+            }, { status: 429 });
+          }
+        }
         
         // Log each message ID for debugging
         if (messages && messages.length > 0) {
@@ -254,10 +278,12 @@ export async function POST(req: Request) {
           if (messagesToImport && messagesToImport.length > 0) {
             const fullMessages = await Promise.all(messagesToImport.map(async (message) => {
               if (!message.id) return null;
-              const fullMessageRes = await gmail.users.messages.get({
-                userId: 'me',
-                id: message.id,
-                format: 'metadata',
+              const fullMessageRes = await GmailRateLimitHandler.executeWithRetry(async () => {
+                return await gmail.users.messages.get({
+                  userId: 'me',
+                  id: message.id,
+                  format: 'metadata',
+                });
               });
               return {
                 id: message.id,
@@ -272,13 +298,19 @@ export async function POST(req: Request) {
             const idToDate = Object.fromEntries(filteredFullMessages.filter(m => m !== null).map(m => [m.id, m.internalDate]).filter(([id, date]) => id && date !== undefined));
             messagesToImport = messagesToImport.slice().filter(isValidMessage).sort((a, b) => (idToDate[a.id] || 0) - (idToDate[b.id] || 0));
           }
+          
+          // Track imported message count for quota
+          let importedCount = 0;
+          
           for (const message of messagesToImport) {
             try {
               console.log(`DEBUG: Fetching full message details for message ID: ${message.id}`);
-              const fullMessageRes = await gmail.users.messages.get({
-                userId: 'me',
-                id: message.id!,
-                format: 'full',
+              const fullMessageRes = await GmailRateLimitHandler.executeWithRetry(async () => {
+                return await gmail.users.messages.get({
+                  userId: 'me',
+                  id: message.id!,
+                  format: 'full',
+                });
               });
               const fullMessage = fullMessageRes.data;
 
@@ -456,6 +488,9 @@ export async function POST(req: Request) {
               // Save the Gmail message to the correct path
               const messageRef = await adminDb.collection(messagesCollectionPath).add(messageData);
               console.log(`Saved Gmail message ${message.id} for contact ${contactEmail} with ID: ${messageRef.id}`);
+              
+              // Increment imported count for quota tracking
+              importedCount++;
 
             } catch (messageError: any) {
               console.error(`Error processing Gmail message ${message.id} for ${contactEmail}:`, messageError);
@@ -464,6 +499,13 @@ export async function POST(req: Request) {
                 throw new Error("Gmail authorization expired. Please re-authorize Gmail access.");
               }
             }
+          }
+          
+          // Update Gmail quota after successful import
+          if (importedCount > 0) {
+            const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+            await GmailQuotaService.incrementMessagesImported(userId, importedCount);
+            console.log(`✅ Incremented import quota for user ${userId} by ${importedCount} messages`);
           }
 
           // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present

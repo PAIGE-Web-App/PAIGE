@@ -81,6 +81,16 @@ export async function refreshAllUserCredits(): Promise<{
             console.log(`🔄 Refreshing credits for user ${userId}`);
             
             await creditServiceAdmin.refreshCreditsForUser(userId, userCredits);
+            
+            // Also reset Gmail quotas (emails sent and messages imported)
+            try {
+              const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+              await GmailQuotaService.resetAllQuotas(userId);
+            } catch (quotaError) {
+              console.warn(`⚠️ Failed to reset Gmail quotas for user ${userId}:`, quotaError);
+              // Don't fail the whole refresh if quota reset fails
+            }
+            
             return { status: 'refreshed', userId };
           } else {
             // No refresh needed

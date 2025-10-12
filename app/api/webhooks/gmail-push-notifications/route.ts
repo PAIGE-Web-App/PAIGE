@@ -129,10 +129,15 @@ export async function POST(req: NextRequest) {
     try {
       console.log('Gmail Push Notification: Fetching history for user:', userId, 'from historyId:', gmailWatch.historyId);
       
-      const historyResponse = await gmail.users.history.list({
-        userId: 'me',
-        startHistoryId: gmailWatch.historyId,
-        historyTypes: ['messageAdded'],
+      // Import rate limit handler
+      const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
+      
+      const historyResponse = await GmailRateLimitHandler.executeWithRetry(async () => {
+        return await gmail.users.history.list({
+          userId: 'me',
+          startHistoryId: gmailWatch.historyId,
+          historyTypes: ['messageAdded'],
+        });
       });
 
       const history = historyResponse.data.history || [];
@@ -173,11 +178,13 @@ export async function POST(req: NextRequest) {
       let processedCount = 0;
       for (const messageId of newMessages.slice(0, 10)) { // Limit to 10 messages for performance
         try {
-          // Get message details
-          const messageResponse = await gmail.users.messages.get({
-            userId: 'me',
-            id: messageId,
-            format: 'full',
+          // Get message details with rate limit handling
+          const messageResponse = await GmailRateLimitHandler.executeWithRetry(async () => {
+            return await gmail.users.messages.get({
+              userId: 'me',
+              id: messageId,
+              format: 'full',
+            });
           });
 
           const message = messageResponse.data;
