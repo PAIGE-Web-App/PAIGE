@@ -213,6 +213,50 @@ export async function POST(req: NextRequest) {
           const contactDoc = contactDocs.docs[0];
           const contactData = contactDoc.data();
 
+          // Extract message body (simplified - you can enhance this)
+          let body = '';
+          let bodySnippet = '';
+          
+          if (message.payload?.body?.data) {
+            body = Buffer.from(message.payload.body.data, 'base64').toString('utf-8');
+          } else if (message.payload?.parts) {
+            // Handle multipart messages
+            for (const part of message.payload.parts) {
+              if (part.mimeType === 'text/plain' && part.body?.data) {
+                body = Buffer.from(part.body.data, 'base64').toString('utf-8');
+                break;
+              }
+            }
+          }
+          
+          bodySnippet = body.substring(0, 300) + (body.length > 300 ? '...' : '');
+
+          // Save the actual email message to Firestore (same path as UI listens to)
+          const messageData = {
+            gmailMessageId: messageId,
+            threadId: message.threadId,
+            from: fromEmail,
+            to: userId, // The user's email (you might need to get this from user data)
+            subject: subject,
+            body: body,
+            bodySnippet: bodySnippet,
+            fullBody: body,
+            date: message.internalDate ? new Date(parseInt(message.internalDate)).toISOString() : new Date().toISOString(),
+            timestamp: admin.firestore.Timestamp.fromDate(new Date(parseInt(message.internalDate) || Date.now())),
+            isRead: message.labelIds?.includes('UNREAD') ? false : true,
+            direction: 'inbound',
+            userId: userId,
+            source: 'gmail',
+            gmailAccount: emailAddress,
+            attachments: [], // You can add attachment handling if needed
+            messageIdHeader: message.payload?.headers?.find(h => h.name === 'Message-ID')?.value || null,
+          };
+
+          // Save to the messages subcollection that the UI listens to
+          await adminDb.collection(`users/${userId}/contacts/${contactDoc.id}/messages`)
+            .doc(messageId)
+            .set(messageData);
+
           // Create a simple todo suggestion based on the email subject
           // This is a basic implementation - you can enhance this with AI analysis
           const todoSuggestion = {
@@ -231,7 +275,7 @@ export async function POST(req: NextRequest) {
             .doc(todoSuggestion.id)
             .set(todoSuggestion);
 
-          console.log('Gmail Push Notification: Created todo suggestion for contact:', contactDoc.id);
+          console.log('Gmail Push Notification: Saved message and created todo suggestion for contact:', contactDoc.id);
           processedCount++;
 
         } catch (messageError) {
