@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     // Verify this is a legitimate cron call
     const authHeader = request.headers.get('authorization');
+    const url = new URL(request.url);
+    const queryToken = url.searchParams.get('token');
     const expectedToken = process.env.CRON_SECRET || process.env.SCHEDULED_TASK_SECRET;
     
     if (!expectedToken) {
@@ -20,7 +22,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    // Check both Authorization header and query parameter for flexibility
+    const isValidAuth = 
+      (authHeader && authHeader === `Bearer ${expectedToken}`) ||
+      (queryToken && queryToken === expectedToken);
+
+    if (!isValidAuth) {
       console.error('❌ Invalid cron authorization');
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -64,10 +71,17 @@ export async function GET(request: NextRequest) {
     // Some cron services might send GET requests instead of POST
     
     const authHeader = request.headers.get('authorization');
+    const url = new URL(request.url);
+    const queryToken = url.searchParams.get('token');
     const expectedToken = process.env.CRON_SECRET || process.env.SCHEDULED_TASK_SECRET;
     
-    // If authorization header is present, treat as cron execution
-    if (authHeader && expectedToken && authHeader === `Bearer ${expectedToken}`) {
+    // Check both Authorization header and query parameter for flexibility
+    const isValidAuth = 
+      (authHeader && expectedToken && authHeader === `Bearer ${expectedToken}`) ||
+      (queryToken && queryToken === expectedToken);
+    
+    // If authorization is present, treat as cron execution
+    if (isValidAuth) {
       console.log('🔄 Starting credit refresh via external cron (GET request)...');
       
       const result = await refreshAllUserCredits();
