@@ -668,7 +668,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
                         </p>
                         {gmailWatchStatus.expiration && (
                           <p className="mt-0.5">
-                            Expires: {new Date(gmailWatchStatus.expiration).toLocaleDateString()}
+                            Expires: {new Date(parseInt(gmailWatchStatus.expiration)).toLocaleDateString()}
                           </p>
                         )}
                         {gmailWatchStatus.lastProcessedAt && (
