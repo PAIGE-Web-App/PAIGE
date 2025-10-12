@@ -67,6 +67,7 @@ export async function POST(req: Request) {
 
     const userData = userDocSnap.data();
     const { accessToken, refreshToken } = userData?.googleTokens || {};
+    const userEmail = userData?.email || null; // Get cached email to avoid API call
 
     console.log('DEBUG: User data from Firestore:', {
       hasGoogleTokens: !!userData?.googleTokens,
@@ -110,15 +111,9 @@ export async function POST(req: Request) {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     console.log('DEBUG: Gmail API client initialized');
 
-    // Fetch the authenticated Gmail user's email address
-    let gmailUserEmail = '';
-    try {
-      const profileRes = await gmail.users.getProfile({ userId: 'me' });
-      gmailUserEmail = (profileRes.data.emailAddress || '').toLowerCase();
-      console.log('DEBUG: Authenticated Gmail user email:', gmailUserEmail);
-    } catch (e) {
-      console.error('Failed to fetch Gmail user profile:', e);
-    }
+    // Use cached email address instead of making Gmail API call (saves quota)
+    const gmailUserEmail = userEmail ? userEmail.toLowerCase() : '';
+    console.log('Using cached Gmail user email:', gmailUserEmail);
 
     for (const contact of incomingContacts) {
       console.log('PROCESSING CONTACT:', contact);

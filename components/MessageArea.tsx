@@ -630,6 +630,18 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             return; // Don't throw error, just return
           }
           
+          // Handle Gmail authentication errors
+          if (data.requiresReauth || data.needsReauth) {
+            // Dispatch Gmail API error to trigger global auth check
+            dispatchGmailApiError({
+              status: 401,
+              message: data.error || 'Gmail authentication required',
+              requiresReauth: true
+            });
+            showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
+            return; // Don't throw error, just return
+          }
+          
           // Handle Gmail API rate limits gracefully
           if (data.error && data.error.includes('User-rate limit exceeded')) {
             showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');

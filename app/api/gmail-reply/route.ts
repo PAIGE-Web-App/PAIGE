@@ -96,7 +96,13 @@ async function getUserGmailTokens(userId) {
   const userData = userDoc.data();
   const { accessToken, refreshToken } = userData?.googleTokens || {};
   if (!accessToken) return null;
-  return { accessToken, refreshToken };
+  
+  // Also return the user's email to avoid Gmail API calls
+  return { 
+    accessToken, 
+    refreshToken,
+    userEmail: userData?.email || null // Use cached email instead of API call
+  };
 }
 
 // This is a scaffold for sending Gmail replies with attachments
@@ -130,7 +136,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Retrieve user's Gmail OAuth tokens from Firestore
+    // Retrieve user's Gmail OAuth tokens and email from Firestore
     const tokens = await getUserGmailTokens(userId);
     if (!tokens) throw new Error('No Gmail OAuth tokens found for user.');
 
@@ -185,16 +191,9 @@ export async function POST(req: NextRequest) {
 
     const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
 
-    // Fetch the real Gmail sender email
-    let senderEmail = 'me';
-    try {
-      const profileRes = await gmail.users.getProfile({ userId: 'me' });
-      if (profileRes.data.emailAddress) {
-        senderEmail = profileRes.data.emailAddress;
-      }
-    } catch (e) {
-      console.error('Failed to fetch Gmail user profile:', e);
-    }
+    // Use cached email address instead of making Gmail API call (saves quota)
+    const senderEmail = tokens.userEmail || 'me';
+    console.log('Using cached Gmail sender email:', senderEmail);
 
     // Build MIME message
     const rawMessage = buildMimeEmail({
