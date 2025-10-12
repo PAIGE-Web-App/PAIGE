@@ -28,8 +28,6 @@ import { useUserProfileData } from "../hooks/useUserProfileData";
 import { useCredits } from "../contexts/CreditContext";
 import { useGmailAuth } from "../contexts/GmailAuthContext";
 import { dispatchGmailApiError } from '../utils/gmailApiErrorHandler';
-import { useGmailCredentialsCheck } from '../hooks/useGmailCredentialsCheck';
-import GmailReauthModal from './GmailReauthModal';
 
 
 // Define interfaces for types needed in this component
@@ -533,9 +531,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [showTodoSuggestionsBanner, setShowTodoSuggestionsBanner] = useState(false);
   const [pendingSuggestions, setPendingSuggestions] = useState<any>(null);
 
-  // Gmail credentials check state
-  const [showGmailReauthModal, setShowGmailReauthModal] = useState(false);
-  const { checkGmailCredentials, isLoading: isCheckingCredentials, clearCache } = useGmailCredentialsCheck();
+  // Gmail credentials are handled by global banner and API endpoints
 
   const handleSendMessage = async () => {
     if (!input.trim() && selectedFiles.length === 0) return;
@@ -546,17 +542,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       return;
     }
 
-    // Check Gmail credentials before sending Gmail emails
-    const isGmailSending = (replyingToMessage && replyingToMessage.source === 'gmail') || 
-                          (!replyingToMessage && selectedChannel === 'Gmail');
-    
-    if (isGmailSending) {
-      const hasValidCredentials = await checkGmailCredentials(currentUser.uid);
-      if (!hasValidCredentials) {
-        setShowGmailReauthModal(true);
-        return;
-      }
-    }
+    // Note: Gmail credentials are checked by the global Gmail banner
+    // and by the actual Gmail API endpoints when needed
 
     try {
       setIsSending(true);
@@ -1240,94 +1227,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
-  const handleGmailReauth = async () => {
-    if (!currentUser?.uid) return;
-    
-    try {
-      setShowGmailReauthModal(false);
-      
-      // Import Firebase auth dynamically to avoid SSR issues
-      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-      const { auth } = await import('@/lib/firebase');
-      
-      const provider = new GoogleAuthProvider();
-      // Request all scopes for full re-authorization
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
-      provider.addScope('https://www.googleapis.com/auth/calendar');
-      provider.addScope('https://www.googleapis.com/auth/calendar.events');
-      
-      // Force consent screen to ensure we get fresh tokens
-      provider.setCustomParameters({
-        prompt: 'consent',
-        access_type: 'offline',
-        include_granted_scopes: 'true'
-      });
-      
-      const result = await signInWithPopup(auth, provider);
-      
-      // Store Gmail tokens from the popup
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken;
-      // Note: Firebase popup doesn't provide refresh token, but we'll handle token refresh via the API
-      const refreshToken = null;
-      
-      if (accessToken) {
-        // Import Firestore functions
-        const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        
-        // Store Gmail tokens in Firestore (matching API expected format)
-        const gmailTokens = {
-          accessToken: accessToken,
-          refreshToken: refreshToken, // null for Firebase popup
-          expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
-          email: result.user.email,
-          scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
-        };
-        
-        // Check if user exists before updating
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (userDocSnap.exists()) {
-          await updateDoc(userDocRef, {
-            googleTokens: gmailTokens,
-            gmailConnected: true,
-            gmailImportCompleted: true,
-          });
-          console.log('✅ Gmail tokens updated in Firestore after reauth');
-        }
-        
-        showSuccessToast('Gmail re-authorized successfully! You can now send emails.');
-        
-        // Clear credentials cache since we just re-authenticated
-        clearCache();
-        
-        // Automatically set up Gmail Watch for push notifications
-        try {
-          const watchResponse = await fetch('/api/gmail/setup-watch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.uid }),
-          });
-          
-          if (watchResponse.ok) {
-            console.log('✅ Gmail Watch setup successful after reauth');
-          }
-        } catch (watchError) {
-          console.error('Failed to setup Gmail Watch after reauth:', watchError);
-          // Don't show error to user - this is not critical for email sending
-        }
-      } else {
-        showErrorToast('Failed to re-authorize Gmail. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('❌ Gmail reauth error:', error);
-      showErrorToast('Failed to re-authorize Gmail. Please try again.');
-    }
-  };
 
   const handleGmailTodoConfirm = async (selectedTodos: any) => {
     if (!currentUser?.uid) return;
@@ -2050,13 +1949,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           isAnalyzing={isAnalyzingMessages}
         />
 
-        {/* Gmail Re-authorization Modal */}
-        <GmailReauthModal
-          isOpen={showGmailReauthModal}
-          onClose={() => setShowGmailReauthModal(false)}
-          onReauth={handleGmailReauth}
-          isLoading={isCheckingCredentials}
-        />
     </div>
   );
 };
