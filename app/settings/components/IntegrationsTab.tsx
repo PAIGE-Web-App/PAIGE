@@ -185,7 +185,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
           };
           
           // Check if user exists before updating
@@ -400,7 +400,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
           };
           
           // Check if user exists before updating

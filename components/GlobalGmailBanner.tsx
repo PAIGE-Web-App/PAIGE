@@ -25,6 +25,7 @@ export default function GlobalGmailBanner() {
       // Only request Gmail scopes for Gmail re-authentication
       provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
       provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
       
       // Force consent screen with proper parameters (avoiding conflict)
       provider.setCustomParameters({
