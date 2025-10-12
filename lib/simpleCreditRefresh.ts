@@ -76,7 +76,11 @@ export async function refreshAllUserCredits(): Promise<{
           const lastRefreshDay = new Date(lastRefresh.getFullYear(), lastRefresh.getMonth(), lastRefresh.getDate());
           const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           
-          if (currentDay > lastRefreshDay) {
+          // Check if user has consumed credits (less than tier default) OR it's a new day
+          const hasConsumedCredits = userCredits.dailyCredits < 15; // Assuming 15 is tier default
+          const isNewDay = currentDay.getTime() !== lastRefreshDay.getTime();
+          
+          if (isNewDay || hasConsumedCredits) {
             // Credits need refresh
             console.log(`🔄 Refreshing credits for user ${userId}`);
             
