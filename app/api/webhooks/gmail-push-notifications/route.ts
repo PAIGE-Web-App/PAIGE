@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getAdminDb } from '@/lib/firebaseAdmin';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: NextRequest) {
   try {
