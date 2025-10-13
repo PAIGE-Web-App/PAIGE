@@ -120,22 +120,15 @@ export const useGuestManagement = (
     // Remove any existing assignment for this guest
     const newAssignments = { ...guestAssignments };
     
-    // Check if there are already guests assigned to this seat
-    const existingAtSeat = Object.values(newAssignments).filter(
-      assignment => assignment.tableId === tableId && assignment.seatIndex === seatIndex
+    // Check if there is already a guest assigned to this seat
+    const existingGuestId = Object.keys(newAssignments).find(
+      gId => newAssignments[gId].tableId === tableId && newAssignments[gId].seatIndex === seatIndex
     );
     
-    // If there are already guests at this seat, find the next available seat
-    if (existingAtSeat.length > 0) {
-      // Find the next available seat index
-      const table = guests.find(g => g.id === guestId)?.tableId ? 
-        Object.values(newAssignments).filter(a => a.tableId === tableId) : [];
-      const usedSeats = table.map(a => a.seatIndex);
-      let nextSeatIndex = seatIndex;
-      while (usedSeats.includes(nextSeatIndex)) {
-        nextSeatIndex++;
-      }
-      seatIndex = nextSeatIndex;
+    // If there is already a guest at this seat, displace them (unseat them)
+    if (existingGuestId) {
+      console.log(`Displacing guest ${existingGuestId} from table ${tableId}, seat ${seatIndex}`);
+      delete newAssignments[existingGuestId];
     }
     
     // Add new assignment with seat index

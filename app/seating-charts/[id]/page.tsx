@@ -510,7 +510,7 @@ export default function SeatingChartDetailPage() {
       {/* Main Content Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1400px' }}>
         {/* Chart Header */}
-        <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20 shadow-sm" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
+        <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackToCharts}
@@ -604,7 +604,7 @@ export default function SeatingChartDetailPage() {
         <div className="flex flex-col">
           {/* Header with Tabs */}
           <div>
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center justify-between py-4">
               <div className="flex space-x-8">
                 <button
                   onClick={() => setActiveTab('guests')}
@@ -632,7 +632,7 @@ export default function SeatingChartDetailPage() {
 
           {/* Guest List Header - Only show when guests tab is active */}
           {activeTab === 'guests' && (
-            <div className="px-6 py-4">
+            <div className="py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button 

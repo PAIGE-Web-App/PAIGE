@@ -325,29 +325,34 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             {/* SVG Title for tooltip */}
             <title>{isSeatOccupied ? "Click to remove guest" : "Drop guest here"}</title>
             
-            {/* Drop Zone - Tiny, positioned at center to catch sidebar drops but not interfere with avatars */}
+            {/* Drop Zones - Dynamic: 4px at rest (no click interference), expands to 20px during drag (easy targeting) */}
             <circle
               cx={seatPosition.x}
               cy={seatPosition.y}
-              r={12}
+              r={isSeatOccupied ? 4 : 12}
               fill="transparent"
               stroke="transparent"
-              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                              onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  // Different visual feedback based on seat status
-                  if (isSeatOccupied) {
-                    // Blue highlight for guest swap
-                    e.currentTarget.style.fill = 'rgba(59, 130, 246, 0.15)';
-                    e.currentTarget.style.stroke = '#3b82f6';
-                    e.currentTarget.style.strokeWidth = '2';
-                  } else {
-                    // Green highlight for empty seat assignment
-                    e.currentTarget.style.fill = 'rgba(34, 197, 94, 0.15)';
-                    e.currentTarget.style.stroke = '#22c55e';
-                    e.currentTarget.style.strokeWidth = '2';
+              style={{ 
+                cursor: isSeatOccupied ? 'default' : 'pointer',
+                pointerEvents: 'auto'
+              }}
+              onDragOver={(e) => {
+                // Expand drop zone during drag for easier targeting (5x larger for occupied seats)
+                e.currentTarget.setAttribute('r', isSeatOccupied ? '20' : '12');
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Different visual feedback based on seat status
+                if (isSeatOccupied) {
+                  // Blue highlight for guest swap
+                  e.currentTarget.style.fill = 'rgba(59, 130, 246, 0.15)';
+                  e.currentTarget.style.stroke = '#3b82f6';
+                  e.currentTarget.style.strokeWidth = '2';
+                } else {
+                  // Green highlight for empty seat assignment
+                  e.currentTarget.style.fill = 'rgba(34, 197, 94, 0.15)';
+                  e.currentTarget.style.stroke = '#22c55e';
+                  e.currentTarget.style.strokeWidth = '2';
                     
                     // Also highlight the empty seat CirclePlus icon
                     const seatGroup = e.currentTarget.parentElement;
@@ -373,6 +378,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   }
                 }}
               onDragLeave={(e) => {
+                // Shrink drop zone back to original size
+                e.currentTarget.setAttribute('r', isSeatOccupied ? '4' : '12');
                 // Remove visual feedback when drag leaves
                 e.currentTarget.style.fill = 'transparent';
                 e.currentTarget.style.stroke = 'transparent';
@@ -401,6 +408,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                 }
               }}
               onDrop={(e) => {
+                // Shrink drop zone back to original size
+                e.currentTarget.setAttribute('r', isSeatOccupied ? '4' : '12');
                 e.preventDefault();
                 e.stopPropagation();
                 // Remove visual feedback

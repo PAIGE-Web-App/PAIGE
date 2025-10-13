@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListFilter, ChevronDown, ChevronUp, UserCheck, User } from 'lucide-react';
+import { ListFilter, UserCheck, User } from 'lucide-react';
 import { Guest, TableType } from '../../../types/seatingChart';
 import BadgeCount from '../../BadgeCount';
 import { getCategoryHexColor } from '../../../utils/categoryStyle';
@@ -41,7 +41,7 @@ export default function GuestSidebar({
   const [sortOption, setSortOption] = useState('group-name-asc');
   const [selectedRelationshipFilter, setSelectedRelationshipFilter] = useState<string[]>([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string[]>([]);
-  const [showSeatedGuests, setShowSeatedGuests] = useState(true);
+  const [activeGuestTab, setActiveGuestTab] = useState<'unseated' | 'seated'>('unseated');
   
   // Refs for click outside detection
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -91,9 +91,9 @@ export default function GuestSidebar({
     return getCategoryHexColor(groupName);
   };
 
-  // Filter and sort guests
+  // Filter and sort guests based on active tab
   const displayGuests = useMemo(() => {
-    let filtered = unassignedGuests;
+    let filtered = activeGuestTab === 'unseated' ? unassignedGuests : seatedGuests;
     
     // Apply search filter
     if (searchQuery) {
@@ -170,7 +170,7 @@ export default function GuestSidebar({
     });
     
     return filtered;
-  }, [unassignedGuests, searchQuery, selectedRelationshipFilter, selectedGroupFilter, sortOption, guestGroups]);
+  }, [activeGuestTab, unassignedGuests, seatedGuests, searchQuery, selectedRelationshipFilter, selectedGroupFilter, sortOption, guestGroups]);
 
   // Handle filter changes
   const handleRelationshipChange = (relationship: string) => {
@@ -214,13 +214,32 @@ export default function GuestSidebar({
 
   return (
     <div className="w-[320px] bg-[#F3F2F0] flex-shrink-0 flex flex-col border-r border-[#E0DBD7]">
-      {/* Unseated Guests Section */}
-      <div className="px-4 pt-3 flex-shrink-0">
-        <div className="flex items-center gap-2 text-sm font-medium text-[#332B42]">
-          <User size={16} className="text-[#A85C36]" />
-          <span>Unseated Guests</span>
+      {/* Guest Tabs */}
+      <div className="flex border-b border-[#AB9C95]">
+        <button
+          onClick={() => setActiveGuestTab('unseated')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+            activeGuestTab === 'unseated'
+              ? 'border-b-2 border-[#A85C36] text-[#A85C36] bg-white'
+              : 'text-[#AB9C95] hover:text-[#332B42]'
+          }`}
+        >
+          <User size={16} />
+          <span>Unseated</span>
           <BadgeCount count={unassignedGuests.length} />
-        </div>
+        </button>
+        <button
+          onClick={() => setActiveGuestTab('seated')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${
+            activeGuestTab === 'seated'
+              ? 'border-b-2 border-[#A85C36] text-[#A85C36] bg-white'
+              : 'text-[#AB9C95] hover:text-[#332B42]'
+          }`}
+        >
+          <UserCheck size={16} />
+          <span>Seated</span>
+          <BadgeCount count={seatedGuests.length} />
+        </button>
       </div>
       
       {/* Header with search and filters */}
@@ -402,14 +421,15 @@ export default function GuestSidebar({
         )}
       </div>
       
-      {/* Guest List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {displayGuests.length === 0 ? (
-          <div className="text-center text-[#AB9C95] text-sm py-8">
-            {searchQuery || selectedRelationshipFilter.length > 0 || selectedGroupFilter.length > 0 ? 'No guests match your filters' : 'No unassigned guests'}
-          </div>
-        ) : (
-          displayGuests.map((guest) => (
+      {/* Tab Content */}
+      {activeGuestTab === 'unseated' ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {displayGuests.length === 0 ? (
+            <div className="text-center text-[#AB9C95] text-sm py-8">
+              {searchQuery || selectedRelationshipFilter.length > 0 || selectedGroupFilter.length > 0 ? 'No guests match your filters' : 'No unseated guests'}
+            </div>
+          ) : (
+            displayGuests.map((guest) => (
             <div
               key={guest.id}
               className="flex items-center gap-3 p-3 bg-white rounded-[5px] border border-[#E0DBD7] hover:border-[#A85C36] transition-colors cursor-grab active:cursor-grabbing"
@@ -492,102 +512,79 @@ export default function GuestSidebar({
                 })()}
               </div>
             </div>
-          ))
-        )}
-      </div>
-      
-      {/* Seated Guests Section - Similar to completed todos pattern */}
-      {seatedGuests.length > 0 && (
-        <div className="bg-gray-200 mt-4 border-t border-[#AB9C95] pt-3 pb-4 flex-shrink-0">
-          <button
-            onClick={() => setShowSeatedGuests(!showSeatedGuests)}
-            className="w-full flex items-center justify-between text-sm font-medium text-[#332B42] py-2 px-4 hover:bg-[#F3F2F0] rounded-[5px]"
-          >
-            <div className="flex items-center gap-2">
-              <UserCheck size={16} className="text-[#A85C36]" />
-              <span>Seated Guests</span>
-              <BadgeCount count={seatedGuests.length} />
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {displayGuests.length === 0 ? (
+            <div className="text-center text-[#AB9C95] text-sm py-8">
+              {searchQuery || selectedRelationshipFilter.length > 0 || selectedGroupFilter.length > 0 ? 'No guests match your filters' : 'No seated guests'}
             </div>
-            <div className="flex items-center">
-              {showSeatedGuests ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-          </button>
-          <AnimatePresence>
-            {showSeatedGuests && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="py-2 px-4 space-y-2">
-                  {seatedGuests.map((guest) => {
-                    const assignment = guestAssignments[guest.id];
-                    return (
-                      <div
-                        key={guest.id}
-                        className="flex items-center gap-3 p-3 bg-white rounded-[5px] border border-[#E0DBD7] hover:border-[#AB9C95] transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (onSeatedGuestClick) {
-                            // Convert position back to seat number for backward compatibility
-                            onSeatedGuestClick(guest.id, assignment.tableId, 0);
-                          }
-                        }}
-                      >
-                        {/* Guest Avatar */}
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
-                          style={{ backgroundColor: getGuestAvatarColor(guest.id) }}
-                        >
-                          {guest.fullName.split(' ').map(name => name.charAt(0)).join('').substring(0, 2).toUpperCase()}
-                        </div>
-                        
-                        {/* Guest Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-[#332B42] text-sm truncate">
-                            {guest.fullName}
-                          </div>
-                          <div className="text-[#A85C36] text-xs truncate">
-                            {getTableName(assignment.tableId)}
-                          </div>
-                          {guest.relationship && (
-                            <div className="text-[#AB9C95] text-xs truncate">
-                              {guest.relationship}
-                            </div>
-                          )}
-                          {/* Group Pills */}
-                          {(() => {
-                            const guestGroupsForThisGuest = getGuestGroups(guest);
-                            return guestGroupsForThisGuest.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {guestGroupsForThisGuest.map((group, groupIndex) => (
-                                  <span
-                                    key={group.id}
-                                    className={`px-1.5 py-0.5 text-xs font-medium text-white rounded-full shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${
-                                      guestGroupsForThisGuest.length > 1 ? 'ring-1 ring-white ring-opacity-30' : ''
-                                    }`}
-                                    style={{ 
-                                      backgroundColor: getGroupColor(group.name),
-                                      opacity: guestGroupsForThisGuest.length > 1 && groupIndex > 0 ? 0.9 : 1
-                                    }}
-                                    title={`${group.name} (${group.type})${guestGroupsForThisGuest.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
-                                    onClick={() => onEditGroup?.(group.id)}
-                                  >
-                                    {group.name}
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </div>
+          ) : (
+            displayGuests.map((guest) => {
+              const assignment = guestAssignments[guest.id];
+              return (
+                <div
+                  key={guest.id}
+                  className="flex items-center gap-3 p-3 bg-white rounded-[5px] border border-[#E0DBD7] hover:border-[#AB9C95] transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (onSeatedGuestClick) {
+                      // Convert position back to seat number for backward compatibility
+                      onSeatedGuestClick(guest.id, assignment.tableId, 0);
+                    }
+                  }}
+                >
+                  {/* Guest Avatar */}
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+                    style={{ backgroundColor: getGuestAvatarColor(guest.id) }}
+                  >
+                    {guest.fullName.split(' ').map(name => name.charAt(0)).join('').substring(0, 2).toUpperCase()}
+                  </div>
+                  
+                  {/* Guest Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[#332B42] text-sm truncate">
+                      {guest.fullName}
+                    </div>
+                    <div className="text-[#A85C36] text-xs truncate">
+                      {getTableName(assignment.tableId)}
+                    </div>
+                    {guest.relationship && (
+                      <div className="text-[#AB9C95] text-xs truncate">
+                        {guest.relationship}
                       </div>
-                    );
-                  })}
+                    )}
+                    {/* Group Pills */}
+                    {(() => {
+                      const guestGroupsForThisGuest = getGuestGroups(guest);
+                      return guestGroupsForThisGuest.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {guestGroupsForThisGuest.map((group, groupIndex) => (
+                            <span
+                              key={group.id}
+                              className={`px-1.5 py-0.5 text-xs font-medium text-white rounded-full shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${
+                                guestGroupsForThisGuest.length > 1 ? 'ring-1 ring-white ring-opacity-30' : ''
+                              }`}
+                              style={{ 
+                                backgroundColor: getGroupColor(group.name),
+                                opacity: guestGroupsForThisGuest.length > 1 && groupIndex > 0 ? 0.9 : 1
+                              }}
+                              title={`${group.name} (${group.type})${guestGroupsForThisGuest.length > 1 ? ' - Part of multiple groups' : ''} - Click to edit`}
+                              onClick={() => onEditGroup?.(group.id)}
+                            >
+                              {group.name}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              );
+            })
+          )}
         </div>
       )}
     </div>
