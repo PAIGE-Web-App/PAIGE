@@ -448,7 +448,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                   if (parsedData.isFromSeat) {
                     // Guest is being moved from another seat
                     if (onGuestSwap) {
-                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourceSeatIndex || 0, table.id, index);
+                      onGuestSwap(parsedData.guestId, parsedData.sourceTableId, parsedData.sourceSeatIndex, table.id, index);
                     }
                   } else {
                     // Fallback to regular guest drop

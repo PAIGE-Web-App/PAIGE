@@ -71,7 +71,7 @@ export const GuestAvatar: React.FC<GuestAvatarProps> = ({
             e.dataTransfer.setData('text/plain', JSON.stringify({
               guestId: guest.id,
               sourceTableId: tableId,
-              sourcePosition: position,
+              sourceSeatIndex: seatNumber - 1, // Convert to 0-based index
               guestName: guest.fullName,
               isFromSeat: true // Flag to indicate this is from a seat, not sidebar
             }));
