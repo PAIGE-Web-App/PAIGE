@@ -10,8 +10,11 @@ export interface VendorImageData {
 /**
  * Fetches the best available image for a vendor
  * Priority: Google Places API > Recently Viewed > Placeholder
+ * @param vendor - Vendor object with placeId
+ * @param options - Optional configuration (limit: number of images to fetch)
  */
-export async function getVendorImages(vendor: any): Promise<VendorImageData> {
+export async function getVendorImages(vendor: any, options?: { limit?: number }): Promise<VendorImageData> {
+  const limit = options?.limit || 6; // Default to 6 instead of 16
   const placeId = vendor.placeId || vendor.id;
   
   // If vendor already has a valid Google Places image, use it
@@ -38,10 +41,10 @@ export async function getVendorImages(vendor: any): Promise<VendorImageData> {
     }
   }
 
-  // Try to fetch from Google Places API
+  // Try to fetch from Google Places API with limit
   if (placeId) {
     try {
-      const response = await fetch(`/api/vendor-photos/${placeId}`);
+      const response = await fetch(`/api/vendor-photos/${placeId}?limit=${limit}`);
       const data = await response.json();
       
       if (data.images && data.images.length > 0) {
@@ -59,7 +62,9 @@ export async function getVendorImages(vendor: any): Promise<VendorImageData> {
         }
       }
     } catch (error) {
-      console.error('Error fetching vendor photos:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching vendor photos:', error);
+      }
     }
   }
 

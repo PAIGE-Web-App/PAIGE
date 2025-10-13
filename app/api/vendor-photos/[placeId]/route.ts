@@ -7,13 +7,22 @@ export async function GET(
   const { placeId } = await params;
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
+  // OPTIMIZATION: Allow limiting number of photos via query param
+  const url = new URL(req.url);
+  const limit = parseInt(url.searchParams.get('limit') || '6', 10); // Default to 6 instead of 16
+  const maxPhotos = Math.min(Math.max(limit, 1), 16); // Between 1-16
+  
   if (!placeId || !apiKey) {
-    console.error('Missing placeId or API key:', { placeId: !!placeId, apiKey: !!apiKey });
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Missing placeId or API key:', { placeId: !!placeId, apiKey: !!apiKey });
+    }
     return NextResponse.json({ error: 'Missing placeId or API key' }, { status: 400 });
   }
 
   try {
-    console.log('🖼️ Fetching photos for placeId:', placeId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🖼️ Fetching photos for placeId:', placeId, 'limit:', maxPhotos);
+    }
     
     // First get the place details to get photo references
     const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos&key=${apiKey}`;
@@ -25,7 +34,9 @@ export async function GET(
     });
     
     if (!detailsResponse.ok) {
-      console.error('Google Places API error:', detailsResponse.status, detailsResponse.statusText);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Google Places API error:', detailsResponse.status, detailsResponse.statusText);
+      }
       return NextResponse.json({ 
         error: `Google Places API error: ${detailsResponse.status}`,
         images: [] 
@@ -35,7 +46,9 @@ export async function GET(
     const detailsData = await detailsResponse.json();
 
     if (detailsData.error_message) {
-      console.error('Google Places API error message:', detailsData.error_message);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Google Places API error message:', detailsData.error_message);
+      }
       return NextResponse.json({ 
         error: detailsData.error_message,
         images: [] 
@@ -43,23 +56,22 @@ export async function GET(
     }
 
     if (!detailsData.result?.photos || detailsData.result.photos.length === 0) {
-      console.log('No photos found for placeId:', placeId);
       return NextResponse.json({ images: [] });
     }
 
-    console.log(`Found ${detailsData.result.photos.length} photos for placeId:`, placeId);
-
-    // Generate photo URLs for the first 16 photos
-    const photoUrls = detailsData.result.photos.slice(0, 16).map((photo: any) => {
-      const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${apiKey}`;
-      console.log('Generated photo URL:', url);
-      return url;
+    // OPTIMIZATION: Return only requested number of photos (default 6, max 16)
+    const photoUrls = detailsData.result.photos.slice(0, maxPhotos).map((photo: any) => {
+      return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${apiKey}`;
     });
 
-    console.log(`Generated ${photoUrls.length} photo URLs for placeId:`, placeId);
-    return NextResponse.json({ images: photoUrls });
+    return NextResponse.json({ 
+      images: photoUrls,
+      totalAvailable: detailsData.result.photos.length 
+    });
   } catch (error) {
-    console.error('Error fetching vendor photos for placeId:', placeId, error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching vendor photos for placeId:', placeId, error);
+    }
     return NextResponse.json({ 
       error: 'Failed to fetch vendor photos',
       images: [] 
