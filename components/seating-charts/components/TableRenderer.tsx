@@ -4,7 +4,7 @@ import { TablePosition } from '../hooks/useTableDrag';
 import { getTableShape } from '../utils/seatPositionCalculator';
 import { GuestAvatar } from './GuestAvatar';
 import { ActionIcons } from './ActionIcons';
-import { CirclePlus } from 'lucide-react';
+import { CirclePlus, Edit, Trash2 } from 'lucide-react';
 import { GuestAssignment } from '../hooks/useGuestManagement';
 
 interface TableRendererProps {
@@ -38,6 +38,7 @@ interface TableRendererProps {
   onGuestSwap?: (guestId: string, sourceTableId: string, sourceSeatIndex: number, targetTableId: string, targetSeatIndex: number) => void;
   onRemoveTable?: (tableId: string) => void;
   onCloneTable?: (tableId: string) => void;
+  onEditTable?: (tableId: string) => void;
   highlightedGuest?: string | null;
 }
 
@@ -71,6 +72,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   onGuestSwap,
   onRemoveTable,
   onCloneTable,
+  onEditTable,
   highlightedGuest
 }) => {
   
@@ -132,7 +134,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             {/* Corner handles for proportional scaling - positioned directly on table corners */}
             <circle
               cx={position.x - width / 2}
-              cy={position.y - height / 2}
+              cy={position.y + height / 2}
               r={8}
               fill="white"
               stroke="#a855f7"
@@ -148,7 +150,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             />
             
             <circle
-              cx={position.x + width / 2}
+              cx={position.x - width / 2}
               cy={position.y - height / 2}
               r={8}
               fill="white"
@@ -166,7 +168,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             
             <circle
               cx={position.x + width / 2}
-              cy={position.y + height / 2}
+              cy={position.y - height / 2}
               r={8}
               fill="white"
               stroke="#a855f7"
@@ -182,7 +184,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             />
             
             <circle
-              cx={position.x - width / 2}
+              cx={position.x + width / 2}
               cy={position.y + height / 2}
               r={8}
               fill="white"
@@ -201,42 +203,70 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
         )}
       </g>
 
-      {/* Table Name */}
-      <text
-        x={position.x}
-        y={position.y}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={16}
-        fontFamily="'Playfair Display', serif"
-        fill="#332B42"
-        fontWeight="500"
+      {/* Table Name with wrapping */}
+      <foreignObject
+        x={position.x - width / 2 + 12}
+        y={position.y - 12}
+        width={width - 24}
+        height={24}
         style={{ 
           userSelect: 'none',
           pointerEvents: 'none'
         }}
       >
-        {table.name}
-      </text>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            fontSize: '12px',
+            fontFamily: "'Playfair Display', serif",
+            color: '#332B42',
+            fontWeight: '500',
+            lineHeight: '1.1',
+            wordWrap: 'break-word',
+            overflow: 'hidden',
+            whiteSpace: 'normal'
+          }}
+        >
+          {table.name}
+        </div>
+      </foreignObject>
       
       {/* Seat Metadata for non-sweetheart tables */}
       {!table.isDefault && (
-        <text
-          x={position.x}
-          y={position.y + 25}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={12}
-          fontFamily="'Work Sans', sans-serif"
-          fill="#6b7280"
-          fontWeight="400"
+        <foreignObject
+          x={position.x - width / 2 + 12}
+          y={position.y + 8}
+          width={width - 24}
+          height={16}
           style={{ 
             userSelect: 'none',
             pointerEvents: 'none'
           }}
         >
-          Seats: [{Object.values(guestAssignments || {}).filter(assignment => assignment.tableId === table.id).length} of {table.capacity} filled]
-        </text>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              fontSize: '10px',
+              fontFamily: "'Work Sans', sans-serif",
+              color: '#6b7280',
+              fontWeight: '400',
+              lineHeight: '1.1',
+              overflow: 'hidden'
+            }}
+          >
+            {Object.values(guestAssignments || {}).filter(assignment => assignment.tableId === table.id).length}/{table.capacity} seats filled
+          </div>
+        </foreignObject>
       )}
 
       {/* Seat Positions */}
@@ -567,26 +597,111 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
 
 
 
-      {/* Clone, Rotation, and Delete Buttons - Only show when selected */}
-      {isSelected && (
+      {/* Control Buttons - Only show when selected */}
+      {isSelected && !table.isDefault && (
         <g>
-          {/* Clone Button - positioned to the left (only for non-default tables) */}
-          {!table.isDefault && (
+          {/* Rotation Handle - positioned above action buttons (center-aligned) */}
+          <g>
+            {/* Shadow for rotation handle */}
+            <circle
+              cx={position.x}
+              cy={position.y - height / 2 - 108}
+              r={12}
+              fill="rgba(0,0,0,0.2)"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* Rotation handle */}
+            <circle
+              cx={position.x}
+              cy={position.y - height / 2 - 110}
+              r={12}
+              fill="#a855f7"
+              stroke="white"
+              strokeWidth={2}
+              style={{ cursor: 'grab' }}
+              opacity={isSelected ? 1 : 0.8}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                console.log('🔄 ROTATION HANDLE CLICKED:', { tableId: table.id, onRotationUpdate: !!onRotationUpdate });
+                if (onRotationUpdate) {
+                  // Start rotation dragging
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const startRotation = currentRotation;
+                  
+                  console.log('🔄 STARTING ROTATION:', { startX, startY, startRotation });
+                  
+                  // Hide rotation handle during rotation
+                  const rotationHandle = e.currentTarget.parentElement;
+                  if (rotationHandle) {
+                    rotationHandle.style.opacity = '0';
+                  }
+                  
+                  const handleMouseMove = (moveEvent: MouseEvent) => {
+                    const deltaX = moveEvent.clientX - startX;
+                    const deltaY = moveEvent.clientY - startY;
+                    
+                    // Calculate rotation angle based on mouse movement
+                    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+                    const newRotation = (startRotation + angle) % 360;
+                    
+                    console.log('🔄 ROTATION UPDATE:', { deltaX, deltaY, angle, newRotation });
+                    
+                    // Update rotation in real-time
+                    onRotationUpdate(table.id, newRotation);
+                  };
+                  
+                  const handleMouseUp = () => {
+                    console.log('🔄 ROTATION ENDED');
+                    // Show rotation handle again after rotation
+                    if (rotationHandle) {
+                      rotationHandle.style.opacity = '1';
+                    }
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                  };
+                  
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                } else {
+                  console.warn('🔄 NO ROTATION UPDATE FUNCTION PROVIDED');
+                }
+              }}
+            />
+            
+            {/* Rotation icon */}
+            <text
+              x={position.x}
+              y={position.y - height / 2 - 110}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={14}
+              fill="white"
+              fontWeight="bold"
+              style={{ pointerEvents: 'none' }}
+            >
+              ↻
+            </text>
+          </g>
+
+          {/* Action Buttons Row */}
+          {/* Clone Button - positioned to the left */}
           <g>
             {/* Shadow for clone button */}
             <circle
-              cx={position.x - 32}
-              cy={position.y - height / 2 - 48}
-              r={12}
+              cx={position.x - 45}
+              cy={position.y - height / 2 - 28}
+              r={15}
               fill="rgba(0,0,0,0.2)"
               style={{ pointerEvents: 'none' }}
             />
             
             {/* Clone button circle */}
             <circle
-              cx={position.x - 30}
-              cy={position.y - height / 2 - 50}
-              r={12}
+              cx={position.x - 42}
+              cy={position.y - height / 2 - 30}
+              r={15}
               fill="#3b82f6"
               stroke="white"
               strokeWidth={2}
@@ -603,11 +718,11 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             
             {/* Clone icon */}
             <text
-              x={position.x - 30}
-              y={position.y - height / 2 - 50}
+              x={position.x - 42}
+              y={position.y - height / 2 - 30}
               textAnchor="middle"
               dominantBaseline="middle"
-              fontSize={12}
+              fontSize={16}
               fill="white"
               fontWeight="bold"
               style={{ pointerEvents: 'none' }}
@@ -615,109 +730,65 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
               ⧉
             </text>
           </g>
-          )}
 
-          {/* Rotation and Delete buttons (only for non-default tables) */}
-          {!table.isDefault && (
-          <>
-            {/* Shadow for rotation handle */}
+          {/* Edit Button - positioned at center */}
+          <g>
+            {/* Shadow for edit button */}
             <circle
-              cx={position.x + 2}
-              cy={position.y - height / 2 - 48}
-              r={12}
+              cx={position.x}
+              cy={position.y - height / 2 - 28}
+              r={15}
               fill="rgba(0,0,0,0.2)"
               style={{ pointerEvents: 'none' }}
             />
             
-            {/* Rotation handle - bigger circle above the table */}
-          <circle
-            cx={position.x}
-            cy={position.y - height / 2 - 50}
-            r={15}
-            fill="#a855f7"
-            stroke="white"
-            strokeWidth={3}
-            style={{ cursor: 'grab' }}
-            opacity={isSelected ? 1 : 0.8}
-                         onMouseDown={(e) => {
-               e.stopPropagation();
-               console.log('🔄 ROTATION HANDLE CLICKED:', { tableId: table.id, onRotationUpdate: !!onRotationUpdate });
-               if (onRotationUpdate) {
-                 // Start rotation dragging
-                 const startX = e.clientX;
-                 const startY = e.clientY;
-                 const startRotation = currentRotation;
-                 
-                 console.log('🔄 STARTING ROTATION:', { startX, startY, startRotation });
-                 
-                 // Hide rotation handle during rotation
-                 const rotationHandle = e.currentTarget.parentElement;
-                 if (rotationHandle) {
-                   rotationHandle.style.opacity = '0';
-                 }
-                 
-                 const handleMouseMove = (moveEvent: MouseEvent) => {
-                   const deltaX = moveEvent.clientX - startX;
-                   const deltaY = moveEvent.clientY - startY;
-                   
-                   // Calculate rotation angle based on mouse movement
-                   const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-                   const newRotation = (startRotation + angle) % 360;
-                   
-                   console.log('🔄 ROTATION UPDATE:', { deltaX, deltaY, angle, newRotation });
-                   
-                   // Update rotation in real-time
-                   onRotationUpdate(table.id, newRotation);
-                 };
-                 
-                 const handleMouseUp = () => {
-                   console.log('🔄 ROTATION ENDED');
-                   // Show rotation handle again after rotation
-                   if (rotationHandle) {
-                     rotationHandle.style.opacity = '1';
-                   }
-                   document.removeEventListener('mousemove', handleMouseMove);
-                   document.removeEventListener('mouseup', handleMouseUp);
-                 };
-                 
-                 document.addEventListener('mousemove', handleMouseMove);
-                 document.addEventListener('mouseup', handleMouseUp);
-               } else {
-                 console.warn('🔄 NO ROTATION UPDATE FUNCTION PROVIDED');
-               }
-             }}
-          />
+            {/* Edit button circle */}
+            <circle
+              cx={position.x}
+              cy={position.y - height / 2 - 30}
+              r={15}
+              fill="#22c55e"
+              stroke="white"
+              strokeWidth={2}
+              style={{ cursor: 'pointer' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                // Trigger table editing
+                if (onEditTable) {
+                  onEditTable(table.id);
+                }
+              }}
+            />
+            
+            {/* Edit icon */}
+            <foreignObject
+              x={position.x - 8}
+              y={position.y - height / 2 - 30 - 8}
+              width={16}
+              height={16}
+              style={{ pointerEvents: 'none' }}
+            >
+              <Edit size={16} color="white" />
+            </foreignObject>
+          </g>
           
-          {/* Rotation icon - bigger and centered */}
-          <text
-            x={position.x}
-            y={position.y - height / 2 - 50}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={16}
-            fill="white"
-            fontWeight="bold"
-            style={{ pointerEvents: 'none' }}
-          >
-            ↻
-          </text>
-          
-          {/* Delete Button - positioned to the right of rotation handle */}
+          {/* Delete Button - positioned to the right */}
           <g>
             {/* Shadow for delete button */}
             <circle
-              cx={position.x + 32}
-              cy={position.y - height / 2 - 48}
-              r={12}
+              cx={position.x + 45}
+              cy={position.y - height / 2 - 28}
+              r={15}
               fill="rgba(0,0,0,0.2)"
               style={{ pointerEvents: 'none' }}
             />
             
             {/* Delete button circle */}
             <circle
-              cx={position.x + 30}
-              cy={position.y - height / 2 - 50}
-              r={12}
+              cx={position.x + 42}
+              cy={position.y - height / 2 - 30}
+              r={15}
               fill="#ef4444"
               stroke="white"
               strokeWidth={2}
@@ -732,22 +803,17 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
               }}
             />
             
-            {/* Delete icon */}
-            <text
-              x={position.x + 30}
-              y={position.y - height / 2 - 50}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={14}
-              fill="white"
-              fontWeight="bold"
+            {/* Delete icon - Trash can */}
+            <foreignObject
+              x={position.x + 42 - 8}
+              y={position.y - height / 2 - 30 - 8}
+              width={16}
+              height={16}
               style={{ pointerEvents: 'none' }}
             >
-              ×
-            </text>
+              <Trash2 size={16} color="white" />
+            </foreignObject>
           </g>
-          </>
-          )}
         </g>
       )}
     </>

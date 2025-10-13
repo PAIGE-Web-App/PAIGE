@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, RotateCcw } from 'lucide-react';
 
 interface CanvasControlsProps {
   tableCount: number;
@@ -27,17 +27,18 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
       </div>
       
       {/* Fixed Add Table Button */}
-      <div className="absolute top-4 right-4 z-20 flex gap-2">
+      <div className="absolute top-4 right-4 z-20 flex gap-4">
         <button
           onClick={onReset}
-          className="text-[#A85C36] hover:text-[#805d93] text-sm font-medium underline hover:no-underline transition-colors"
+          className="text-[#A85C36] hover:text-[#805d93] text-sm font-medium underline hover:no-underline transition-colors flex items-center gap-2"
           title="Reset View"
         >
+          <RotateCcw className="w-3.5 h-3.5" />
           Reset View
         </button>
         <button
           onClick={onAddTable}
-          className="btn-primary flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] hover:bg-white/90"
+          className="btn-primary"
         >
           <Plus className="w-4 h-4" />
           Add Table

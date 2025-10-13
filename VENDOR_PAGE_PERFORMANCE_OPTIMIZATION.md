@@ -1,4 +1,4 @@
-# Vendor Page Performance Optimization Analysis
+    .# Vendor Page Performance Optimization Analysis
 
 ## 🔍 Performance Bottlenecks Identified
 

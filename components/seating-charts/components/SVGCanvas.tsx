@@ -43,6 +43,7 @@ interface SVGCanvasProps {
   getGuestAvatarColor?: (guestId: string) => string;
   onRemoveTable?: (tableId: string) => void;
   onCloneTable?: (tableId: string) => void;
+  onEditTable?: (tableId: string) => void;
 }
 
 export const SVGCanvas: React.FC<SVGCanvasProps> = ({
@@ -81,7 +82,8 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onRemoveGuest,
   getGuestAvatarColor,
   onRemoveTable,
-  onCloneTable
+  onCloneTable,
+  onEditTable
 }) => {
   
 
@@ -189,6 +191,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
                   getGuestAvatarColor={getGuestAvatarColor}
                   onRemoveTable={onRemoveTable}
                   onCloneTable={onCloneTable}
+                  onEditTable={onEditTable}
                   highlightedGuest={highlightedGuest}
                 />
               </g>

@@ -54,7 +54,6 @@ export default function VisualTableLayoutSVG({
   
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<string | null>(null);
-  const [editingValues, setEditingValues] = useState({ name: '', description: '' });
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
   const [highlightedGuest, setHighlightedGuest] = useState<string | null>(null);
@@ -354,19 +353,16 @@ export default function VisualTableLayoutSVG({
 
   const startEditing = (table: TableType) => {
     setEditingTable(table.id);
-    setEditingValues({
-      name: table.name,
-      description: table.description || ''
-    });
   };
 
-  const saveEditing = (tableId: string) => {
+  const saveEditing = (updatedTable: Partial<TableType>) => {
+    if (!editingTable) return;
+    
     const updatedTables = tableLayout.tables.map(table => {
-      if (table.id === tableId) {
+      if (table.id === editingTable) {
         return {
           ...table,
-          name: editingValues.name,
-          description: editingValues.description
+          ...updatedTable
         };
       }
       return table;
@@ -376,7 +372,6 @@ export default function VisualTableLayoutSVG({
     onUpdate({ tables: updatedTables, totalCapacity });
     
     setEditingTable(null);
-    setEditingValues({ name: '', description: '' });
   };
 
   const handleAddTable = (newTable: any) => {
@@ -512,8 +507,8 @@ export default function VisualTableLayoutSVG({
               setHoveredTable(null);
             }}
             onTableDoubleClick={() => {
-              if (editingTable) {
-                const table = tableLayout.tables.find(t => t.id === editingTable);
+              if (selectedTable) {
+                const table = tableLayout.tables.find(t => t.id === selectedTable);
                 if (table) startEditing(table);
               }
             }}
@@ -545,6 +540,10 @@ export default function VisualTableLayoutSVG({
               
               // Clear selection
               setSelectedTable(null);
+            }}
+            onEditTable={(tableId) => {
+              const table = tableLayout.tables.find(t => t.id === tableId);
+              if (table) startEditing(table);
             }}
             onCloneTable={(tableId) => {
               // Find the table to clone
@@ -584,15 +583,14 @@ export default function VisualTableLayoutSVG({
           )}
 
           {/* Edit Modal */}
-          <TableEditModal
-            isOpen={!!editingTable}
-            tableName={editingValues.name}
-            tableDescription={editingValues.description}
-            onSave={() => editingTable && saveEditing(editingTable)}
-            onCancel={() => setEditingTable(null)}
-            onNameChange={(name) => setEditingValues(prev => ({ ...prev, name }))}
-            onDescriptionChange={(description) => setEditingValues(prev => ({ ...prev, description }))}
-          />
+          {editingTable && (
+            <TableEditModal
+              isOpen={!!editingTable}
+              table={tableLayout.tables.find(t => t.id === editingTable)!}
+              onSave={saveEditing}
+              onCancel={() => setEditingTable(null)}
+            />
+          )}
         </div>
       </div>
 
