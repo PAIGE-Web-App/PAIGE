@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { addGmailScopes } from '@/lib/gmailScopes';
 
 interface GmailLoginReauthBannerProps {
   onReauth: () => void;
@@ -21,8 +22,7 @@ export default function GmailLoginReauthBanner({ onReauth, onDismiss }: GmailLog
       
       const provider = new GoogleAuthProvider();
       // Only request Gmail scopes for Gmail re-authentication
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      addGmailScopes(provider);
       // Force account selection and consent
       provider.setCustomParameters({
         prompt: 'consent',

@@ -113,8 +113,10 @@ export function useNotifications() {
     
     // Set up listeners for user
 
-    // Listen for unread messages across all contacts - FIXED aggregation logic
+    // DISABLED: Listen for unread messages across all contacts - was causing excessive Firestore calls
     const setupMessageListener = async () => {
+      // TODO: Implement efficient message counting without 20+ listeners per hook instance
+      return;
       try {
         const contactsRef = collection(db, `users/${user.uid}/contacts`);
         const contactsSnapshot = await getDocs(contactsRef);

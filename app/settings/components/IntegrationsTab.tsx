@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useCustomToast } from "../../../hooks/useCustomToast";
 import { doc, getDoc, updateDoc, deleteField } from "firebase/firestore";
+import { addGmailScopes, getGmailCalendarScopeString } from '../../../lib/gmailScopes';
 import { db } from "../../../lib/firebase";
 import { Calendar, Mail, CheckCircle, AlertCircle, ExternalLink, Clock, Bell } from 'lucide-react';
 import SettingsTabSkeleton from './SettingsTabSkeleton';
@@ -162,9 +163,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       const { auth } = await import('@/lib/firebase');
       
       const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/calendar');
+      addGmailScopes(provider, true); // Include calendar scopes
       // Force account selection
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -185,7 +184,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: getGmailCalendarScopeString()
           };
           
           // Check if user exists before updating
@@ -376,10 +375,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       
       const provider = new GoogleAuthProvider();
       // Request all scopes for full re-authorization in settings
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
-      provider.addScope('https://www.googleapis.com/auth/calendar');
+      addGmailScopes(provider, true); // Include calendar scopes
       provider.addScope('https://www.googleapis.com/auth/calendar.events');
       // Force account selection and consent to show scope selection
       provider.setCustomParameters({
@@ -401,7 +397,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: getGmailCalendarScopeString()
           };
           
           // Check if user exists before updating
@@ -447,7 +443,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         
         // Automatically set up Gmail Watch for push notifications
         try {
-          const watchResponse = await fetch('/api/gmail/setup-watch', {
+          const watchResponse = await fetch('/api/gmail/setup-watch-optimized', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.uid }),

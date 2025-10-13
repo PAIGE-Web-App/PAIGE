@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User } from 'firebase/auth';
 import { RefreshCw } from 'lucide-react';
+import { addGmailScopes } from '@/lib/gmailScopes';
 
 interface GmailReauthNotificationProps {
   isVisible: boolean;
@@ -29,8 +30,7 @@ export default function GmailReauthNotification({
       
       const provider = new GoogleAuthProvider();
       // Only request Gmail scopes for Gmail re-authentication
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
+      addGmailScopes(provider);
       // Force account selection and consent
       provider.setCustomParameters({
         prompt: 'select_account consent'

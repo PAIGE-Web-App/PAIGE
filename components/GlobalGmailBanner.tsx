@@ -5,12 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useGmailAuth } from '@/contexts/GmailAuthContext';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { addGmailScopes } from '@/lib/gmailScopes';
 
 export default function GlobalGmailBanner() {
   const { needsReauth, isLoading, checkGmailAuth, dismissBanner } = useGmailAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [showLearnMoreModal, setShowLearnMoreModal] = useState(false);
   const [isReauthLoading, setIsReauthLoading] = useState(false);
+
+  // DEBUG: Log when component renders
+  console.log('GlobalGmailBanner render: needsReauth =', needsReauth);
 
   const handleReauth = async () => {
     if (isReauthLoading) return; // Prevent multiple simultaneous reauth attempts
@@ -23,9 +27,7 @@ export default function GlobalGmailBanner() {
       
       const provider = new GoogleAuthProvider();
       // Only request Gmail scopes for Gmail re-authentication
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
+      addGmailScopes(provider);
       
       // Force consent screen with proper parameters (avoiding conflict)
       provider.setCustomParameters({
@@ -47,13 +49,19 @@ export default function GlobalGmailBanner() {
           const { doc, updateDoc, getDoc } = await import('firebase/firestore');
           const { db } = await import('@/lib/firebase');
           
+          // Construct the scope string from the scopes we requested
+          const { getGmailCalendarScopeString } = await import('@/lib/gmailScopes');
+          const requestedScopes = getGmailCalendarScopeString();
+          
+          console.log('Gmail reauth: Using scopes:', requestedScopes);
+          
           // Store Gmail tokens in Firestore (matching API expected format)
           const gmailTokens = {
             accessToken: accessToken,
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: requestedScopes // Use the scopes we requested
           };
           
           // Check if user exists before updating

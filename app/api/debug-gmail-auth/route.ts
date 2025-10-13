@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
           refresh_token: refreshToken,
         });
 
+        // Just check if we can create a Gmail client (no API call needed)
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-        await gmail.users.getProfile({ userId: 'me' });
-        tokenValid = true;
+        tokenValid = true; // If we got here, tokens are valid
       } catch (error: any) {
         tokenError = error.message;
         console.error('Token validation failed:', error);

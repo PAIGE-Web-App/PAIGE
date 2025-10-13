@@ -239,21 +239,25 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Gmail reply error:', error);
     
+    // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
+    const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
+    const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(error, 'Gmail reply');
+    
     // Handle rate limit errors
-    if (error.status === 429 || error.message?.includes('rate limit') || error.message?.includes('quota')) {
+    if (errorResult.errorType === 'rate_limit') {
       return NextResponse.json({ 
         success: false, 
-        error: error.message || 'Gmail rate limit exceeded. Please wait before sending another email.',
-        requiresReauth: false // This is not an auth issue
+        error: errorResult.userMessage,
+        requiresReauth: false
       }, { status: 429 });
     }
     
-    // Handle specific Google OAuth errors
-    if (error.message?.includes('invalid_grant') || error.message?.includes('invalid_token')) {
+    // Handle authentication errors
+    if (errorResult.errorType === 'auth' || errorResult.errorType === 'permission') {
       return NextResponse.json({ 
         success: false, 
-        error: 'Google authentication expired. Please re-authenticate with Gmail.',
-        needsReauth: true 
+        error: errorResult.userMessage,
+        requiresReauth: true
       }, { status: 401 });
     }
     

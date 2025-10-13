@@ -9,6 +9,7 @@ import { saveContactToFirestore } from "../lib/saveContactToFirestore";
 import { getAllCategories, saveCategoryIfNew } from "../lib/firebaseCategories";
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useGlobalCompletionToasts } from '../hooks/useGlobalCompletionToasts';
+import { addGmailScopes, getGmailCalendarScopeString } from '../lib/gmailScopes';
 import CategoryPill from "./CategoryPill";
 import CategorySelectField from "./CategorySelectField";
 import { getUserCollectionRef } from "../lib/firebase";
@@ -95,74 +96,74 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
   const { weddingLocation } = useUserProfileData();
   const [geoLocation, setGeoLocation] = useState<string | null>(null);
 
-  // Check for existing Gmail tokens when modal opens
-  useEffect(() => {
-    const checkExistingGmailAuth = async () => {
-      try {
-        console.log('OnboardingModal: Checking Gmail auth status for user:', userId);
-        const response = await fetch('/api/check-gmail-history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, contactEmail: 'test@example.com' }),
-        });
+  // DISABLED: Gmail auth check was causing excessive API calls
+  // useEffect(() => {
+  //   const checkExistingGmailAuth = async () => {
+  //     try {
+  //       console.log('OnboardingModal: Checking Gmail auth status for user:', userId);
+  //       const response = await fetch('/api/check-gmail-history', {
+  //         method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify({ userId, contactEmail: 'test@example.com' }),
+  //       });
         
-        if (!response.ok) {
-          // Check for authentication-related errors in both 401 and 500 responses
-          if (response.status === 401 || response.status === 500) {
-            try {
-              const data = await response.json();
-              if (data.message?.includes('Google authentication required') || 
-                  data.message?.includes('Failed to refresh Google authentication') ||
-                  data.message?.includes('Google authentication expired') ||
-                  data.message?.includes('invalid_grant') ||
-                  data.message?.includes('Token has been expired')) {
-                setShowGmailReauthBanner(true);
-                setGmailAuthStatus('idle');
-                return;
-              }
-            } catch (parseError) {
-              // If we can't parse the response, silently handle it
-            }
-          }
-          // If not an auth error, treat as no Gmail connection
-          setGmailAuthStatus('idle');
-          return;
-        }
-        
-        const data = await response.json();
-        
-        console.log('OnboardingModal: Gmail auth status response:', data);
-        
-        // If we get here, Gmail is working properly
-        setGmailAuthStatus('success');
-        setShowGmailReauthBanner(false);
-        // Automatically select Gmail in communication channels
-        if (!selectedCommunicationChannels.includes('Gmail')) {
-          setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
-        }
-        console.log('OnboardingModal: Gmail already connected for user:', userId);
-      } catch (error) {
-        console.error('OnboardingModal: Error checking existing Gmail auth:', error);
-        // Check localStorage as fallback
-        const gmailConnected = localStorage.getItem('gmailConnected');
-        if (gmailConnected === 'true') {
-          setGmailAuthStatus('success');
-          setShowGmailReauthBanner(false);
-          // Automatically select Gmail in communication channels
-          if (!selectedCommunicationChannels.includes('Gmail')) {
-            setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
-          }
-          console.log('OnboardingModal: Gmail connection detected from localStorage fallback');
-        } else {
-          setShowGmailReauthBanner(true);
-        }
-      }
-    };
+  //       if (!response.ok) {
+  //         // Check for authentication-related errors in both 401 and 500 responses
+  //         if (response.status === 401 || response.status === 500) {
+  //           try {
+  //             const data = await response.json();
+  //             if (data.message?.includes('Google authentication required') || 
+  //                 data.message?.includes('Failed to refresh Google authentication') ||
+  //                 data.message?.includes('Google authentication expired') ||
+  //                 data.message?.includes('invalid_grant') ||
+  //                 data.message?.includes('Token has been expired')) {
+  //               setShowGmailReauthBanner(true);
+  //               setGmailAuthStatus('idle');
+  //               return;
+  //             }
+  //           } catch (parseError) {
+  //             // If we can't parse the response, silently handle it
+  //           }
+  //         }
+  //         // If not an auth error, treat as no Gmail connection
+  //         setGmailAuthStatus('idle');
+  //         return;
+  //       }
+  //       
+  //       const data = await response.json();
+  //       
+  //       console.log('OnboardingModal: Gmail auth status response:', data);
+  //       
+  //       // If we get here, Gmail is working properly
+  //       setGmailAuthStatus('success');
+  //       setShowGmailReauthBanner(false);
+  //       // Automatically select Gmail in communication channels
+  //       if (!selectedCommunicationChannels.includes('Gmail')) {
+  //         setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
+  //       }
+  //       console.log('OnboardingModal: Gmail already connected for user:', userId);
+  //     } catch (error) {
+  //       console.error('OnboardingModal: Error checking existing Gmail auth:', error);
+  //       // Check localStorage as fallback
+  //       const gmailConnected = localStorage.getItem('gmailConnected');
+  //       if (gmailConnected === 'true') {
+  //         setGmailAuthStatus('success');
+  //         setShowGmailReauthBanner(false);
+  //         // Automatically select Gmail in communication channels
+  //         if (!selectedCommunicationChannels.includes('Gmail')) {
+  //           setSelectedCommunicationChannels(prev => [...prev, 'Gmail']);
+  //         }
+  //         console.log('OnboardingModal: Gmail connection detected from localStorage fallback');
+  //       } else {
+  //         setShowGmailReauthBanner(true);
+  //       }
+  //     }
+  //   };
 
-    if (userId) {
-      checkExistingGmailAuth();
-    }
-  }, [userId]);
+  //   if (userId) {
+  //     checkExistingGmailAuth();
+  //   }
+  // }, [userId]);
 
   // Location detection for vendor search
   useEffect(() => {
@@ -442,9 +443,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
       const { auth } = await import('@/lib/firebase');
       
       const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
+      addGmailScopes(provider);
       // Force account selection
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -469,7 +468,7 @@ export default function OnboardingModal({ userId, onClose, onComplete }: Onboard
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: getGmailCalendarScopeString()
           };
           
           // Check if user exists before updating

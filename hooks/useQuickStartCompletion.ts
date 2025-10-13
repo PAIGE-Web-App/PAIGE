@@ -65,10 +65,9 @@ export const useQuickStartCompletion = () => {
 
     fetchData();
 
-    // Refresh data every 5 seconds to catch changes
-    const interval = setInterval(fetchData, 5000);
-
-    return () => clearInterval(interval);
+    // DISABLED: Excessive 5-second polling was causing hundreds of network requests
+    // const interval = setInterval(fetchData, 5000);
+    // return () => clearInterval(interval);
   }, [user]);
 
   // Check progress data for all items

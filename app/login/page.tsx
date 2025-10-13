@@ -17,6 +17,7 @@ import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import Link from "next/link";
+import { addGmailScopes, getGmailCalendarScopeString } from "../../lib/gmailScopes";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -496,11 +497,7 @@ export default function Login() {
     });
     
     // Add Gmail scopes for automatic Gmail connection
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-    provider.addScope('https://www.googleapis.com/auth/gmail.send');
-    provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
-    provider.addScope('https://www.googleapis.com/auth/calendar');
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    addGmailScopes(provider, true); // Include calendar scopes
     
     try {
       setGoogleLoading(true);
@@ -521,7 +518,7 @@ export default function Login() {
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: getGmailCalendarScopeString()
           };
           
           // Check if user exists before updating

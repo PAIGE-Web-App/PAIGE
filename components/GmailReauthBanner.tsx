@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { User } from 'firebase/auth';
+import { addGmailScopes } from '@/lib/gmailScopes';
 
 interface GmailReauthBannerProps {
   onReauth: () => void;
@@ -22,9 +23,7 @@ export default function GmailReauthBanner({ onReauth, currentUser }: GmailReauth
       
       const provider = new GoogleAuthProvider();
       // Only request Gmail scopes for Gmail re-authentication
-      provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-      provider.addScope('https://www.googleapis.com/auth/gmail.send');
-      provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
+      addGmailScopes(provider);
       // Force account selection and consent
       provider.setCustomParameters({
         prompt: 'consent',

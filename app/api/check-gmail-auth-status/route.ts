@@ -73,7 +73,8 @@ export async function POST(req: NextRequest) {
 
     // Check if gmail.modify scope is present (required for Gmail Watch API)
     const scope = userData?.googleTokens?.scope || '';
-    if (!scope.includes('https://www.googleapis.com/auth/gmail.modify')) {
+    const { GMAIL_SCOPES } = await import('@/lib/gmailScopes');
+    if (!scope.includes(GMAIL_SCOPES.MODIFY)) {
       console.log('Gmail auth check: Missing gmail.modify scope for user:', userId);
       return NextResponse.json({ 
         needsReauth: true, 
@@ -82,10 +83,39 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('Gmail auth check: Valid tokens and scopes for user:', userId, 'Expiry:', expiryDate ? new Date(expiryDate) : 'No expiry');
+    
+    // OPTIMIZATION: Add smart caching to prevent excessive API calls
+    const cacheKey = `gmail_auth_${userId}`;
+    const cached = userData?.gmailAuthCache || {};
+    const lastCheck = cached.lastCheckTime || 0;
+    const checkInterval = 15 * 60 * 1000; // 15 minutes cache
+    
+    // Reuse 'now' from earlier token expiry check
+    if (!force && (now - lastCheck) < checkInterval) {
+      console.log('Gmail auth check: Using cached result for user:', userId);
+      return NextResponse.json({ 
+        needsReauth: false, 
+        message: 'Gmail authentication valid (cached)',
+        userData: userData,
+        cached: true,
+        lastCheckTime: new Date(lastCheck)
+      });
+    }
+
+    // Update cache timestamp
+    await userDocRef.set({
+      gmailAuthCache: {
+        lastCheckTime: now,
+        lastCheckResult: 'success'
+      }
+    }, { merge: true });
+
     return NextResponse.json({ 
       needsReauth: false, 
       message: 'Gmail authentication valid',
-      userData: userData // Include full user data so UI can check gmailWatch
+      userData: userData, // Include full user data so UI can check gmailWatch
+      cached: false,
+      lastCheckTime: new Date(now)
     });
 
   } catch (error) {

@@ -203,7 +203,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   onMobileBackToContacts,
 }) => {
   const router = useRouter();
-  const { checkGmailAuth } = useGmailAuth();
+  const { } = useGmailAuth(); // Removed checkGmailAuth - using new error handler system
   const [state, dispatch] = useReducer(messageReducer, { 
     messages: [], 
     loading: false, 
@@ -904,9 +904,21 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Removed temporary onSnapshot test to reduce unnecessary Firestore reads
 
-  // Check Gmail authentication status
+  // Check Gmail authentication status (with caching to prevent excessive API calls)
   const checkGmailAuthStatus = async () => {
     if (!currentUser?.uid) return;
+    
+    // Add caching to prevent excessive API calls
+    const cacheKey = `gmail_auth_${currentUser.uid}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    const now = Date.now();
+    
+    if (cached) {
+      const { timestamp } = JSON.parse(cached);
+      if (now - timestamp < 5 * 60 * 1000) { // 5 minute cache
+        return;
+      }
+    }
     
     try {
       const response = await fetch('/api/check-gmail-history', {
@@ -935,6 +947,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
     } catch (error) {
       // Silently handle Gmail API errors - they're not critical for todo functionality
+    } finally {
+      // Update cache regardless of success/failure
+      sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: now }));
     }
   };
 
@@ -1144,8 +1159,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           errorMessage.includes('Please re-authorize Gmail access') ||
           errorMessage.includes('invalid_grant') || 
           errorMessage.includes('invalid_token')) {
-        // Trigger Gmail auth check to show the global banner
-        checkGmailAuth(true); // Force check
+        // The API endpoint should have already triggered the global banner via error handler
+        // No need to call checkGmailAuth here as it conflicts with our new system
         showErrorToast('Gmail access expired. Please re-authenticate to import messages.');
       } else {
         showErrorToast('Failed to import Gmail messages');
@@ -1357,8 +1372,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             errorMessage.includes('Please re-authorize Gmail access') ||
             errorMessage.includes('invalid_grant') || 
             errorMessage.includes('invalid_token')) {
-          // Trigger Gmail auth check to show the global banner
-          checkGmailAuth(true); // Force check
+          // The API endpoint should have already triggered the global banner via error handler
+          // No need to call checkGmailAuth here as it conflicts with our new system
           showErrorToast('Gmail access expired. Please re-authenticate to check for new messages.');
         } else {
           showErrorToast('Failed to check for new Gmail messages');

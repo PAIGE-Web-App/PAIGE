@@ -9,6 +9,7 @@ interface GmailAuthContextType {
   isLoading: boolean;
   checkGmailAuth: (force?: boolean) => Promise<void>;
   dismissBanner: () => void;
+  setNeedsReauth: (value: boolean) => void; // Added for test pages
 }
 
 const GmailAuthContext = createContext<GmailAuthContextType | undefined>(undefined);
@@ -23,9 +24,9 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
   const checkGmailAuth = useCallback(async (force = false) => {
     if (!user?.uid || isCheckingRef.current) return;
     
-    // Only check once every 5 minutes to avoid unnecessary API calls, unless forced
+    // Only check once every 15 minutes to avoid unnecessary API calls, unless forced
     const now = Date.now();
-    if (!force && now - lastChecked < 5 * 60 * 1000) return;
+    if (!force && now - lastChecked < 15 * 60 * 1000) return;
     
     isCheckingRef.current = true;
     setIsLoading(true);
@@ -54,76 +55,89 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     setNeedsReauth(false);
   }, []);
 
-  // Check Gmail auth when user changes
+  // Listen for custom events that trigger the reauth banner
+  // This allows Gmail API endpoints to trigger the banner when they encounter auth errors
   useEffect(() => {
-    if (user?.uid) {
-      // Add a small delay to ensure user document is fully created
-      const timeoutId = setTimeout(async () => {
-        // Try to check Gmail auth once
-        await checkGmailAuth(true); // Force immediate check
-      }, 1000); // Reduced delay to 1 second
+    const handleGmailAuthRequired = (event: any) => {
+      console.log('Gmail reauth required event received:', event.detail);
+      console.log('Setting needsReauth to true...');
       
-      return () => clearTimeout(timeoutId);
-    } else {
-      setNeedsReauth(false);
-    }
-  }, [user?.uid, checkGmailAuth]);
+      // Use setTimeout to ensure state update happens after current execution
+      setTimeout(() => {
+        setNeedsReauth(true);
+        console.log('needsReauth set to true (with timeout)');
+      }, 0);
+    };
 
-  // Periodic check every 5 minutes (more frequent)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('gmail-auth-required', handleGmailAuthRequired);
+      return () => {
+        window.removeEventListener('gmail-auth-required', handleGmailAuthRequired);
+      };
+    }
+  }, []);
+
+  // DEBUG: Log when needsReauth changes
   useEffect(() => {
-    if (!user?.uid) return;
-    
-    const interval = setInterval(() => {
-      checkGmailAuth();
-    }, 5 * 60 * 1000); // 5 minutes instead of 10
-    
-    return () => clearInterval(interval);
-  }, [user?.uid, checkGmailAuth]);
+    console.log('GmailAuthContext: needsReauth changed to:', needsReauth);
+  }, [needsReauth]);
+
+  // DISABLED: Initial check was still causing excessive API calls on every user change
+  // useEffect(() => {
+  //   if (user?.uid) {
+  //     // Add a small delay to ensure user document is fully created
+  //     const timeoutId = setTimeout(async () => {
+  //       // Try to check Gmail auth once
+  //       await checkGmailAuth(true); // Force immediate check
+  //     }, 1000); // Reduced delay to 1 second
+  //     
+  //     return () => clearTimeout(timeoutId);
+  //   } else {
+  //     setNeedsReauth(false);
+  //   }
+  // }, [user?.uid, checkGmailAuth]);
+
+  // DISABLED: Periodic check was still causing excessive API calls
+  // useEffect(() => {
+  //   if (!user?.uid) return;
+  //   
+  //   const interval = setInterval(() => {
+  //     checkGmailAuth();
+  //   }, 15 * 60 * 1000); // 15 minutes to prevent rate limits
+  //   
+  //   return () => clearInterval(interval);
+  // }, [user?.uid, checkGmailAuth]);
 
   // Check Gmail auth when app becomes visible (user returns from background)
-  useEffect(() => {
-    if (!user?.uid) return;
-    
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // App became visible, check Gmail auth immediately
-        checkGmailAuth(true); // Force check
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user?.uid, checkGmailAuth]);
+  // DISABLED: This was causing excessive API calls on every page interaction
+  // useEffect(() => {
+  //   if (!user?.uid) return;
+  //   
+  //   const handleVisibilityChange = () => {
+  //     if (!document.hidden) {
+  //       // App became visible, check Gmail auth immediately
+  //       checkGmailAuth(true); // Force check
+  //     }
+  //   };
+  //   
+  //   document.addEventListener('visibilitychange', handleVisibilityChange);
+  //   
+  //   return () => {
+  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
+  //   };
+  // }, [user?.uid, checkGmailAuth]);
 
   // Add global error handler for Gmail API failures
-  useEffect(() => {
-    if (!user?.uid) return;
-    
-    const handleGmailError = (event: any) => {
-      // Listen for Gmail API errors that might indicate auth issues
-      if (event.detail?.error?.status === 401 || event.detail?.requiresReauth) {
-        console.log('🔍 Gmail API error detected, checking auth status...');
-        checkGmailAuth(true); // Force immediate check
-      }
-    };
-    
-    // Listen for custom Gmail error events
-    window.addEventListener('gmail-api-error', handleGmailError);
-    
-    return () => {
-      window.removeEventListener('gmail-api-error', handleGmailError);
-    };
-  }, [user?.uid, checkGmailAuth]);
+  // REMOVED: Old gmail-api-error event listener that was conflicting with our new system
+  // The new system uses 'gmail-auth-required' events which are handled above
 
   return (
     <GmailAuthContext.Provider value={{
       needsReauth,
       isLoading,
       checkGmailAuth,
-      dismissBanner
+      dismissBanner,
+      setNeedsReauth // Added for test pages
     }}>
       {children}
     </GmailAuthContext.Provider>

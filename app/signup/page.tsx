@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useCustomToast } from '../../hooks/useCustomToast';
 import { WandSparkles, X, User, Pencil, Upload, Info, Sparkles } from 'lucide-react';
 import Link from "next/link";
+import { addGmailScopes, getGmailCalendarScopeString } from '../../lib/gmailScopes';
 
 import VenueCard from '@/components/VenueCard';
 import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
@@ -314,11 +315,7 @@ export default function SignUp() {
     provider.setCustomParameters({ prompt: 'select_account' }); // Always show account picker
     
     // Add Gmail scopes for automatic Gmail connection
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-    provider.addScope('https://www.googleapis.com/auth/gmail.send');
-    provider.addScope('https://www.googleapis.com/auth/gmail.modify'); // Required for Watch API
-    provider.addScope('https://www.googleapis.com/auth/calendar');
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');
+    addGmailScopes(provider, true); // Include calendar scopes
     try {
       setGoogleLoading(true);
       const result = await signInWithPopup(auth, provider);
@@ -350,7 +347,7 @@ export default function SignUp() {
             refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
             email: result.user.email, // Store Gmail account email
-            scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
+            scope: getGmailCalendarScopeString()
           };
           
           await setDoc(doc(db, "users", result.user.uid), {

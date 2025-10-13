@@ -65,53 +65,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
     }
 
-    const userData = userDocSnap.data();
-    const { accessToken, refreshToken } = userData?.googleTokens || {};
-    const userEmail = userData?.email || null; // Get cached email to avoid API call
+    // OPTIMIZATION: Use SmartGmailAuth for intelligent authentication handling
+    const { SmartGmailAuth } = await import('@/utils/smartGmailAuth');
+    const authResult = await SmartGmailAuth.getAuthenticatedGmailClient(userId);
 
-    console.log('DEBUG: User data from Firestore:', {
-      hasGoogleTokens: !!userData?.googleTokens,
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken
-    });
-
-    if (!accessToken) {
-      console.error(`Google access token not found for user: ${userId}`);
-      return NextResponse.json({ success: false, message: 'Google authentication required. Please re-authorize Gmail access.' }, { status: 401 });
-    }
-
-    oauth2Client.setCredentials({
-      access_token: accessToken,
-      refresh_token: refreshToken || undefined,
-    });
-
-    console.log('DEBUG: OAuth2 client configured with tokens');
-
-    // Instead of oauth2Client.isTokenExpiring(), check expiry_date
-    const tokenExpiry = oauth2Client.credentials.expiry_date;
-    if (tokenExpiry && tokenExpiry < Date.now()) {
-      if (refreshToken) {
-        console.log('Access token is expiring or expired, refreshing...');
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        await userDocRef.set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-        console.log('Access token refreshed and updated in Firestore.');
-      } else {
-        console.log('Access token expired and no refresh token available (Firebase popup flow)');
-        return NextResponse.json({ success: false, message: 'Gmail access token expired. Please re-authorize Gmail access.' }, { status: 401 });
+    if (!authResult.success) {
+      console.error(`Gmail authentication failed for user: ${userId}`, authResult);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Gmail authentication required. Please re-authorize Gmail access.';
+      if (authResult.errorType === 'missing_refresh_token') {
+        errorMessage = 'Gmail access token expired and cannot be refreshed. Please re-authorize Gmail access.';
+      } else if (authResult.errorType === 'invalid_tokens') {
+        errorMessage = 'Gmail tokens are invalid. Please re-authorize Gmail access.';
       }
+      
+      return NextResponse.json({ 
+        success: false, 
+        message: errorMessage,
+        errorType: authResult.errorType
+      }, { status: 401 });
     }
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-    console.log('DEBUG: Gmail API client initialized');
+    const gmail = authResult.gmail!;
+    console.log('DEBUG: Gmail API client initialized with smart authentication');
 
     // Use cached email address instead of making Gmail API call (saves quota)
+    const userEmail = await SmartGmailAuth.getUserGmailEmail(userId);
     const gmailUserEmail = userEmail ? userEmail.toLowerCase() : '';
     console.log('Using cached Gmail user email:', gmailUserEmail);
 
@@ -286,7 +266,7 @@ export async function POST(req: Request) {
               };
             }));
             // Type guard to filter out null/undefined
-            function isValidMessage(m: any): m is { id: string } {
+            function isValidMessage(m: any): m is { id: string; internalDate?: string } {
               return m && typeof m.id === 'string';
             }
             const filteredFullMessages = fullMessages.filter(isValidMessage);
@@ -531,7 +511,20 @@ export async function POST(req: Request) {
 
       } catch (contactImportError: any) {
         console.error(`Error importing Gmail messages for contact ${contactEmail}:`, contactImportError);
-        notFoundContacts.push({ name: contact.name || contactEmail, email: contactEmail, message: contactImportError.message });
+        
+        // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
+        const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
+        const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(
+          contactImportError, 
+          `Gmail import for ${contactEmail}`
+        );
+        
+        // Use user-friendly error message
+        notFoundContacts.push({ 
+          name: contact.name || contactEmail, 
+          email: contactEmail, 
+          message: errorResult.userMessage || contactImportError.message 
+        });
       }
     }
 
