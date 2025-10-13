@@ -27,6 +27,15 @@ export interface Vendor {
       lng: number;
     };
   };
+  instagram?: {
+    handle: string;
+    url: string;
+    confidence: 'high' | 'medium' | 'low';
+    scrapedAt?: string;
+    scrapedFrom?: string;
+    addedBy?: string;
+    verifiedBy?: string[];
+  } | null;
 }
 
 export interface VendorSearchFilters {
@@ -57,4 +66,13 @@ export interface CommunityVendorData {
   isVerified?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  instagram?: {
+    handle: string;
+    url: string;
+    confidence: 'high' | 'medium' | 'low';
+    scrapedAt?: string;
+    scrapedFrom?: string;
+    addedBy?: string;
+    verifiedBy?: string[];
+  } | null;
 }

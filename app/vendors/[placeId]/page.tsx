@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft, Phone, Clock } from 'lucide-react';
+import { Heart, MapPin, Globe, Star, ExternalLink, ChevronLeft, ChevronRight, Grid, X, BadgeCheck, WandSparkles, ArrowLeft, Phone, Clock, Instagram } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import CategoryPill from '@/components/CategoryPill';
 import WeddingBanner from '@/components/WeddingBanner';
@@ -30,6 +30,7 @@ import {
 import { useConsolidatedUserData } from '@/hooks/useConsolidatedUserData';
 import { useVendorDetails } from '@/hooks/useVendorCache';
 import { usePrefetch } from '@/utils/prefetchManager';
+import { useVendorInstagram } from '@/hooks/useVendorInstagram';
 import { fetchVendorPhotos, checkVendorExists } from '@/utils/apiService';
 import { getVendorImages } from '@/utils/vendorImageUtils';
 import ConfirmVenueUnmarkModal from '@/components/ConfirmVenueUnmarkModal';
@@ -126,6 +127,14 @@ export default function VendorDetailPage() {
   const [isOfficialVendor, setIsOfficialVendor] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isUpdatingOfficial, setIsUpdatingOfficial] = useState(false);
+  
+  // Instagram integration - auto-scrape in background
+  const { instagram, isLoading: instagramLoading } = useVendorInstagram(
+    vendor?.id,
+    vendor?.website,
+    undefined, // Will be populated from community vendors later
+    true // Auto-scrape if missing
+  );
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
   const [showVenueUnmarkModal, setShowVenueUnmarkModal] = useState(false);
   const [isSelectedVenueState, setIsSelectedVenueState] = useState(false);
@@ -1519,6 +1528,25 @@ export default function VendorDetailPage() {
                           </a>
                         </>
                       )}
+                    </div>
+                  )}
+                  {instagram && (
+                    <div className="flex items-center gap-2">
+                      <Instagram className="w-3 h-3 text-[#A85C36] flex-shrink-0" />
+                      <a 
+                        href={instagram.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity font-medium text-sm font-work"
+                      >
+                        @{instagram.handle}
+                      </a>
+                    </div>
+                  )}
+                  {!instagram && instagramLoading && vendor.website && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Instagram className="w-3 h-3 flex-shrink-0 animate-pulse" />
+                      <span className="text-xs">Finding Instagram...</span>
                     </div>
                   )}
                   {!vendor.website && vendor.googleUrl && (
