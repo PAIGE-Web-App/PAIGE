@@ -12,9 +12,11 @@ interface TableLayoutStepProps {
   onUpdate: (updates: { tables: TableType[]; totalCapacity: number }) => void;
   guestCount: number;
   guests: Guest[];
+  guestColumns?: any[];
   guestGroups?: any[];
   onEditGroup?: (groupId: string) => void;
   onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
+  onUpdateGuest?: (guestId: string, field: keyof Guest | string, value: string) => void;
   profileImageUrl?: string;
   userName?: string;
   partnerName?: string;
@@ -35,9 +37,11 @@ export default function TableLayoutStep({
   onUpdate, 
   guestCount,
   guests,
+  guestColumns = [],
   guestGroups = [],
   onEditGroup,
   onGuestAssignment,
+  onUpdateGuest,
   profileImageUrl,
   userName,
   partnerName
@@ -225,7 +229,9 @@ export default function TableLayoutStep({
           // Handle guest assignment - this will be implemented when we add drag & drop
           console.log(`Guest ${guestId} assigned to table ${tableId} at seat ${seatIndex}`);
         }, [])}
+        onUpdateGuest={onUpdateGuest}
         onRotationUpdate={handleRotationUpdate}
+        guestColumns={guestColumns}
         guestGroups={guestGroups}
         onEditGroup={onEditGroup}
         profileImageUrl={profileImageUrl}

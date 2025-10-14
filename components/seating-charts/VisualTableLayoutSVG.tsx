@@ -9,6 +9,7 @@ import { CanvasControls } from './components/CanvasControls';
 import { SVGCanvas } from './components/SVGCanvas';
 import { TableEditModal } from './components/TableEditModal';
 import GuestSidebar from './components/GuestSidebar';
+import AITableLayoutModal from './AITableLayoutModal';
 import { useTableDrag, TablePosition } from './hooks/useTableDrag';
 import { useCanvasPanZoom } from './hooks/useCanvasPanZoom';
 import { useTableResize } from './hooks/useTableResize';
@@ -25,8 +26,10 @@ interface VisualTableLayoutSVGProps {
   guestCount: number;
   guests: Guest[];
   onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
+  onUpdateGuest?: (guestId: string, field: keyof Guest | string, value: string) => void;
   onRotationUpdate?: (tableId: string, rotation: number) => void;
   onSeatedGuestClick?: (guestId: string, tableId: string, seatNumber: number) => void;
+  guestColumns?: any[];
   guestGroups?: any[];
   onEditGroup?: (groupId: string) => void;
   profileImageUrl?: string;
@@ -42,8 +45,10 @@ export default function VisualTableLayoutSVG({
   guestCount,
   guests,
   onGuestAssignment,
+  onUpdateGuest,
   onRotationUpdate,
   onSeatedGuestClick,
+  guestColumns = [],
   guestGroups = [],
   onEditGroup,
   profileImageUrl,
@@ -56,6 +61,7 @@ export default function VisualTableLayoutSVG({
   const [editingTable, setEditingTable] = useState<string | null>(null);
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
+  const [showAITableModal, setShowAITableModal] = useState(false);
   const [highlightedGuest, setHighlightedGuest] = useState<string | null>(null);
   
   // Table resize state with session persistence
@@ -74,6 +80,20 @@ export default function VisualTableLayoutSVG({
     return {};
   });
   
+  // Show AI modal when there are no tables except sweetheart table
+  useEffect(() => {
+    const hasOnlySweetheartTable = tableLayout.tables.length === 1 && 
+      tableLayout.tables[0]?.isDefault;
+    
+    if (hasOnlySweetheartTable && guestCount > 0) {
+      // Show modal after a short delay to let the page load
+      const timer = setTimeout(() => {
+        setShowAITableModal(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [tableLayout.tables.length, tableLayout.tables, guestCount]);
+
   // Refs for click outside detection
   const canvasRef = useRef<HTMLDivElement>(null);
   
@@ -274,11 +294,14 @@ export default function VisualTableLayoutSVG({
     const table = tableLayout.tables.find(t => t.id === tableId);
     const tableRotation = table?.rotation || 0;
     
+    // Get table position for circle resize
+    const tablePos = tablePositions.find(p => p.id === tableId);
+    
     const newDimensions = updateResize(mouseX, mouseY, { 
       width: currentDimensions.width, 
       height: currentDimensions.height,
       seatPositions: () => [] // Placeholder, not used in resize calculation
-    }, tableRotation);
+    }, tableRotation, tablePos?.x, tablePos?.y);
     
     setTableDimensions(prev => ({
       ...prev,
@@ -292,14 +315,6 @@ export default function VisualTableLayoutSVG({
       const scaleX = Math.max(0.1, Math.min(10, newDimensions.width / currentDimensions.width));
       const scaleY = Math.max(0.1, Math.min(10, newDimensions.height / currentDimensions.height));
       
-      console.log('🔧 RESIZE DEBUG:', {
-        tableId,
-        currentDimensions,
-        newDimensions,
-        scaleX,
-        scaleY,
-        tablePosition
-      });
       
       // Update guest positions relative to the table's new dimensions
       const newAssignments = { ...guestAssignments };
@@ -326,22 +341,10 @@ export default function VisualTableLayoutSVG({
           };
           hasChanges = true;
           
-          console.log('🔧 UPDATED GUEST POSITION:', {
-            guestId,
-            oldPosition: assignment.position,
-            newPosition: newAssignments[guestId].position,
-            relativeX,
-            relativeY,
-            newRelativeX,
-            newRelativeY,
-            scaleX,
-            scaleY
-          });
         }
       });
       
       if (hasChanges) {
-        console.log('🔧 UPDATING ALL ASSIGNMENTS:', newAssignments);
         setGuestAssignments(newAssignments);
       }
     }
@@ -374,14 +377,44 @@ export default function VisualTableLayoutSVG({
     setEditingTable(null);
   };
 
+  const handleGenerateTableLayout = (generatedTables: TableType[], totalCapacity: number, positions?: Array<{ id: string; x: number; y: number }>) => {
+    // Keep the existing sweetheart table and add the generated tables
+    const existingSweetheartTable = tableLayout.tables.find(t => t.isDefault);
+    const newTables = existingSweetheartTable 
+      ? [existingSweetheartTable, ...generatedTables.filter(t => !t.isDefault)]
+      : generatedTables;
+    
+    // If positions are provided, update the table positions
+    if (positions && positions.length > 0) {
+      const newPositions = [...tablePositions];
+      
+      positions.forEach(pos => {
+        const existingIndex = newPositions.findIndex(p => p.id === pos.id);
+        if (existingIndex >= 0) {
+          // Update existing position
+          newPositions[existingIndex] = { ...newPositions[existingIndex], x: pos.x, y: pos.y };
+        } else {
+          // Add new position
+          newPositions.push({ ...pos, rotation: 0 });
+        }
+      });
+      
+      setTablePositions(newPositions);
+      
+      // Save positions to session storage
+      sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(newPositions));
+    }
+    
+    onUpdate({ tables: newTables, totalCapacity });
+    setShowAITableModal(false);
+  };
+
   const handleAddTable = (newTable: any) => {
-    console.log('handleAddTable called with:', newTable);
     const tableWithId = {
       ...newTable,
       id: newTable.id || `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
     
-    console.log('Adding table to wizard state:', tableWithId);
     onAddTable(tableWithId);
   };
 
@@ -434,7 +467,6 @@ export default function VisualTableLayoutSVG({
       
       // Update canvas transform (this would need to be implemented in the canvas hook)
       // For now, we'll just select the table and highlight the guest
-      console.log(`Scrolling to table ${tableId} and highlighting guest ${guestId}`);
     }
     
     // Clear highlight after 3 seconds
@@ -463,6 +495,8 @@ export default function VisualTableLayoutSVG({
         getGuestAvatarColor={getGuestAvatarColor}
         tableLayout={tableLayout}
         onSeatedGuestClick={handleSeatedGuestClick}
+        onUpdateGuest={onUpdateGuest}
+        guestColumns={guestColumns}
         guestGroups={guestGroups}
         onEditGroup={onEditGroup}
       />
@@ -476,6 +510,7 @@ export default function VisualTableLayoutSVG({
             totalCapacity={tableLayout.totalCapacity}
             onReset={resetCanvas}
             onAddTable={() => setShowAddTableModal(true)}
+            onAddFromTemplate={() => setShowAITableModal(true)}
           />
           
           
@@ -599,6 +634,15 @@ export default function VisualTableLayoutSVG({
         isOpen={showAddTableModal}
         onClose={() => setShowAddTableModal(false)}
         onAddTable={handleAddTable}
+      />
+
+      {/* AI Table Layout Modal */}
+      <AITableLayoutModal
+        isOpen={showAITableModal}
+        onClose={() => setShowAITableModal(false)}
+        onGenerateLayout={handleGenerateTableLayout}
+        guestCount={guestCount}
+        hasSeatedGuests={Object.keys(guestAssignments).length > 0}
       />
     </div>
   );

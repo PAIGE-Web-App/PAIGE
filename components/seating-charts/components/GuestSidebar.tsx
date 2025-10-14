@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListFilter, UserCheck, User } from 'lucide-react';
+import { ListFilter, UserCheck, User, Edit2, X } from 'lucide-react';
 import { Guest, TableType } from '../../../types/seatingChart';
+import { GuestColumn } from '../types';
 import BadgeCount from '../../BadgeCount';
 import { getCategoryHexColor } from '../../../utils/categoryStyle';
 import { GuestAssignment } from '../hooks/useGuestManagement';
@@ -17,6 +18,8 @@ interface GuestSidebarProps {
   getGuestAvatarColor: (guestId: string) => string;
   tableLayout?: { tables: TableType[]; totalCapacity: number };
   onSeatedGuestClick?: (guestId: string, tableId: string, seatNumber: number) => void;
+  onUpdateGuest?: (guestId: string, field: keyof Guest | string, value: string) => void;
+  guestColumns?: GuestColumn[];
   guestGroups?: any[];
   onEditGroup?: (groupId: string) => void;
 }
@@ -32,6 +35,8 @@ export default function GuestSidebar({
   getGuestAvatarColor,
   tableLayout,
   onSeatedGuestClick,
+  onUpdateGuest,
+  guestColumns = [],
   guestGroups = [],
   onEditGroup
 }: GuestSidebarProps) {
@@ -42,10 +47,50 @@ export default function GuestSidebar({
   const [selectedRelationshipFilter, setSelectedRelationshipFilter] = useState<string[]>([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string[]>([]);
   const [activeGuestTab, setActiveGuestTab] = useState<'unseated' | 'seated'>('unseated');
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
+  const [editFormData, setEditFormData] = useState<Record<string, string>>({});
   
   // Refs for click outside detection
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const filtersPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Edit guest handlers
+  const handleEditGuest = (guest: Guest) => {
+    setEditingGuest(guest);
+    const formData: Record<string, string> = {
+      fullName: guest.fullName || ''
+    };
+    
+    // Add enabled column fields
+    guestColumns.forEach(column => {
+      const value = (guest as any)[column.key] || '';
+      formData[column.key] = value;
+    });
+    
+    setEditFormData(formData);
+  };
+
+  const handleSaveGuest = () => {
+    if (editingGuest && onUpdateGuest) {
+      // Always save fullName
+      if (editFormData.fullName.trim()) {
+        onUpdateGuest(editingGuest.id, 'fullName', editFormData.fullName.trim());
+      }
+      
+      // Save enabled column fields
+      guestColumns.forEach(column => {
+        const value = editFormData[column.key] || '';
+        onUpdateGuest(editingGuest.id, column.key, value.trim());
+      });
+    }
+    setEditingGuest(null);
+    setEditFormData({});
+  };
+
+  const handleCancelEdit = () => {
+    setEditingGuest(null);
+    setEditFormData({});
+  };
 
   // Get unassigned guests (guests not assigned to any existing table)
   const unassignedGuests = guests.filter(guest => {
@@ -432,7 +477,7 @@ export default function GuestSidebar({
             displayGuests.map((guest) => (
             <div
               key={guest.id}
-              className="flex items-center gap-3 p-3 bg-white rounded-[5px] border border-[#E0DBD7] hover:border-[#A85C36] transition-colors cursor-grab active:cursor-grabbing"
+              className="group flex items-center gap-3 p-3 bg-white rounded-[5px] border border-[#E0DBD7] hover:border-[#A85C36] transition-colors cursor-grab active:cursor-grabbing relative"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', guest.id);
@@ -478,8 +523,12 @@ export default function GuestSidebar({
               
               {/* Guest Info */}
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-[#332B42] text-sm truncate">
-                  {guest.fullName}
+                <div className={`text-sm truncate ${
+                  guest.fullName 
+                    ? 'font-medium text-[#332B42]' 
+                    : 'font-medium text-gray-400 italic'
+                }`}>
+                  {guest.fullName || 'Unnamed Guest'}
                 </div>
                 {guest.relationship && (
                   <div className="text-[#AB9C95] text-xs truncate">
@@ -511,6 +560,20 @@ export default function GuestSidebar({
                   );
                 })()}
               </div>
+
+              {/* Edit Icon - appears on hover */}
+              {onUpdateGuest && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditGuest(guest);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#F3F2F0] rounded text-[#AB9C95] hover:text-[#332B42] flex-shrink-0"
+                  title="Edit guest details"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             ))
           )}
@@ -586,6 +649,109 @@ export default function GuestSidebar({
             })
           )}
         </div>
+      )}
+
+      {/* Edit Guest Modal */}
+      {editingGuest && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+          onClick={handleCancelEdit}
+        >
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="bg-white rounded-[5px] shadow-xl w-full max-w-md flex flex-col relative mx-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#E0DBD7] flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="bg-[#A85C36] bg-opacity-10 rounded-full p-2">
+                  <User className="w-6 h-6 text-[#A85C36]" />
+                </div>
+                <h5 className="h5 text-left text-lg md:text-xl">Edit Guest Details</h5>
+              </div>
+              <button
+                onClick={handleCancelEdit}
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full ml-auto"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="space-y-4">
+                {/* Full Name - Always shown */}
+                <div>
+                  <label className="block text-sm font-medium text-[#332B42] mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.fullName || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42]"
+                    placeholder="Enter guest name"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Dynamic columns based on enabled columns */}
+                {guestColumns.map((column) => (
+                  <div key={column.id}>
+                    <label className="block text-sm font-medium text-[#332B42] mb-2">
+                      {column.label}
+                    </label>
+                    {column.type === 'select' && column.options ? (
+                      <select
+                        value={editFormData[column.key] || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, [column.key]: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none pr-8 text-[#332B42]"
+                      >
+                        <option value="">Select</option>
+                        {column.options.map((option, index) => (
+                          <option key={`${option}-${index}`} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={column.type === 'number' ? 'number' : 'text'}
+                        value={editFormData[column.key] || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, [column.key]: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] text-[#332B42]"
+                        placeholder={`Enter ${column.label.toLowerCase()}`}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Fixed Footer */}
+            <div className="flex gap-3 p-4 md:p-6 border-t border-[#E0DBD7] flex-shrink-0">
+              <button
+                onClick={handleCancelEdit}
+                className="btn-primaryinverse flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveGuest}
+                className="btn-primary flex-1"
+              >
+                Save Changes
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

@@ -128,77 +128,117 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           />
         )}
 
-        {/* Scaling Handles - Positioned in local coordinates, will rotate with table */}
+        {/* Scaling Handles - Different for circles vs rectangles */}
         {isSelected && !table.isDefault && (
           <>
-            {/* Corner handles for proportional scaling - positioned directly on table corners */}
-            <circle
-              cx={position.x - width / 2}
-              cy={position.y + height / 2}
-              r={8}
-              fill="white"
-              stroke="#a855f7"
-              strokeWidth={2}
-              className="cursor-nw-resize"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onResizeStart) {
-                  onResizeStart(table.id, 'nw', { width, height }, e);
-                }
-              }}
-            />
-            
-            <circle
-              cx={position.x - width / 2}
-              cy={position.y - height / 2}
-              r={8}
-              fill="white"
-              stroke="#a855f7"
-              strokeWidth={2}
-              className="cursor-ne-resize"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onResizeStart) {
-                  onResizeStart(table.id, 'ne', { width, height }, e);
-                }
-              }}
-            />
-            
-            <circle
-              cx={position.x + width / 2}
-              cy={position.y - height / 2}
-              r={8}
-              fill="white"
-              stroke="#a855f7"
-              strokeWidth={2}
-              className="cursor-se-resize"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onResizeStart) {
-                  onResizeStart(table.id, 'se', { width, height }, e);
-                }
-              }}
-            />
-            
-            <circle
-              cx={position.x + width / 2}
-              cy={position.y + height / 2}
-              r={8}
-              fill="white"
-              stroke="#a855f7"
-              strokeWidth={2}
-              className="cursor-sw-resize"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onResizeStart) {
-                  onResizeStart(table.id, 'sw', { width, height }, e);
-                }
-              }}
-            />
+            {table.type === 'round' ? (
+              /* Circle resize handles - positioned at 4 corners */
+              <>
+                {/* 4 handles around the circle at 90-degree intervals */}
+                {[
+                  { angle: 0, cursor: 'cursor-n-resize' },    // Top - points up
+                  { angle: 90, cursor: 'cursor-e-resize' },   // Right - points right  
+                  { angle: 180, cursor: 'cursor-s-resize' },  // Bottom - points down
+                  { angle: 270, cursor: 'cursor-w-resize' }   // Left - points left
+                ].map(({ angle, cursor }, index) => {
+                  const angleRad = (angle * Math.PI) / 180;
+                  const radius = width / 2 + 10; // 10px outside the circle
+                  const handleX = position.x + radius * Math.cos(angleRad);
+                  const handleY = position.y + radius * Math.sin(angleRad);
+                  
+                  return (
+                    <circle
+                      key={index}
+                      cx={handleX}
+                      cy={handleY}
+                      r={5}
+                      fill="white"
+                      stroke="#a855f7"
+                      strokeWidth={2}
+                      className={cursor}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onResizeStart) {
+                          onResizeStart(table.id, 'circle', { width, height }, e);
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </>
+            ) : (
+              /* Rectangle resize handles - positioned at corners */
+              <>
+                <circle
+                  cx={position.x - width / 2}
+                  cy={position.y + height / 2}
+                  r={5}
+                  fill="white"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  className="cursor-nw-resize"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onResizeStart) {
+                      onResizeStart(table.id, 'nw', { width, height }, e);
+                    }
+                  }}
+                />
+                
+                <circle
+                  cx={position.x - width / 2}
+                  cy={position.y - height / 2}
+                  r={5}
+                  fill="white"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  className="cursor-ne-resize"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onResizeStart) {
+                      onResizeStart(table.id, 'ne', { width, height }, e);
+                    }
+                  }}
+                />
+                
+                <circle
+                  cx={position.x + width / 2}
+                  cy={position.y - height / 2}
+                  r={5}
+                  fill="white"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  className="cursor-se-resize"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onResizeStart) {
+                      onResizeStart(table.id, 'se', { width, height }, e);
+                    }
+                  }}
+                />
+                
+                <circle
+                  cx={position.x + width / 2}
+                  cy={position.y + height / 2}
+                  r={5}
+                  fill="white"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  className="cursor-sw-resize"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (onResizeStart) {
+                      onResizeStart(table.id, 'sw', { width, height }, e);
+                    }
+                  }}
+                />
+              </>
+            )}
           </>
         )}
       </g>
@@ -600,8 +640,9 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
       {/* Control Buttons - Only show when selected */}
       {isSelected && !table.isDefault && (
         <g>
-          {/* Rotation Handle - positioned above action buttons (center-aligned) */}
-          <g>
+          {/* Rotation Handle - only show for non-circle tables */}
+          {table.type !== 'round' && (
+            <g>
             {/* Shadow for rotation handle */}
             <circle
               cx={position.x}
@@ -683,7 +724,8 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             >
               ↻
             </text>
-          </g>
+            </g>
+          )}
 
           {/* Action Buttons Row */}
           {/* Clone Button - positioned to the left */}

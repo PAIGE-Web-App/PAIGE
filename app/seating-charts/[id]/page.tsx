@@ -508,7 +508,7 @@ export default function SeatingChartDetailPage() {
       <WeddingBanner />
 
       {/* Main Content Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1400px' }}>
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1800px' }}>
         {/* Chart Header */}
         <div className="flex items-center justify-between py-6 bg-[#F3F2F0] border-b border-[#AB9C95] sticky top-0 z-20" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
           <div className="flex items-center gap-4">
@@ -581,11 +581,11 @@ export default function SeatingChartDetailPage() {
           {/* Chart Stats */}
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <div className="text-2xl font-semibold text-[#332B42] font-work">{chart.guestCount}</div>
+              <div className="text-lg font-normal text-[#332B42] font-work">{chart.guestCount}</div>
               <div className="text-xs text-[#AB9C95] font-work">Guests</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-semibold text-[#332B42] font-work">{chart.tableCount}</div>
+              <div className="text-lg font-normal text-[#332B42] font-work">{chart.tableCount}</div>
               <div className="text-xs text-[#AB9C95] font-work">Tables</div>
             </div>
             <button
@@ -722,6 +722,7 @@ export default function SeatingChartDetailPage() {
                     onUpdate={(updates) => updateWizardState({ tableLayout: { ...wizardState.tableLayout, ...updates } })}
                     guestCount={wizardState.guests.length}
                     guests={wizardState.guests}
+                    guestColumns={guestColumns}
                     guestGroups={wizardState.guestGroups || []}
                     onEditGroup={handleEditGroup}
                     onGuestAssignment={(guestId: string, tableId: string, seatIndex: number) => {
@@ -733,6 +734,7 @@ export default function SeatingChartDetailPage() {
                       );
                       updateWizardState({ guests: updatedGuests });
                     }}
+                    onUpdateGuest={updateGuest}
                     profileImageUrl={profileImageUrl}
                     userName={userName}
                     partnerName={partnerName}

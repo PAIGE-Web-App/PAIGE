@@ -25,12 +25,19 @@ export const useTableResize = () => {
     mouseX: number,
     mouseY: number
   ) => {
-    const isCorner = handleType.includes('nw') || handleType.includes('ne') || 
-                     handleType.includes('se') || handleType.includes('sw');
+    let resizeMode: 'corner' | 'side' | null = null;
+    
+    if (handleType === 'circle') {
+      resizeMode = 'corner'; // Treat circle resize as corner mode for simplicity
+    } else {
+      const isCorner = handleType.includes('nw') || handleType.includes('ne') || 
+                       handleType.includes('se') || handleType.includes('sw');
+      resizeMode = isCorner ? 'corner' : 'side';
+    }
     
     setResizeState({
       isResizing: true,
-      resizeMode: isCorner ? 'corner' : 'side',
+      resizeMode,
       handleType,
       startDimensions,
       startMousePos: { x: mouseX, y: mouseY }
@@ -41,7 +48,9 @@ export const useTableResize = () => {
     mouseX: number,
     mouseY: number,
     tableShape: TableShape,
-    tableRotation: number = 0
+    tableRotation: number = 0,
+    tableCenterX?: number,
+    tableCenterY?: number
   ): { width: number; height: number } => {
     if (!resizeState.isResizing || !resizeState.startDimensions || !resizeState.startMousePos) {
       return { width: tableShape.width, height: tableShape.height };
@@ -63,7 +72,27 @@ export const useTableResize = () => {
     let newWidth = resizeState.startDimensions.width;
     let newHeight = resizeState.startDimensions.height;
 
-    if (resizeState.resizeMode === 'corner') {
+    if (resizeState.handleType === 'circle') {
+      // Circle resize - use mouse movement to determine resize direction
+      const originalRadius = resizeState.startDimensions.width / 2;
+      
+      // Calculate the distance the mouse moved from the start position
+      const deltaDistance = Math.sqrt(localDeltaX * localDeltaX + localDeltaY * localDeltaY);
+      
+      // For circle resize, we want to determine if we're moving outward or inward
+      // We'll use the overall movement to determine the direction
+      // Positive movement = outward (grow), negative = inward (shrink)
+      const movementDirection = Math.sign(localDeltaX + localDeltaY);
+      
+      // Calculate new radius based on movement
+      // Use a scaling factor to make the resize feel natural
+      const resizeScale = 0.5; // Adjust this to make resize more/less sensitive
+      const radiusChange = deltaDistance * movementDirection * resizeScale;
+      const newRadius = Math.max(30, originalRadius + radiusChange);
+      
+      newWidth = newRadius * 2; // Circle diameter
+      newHeight = newRadius * 2; // Keep circle round
+    } else if (resizeState.resizeMode === 'corner') {
       // Proportional scaling from corner - handle each direction separately
       if (resizeState.handleType?.includes('e')) { // right side
         newWidth = Math.max(60, newWidth + localDeltaX);
