@@ -1,32 +1,45 @@
 import React, { useState } from 'react';
-import { Plus, RotateCcw, ChevronDown } from 'lucide-react';
+import { Plus, RotateCcw, ChevronDown, MapPin, Save } from 'lucide-react';
 
 interface CanvasControlsProps {
   tableCount: number;
   totalCapacity: number;
+  seatedGuests: number;
   onReset: () => void;
   onAddTable: () => void;
   onAddFromTemplate: () => void;
+  onAddVenueItem: () => void;
+  onSaveAsTemplate: () => void;
+  isTemplateMode?: boolean;
 }
 
 export const CanvasControls: React.FC<CanvasControlsProps> = ({
   tableCount,
   totalCapacity,
+  seatedGuests,
   onReset,
   onAddTable,
-  onAddFromTemplate
+  onAddFromTemplate,
+  onAddVenueItem,
+  onSaveAsTemplate,
+  isTemplateMode = false
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   return (
     <>
       {/* Fixed Header */}
-      <div className="absolute top-4 left-4 text-lg text-[#332B42] font-playfair font-semibold pointer-events-none z-20">
+      <div className="absolute top-4 left-4 text-base text-[#332B42] font-playfair font-medium pointer-events-none z-20">
         Configure your Layout
       </div>
       
       {/* Fixed Total Tables Stat */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-sm border border-[#E0DBD7] rounded-lg px-3 py-2 text-xs text-[#AB9C95] shadow-sm pointer-events-none z-20">
-        <span className="font-medium text-[#332B42]">{tableCount}</span> Total Tables • <span className="font-medium text-[#332B42]">{totalCapacity}</span> seats
+        <span className="font-medium text-[#332B42]">{tableCount}</span> Total Tables • <span className="font-medium text-[#332B42]">
+          {isTemplateMode 
+            ? `${totalCapacity - 2} seats available` 
+            : `${seatedGuests}/${totalCapacity} seats filled`
+          }
+        </span>
       </div>
       
       {/* Fixed Add Table Button */}
@@ -47,7 +60,7 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
             className="btn-primary flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            Add
+            Actions
             <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -60,7 +73,7 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
               />
               
               {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
                 <div className="p-1">
                   <button
                     onClick={() => {
@@ -90,6 +103,38 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
                       <div className="font-medium">Add Single Table</div>
                       <div className="text-xs text-gray-500">
                         Create one custom table
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onAddVenueItem();
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <MapPin className="w-4 h-4 text-purple-600" />
+                    <div className="text-left">
+                      <div className="font-medium">Venue Items</div>
+                      <div className="text-xs text-gray-500">
+                        DJ booth, dance floor, cake area, etc.
+                      </div>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onSaveAsTemplate();
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <Save className="w-4 h-4 text-blue-600" />
+                    <div className="text-left">
+                      <div className="font-medium">Save as Template</div>
+                      <div className="text-xs text-gray-500">
+                        Save current layout for reuse
                       </div>
                     </div>
                   </button>

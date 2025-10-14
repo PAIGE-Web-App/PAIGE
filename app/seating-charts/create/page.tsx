@@ -432,7 +432,8 @@ export default function CreateSeatingChartPage() {
             rotation: table.rotation || 0, // Save the rotation
             guests: assignedGuests,
             guestAssignments: guestAssignmentsForTable, // Store seat indices with guest IDs
-            isActive: true
+            isActive: true,
+            isVenueItem: table.isVenueItem || false // Preserve venue item property
           };
         }),
         guests: wizardState.guests,

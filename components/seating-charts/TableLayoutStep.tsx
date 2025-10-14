@@ -20,6 +20,7 @@ interface TableLayoutStepProps {
   profileImageUrl?: string;
   userName?: string;
   partnerName?: string;
+  onTemplateSaved?: () => void;
 }
 
 const TABLE_TYPES = [
@@ -44,7 +45,8 @@ export default function TableLayoutStep({
   onUpdateGuest,
   profileImageUrl,
   userName,
-  partnerName
+  partnerName,
+  onTemplateSaved
 }: TableLayoutStepProps) {
   const [showAddTable, setShowAddTable] = useState(false);
   const [newTable, setNewTable] = useState({
@@ -88,7 +90,7 @@ export default function TableLayoutStep({
     };
     
     const updatedTables = [...tableLayout.tables, newTableData];
-    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
     
     onUpdate({ tables: updatedTables, totalCapacity });
     
@@ -107,7 +109,7 @@ export default function TableLayoutStep({
     const updatedTables = tableLayout.tables.map(t => 
       t.id === tableId ? { ...t, ...updates } : t
     );
-    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
     onUpdate({ tables: updatedTables, totalCapacity });
   };
 
@@ -118,7 +120,7 @@ export default function TableLayoutStep({
 
   const removeTable = (tableId: string) => {
     const updatedTables = tableLayout.tables.filter(t => t.id !== tableId);
-    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
     onUpdate({ tables: updatedTables, totalCapacity });
   };
 
@@ -220,7 +222,12 @@ export default function TableLayoutStep({
         onUpdate={onUpdate}
         onAddTable={(newTable) => {
           const updatedTables = [...tableLayout.tables, newTable];
-          const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+          const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
+          onUpdate({ tables: updatedTables, totalCapacity });
+        }}
+        onAddVenueItem={(newVenueItem) => {
+          const updatedTables = [...tableLayout.tables, newVenueItem];
+          const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
           onUpdate({ tables: updatedTables, totalCapacity });
         }}
         guestCount={guestCount}
@@ -237,6 +244,7 @@ export default function TableLayoutStep({
         profileImageUrl={profileImageUrl}
         userName={userName}
         partnerName={partnerName}
+        onTemplateSaved={onTemplateSaved}
       />
     </div>
   );

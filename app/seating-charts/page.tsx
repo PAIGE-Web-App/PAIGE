@@ -11,6 +11,9 @@ import GlobalGmailBanner from '@/components/GlobalGmailBanner';
 import { SeatingChart } from '@/types/seatingChart';
 import { getSeatingCharts, deleteSeatingChart } from '@/lib/seatingChartService';
 import SeatingChartCard from '@/components/seating-charts/SeatingChartCard';
+import { getTemplates, SavedTemplate, cloneTemplate, deleteTemplate } from '@/lib/templateService';
+import TemplateCard from '@/components/seating-charts/TemplateCard';
+import DeleteTemplateModal from '@/components/seating-charts/DeleteTemplateModal';
 
 export default function SeatingChartsPage() {
   const { user } = useAuth();
@@ -19,12 +22,19 @@ export default function SeatingChartsPage() {
   const { showCompletionToast } = useGlobalCompletionToasts();
   
   const [seatingCharts, setSeatingCharts] = useState<SeatingChart[]>([]);
+  const [templates, setTemplates] = useState<SavedTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'charts' | 'templates'>('charts');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<SavedTemplate | null>(null);
 
-  // Load seating charts from Firestore
+  // Load seating charts from Firestore and templates from localStorage
   useEffect(() => {
-    const loadCharts = async () => {
+    const loadData = async () => {
       if (!user) {
+        // Still load templates even if no user (localStorage)
+        const savedTemplates = getTemplates();
+        setTemplates(savedTemplates);
         setIsLoading(false);
         return;
       }
@@ -36,19 +46,79 @@ export default function SeatingChartsPage() {
         console.log('Chart IDs:', charts.map(c => c.id));
         console.log('Chart names:', charts.map(c => c.name));
         setSeatingCharts(charts);
+        
+        // Load templates from localStorage
+        const savedTemplates = getTemplates();
+        setTemplates(savedTemplates);
       } catch (error) {
         console.error('Error loading seating charts:', error);
         showErrorToast('Failed to load seating charts');
+        
+        // Still load templates even if charts fail
+        const savedTemplates = getTemplates();
+        setTemplates(savedTemplates);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadCharts();
+    loadData();
   }, [user]);
 
   const handleCreateChart = () => {
     router.push('/seating-charts/create');
+  };
+
+  const refreshTemplates = () => {
+    const savedTemplates = getTemplates();
+    setTemplates(savedTemplates);
+  };
+
+  const handleEditTemplate = (template: SavedTemplate) => {
+    router.push(`/seating-charts/template/${template.id}`);
+  };
+
+  const handleCloneTemplate = (template: SavedTemplate) => {
+    const newName = `${template.name} Copy`;
+    const cloned = cloneTemplate(template.id, newName);
+    if (cloned) {
+      setTemplates(getTemplates());
+      showSuccessToast('Template cloned successfully!');
+    } else {
+      showErrorToast('Failed to clone template');
+    }
+  };
+
+  const handleDeleteTemplate = (template: SavedTemplate) => {
+    setTemplateToDelete(template);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTemplate = () => {
+    if (!templateToDelete) return;
+    
+    const success = deleteTemplate(templateToDelete.id);
+    if (success) {
+      const updatedTemplates = getTemplates();
+      setTemplates(updatedTemplates);
+      
+      // If no templates left and we're on templates tab, switch to charts tab
+      if (updatedTemplates.length === 0 && activeTab === 'templates') {
+        setActiveTab('charts');
+      }
+      
+      showSuccessToast('Template deleted successfully');
+    } else {
+      showErrorToast('Failed to delete template');
+    }
+    
+    setShowDeleteModal(false);
+    setTemplateToDelete(null);
+  };
+
+  const cancelDeleteTemplate = () => {
+    setShowDeleteModal(false);
+    setTemplateToDelete(null);
   };
 
   const handleCleanupDuplicates = async () => {
@@ -147,29 +217,64 @@ export default function SeatingChartsPage() {
         <WeddingBanner />
       
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8" style={{ width: '100%', maxWidth: '1152px' }}>
-          {/* Seating Charts Header - Only show when there are charts */}
-          {!isLoading && seatingCharts.length > 0 && (
-            <div className="flex items-center justify-between py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95]" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
-              <h4 className="text-lg font-playfair font-medium text-[#332B42]">Seating Charts</h4>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handleCleanupDuplicates}
-                  className="btn-primaryinverse flex items-center gap-2"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Cleaning...' : 'Cleanup Duplicates'}
-                </button>
-                <button
-                  onClick={handleCreateChart}
-                  className="btn-primary flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Chart
-                </button>
+          {/* Header - Show when there are charts or templates */}
+          {!isLoading && (seatingCharts.length > 0 || templates.length > 0) && (
+            <div className="py-6 px-0 lg:px-4 bg-[#F3F2F0] border-b border-[#AB9C95]" style={{ minHeight: 80, borderBottomWidth: '0.5px' }}>
+              {/* Title */}
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-playfair font-medium text-[#332B42]">
+                  {activeTab === 'charts' ? 'Seating Charts' : 'Saved Templates'}
+                </h4>
+                {activeTab === 'charts' && (
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleCleanupDuplicates}
+                      className="btn-primaryinverse flex items-center gap-2"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Cleaning...' : 'Cleanup Duplicates'}
+                    </button>
+                    <button
+                      onClick={handleCreateChart}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Chart
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
           
+          {/* Tabs - Only show if there are templates */}
+          {!isLoading && templates.length > 0 && (
+            <div className="py-4">
+              <div className="flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('charts')}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'charts'
+                      ? 'border-[#A85C36] text-[#A85C36]'
+                      : 'border-transparent text-[#AB9C95] hover:text-[#332B42]'
+                  }`}
+                >
+                  Guest Lists & Charts
+                </button>
+                <button
+                  onClick={() => setActiveTab('templates')}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'templates'
+                      ? 'border-[#A85C36] text-[#A85C36]'
+                      : 'border-transparent text-[#AB9C95] hover:text-[#332B42]'
+                  }`}
+                >
+                  Templates
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Main Content */}
           <div className="py-6">
             {isLoading ? (
@@ -238,7 +343,9 @@ export default function SeatingChartsPage() {
                   ))}
                 </div>
               </div>
-            ) : seatingCharts.length === 0 ? (
+            ) : activeTab === 'charts' ? (
+              // Charts tab content
+              seatingCharts.length === 0 ? (
               <div className="text-center py-16 flex flex-col items-center justify-center min-h-[60vh]">
                 <div className="mx-auto mb-3" style={{ width: '240px' }}>
                   <img 
@@ -259,16 +366,61 @@ export default function SeatingChartsPage() {
                   Create Your First Chart
                 </button>
               </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {seatingCharts.map((chart) => (
+                    <SeatingChartCard key={chart.id} chart={chart} />
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {seatingCharts.map((chart) => (
-                  <SeatingChartCard key={chart.id} chart={chart} />
-                ))}
-              </div>
+              // Templates tab content
+              templates.length === 0 ? (
+                <div className="text-center py-16 flex flex-col items-center justify-center min-h-[60vh]">
+                  <div className="mx-auto mb-3" style={{ width: '240px' }}>
+                    <img 
+                      src="/SeatingArrangement.png" 
+                      alt="Templates" 
+                      className="w-full h-auto object-contain"
+                    />
+                  </div>
+                  <h4 className="text-[#332B42] mb-3">No Templates Yet</h4>
+                  <p className="font-work text-[#332B42] mb-8 max-w-sm mx-auto text-sm leading-tight">
+                    Create a seating layout and save it as a template to reuse for future events
+                  </p>
+                  <button
+                    onClick={handleCreateChart}
+                    className="btn-primary flex items-center gap-2 mx-auto"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Your First Chart
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {templates.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      template={template}
+                      onEdit={handleEditTemplate}
+                      onClone={handleCloneTemplate}
+                      onDelete={handleDeleteTemplate}
+                    />
+                  ))}
+                </div>
+              )
             )}
           </div>
         </div>
       </div>
+
+      {/* Delete Template Modal */}
+      <DeleteTemplateModal
+        isOpen={showDeleteModal}
+        onClose={cancelDeleteTemplate}
+        onConfirm={confirmDeleteTemplate}
+        template={templateToDelete}
+      />
     </>
   );
 }

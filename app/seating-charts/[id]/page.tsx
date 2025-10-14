@@ -18,6 +18,7 @@ import { OptionsEditModal } from '@/components/seating-charts';
 import AddColumnModal from '@/components/seating-charts/AddColumnModal';
 import FamilyGroupingModal from '@/components/seating-charts/FamilyGroupingModal';
 import { updateSeatingChart } from '@/lib/seatingChartService';
+import { getTemplates } from '@/lib/templateService';
 
 export default function SeatingChartDetailPage() {
   const { user, profileImageUrl } = useAuth();
@@ -112,9 +113,10 @@ export default function SeatingChartDetailPage() {
               tables: (chartData.tables || []).map(table => ({
                 ...table,
                 description: '', // Add missing description property with default value
-                isDefault: table.id === 'sweetheart-table' // Ensure sweetheart table is marked as default
+                isDefault: table.id === 'sweetheart-table', // Ensure sweetheart table is marked as default
+                isVenueItem: table.isVenueItem || false // Preserve venue item property
               })),
-              totalCapacity: chartData.tableCount || 0
+              totalCapacity: (chartData.tables || []).reduce((sum, table) => sum + (table.capacity || 0), 0) - 2 // Always subtract 2 for sweetheart table
             },
             guestGroups: chartData.guestGroups || []
           });
@@ -261,6 +263,12 @@ export default function SeatingChartDetailPage() {
     showSuccessToast('Group deleted successfully!');
   };
 
+  const handleTemplateSaved = () => {
+    // This function can be used to refresh templates list if needed
+    // For now, we don't need to do anything since templates are saved to localStorage
+    console.log('Template saved successfully');
+  };
+
     const handleSave = async () => {
       if (!user || !chart) {
         return;
@@ -312,7 +320,8 @@ export default function SeatingChartDetailPage() {
           rotation: table.rotation || 0, // Save the rotation
           guests: assignedGuests,
           guestAssignments: guestAssignmentsForTable, // Store seat indices with guest IDs
-          isActive: true
+          isActive: true,
+          isVenueItem: table.isVenueItem || false // Preserve venue item property
         };
       });
       
@@ -738,6 +747,7 @@ export default function SeatingChartDetailPage() {
                     profileImageUrl={profileImageUrl}
                     userName={userName}
                     partnerName={partnerName}
+                    onTemplateSaved={handleTemplateSaved}
                   />
                 </div>
                 <div className="py-3 px-0 lg:px-4">

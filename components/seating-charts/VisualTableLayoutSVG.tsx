@@ -4,7 +4,11 @@ import { Trash2 } from 'lucide-react';
 import { TableType, Guest } from '../../types/seatingChart';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserProfileData } from '../../hooks/useUserProfileData';
+import { useCustomToast } from '../../hooks/useCustomToast';
 import AddTableModal from './AddTableModal';
+import AddVenueItemModal from './AddVenueItemModal';
+import EditVenueItemModal from './EditVenueItemModal';
+import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { CanvasControls } from './components/CanvasControls';
 import { SVGCanvas } from './components/SVGCanvas';
 import { TableEditModal } from './components/TableEditModal';
@@ -23,6 +27,7 @@ interface VisualTableLayoutSVGProps {
   };
   onUpdate: (updates: { tables: TableType[]; totalCapacity: number }) => void;
   onAddTable: (table: TableType) => void;
+  onAddVenueItem: (venueItem: TableType) => void;
   guestCount: number;
   guests: Guest[];
   onGuestAssignment?: (guestId: string, tableId: string, seatIndex: number) => void;
@@ -36,12 +41,15 @@ interface VisualTableLayoutSVGProps {
   userName?: string;
   partnerName?: string;
   guestAssignments?: Record<string, any>;
+  onTemplateSaved?: () => void;
+  hideGuestSidebar?: boolean;
 }
 
 export default function VisualTableLayoutSVG({
   tableLayout,
   onUpdate,
   onAddTable,
+  onAddVenueItem,
   guestCount,
   guests,
   onGuestAssignment,
@@ -54,15 +62,22 @@ export default function VisualTableLayoutSVG({
   profileImageUrl,
   userName,
   partnerName,
-  guestAssignments: propGuestAssignments
+  guestAssignments: propGuestAssignments,
+  onTemplateSaved,
+  hideGuestSidebar = false
 }: VisualTableLayoutSVGProps) {
   
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<string | null>(null);
+  const [editingVenueItem, setEditingVenueItem] = useState<string | null>(null);
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
+  const [showAddVenueItemModal, setShowAddVenueItemModal] = useState(false);
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [showAITableModal, setShowAITableModal] = useState(false);
   const [highlightedGuest, setHighlightedGuest] = useState<string | null>(null);
+  
+  const { showSuccessToast } = useCustomToast();
   
   // Table resize state with session persistence
   const [tableDimensions, setTableDimensions] = useState<Record<string, { width: number; height: number }>>(() => {
@@ -371,10 +386,27 @@ export default function VisualTableLayoutSVG({
       return table;
     });
     
-    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
     onUpdate({ tables: updatedTables, totalCapacity });
     
     setEditingTable(null);
+  };
+
+  const saveVenueItemEditing = (tableId: string, updates: Partial<TableType>) => {
+    const updatedTables = tableLayout.tables.map(table => {
+      if (table.id === tableId) {
+        return {
+          ...table,
+          ...updates
+        };
+      }
+      return table;
+    });
+    
+    const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
+    onUpdate({ tables: updatedTables, totalCapacity });
+    
+    setEditingVenueItem(null);
   };
 
   const handleGenerateTableLayout = (generatedTables: TableType[], totalCapacity: number, positions?: Array<{ id: string; x: number; y: number }>) => {
@@ -405,7 +437,9 @@ export default function VisualTableLayoutSVG({
       sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(newPositions));
     }
     
-    onUpdate({ tables: newTables, totalCapacity });
+    // Recalculate total capacity based on the actual newTables array, always subtract 2 for sweetheart table
+    const recalculatedTotalCapacity = newTables.reduce((sum, table) => sum + table.capacity, 0) - 2;
+    onUpdate({ tables: newTables, totalCapacity: recalculatedTotalCapacity });
     setShowAITableModal(false);
   };
 
@@ -416,6 +450,30 @@ export default function VisualTableLayoutSVG({
     };
     
     onAddTable(tableWithId);
+  };
+
+  const handleAddVenueItem = (newVenueItem: any) => {
+    const venueItemWithId = {
+      ...newVenueItem,
+      id: newVenueItem.id || `venue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      isVenueItem: true
+    };
+    
+    onAddVenueItem(venueItemWithId);
+    setShowAddVenueItemModal(false);
+  };
+
+  const handleSaveAsTemplate = (templateData: { name: string; description: string; tables: TableType[] }) => {
+    // Template is already saved in the modal, just close it
+    setShowSaveAsTemplateModal(false);
+    
+    // Show success toast
+    showSuccessToast(`Template "${templateData.name}" saved successfully!`);
+    
+    // Notify parent component that a template was saved
+    if (onTemplateSaved) {
+      onTemplateSaved();
+    }
   };
 
   // Canvas event handlers
@@ -484,33 +542,44 @@ export default function VisualTableLayoutSVG({
       }}
     >
       {/* Guest Assignment Sidebar - Left side like todo page */}
-      <GuestSidebar
-        guests={guests}
-        guestAssignments={guestAssignments}
-        onGuestAssignment={onGuestAssignment}
-        showingActions={showingActions}
-        onAvatarClick={handleAvatarClickWrapper}
-        onMoveGuest={handleMoveGuestWrapper}
-        onRemoveGuest={handleRemoveGuestWrapper}
-        getGuestAvatarColor={getGuestAvatarColor}
-        tableLayout={tableLayout}
-        onSeatedGuestClick={handleSeatedGuestClick}
-        onUpdateGuest={onUpdateGuest}
-        guestColumns={guestColumns}
-        guestGroups={guestGroups}
-        onEditGroup={onEditGroup}
-      />
+      {!hideGuestSidebar && (
+        <GuestSidebar
+          guests={guests}
+          guestAssignments={guestAssignments}
+          onGuestAssignment={onGuestAssignment}
+          showingActions={showingActions}
+          onAvatarClick={handleAvatarClickWrapper}
+          onMoveGuest={handleMoveGuestWrapper}
+          onRemoveGuest={handleRemoveGuestWrapper}
+          getGuestAvatarColor={getGuestAvatarColor}
+          tableLayout={tableLayout}
+          onSeatedGuestClick={handleSeatedGuestClick}
+          onUpdateGuest={onUpdateGuest}
+          guestColumns={guestColumns}
+          guestGroups={guestGroups}
+          onEditGroup={onEditGroup}
+        />
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 bg-white flex flex-col min-h-0">
         <div ref={canvasRef} className="relative w-full h-full border-0 outline-none m-0 p-0">
           {/* Canvas Controls */}
           <CanvasControls
-            tableCount={tableLayout.tables.length}
+            tableCount={tableLayout.tables.filter(t => !t.isVenueItem).length}
             totalCapacity={tableLayout.totalCapacity}
+            seatedGuests={Object.keys(guestAssignments).filter(guestId => {
+              const assignment = guestAssignments[guestId];
+              const table = tableLayout.tables.find(t => t.id === assignment.tableId);
+              // Only count guests at non-sweetheart tables
+              return table && table.name !== 'Sweetheart Table';
+            }).length}
             onReset={resetCanvas}
             onAddTable={() => setShowAddTableModal(true)}
             onAddFromTemplate={() => setShowAITableModal(true)}
+            onAddVenueItem={() => setShowAddVenueItemModal(true)}
+            onSaveAsTemplate={() => setShowSaveAsTemplateModal(true)}
+            isTemplateMode={hideGuestSidebar}
           />
           
           
@@ -566,7 +635,7 @@ export default function VisualTableLayoutSVG({
             onRemoveTable={(tableId) => {
               // Remove table first
               const updatedTables = tableLayout.tables.filter(t => t.id !== tableId);
-              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
               onUpdate({ tables: updatedTables, totalCapacity });
               
               // Clean up any stale assignments for tables that no longer exist
@@ -578,7 +647,13 @@ export default function VisualTableLayoutSVG({
             }}
             onEditTable={(tableId) => {
               const table = tableLayout.tables.find(t => t.id === tableId);
-              if (table) startEditing(table);
+              if (table) {
+                if (table.isVenueItem) {
+                  setEditingVenueItem(tableId);
+                } else {
+                  startEditing(table);
+                }
+              }
             }}
             onCloneTable={(tableId) => {
               // Find the table to clone
@@ -595,7 +670,7 @@ export default function VisualTableLayoutSVG({
               
               // Add the cloned table
               const updatedTables = [...tableLayout.tables, clonedTable];
-              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
+              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Always subtract 2 for sweetheart table
               onUpdate({ tables: updatedTables, totalCapacity });
               
               // Select the new table
@@ -617,15 +692,25 @@ export default function VisualTableLayoutSVG({
             </div>
           )}
 
-          {/* Edit Modal */}
-          {editingTable && (
-            <TableEditModal
-              isOpen={!!editingTable}
-              table={tableLayout.tables.find(t => t.id === editingTable)!}
-              onSave={saveEditing}
-              onCancel={() => setEditingTable(null)}
-            />
-          )}
+      {/* Edit Modal */}
+      {editingTable && (
+        <TableEditModal
+          isOpen={!!editingTable}
+          table={tableLayout.tables.find(t => t.id === editingTable)!}
+          onSave={saveEditing}
+          onCancel={() => setEditingTable(null)}
+        />
+      )}
+
+      {/* Edit Venue Item Modal */}
+      {editingVenueItem && (
+        <EditVenueItemModal
+          isOpen={!!editingVenueItem}
+          venueItem={tableLayout.tables.find(t => t.id === editingVenueItem)!}
+          onUpdateVenueItem={saveVenueItemEditing}
+          onClose={() => setEditingVenueItem(null)}
+        />
+      )}
         </div>
       </div>
 
@@ -634,6 +719,21 @@ export default function VisualTableLayoutSVG({
         isOpen={showAddTableModal}
         onClose={() => setShowAddTableModal(false)}
         onAddTable={handleAddTable}
+      />
+
+      {/* Add Venue Item Modal */}
+      <AddVenueItemModal
+        isOpen={showAddVenueItemModal}
+        onClose={() => setShowAddVenueItemModal(false)}
+        onAddVenueItem={handleAddVenueItem}
+      />
+
+      {/* Save as Template Modal */}
+      <SaveAsTemplateModal
+        isOpen={showSaveAsTemplateModal}
+        onClose={() => setShowSaveAsTemplateModal(false)}
+        onSaveTemplate={handleSaveAsTemplate}
+        currentTables={tableLayout.tables}
       />
 
       {/* AI Table Layout Modal */}

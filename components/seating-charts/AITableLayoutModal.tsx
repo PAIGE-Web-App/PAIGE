@@ -299,7 +299,7 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
     if (!template) return;
     
     const generatedTables = generateTablesFromTemplate(template, guestCount);
-    const totalCapacity = generatedTables.reduce((sum, table) => sum + table.capacity, 0);
+    const totalCapacity = generatedTables.reduce((sum, table) => sum + table.capacity, 0) - 2; // Always subtract 2 for sweetheart table
     
     const tablesWithIds: TableType[] = generatedTables.map((table, index) => ({
       id: `table-${Date.now()}-${index}`,
@@ -363,7 +363,7 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
           rotation: 0
         }));
 
-        onGenerateLayout(generatedTables, data.totalCapacity || generatedTables.reduce((sum, t) => sum + t.capacity, 0));
+        onGenerateLayout(generatedTables, data.totalCapacity || (generatedTables.reduce((sum, t) => sum + t.capacity, 0) - 2)); // Always subtract 2 for sweetheart table
         onClose();
       }
     } catch (error) {
@@ -390,7 +390,7 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
         }
       ];
       
-      onGenerateLayout(fallbackTables, 10);
+      onGenerateLayout(fallbackTables, 8); // 10 - 2 for sweetheart table
       onClose();
     } finally {
       setIsGenerating(false);

@@ -108,9 +108,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             cx={position.x}
             cy={position.y}
             r={width / 2}
-            fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
+            fill={table.isDefault ? '#fce7f3' : table.isVenueItem ? '#f0f9ff' : '#f3f4f6'}
             stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
             strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
+            strokeDasharray={table.isVenueItem ? '5,5' : 'none'}
             filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
             {...tableProps}
           />
@@ -120,9 +121,10 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             y={position.y - height / 2}
             width={width}
             height={height}
-            fill={table.isDefault ? '#fce7f3' : '#f3f4f6'}
+            fill={table.isDefault ? '#fce7f3' : table.isVenueItem ? '#f0f9ff' : '#f3f4f6'}
             stroke={isSelected ? '#a855f7' : isHovered ? '#a3a3a3' : '#d1d5db'}
             strokeWidth={isSelected ? 3 : isHovered ? 2 : 1}
+            strokeDasharray={table.isVenueItem ? '5,5' : 'none'}
             filter="drop-shadow(2px 2px 5px rgba(0,0,0,0.1))"
             {...tableProps}
           />
@@ -172,7 +174,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
               <>
                 <circle
                   cx={position.x - width / 2}
-                  cy={position.y + height / 2}
+                  cy={position.y - height / 2}
                   r={5}
                   fill="white"
                   stroke="#a855f7"
@@ -188,7 +190,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                 />
                 
                 <circle
-                  cx={position.x - width / 2}
+                  cx={position.x + width / 2}
                   cy={position.y - height / 2}
                   r={5}
                   fill="white"
@@ -206,7 +208,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                 
                 <circle
                   cx={position.x + width / 2}
-                  cy={position.y - height / 2}
+                  cy={position.y + height / 2}
                   r={5}
                   fill="white"
                   stroke="#a855f7"
@@ -222,7 +224,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                 />
                 
                 <circle
-                  cx={position.x + width / 2}
+                  cx={position.x - width / 2}
                   cy={position.y + height / 2}
                   r={5}
                   fill="white"
@@ -277,7 +279,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
       </foreignObject>
       
       {/* Seat Metadata for non-sweetheart tables */}
-      {!table.isDefault && (
+      {!table.isDefault && !table.isVenueItem && (
         <foreignObject
           x={position.x - width / 2 + 12}
           y={position.y + 8}
@@ -310,7 +312,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
       )}
 
       {/* Seat Positions */}
-      {!table.isDefault && seatPositions.map((seat, index) => {
+      {!table.isDefault && !table.isVenueItem && seatPositions.map((seat, index) => {
         const seatPosition = { x: position.x + seat.x, y: position.y + seat.y };
         
         

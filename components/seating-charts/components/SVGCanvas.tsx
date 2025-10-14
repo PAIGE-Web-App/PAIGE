@@ -152,8 +152,15 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
             <text x={0} y={70} textAnchor="middle" dominantBaseline="middle" fontSize={14} fill="#AB9C95">Add tables to see them appear here</text>
           </g>
         ) : (
-          /* Tables */
-          tables.map(table => {
+          /* Tables - Render venue items first (behind), then regular tables (on top) */
+          [...tables]
+            .sort((a, b) => {
+              // Venue items go first (behind), then regular tables (on top)
+              if (a.isVenueItem && !b.isVenueItem) return -1;
+              if (!a.isVenueItem && b.isVenueItem) return 1;
+              return 0;
+            })
+            .map(table => {
             const position = tablePositions.find(p => p.id === table.id);
         if (!position) {
           return null;

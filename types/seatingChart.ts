@@ -51,13 +51,14 @@ export interface GuestColumn {
 export interface Table {
   id: string;
   name: string;
-  type: 'round' | 'long' | 'oval' | 'square';
+  type: 'round' | 'long' | 'oval' | 'square' | 'venue-item';
   capacity: number;
   position: { x: number; y: number };
   rotation?: number; // Table rotation in degrees
   guests: string[]; // Guest IDs
   guestAssignments?: Record<string, { seatIndex: number }>; // Guest seat assignments
   isActive: boolean;
+  isVenueItem?: boolean; // Flag to identify venue items
 }
 
 export interface SeatingChart {
@@ -93,11 +94,12 @@ export interface SeatingRule {
 export interface TableType {
   id: string;
   name: string;
-  type: 'round' | 'long' | 'oval' | 'square';
+  type: 'round' | 'long' | 'oval' | 'square' | 'venue-item';
   capacity: number;
   description: string;
   isDefault: boolean;
   rotation?: number; // Rotation in degrees (0-360)
+  isVenueItem?: boolean; // Flag to identify venue items
 }
 
 export interface GuestGroup {
