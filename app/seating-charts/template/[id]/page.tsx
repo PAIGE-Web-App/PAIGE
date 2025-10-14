@@ -2,14 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useAuth } from '@/contexts/AuthContext';
 import WeddingBanner from '@/components/WeddingBanner';
-import { ArrowLeft, Save } from 'lucide-react';
-import { getTemplate, updateTemplate, SavedTemplate } from '@/lib/templateService';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { getTemplate, updateTemplate, deleteTemplate, SavedTemplate, cleanExistingTemplates } from '@/lib/templateService';
 import VisualTableLayoutSVG from '@/components/seating-charts/VisualTableLayoutSVG';
+import DeleteTemplateModal from '@/components/seating-charts/DeleteTemplateModal';
 
 export default function TemplateEditPage() {
   const router = useRouter();
   const params = useParams();
+  const { user, profileImageUrl } = useAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   
   const [template, setTemplate] = useState<SavedTemplate | null>(null);
@@ -18,40 +21,56 @@ export default function TemplateEditPage() {
   const [editedTemplate, setEditedTemplate] = useState<SavedTemplate | null>(null);
   const [editingTemplateName, setEditingTemplateName] = useState(false);
   const [editingTemplateNameValue, setEditingTemplateNameValue] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Load template data
   useEffect(() => {
-    const loadTemplate = () => {
+    const loadTemplate = async () => {
+      if (!user) return;
+      
       const templateId = params.id as string;
-      const templateData = getTemplate(templateId);
       
-      if (!templateData) {
-        showErrorToast('Template not found');
+      try {
+        const templateData = await getTemplate(templateId, user.uid);
+        
+        if (!templateData) {
+          showErrorToast('Template not found');
+          router.push('/seating-charts');
+          return;
+        }
+
+        
+        setTemplate(templateData);
+        setEditedTemplate(templateData);
+        
+        // Clean existing templates to remove guest assignment data
+        await cleanExistingTemplates(user.uid);
+      } catch (error) {
+        console.error('Error loading template:', error);
+        showErrorToast('Failed to load template');
         router.push('/seating-charts');
-        return;
+      } finally {
+        setIsLoading(false);
       }
-      
-      setTemplate(templateData);
-      setEditedTemplate(templateData);
-      setIsLoading(false);
     };
 
     loadTemplate();
-  }, [params.id, router, showErrorToast]);
+  }, [params.id, router, showErrorToast, user]);
 
   const handleSave = async () => {
-    if (!editedTemplate) return;
+    if (!editedTemplate || !user) return;
     
     setIsSaving(true);
     try {
-      const updated = updateTemplate(editedTemplate.id, {
+      const updated = await updateTemplate(editedTemplate.id, {
         name: editedTemplate.name,
         description: editedTemplate.description,
         tables: editedTemplate.tables
-      });
+      }, user.uid);
       
       if (updated) {
         setTemplate(updated);
+        setEditedTemplate(updated);
         showSuccessToast('Template saved successfully');
       } else {
         showErrorToast('Failed to save template');
@@ -74,12 +93,12 @@ export default function TemplateEditPage() {
   };
 
   const handleRenameTemplate = async () => {
-    if (!editedTemplate || !editingTemplateNameValue.trim()) return;
+    if (!editedTemplate || !editingTemplateNameValue.trim() || !user) return;
     
     try {
-      const updated = updateTemplate(editedTemplate.id, {
+      const updated = await updateTemplate(editedTemplate.id, {
         name: editingTemplateNameValue.trim()
-      });
+      }, user.uid);
       
       if (updated) {
         setEditedTemplate(updated);
@@ -94,6 +113,29 @@ export default function TemplateEditPage() {
       console.error('Error renaming template:', error);
       showErrorToast('Failed to rename template');
     }
+  };
+
+  const handleDeleteTemplate = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!editedTemplate || !user) return;
+    
+    try {
+      await deleteTemplate(editedTemplate.id, user.uid);
+      showSuccessToast('Template deleted successfully');
+      router.push('/seating-charts');
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      showErrorToast('Failed to delete template');
+    }
+    
+    setShowDeleteModal(false);
+  };
+
+  const cancelDeleteTemplate = () => {
+    setShowDeleteModal(false);
   };
 
   const handleGoBack = () => {
@@ -226,6 +268,14 @@ export default function TemplateEditPage() {
               <div className="text-xs text-[#AB9C95] font-work">Venue Items</div>
             </div>
             <button
+              onClick={handleDeleteTemplate}
+              className="btn-primaryinverse flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Delete Template"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+            <button
               onClick={handleSave}
               disabled={isSaving}
               className="btn-primaryinverse flex items-center gap-2"
@@ -263,14 +313,22 @@ export default function TemplateEditPage() {
             guestColumns={[]}
             guestGroups={[]}
             onEditGroup={() => {}} // Not used in template mode
-            profileImageUrl=""
-            userName=""
-            partnerName=""
+            profileImageUrl={profileImageUrl || ""}
+            userName={user?.displayName?.split(' ')[0] || "Y"}
+            partnerName="O"
             guestAssignments={{}}
             hideGuestSidebar={true} // Hide guest sidebar in template mode
           />
         </div>
       </div>
+
+      {/* Delete Template Modal */}
+      <DeleteTemplateModal
+        isOpen={showDeleteModal}
+        onClose={cancelDeleteTemplate}
+        onConfirm={confirmDeleteTemplate}
+        template={editedTemplate}
+      />
     </div>
   );
 }

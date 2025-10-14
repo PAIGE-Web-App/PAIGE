@@ -1,133 +1,318 @@
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  getDoc,
+  getDocs, 
+  deleteDoc,
+  Timestamp,
+  query,
+  where
+} from 'firebase/firestore';
+import { db } from './firebase';
 import { TableType } from '@/types/seatingChart';
 
 export interface SavedTemplate {
   id: string;
   name: string;
   description: string;
-  category: string;
   tables: TableType[];
   createdAt: Date;
   updatedAt: Date;
+  userId?: string; // Added for Firestore
 }
 
-const STORAGE_KEY = 'seating-chart-templates';
+/**
+ * Utility function to remove undefined values from objects
+ */
+const cleanUndefinedValues = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefinedValues);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    Object.keys(obj).forEach(key => {
+      const value = obj[key];
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefinedValues(value);
+      }
+    });
+    return cleaned;
+  }
+  
+  return obj;
+};
 
-export const saveTemplate = (templateData: {
+/**
+ * Save a template to Firestore using the same collection as seating charts
+ * This avoids creating new indexes and leverages existing patterns
+ */
+export const saveTemplate = async (templateData: {
   name: string;
   description: string;
   tables: TableType[];
-}): SavedTemplate => {
-  const template: SavedTemplate = {
-    id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name: templateData.name,
-    description: templateData.description,
-    category: 'custom', // Default category
-    tables: templateData.tables,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-
-  // Get existing templates
-  const existingTemplates = getTemplates();
-  
-  // Add new template
-  const updatedTemplates = [...existingTemplates, template];
-  
-  // Save to localStorage
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
-  
-  return template;
-};
-
-export const getTemplates = (): SavedTemplate[] => {
+}, userId: string): Promise<SavedTemplate> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const templates = JSON.parse(stored);
-      // Convert date strings back to Date objects
-      return templates.map((template: any) => ({
-        ...template,
-        createdAt: new Date(template.createdAt),
-        updatedAt: new Date(template.updatedAt)
-      }));
-    }
+    const templateDoc = cleanUndefinedValues({
+      name: templateData.name,
+      description: templateData.description,
+      tables: templateData.tables,
+      isTemplate: true, // Flag to distinguish from regular charts
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      userId
+    });
+
+    // Store in the same collection as seating charts to avoid new indexes
+    const docRef = await addDoc(collection(db, 'users', userId, 'seatingCharts'), templateDoc);
+    
+    return {
+      id: docRef.id,
+      name: templateData.name,
+      description: templateData.description,
+      tables: templateData.tables,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId
+    };
   } catch (error) {
-    console.warn('Failed to load templates from localStorage:', error);
+    console.error('Error saving template:', error);
+    throw new Error('Failed to save template');
   }
-  
-  return [];
 };
 
-export const deleteTemplate = (templateId: string): boolean => {
+/**
+ * Get all templates for a user - optimized to avoid new indexes
+ */
+export const getTemplates = async (userId: string): Promise<SavedTemplate[]> => {
   try {
-    const templates = getTemplates();
-    const updatedTemplates = templates.filter(t => t.id !== templateId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
+    // Query for templates only - this uses existing indexes since we're querying the same collection
+    const q = query(
+      collection(db, 'users', userId, 'seatingCharts'),
+      where('isTemplate', '==', true)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    const templates = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Convert timestamps to Date objects
+      let createdAt = data.createdAt;
+      if (createdAt?.toDate) {
+        createdAt = createdAt.toDate();
+      } else if (!(createdAt instanceof Date)) {
+        createdAt = new Date();
+      }
+      
+      let updatedAt = data.updatedAt;
+      if (updatedAt?.toDate) {
+        updatedAt = updatedAt.toDate();
+      } else if (!(updatedAt instanceof Date)) {
+        updatedAt = new Date();
+      }
+      
+      // Clean tables to ensure no guest assignment data
+      const cleanTables = data.tables.map((table: any) => ({
+        ...table,
+        guests: [],
+        guestAssignments: {}
+      }));
+
+      return {
+        id: doc.id,
+        name: data.name,
+        description: data.description,
+        tables: cleanTables,
+        createdAt,
+        updatedAt,
+        userId: data.userId
+      };
+    }) as SavedTemplate[];
+    
+    // Sort by updatedAt in JavaScript to avoid Firestore index requirements
+    return templates.sort((a, b) => {
+      const timeA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : new Date(a.updatedAt).getTime();
+      const timeB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : new Date(b.updatedAt).getTime();
+      return timeB - timeA;
+    });
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    throw new Error('Failed to fetch templates');
+  }
+};
+
+/**
+ * Get a specific template by ID
+ */
+export const getTemplate = async (templateId: string, userId: string): Promise<SavedTemplate | null> => {
+  try {
+    const templateRef = doc(db, 'users', userId, 'seatingCharts', templateId);
+    const templateSnap = await getDoc(templateRef);
+    
+    if (templateSnap.exists() && templateSnap.data().isTemplate) {
+      const data = templateSnap.data();
+      // Convert timestamps to Date objects
+      let createdAt = data.createdAt;
+      if (createdAt?.toDate) {
+        createdAt = createdAt.toDate();
+      } else if (!(createdAt instanceof Date)) {
+        createdAt = new Date();
+      }
+      
+      let updatedAt = data.updatedAt;
+      if (updatedAt?.toDate) {
+        updatedAt = updatedAt.toDate();
+      } else if (!(updatedAt instanceof Date)) {
+        updatedAt = new Date();
+      }
+      
+      // Clean tables to ensure no guest assignment data
+      const cleanTables = data.tables.map((table: any) => ({
+        ...table,
+        guests: [],
+        guestAssignments: {}
+      }));
+
+      return {
+        id: templateSnap.id,
+        name: data.name,
+        description: data.description,
+        tables: cleanTables,
+        createdAt,
+        updatedAt,
+        userId: data.userId
+      } as SavedTemplate;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    throw new Error('Failed to fetch template');
+  }
+};
+
+/**
+ * Update an existing template
+ */
+export const updateTemplate = async (templateId: string, updates: Partial<SavedTemplate>, userId: string): Promise<SavedTemplate | null> => {
+  try {
+    const templateRef = doc(db, 'users', userId, 'seatingCharts', templateId);
+    await updateDoc(templateRef, cleanUndefinedValues({
+      ...updates,
+      updatedAt: Timestamp.now()
+    }));
+    
+    // Return updated template
+    const updatedSnap = await getDoc(templateRef);
+    if (updatedSnap.exists()) {
+      const data = updatedSnap.data();
+      // Convert timestamps to Date objects
+      let createdAt = data.createdAt;
+      if (createdAt?.toDate) {
+        createdAt = createdAt.toDate();
+      } else if (!(createdAt instanceof Date)) {
+        createdAt = new Date();
+      }
+      
+      let updatedAt = data.updatedAt;
+      if (updatedAt?.toDate) {
+        updatedAt = updatedAt.toDate();
+      } else if (!(updatedAt instanceof Date)) {
+        updatedAt = new Date();
+      }
+      
+      // Clean tables to ensure no guest assignment data
+      const cleanTables = data.tables.map((table: any) => ({
+        ...table,
+        guests: [],
+        guestAssignments: {}
+      }));
+
+      return {
+        id: updatedSnap.id,
+        name: data.name,
+        description: data.description,
+        tables: cleanTables,
+        createdAt,
+        updatedAt,
+        userId: data.userId
+      } as SavedTemplate;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw new Error('Failed to update template');
+  }
+};
+
+/**
+ * Delete a template
+ */
+export const deleteTemplate = async (templateId: string, userId: string): Promise<boolean> => {
+  try {
+    const templateRef = doc(db, 'users', userId, 'seatingCharts', templateId);
+    await deleteDoc(templateRef);
     return true;
   } catch (error) {
-    console.warn('Failed to delete template:', error);
-    return false;
+    console.error('Error deleting template:', error);
+    throw new Error('Failed to delete template');
   }
 };
 
-export const updateTemplate = (templateId: string, updates: Partial<SavedTemplate>): SavedTemplate | null => {
+/**
+ * Clean guest assignment data from existing templates in the database
+ */
+export const cleanExistingTemplates = async (userId: string): Promise<void> => {
   try {
-    const templates = getTemplates();
-    const templateIndex = templates.findIndex(t => t.id === templateId);
+    const templates = await getTemplates(userId);
     
-    if (templateIndex === -1) {
-      return null;
+    for (const template of templates) {
+      const cleanTables = template.tables.map(table => ({
+        ...table,
+        guests: [],
+        guestAssignments: {}
+      }));
+      
+      await updateTemplate(template.id, { tables: cleanTables }, userId);
     }
-    
-    const updatedTemplate = {
-      ...templates[templateIndex],
-      ...updates,
-      updatedAt: new Date()
-    };
-    
-    templates[templateIndex] = updatedTemplate;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
-    
-    return updatedTemplate;
   } catch (error) {
-    console.warn('Failed to update template:', error);
-    return null;
+    console.error('Error cleaning existing templates:', error);
+    throw new Error('Failed to clean existing templates');
   }
 };
 
-export const getTemplate = (templateId: string): SavedTemplate | null => {
-  const templates = getTemplates();
-  return templates.find(t => t.id === templateId) || null;
-};
-
-export const cloneTemplate = (templateId: string, newName: string): SavedTemplate | null => {
+/**
+ * Clone a template with a new name
+ */
+export const cloneTemplate = async (templateId: string, newName: string, userId: string): Promise<SavedTemplate | null> => {
   try {
-    const originalTemplate = getTemplate(templateId);
+    const originalTemplate = await getTemplate(templateId, userId);
     if (!originalTemplate) {
       return null;
     }
 
     // Create a new template with the same data but new ID and name
-    const clonedTemplate: SavedTemplate = {
-      ...originalTemplate,
-      id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: newName,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      tables: originalTemplate.tables.map(table => ({
-        ...table,
-        id: `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      }))
-    };
+    const clonedTables = originalTemplate.tables.map(table => ({
+      ...table,
+      id: `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
 
-    // Save the cloned template
-    const templates = getTemplates();
-    const updatedTemplates = [...templates, clonedTemplate];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTemplates));
+    const clonedTemplate = await saveTemplate({
+      name: newName,
+      description: originalTemplate.description,
+      tables: clonedTables
+    }, userId);
     
     return clonedTemplate;
   } catch (error) {
-    console.warn('Failed to clone template:', error);
-    return null;
+    console.error('Error cloning template:', error);
+    throw new Error('Failed to clone template');
   }
 };

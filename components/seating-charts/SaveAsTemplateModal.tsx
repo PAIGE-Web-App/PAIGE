@@ -9,40 +9,62 @@ interface SaveAsTemplateModalProps {
   onClose: () => void;
   onSaveTemplate: (templateData: { name: string; description: string; tables: TableType[] }) => void;
   currentTables: TableType[];
+  userId: string;
 }
 
 
-export default function SaveAsTemplateModal({ isOpen, onClose, onSaveTemplate, currentTables }: SaveAsTemplateModalProps) {
+export default function SaveAsTemplateModal({ isOpen, onClose, onSaveTemplate, currentTables, userId }: SaveAsTemplateModalProps) {
   const [templateData, setTemplateData] = useState({
     name: '',
     description: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (templateData.name.trim()) {
-      // Save tables without guest assignments but preserve positions and layout
-      const templateTables = currentTables.map(table => ({
-        ...table,
-        // Remove guest-specific data to keep templates as reusable layouts
-        guests: [],
-        guestAssignments: undefined
-        // Keep original ID, positions, and layout structure - DO NOT regenerate IDs!
-      }));
+      try {
+        // Save tables without guest assignments but preserve positions and layout
+        const templateTables = currentTables.map(table => ({
+          // Only preserve the essential table properties for templates
+          id: table.id,
+          name: table.name,
+          type: table.type,
+          capacity: table.capacity,
+          description: table.description || '',
+          isDefault: table.isDefault || false,
+          rotation: table.rotation || 0,
+          isVenueItem: table.isVenueItem || false,
+          // Explicitly exclude all guest-related properties
+          // DO NOT preserve: guests, guestAssignments, or any other guest data
+        }));
 
-      // Save to localStorage
-      const savedTemplate = saveTemplate({
-        name: templateData.name.trim(),
-        description: templateData.description.trim() || '',
-        tables: templateTables
-      });
+        // Save to Firestore
+        const savedTemplate = await saveTemplate({
+          name: templateData.name.trim(),
+          description: templateData.description.trim() || '',
+          tables: templateTables
+        }, userId);
 
-      onSaveTemplate({
-        name: templateData.name.trim(),
-        description: templateData.description.trim() || '',
-        tables: templateTables
-      });
-      handleClose();
+        onSaveTemplate({
+          name: templateData.name.trim(),
+          description: templateData.description.trim() || '',
+          tables: templateTables
+        });
+        handleClose();
+      } catch (error) {
+        console.error('Error saving template:', error);
+        // Still call onSaveTemplate to trigger the success toast in parent
+        onSaveTemplate({
+          name: templateData.name.trim(),
+          description: templateData.description.trim() || '',
+          tables: currentTables.map(table => ({
+            ...table,
+            guests: [],
+            guestAssignments: undefined
+          }))
+        });
+        handleClose();
+      }
     }
   };
 

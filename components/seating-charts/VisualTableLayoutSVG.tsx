@@ -66,6 +66,7 @@ export default function VisualTableLayoutSVG({
   onTemplateSaved,
   hideGuestSidebar = false
 }: VisualTableLayoutSVGProps) {
+  const { user } = useAuth();
   
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<string | null>(null);
@@ -734,6 +735,7 @@ export default function VisualTableLayoutSVG({
         onClose={() => setShowSaveAsTemplateModal(false)}
         onSaveTemplate={handleSaveAsTemplate}
         currentTables={tableLayout.tables}
+        userId={user?.uid || ''}
       />
 
       {/* AI Table Layout Modal */}

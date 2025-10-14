@@ -55,7 +55,7 @@ const SeatingChartCard: React.FC<SeatingChartCardProps> = memo(({ chart }) => {
             <div className="space-y-2">
               <h4 className="text-xs font-medium text-[#332B42]">Recently Added:</h4>
               <div className="space-y-1">
-                {chart.guests.slice(0, 3).map((guest, index) => (
+                {(chart.guests || []).slice(0, 3).map((guest, index) => (
                   <div key={guest.id} className="flex items-center gap-2">
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
@@ -68,9 +68,9 @@ const SeatingChartCard: React.FC<SeatingChartCardProps> = memo(({ chart }) => {
                     <span className="text-xs text-[#332B42] truncate">{guest.fullName}</span>
                   </div>
                 ))}
-                {chart.guests.length > 3 && (
+                {(chart.guests?.length || 0) > 3 && (
                   <div className="text-xs text-gray-400">
-                    +{chart.guests.length - 3} more guests
+                    +{(chart.guests?.length || 0) - 3} more guests
                   </div>
                 )}
               </div>

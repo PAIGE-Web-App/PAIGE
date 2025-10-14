@@ -306,7 +306,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
               overflow: 'hidden'
             }}
           >
-            {Object.values(guestAssignments || {}).filter(assignment => assignment.tableId === table.id).length}/{table.capacity} seats filled
+            {(guests && guests.length > 0) ? Object.values(guestAssignments || {}).filter(assignment => assignment.tableId === table.id).length : 0}/{table.capacity} seats filled
           </div>
         </foreignObject>
       )}
@@ -316,7 +316,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
         const seatPosition = { x: position.x + seat.x, y: position.y + seat.y };
         
         
-        const isSeatOccupied = Object.values(guestAssignments || {}).some(
+        const isSeatOccupied = (guests && guests.length > 0) && Object.values(guestAssignments || {}).some(
           assignment => assignment.tableId === table.id && assignment.seatIndex === index
         );
         
@@ -553,7 +553,7 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
           />
           {(() => {
             // For sweetheart table, show profile image or initials
-        if (profileImageUrl) {
+        if (profileImageUrl && profileImageUrl.trim() !== "") {
               return (
                 <g>
                   <defs>
@@ -569,24 +569,11 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
                     href={profileImageUrl}
                     clipPath={`url(#avatarClip-${table.id})`}
                     style={{ userSelect: 'none', pointerEvents: 'none' }}
-                onLoad={() => {}}
-                onError={(e) => {}}
+                    onError={(e) => {
+                      // Hide the image when it fails to load
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
-                  {/* Fallback: show initials if image fails to load */}
-                  <text
-                    x={position.x - 50}
-                    y={position.y + 50}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={14}
-                    fontFamily="var(--font-work-sans)"
-                    fill="white"
-                    fontWeight="normal"
-                    style={{ userSelect: 'none', pointerEvents: 'none' }}
-                    opacity={0.3}
-                  >
-                    {userName ? userName.charAt(0).toUpperCase() : 'Y'}
-                  </text>
                 </g>
               );
         } else {

@@ -28,63 +28,72 @@ export default function SeatingChartsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<SavedTemplate | null>(null);
 
-  // Load seating charts from Firestore and templates from localStorage
+  // Load seating charts and templates from Firestore
   useEffect(() => {
     const loadData = async () => {
       if (!user) {
-        // Still load templates even if no user (localStorage)
-        const savedTemplates = getTemplates();
-        setTemplates(savedTemplates);
         setIsLoading(false);
         return;
       }
 
       try {
         setIsLoading(true);
-        const charts = await getSeatingCharts(user.uid);
+        // Load both charts and templates in parallel for optimal performance
+        const [charts, templates] = await Promise.all([
+          getSeatingCharts(user.uid),
+          getTemplates(user.uid)
+        ]);
+        
         console.log('Loaded charts:', charts);
         console.log('Chart IDs:', charts.map(c => c.id));
         console.log('Chart names:', charts.map(c => c.name));
         setSeatingCharts(charts);
-        
-        // Load templates from localStorage
-        const savedTemplates = getTemplates();
-        setTemplates(savedTemplates);
+        setTemplates(templates);
       } catch (error) {
-        console.error('Error loading seating charts:', error);
-        showErrorToast('Failed to load seating charts');
-        
-        // Still load templates even if charts fail
-        const savedTemplates = getTemplates();
-        setTemplates(savedTemplates);
+        console.error('Error loading data:', error);
+        showErrorToast('Failed to load data');
+        setSeatingCharts([]);
+        setTemplates([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [user]);
+  }, [user, showErrorToast]);
 
   const handleCreateChart = () => {
     router.push('/seating-charts/create');
   };
 
-  const refreshTemplates = () => {
-    const savedTemplates = getTemplates();
-    setTemplates(savedTemplates);
+  const refreshTemplates = async () => {
+    if (!user) return;
+    try {
+      const savedTemplates = await getTemplates(user.uid);
+      setTemplates(savedTemplates);
+    } catch (error) {
+      console.error('Error refreshing templates:', error);
+      showErrorToast('Failed to refresh templates');
+    }
   };
 
   const handleEditTemplate = (template: SavedTemplate) => {
     router.push(`/seating-charts/template/${template.id}`);
   };
 
-  const handleCloneTemplate = (template: SavedTemplate) => {
-    const newName = `${template.name} Copy`;
-    const cloned = cloneTemplate(template.id, newName);
-    if (cloned) {
-      setTemplates(getTemplates());
-      showSuccessToast('Template cloned successfully!');
-    } else {
+  const handleCloneTemplate = async (template: SavedTemplate) => {
+    if (!user) return;
+    try {
+      const newName = `${template.name} Copy`;
+      const cloned = await cloneTemplate(template.id, newName, user.uid);
+      if (cloned) {
+        await refreshTemplates();
+        showSuccessToast('Template cloned successfully!');
+      } else {
+        showErrorToast('Failed to clone template');
+      }
+    } catch (error) {
+      console.error('Error cloning template:', error);
       showErrorToast('Failed to clone template');
     }
   };
@@ -94,21 +103,21 @@ export default function SeatingChartsPage() {
     setShowDeleteModal(true);
   };
 
-  const confirmDeleteTemplate = () => {
-    if (!templateToDelete) return;
+  const confirmDeleteTemplate = async () => {
+    if (!templateToDelete || !user) return;
     
-    const success = deleteTemplate(templateToDelete.id);
-    if (success) {
-      const updatedTemplates = getTemplates();
-      setTemplates(updatedTemplates);
+    try {
+      await deleteTemplate(templateToDelete.id, user.uid);
+      await refreshTemplates();
       
       // If no templates left and we're on templates tab, switch to charts tab
-      if (updatedTemplates.length === 0 && activeTab === 'templates') {
+      if (templates.length === 1 && activeTab === 'templates') {
         setActiveTab('charts');
       }
       
       showSuccessToast('Template deleted successfully');
-    } else {
+    } catch (error) {
+      console.error('Error deleting template:', error);
       showErrorToast('Failed to delete template');
     }
     

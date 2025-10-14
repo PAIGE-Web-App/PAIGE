@@ -58,15 +58,39 @@ export const getSeatingCharts = async (userId: string): Promise<SeatingChart[]> 
     // Get all documents without orderBy to avoid requiring a Firestore index
     const querySnapshot = await getDocs(collection(db, 'users', userId, 'seatingCharts'));
     
-    const charts = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date()
-    })) as SeatingChart[];
+    const charts = querySnapshot.docs
+      .filter(doc => !doc.data().isTemplate) // Exclude templates
+      .map(doc => {
+        const data = doc.data();
+        // Convert timestamps to Date objects
+        let createdAt = data.createdAt;
+        if (createdAt?.toDate) {
+          createdAt = createdAt.toDate();
+        } else if (!(createdAt instanceof Date)) {
+          createdAt = new Date();
+        }
+        
+        let updatedAt = data.updatedAt;
+        if (updatedAt?.toDate) {
+          updatedAt = updatedAt.toDate();
+        } else if (!(updatedAt instanceof Date)) {
+          updatedAt = new Date();
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt,
+          updatedAt
+        };
+      }) as SeatingChart[];
     
     // Sort by updatedAt in JavaScript instead of Firestore
-    return charts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return charts.sort((a, b) => {
+      const timeA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : new Date(a.updatedAt).getTime();
+      const timeB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : new Date(b.updatedAt).getTime();
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error('Error fetching seating charts:', error);
     throw new Error('Failed to fetch seating charts');
@@ -81,12 +105,28 @@ export const getSeatingChart = async (chartId: string, userId: string): Promise<
     const chartRef = doc(db, 'users', userId, 'seatingCharts', chartId);
     const chartSnap = await getDoc(chartRef);
     
-    if (chartSnap.exists()) {
+    if (chartSnap.exists() && !chartSnap.data().isTemplate) {
+      const data = chartSnap.data();
+      // Convert timestamps to Date objects
+      let createdAt = data.createdAt;
+      if (createdAt?.toDate) {
+        createdAt = createdAt.toDate();
+      } else if (!(createdAt instanceof Date)) {
+        createdAt = new Date();
+      }
+      
+      let updatedAt = data.updatedAt;
+      if (updatedAt?.toDate) {
+        updatedAt = updatedAt.toDate();
+      } else if (!(updatedAt instanceof Date)) {
+        updatedAt = new Date();
+      }
+      
       return {
         id: chartSnap.id,
-        ...chartSnap.data(),
-        createdAt: chartSnap.data().createdAt?.toDate() || new Date(),
-        updatedAt: chartSnap.data().updatedAt?.toDate() || new Date()
+        ...data,
+        createdAt,
+        updatedAt
       } as SeatingChart;
     }
     
