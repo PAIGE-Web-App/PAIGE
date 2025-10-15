@@ -296,32 +296,32 @@ export default function VisualTableLayoutSVG({
     }
   }, [tableLayout.tables, tablePositions]); // Re-run when tables OR positions change
 
-  // Update positions when tables change
+  // Initialize positions for new tables ONLY when manually adding tables (not from templates)
   useEffect(() => {
     // Skip this effect entirely if we're applying a template
     if (isApplyingTemplate) {
       return;
     }
 
-    const currentIds = tableLayout.tables.map(t => t.id);
-    const existingPositions = tablePositions.filter(p => currentIds.includes(p.id));
-    const newPositions = tableLayout.tables
-      .filter(t => !tablePositions.find(p => p.id === t.id))
-      .map((table, index) => {
-        if (table.isDefault) {
-          return { id: table.id, x: 400, y: 300, rotation: 0 };
-        } else {
-          // Position new tables very close to the sweetheart table
-          const baseX = 400 + (index % 3) * 120 - 60; // Much closer to sweetheart table
-          const baseY = 300 + Math.floor(index / 3) * 120 - 60;
-          return { id: table.id, x: baseX, y: baseY, rotation: 0 };
-        }
-      });
+    // Only initialize positions for tables that don't have positions yet
+    const tablesWithoutPositions = tableLayout.tables.filter(t => !tablePositions.find(p => p.id === t.id));
     
-    // Only set positions if we have new tables
-    if (newPositions.length > 0) {
-      setTablePositions([...existingPositions, ...newPositions]);
+    if (tablesWithoutPositions.length === 0) {
+      return;
     }
+    
+    const newPositions = tablesWithoutPositions.map((table, index) => {
+      if (table.isDefault) {
+        return { id: table.id, x: 400, y: 300, rotation: 0 };
+      } else {
+        // Position new tables very close to the sweetheart table
+        const baseX = 400 + (index % 3) * 120 - 60;
+        const baseY = 300 + Math.floor(index / 3) * 120 - 60;
+        return { id: table.id, x: baseX, y: baseY, rotation: 0 };
+      }
+    });
+    
+    setTablePositions(prev => [...prev, ...newPositions]);
     
     // Initialize dimensions for new tables
     const newTables = tableLayout.tables.filter(t => !tableDimensions[t.id]);
@@ -458,7 +458,6 @@ export default function VisualTableLayoutSVG({
   };
 
   const handleGenerateTableLayout = (generatedTables: TableType[], totalCapacity: number, positions?: Array<{ id: string; x: number; y: number }>) => {
-
     // Set flag to prevent useEffect from overriding template positions
     setIsApplyingTemplate(true);
 
@@ -467,11 +466,21 @@ export default function VisualTableLayoutSVG({
     
     // If positions are provided, update the table positions
     if (positions && positions.length > 0) {
-      // Map positions to match the new table IDs
-      const newPositions = positions.map((pos, index) => {
-        const correspondingTable = newTables[index];
+      // Map positions by matching position ID with table ID
+      const newPositions = positions.map((pos) => {
+        // Find the corresponding table by matching the position ID with table ID
+        const correspondingTable = newTables.find(table => table.id === pos.id);
+        if (correspondingTable) {
+          return {
+            id: correspondingTable.id,
+            x: pos.x,
+            y: pos.y,
+            rotation: 0
+          };
+        }
+        // Fallback: if no match found, return the position as-is
         return {
-          id: correspondingTable.id, // Use the NEW table ID, not the old position ID
+          id: pos.id,
           x: pos.x,
           y: pos.y,
           rotation: 0
@@ -492,22 +501,14 @@ export default function VisualTableLayoutSVG({
           width: table.width,
           height: table.height
         };
-        console.log(`🔍 APPLY TEMPLATE - Extracted dimensions for ${table.id} (${table.name}):`, {
-          width: table.width,
-          height: table.height,
-          isVenueItem: table.isVenueItem
-        });
       }
     });
     
     // Always update dimensions (merge with existing, or replace if we have new dimensions)
     if (Object.keys(newDimensions).length > 0) {
-      console.log(`🔍 APPLY TEMPLATE - Setting tableDimensions state with ${Object.keys(newDimensions).length} tables`);
       setTableDimensions(newDimensions);
       // Save dimensions to session storage
       sessionStorage.setItem('seating-chart-table-dimensions', JSON.stringify(newDimensions));
-    } else {
-      console.log('🔍 APPLY TEMPLATE - No custom dimensions found in template');
     }
     
     // Use the provided totalCapacity or recalculate if not provided
@@ -515,10 +516,8 @@ export default function VisualTableLayoutSVG({
     onUpdate({ tables: newTables, totalCapacity: finalTotalCapacity });
     setShowAITableModal(false);
     
-    // Clear the flag after a longer delay to ensure all effects have run
-    setTimeout(() => {
-      setIsApplyingTemplate(false);
-    }, 500);
+    // Clear the flag immediately - the new useEffect logic handles this better
+    setIsApplyingTemplate(false);
   };
 
   const handleAddTable = (newTable: any) => {

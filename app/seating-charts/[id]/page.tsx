@@ -142,8 +142,6 @@ export default function SeatingChartDetailPage() {
               tableCount: chartData.tables?.length,
               guestCount: chartData.guests?.length
             });
-            console.log('🔍 CHART LOAD DEBUG - Table positions from Firestore:', chartData.tables.map(t => ({ id: t.id, name: t.name, position: t.position })));
-            
             // Restore table positions and rotations from saved chart data
             if (chartData.tables && chartData.tables.length > 0) {
               const tablePositions = chartData.tables.map((table, index) => {
@@ -166,17 +164,10 @@ export default function SeatingChartDetailPage() {
                 }
               });
               sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(tablePositions));
-              console.log('Restored table positions and rotations:', tablePositions);
               
               // Restore table dimensions from saved chart data
               const tableDimensions: Record<string, { width: number; height: number }> = {};
               chartData.tables.forEach((table: any) => {
-                console.log(`🔍 LOAD DEBUG - Table ${table.id} (${table.name}):`, {
-                  width: table.width,
-                  height: table.height,
-                  isVenueItem: table.isVenueItem,
-                  hasCustomDimensions: !!(table.width && table.height)
-                });
                 if (table.width && table.height) {
                   tableDimensions[table.id] = {
                     width: table.width,
@@ -187,9 +178,6 @@ export default function SeatingChartDetailPage() {
               
               if (Object.keys(tableDimensions).length > 0) {
                 sessionStorage.setItem('seating-chart-table-dimensions', JSON.stringify(tableDimensions));
-                console.log('🔍 LOAD DEBUG - Restored table dimensions:', tableDimensions);
-              } else {
-                console.log('🔍 LOAD DEBUG - No table dimensions found in Firestore data');
               }
             }
             
@@ -226,8 +214,6 @@ export default function SeatingChartDetailPage() {
                     detail: { assignments: guestAssignments } 
                   }));
                 }, 500);
-              } else {
-                console.log('💾 CHART DETAIL LOAD - No guest assignments to restore');
               }
             }
           } catch (error) {
@@ -306,36 +292,36 @@ export default function SeatingChartDetailPage() {
     console.log('Template saved successfully');
   };
 
+  // Helper function to get session storage data with error handling
+  const getSessionStorageData = () => {
+    try {
+      const positionsData = sessionStorage.getItem('seating-chart-table-positions');
+      const assignmentsData = sessionStorage.getItem('seating-chart-guest-assignments');
+      const dimensionsData = sessionStorage.getItem('seating-chart-table-dimensions');
+      
+      return {
+        tablePositions: positionsData ? JSON.parse(positionsData) : [],
+        guestAssignments: assignmentsData ? JSON.parse(assignmentsData) : {},
+        tableDimensions: dimensionsData ? JSON.parse(dimensionsData) : {}
+      };
+    } catch (error) {
+      console.warn('Could not load session storage data:', error);
+      return {
+        tablePositions: [],
+        guestAssignments: {},
+        tableDimensions: {}
+      };
+    }
+  };
+
     const handleSave = async () => {
       if (!user || !chart) {
         return;
       }
     
     try {
-      // Get current session storage data
-      let tablePositions: any[] = [];
-      let guestAssignments: any = {};
-      let tableDimensions: Record<string, { width: number; height: number }> = {};
-      
-      try {
-        const positionsData = sessionStorage.getItem('seating-chart-table-positions');
-        const assignmentsData = sessionStorage.getItem('seating-chart-guest-assignments');
-        const dimensionsData = sessionStorage.getItem('seating-chart-table-dimensions');
-        
-        if (positionsData) {
-          tablePositions = JSON.parse(positionsData);
-        }
-        if (assignmentsData) {
-          guestAssignments = JSON.parse(assignmentsData);
-        }
-        if (dimensionsData) {
-          tableDimensions = JSON.parse(dimensionsData);
-          console.log('🔍 SAVE DEBUG - Loaded tableDimensions from sessionStorage:', tableDimensions);
-        }
-        
-      } catch (error) {
-        console.warn('Could not load session storage data for save:', error);
-      }
+      // Get current session storage data once
+      const { tablePositions, guestAssignments, tableDimensions } = getSessionStorageData();
       
       // Update tables with positions, rotation, and guest assignments
       const updatedTables = wizardState.tableLayout.tables.map(table => {
@@ -355,12 +341,6 @@ export default function SeatingChartDetailPage() {
         
         // Get custom dimensions for this table
         const customDimensions = tableDimensions[table.id];
-        console.log(`🔍 SAVE DEBUG - Table ${table.id} (${table.name}):`, {
-          customDimensions,
-          isVenueItem: table.isVenueItem,
-          width: customDimensions?.width,
-          height: customDimensions?.height
-        });
         
         // Convert TableType to Table (database format)
         return {

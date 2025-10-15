@@ -101,10 +101,16 @@ function generateTablesFromTemplate(template: TableTemplate, guestCount: number)
   for (let i = 0; i < numTables; i++) {
     // Give extra seats to the first few tables if there's a remainder
     const capacity = baseCapacity + (i < remainder ? 1 : 0);
+    
+    // For "Modern Mixed" template, alternate between round and long tables
+    let tableType = template.tableType;
+    if (template.id === 'modern') {
+      tableType = i % 2 === 0 ? 'round' : 'long';
+    }
       
     tables.push({
       name: tableNames[i] || `Guest Table ${i + 1}`,
-      type: template.tableType,
+      type: tableType,
       capacity,
       description: generateTableDescription(tableNames[i], capacity)
     });
@@ -368,14 +374,6 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
         height: table.name === 'Sweetheart Table' ? 60 : (savedTable?.height || 80)
       } as TableType & { width: number; height: number };
       
-      console.log(`🔍 TEMPLATE APPLY DEBUG - Table ${table.id} (${table.name}):`, {
-        savedTableWidth: savedTable?.width,
-        savedTableHeight: savedTable?.height,
-        appliedWidth: tableWithDimensions.width,
-        appliedHeight: tableWithDimensions.height,
-        isVenueItem: table.isVenueItem
-      });
-      
       return tableWithDimensions;
     });
 
@@ -409,10 +407,10 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
       name: table.name,
       type: table.type,
       capacity: table.capacity,
-      x: 0, // Will be positioned by generateTablePositions
-      y: 0, // Will be positioned by generateTablePositions
-      width: 80,
-      height: 80,
+      // Don't include x, y here - positions will be set separately via tablePositions
+      // Set proper dimensions based on table type
+      width: table.type === 'long' ? (table.name === 'Sweetheart Table' ? 120 : 200) : 80,
+      height: table.type === 'long' ? (table.name === 'Sweetheart Table' ? 60 : 80) : 80,
       description: table.description,
       isDefault: table.name === 'Sweetheart Table',
       rotation: 0
@@ -420,6 +418,8 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
 
     // Generate proper positioning for the tables
     const tablePositions = generateTablePositions(template, tablesWithIds);
+
+    // Template generation complete
 
     onGenerateLayout(tablesWithIds, totalCapacity, tablePositions);
     onClose();

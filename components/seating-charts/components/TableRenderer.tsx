@@ -81,18 +81,6 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   // Force sweetheart table to always use correct dimensions (120x60)
   const width = table.isDefault ? 120 : (customDimensions?.width || shape.width);
   const height = table.isDefault ? 60 : (customDimensions?.height || shape.height);
-  
-  // Debug logging for venue items
-  if (table.isVenueItem) {
-    console.log(`🔍 RENDER DEBUG - Venue Item ${table.id} (${table.name}):`, {
-      customDimensions,
-      tableDimensions: tableDimensions,
-      availableTableIds: Object.keys(tableDimensions || {}),
-      width,
-      height,
-      isVenueItem: table.isVenueItem
-    });
-  }
   const currentRotation = table.rotation || 0;
   const seatPositions = shape.seatPositions(table.capacity, width, height, currentRotation);
 

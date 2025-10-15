@@ -44,14 +44,6 @@ export default function SaveAsTemplateModal({ isOpen, onClose, onSaveTemplate, c
             // DO NOT preserve: guests, guestAssignments, or any other guest data
           };
           
-          console.log(`🔍 TEMPLATE SAVE DEBUG - Table ${table.id} (${table.name}):`, {
-            originalWidth: table.width,
-            originalHeight: table.height,
-            isVenueItem: table.isVenueItem,
-            savedWidth: templateTable.width,
-            savedHeight: templateTable.height
-          });
-          
           return templateTable;
         });
 

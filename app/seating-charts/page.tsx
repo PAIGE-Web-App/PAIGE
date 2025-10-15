@@ -44,9 +44,6 @@ export default function SeatingChartsPage() {
           getTemplates(user.uid)
         ]);
         
-        console.log('Loaded charts:', charts);
-        console.log('Chart IDs:', charts.map(c => c.id));
-        console.log('Chart names:', charts.map(c => c.name));
         setSeatingCharts(charts);
         setTemplates(templates);
       } catch (error) {
@@ -162,14 +159,9 @@ export default function SeatingChartsPage() {
         }
       });
 
-      console.log(`Found ${chartsToDelete.length} duplicate charts to delete`);
-      console.log('Charts to keep:', chartsToKeep.map(c => c.name));
-      console.log('Charts to delete:', chartsToDelete);
-
-      // Actually delete the duplicate charts from the database
+      // Delete duplicate charts from the database
       for (const chartId of chartsToDelete) {
         await deleteSeatingChart(chartId, user.uid);
-        console.log(`Deleted chart: ${chartId}`);
       }
 
       // Update the display with the cleaned up charts
