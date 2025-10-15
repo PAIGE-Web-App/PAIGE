@@ -81,11 +81,8 @@ export class UserContextBuilder {
     const cached = this.cache.get(cacheKey);
     
     if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('[UserContextBuilder] Using cached context for user:', userId);
       return cached.context;
     }
-
-    console.log('[UserContextBuilder] Building fresh context for user:', userId);
 
     try {
       // Get user profile data (single read)
@@ -155,7 +152,6 @@ export class UserContextBuilder {
         timestamp: Date.now()
       });
 
-      console.log('[UserContextBuilder] Context built successfully for user:', userId);
       return context;
 
     } catch (error) {
@@ -199,10 +195,9 @@ export class UserContextBuilder {
    */
   private async buildTodoContext(userId: string, maxItems: number): Promise<Partial<UserContext>> {
     try {
-      // Get recent todo items (single query)
+      // Get recent todo items (single query from user's subcollection)
       const todoQuery = query(
-        collection(db, 'todoItems'),
-        where('userId', '==', userId),
+        collection(db, 'users', userId, 'todoItems'),
         orderBy('createdAt', 'desc'),
         limit(maxItems)
       );
@@ -244,32 +239,28 @@ export class UserContextBuilder {
    */
   private async buildVendorContext(userId: string, maxItems: number): Promise<Partial<UserContext>> {
     try {
-      // Get favorite vendors (single query)
-      const favoritesQuery = query(
-        collection(db, 'favorites'),
-        where('userId', '==', userId),
+      // Get contacts (vendors) from user's subcollection
+      const contactsQuery = query(
+        collection(db, 'users', userId, 'contacts'),
         orderBy('createdAt', 'desc'),
         limit(maxItems)
       );
 
-      const favoritesSnapshot = await getDocs(favoritesQuery);
-      const favorites = favoritesSnapshot.docs.map(doc => ({
+      const contactsSnapshot = await getDocs(contactsQuery);
+      const contacts = contactsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as any[];
 
-      const favoriteVendors = favorites
+      const selectedVendors = contacts
         .slice(0, maxItems)
-        .map((fav: any) => fav.name || fav.vendorName || 'Unknown Vendor')
+        .map((contact: any) => contact.name || 'Unknown Vendor')
         .filter(Boolean);
-
-      // For now, use favorites as selected vendors (can be enhanced later)
-      const selectedVendors = favoriteVendors.slice(0, 3);
 
       return {
         selectedVendors,
-        favoriteVendors,
-        recentVendorInteractions: selectedVendors // Placeholder - can be enhanced with actual message history
+        favoriteVendors: selectedVendors, // Use contacts as favorites since favorites are in localStorage
+        recentVendorInteractions: selectedVendors.slice(0, 3)
       };
 
     } catch (error) {
@@ -309,7 +300,6 @@ export class UserContextBuilder {
   clearUserCache(userId: string): void {
     const keysToDelete = Array.from(this.cache.keys()).filter(key => key.startsWith(userId));
     keysToDelete.forEach(key => this.cache.delete(key));
-    console.log('[UserContextBuilder] Cleared cache for user:', userId);
   }
 
   /**
@@ -317,7 +307,6 @@ export class UserContextBuilder {
    */
   clearAllCache(): void {
     this.cache.clear();
-    console.log('[UserContextBuilder] Cleared all cache');
   }
 
   /**

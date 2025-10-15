@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { MessageAnalysisEngine } from '@/utils/messageAnalysisEngine';
 import { withCreditValidation } from '@/lib/creditMiddleware';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const messageAnalysisEngine = new MessageAnalysisEngine();
 
 interface MessageAnalysisRequest {
   messageContent: string;
@@ -48,90 +48,23 @@ async function handleMessageAnalysis(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Build the analysis prompt
-    let prompt = `You are an AI assistant that analyzes wedding planning messages to detect actionable items and prepare them for integration with an existing AI to-do generation system.
-
-Message to analyze: "${messageContent}"
-
-Context:
-- Vendor Category: ${vendorCategory || 'Unknown'}
-- Vendor Name: ${vendorName || 'Unknown'}
-- Wedding Date: ${weddingContext?.weddingDate || 'Not specified'}
-- Wedding Location: ${weddingContext?.weddingLocation || 'Not specified'}
-- Guest Count: ${weddingContext?.guestCount || 'Not specified'}
-- Budget: ${weddingContext?.maxBudget || 'Not specified'}
-- Vibe: ${weddingContext?.vibe || 'Not specified'}
-
-${ragContext ? `Additional Context from Knowledge Base:
-${ragContext}
-
-` : ''}
-
-Please analyze this message and return a JSON response with the following structure:
-{
-  "actionableItems": [
-    {
-      "title": "Brief description of the action item",
-      "description": "More detailed description",
-      "priority": "high|medium|low",
-      "category": "vendor|payment|timeline|logistics|other",
-      "dueDate": "YYYY-MM-DD or null",
-      "estimatedTime": "X hours or null",
-      "dependencies": ["list of other action items this depends on"],
-      "notes": "Additional context or notes"
-    }
-  ],
-  "sentiment": "positive|neutral|negative",
-  "urgency": "high|medium|low",
-  "requiresResponse": true|false,
-  "suggestedResponse": "Suggested response text or null",
-  "keyPoints": ["list of key points from the message"],
-  "nextSteps": ["suggested next steps"]
-}
-
-Focus on extracting concrete, actionable items that can be turned into to-do items. Be specific about deadlines, requirements, and dependencies.`;
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert wedding planning assistant. Analyze messages to extract actionable items and provide structured JSON responses.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 1000,
-      temperature: 0.3,
+    // Use MessageAnalysisEngine for analysis
+    const analysisResult = await messageAnalysisEngine.analyzeMessage({
+      messageContent,
+      vendorName: vendorName || 'Unknown',
+      vendorCategory: vendorCategory || 'unknown',
+      contactId: 'api-request',
+      userId: requestUserId,
+      existingTodos: existingTodos || [],
+      weddingContext: weddingContext ? {
+        weddingDate: weddingContext.weddingDate ? new Date(weddingContext.weddingDate) : undefined,
+        weddingLocation: weddingContext.weddingLocation,
+        guestCount: weddingContext.guestCount,
+        maxBudget: weddingContext.maxBudget,
+        vibe: weddingContext.vibe ? [weddingContext.vibe] : undefined
+      } : undefined,
+      ragContext
     });
-
-    const analysisText = completion.choices[0].message.content;
-    
-    // Try to parse the JSON response
-    let analysis;
-    try {
-      // Extract JSON from the response (in case there's extra text)
-      const jsonMatch = analysisText?.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      // Fallback analysis
-      analysis = {
-        actionableItems: [],
-        sentiment: 'neutral',
-        urgency: 'low',
-        requiresResponse: false,
-        suggestedResponse: null,
-        keyPoints: [messageContent.substring(0, 100) + '...'],
-        nextSteps: ['Review message manually']
-      };
-    }
 
     // Get credit information from request headers (set by credit middleware)
     const creditsRequired = req.headers.get('x-credits-required');
@@ -140,7 +73,7 @@ Focus on extracting concrete, actionable items that can be turned into to-do ite
 
     const response = NextResponse.json({
       success: true,
-      analysis,
+      analysis: analysisResult,
       credits: {
         required: creditsRequired ? parseInt(creditsRequired) : 0,
         remaining: creditsRemaining ? parseInt(creditsRemaining) : 0,

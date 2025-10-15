@@ -117,26 +117,45 @@ export default function GmailTodoReviewModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
             onClick={onClose}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[10px] shadow-xl max-w-md w-full p-8 text-center"
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="bg-white rounded-[5px] shadow-xl max-w-md w-full mx-2 md:mx-0"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex flex-col items-center">
-                <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
-                <h3 className="text-lg font-semibold text-[#332B42] mb-2">Analyzing Messages</h3>
-                <p className="text-sm text-gray-600 mb-4">AI is scanning your Gmail messages for actionable items...</p>
-                
-                {/* Purple progress bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                  <div className="h-2 bg-purple-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              {/* Fixed Header */}
+              <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#E0DBD7] flex-shrink-0">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-blue-600 bg-opacity-10 rounded-full p-2">
+                    <Mail className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h5 className="h5 text-left text-lg md:text-xl">Analyzing Messages</h5>
                 </div>
-                <p className="text-xs text-gray-500">This may take a few moments</p>
+                <button
+                  onClick={onClose}
+                  className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full ml-auto"
+                  title="Close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-8 text-center">
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-sm text-gray-600 mb-4">AI is scanning your Gmail messages for actionable items...</p>
+                  
+                  {/* Purple progress bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div className="h-2 bg-purple-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                  </div>
+                  <p className="text-xs text-gray-500">This may take a few moments</p>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -154,37 +173,35 @@ export default function GmailTodoReviewModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-[10px] shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full h-[70vh] flex flex-col relative mx-2 md:mx-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header - matches AI Analysis Complete modal */}
-            <div className="border-b border-[#AB9C95] p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-[#805d93]" />
-                  <h5 className="text-[#332B42] font-semibold">Messages Analyzed</h5>
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#E0DBD7] flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-600 bg-opacity-10 rounded-full p-2">
+                  <Mail className="w-6 h-6 text-blue-600" />
                 </div>
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <h5 className="h5 text-left text-lg md:text-xl">Messages Analyzed</h5>
               </div>
-              <p className="text-sm text-gray-600 mt-2">
-                Analyzed {analysisResults.messagesAnalyzed} messages • Found {totalSelected} actionable item{totalSelected !== 1 ? 's' : ''}
-              </p>
+              <button
+                onClick={onClose}
+                className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full ml-auto"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
               {/* New Todos Section */}
               {analysisResults.newTodos.length > 0 && (
                 <div className="mb-6">
@@ -342,27 +359,30 @@ export default function GmailTodoReviewModal({
               )}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-[#AB9C95] p-6">
-              <div className="flex justify-between items-center">
+            {/* Fixed Footer */}
+            <div className="border-t border-[#E0DBD7] p-4 md:p-6 flex-shrink-0">
+              <div className="flex items-center justify-between mb-4">
                 <div className="text-sm text-gray-600">
                   {totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#805d93]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirm}
-                    disabled={totalSelected === 0}
-                    className="px-4 py-2 text-sm font-medium text-white bg-[#805d93] rounded-md hover:bg-[#6b4c7a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#805d93] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Apply {totalSelected} Change{totalSelected !== 1 ? 's' : ''}
-                  </button>
-                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={onClose}
+                  className="btn-primaryinverse"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={totalSelected === 0}
+                  className={`btn-primary flex items-center gap-2 ${
+                    totalSelected === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  Apply {totalSelected} Change{totalSelected !== 1 ? 's' : ''}
+                </button>
               </div>
             </div>
           </motion.div>

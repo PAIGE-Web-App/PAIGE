@@ -4,11 +4,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, CheckCircle, X, Calendar, Tag, Flag, Sparkles } from 'lucide-react';
+import { Plus, Edit, CheckCircle, X, Calendar, Tag, Flag, Sparkles, Info } from 'lucide-react';
 import { DetectedTodo, TodoUpdate, CompletedTodo } from '../utils/messageAnalysisEngine';
 import ModalTodoItem from './ModalTodoItem';
+import UnifiedTodoItem from './UnifiedTodoItem';
+import Banner from './Banner';
 import { useTodoLists } from '../hooks/useTodoLists';
 import { useAuth } from '../contexts/AuthContext';
+import { TodoItem } from '../types/todo';
 
 interface AnalysisResultsDisplayProps {
   results: {
@@ -52,6 +55,7 @@ export default function AnalysisResultsDisplay({
   const todoListsHook = useTodoLists();
   const [selectedListIds, setSelectedListIds] = useState<{ [key: number]: string }>({});
   const [createEnabledItems, setCreateEnabledItems] = useState<{ [key: number]: boolean }>({});
+  const [editableCompletions, setEditableCompletions] = useState<{ [key: number]: CompletedTodo }>({});
 
   // Set default list selection when component mounts or todoLists change
   React.useEffect(() => {
@@ -77,6 +81,19 @@ export default function AnalysisResultsDisplay({
     }
   }, [todoListsHook.todoLists, results?.newTodos]);
 
+  // Initialize completion state
+  React.useEffect(() => {
+    if (results?.completedTodos) {
+      const newEditableCompletions: { [key: number]: CompletedTodo } = {};
+      
+      results.completedTodos.forEach((completion, index) => {
+        newEditableCompletions[index] = { ...completion }; // Copy for editing
+      });
+      
+      setEditableCompletions(newEditableCompletions);
+    }
+  }, [results?.completedTodos]);
+
   if (!results) return null;
 
   const hasNewTodos = results.newTodos.length > 0;
@@ -84,8 +101,12 @@ export default function AnalysisResultsDisplay({
   const hasCompletions = results.completedTodos.length > 0;
   const totalItems = results.newTodos.length + results.todoUpdates.length + results.completedTodos.length;
 
-  // Check if at least one to-do is enabled for Create All button
+  // Check if at least one to-do is enabled for Submit button
   const hasEnabledTodos = Object.values(createEnabledItems).some(enabled => enabled !== false);
+  const hasEnabledCompletions = Object.values(editableCompletions).some(completion => 
+    (completion as any).isCompleted !== false
+  );
+  const hasAnyEnabledItems = hasEnabledTodos || hasEnabledCompletions;
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
@@ -109,6 +130,17 @@ export default function AnalysisResultsDisplay({
   };
 
 
+  const handleUpdateCompletion = (index: number, field: keyof CompletedTodo | 'isCompleted', value: any) => {
+    setEditableCompletions(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        [field]: value
+      }
+    }));
+  };
+
+
 
   const handleCreateTodo = (todo: DetectedTodo, index: number) => {
     const selectedListId = selectedListIds[index];
@@ -125,37 +157,35 @@ export default function AnalysisResultsDisplay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-[10px] shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden"
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -50, opacity: 0 }}
+        className="bg-white rounded-[5px] shadow-xl max-w-2xl w-full h-[70vh] flex flex-col relative mx-2 md:mx-0"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header - matches VibePreviewModal */}
-        <div className="border-b border-[#AB9C95] p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-[#805d93]" />
-              <h5 className="text-[#332B42] font-semibold">AI Analysis Complete!</h5>
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#E0DBD7] flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-600 bg-opacity-10 rounded-full p-2">
+              <Sparkles className="w-6 h-6 text-blue-600" />
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <h5 className="h5 text-left text-lg md:text-xl">AI Analysis Complete!</h5>
           </div>
-          <p className="text-sm text-gray-600 mt-2">
-            Found {totalItems} actionable item{totalItems !== 1 ? 's' : ''}
-          </p>
+          <button
+            onClick={onClose}
+            className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full ml-auto"
+            title="Close"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {/* New To-Do Items */}
           {hasNewTodos && (
             <motion.div
@@ -282,32 +312,32 @@ export default function AnalysisResultsDisplay({
             </motion.div>
           )}
 
-          {/* Completed To-Dos */}
-          {hasCompletions && (
-            <motion.div
-              initial={false}
-              animate={{ height: expandedSections.completions ? 'auto' : 'auto' }}
-              className="mb-6"
-            >
-              <button
-                onClick={() => toggleSection('completions')}
-                className="flex items-center justify-between w-full text-left mb-3"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="font-medium text-[#332B42]">
-                    Completed To-Dos ({results.completedTodos.length})
-                  </span>
-                </div>
-                <motion.div
-                  animate={{ rotate: expandedSections.completions ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </motion.div>
-              </button>
+                  {/* Completed To-Dos */}
+                  {hasCompletions && (
+                    <motion.div
+                      initial={false}
+                      animate={{ height: expandedSections.completions ? 'auto' : 'auto' }}
+                      className="mb-6"
+                    >
+                      <button
+                        onClick={() => toggleSection('completions')}
+                        className="flex items-center justify-between w-full text-left mb-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="font-medium text-[#332B42]">
+                            Updates to To-dos found ({results.completedTodos.length})
+                          </span>
+                        </div>
+                        <motion.div
+                          animate={{ rotate: expandedSections.completions ? 180 : 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </motion.div>
+                      </button>
               
               <AnimatePresence>
                 {expandedSections.completions && (
@@ -317,22 +347,100 @@ export default function AnalysisResultsDisplay({
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {results.completedTodos.map((completion, index) => (
-                      <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <p className="text-sm text-[#332B42] mb-3">{completion.completionReason}</p>
+                    {/* Blue Info Banner - Inside accordion */}
+                    <div className="mb-4">
+                      <Banner
+                        type="info"
+                        message={
+                          <div className="flex items-start gap-2">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <span>
+                              We detected {results.completedTodos.length} to-do item{results.completedTodos.length !== 1 ? 's' : ''} that can be marked as complete!
+                            </span>
                           </div>
-                          <button
-                            onClick={() => onTodoComplete(completion)}
-                            className="px-4 py-2 bg-[#10B981] text-white rounded-[5px] text-sm font-medium hover:bg-[#10B981]/90 transition-colors flex items-center gap-2 flex-shrink-0"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Mark Complete
-                          </button>
+                        }
+                      />
+                    </div>
+                    
+                    {results.completedTodos.map((_, index) => {
+                      const completion = editableCompletions[index] || results.completedTodos[index];
+                      
+                      // Convert CompletedTodo to TodoItem format for UnifiedTodoItem
+                      const todoItem: TodoItem = {
+                        id: completion.id || `completion-${index}`,
+                        name: completion.name,
+                        deadline: completion.deadline,
+                        note: completion.note,
+                        category: completion.category,
+                        listId: completion.listId || '',
+                        isCompleted: (completion as any).isCompleted !== false, // Default to true, but allow toggling
+                        createdAt: new Date(),
+                        userId: user?.uid || '',
+                        orderIndex: index
+                      };
+
+                      // Custom handlers that update our local state
+                      const handleUpdateTaskName = async (todoId: string, newName: string | null) => {
+                        if (newName) {
+                          handleUpdateCompletion(index, 'name', newName);
+                        }
+                      };
+
+                      const handleUpdateDeadline = (todoId: string, deadline: string | null) => {
+                        handleUpdateCompletion(index, 'deadline', deadline ? new Date(deadline) : null);
+                      };
+
+                      const handleUpdateNote = (todoId: string, newNote: string | null) => {
+                        handleUpdateCompletion(index, 'note', newNote);
+                      };
+
+                      const handleUpdateCategory = (todoId: string, newCategory: string | null) => {
+                        handleUpdateCompletion(index, 'category', newCategory);
+                      };
+
+                      return (
+                        <div key={index} className="relative">
+                          {/* Use the actual TodoItem component */}
+                          <UnifiedTodoItem
+                            todo={todoItem}
+                            contacts={[]}
+                            allCategories={['Photographer', 'Caterer', 'Florist', 'DJ', 'Venue', 'Wedding Planner', 'Jewelry', 'timeline', 'logistics', 'vendor', 'payment', 'other']}
+                            sortOption="myOrder"
+                            draggedTodoId={null}
+                            dragOverTodoId={null}
+                            dropIndicatorPosition={{ id: null, position: null }}
+                            currentUser={user}
+                            handleToggleTodoComplete={() => {
+                              // Allow toggling completion state
+                              const updatedCompletion = { ...completion, isCompleted: !todoItem.isCompleted };
+                              handleUpdateCompletion(index, 'isCompleted', updatedCompletion.isCompleted);
+                            }}
+                            handleUpdateTaskName={handleUpdateTaskName}
+                            handleUpdateDeadline={handleUpdateDeadline}
+                            handleUpdateNote={handleUpdateNote}
+                            handleUpdateCategory={handleUpdateCategory}
+                            handleCloneTodo={() => {}} // Disabled for completion items
+                            handleDeleteTodo={() => {}} // Disabled for completion items
+                            setTaskToMove={() => {}} // Disabled for completion items
+                            setShowMoveTaskModal={() => {}} // Disabled for completion items
+                            handleDragStart={() => {}} // Disabled for completion items
+                            handleDragEnter={() => {}} // Disabled for completion items
+                            handleDragLeave={() => {}} // Disabled for completion items
+                            handleItemDragOver={() => {}} // Disabled for completion items
+                            handleDragEnd={() => {}} // Disabled for completion items
+                            handleDrop={() => {}} // Disabled for completion items
+                            mode="page"
+                            isJustMoved={false}
+                            searchQuery=""
+                          />
+                          
+                          {/* Source text overlay */}
+                          <div className="absolute bottom-2 right-2 z-10 bg-white/90 px-2 py-1 rounded text-xs text-[#AB9C95] max-w-xs">
+                            Source: {completion.sourceText}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -353,51 +461,49 @@ export default function AnalysisResultsDisplay({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-[#AB9C95] p-6 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Flag className="w-4 h-4" />
-              <span>
-                {(!todoListsHook.todoLists || todoListsHook.todoLists.length === 0) 
-                  ? 'Create a to-do list first to add AI-detected items'
-                  : 'AI-detected items can be automatically added to your to-do list'
-                }
-              </span>
-            </div>
-            <div className="flex gap-3">
-              {results?.aiTodoList && (
-                <button
-                  onClick={() => onGenerateAITodoList(results.aiTodoList!)}
-                  className="btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Generate AI To-Do List (2 Credits)
-                </button>
-              )}
+        {/* Fixed Footer */}
+        <div className="border-t border-[#E0DBD7] p-4 md:p-6 flex-shrink-0">
+          <div className="flex justify-end gap-3">
+            {results?.aiTodoList && (
               <button
-                onClick={onClose}
-                className="btn-primaryinverse px-4 py-2 text-sm font-medium"
+                onClick={() => onGenerateAITodoList(results.aiTodoList!)}
+                className="btn-primaryinverse flex items-center gap-2"
               >
-                Close
+                <Sparkles className="w-4 h-4" />
+                Generate AI To-Do List (2 Credits)
               </button>
-              <button
-                onClick={() => {
-                  // Create all enabled to-dos
-                  results.newTodos.forEach((todo, index) => {
-                    if (createEnabledItems[index] !== false) {
-                      handleCreateTodo(todo, index);
-                    }
-                  });
-                }}
-                disabled={!hasEnabledTodos}
-                className={`btn-primary px-4 py-2 text-sm font-medium flex items-center gap-2 ${
-                  !hasEnabledTodos ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                Create All
-              </button>
-            </div>
+            )}
+            <button
+              onClick={onClose}
+              className="btn-primaryinverse"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                // Create all enabled new to-dos
+                results.newTodos.forEach((todo, index) => {
+                  if (createEnabledItems[index] !== false) {
+                    handleCreateTodo(todo, index);
+                  }
+                });
+                
+                        // Mark only completions that are still in completed state
+                        Object.values(editableCompletions).forEach((completion) => {
+                          // Only process if the completion is still marked as completed (isCompleted !== false)
+                          if ((completion as any).isCompleted !== false) {
+                            onTodoComplete(completion);
+                          }
+                        });
+              }}
+              disabled={!hasAnyEnabledItems}
+              className={`btn-primary flex items-center gap-2 ${
+                !hasAnyEnabledItems ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Submit
+            </button>
           </div>
         </div>
       </motion.div>

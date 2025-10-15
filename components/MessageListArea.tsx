@@ -9,11 +9,13 @@ import { useBudget } from "../hooks/useBudget";
 import { useTodoItems } from '../hooks/useTodoItems';
 import { useTodoLists } from '../hooks/useTodoLists';
 import { useAuth } from '../hooks/useAuth';
+import { useUserContext } from '../hooks/useUserContext';
 import { useCustomToast } from '../hooks/useCustomToast';
-import { addDoc, doc, writeBatch, collection, query, where, getDocs } from "firebase/firestore";
+import { addDoc, doc, writeBatch, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getUserCollectionRef } from '@/lib/firebase';
 import { saveCategoryIfNew } from '@/lib/firebaseCategories';
+import { creditEventEmitter } from '@/utils/creditEventEmitter';
 
 // Development-only logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -547,6 +549,16 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   const { handleGenerateTodoList } = useBudget();
   const { user } = useAuth();
   const todoLists = useTodoLists();
+  const { todoItems } = useTodoItems(todoLists.selectedList);
+  const { 
+    weddingDate, 
+    weddingLocation, 
+    guestCount, 
+    maxBudget, 
+    vibe,
+    planningStage,
+    daysUntilWedding 
+  } = useUserContext();
   const { showSuccessToast, showErrorToast } = useCustomToast();
 
   // Auto-mark messages as read when contact is selected
@@ -618,19 +630,49 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
       const { MessageAnalysisEngine } = await import('../utils/messageAnalysisEngine');
       const engine = MessageAnalysisEngine.getInstance();
       
+      // Get existing todos for better context
+      const existingTodos = todoItems.map(item => ({
+        id: item.id,
+        title: item.name,
+        name: item.name,
+        isCompleted: item.isCompleted,
+        category: item.category,
+        deadline: item.deadline,
+        note: item.note,
+        listId: item.listId
+      }));
+      
+      console.log('[MessageListArea] Existing todos being sent to AI:', existingTodos);
+      
+      // Get wedding context
+      const weddingContext = {
+        weddingDate: weddingDate,
+        weddingLocation: weddingLocation,
+        guestCount: guestCount,
+        maxBudget: maxBudget,
+        vibe: vibe,
+        planningStage: planningStage,
+        daysUntilWedding: daysUntilWedding
+      };
+      
       const result = await engine.analyzeMessage({
         messageContent: message.body || message.fullBody || '',
         vendorCategory: selectedContact.category,
         vendorName: selectedContact.name,
         contactId: selectedContact.id,
-        userId: user?.uid || '', // Pass the user ID for credit validation
-        existingTodos: [], // TODO: Get from your todo system
-        weddingContext: undefined // TODO: Pass from parent
+        userId: user?.uid || '',
+        existingTodos: existingTodos,
+        weddingContext: weddingContext
       });
       
       if (result) {
         setAnalysisResults(result);
-
+        
+        // Trigger credit refresh since server-side deduction happened
+        // This will update the credit display and show the deduction popover
+        setTimeout(() => {
+          creditEventEmitter.emit();
+        }, 100);
       }
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -735,11 +777,34 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
     }
 
     try {
-      
-      
-      // For now, just show a success message
-      // TODO: Implement actual to-do completion logic when needed
-      showSuccessToast('To-do completion processed successfully!');
+      // Find the existing todo that matches this completion
+      if (completion.matchedTodo && completion.matchedTodo.id) {
+        // Mark the existing todo as complete
+        const todoRef = doc(db, 'users', user.uid, 'todoItems', completion.matchedTodo.id);
+        await updateDoc(todoRef, {
+          isCompleted: true,
+          completedAt: new Date()
+        });
+        
+        showSuccessToast(`"${completion.name}" marked as complete!`);
+      } else {
+        // If no matched todo, create a new completed todo
+        const todoData = {
+          name: completion.name,
+          deadline: completion.deadline || null,
+          note: completion.note || null,
+          category: completion.category || null,
+          isCompleted: true,
+          completedAt: new Date(),
+          userId: user.uid,
+          createdAt: new Date(),
+          orderIndex: Date.now(), // Use timestamp for ordering
+          listId: completion.listId || null
+        };
+
+        await addDoc(collection(db, 'users', user.uid, 'todoItems'), todoData);
+        showSuccessToast(`"${completion.name}" created and marked as complete!`);
+      }
       
       setAnalysisResults(null);
     } catch (error: any) {

@@ -32,12 +32,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process query through RAG system
-    // TODO: Implement processQueryWithRAG function
-    const result = {
-      success: false,
-      error: 'RAG processing not yet implemented'
-    };
+    // Process query through RAG system via n8n webhook
+    let result: { 
+      success: boolean; 
+      error?: string; 
+      context?: string; 
+      sources?: any[]; 
+      confidence?: number; 
+    } = { success: false, error: 'RAG processing failed' };
+    
+    try {
+      const n8nWebhookUrl = process.env.RAG_N8N_WEBHOOK_URL;
+      if (!n8nWebhookUrl) {
+        return NextResponse.json(
+          { error: 'RAG_N8N_WEBHOOK_URL not configured' },
+          { status: 500 }
+        );
+      }
+
+      // Call n8n webhook for query processing
+      const response = await fetch(`${n8nWebhookUrl}/process-query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.RAG_N8N_API_KEY || ''}`
+        },
+        body: JSON.stringify({
+          query: query,
+          user_id: user_id,
+          user_document: user_document,
+          context: context,
+          contextType: body.contextType || 'message_analysis'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        result = {
+          success: true,
+          context: data.context || data.answer || '',
+          sources: data.sources || [],
+          confidence: data.confidence || 0.8
+        };
+      } else {
+        result = {
+          success: false,
+          error: `N8N webhook failed: ${response.status} ${response.statusText}`
+        };
+      }
+    } catch (error) {
+      console.error('RAG query processing error:', error);
+      result = {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -46,7 +95,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: result.success,
+      context: result.context || '',
+      sources: result.sources || [],
+      confidence: result.confidence || 0.8
+    });
 
   } catch (error) {
     console.error('RAG query processing error:', error);
