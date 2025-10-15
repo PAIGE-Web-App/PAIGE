@@ -64,8 +64,8 @@ export default function TemplateEditPage() {
     try {
       const updated = await updateTemplate(editedTemplate.id, {
         name: editedTemplate.name,
-        description: editedTemplate.description,
-        tables: editedTemplate.tables
+        description: editedTemplate.description
+        // DO NOT update tables - this corrupts the original template data
       }, user.uid);
       
       if (updated) {
@@ -84,12 +84,10 @@ export default function TemplateEditPage() {
   };
 
   const handleTableLayoutUpdate = (updates: { tables: any[]; totalCapacity: number }) => {
-    if (!editedTemplate) return;
-    
-    setEditedTemplate(prev => ({
-      ...prev!,
-      tables: updates.tables
-    }));
+    // DO NOT update template data when applying templates
+    // This prevents corruption of the original template when using AI modal
+    // Template data should only be updated when user manually edits the template
+    console.log('Template layout update ignored to prevent corruption:', updates);
   };
 
   const handleRenameTemplate = async () => {
@@ -294,15 +292,13 @@ export default function TemplateEditPage() {
               totalCapacity: (editedTemplate?.tables || template.tables).reduce((sum, t) => sum + t.capacity, 0)
             }}
             onUpdate={handleTableLayoutUpdate}
-            onAddTable={(newTable) => {
-              const updatedTables = [...(editedTemplate?.tables || template.tables), newTable];
-              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
-              handleTableLayoutUpdate({ tables: updatedTables, totalCapacity });
+            onAddTable={() => {
+              // DO NOT update template data when adding tables
+              // This prevents corruption of the original template when using AI modal
             }}
-            onAddVenueItem={(newVenueItem) => {
-              const updatedTables = [...(editedTemplate?.tables || template.tables), newVenueItem];
-              const totalCapacity = updatedTables.reduce((sum, t) => sum + t.capacity, 0);
-              handleTableLayoutUpdate({ tables: updatedTables, totalCapacity });
+            onAddVenueItem={() => {
+              // DO NOT update template data when adding venue items
+              // This prevents corruption of the original template when using AI modal
             }}
             guestCount={0}
             guests={[]}

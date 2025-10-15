@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save } from 'lucide-react';
 import { TableType } from '../../types/seatingChart';
-import { saveTemplate } from '../../lib/templateService';
+import { saveTemplate, TemplateTable } from '../../lib/templateService';
 
 interface SaveAsTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveTemplate: (templateData: { name: string; description: string; tables: TableType[] }) => void;
-  currentTables: TableType[];
+  currentTables: (TableType & { x?: number; y?: number; width?: number; height?: number })[];
   userId: string;
 }
 
@@ -24,19 +24,36 @@ export default function SaveAsTemplateModal({ isOpen, onClose, onSaveTemplate, c
     if (templateData.name.trim()) {
       try {
         // Save tables without guest assignments but preserve positions and layout
-        const templateTables = currentTables.map(table => ({
-          // Only preserve the essential table properties for templates
-          id: table.id,
-          name: table.name,
-          type: table.type,
-          capacity: table.capacity,
-          description: table.description || '',
-          isDefault: table.isDefault || false,
-          rotation: table.rotation || 0,
-          isVenueItem: table.isVenueItem || false,
-          // Explicitly exclude all guest-related properties
-          // DO NOT preserve: guests, guestAssignments, or any other guest data
-        }));
+        const templateTables: TemplateTable[] = currentTables.map(table => {
+          const templateTable = {
+            // Only preserve the essential table properties for templates
+            id: table.id,
+            name: table.name,
+            type: table.type,
+            capacity: table.capacity,
+            description: table.description || '',
+            isDefault: table.isDefault || false,
+            rotation: table.rotation || 0,
+            x: table.x || 0,
+            y: table.y || 0,
+            // Ensure sweetheart table always has correct dimensions
+            width: table.name === 'Sweetheart Table' ? 120 : (table.width || 80),
+            height: table.name === 'Sweetheart Table' ? 60 : (table.height || 80),
+            isVenueItem: table.isVenueItem || false,
+            // Explicitly exclude all guest-related properties
+            // DO NOT preserve: guests, guestAssignments, or any other guest data
+          };
+          
+          console.log(`🔍 TEMPLATE SAVE DEBUG - Table ${table.id} (${table.name}):`, {
+            originalWidth: table.width,
+            originalHeight: table.height,
+            isVenueItem: table.isVenueItem,
+            savedWidth: templateTable.width,
+            savedHeight: templateTable.height
+          });
+          
+          return templateTable;
+        });
 
         // Save to Firestore
         const savedTemplate = await saveTemplate({

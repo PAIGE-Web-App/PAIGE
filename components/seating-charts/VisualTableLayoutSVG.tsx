@@ -78,6 +78,9 @@ export default function VisualTableLayoutSVG({
   const [showAITableModal, setShowAITableModal] = useState(false);
   const [highlightedGuest, setHighlightedGuest] = useState<string | null>(null);
   
+  // State to prevent useEffect from overriding template positions
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
+  
   const { showSuccessToast } = useCustomToast();
   
   // Table resize state with session persistence
@@ -255,8 +258,51 @@ export default function VisualTableLayoutSVG({
 
 
 
+  // Initialize positions from template data if available (for template edit mode)
+  useEffect(() => {
+    // Check if tables have position data embedded (from templates)
+    const tablesWithPositions = tableLayout.tables.filter((t: any) => t.x !== undefined && t.y !== undefined);
+    
+    // If ALL tables have position data, this is a template with saved positions
+    // ALWAYS use the template positions, even if tablePositions already has data
+    if (tablesWithPositions.length === tableLayout.tables.length && tablesWithPositions.length > 0) {
+      const initialPositions = tableLayout.tables.map((table: any) => ({
+        id: table.id,
+        x: table.x,
+        y: table.y,
+        rotation: table.rotation || 0
+      }));
+      
+      // Check if positions are different from current state to avoid infinite loop
+      const positionsChanged = initialPositions.some((newPos, index) => {
+        const existingPos = tablePositions.find(p => p.id === newPos.id);
+        return !existingPos || existingPos.x !== newPos.x || existingPos.y !== newPos.y;
+      });
+      
+      if (positionsChanged) {
+        setTablePositions(initialPositions);
+        
+        // Also initialize dimensions from template data
+        const initialDimensions: Record<string, { width: number; height: number }> = {};
+        tableLayout.tables.forEach((table: any) => {
+          const shape = getTableShape(table.type);
+          initialDimensions[table.id] = {
+            width: table.width || shape.width,
+            height: table.height || shape.height
+          };
+        });
+        setTableDimensions(initialDimensions);
+      }
+    }
+  }, [tableLayout.tables, tablePositions]); // Re-run when tables OR positions change
+
   // Update positions when tables change
   useEffect(() => {
+    // Skip this effect entirely if we're applying a template
+    if (isApplyingTemplate) {
+      return;
+    }
+
     const currentIds = tableLayout.tables.map(t => t.id);
     const existingPositions = tablePositions.filter(p => currentIds.includes(p.id));
     const newPositions = tableLayout.tables
@@ -272,6 +318,7 @@ export default function VisualTableLayoutSVG({
         }
       });
     
+    // Only set positions if we have new tables
     if (newPositions.length > 0) {
       setTablePositions([...existingPositions, ...newPositions]);
     }
@@ -286,7 +333,7 @@ export default function VisualTableLayoutSVG({
       });
       setTableDimensions(newDimensions);
     }
-  }, [tableLayout.tables, tableDimensions]);
+  }, [tableLayout.tables, tableDimensions, isApplyingTemplate]);
 
   // Event handlers
   const handleTableMouseEnter = (e: React.MouseEvent) => {
@@ -411,25 +458,24 @@ export default function VisualTableLayoutSVG({
   };
 
   const handleGenerateTableLayout = (generatedTables: TableType[], totalCapacity: number, positions?: Array<{ id: string; x: number; y: number }>) => {
-    // Keep the existing sweetheart table and add the generated tables
-    const existingSweetheartTable = tableLayout.tables.find(t => t.isDefault);
-    const newTables = existingSweetheartTable 
-      ? [existingSweetheartTable, ...generatedTables.filter(t => !t.isDefault)]
-      : generatedTables;
+
+    // Set flag to prevent useEffect from overriding template positions
+    setIsApplyingTemplate(true);
+
+    // Use the generated tables directly (they already include the sweetheart table if it exists)
+    const newTables = generatedTables;
     
     // If positions are provided, update the table positions
     if (positions && positions.length > 0) {
-      const newPositions = [...tablePositions];
-      
-      positions.forEach(pos => {
-        const existingIndex = newPositions.findIndex(p => p.id === pos.id);
-        if (existingIndex >= 0) {
-          // Update existing position
-          newPositions[existingIndex] = { ...newPositions[existingIndex], x: pos.x, y: pos.y };
-        } else {
-          // Add new position
-          newPositions.push({ ...pos, rotation: 0 });
-        }
+      // Map positions to match the new table IDs
+      const newPositions = positions.map((pos, index) => {
+        const correspondingTable = newTables[index];
+        return {
+          id: correspondingTable.id, // Use the NEW table ID, not the old position ID
+          x: pos.x,
+          y: pos.y,
+          rotation: 0
+        };
       });
       
       setTablePositions(newPositions);
@@ -437,11 +483,42 @@ export default function VisualTableLayoutSVG({
       // Save positions to session storage
       sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(newPositions));
     }
+
+    // Preserve custom dimensions from template if they exist
+    const newDimensions: Record<string, { width: number; height: number }> = {};
+    generatedTables.forEach((table: any) => {
+      if (table.width && table.height) {
+        newDimensions[table.id] = {
+          width: table.width,
+          height: table.height
+        };
+        console.log(`🔍 APPLY TEMPLATE - Extracted dimensions for ${table.id} (${table.name}):`, {
+          width: table.width,
+          height: table.height,
+          isVenueItem: table.isVenueItem
+        });
+      }
+    });
     
-    // Recalculate total capacity based on the actual newTables array, always subtract 2 for sweetheart table
-    const recalculatedTotalCapacity = newTables.reduce((sum, table) => sum + table.capacity, 0) - 2;
-    onUpdate({ tables: newTables, totalCapacity: recalculatedTotalCapacity });
+    // Always update dimensions (merge with existing, or replace if we have new dimensions)
+    if (Object.keys(newDimensions).length > 0) {
+      console.log(`🔍 APPLY TEMPLATE - Setting tableDimensions state with ${Object.keys(newDimensions).length} tables`);
+      setTableDimensions(newDimensions);
+      // Save dimensions to session storage
+      sessionStorage.setItem('seating-chart-table-dimensions', JSON.stringify(newDimensions));
+    } else {
+      console.log('🔍 APPLY TEMPLATE - No custom dimensions found in template');
+    }
+    
+    // Use the provided totalCapacity or recalculate if not provided
+    const finalTotalCapacity = totalCapacity || newTables.reduce((sum, table) => sum + table.capacity, 0) - 2;
+    onUpdate({ tables: newTables, totalCapacity: finalTotalCapacity });
     setShowAITableModal(false);
+    
+    // Clear the flag after a longer delay to ensure all effects have run
+    setTimeout(() => {
+      setIsApplyingTemplate(false);
+    }, 500);
   };
 
   const handleAddTable = (newTable: any) => {
@@ -614,7 +691,9 @@ export default function VisualTableLayoutSVG({
             onTableDoubleClick={() => {
               if (selectedTable) {
                 const table = tableLayout.tables.find(t => t.id === selectedTable);
-                if (table) startEditing(table);
+                if (table && !table.isDefault) { // Prevent editing sweetheart table (isDefault)
+                  startEditing(table);
+                }
               }
             }}
             onResizeStart={handleResizeStart}
@@ -734,7 +813,20 @@ export default function VisualTableLayoutSVG({
         isOpen={showSaveAsTemplateModal}
         onClose={() => setShowSaveAsTemplateModal(false)}
         onSaveTemplate={handleSaveAsTemplate}
-        currentTables={tableLayout.tables}
+        currentTables={tableLayout.tables.map(table => {
+          const position = tablePositions.find(p => p.id === table.id);
+          const tableDims = tableDimensions[table.id];
+          const defaultShape = getTableShape(table.type);
+          
+          return {
+            ...table,
+            x: position?.x || 0,
+            y: position?.y || 0,
+            width: tableDims?.width || defaultShape.width,
+            height: tableDims?.height || defaultShape.height,
+            rotation: position?.rotation || 0
+          };
+        })}
         userId={user?.uid || ''}
       />
 

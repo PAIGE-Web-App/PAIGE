@@ -13,11 +13,18 @@ import {
 import { db } from './firebase';
 import { TableType } from '@/types/seatingChart';
 
+export interface TemplateTable extends TableType {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface SavedTemplate {
   id: string;
   name: string;
   description: string;
-  tables: TableType[];
+  tables: TemplateTable[];
   createdAt: Date;
   updatedAt: Date;
   userId?: string; // Added for Firestore
@@ -56,7 +63,7 @@ const cleanUndefinedValues = (obj: any): any => {
 export const saveTemplate = async (templateData: {
   name: string;
   description: string;
-  tables: TableType[];
+  tables: TemplateTable[];
 }, userId: string): Promise<SavedTemplate> => {
   try {
     const templateDoc = cleanUndefinedValues({
@@ -272,14 +279,17 @@ export const deleteTemplate = async (templateId: string, userId: string): Promis
 export const cleanExistingTemplates = async (userId: string): Promise<void> => {
   try {
     const templates = await getTemplates(userId);
-    
+
     for (const template of templates) {
       const cleanTables = template.tables.map(table => ({
         ...table,
         guests: [],
-        guestAssignments: {}
+        guestAssignments: {},
+        // Fix sweetheart table width to 120px if it's the sweetheart table
+        width: table.name === 'Sweetheart Table' ? 120 : table.width,
+        height: table.name === 'Sweetheart Table' ? 60 : table.height
       }));
-      
+
       await updateTemplate(template.id, { tables: cleanTables }, userId);
     }
   } catch (error) {
@@ -299,7 +309,7 @@ export const cloneTemplate = async (templateId: string, newName: string, userId:
     }
 
     // Create a new template with the same data but new ID and name
-    const clonedTables = originalTemplate.tables.map(table => ({
+    const clonedTables: TemplateTable[] = originalTemplate.tables.map(table => ({
       ...table,
       id: `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     }));

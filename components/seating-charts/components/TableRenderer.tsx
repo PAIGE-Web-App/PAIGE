@@ -75,11 +75,24 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
   onEditTable,
   highlightedGuest
 }) => {
-  
-  const shape = getTableShape(table.type);
+  // Use special sweetheart table shape if this is the sweetheart table
+  const shape = table.isDefault ? getTableShape('sweetheart') : getTableShape(table.type);
   const customDimensions = tableDimensions?.[table.id];
-  const width = customDimensions?.width || shape.width;
-  const height = customDimensions?.height || shape.height;
+  // Force sweetheart table to always use correct dimensions (120x60)
+  const width = table.isDefault ? 120 : (customDimensions?.width || shape.width);
+  const height = table.isDefault ? 60 : (customDimensions?.height || shape.height);
+  
+  // Debug logging for venue items
+  if (table.isVenueItem) {
+    console.log(`🔍 RENDER DEBUG - Venue Item ${table.id} (${table.name}):`, {
+      customDimensions,
+      tableDimensions: tableDimensions,
+      availableTableIds: Object.keys(tableDimensions || {}),
+      width,
+      height,
+      isVenueItem: table.isVenueItem
+    });
+  }
   const currentRotation = table.rotation || 0;
   const seatPositions = shape.seatPositions(table.capacity, width, height, currentRotation);
 
@@ -269,9 +282,9 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             color: '#332B42',
             fontWeight: '500',
             lineHeight: '1.1',
-            wordWrap: 'break-word',
+            wordWrap: table.isDefault ? 'normal' : 'break-word',
             overflow: 'hidden',
-            whiteSpace: 'normal'
+            whiteSpace: table.isDefault ? 'nowrap' : 'normal'
           }}
         >
           {table.name}

@@ -137,6 +137,25 @@ export const TABLE_SHAPES: Record<string, TableShape> = {
       
       return positions;
     }
+  },
+  sweetheart: {
+    width: 120,
+    height: 60,
+    seatPositions: (capacity: number, customWidth?: number, customHeight?: number, rotation?: number): SeatPosition[] => {
+      const width = customWidth || 120;
+      const height = customHeight || 60;
+      const positions: SeatPosition[] = [];
+      
+      // Sweetheart table has exactly 2 seats - one on each side
+      if (capacity >= 1) {
+        positions.push({ x: -(width / 2) - 15, y: 0 }); // Left side
+      }
+      if (capacity >= 2) {
+        positions.push({ x: (width / 2) + 15, y: 0 }); // Right side
+      }
+      
+      return positions;
+    }
   }
 };
 

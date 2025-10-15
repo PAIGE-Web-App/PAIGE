@@ -59,6 +59,8 @@ export interface Table {
   guestAssignments?: Record<string, { seatIndex: number }>; // Guest seat assignments
   isActive: boolean;
   isVenueItem?: boolean; // Flag to identify venue items
+  width?: number; // Custom width for resized tables and venue items
+  height?: number; // Custom height for resized tables and venue items
 }
 
 export interface SeatingChart {

@@ -30,6 +30,19 @@ export default function SeatingChartDetailPage() {
   const [chart, setChart] = useState<SeatingChart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'guests' | 'layout'>('guests');
+
+  // Load active tab from session storage on mount
+  useEffect(() => {
+    const savedTab = sessionStorage.getItem('seating-chart-active-tab') as 'guests' | 'layout';
+    if (savedTab && (savedTab === 'guests' || savedTab === 'layout')) {
+      setActiveTab(savedTab);
+    }
+  }, []);
+
+  // Save active tab to session storage when it changes
+  useEffect(() => {
+    sessionStorage.setItem('seating-chart-active-tab', activeTab);
+  }, [activeTab]);
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<{
     id: string;
@@ -154,6 +167,30 @@ export default function SeatingChartDetailPage() {
               });
               sessionStorage.setItem('seating-chart-table-positions', JSON.stringify(tablePositions));
               console.log('Restored table positions and rotations:', tablePositions);
+              
+              // Restore table dimensions from saved chart data
+              const tableDimensions: Record<string, { width: number; height: number }> = {};
+              chartData.tables.forEach((table: any) => {
+                console.log(`🔍 LOAD DEBUG - Table ${table.id} (${table.name}):`, {
+                  width: table.width,
+                  height: table.height,
+                  isVenueItem: table.isVenueItem,
+                  hasCustomDimensions: !!(table.width && table.height)
+                });
+                if (table.width && table.height) {
+                  tableDimensions[table.id] = {
+                    width: table.width,
+                    height: table.height
+                  };
+                }
+              });
+              
+              if (Object.keys(tableDimensions).length > 0) {
+                sessionStorage.setItem('seating-chart-table-dimensions', JSON.stringify(tableDimensions));
+                console.log('🔍 LOAD DEBUG - Restored table dimensions:', tableDimensions);
+              } else {
+                console.log('🔍 LOAD DEBUG - No table dimensions found in Firestore data');
+              }
             }
             
             // Restore guest assignments from saved chart data
@@ -278,16 +315,22 @@ export default function SeatingChartDetailPage() {
       // Get current session storage data
       let tablePositions: any[] = [];
       let guestAssignments: any = {};
+      let tableDimensions: Record<string, { width: number; height: number }> = {};
       
       try {
         const positionsData = sessionStorage.getItem('seating-chart-table-positions');
         const assignmentsData = sessionStorage.getItem('seating-chart-guest-assignments');
+        const dimensionsData = sessionStorage.getItem('seating-chart-table-dimensions');
         
         if (positionsData) {
           tablePositions = JSON.parse(positionsData);
         }
         if (assignmentsData) {
           guestAssignments = JSON.parse(assignmentsData);
+        }
+        if (dimensionsData) {
+          tableDimensions = JSON.parse(dimensionsData);
+          console.log('🔍 SAVE DEBUG - Loaded tableDimensions from sessionStorage:', tableDimensions);
         }
         
       } catch (error) {
@@ -310,6 +353,15 @@ export default function SeatingChartDetailPage() {
           }
         });
         
+        // Get custom dimensions for this table
+        const customDimensions = tableDimensions[table.id];
+        console.log(`🔍 SAVE DEBUG - Table ${table.id} (${table.name}):`, {
+          customDimensions,
+          isVenueItem: table.isVenueItem,
+          width: customDimensions?.width,
+          height: customDimensions?.height
+        });
+        
         // Convert TableType to Table (database format)
         return {
           id: table.id,
@@ -321,7 +373,10 @@ export default function SeatingChartDetailPage() {
           guests: assignedGuests,
           guestAssignments: guestAssignmentsForTable, // Store seat indices with guest IDs
           isActive: true,
-          isVenueItem: table.isVenueItem || false // Preserve venue item property
+          isVenueItem: table.isVenueItem || false, // Preserve venue item property
+          // Save custom dimensions for venue items and resized tables
+          width: customDimensions?.width,
+          height: customDimensions?.height
         };
       });
       

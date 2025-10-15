@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Table, Users, ArrowRight, Lightbulb } from 'lucide-react';
+import { X, Sparkles, Table, Users, ArrowRight, Lightbulb, FolderOpen } from 'lucide-react';
 import { TableType } from '@/types/seatingChart';
 import Banner from '@/components/Banner';
+import { getTemplates, SavedTemplate, TemplateTable } from '@/lib/templateService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCustomToast } from '@/hooks/useCustomToast';
 
 interface AITableLayoutModalProps {
   isOpen: boolean;
@@ -268,11 +271,25 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
   guestCount,
   hasSeatedGuests = false
 }) => {
+  const { user } = useAuth();
+  const { showSuccessToast } = useCustomToast();
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
+  const [showYourTemplates, setShowYourTemplates] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [selectedSavedTemplate, setSelectedSavedTemplate] = useState<SavedTemplate | null>(null);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [confirmTemplateRegenerate, setConfirmTemplateRegenerate] = useState(false);
+
+  // Load saved templates when modal opens
+  useEffect(() => {
+    if (isOpen && user) {
+      loadSavedTemplates();
+    }
+  }, [isOpen, user]);
 
   // Pre-fill AI prompt with guest count
   useEffect(() => {
@@ -281,8 +298,94 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
     }
   }, [showAIPrompt, guestCount, aiPrompt]);
 
+  const loadSavedTemplates = async () => {
+    if (!user) return;
+    
+    setIsLoadingTemplates(true);
+    try {
+      const templates = await getTemplates(user.uid);
+      setSavedTemplates(templates);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
   const handleTemplateClick = (templateId: string) => {
     setSelectedTemplate(selectedTemplate === templateId ? null : templateId);
+  };
+
+  const handleSavedTemplateClick = (template: SavedTemplate) => {
+    setSelectedSavedTemplate(selectedSavedTemplate?.id === template.id ? null : template);
+  };
+
+  const handleApplySavedTemplate = () => {
+    if (!selectedSavedTemplate) return;
+
+    // Check if we need confirmation (if there are already seated guests)
+    if (hasSeatedGuests && !confirmTemplateRegenerate) {
+      setConfirmTemplateRegenerate(true);
+      return;
+    }
+
+    // Generate a single timestamp for consistent ID generation
+    const timestamp = Date.now();
+    
+    // Convert saved template tables to TableType format with NEW IDs to avoid conflicts
+    // BUT preserve the sweetheart table ID to maintain its special behavior
+    const tables: TableType[] = selectedSavedTemplate.tables.map((table, index) => ({
+      id: table.name === 'Sweetheart Table' ? 'sweetheart-table' : `applied-${timestamp}-${index}`, // Preserve sweetheart table ID
+      name: table.name,
+      type: table.type,
+      capacity: table.capacity,
+      description: table.description || '',
+      isDefault: table.isDefault || false,
+      rotation: table.rotation || 0,
+      isVenueItem: table.isVenueItem || false
+    }));
+
+    // Calculate total capacity (excluding sweetheart table)
+    const totalCapacity = tables.reduce((sum, table) => sum + table.capacity, 0) - 2;
+
+    // Generate positions array from saved template data with NEW IDs
+    // BUT preserve the sweetheart table ID to maintain its special behavior
+    const positions = selectedSavedTemplate.tables.map((table, index) => ({
+      id: table.name === 'Sweetheart Table' ? 'sweetheart-table' : `applied-${timestamp}-${index}`, // Use same timestamp
+      x: table.x || 0,
+      y: table.y || 0
+    }));
+
+    // Update tables to include width and height properties with NEW IDs
+    // BUT preserve the sweetheart table ID to maintain its special behavior
+    const tablesWithDimensions = tables.map((table, index) => {
+      const savedTable = selectedSavedTemplate.tables[index]; // Use index instead of finding by ID
+      const tableWithDimensions = {
+        ...table,
+        id: table.name === 'Sweetheart Table' ? 'sweetheart-table' : table.id, // Ensure sweetheart table ID is preserved
+        // Ensure sweetheart table always has correct dimensions
+        width: table.name === 'Sweetheart Table' ? 120 : (savedTable?.width || 80),
+        height: table.name === 'Sweetheart Table' ? 60 : (savedTable?.height || 80)
+      } as TableType & { width: number; height: number };
+      
+      console.log(`🔍 TEMPLATE APPLY DEBUG - Table ${table.id} (${table.name}):`, {
+        savedTableWidth: savedTable?.width,
+        savedTableHeight: savedTable?.height,
+        appliedWidth: tableWithDimensions.width,
+        appliedHeight: tableWithDimensions.height,
+        isVenueItem: table.isVenueItem
+      });
+      
+      return tableWithDimensions;
+    });
+
+    // Apply the template with saved positions
+    onGenerateLayout(tablesWithDimensions, totalCapacity, positions);
+    
+    // Show success toast
+    showSuccessToast(`Template "${selectedSavedTemplate.name}" applied successfully!`);
+    
+    onClose();
   };
 
   const handleGenerateFromTemplate = () => {
@@ -487,9 +590,12 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
                 <div className="flex justify-center mb-6">
                   <div className="bg-[#F8F6F4] rounded-[5px] p-1 flex">
                     <button
-                      onClick={() => setShowAIPrompt(false)}
+                      onClick={() => {
+                        setShowAIPrompt(false);
+                        setShowYourTemplates(false);
+                      }}
                       className={`px-4 py-2 rounded-[3px] text-sm font-medium transition-all ${
-                        !showAIPrompt 
+                        !showAIPrompt && !showYourTemplates
                           ? 'bg-white text-[#332B42] shadow-sm' 
                           : 'text-[#AB9C95] hover:text-[#332B42]'
                       }`}
@@ -497,20 +603,36 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
                       Popular Templates
                     </button>
                     <button
-                      onClick={() => setShowAIPrompt(true)}
+                      onClick={() => {
+                        setShowAIPrompt(true);
+                        setShowYourTemplates(false);
+                      }}
                       className={`px-4 py-2 rounded-[3px] text-sm font-medium transition-all ${
-                        showAIPrompt 
+                        showAIPrompt && !showYourTemplates
                           ? 'bg-white text-[#332B42] shadow-sm' 
                           : 'text-[#AB9C95] hover:text-[#332B42]'
                       }`}
                     >
                       AI Assistant
                     </button>
+                    <button
+                      onClick={() => {
+                        setShowAIPrompt(false);
+                        setShowYourTemplates(true);
+                      }}
+                      className={`px-4 py-2 rounded-[3px] text-sm font-medium transition-all ${
+                        showYourTemplates && !showAIPrompt
+                          ? 'bg-white text-[#332B42] shadow-sm' 
+                          : 'text-[#AB9C95] hover:text-[#332B42]'
+                      }`}
+                    >
+                      Your Templates
+                    </button>
                   </div>
                 </div>
 
                 {/* Content */}
-                {!showAIPrompt ? (
+                {!showAIPrompt && !showYourTemplates ? (
                   /* Popular Templates */
                   <div>
                     <div className="mb-4">
@@ -566,7 +688,7 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
                       })}
                     </div>
                   </div>
-                ) : (
+                ) : showAIPrompt ? (
                   /* AI Assistant */
                   <div>
 
@@ -585,14 +707,95 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
 
                     </div>
                   </div>
+                ) : (
+                  /* Your Templates */
+                  <div>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        Choose from Your Saved Templates
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Select a template to apply to your current layout
+                      </p>
+                    </div>
+
+                    {isLoadingTemplates ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A85C36]"></div>
+                        <span className="ml-2 text-gray-600">Loading templates...</span>
+                      </div>
+                    ) : savedTemplates.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600">No saved templates yet</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Create and save templates from the seating chart to see them here
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                        {savedTemplates.map((template) => {
+                          const guestTableCapacity = template.tables.reduce((sum, t) => sum + t.capacity, 0) - 2; // Subtract sweetheart table
+                          const numTables = template.tables.filter(t => !t.isVenueItem).length;
+                          
+                          return (
+                            <div
+                              key={template.id}
+                              className={`p-3 md:p-4 rounded-lg border-2 transition-colors duration-200 text-left relative cursor-pointer ${
+                                selectedSavedTemplate?.id === template.id
+                                  ? 'bg-blue-50 border-blue-300 shadow-md'
+                                  : 'border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
+                              }`}
+                              onClick={() => handleSavedTemplateClick(template)}
+                            >
+                              {/* Selection indicator in top left */}
+                              <div className="absolute top-3 left-3">
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                  selectedSavedTemplate?.id === template.id
+                                    ? 'bg-[#A85C36] border-[#A85C36]'
+                                    : 'border-gray-300'
+                                }`}>
+                                  {selectedSavedTemplate?.id === template.id && (
+                                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 mb-2 pl-6">
+                                <span className="text-2xl">📋</span>
+                                <span className="font-medium">{template.name}</span>
+                              </div>
+                              <div className="text-sm opacity-75 mb-1">
+                                {template.description || 'Your saved template'}
+                              </div>
+                              <div className="text-sm font-medium">
+                                {guestTableCapacity} seats • {numTables} tables • Saved Layout
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Confirmation Banner for Your Templates */}
+                    {confirmTemplateRegenerate && (
+                      <div className="mt-4">
+                        <Banner 
+                          type="warning"
+                          message="Are you sure? This will remove your current layout with guests. Are you sure you want to continue?"
+                          onDismiss={() => setConfirmTemplateRegenerate(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
 
             {/* Fixed Footer */}
             <div className="border-t border-[#E0DBD7] p-4 md:p-6 flex-shrink-0">
-              {!showAIPrompt ? (
-                /* Templates Tab Footer */
+              {!showAIPrompt && !showYourTemplates ? (
+                /* Popular Templates Tab Footer */
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
                   <div className="text-left">
                     {selectedTemplate ? (
@@ -626,7 +829,7 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : showAIPrompt ? (
                 /* AI Assistant Tab Footer */
                 <div className="flex justify-end">
                   <motion.button
@@ -651,6 +854,41 @@ const AITableLayoutModal: React.FC<AITableLayoutModalProps> = ({
                       </>
                     )}
                   </motion.button>
+                </div>
+              ) : (
+                /* Your Templates Tab Footer */
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
+                  <div className="text-left">
+                    {selectedSavedTemplate ? (
+                      <p className="text-base font-semibold text-gray-800">
+                        {selectedSavedTemplate.name} • {selectedSavedTemplate.tables.reduce((sum, t) => sum + t.capacity, 0) - 2} seats • {guestCount} guests
+                        <span className={`text-sm font-normal ${
+                          (selectedSavedTemplate.tables.reduce((sum, t) => sum + t.capacity, 0) - 2) >= guestCount ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {' '}({(selectedSavedTemplate.tables.reduce((sum, t) => sum + t.capacity, 0) - 2) >= guestCount ? 'Perfect fit!' : `${guestCount - (selectedSavedTemplate.tables.reduce((sum, t) => sum + t.capacity, 0) - 2)} more seats needed`})
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-base font-semibold text-gray-800">
+                        Select a saved template to continue
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <button
+                      onClick={handleApplySavedTemplate}
+                      disabled={!selectedSavedTemplate}
+                      className={`flex items-center justify-center gap-2 w-full md:w-auto ${
+                        selectedSavedTemplate 
+                          ? 'btn-primary' 
+                          : 'btn-primary opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <Table className="w-4 h-4" />
+                      {confirmTemplateRegenerate ? 'Confirm Regeneration' : 'Apply Template'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
