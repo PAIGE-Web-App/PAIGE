@@ -14,7 +14,7 @@ import TimelineTopBar from '@/components/timeline/TimelineTopBar';
 import TimelineBuilder from '@/components/timeline/TimelineBuilder';
 import TimelineSync from '@/components/timeline/TimelineSync';
 import TimelineCalendarSync from '@/components/timeline/TimelineCalendarSync';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import TimelinePageSkeleton from '@/components/timeline/TimelinePageSkeleton';
 import AILoadingIndicator from '@/components/AILoadingIndicator';
 import WeddingBanner from '@/components/WeddingBanner';
 import DeleteTimelineConfirmationModal from '@/components/timeline/DeleteTimelineConfirmationModal';
@@ -44,6 +44,7 @@ export default function TimelinePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [timelineToDelete, setTimelineToDelete] = useState<WeddingTimeline | null>(null);
@@ -696,11 +697,7 @@ export default function TimelinePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <TimelinePageSkeleton />;
   }
 
   return (
@@ -732,6 +729,8 @@ export default function TimelinePage() {
                   onUpdateTimelineName={handleUpdateTimelineName}
                   onCloneTimeline={handleCloneTimeline}
                   onDeleteTimeline={handleDeleteTimeline}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
                 />
               )}
 
@@ -741,7 +740,7 @@ export default function TimelinePage() {
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="font-medium">Date:</span>
                     <span className="text-gray-900">
-                      {selectedTimeline.weddingDate.toLocaleDateString('en-US', { 
+                      {parseDate(selectedTimeline.weddingDate).toLocaleDateString('en-US', { 
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -800,6 +799,7 @@ export default function TimelinePage() {
                       ));
                     }}
                     isUpdating={isUpdatingTimeline}
+                    searchQuery={searchQuery}
                   />
                 )}
               </div>

@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, MapPin, Users, Phone, Mail, AlertTriangle, CheckCircle, Play, Pause } from 'lucide-react';
+import { Clock, MapPin, Users, Phone, Mail, AlertTriangle, CheckCircle, Play, Pause, Sun, Sunrise, Sunset, Moon } from 'lucide-react';
 import { WeddingTimeline, WeddingTimelineEvent } from '@/types/timeline';
 import TimelineEvent from './TimelineEvent';
+import BadgeCount from '@/components/BadgeCount';
 
 interface TimelineBuilderProps {
   timeline: WeddingTimeline;
@@ -12,9 +13,10 @@ interface TimelineBuilderProps {
   onEventDelete: (eventId: string) => void;
   onTimelineUpdate: (timeline: WeddingTimeline) => void;
   isUpdating?: boolean;
+  searchQuery?: string;
 }
 
-export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete, onTimelineUpdate, isUpdating = false }: TimelineBuilderProps) {
+export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete, onTimelineUpdate, isUpdating = false, searchQuery = '' }: TimelineBuilderProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
 
   // Sort events by start time
@@ -40,7 +42,17 @@ export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete
       'Night (9 PM+)': []
     };
 
-    sortedEvents.forEach(event => {
+    // Filter events by search query if provided
+    const filteredEvents = searchQuery.trim() 
+      ? sortedEvents.filter(event => 
+          event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.vendorContact.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : sortedEvents;
+
+    filteredEvents.forEach(event => {
       const hour = event.startTime.getHours();
       if (hour >= 6 && hour < 9) {
         groups['Early Morning (6-9 AM)'].push(event);
@@ -56,7 +68,7 @@ export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete
     });
 
     return groups;
-  }, [sortedEvents]);
+  }, [sortedEvents, searchQuery]);
 
 
   const formatTime = (date: Date) => {
@@ -69,6 +81,17 @@ export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete
       case 'in-progress': return 'text-blue-600 bg-blue-100';
       case 'delayed': return 'text-red-600 bg-red-100';
       default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getTimePeriodIcon = (period: string) => {
+    switch (period) {
+      case 'Early Morning (6-9 AM)': return <Sunrise className="w-4 h-4 text-orange-500" />;
+      case 'Morning (9 AM-12 PM)': return <Sun className="w-4 h-4 text-yellow-500" />;
+      case 'Afternoon (12-5 PM)': return <Sun className="w-4 h-4 text-orange-400" />;
+      case 'Evening (5-9 PM)': return <Sunset className="w-4 h-4 text-red-400" />;
+      case 'Night (9 PM+)': return <Moon className="w-4 h-4 text-blue-400" />;
+      default: return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -92,8 +115,11 @@ export default function TimelineBuilder({ timeline, onEventUpdate, onEventDelete
           return (
             <div key={timeGroup} className="bg-white rounded-lg border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">{timeGroup}</h3>
-                <p className="text-sm text-gray-600">{events.length} event{events.length !== 1 ? 's' : ''}</p>
+                <div className="flex items-center gap-3">
+                  {getTimePeriodIcon(timeGroup)}
+                  <h3 className="text-lg font-medium text-gray-900">{timeGroup}</h3>
+                  <BadgeCount count={events.length} />
+                </div>
               </div>
               
               <div className="p-4">

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, ExternalLink } from 'lucide-react';
+import TimelineCalendarSyncSkeleton from './TimelineCalendarSyncSkeleton';
 import { WeddingTimeline } from '@/types/timeline';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { useGmailAuth } from '@/contexts/GmailAuthContext';
@@ -139,18 +140,17 @@ const TimelineCalendarSync: React.FC<TimelineCalendarSyncProps> = ({
         {/* Right: Action links (only show if linked) */}
         {calendarStatus.isLinked && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={syncToCalendar}
-              disabled={isSyncing}
-              className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1 disabled:opacity-50"
-            >
-              {isSyncing ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
+            {isSyncing ? (
+              <TimelineCalendarSyncSkeleton />
+            ) : (
+              <button
+                onClick={syncToCalendar}
+                className="text-[#A85C36] hover:text-[#8B4513] text-xs flex items-center gap-1"
+              >
                 <RefreshCw className="w-3 h-3" />
-              )}
-              Resync
-            </button>
+                Resync
+              </button>
+            )}
             <div className="w-1 h-1 bg-[#A85C36] rounded-full"></div>
             <button
               onClick={openGoogleCalendar}

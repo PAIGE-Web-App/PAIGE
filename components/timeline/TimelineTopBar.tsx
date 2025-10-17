@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { MoreHorizontal, Copy, Trash2, Pencil, Plus } from 'lucide-react';
+import { MoreHorizontal, Copy, Trash2, Pencil, Plus, Search } from 'lucide-react';
+import SearchBar from '@/components/SearchBar';
 import { WeddingTimeline } from '@/types/timeline';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -12,6 +13,8 @@ interface TimelineTopBarProps {
   onUpdateTimelineName?: (timelineId: string, newName: string) => void;
   onCloneTimeline?: (timeline: WeddingTimeline) => void;
   onDeleteTimeline?: (timeline: WeddingTimeline) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }
 
 export default function TimelineTopBar({
@@ -20,11 +23,14 @@ export default function TimelineTopBar({
   isGenerating,
   onUpdateTimelineName,
   onCloneTimeline,
-  onDeleteTimeline
+  onDeleteTimeline,
+  searchQuery,
+  setSearchQuery
 }: TimelineTopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingValue, setEditingValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -171,6 +177,20 @@ export default function TimelineTopBar({
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+            
+            {/* Vertical divider */}
+            <div className="h-6 border-l border-[#D6D3D1] mx-2" />
+            
+            {/* Search Bar */}
+            <div className={`flex items-center transition-all duration-300 gap-3 ${searchOpen ? 'flex-grow min-w-0' : 'w-[32px] min-w-[32px]'}`} style={{ height: '32px' }}>
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search timeline events"
+                isOpen={searchOpen}
+                setIsOpen={setSearchOpen}
+              />
             </div>
           </div>
           
