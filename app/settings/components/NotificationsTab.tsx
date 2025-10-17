@@ -8,6 +8,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useUserProfileData } from "../../../hooks/useUserProfileData";
 import { Bell, Mail, CheckCircle, XCircle, MessageSquare, ClipboardList, DollarSign, Users } from 'lucide-react';
 import NotificationsTabSkeleton from './NotificationsTabSkeleton';
+import CategoryPill from '../../../components/CategoryPill';
 
 export default function NotificationsTab() {
   const { user } = useAuth();
@@ -120,17 +121,17 @@ export default function NotificationsTab() {
     <div className="space-y-6 pb-8">
       {/* External Notifications Container */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h5 className="mb-6">External Notifications</h5>
-        <p className="text-sm text-[#7A7A7A] mb-6">
+        <h5 className="mb-6 font-work-sans">External Notifications</h5>
+        <p className="text-sm font-work-sans text-[#7A7A7A] mb-6">
           These notifications are sent to your phone and email when vendors contact you through Paige.
         </p>
         
         {/* Phone Number Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold mb-3 text-[#332B42]">Contact Information</h4>
+          <h4 className="text-sm font-work-sans font-semibold mb-3 text-[#332B42]">Contact Information</h4>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#332B42] mb-2">
+              <label className="block text-sm font-work-sans font-medium text-[#332B42] mb-2">
                 Phone Number (for SMS notifications)
               </label>
               <input
@@ -141,7 +142,7 @@ export default function NotificationsTab() {
                 className="w-full px-3 py-2 border border-[#AB9C95] rounded-md focus:outline-none focus:ring-2 focus:ring-[#A85C36] focus:border-transparent"
                 maxLength={14}
               />
-              <p className="text-xs text-[#7A7A7A] mt-1">
+              <p className="text-xs font-work-sans text-[#7A7A7A] mt-1">
                 Your phone number is used only for SMS notifications and is never shared with vendors.
               </p>
             </div>
@@ -150,35 +151,32 @@ export default function NotificationsTab() {
 
         {/* External Notification Preferences Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold mb-3 text-[#332B42]">External Notification Preferences</h4>
+          <h4 className="text-sm font-work-sans font-semibold mb-3 text-[#332B42]">External Notification Preferences</h4>
           <div className="space-y-4">
-            {/* SMS Notifications */}
-            <div className="flex items-center p-4 border rounded-[5px] gap-4">
+            {/* SMS Notifications - Coming Soon */}
+            <div className="flex items-center p-4 border rounded-[5px] gap-4 opacity-60">
               <input
                 type="checkbox"
-                checked={localPreferences.sms}
-                onChange={() => handlePreferenceToggle('sms')}
-                className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
+                disabled
+                className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3 cursor-not-allowed"
               />
               <Bell size={20} className="text-green-500 mr-2" />
-              <span className="font-medium text-[#332B42] block flex-1">SMS Notifications</span>
+              <div className="flex items-center gap-2 flex-1">
+                <span className="font-work-sans font-medium text-[#332B42]">SMS Notifications</span>
+                <CategoryPill category="Coming Soon" />
+              </div>
               <button
-                onClick={() => handleSave('sms')}
-                disabled={!hasChanged.sms || saving.sms}
-                className={`px-3 py-1 rounded-md text-white font-medium ${hasChanged.sms && !saving.sms ? 'bg-[#A85C36] hover:bg-[#8B4A2A]' : 'bg-[#AB9C95] cursor-not-allowed'}`}
+                disabled
+                className="btn-primaryinverse px-3 py-1 rounded-md font-medium cursor-not-allowed opacity-50"
               >
-                {saving.sms ? 'Saving...' : 'Save'}
+                Save
               </button>
               <button
-                onClick={() => handleTest('sms')}
-                disabled={!localPreferences.sms || hasChanged.sms || saving.sms}
-                className={`ml-2 px-3 py-1 rounded-md font-medium ${localPreferences.sms && !hasChanged.sms && !saving.sms ? 'bg-[#364257] text-white hover:bg-[#2A3441]' : 'bg-[#AB9C95] text-white cursor-not-allowed'}`}
+                disabled
+                className="btn-primary ml-2 px-3 py-1 rounded-md font-medium cursor-not-allowed opacity-50"
               >
                 Test
               </button>
-              {status.sms === 'success' && <CheckCircle className="text-green-600 ml-2" />}
-              {status.sms === 'fail' && <XCircle className="text-red-600 ml-2" />}
-              {status.sms === 'testing' && <span className="ml-2 text-xs text-gray-500">Testing...</span>}
             </div>
             {/* Email Notifications */}
             <div className="flex items-center p-4 border rounded-[5px] gap-4">
@@ -189,18 +187,18 @@ export default function NotificationsTab() {
                 className="form-checkbox rounded text-[#A85C36] focus:ring-[#A85C36] mr-3"
               />
               <Mail size={20} className="text-blue-500 mr-2" />
-              <span className="font-medium text-[#332B42] block flex-1">Email Notifications</span>
+              <span className="font-work-sans font-medium text-[#332B42] block flex-1">Email Notifications</span>
               <button
                 onClick={() => handleSave('email')}
                 disabled={!hasChanged.email || saving.email}
-                className={`px-3 py-1 rounded-md text-white font-medium ${hasChanged.email && !saving.email ? 'bg-[#A85C36] hover:bg-[#8B4A2A]' : 'bg-[#AB9C95] cursor-not-allowed'}`}
+                className={`btn-primaryinverse px-3 py-1 rounded-md font-medium ${!hasChanged.email || saving.email ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {saving.email ? 'Saving...' : 'Save'}
               </button>
               <button
                 onClick={() => handleTest('email')}
                 disabled={!localPreferences.email || hasChanged.email || saving.email}
-                className={`ml-2 px-3 py-1 rounded-md font-medium ${localPreferences.email && !hasChanged.email && !saving.email ? 'bg-[#364257] text-white hover:bg-[#2A3441]' : 'bg-[#AB9C95] text-white cursor-not-allowed'}`}
+                className={`btn-primary ml-2 px-3 py-1 rounded-md font-medium ${!localPreferences.email || hasChanged.email || saving.email ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Test
               </button>
@@ -213,12 +211,12 @@ export default function NotificationsTab() {
         
         {/* External Notifications Info */}
         <div className="p-4 bg-[#F8F6F4] rounded-md">
-          <h6 className="font-semibold text-[#332B42] mb-2">How External Notifications Work</h6>
-          <ul className="text-sm text-[#7A7A7A] space-y-1">
+          <h6 className="font-work-sans font-semibold text-[#332B42] mb-2">How External Notifications Work</h6>
+          <ul className="text-sm font-work-sans text-[#7A7A7A] space-y-1">
             <li>• <strong>SMS:</strong> Receive text messages when vendors send you messages through Paige</li>
             <li>• <strong>Email:</strong> Get email notifications with message previews and direct links to reply</li>
           </ul>
-          <p className="text-xs text-[#7A7A7A] mt-3">
+          <p className="text-xs font-work-sans text-[#7A7A7A] mt-3">
             Your contact information is only used for notifications and is never shared with vendors or third parties.
           </p>
         </div>
@@ -226,24 +224,24 @@ export default function NotificationsTab() {
 
       {/* In-App Notifications Container */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h5 className="mb-6">In-App Notifications</h5>
-        <p className="text-sm text-[#7A7A7A] mb-6">
+        <h5 className="mb-6 font-work-sans">In-App Notifications</h5>
+        <p className="text-sm font-work-sans text-[#7A7A7A] mb-6">
           These notifications appear in the bell icon in your navigation and help you stay on top of your wedding planning.
         </p>
         
         {/* Notification Legend */}
         <div className="mb-6 p-4 bg-[#F8F6F4] rounded-md">
-          <h6 className="font-semibold text-[#332B42] mb-3">Notification Types</h6>
+          <h6 className="font-work-sans font-semibold text-[#332B42] mb-3">Notification Types</h6>
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-[#332B42] font-medium">Urgent</span>
-              <span className="text-[#7A7A7A]">- Requires immediate attention</span>
+              <span className="text-[#332B42] font-work-sans font-medium">Urgent</span>
+              <span className="text-[#7A7A7A] font-work-sans">- Requires immediate attention</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="text-[#332B42] font-medium">Your Work</span>
-              <span className="text-[#7A7A7A]">- Items you need to complete</span>
+              <span className="text-[#332B42] font-work-sans font-medium">Your Work</span>
+              <span className="text-[#7A7A7A] font-work-sans">- Items you need to complete</span>
             </div>
           </div>
         </div>

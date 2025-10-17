@@ -129,10 +129,10 @@ const createGmailTransporter = async (userId: string) => {
   }
 };
 
-// Fallback to SendGrid if configured
+// Primary SendGrid transporter for professional email service
 const createSendGridTransporter = () => {
   if (process.env.SENDGRID_API_KEY) {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'smtp.sendgrid.net',
       port: 587,
       secure: false,
@@ -227,21 +227,19 @@ export async function POST(request: NextRequest) {
 
     let transporter: any = null;
     
-    // Try Gmail API OAuth first if userId is provided
-    if (userId) {
+    // Try SendGrid first for professional email service
+    transporter = createSendGridTransporter();
+    
+    // Fallback to Gmail API OAuth if SendGrid not configured and userId is provided
+    if (!transporter && userId) {
       transporter = await createGmailTransporter(userId);
     }
     
-    // Fallback to SendGrid if Gmail OAuth fails or isn't available
     if (!transporter) {
-      transporter = createSendGridTransporter();
-    }
-    
-    if (!transporter) {
-      throw new Error('No email service configured. Please set up Gmail OAuth or SendGrid credentials.');
+      throw new Error('No email service configured. Please set up SendGrid credentials.');
     }
 
-    const fromEmail = from || process.env.GMAIL_USER || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app';
+    const fromEmail = from || process.env.SENDGRID_FROM_EMAIL || process.env.GMAIL_USER || 'notifications@paige.app';
     
     const mailOptions = {
       from: fromEmail,

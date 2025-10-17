@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from '../../hooks/useAuth';
 import { useCustomToast } from '../../hooks/useCustomToast';
 import { useAuthError } from '../../hooks/useAuthError';
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { ChevronDown, RefreshCw } from 'lucide-react';
 import GmailLoginReauthBanner from "../../components/GmailLoginReauthBanner";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -705,6 +705,35 @@ export default function Login() {
 
   // State to control whether to show email form
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      showErrorToast("Please enter your email address first");
+      return;
+    }
+
+    try {
+      setForgotPasswordLoading(true);
+      await sendPasswordResetEmail(auth, email);
+      showSuccessToast("Password reset email sent!");
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      if (err.code === 'auth/user-not-found') {
+        showErrorToast("No account found with this email address");
+      } else if (err.code === 'auth/invalid-email') {
+        showErrorToast("Please enter a valid email address");
+      } else if (err.code === 'auth/operation-not-allowed') {
+        showErrorToast("This account was created with Google. Please use 'Sign in with Google' instead.");
+      } else if (err.code === 'auth/too-many-requests') {
+        showErrorToast("Too many password reset attempts. Please wait a few minutes before trying again.");
+      } else {
+        showErrorToast("Failed to send password reset email. Please try again.");
+      }
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
@@ -812,6 +841,14 @@ export default function Login() {
                       required
                       autoComplete="current-password"
                     />
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={forgotPasswordLoading}
+                      className="text-xs text-[#A85C36] underline hover:opacity-80 mt-1 text-left disabled:opacity-50"
+                    >
+                      {forgotPasswordLoading ? "Sending..." : "Forgot your password?"}
+                    </button>
                   </div>
                   
                   {/* Error Display */}

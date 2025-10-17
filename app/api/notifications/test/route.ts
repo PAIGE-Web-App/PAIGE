@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import twilio from 'twilio';
-import { sendTestEmail } from '@/lib/emailService';
+import nodemailer from 'nodemailer';
 
 // Initialize Twilio
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN 
@@ -57,15 +57,45 @@ export async function POST(request: NextRequest) {
     // Send test email if enabled and user email is available
     if ((testType === 'email' || testType === 'all') && notificationPreferences.email && userEmail) {
       try {
-        const emailSent = await sendTestEmail(userEmail, userName, userId);
+        // Use SendGrid directly for notification tests
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.sendgrid.net',
+          port: 587,
+          secure: false,
+          auth: {
+            user: 'apikey',
+            pass: process.env.SENDGRID_API_KEY
+          }
+        });
+
+        const testMessage = "This is a test notification from Paige to verify your notification settings are working correctly! 🎉";
         
-        if (emailSent) {
-          results.email.sent = true;
-          console.log('Test email sent successfully to:', userEmail);
-        } else {
-          results.email.error = 'Failed to send test email';
-          console.error('Failed to send test email');
-        }
+        const mailOptions = {
+          from: process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
+          to: userEmail,
+          subject: 'Test Notification from Paige',
+          text: `Hello ${userName},\n\n${testMessage}\n\nIf you received this email, your email notifications are working correctly!\n\nBest regards,\nThe Paige Team`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #A85C36;">Test Notification from Paige</h2>
+              <p>Hello ${userName},</p>
+              <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; line-height: 1.6;">${testMessage}</p>
+              </div>
+              <p>If you received this email, your email notifications are working correctly!</p>
+              <p style="color: #666; font-size: 14px;">
+                Best regards,<br>
+                The Paige Team
+              </p>
+            </div>
+          `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        
+        results.email.sent = true;
+        console.log('Test email sent successfully to:', userEmail);
+        console.log('Email sent via SendGrid with message ID:', info.messageId);
       } catch (error) {
         results.email.error = error.message;
         console.error('Failed to send test email:', error);

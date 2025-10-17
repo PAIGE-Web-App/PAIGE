@@ -357,18 +357,31 @@ export const jobProcessors: JobProcessor[] = [
     processor: async (job: Job) => {
       const { to, subject, body, from } = job.data;
       
-      // Send email using your email service
-      const response = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, body, from })
+      // Use SendGrid directly for job queue emails
+      const nodemailer = require('nodemailer');
+      
+      // Create SendGrid transporter
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'apikey',
+          pass: process.env.SENDGRID_API_KEY
+        }
       });
       
-      if (!response.ok) {
-        throw new Error(`Email sending failed: ${response.statusText}`);
-      }
+      const mailOptions = {
+        from: from || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
+        to,
+        subject,
+        text: body,
+        html: body
+      };
       
-      return { messageId: 'sent', timestamp: new Date().toISOString() };
+      const info = await transporter.sendMail(mailOptions);
+      
+      return { messageId: info.messageId, timestamp: new Date().toISOString() };
     },
     concurrency: 3,
     timeout: 30000

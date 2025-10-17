@@ -73,6 +73,7 @@ export default function AccountTab({
   const [isDeleting, setIsDeleting] = useState(false);
   const [userNameError, setUserNameError] = useState("");
   const [partnerNameError, setPartnerNameError] = useState("");
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
   const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com';
 
@@ -107,6 +108,32 @@ export default function AccountTab({
   const handlePartnerNameBlur = () => {
     const error = validateName(partnerName, "Your partner's name");
     setPartnerNameError(error);
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      showErrorToast("Please enter your email address first");
+      return;
+    }
+
+    try {
+      setResetPasswordLoading(true);
+      await sendPasswordResetEmail(getAuth(), email);
+      showSuccessToast("Password reset email sent!");
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      if (err.code === 'auth/user-not-found') {
+        showErrorToast("No account found with this email address");
+      } else if (err.code === 'auth/invalid-email') {
+        showErrorToast("Please enter a valid email address");
+      } else if (err.code === 'auth/operation-not-allowed') {
+        showErrorToast("This account was created with Google. Please use 'Sign in with Google' instead.");
+      } else {
+        showErrorToast("Failed to send password reset email. Please try again.");
+      }
+    } finally {
+      setResetPasswordLoading(false);
+    }
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -208,6 +235,16 @@ export default function AccountTab({
                 readOnly
                 className="w-full px-3 py-2 border rounded bg-[#F3F2F0] text-sm text-[#7A7A7A] focus:outline-none"
               />
+            )}
+            {!isGoogleUser && (
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resetPasswordLoading}
+                className="text-xs text-[#A85C36] underline hover:opacity-80 mt-1 text-left disabled:opacity-50"
+              >
+                {resetPasswordLoading ? "Sending..." : "Reset Password"}
+              </button>
             )}
           </div>
           <div className="mb-4">

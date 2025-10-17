@@ -109,7 +109,7 @@ const createGmailTransporter = async (userId: string) => {
   }
 };
 
-// Fallback to SendGrid if configured
+// Primary SendGrid transporter for professional email service
 const createSendGridTransporter = () => {
   if (process.env.SENDGRID_API_KEY) {
     return nodemailer.createTransporter({
@@ -134,29 +134,29 @@ export interface EmailContent {
 
 export const sendEmail = async (emailContent: EmailContent, userId?: string): Promise<boolean> => {
   try {
-    // Queue the email for background processing
-    const response = await fetch('/api/email/queue', {
+    // Use direct email sending instead of queue
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: emailContent.to,
         subject: emailContent.subject,
         body: emailContent.html || emailContent.text,
-        from: process.env.GMAIL_USER || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
-        priority: 'normal',
+        from: process.env.SENDGRID_FROM_EMAIL || process.env.GMAIL_USER || 'notifications@paige.app',
         userId
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to queue email: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(`Failed to send email: ${errorData.error || response.statusText}`);
     }
 
     const result = await response.json();
-    console.log('Email queued successfully:', result.jobId);
+    console.log('Email sent successfully:', result.messageId);
     return true;
   } catch (error) {
-    console.error('Error queuing email:', error);
+    console.error('Error sending email:', error);
     return false;
   }
 };
