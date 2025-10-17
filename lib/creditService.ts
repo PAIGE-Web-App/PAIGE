@@ -516,15 +516,40 @@ export class CreditService {
         return false;
       }
 
-      const subscriptionCredits = await getSubscriptionCredits(
-        userCredits.userType, 
-        userCredits.subscriptionTier
-      ) || getSubscriptionCreditsFallback(
+      // Get from Edge Config first
+      let subscriptionCredits = await getSubscriptionCredits(
         userCredits.userType, 
         userCredits.subscriptionTier
       );
+      
+      // If Edge Config doesn't have the feature, merge with fallback
+      if (subscriptionCredits && !subscriptionCredits.aiFeatures.includes(feature)) {
+        const fallbackCredits = getSubscriptionCreditsFallback(
+          userCredits.userType, 
+          userCredits.subscriptionTier
+        );
+        
+        // Merge features from both sources
+        subscriptionCredits = {
+          ...subscriptionCredits,
+          aiFeatures: [...new Set([...subscriptionCredits.aiFeatures, ...fallbackCredits.aiFeatures])]
+        };
+        
+        console.log(`🔄 Merged Edge Config with fallback for feature: ${feature}`);
+      }
+      
+      // Use fallback if Edge Config returned null
+      if (!subscriptionCredits) {
+        subscriptionCredits = getSubscriptionCreditsFallback(
+          userCredits.userType, 
+          userCredits.subscriptionTier
+        );
+      }
 
-      return subscriptionCredits.aiFeatures.includes(feature);
+      const hasAccess = subscriptionCredits.aiFeatures.includes(feature);
+      console.log(`🔍 Feature access check for ${feature}:`, hasAccess, 'Available features:', subscriptionCredits.aiFeatures);
+      
+      return hasAccess;
     } catch (error) {
       console.error('Error checking feature access:', error);
       return false;

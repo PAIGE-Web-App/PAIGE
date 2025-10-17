@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Brain, FileText, DollarSign, MessageSquare, Image } from 'lucide-react';
+import { Sparkles, Brain, FileText, DollarSign, MessageSquare, Image, Calendar } from 'lucide-react';
 
 interface AILoadingIndicatorProps {
-  operation: 'file-analysis' | 'budget-generation' | 'message-analysis' | 'todo-generation' | 'moodboard-generation' | 'general';
+  operation: 'file-analysis' | 'budget-generation' | 'message-analysis' | 'todo-generation' | 'moodboard-generation' | 'timeline_generation' | 'general';
   progress?: number;
   message?: string;
   showProgress?: boolean;
@@ -63,6 +63,17 @@ const operationConfig = {
       'Finding similar styles...',
       'Creating mood board...',
       'Adding final touches...'
+    ]
+  },
+  'timeline_generation': {
+    icon: Calendar,
+    title: 'Creating Wedding Timeline',
+    messages: [
+      'Analyzing your wedding day tasks...',
+      'Coordinating vendor schedules...',
+      'Optimizing event timing...',
+      'Adding buffer periods...',
+      'Finalizing timeline...'
     ]
   },
   'general': {

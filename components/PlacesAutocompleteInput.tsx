@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { debounce, googlePlacesBatcher } from '@/utils/requestBatcher';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; }) {
+export default function PlacesAutocompleteInput({ value, onChange, setVenueMetadata, setSelectedLocationType, placeholder, types = ['geocode'], disabled = false, locationBias = null, onBlur, componentId }: { value: string; onChange: (val: string) => void; setVenueMetadata: (venue: any | null) => void; setSelectedLocationType: (type: string | null) => void; placeholder: string; types?: string[]; disabled?: boolean; locationBias?: { lat: number; lng: number; radius?: number } | null; onBlur?: () => void; componentId?: string; }) {
   
   // Debug logging
 
@@ -30,8 +30,24 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
   // No need for this useEffect - we handle value changes in handleInputChange
 
   const handleSelect = (suggestion: any) => () => {
+    console.log('🔵 [PlacesAutocomplete] handleSelect called with:', suggestion.description);
+    
+    // Update the input value immediately
+    console.log('🔵 [PlacesAutocomplete] Calling onChange with:', suggestion.description);
     onChange(suggestion.description);
+    
+    // Clear suggestions immediately
     setSuggestions([]);
+    console.log('🔵 [PlacesAutocomplete] Cleared suggestions');
+    
+    // Set a flag in the parent component to prevent blur from firing
+    // We'll use a custom event to communicate this
+    window.dispatchEvent(new CustomEvent('placesAutocompleteSelected', { 
+      detail: { 
+        description: suggestion.description,
+        componentId: componentId 
+      } 
+    }));
 
     const { place_id, types } = suggestion;
 
@@ -39,24 +55,43 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
     const foundType = types.find((type: string) => allowedTypes.includes(type)) || null;
     setSelectedLocationType(foundType);
 
+    // Set venue metadata and let the parent handle updating the input value
     if (setVenueMetadata) {
+      console.log('🔵 [PlacesAutocomplete] Suggestion types:', types);
       const venueTypes = ['street_address', 'premise', 'establishment', 'point_of_interest'];
-      if (types.some((type: string) => venueTypes.includes(type))) {
+      const hasVenueType = types.some((type: string) => venueTypes.includes(type));
+      console.log('🔵 [PlacesAutocomplete] Has venue type:', hasVenueType);
+      
+      if (hasVenueType) {
+        console.log('🔵 [PlacesAutocomplete] Fetching place details for:', place_id);
         // Use our batcher for place details
         googlePlacesBatcher.getPlaceDetails(place_id)
           .then((result) => {
+            console.log('🔵 [PlacesAutocomplete] Place details result:', result);
             if (result && result.success && result.data) {
+              console.log('🔵 [PlacesAutocomplete] Got metadata:', result.data);
+              console.log('🔵 [PlacesAutocomplete] Metadata name:', result.data.name);
+              console.log('🔵 [PlacesAutocomplete] Metadata formatted_address:', result.data.formatted_address);
+              console.log('🔵 [PlacesAutocomplete] Calling setVenueMetadata');
               setVenueMetadata(result.data);
             } else {
+              console.log('🔵 [PlacesAutocomplete] No metadata result');
               setVenueMetadata(null);
             }
           })
           .catch((error) => {
-            console.error('Error fetching place details:', error);
+            console.error('🔴 [PlacesAutocomplete] Error fetching place details:', error);
             setVenueMetadata(null);
           });
       } else {
-        setVenueMetadata(null);
+        console.log('🔵 [PlacesAutocomplete] Not a venue type, but still calling setVenueMetadata with description');
+        // For non-venue types, create a mock metadata object with the description
+        const mockMetadata = {
+          name: suggestion.description,
+          formatted_address: suggestion.description
+        };
+        console.log('🔵 [PlacesAutocomplete] Calling setVenueMetadata with mock metadata:', mockMetadata);
+        setVenueMetadata(mockMetadata);
       }
     }
   };
@@ -102,6 +137,10 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
+    console.log('🟡 [PlacesAutocomplete] handleInputChange called with:', inputValue);
+    
+    // Always call onChange when user types
+    console.log('🟡 [PlacesAutocomplete] Calling onChange with:', inputValue);
     onChange(inputValue);
     
     // Clear suggestions if input is empty
@@ -119,6 +158,12 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
       <input
         value={value}
         onChange={handleInputChange}
+        onBlur={(e) => {
+          // Add a small delay to allow click on suggestion to complete first
+          setTimeout(() => {
+            if (onBlur) onBlur();
+          }, 150);
+        }}
         disabled={disabled}
         placeholder={placeholder}
         className={`w-full px-3 py-2 border rounded border-[#AB9C95] text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36] appearance-none ${disabled ? 'bg-[#F3F2F0] text-[#AB9C95] cursor-not-allowed' : 'bg-white text-[#332B42]'}`}

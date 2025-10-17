@@ -23,6 +23,7 @@ export type CoupleAIFeature =
   | 'follow_up_questions'
   | 'guest_notes_generation'
   | 'seating_layout_generation'
+  | 'timeline_generation'
   | 'rag_document_processing'
   | 'rag_query_processing';
 
@@ -134,7 +135,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     monthlyCredits: 15,
     dailyCredits: 15, // Same as monthlyCredits for clarity
     rolloverCredits: 0,
-    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'bulk_vibe_generation'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'bulk_vibe_generation', 'timeline_generation'],
     creditRefresh: 'daily',
     maxVendors: 20,
     maxContacts: 5,
@@ -145,7 +146,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     monthlyCredits: 22, // Reduced from 60
     dailyCredits: 22, // Same as monthlyCredits for clarity
     rolloverCredits: 0, // No rollover
-    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'budget_generation_rag', 'vendor_suggestions', 'rag_document_processing', 'rag_query_processing'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'vibe_generation', 'budget_generation', 'budget_generation_rag', 'vendor_suggestions', 'timeline_generation', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1, // unlimited
     maxContacts: -1,
@@ -156,7 +157,7 @@ export const COUPLE_SUBSCRIPTION_CREDITS: Record<CoupleSubscriptionTier, CreditA
     monthlyCredits: 45, // Reduced from 150
     dailyCredits: 45, // Same as monthlyCredits for clarity
     rolloverCredits: 0, // No rollover
-    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions', 'rag_document_processing', 'rag_query_processing'],
+    aiFeatures: ['draft_messaging', 'todo_generation', 'file_analysis', 'message_analysis', 'integrated_planning', 'budget_generation', 'budget_generation_rag', 'vibe_generation', 'vendor_suggestions', 'follow_up_questions', 'timeline_generation', 'rag_document_processing', 'rag_query_processing'],
     creditRefresh: 'daily',
     maxVendors: -1,
     maxContacts: -1,
@@ -215,6 +216,7 @@ export const COUPLE_AI_CREDIT_COSTS: Record<CoupleAIFeature, number> = {
   follow_up_questions: 1,
   guest_notes_generation: 3,
   seating_layout_generation: 4,
+  timeline_generation: 4,
   rag_document_processing: 2,
   rag_query_processing: 3
 };

@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { 
-  Home, 
   ClipboardList, 
   DollarSign, 
   Users, 
@@ -14,7 +13,8 @@ import {
   Settings,
   LogOut,
   User as UserIcon,
-  MessageSquare
+  MessageSquare,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { signOut } from 'firebase/auth';
@@ -40,7 +40,6 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
 
   // Primary navigation items (always visible)
   const primaryNavItems: NavItem[] = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'To-do', href: '/todo', icon: ClipboardList },
     { name: 'Budget', href: '/budget', icon: DollarSign },
@@ -49,6 +48,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
 
   // User profile menu items
   const userProfileItems: NavItem[] = [
+    { name: 'Timelines', href: '/timeline', icon: Calendar },
     { name: 'Mood Boards', href: '/moodboards', icon: Heart },
     { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
     { name: 'Settings', href: '/settings', icon: Settings },
