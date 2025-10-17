@@ -269,6 +269,8 @@ export default function SignUp() {
             createdAt: new Date(),
           }, { merge: true });
 
+          // Welcome email will be sent after onboarding completion
+
           setIsNewSignup(true);
           setStep(2);
         } else {

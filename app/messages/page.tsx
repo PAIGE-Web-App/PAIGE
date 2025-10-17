@@ -923,6 +923,18 @@ export default function MessagesPage() {
           selectedChannels: selectedChannelsFromModal,
           notificationPreferences
         });
+
+        // Trigger welcome email after onboarding completion
+        try {
+          await fetch('/api/email/trigger-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid }),
+          });
+        } catch (error) {
+          console.error('Failed to send welcome email:', error);
+          // Don't block onboarding if email fails
+        }
       }
       
       // Refresh contacts

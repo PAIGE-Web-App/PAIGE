@@ -258,4 +258,325 @@ export const sendTodoNotificationEmail = async (
   };
 
   return sendEmail(emailContent, userId);
+};
+
+// Welcome Email Series - Dynamic content based on user data
+export const sendWelcomeEmail = async (
+  toEmail: string,
+  userName: string,
+  userData?: {
+    weddingDate?: Date | string | null;
+    weddingDateUndecided?: boolean;
+    weddingLocation?: string | null;
+    weddingLocationUndecided?: boolean;
+    hasVenue?: boolean;
+    partnerName?: string;
+    guestCount?: number;
+    maxBudget?: number;
+  },
+  userId?: string
+): Promise<boolean> => {
+  // Calculate days until wedding if date is available
+  let daysUntilWedding: number | null = null;
+  let weddingDateFormatted: string | null = null;
+  
+  if (userData?.weddingDate && !userData?.weddingDateUndecided) {
+    const weddingDateObj = new Date(userData.weddingDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const timeDiff = weddingDateObj.getTime() - today.getTime();
+    daysUntilWedding = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    weddingDateFormatted = weddingDateObj.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }
+
+  // Build dynamic status section
+  const buildStatusSection = () => {
+    const hasWeddingDate = userData?.weddingDate && !userData?.weddingDateUndecided;
+    const hasLocation = userData?.weddingLocation && !userData?.weddingLocationUndecided;
+    const hasVenue = userData?.hasVenue === true;
+    
+    let statusItems = '';
+    
+    if (hasWeddingDate && daysUntilWedding !== null) {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #10B981; font-size: 18px; margin-right: 10px;">✓</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            <strong>Your wedding is on ${weddingDateFormatted}</strong> - ${daysUntilWedding} days away!
+          </span>
+        </div>
+      `;
+    } else {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #EAB308; font-size: 18px; margin-right: 10px;">📅</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            Set your wedding date in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/settings" style="color: #A85C36; text-decoration: none;">Settings</a> to get personalized planning timelines
+          </span>
+        </div>
+      `;
+    }
+    
+    if (hasLocation) {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #10B981; font-size: 18px; margin-right: 10px;">✓</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            <strong>Planning in ${userData.weddingLocation}</strong> - great choice!
+          </span>
+        </div>
+      `;
+    } else {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #EAB308; font-size: 18px; margin-right: 10px;">📍</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            Add your wedding location to get venue suggestions
+          </span>
+        </div>
+      `;
+    }
+    
+    if (hasVenue) {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #10B981; font-size: 18px; margin-right: 10px;">✓</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            <strong>Venue selected</strong> - you're ahead of the game!
+          </span>
+        </div>
+      `;
+    } else {
+      statusItems += `
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+          <span style="color: #EAB308; font-size: 18px; margin-right: 10px;">🏛️</span>
+          <span style="color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+            Browse venues in your area to find the perfect match
+          </span>
+        </div>
+      `;
+    }
+    
+    return statusItems;
+  };
+
+  // Build next steps section
+  const buildNextSteps = () => {
+    const hasWeddingDate = userData?.weddingDate && !userData?.weddingDateUndecided;
+    const hasLocation = userData?.weddingLocation && !userData?.weddingLocationUndecided;
+    const hasVenue = userData?.hasVenue === true;
+    
+    let steps = [];
+    let stepNumber = 1;
+    
+    if (!hasWeddingDate) {
+      steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Set your wedding date in Settings</li>`);
+      stepNumber++;
+    }
+    
+    if (!hasLocation) {
+      steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Add your wedding location</li>`);
+      stepNumber++;
+    }
+    
+    if (!hasVenue) {
+      steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Browse and select your wedding venue</li>`);
+      stepNumber++;
+    }
+    
+    steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Import your vendor contacts</li>`);
+    stepNumber++;
+    steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Create your first mood board</li>`);
+    stepNumber++;
+    steps.push(`<li style="margin-bottom: 10px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;"><strong>${stepNumber}.</strong> Set up your guest list and seating chart</li>`);
+    
+    return steps.join('');
+  };
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: "Welcome to Paige - Your Wedding Planning Journey Begins! 🎉",
+    text: `Hello ${userName},\n\nWelcome to Paige! We're thrilled to be part of your wedding planning journey${userData?.partnerName ? ` with ${userData.partnerName}` : ''}.\n\nPaige is your AI-powered wedding planning assistant, designed to help you:\n• Organize your guest list and seating charts\n• Manage your vendor communications\n• Track your to-do list and deadlines\n• Generate personalized planning insights\n\nGet started by exploring your dashboard and setting up your wedding details.\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 0 30px 30px 30px; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">Welcome to Paige! 🎉</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              Welcome to Paige! We're thrilled to be part of your wedding planning journey${userData?.partnerName ? ` with <strong>${userData.partnerName}</strong>` : ''}.
+            </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #A85C36; margin: 0 0 15px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 16px;">Your Planning Status:</h3>
+              ${buildStatusSection()}
+            </div>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #A85C36; margin: 0 0 15px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 16px;">What Paige Can Do for You:</h3>
+              <ul style="margin: 0; padding-left: 20px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+                <li style="margin-bottom: 8px;">Organize your guest list and seating charts</li>
+                <li style="margin-bottom: 8px;">Manage your vendor communications in one place</li>
+                <li style="margin-bottom: 8px;">Track your to-do list with AI-powered suggestions</li>
+                <li style="margin-bottom: 8px;">Generate personalized planning insights</li>
+                <li style="margin-bottom: 8px;">Create beautiful mood boards for inspiration</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/dashboard" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                Go to Your Dashboard
+              </a>
+            </div>
+            
+            <div style="background-color: #E0F2FE; border-left: 4px solid #3B82F6; padding: 16px; border-radius: 5px; margin: 20px 0;">
+              <h4 style="color: #1E40AF; margin: 0 0 10px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 14px;">📋 Your Next Steps:</h4>
+              <ol style="margin: 0; padding-left: 20px;">
+                ${buildNextSteps()}
+              </ol>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Happy planning!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  return sendEmail(emailContent, userId);
+};
+
+// Credit System Alerts
+export const sendCreditAlertEmail = async (
+  toEmail: string,
+  userName: string,
+  alertType: 'low' | 'refresh' | 'depleted',
+  currentCredits: number,
+  subscriptionTier: string,
+  userType: 'couple' | 'planner',
+  userId?: string
+): Promise<boolean> => {
+  const getAlertContent = () => {
+    // Calculate daily credit allocation based on subscription tier
+    const dailyAllocation = userType === 'couple' 
+      ? subscriptionTier === 'free' ? 15 
+      : subscriptionTier === 'premium' ? 22 
+      : 45
+      : subscriptionTier === 'free' ? 25
+      : subscriptionTier === 'starter' ? 100
+      : subscriptionTier === 'professional' ? 300
+      : 1000;
+    
+    const usagePercentage = Math.round(((dailyAllocation - currentCredits) / dailyAllocation) * 100);
+    
+    switch (alertType) {
+      case 'low':
+        return {
+          subject: "⚠️ Low Credits Alert - Action Needed",
+          title: "Low Credits Alert",
+          message: `You have ${currentCredits} credits remaining (${usagePercentage}% used). Consider refreshing your credits to continue using Paige's AI features.`,
+          buttonText: "Refresh Credits",
+          buttonLink: "/settings"
+        };
+      case 'refresh':
+        return {
+          subject: "🎉 Credits Refreshed - You're All Set!",
+          title: "Credits Refreshed!",
+          message: `Your credits have been refreshed! You now have ${currentCredits} credits to continue planning your perfect wedding.`,
+          buttonText: "Continue Planning",
+          buttonLink: "/dashboard"
+        };
+      case 'depleted':
+        return {
+          subject: "🚨 Credits Depleted - Upgrade Required",
+          title: "Credits Depleted",
+          message: `You've used all your credits. Upgrade your plan to continue using Paige's AI features and keep your wedding planning on track.`,
+          buttonText: "Upgrade Plan",
+          buttonLink: "/settings"
+        };
+    }
+  };
+
+  const content = getAlertContent();
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: content.subject,
+    text: `Hello ${userName},\n\n${content.message}\n\nVisit Paige to ${content.buttonText.toLowerCase()}.\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="background-color: #A85C36; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 18px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px;">${content.title}</h1>
+          </div>
+          
+          <div style="text-align: center; padding: 20px 0; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 100px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              ${content.message}
+            </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #7A7A7A; line-height: 1.6; font-family: 'Work Sans', Arial, sans-serif;">
+                <strong>Current Credits:</strong> ${currentCredits}
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}${content.buttonLink}" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                ${content.buttonText}
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Best regards,<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  return sendEmail(emailContent, userId);
 }; 
