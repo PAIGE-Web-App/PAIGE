@@ -1,9 +1,11 @@
 // lib/firebaseAdmin.ts
 import * as admin from 'firebase-admin';
 
-// Always initialize the Admin SDK on import
+// Singleton pattern to ensure Firebase Admin is initialized only once
+let isInitialized = false;
+
 function initializeAdminApp() {
-  if (!admin.apps.length) {
+  if (!isInitialized && !admin.apps.length) {
     try {
       // Load service account from environment variables.
       // It's recommended to set these directly in your deployment environment
@@ -26,6 +28,8 @@ function initializeAdminApp() {
         // databaseURL: "https://<YOUR_PROJECT_ID>.firebaseio.com" // Uncomment if using Realtime Database
         // Add other config options as needed
       });
+      
+      isInitialized = true;
       console.log("Firebase Admin SDK initialized successfully.");
     } catch (error) {
       console.error("Failed to initialize Firebase Admin SDK:", error);
@@ -34,8 +38,11 @@ function initializeAdminApp() {
   }
 }
 
-// Initialize on import
-initializeAdminApp();
+// Initialize only when needed, not on import
+function getAdminApp() {
+  initializeAdminApp();
+  return admin.app();
+}
 
 /**
  * Returns the initialized Firestore Admin SDK instance.
@@ -43,10 +50,23 @@ initializeAdminApp();
  * @returns {admin.firestore.Firestore} The Firestore database instance.
  */
 export function getAdminDb(): admin.firestore.Firestore {
+  initializeAdminApp();
   return admin.firestore();
 }
 
-export const adminDb = admin.firestore();
-export const adminAuth = admin.auth();
+// Lazy initialization - only initialize when these are accessed
+export const adminDb = new Proxy({} as admin.firestore.Firestore, {
+  get(target, prop) {
+    initializeAdminApp();
+    return admin.firestore()[prop as keyof admin.firestore.Firestore];
+  }
+});
+
+export const adminAuth = new Proxy({} as admin.auth.Auth, {
+  get(target, prop) {
+    initializeAdminApp();
+    return admin.auth()[prop as keyof admin.auth.Auth];
+  }
+});
 
 export { admin };

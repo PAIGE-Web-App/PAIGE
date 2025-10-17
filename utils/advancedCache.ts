@@ -53,6 +53,8 @@ class AdvancedCache {
   private warmingConfig: CacheWarmingConfig;
   private warmingInterval: NodeJS.Timeout | null = null;
   private analyticsInterval: NodeJS.Timeout | null = null;
+  private hasLoggedWarming = false;
+  private hasLoggedCompletion = false;
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
@@ -360,18 +362,25 @@ class AdvancedCache {
    */
   private async warmCache(): Promise<void> {
     try {
-      console.log('🔥 Warming cache...');
+      // Only log once per cache instance
+      if (!this.hasLoggedWarming) {
+        console.log('🔥 Warming cache...');
+        this.hasLoggedWarming = true;
+      }
 
       // Warm user data
       await this.warmUserData();
-      
+
       // Warm vendor data
       await this.warmVendorData();
-      
+
       // Warm contact data
       await this.warmContactData();
 
-      console.log('✅ Cache warming completed');
+      if (!this.hasLoggedCompletion) {
+        console.log('✅ Cache warming completed');
+        this.hasLoggedCompletion = true;
+      }
     } catch (error) {
       console.error('Cache warming error:', error);
     }

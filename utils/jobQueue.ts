@@ -47,6 +47,7 @@ class JobQueue {
   private config: QueueConfig;
   private isRunning = false;
   private activeJobs = 0;
+  private hasLoggedStart = false;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(config: Partial<QueueConfig> = {}) {
@@ -99,7 +100,11 @@ class JobQueue {
     if (this.isRunning) return;
     
     this.isRunning = true;
-    console.log('Job queue started');
+    // Only log once per instance
+    if (!this.hasLoggedStart) {
+      console.log('Job queue started');
+      this.hasLoggedStart = true;
+    }
 
     while (this.isRunning) {
       try {

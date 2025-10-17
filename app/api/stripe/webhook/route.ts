@@ -7,13 +7,17 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// Debug webhook secret configuration
-console.log('🔧 Webhook configuration:', {
-  hasWebhookSecret: !!webhookSecret,
-  webhookSecretLength: webhookSecret?.length || 0,
-  webhookSecretPrefix: webhookSecret?.substring(0, 10) + '...' || 'undefined',
-  nodeEnv: process.env.NODE_ENV
-});
+// Debug webhook secret configuration (only log once)
+let hasLoggedWebhookConfig = false;
+if (!hasLoggedWebhookConfig) {
+  console.log('🔧 Webhook configuration:', {
+    hasWebhookSecret: !!webhookSecret,
+    webhookSecretLength: webhookSecret?.length || 0,
+    webhookSecretPrefix: webhookSecret?.substring(0, 10) + '...' || 'undefined',
+    nodeEnv: process.env.NODE_ENV
+  });
+  hasLoggedWebhookConfig = true;
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
