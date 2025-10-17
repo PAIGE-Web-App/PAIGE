@@ -13,7 +13,6 @@ import TimelineSidebar from '@/components/timeline/TimelineSidebar';
 import TimelineTopBar from '@/components/timeline/TimelineTopBar';
 import TimelineBuilder from '@/components/timeline/TimelineBuilder';
 import TimelineSync from '@/components/timeline/TimelineSync';
-import TimelineCalendarSync from '@/components/timeline/TimelineCalendarSync';
 import TimelinePageSkeleton from '@/components/timeline/TimelinePageSkeleton';
 import AILoadingIndicator from '@/components/AILoadingIndicator';
 import WeddingBanner from '@/components/WeddingBanner';
@@ -751,18 +750,6 @@ export default function TimelinePage() {
                 </div>
               )}
 
-              {/* Google Calendar Sync - Compact */}
-              {selectedTimeline && (
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <TimelineCalendarSync 
-                    timeline={selectedTimeline}
-                    userId={user?.uid || ''}
-                    onSyncComplete={() => {
-                      // Refresh timeline data if needed
-                    }}
-                  />
-                </div>
-              )}
 
               <div className="flex-1 overflow-y-auto p-4">
                 {!selectedTimeline ? (
