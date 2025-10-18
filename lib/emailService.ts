@@ -183,10 +183,73 @@ export const sendWelcomeEmail = async (
   userName: string,
   userData?: any
 ): Promise<boolean> => {
+  // Generate personalized content based on user data
+  const generatePersonalizedContent = () => {
+    if (!userData) {
+      return {
+        greeting: `Hello ${userName},`,
+        message: "Welcome to Paige! Your wedding planning journey starts here.",
+        nextSteps: [
+          "Set your wedding date and location",
+          "Create your first to-do list", 
+          "Start building your vendor network"
+        ]
+      };
+    }
+
+    const { weddingDate, weddingLocation, hasVenue, partnerName, guestCount, maxBudget } = userData;
+    
+    let greeting = `Hello ${userName}`;
+    if (partnerName) {
+      greeting += ` and ${partnerName}`;
+    }
+    greeting += ",";
+
+    let message = "Welcome to Paige! Your wedding planning journey starts here.";
+    
+    // Personalized message based on what they've set up
+    if (weddingDate && weddingLocation && hasVenue) {
+      message = `Congratulations on your upcoming wedding! I can see you've already set your date (${new Date(weddingDate).toLocaleDateString()}) and location (${weddingLocation}), and you have a venue secured. You're off to a great start!`;
+    } else if (weddingDate && weddingLocation) {
+      message = `I can see you've set your wedding date (${new Date(weddingDate).toLocaleDateString()}) and location (${weddingLocation}). Let's help you find the perfect venue and plan the rest of your special day!`;
+    } else if (weddingDate) {
+      message = `I can see you've set your wedding date (${new Date(weddingDate).toLocaleDateString()}). Let's help you choose a location and plan everything else for your special day!`;
+    } else {
+      message = "Welcome to Paige! Let's start planning your perfect wedding day together.";
+    }
+
+    const nextSteps = [];
+    
+    if (!weddingDate) {
+      nextSteps.push("Set your wedding date");
+    }
+    if (!weddingLocation) {
+      nextSteps.push("Choose your wedding location");
+    }
+    if (!hasVenue) {
+      nextSteps.push("Find and book your venue");
+    }
+    if (!guestCount) {
+      nextSteps.push("Create your guest list");
+    }
+    if (!maxBudget) {
+      nextSteps.push("Set your wedding budget");
+    }
+    
+    // Add general next steps if they have everything set
+    if (nextSteps.length === 0) {
+      nextSteps.push("Create your first to-do list", "Start building your vendor network", "Plan your timeline");
+    }
+
+    return { greeting, message, nextSteps };
+  };
+
+  const { greeting, message, nextSteps } = generatePersonalizedContent();
+
   const emailContent: EmailContent = {
     to: toEmail,
     subject: "Welcome to Paige! 🎉",
-    text: `Hello ${userName},\n\nWelcome to Paige! Your wedding planning journey starts here.\n\nBest regards,\nThe Paige Team`,
+    text: `${greeting}\n\n${message}\n\nYour next steps:\n${nextSteps.map((step, index) => `${index + 1}. ${step}`).join('\n')}\n\nBest regards,\nThe Paige Team`,
     html: `
       <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -200,11 +263,18 @@ export const sendWelcomeEmail = async (
           <div style="padding: 1rem; background-color: #ffffff;">
             <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">Welcome to Paige! 🎉</h1>
             
-            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">${greeting}</p>
             
             <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
-              Welcome to Paige! Your wedding planning journey starts here.
+              ${message}
             </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #A85C36;">
+              <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">Your Next Steps:</h3>
+              <ul style="margin: 0; padding-left: 20px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+                ${nextSteps.map(step => `<li style="margin-bottom: 8px;">${step}</li>`).join('')}
+              </ul>
+            </div>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/dashboard" 
@@ -310,18 +380,99 @@ export const sendWeeklyTodoDigestEmail = async (
   toEmail: string,
   userName: string,
   todos: Array<{
-    id: string;
-    name: string;
-    deadline?: Date | string | null;
-    category?: string;
-    listName?: string;
+    id: string,
+    name: string,
+    deadline?: Date | string | null,
+    category?: string,
+    listName?: string,
   }>,
   userId?: string
 ): Promise<boolean> => {
-  // Use the existing weekly digest logic
-  const { sendWeeklyTodoDigest } = await import('./emailIntegrations');
-  await sendWeeklyTodoDigest(userId || '');
-  return true;
+  // Format todos for email display
+  const formatTodos = () => {
+    if (todos.length === 0) {
+      return '<p style="color: #666; font-family: \'Work Sans\', Arial, sans-serif;">No upcoming tasks found.</p>';
+    }
+    
+    return todos.map((todo, index) => {
+      const deadlineText = todo.deadline 
+        ? new Date(todo.deadline).toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+          })
+        : 'No deadline';
+      
+      const categoryText = todo.category ? ` • ${todo.category}` : '';
+      const listText = todo.listName ? ` (${todo.listName})` : '';
+      
+      return `
+        <div style="margin-bottom: 15px; padding: 15px; background-color: #f8f6f4; border-radius: 8px; border-left: 4px solid #A85C36;">
+          <div style="font-weight: 600; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; margin-bottom: 5px;">
+            ${index + 1}. ${todo.name}
+          </div>
+          <div style="font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">
+            📅 ${deadlineText}${categoryText}${listText}
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: "📋 Your Weekly To-Do Digest",
+    text: `Hello ${userName},\n\nHere are your upcoming tasks for this week:\n\n${todos.map((todo, index) => `${index + 1}. ${todo.name}${todo.deadline ? ` (Due: ${new Date(todo.deadline).toLocaleDateString()})` : ''}`).join('\n')}\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">📋 Your Weekly To-Do Digest</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              Here are your upcoming tasks for this week:
+            </p>
+            
+            <div style="margin: 20px 0;">
+              ${formatTodos()}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/todo" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View All Tasks
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Best regards,<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  
+  return await sendEmail(emailContent);
 };
 
 export const sendBudgetPaymentOverdueEmail = async (
