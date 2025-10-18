@@ -574,3 +574,122 @@ export const sendCreditAlertEmail = async (
 
   return sendEmail(emailContent, userId);
 }; 
+// Weekly Todo Digest Email - Sent every Sunday with upcoming tasks
+export const sendWeeklyTodoDigestEmail = async (
+  toEmail: string,
+  userName: string,
+  todos: Array<{
+    id: string;
+    name: string;
+    deadline?: Date | string | null;
+    category?: string;
+    listName?: string;
+  }>,
+  userId?: string
+): Promise<boolean> => {
+  // Format todo items for email
+  const buildTodoList = () => {
+    if (todos.length === 0) {
+      return '<p style="color: #666; font-family: \'Work Sans\', Arial, sans-serif;">No upcoming tasks at the moment. Great job staying on top of things!</p>';
+    }
+    
+    return todos.map((todo, index) => {
+      let deadlineText = '';
+      if (todo.deadline) {
+        const deadlineDate = new Date(todo.deadline);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const timeDiff = deadlineDate.getTime() - today.getTime();
+        const daysUntil = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        if (daysUntil < 0) {
+          deadlineText = `<span style="color: #EF4444;">Overdue by ${Math.abs(daysUntil)} days</span>`;
+        } else if (daysUntil === 0) {
+          deadlineText = `<span style="color: #F59E0B;">Due today</span>`;
+        } else if (daysUntil === 1) {
+          deadlineText = `<span style="color: #F59E0B;">Due tomorrow</span>`;
+        } else if (daysUntil <= 7) {
+          deadlineText = `<span style="color: #A85C36;">Due in ${daysUntil} days</span>`;
+        } else {
+          deadlineText = `<span style="color: #666;">Due ${deadlineDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`;
+        }
+      }
+      
+      return `
+        <div style="background-color: #ffffff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: flex-start;">
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 8px 0; font-size: 16px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+                ${todo.name}
+              </h4>
+              ${todo.category ? `<p style="margin: 0 0 4px 0; font-size: 13px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">${todo.category}</p>` : ''}
+              ${todo.listName ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #999; font-family: 'Work Sans', Arial, sans-serif;">📋 ${todo.listName}</p>` : ''}
+              ${deadlineText ? `<p style="margin: 4px 0 0 0; font-size: 13px; font-family: 'Work Sans', Arial, sans-serif;">${deadlineText}</p>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: "📋 Your Weekly To-Dos",
+    text: `Hello ${userName},\n\nHere are your upcoming to-do items for this week:\n\n${todos.map((todo, i) => `${i + 1}. ${todo.name}${todo.deadline ? ` - Due: ${new Date(todo.deadline).toLocaleDateString()}` : ''}`).join('\n')}\n\nStay organized and keep up the great work!\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">📋 Your Weekly To-Dos</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              Here are your next <strong>${todos.length}</strong> upcoming to-do items to help you stay on track this week:
+            </p>
+            
+            <div style="margin: 20px 0;">
+              ${buildTodoList()}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/todo" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View All Tasks
+              </a>
+            </div>
+            
+            <div style="background-color: #E0F2FE; border-left: 4px solid #3B82F6; padding: 16px; border-radius: 5px; margin: 20px 0;">
+              <p style="color: #1E40AF; margin: 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 14px;">
+                💡 <strong>Pro tip:</strong> Set aside time each Sunday to review your tasks for the upcoming week. Small, consistent progress leads to big results!
+              </p>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Stay organized and keep up the great work!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+
+  return sendEmail(emailContent, userId);
+};
