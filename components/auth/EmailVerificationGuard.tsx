@@ -16,7 +16,7 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
     // Only check for email verification if user is authenticated and not loading
     if (!loading && user && needsEmailVerification) {
       // Redirect to signup page for email verification
-      router.push('/signup?step=1&verify=true');
+      router.push('/signup?step=1&verified=true');
     }
   }, [user, loading, needsEmailVerification, router]);
 

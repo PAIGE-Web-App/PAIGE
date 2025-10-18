@@ -587,8 +587,11 @@ export default function SignUp() {
 
   // Enhanced onboarding is now handled in the dashboard after signup completion
 
-  // Show email verification required if needed
-  if (needsEmailVerification) {
+  // Show email verification required if needed (but not if coming from verification link)
+  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const isFromVerificationLink = urlParams.get('verified') === 'true';
+  
+  if (needsEmailVerification && !isFromVerificationLink) {
     return (
       <EmailVerificationRequired 
         onVerified={() => {
