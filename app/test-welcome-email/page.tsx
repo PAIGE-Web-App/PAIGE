@@ -471,6 +471,70 @@ export default function TestWelcomeEmailPage() {
           ))}
         </div>
 
+        {/* Real User Data Test */}
+        <div className="mt-12">
+          <h2 className="h5 text-primary-dark mb-4">🔍 Test with Your Real Data</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="mb-4">
+              <p className="text-gray-600 font-work-sans mb-4">
+                Send a welcome email using your actual user data from the database to verify the sophisticated template is working correctly.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => {
+                  if (!email) {
+                    showErrorToast('Please enter your email address');
+                    return;
+                  }
+                  
+                  setLoading('real-data');
+                  try {
+                    const response = await fetch('/api/test-welcome-scenarios', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        email,
+                        scenario: 'real-data'
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      showSuccessToast('Real data welcome email sent successfully!');
+                    } else {
+                      const error = await response.json();
+                      showErrorToast(error.error || 'Failed to send email');
+                    }
+                  } catch (error) {
+                    showErrorToast('Failed to send email');
+                  } finally {
+                    setLoading(null);
+                  }
+                }}
+                disabled={loading === 'real-data' || !email}
+                className="btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading === 'real-data' ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Sending...
+                  </span>
+                ) : (
+                  'Send with Real Data'
+                )}
+              </button>
+              
+              <div className="text-sm text-gray-500 font-work-sans">
+                Uses your actual wedding date, location, venue status, and partner info
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Info Box */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h4 className="text-blue-900 font-semibold mb-2 font-work-sans">ℹ️ How It Works</h4>

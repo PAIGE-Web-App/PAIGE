@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserProfileData } from '../hooks/useUserProfileData';
 
 interface WeddingBannerProps {
   localWeddingDate?: string | null;
@@ -15,42 +14,13 @@ const WeddingBanner: React.FC<WeddingBannerProps> = ({
 }) => {
   const { user, userName, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [firestoreWeddingDate, setFirestoreWeddingDate] = useState<Date | null>(null);
-  const [weddingDateUndecided, setWeddingDateUndecided] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Fetch wedding date for banner
-  useEffect(() => {
-    // Only fetch if no local date is being passed for preview
-    if (user && localWeddingDate === undefined) {
-      const fetchWeddingDate = async () => {
-        setIsLoading(true);
-        try {
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            // Check if wedding date is undecided
-            setWeddingDateUndecided(data.weddingDateUndecided || false);
-            
-            // Only set the wedding date if it exists AND is not undecided
-            if (data.weddingDate?.seconds && !data.weddingDateUndecided) {
-              setFirestoreWeddingDate(new Date(data.weddingDate.seconds * 1000));
-            } else {
-              setFirestoreWeddingDate(null);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching wedding date:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchWeddingDate();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user, localWeddingDate]);
+  
+  // Use the same hook as other pages for consistent data
+  const { 
+    weddingDate: firestoreWeddingDate, 
+    weddingDateUndecided, 
+    profileLoading: isLoading 
+  } = useUserProfileData();
 
   // Calculate days left, months left, and remaining days
   const calculateTimeLeft = () => {

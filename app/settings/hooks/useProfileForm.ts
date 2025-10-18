@@ -237,6 +237,10 @@ export function useProfileForm(user: any, updateUser: (data: any) => Promise<voi
       await updateDoc(userRef, updateData);
       await updateUser(updateData);
       reloadUserProfile(); // Trigger profile data reload
+      
+      // Dispatch event to refresh WeddingBanner and other components
+      window.dispatchEvent(new CustomEvent('userDataUpdated'));
+      
       toast.success("Wedding details saved successfully!");
     } catch (error) {
       console.error("Error saving wedding details:", error);
