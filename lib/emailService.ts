@@ -14,7 +14,10 @@ const sendEmail = async (emailContent: EmailContent): Promise<boolean> => {
 
     const msg = {
       to: emailContent.to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'no-reply@weddingpaige.com',
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL || 'hello@weddingpaige.com',
+        name: 'Paige AI'
+      },
       subject: emailContent.subject,
       text: emailContent.text,
       html: emailContent.html,
