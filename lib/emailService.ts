@@ -13,12 +13,12 @@ const sendEmail = async (emailContent: EmailContent): Promise<boolean> => {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 
     const msg = {
-      to: emailContent.to,
+        to: emailContent.to,
       from: {
         email: process.env.SENDGRID_FROM_EMAIL || 'hello@weddingpaige.com',
         name: 'Paige AI'
       },
-      subject: emailContent.subject,
+        subject: emailContent.subject,
       text: emailContent.text,
       html: emailContent.html,
     };
@@ -71,7 +71,7 @@ export const sendMissedDeadlineEmail = async (
       `;
     }).join('');
   };
-
+  
   const emailContent: EmailContent = {
     to: toEmail,
     subject: "⚠️ Overdue Tasks Need Your Attention",
@@ -136,9 +136,9 @@ export const sendMissedDeadlineEmail = async (
 
 // Missing function exports for backward compatibility
 export const sendNotificationEmail = async (
-  toEmail: string,
-  userName: string,
-  contactName: string,
+  toEmail: string, 
+  userName: string, 
+  contactName: string, 
   messageBody: string,
   userId?: string
 ): Promise<boolean> => {
@@ -359,7 +359,7 @@ export const sendWelcomeEmail = async (
               ${buildStatusSection()}
             </div>
             
-            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #A85C36; margin: 0 0 15px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 16px;">What Paige Can Do for You:</h3>
               <ul style="margin: 0; padding-left: 20px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
                 <li style="margin-bottom: 8px;">Organize your guest list and seating charts</li>
@@ -620,7 +620,7 @@ export const sendCreditAlertEmail = async (
               </p>
             </div>
             
-            <div style="text-align: center; margin: 30px 0;">
+        <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/settings" 
                  style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
                 ${currentCredits <= 0 ? 'Upgrade Now' : 'Manage Credits'}
@@ -765,13 +765,13 @@ export const sendWeeklyTodoDigestEmail = async (
       </div>
     `
   };
-  
+
   return await sendEmail(emailContent);
-};
+}; 
 
 export const sendBudgetPaymentOverdueEmail = async (
-  toEmail: string,
-  userName: string,
+  toEmail: string, 
+  userName: string, 
   overdueItems: Array<{
     id: string;
     name: string;
@@ -789,7 +789,7 @@ export const sendBudgetPaymentOverdueEmail = async (
   ).join('');
 
   const totalOverdue = overdueItems.reduce((sum, item) => sum + item.amount, 0);
-
+  
   const emailContent: EmailContent = {
     to: toEmail,
     subject: "⚠️ Overdue Budget Payments Need Your Attention",
@@ -999,7 +999,7 @@ export const sendBudgetThresholdAlertEmail = async (
             
             ${buildOverBudgetList()}
             
-            <div style="text-align: center; margin: 30px 0;">
+        <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/budget" 
                  style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
                 Review Budget

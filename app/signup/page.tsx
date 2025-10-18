@@ -6,7 +6,7 @@ import { getAuth } from "firebase/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useState, useEffect, useRef } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import OnboardingVisual from "../../components/OnboardingVisual";
 import { useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import PlacesAutocompleteInput from '@/components/PlacesAutocompleteInput';
 import VenueSearchInput from '@/components/VenueSearchInput';
 import GoogleMapsLoader from '@/components/GoogleMapsLoader';
 import DreamDayConfirmation from '@/components/onboarding/DreamDayConfirmation';
+import EmailVerificationRequired from '@/components/auth/EmailVerificationRequired';
 
 // @ts-ignore
 // eslint-disable-next-line
@@ -40,6 +41,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [additionalContext, setAdditionalContext] = useState('');
   const [step, setStep] = useState(1);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [step2Errors, setStep2Errors] = useState<{ userName?: string; partnerName?: string }>({});
   const [userName, setUserName] = useState("");
   const [partnerName, setPartnerName] = useState("");
@@ -198,6 +200,17 @@ export default function SignUp() {
     }
   }, [user, authLoading, onboarded, step]);
 
+  // Handle email verification success
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('verified') === 'true' && user) {
+      // User has verified their email, show success and proceed
+      showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+      setNeedsEmailVerification(false);
+      setStep(2);
+    }
+  }, [user, showSuccessToast]);
+
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -247,10 +260,14 @@ export default function SignUp() {
     }
 
     try {
-
       const result = await createUserWithEmailAndPassword(auth, email, password);
       if (result.user) {
-
+        // Send email verification with proper redirect URL
+        await sendEmailVerification(result.user, {
+          url: `${window.location.origin}/signup?verified=true`,
+          handleCodeInApp: true
+        });
+        
         // Get the ID token and set the session cookie
         const idToken = await result.user.getIdToken();
 
@@ -260,19 +277,18 @@ export default function SignUp() {
           body: JSON.stringify({ idToken }),
         });
         
-
         if (res.ok) {
-
+          // Create user document with emailVerified: false and provider: 'email'
           await setDoc(doc(db, "users", result.user.uid), {
             email: result.user.email,
+            emailVerified: false,
+            provider: 'email',
             onboarded: false,
             createdAt: new Date(),
           }, { merge: true });
 
-          // Welcome email will be sent after onboarding completion
-
-          setIsNewSignup(true);
-          setStep(2);
+          // Show email verification required
+          setNeedsEmailVerification(true);
         } else {
           console.error('Session login failed');
           showErrorToast("Session login failed");
@@ -354,6 +370,8 @@ export default function SignUp() {
           
           await setDoc(doc(db, "users", result.user.uid), {
             email: result.user.email,
+            emailVerified: true, // Google OAuth emails are pre-verified
+            provider: 'google',
             onboarded: false,
             createdAt: new Date(),
             // Store Gmail tokens and connection status
@@ -568,6 +586,18 @@ export default function SignUp() {
   };
 
   // Enhanced onboarding is now handled in the dashboard after signup completion
+
+  // Show email verification required if needed
+  if (needsEmailVerification) {
+    return (
+      <EmailVerificationRequired 
+        onVerified={() => {
+          setNeedsEmailVerification(false);
+          setStep(2);
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">

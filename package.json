@@ -11,7 +11,8 @@
     "validate-vendor-search": "node scripts/validate-vendor-search.js",
     "pre-commit-vendor-search": "node scripts/pre-commit-vendor-search.js",
     "migrate-edge-config": "node scripts/migrate-to-edge-config.js",
-    "populate-pinecone": "node scripts/populate-pinecone-wedding-knowledge.js"
+    "populate-pinecone": "node scripts/populate-pinecone-wedding-knowledge.js",
+    "migrate-email-verification": "tsx scripts/migrate-email-verification.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

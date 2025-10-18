@@ -49,7 +49,7 @@ export async function migrateUserToRoleSystem(userId: string): Promise<void> {
       permissions: roleConfig.permissions,
       isActive: true,
       lastActive: new Date(),
-      emailVerified: userData.emailVerified || false,
+      emailVerified: userData.emailVerified || (userData.provider === 'google' ? true : false),
       hasSeenWelcomeModal: userData.hasSeenWelcomeModal || false, // Preserve existing value or default to false
       metadata: {
         weddingDate: userData.weddingDate || null,
@@ -90,7 +90,7 @@ export async function createNewUserWithRoleSystem(userId: string, userData: any 
       permissions: roleConfig.permissions,
       isActive: true,
       lastActive: new Date(),
-      emailVerified: userData.emailVerified || false,
+      emailVerified: userData.emailVerified || (userData.provider === 'google' ? true : false),
       
       // Welcome modal tracking
       hasSeenWelcomeModal: false,

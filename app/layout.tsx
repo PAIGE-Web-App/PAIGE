@@ -17,6 +17,7 @@ import IdleTimeoutManager from "../components/IdleTimeoutManager";
 import { usePathname } from 'next/navigation';
 import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
 import HydrationErrorBoundary from '../components/HydrationErrorBoundary';
+import EmailVerificationGuard from '../components/auth/EmailVerificationGuard';
 
 // Import scheduled task manager to start automation (server-side only)
 import '@/lib/initScheduledTasks';
@@ -74,7 +75,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   // For auth pages (login/signup), don't use LoadingProvider
                   <GlobalErrorBoundary>
                     <HydrationErrorBoundary>
-                      {children}
+                      <EmailVerificationGuard>
+                        {children}
+                      </EmailVerificationGuard>
                     </HydrationErrorBoundary>
                   </GlobalErrorBoundary>
                 ) : (
@@ -85,7 +88,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <SimpleNavWrapper>
                         <GlobalErrorBoundary>
                           <HydrationErrorBoundary>
-                            {children}
+                            <EmailVerificationGuard>
+                              {children}
+                            </EmailVerificationGuard>
                           </HydrationErrorBoundary>
                         </GlobalErrorBoundary>
                       </SimpleNavWrapper>
@@ -93,7 +98,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {hideNav && (
                       <GlobalErrorBoundary>
                         <HydrationErrorBoundary>
-                          {children}
+                          <EmailVerificationGuard>
+                            {children}
+                          </EmailVerificationGuard>
                         </HydrationErrorBoundary>
                       </GlobalErrorBoundary>
                     )}

@@ -39,6 +39,11 @@ interface AuthContextType {
   onboardingStatus: 'unknown' | 'onboarded' | 'not-onboarded';
   checkOnboardingStatus: () => Promise<void>;
   
+  // Email verification status
+  emailVerified: boolean;
+  needsEmailVerification: boolean;
+  provider: 'google' | 'email' | null;
+  
   // New authentication management
   refreshAuthToken: () => Promise<string | null>;
   validateSession: () => Promise<boolean>;
@@ -66,6 +71,11 @@ const AuthContext = createContext<AuthContextType>({
   // Onboarding status
   onboardingStatus: 'unknown',
   checkOnboardingStatus: async () => {},
+  
+  // Email verification status
+  emailVerified: false,
+  needsEmailVerification: false,
+  provider: null,
   
   // New authentication management
   refreshAuthToken: async () => null,
@@ -95,6 +105,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [onboardingStatus, setOnboardingStatus] = useState<'unknown' | 'onboarded' | 'not-onboarded'>(
     typeof window !== 'undefined' ? (localStorage.getItem(ONBOARDING_STATUS_KEY) as any) || 'unknown' : 'unknown'
   );
+  
+  // Email verification state
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [provider, setProvider] = useState<'google' | 'email' | null>(null);
 
   // Track last operation timestamps to prevent loops
   const lastTokenRefreshRef = useRef<number>(0);
@@ -302,6 +317,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Check email verification status
+  const checkEmailVerificationStatus = async (user: User) => {
+    try {
+      // Get user document from Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        
+        // Detect provider: check for Google tokens or Gmail connection
+        let provider: 'google' | 'email' = 'email';
+        if (userData.googleTokens || userData.gmailConnected || userData.provider === 'google') {
+          provider = 'google';
+        } else if (userData.provider) {
+          provider = userData.provider;
+        }
+        
+        // For Google OAuth users, they're automatically verified
+        // For manual email users, check the emailVerified field
+        const emailVerified = provider === 'google' ? true : (userData.emailVerified || false);
+        
+        setProvider(provider);
+        setEmailVerified(emailVerified);
+        
+        // Determine if user needs email verification
+        // Google OAuth users are pre-verified, manual email users need verification
+        const needsVerification = provider === 'email' && !emailVerified;
+        setNeedsEmailVerification(needsVerification);
+        
+        console.log('Email verification status:', {
+          provider,
+          emailVerified,
+          needsVerification,
+          userEmail: user.email,
+          hasGoogleTokens: !!userData.googleTokens,
+          gmailConnected: !!userData.gmailConnected
+        });
+      } else {
+        // User document doesn't exist, default to email verification required
+        setProvider('email');
+        setEmailVerified(false);
+        setNeedsEmailVerification(true);
+      }
+    } catch (error) {
+      console.error('Error checking email verification status:', error);
+      // Default to requiring verification on error
+      setProvider('email');
+      setEmailVerified(false);
+      setNeedsEmailVerification(true);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Auth state changed
@@ -311,6 +379,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If user exists, validate session and set up token refresh
       if (user) {
         await checkOnboardingStatus();
+        
+        // Check email verification status
+        await checkEmailVerificationStatus(user);
         
         // Note: Redirect logic moved back to login page for better control
         
@@ -352,6 +423,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshUserRole,
       onboardingStatus,
       checkOnboardingStatus,
+      emailVerified,
+      needsEmailVerification,
+      provider,
       refreshAuthToken: refreshAuthTokenLocal,
       validateSession: validateSessionLocal,
     }}>
