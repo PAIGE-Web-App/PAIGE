@@ -196,24 +196,55 @@ export const sendNotificationEmail = async (
 ): Promise<boolean> => {
   const emailContent: EmailContent = {
     to: toEmail,
-    subject: `New message from ${contactName} in Paige`,
-    text: `Hello ${userName},\n\nYou have a new message from ${contactName} in Paige:\n\n"${messageBody}"\n\nView and reply at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}\n\nBest regards,\nThe Paige Team`,
+    subject: `💬 New message from ${contactName}`,
+    text: `Hello ${userName},\n\nYou have a new message from ${contactName} in Paige:\n\n"${messageBody}"\n\nView and reply at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/messages\n\nBest regards,\nThe Paige Team`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #A85C36;">New Message from ${contactName}</h2>
-        <p>Hello ${userName},</p>
-        <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0; line-height: 1.6;">${messageBody.replace(/\n/g, '<br>')}</p>
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">New Message from ${contactName}</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              You have a new message from <strong>${contactName}</strong> in Paige:
+            </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #A85C36;">
+              <p style="margin: 0; font-size: 15px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6; font-style: italic;">
+                "${messageBody.replace(/\n/g, '<br>')}"
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/messages" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View & Reply in Paige
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Best regards,<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
         </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}" 
-             style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            View Message in Paige
-          </a>
-        </div>
-        <p style="color: #666; font-size: 14px; text-align: center;">
-          This message was sent from Paige - your wedding planning assistant
-        </p>
       </div>
     `
   };
@@ -221,44 +252,7 @@ export const sendNotificationEmail = async (
   return sendEmail(emailContent, userId);
 }; 
 
-export const sendTodoNotificationEmail = async (
-  toEmail: string, 
-  userName: string, 
-  todoName: string,
-  action: 'assigned' | 'updated' | 'completed',
-  assignedBy: string,
-  userId?: string
-): Promise<boolean> => {
-  const actionText = action === 'assigned' ? 'assigned to you' : 
-                    action === 'updated' ? 'updated' : 'marked as completed';
-  
-  const emailContent: EmailContent = {
-    to: toEmail,
-    subject: `To-do item "${todoName}" ${actionText} in Paige`,
-    text: `Hello ${userName},\n\n${assignedBy} has ${actionText} the to-do item "${todoName}" in Paige.\n\nView and manage your tasks at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}\n\nBest regards,\nThe Paige Team`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #A85C36;">To-do Item ${actionText.charAt(0).toUpperCase() + actionText.slice(1)}</h2>
-        <p>Hello ${userName},</p>
-        <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 0; line-height: 1.6;"><strong>${assignedBy}</strong> has ${actionText} the to-do item:</p>
-          <h3 style="color: #332B42; margin: 10px 0;">"${todoName}"</h3>
-        </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}/todo" 
-             style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            View Tasks in Paige
-          </a>
-        </div>
-        <p style="color: #666; font-size: 14px; text-align: center;">
-          This notification was sent from Paige - your wedding planning assistant
-        </p>
-      </div>
-    `
-  };
-
-  return sendEmail(emailContent, userId);
-};
+// sendTodoNotificationEmail removed - not used in actual system flows
 
 // Welcome Email Series - Dynamic content based on user data
 export const sendWelcomeEmail = async (
@@ -411,7 +405,7 @@ export const sendWelcomeEmail = async (
             </a>
           </div>
           
-          <div style="padding: 0 30px 30px 30px; background-color: #ffffff;">
+          <div style="padding: 1rem; background-color: #ffffff;">
             <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">Welcome to Paige! 🎉</h1>
             
             <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
