@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
 interface EmailContent {
   to: string;
@@ -9,24 +9,18 @@ interface EmailContent {
 
 const sendEmail = async (emailContent: EmailContent): Promise<boolean> => {
   try {
-    const transporter = nodemailer.createTransporter({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    // Initialize SendGrid
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'no-reply@weddingpaige.com',
+    const msg = {
       to: emailContent.to,
+      from: process.env.SENDGRID_FROM_EMAIL || 'no-reply@weddingpaige.com',
       subject: emailContent.subject,
       text: emailContent.text,
       html: emailContent.html,
-    });
+    };
 
+    await sgMail.send(msg);
     return true;
   } catch (error) {
     console.error('❌ Error sending email:', error);
@@ -193,15 +187,41 @@ export const sendWelcomeEmail = async (
     html: `
       <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
           <div style="padding: 1rem; background-color: #ffffff;">
-            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; text-align: center; color: #332B42;">Welcome to Paige! 🎉</h1>
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">Welcome to Paige! 🎉</h1>
+            
             <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
             <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
               Welcome to Paige! Your wedding planning journey starts here.
             </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/dashboard" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                Go to Your Dashboard
+              </a>
+            </div>
+            
             <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
               Best regards,<br>
               <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
             </p>
           </div>
         </div>
@@ -219,22 +239,61 @@ export const sendCreditAlertEmail = async (
   subscriptionTier: string,
   userType: string
 ): Promise<boolean> => {
+  const alertMessage = currentCredits <= 0 
+    ? `You've run out of credits! Upgrade your plan to continue using Paige's AI features.`
+    : `You have ${currentCredits} credits remaining. Consider upgrading your plan to avoid interruptions.`;
+
   const emailContent: EmailContent = {
     to: toEmail,
-    subject: `Credit Alert: ${alertType}`,
-    text: `Hello ${userName},\n\nYour credits are running low (${currentCredits} remaining). Consider upgrading your plan.\n\nBest regards,\nThe Paige Team`,
+    subject: `⚠️ Credit Alert: ${alertType}`,
+    text: `Hello ${userName},\n\n${alertMessage}\n\nBest regards,\nThe Paige Team`,
     html: `
       <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
           <div style="padding: 1rem; background-color: #ffffff;">
-            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; text-align: center; color: #332B42;">Credit Alert</h1>
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">⚠️ Credit Alert</h1>
+            
             <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
             <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
-              Your credits are running low (${currentCredits} remaining). Consider upgrading your plan.
+              ${alertMessage}
             </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #A85C36;">
+              <p style="margin: 0; font-size: 15px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6;">
+                <strong>Current Status:</strong><br>
+                • Credits Remaining: <strong style="color: ${currentCredits <= 0 ? '#EF4444' : '#A85C36'}">${currentCredits}</strong><br>
+                • Subscription: ${subscriptionTier}<br>
+                • User Type: ${userType}
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/settings" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                ${currentCredits <= 0 ? 'Upgrade Now' : 'Manage Credits'}
+              </a>
+            </div>
+            
             <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
               Best regards,<br>
               <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
             </p>
           </div>
         </div>
@@ -274,22 +333,63 @@ export const sendBudgetPaymentOverdueEmail = async (
   }>,
   userId?: string
 ): Promise<boolean> => {
+  const overdueItemsList = overdueItems.map(item => 
+    `<li style="margin-bottom: 10px; font-family: 'Work Sans', Arial, sans-serif;">
+      <strong>${item.name}</strong> - $${item.amount.toLocaleString()} 
+      <span style="color: #A85C36; font-weight: 600;">(${item.daysOverdue} days overdue)</span>
+    </li>`
+  ).join('');
+
+  const totalOverdue = overdueItems.reduce((sum, item) => sum + item.amount, 0);
+
   const emailContent: EmailContent = {
     to: toEmail,
-    subject: "Budget Payment Overdue Reminder",
-    text: `Hello ${userName},\n\nYou have overdue budget payments that need attention.\n\nBest regards,\nThe Paige Team`,
+    subject: "⚠️ Overdue Budget Payments Need Your Attention",
+    text: `Hello ${userName},\n\nYou have ${overdueItems.length} overdue budget payment(s) totaling $${totalOverdue.toLocaleString()}:\n\n${overdueItems.map(item => `• ${item.name} - $${item.amount.toLocaleString()} (${item.daysOverdue} days overdue)`).join('\n')}\n\nPlease review and update these payments to stay on track!\n\nBest regards,\nThe Paige Team`,
     html: `
       <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
           <div style="padding: 1rem; background-color: #ffffff;">
-            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; text-align: center; color: #332B42;">Budget Payment Overdue</h1>
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">⚠️ Overdue Budget Payments</h1>
+            
             <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
             <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
-              You have overdue budget payments that need attention.
+              You have <strong>${overdueItems.length} overdue budget payment(s)</strong> totaling <strong style="color: #A85C36;">$${totalOverdue.toLocaleString()}</strong> that need your attention:
             </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #A85C36;">
+              <ul style="margin: 0; padding-left: 20px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+                ${overdueItemsList}
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/budget" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                Review Budget Payments
+              </a>
+            </div>
+            
             <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
               Best regards,<br>
               <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
             </p>
           </div>
         </div>
@@ -306,20 +406,56 @@ export const sendBudgetCreationReminderEmail = async (
 ): Promise<boolean> => {
   const emailContent: EmailContent = {
     to: toEmail,
-    subject: "Start Planning Your Wedding Budget",
-    text: `Hello ${userName},\n\nIt's time to start planning your wedding budget!\n\nBest regards,\nThe Paige Team`,
+    subject: "💰 Start Planning Your Wedding Budget",
+    text: `Hello ${userName},\n\nIt's time to start planning your wedding budget! Create your budget to track expenses and stay on track with your wedding planning.\n\nBest regards,\nThe Paige Team`,
     html: `
       <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
           <div style="padding: 1rem; background-color: #ffffff;">
-            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; text-align: center; color: #332B42;">Start Planning Your Wedding Budget</h1>
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">💰 Start Planning Your Wedding Budget</h1>
+            
             <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
             <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
-              It's time to start planning your wedding budget!
+              It's time to start planning your wedding budget! Create your budget to track expenses and stay on track with your wedding planning.
             </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #A85C36;">
+              <p style="margin: 0; font-size: 15px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6;">
+                <strong>Why create a budget?</strong><br>
+                • Track all wedding expenses in one place<br>
+                • Set realistic spending limits<br>
+                • Avoid overspending on any category<br>
+                • Stay organized throughout planning
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/budget" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                Create My Budget
+              </a>
+            </div>
+            
             <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
               Best regards,<br>
               <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
             </p>
           </div>
         </div>
