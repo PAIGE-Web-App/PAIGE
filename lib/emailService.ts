@@ -405,6 +405,177 @@ export const sendWelcomeEmail = async (
   return await sendEmail(emailContent);
 };
 
+// ==================== TODO EMAILS ====================
+
+export const sendTaskAssignmentEmail = async (
+  toEmail: string,
+  assigneeName: string,
+  assignerName: string,
+  task: {
+    id: string;
+    name: string;
+    deadline?: Date | null;
+    category?: string;
+    listName?: string;
+    note?: string;
+  },
+  userId?: string
+): Promise<boolean> => {
+  const deadlineText = task.deadline 
+    ? new Date(task.deadline).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'No deadline set';
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `📋 ${assignerName} assigned you a task: ${task.name}`,
+    text: `Hello ${assigneeName},\n\n${assignerName} has assigned you a new wedding planning task:\n\nTask: ${task.name}\nDeadline: ${deadlineText}\n${task.category ? `Category: ${task.category}\n` : ''}${task.note ? `Note: ${task.note}\n` : ''}\n\nView and manage this task in your Paige dashboard.\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">📋 New Task Assignment</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${assigneeName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              <strong>${assignerName}</strong> has assigned you a new wedding planning task:
+            </p>
+            
+            <div style="background-color: #F0F9FF; border: 1px solid #BFDBFE; border-left: 4px solid #3B82F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+                ${task.name}
+              </h3>
+              ${task.category ? `<p style="margin: 0 0 8px 0; font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">📂 ${task.category}</p>` : ''}
+              ${task.listName ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #999; font-family: 'Work Sans', Arial, sans-serif;">📋 ${task.listName}</p>` : ''}
+              <p style="margin: 8px 0; font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">
+                <strong>Deadline:</strong> ${deadlineText}
+              </p>
+              ${task.note ? `<p style="margin: 12px 0 0 0; padding-top: 12px; border-top: 1px solid #BFDBFE; font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif; font-style: italic;">"${task.note}"</p>` : ''}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/todo" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View Task
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Happy planning together!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
+export const sendTaskCompletionCelebrationEmail = async (
+  toEmail: string,
+  userName: string,
+  completedTask: {
+    id: string;
+    name: string;
+    category?: string;
+    listName?: string;
+  },
+  milestoneData?: {
+    tasksCompletedThisWeek: number;
+    totalTasksCompleted: number;
+    percentageComplete: number;
+  },
+  userId?: string
+): Promise<boolean> => {
+  const celebrationMessage = milestoneData 
+    ? `You've completed <strong>${milestoneData.tasksCompletedThisWeek}</strong> tasks this week and <strong>${milestoneData.totalTasksCompleted}</strong> tasks total! You're <strong>${milestoneData.percentageComplete}%</strong> of the way through your wedding planning!`
+    : `Great job staying on top of your wedding planning!`;
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `🎉 Task Completed: ${completedTask.name}`,
+    text: `Hello ${userName},\n\nCongratulations! You just completed:\n\n${completedTask.name}${completedTask.category ? `\nCategory: ${completedTask.category}` : ''}\n\n${milestoneData ? `You've completed ${milestoneData.tasksCompletedThisWeek} tasks this week and ${milestoneData.totalTasksCompleted} tasks total!` : ''}\n\nKeep up the great work!\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">🎉 Task Completed!</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              Congratulations! You just completed:
+            </p>
+            
+            <div style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4px solid #10B981; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+              <h3 style="margin: 0 0 8px 0; font-size: 18px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+                ${completedTask.name}
+              </h3>
+              ${completedTask.category ? `<p style="margin: 0; font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">📂 ${completedTask.category}</p>` : ''}
+            </div>
+            
+            ${milestoneData ? `
+              <div style="background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                <p style="margin: 0; font-size: 16px; color: #332B42; line-height: 1.6; font-family: 'Work Sans', Arial, sans-serif;">
+                  ${celebrationMessage}
+                </p>
+              </div>
+            ` : ''}
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/todo" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View All Tasks
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Keep up the great work!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
+// ==================== CREDIT EMAILS ====================
+
 export const sendCreditAlertEmail = async (
   toEmail: string,
   userName: string,
@@ -723,6 +894,312 @@ export const sendBudgetCreationReminderEmail = async (
             
             <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
               Best regards,<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
+export const sendBudgetThresholdAlertEmail = async (
+  toEmail: string,
+  userName: string,
+  budgetStatus: {
+    totalBudget: number;
+    totalSpent: number;
+    percentageUsed: number;
+    categoriesOverBudget: Array<{
+      name: string;
+      budgeted: number;
+      spent: number;
+      overage: number;
+    }>;
+  },
+  userId?: string
+): Promise<boolean> => {
+  const buildOverBudgetList = () => {
+    if (budgetStatus.categoriesOverBudget.length === 0) {
+      return '';
+    }
+    
+    return `
+      <div style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <h4 style="margin: 0 0 12px 0; font-size: 16px; color: #EF4444; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+          ⚠️ Categories Over Budget
+        </h4>
+        ${budgetStatus.categoriesOverBudget.map(cat => `
+          <div style="margin-bottom: 8px; padding: 8px; background-color: #ffffff; border-radius: 4px;">
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+              ${cat.name}
+            </p>
+            <p style="margin: 0; font-size: 13px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">
+              Budgeted: $${cat.budgeted.toLocaleString()} | Spent: $${cat.spent.toLocaleString()} 
+              <span style="color: #EF4444; font-weight: 600;">(+$${cat.overage.toLocaleString()} over)</span>
+            </p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  };
+
+  const alertColor = budgetStatus.percentageUsed >= 90 ? '#EF4444' : '#F59E0B';
+  const alertMessage = budgetStatus.percentageUsed >= 90 
+    ? `You've used <strong style="color: ${alertColor};">${budgetStatus.percentageUsed}%</strong> of your total budget!`
+    : `You've reached <strong style="color: ${alertColor};">${budgetStatus.percentageUsed}%</strong> of your total budget.`;
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `💰 Budget Alert: ${budgetStatus.percentageUsed}% of Budget Used`,
+    text: `Hello ${userName},\n\n${alertMessage}\n\nTotal Budget: $${budgetStatus.totalBudget.toLocaleString()}\nTotal Spent: $${budgetStatus.totalSpent.toLocaleString()}\nRemaining: $${(budgetStatus.totalBudget - budgetStatus.totalSpent).toLocaleString()}\n\n${budgetStatus.categoriesOverBudget.length > 0 ? `Warning: ${budgetStatus.categoriesOverBudget.length} categor${budgetStatus.categoriesOverBudget.length === 1 ? 'y is' : 'ies are'} over budget!\n\n${budgetStatus.categoriesOverBudget.map(cat => `• ${cat.name}: $${cat.overage.toLocaleString()} over budget`).join('\n')}` : ''}\n\nReview your budget to stay on track!\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">💰 Budget Alert</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              ${alertMessage}
+            </p>
+            
+            <div style="background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span style="font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">Total Budget:</span>
+                <span style="font-size: 14px; color: #332B42; font-weight: 600; font-family: 'Work Sans', Arial, sans-serif;">$${budgetStatus.totalBudget.toLocaleString()}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span style="font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">Total Spent:</span>
+                <span style="font-size: 14px; color: ${alertColor}; font-weight: 600; font-family: 'Work Sans', Arial, sans-serif;">$${budgetStatus.totalSpent.toLocaleString()}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #FCD34D;">
+                <span style="font-size: 16px; color: #332B42; font-weight: 600; font-family: 'Work Sans', Arial, sans-serif;">Remaining:</span>
+                <span style="font-size: 16px; color: #10B981; font-weight: 600; font-family: 'Work Sans', Arial, sans-serif;">$${(budgetStatus.totalBudget - budgetStatus.totalSpent).toLocaleString()}</span>
+              </div>
+            </div>
+            
+            ${buildOverBudgetList()}
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/budget" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                Review Budget
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Stay on top of your wedding finances!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
+// ==================== VENDOR & MESSAGE EMAILS ====================
+
+export const sendNewVendorMatchEmail = async (
+  toEmail: string,
+  userName: string,
+  vendors: Array<{
+    id: string;
+    name: string;
+    category: string;
+    rating?: number;
+    priceLevel?: string;
+    location?: string;
+  }>,
+  matchReason: string,
+  userId?: string
+): Promise<boolean> => {
+  const buildVendorList = () => {
+    return vendors.map(vendor => `
+      <div style="background-color: #ffffff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 16px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+          ${vendor.name}
+        </h4>
+        <p style="margin: 0 0 4px 0; font-size: 13px; color: #666; font-family: 'Work Sans', Arial, sans-serif;">
+          📂 ${vendor.category}${vendor.location ? ` • 📍 ${vendor.location}` : ''}
+        </p>
+        ${vendor.rating ? `<p style="margin: 4px 0 0 0; font-size: 13px; color: #F59E0B; font-family: 'Work Sans', Arial, sans-serif;">⭐ ${vendor.rating}/5${vendor.priceLevel ? ` • ${vendor.priceLevel}` : ''}</p>` : ''}
+      </div>
+    `).join('');
+  };
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `✨ ${vendors.length} New Vendor Match${vendors.length !== 1 ? 'es' : ''} for Your Wedding`,
+    text: `Hello ${userName},\n\nWe found ${vendors.length} new vendor${vendors.length !== 1 ? 's' : ''} that match your wedding style and preferences!\n\nReason: ${matchReason}\n\n${vendors.map((v, i) => `${i + 1}. ${v.name} - ${v.category}${v.rating ? ` (${v.rating}⭐)` : ''}`).join('\n')}\n\nView these vendors in your dashboard to learn more and contact them!\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">✨ New Vendor Matches!</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              We found <strong>${vendors.length}</strong> new vendor${vendors.length !== 1 ? 's' : ''} that match your wedding style and preferences!
+            </p>
+            
+            <div style="background-color: #F0F9FF; border-left: 4px solid #3B82F6; padding: 16px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif;">
+                <strong>Why these vendors?</strong> ${matchReason}
+              </p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+              ${buildVendorList()}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/vendors" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View Vendors
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Happy vendor hunting!<br>
+              <strong>The Paige Team</strong>
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
+export const sendImportantVendorReplyEmail = async (
+  toEmail: string,
+  userName: string,
+  vendorReplies: Array<{
+    vendorName: string;
+    subject: string;
+    snippet: string;
+    receivedAt: Date;
+  }>,
+  userId?: string
+): Promise<boolean> => {
+  const buildReplyList = () => {
+    return vendorReplies.map(reply => {
+      const timeAgo = (() => {
+        const now = new Date();
+        const diff = now.getTime() - new Date(reply.receivedAt).getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        if (hours < 1) return 'Just now';
+        if (hours === 1) return '1 hour ago';
+        if (hours < 24) return `${hours} hours ago`;
+        const days = Math.floor(hours / 24);
+        if (days === 1) return '1 day ago';
+        return `${days} days ago`;
+      })();
+
+      return `
+        <div style="background-color: #ffffff; border: 1px solid #E5E7EB; border-left: 4px solid #8B5CF6; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 16px; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; font-weight: 600;">
+              ${reply.vendorName}
+            </h4>
+            <span style="font-size: 12px; color: #999; font-family: 'Work Sans', Arial, sans-serif; white-space: nowrap; margin-left: 12px;">
+              ${timeAgo}
+            </span>
+          </div>
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #666; font-family: 'Work Sans', Arial, sans-serif; font-weight: 500;">
+            ${reply.subject}
+          </p>
+          <p style="margin: 0; font-size: 13px; color: #666; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.5;">
+            ${reply.snippet}
+          </p>
+        </div>
+      `;
+    }).join('');
+  };
+
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: `📬 ${vendorReplies.length} New Vendor Repl${vendorReplies.length === 1 ? 'y' : 'ies'}`,
+    text: `Hello ${userName},\n\nYou have ${vendorReplies.length} new vendor repl${vendorReplies.length === 1 ? 'y' : 'ies'}:\n\n${vendorReplies.map((r, i) => `${i + 1}. ${r.vendorName}: ${r.subject}`).join('\n')}\n\nView and respond to these messages in your dashboard!\n\nBest regards,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 1rem; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">📬 New Vendor Messages</h1>
+            
+            <p style="font-size: 16px; color: #332B42; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">Hello ${userName},</p>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              You have <strong>${vendorReplies.length}</strong> new vendor repl${vendorReplies.length === 1 ? 'y' : 'ies'} waiting for you:
+            </p>
+            
+            <div style="margin: 20px 0;">
+              ${buildReplyList()}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com'}/messages" 
+                 style="background-color: #A85C36; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600; font-size: 14px; font-family: 'Work Sans', Arial, sans-serif; border: 1px solid #A85C36;">
+                View Messages
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Stay connected with your vendors!<br>
               <strong>The Paige Team</strong>
             </p>
           </div>
