@@ -160,13 +160,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
 
+  // Cache for user data to prevent excessive Firestore reads
+  const userDataCache = useRef<{ [userId: string]: any }>({});
+  const lastFetchRef = useRef<{ [userId: string]: number }>({});
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   // Always prefer Firestore value over localStorage after Firestore loads
   useEffect(() => {
     if (!loading && user) {
       (async () => {
         try {
+          const userId = user.uid;
+          const now = Date.now();
+          
+          // Check cache first to prevent excessive Firestore reads
+          if (userDataCache.current[userId] && 
+              lastFetchRef.current[userId] && 
+              (now - lastFetchRef.current[userId]) < CACHE_TTL) {
+            const cachedData = userDataCache.current[userId];
+            setUserName(cachedData.userName || user.displayName || 'User');
+            setProfileImageUrlState(cachedData.profileImageUrl || null);
+            setProfileImageLQIPState(cachedData.profileImageLQIP || null);
+            setUserRole(cachedData.role || 'couple');
+            setUserType(cachedData.userType || 'couple');
+            setPermissions(cachedData.permissions || null);
+            setSubscription(cachedData.subscription || null);
+            const adminRoles = ['moderator', 'admin', 'super_admin'];
+            const isUserAdmin = adminRoles.includes(cachedData.role);
+            setIsAdmin(isUserAdmin);
+            setCanAccessAdmin(isUserAdmin);
+            return;
+          }
+
           // Use the new role-aware user fetching
           const userData = await getUserWithRole(user.uid);
+          
+          // Cache the result to prevent future reads
+          userDataCache.current[userId] = userData;
+          lastFetchRef.current[userId] = now;
+          
           if (userData) {
             setUserName(userData.userName || user.displayName || 'User');
             setProfileImageUrlState(userData.profileImageUrl || null);

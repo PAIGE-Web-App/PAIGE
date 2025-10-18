@@ -144,8 +144,20 @@ export async function updateUserRole(userId: string, newRole: UserRole): Promise
 }
 
 // Get user with role information
+// Cache for getUserWithRole to prevent excessive reads
+const userRoleCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function getUserWithRole(userId: string) {
   try {
+    const now = Date.now();
+    
+    // Check cache first
+    const cached = userRoleCache.get(userId);
+    if (cached && (now - cached.timestamp) < CACHE_TTL) {
+      return cached.data;
+    }
+    
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
     
@@ -160,8 +172,18 @@ export async function getUserWithRole(userId: string) {
       await migrateUserToRoleSystem(userId);
       // Fetch again after migration
       const updatedSnap = await getDoc(userRef);
-      return updatedSnap.exists() ? updatedSnap.data() : null;
+      const finalData = updatedSnap.exists() ? updatedSnap.data() : null;
+      
+      // Cache the result
+      if (finalData) {
+        userRoleCache.set(userId, { data: finalData, timestamp: now });
+      }
+      
+      return finalData;
     }
+    
+    // Cache the result
+    userRoleCache.set(userId, { data: userData, timestamp: now });
     
     return userData;
     
