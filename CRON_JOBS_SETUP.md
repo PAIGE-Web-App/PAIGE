@@ -80,6 +80,9 @@ curl -X GET "https://weddingpaige.com/api/cron?job=weekly-todo-digest" \
 | Job | Schedule | Description |
 |-----|----------|-------------|
 | `weekly-todo-digest` | Sunday 9 AM | Sends upcoming todo items |
+| `missed-deadline-check` | Daily 8 AM | Checks for overdue todos |
+| `budget-payment-overdue-check` | Daily 8 AM | Checks for overdue budget payments |
+| `budget-creation-reminder` | Daily 9 AM | Reminds users to create budget (1 week after signup) |
 | `daily-credit-check` | Daily 8 AM | Checks for low credits (future) |
 | `wedding-reminders` | Daily 10 AM | Wedding milestone reminders (future) |
 

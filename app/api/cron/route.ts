@@ -62,6 +62,45 @@ export async function GET(request: NextRequest) {
           stats: { successCount, errorCount }
         });
         
+      case 'missed-deadline-check':
+        // Check for missed deadlines and send reminders
+        const { sendMissedDeadlineReminders } = await import('@/lib/emailIntegrations');
+        
+        console.log('🔍 Missed deadline check cron job triggered');
+        await sendMissedDeadlineReminders();
+        
+        return NextResponse.json({
+          success: true,
+          job: 'missed-deadline-check',
+          message: 'Missed deadline check completed'
+        });
+        
+      case 'budget-payment-overdue-check':
+        // Check for overdue budget payments and send reminders
+        const { sendBudgetPaymentOverdueReminders } = await import('@/lib/emailIntegrations');
+        
+        console.log('🔍 Budget payment overdue check cron job triggered');
+        await sendBudgetPaymentOverdueReminders();
+        
+        return NextResponse.json({
+          success: true,
+          job: 'budget-payment-overdue-check',
+          message: 'Budget payment overdue check completed'
+        });
+        
+      case 'budget-creation-reminder':
+        // Check for users who need budget creation reminders
+        const { sendBudgetCreationReminders } = await import('@/lib/emailIntegrations');
+        
+        console.log('🔍 Budget creation reminder cron job triggered');
+        await sendBudgetCreationReminders();
+        
+        return NextResponse.json({
+          success: true,
+          job: 'budget-creation-reminder',
+          message: 'Budget creation reminder check completed'
+        });
+        
       case 'daily-credit-check':
         // Future: Check for low credits and send alerts
         return NextResponse.json({
@@ -82,7 +121,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: 'Unknown cron job',
-          availableJobs: ['weekly-todo-digest', 'daily-credit-check', 'wedding-reminders']
+          availableJobs: ['weekly-todo-digest', 'missed-deadline-check', 'budget-payment-overdue-check', 'budget-creation-reminder', 'daily-credit-check', 'wedding-reminders']
         });
     }
     

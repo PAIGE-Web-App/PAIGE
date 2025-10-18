@@ -3,11 +3,12 @@ import { sendWeeklyTodoDigest } from '@/lib/emailIntegrations';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a legitimate cron request (optional security)
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'test-secret-123'; // Fallback for testing
+    // Verify this is a legitimate cron request
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
+    const expectedToken = process.env.CRON_SECRET || 'test-secret-123';
     
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (token !== expectedToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -37,8 +37,7 @@ export const checkAndSendCreditAlerts = async (userId: string) => {
         'depleted',
         currentCredits,
         subscriptionTier,
-        userType,
-        userId
+        userType
       );
     } else if (usagePercentage > 80) {
       await sendCreditAlertEmail(
@@ -47,8 +46,7 @@ export const checkAndSendCreditAlerts = async (userId: string) => {
         'low',
         currentCredits,
         subscriptionTier,
-        userType,
-        userId
+        userType
       );
     }
   } catch (error) {
@@ -96,8 +94,7 @@ export const sendWelcomeEmailOnSignup = async (userId: string) => {
     await sendWelcomeEmail(
       userData.email,
       userData.userName || userData.displayName,
-      emailUserData,
-      userId
+      emailUserData
     );
     
     console.log('✅ Welcome email sent successfully to:', userData.email);
@@ -193,3 +190,248 @@ export const sendWeeklyTodoDigest = async (userId: string) => {
     console.error(`❌ Error sending weekly todo digest:`, error);
   }
 };
+
+// Send missed deadline reminder emails
+export async function sendMissedDeadlineReminders(): Promise<void> {
+  try {
+    const { adminDb } = await import('@/lib/firebaseAdmin');
+    const { sendMissedDeadlineEmail } = await import('@/lib/emailService');
+    
+    console.log('🔍 Checking for missed deadlines...');
+    
+    // Get all users
+    const usersSnapshot = await adminDb.collection('users').get();
+    let totalSent = 0;
+    
+    for (const userDoc of usersSnapshot.docs) {
+      try {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        if (!userData.email) {
+          console.log(`Skipping user ${userId} - no email address`);
+          continue;
+        }
+        
+        // Get all incomplete todo items for this user
+        const todoItemsSnapshot = await adminDb
+          .collection(`users/${userId}/todoItems`)
+          .where('isCompleted', '==', false)
+          .get();
+        
+        if (todoItemsSnapshot.empty) {
+          continue;
+        }
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Find overdue todos
+        const overdueTodos = [];
+        
+        for (const todoDoc of todoItemsSnapshot.docs) {
+          const todoData = todoDoc.data();
+          
+          if (todoData.deadline) {
+            const deadlineDate = todoData.deadline.toDate ? todoData.deadline.toDate() : new Date(todoData.deadline);
+            deadlineDate.setHours(0, 0, 0, 0);
+            
+            if (deadlineDate < today) {
+              const daysOverdue = Math.floor((today.getTime() - deadlineDate.getTime()) / (1000 * 3600 * 24));
+              
+              // Get todo list name
+              let listName = '';
+              if (todoData.listId) {
+                const listDoc = await adminDb.collection(`users/${userId}/todoLists`).doc(todoData.listId).get();
+                if (listDoc.exists) {
+                  listName = listDoc.data()?.name || '';
+                }
+              }
+              
+              overdueTodos.push({
+                id: todoDoc.id,
+                name: todoData.name,
+                deadline: deadlineDate,
+                category: todoData.category,
+                listName: listName,
+                daysOverdue: daysOverdue
+              });
+            }
+          }
+        }
+        
+        // Only send if there are overdue todos
+        if (overdueTodos.length > 0) {
+          await sendMissedDeadlineEmail(
+            userData.email,
+            userData.userName || userData.displayName,
+            overdueTodos,
+            userId
+          );
+          
+          totalSent++;
+          console.log(`✅ Missed deadline reminder sent to: ${userData.email} (${overdueTodos.length} overdue tasks)`);
+        }
+        
+      } catch (error) {
+        console.error(`❌ Failed to check missed deadlines for user ${userDoc.id}:`, error);
+      }
+    }
+    
+    console.log(`📊 Missed deadline check completed: ${totalSent} emails sent`);
+    
+  } catch (error) {
+    console.error('Error checking missed deadlines:', error);
+  }
+}
+
+// Send budget payment overdue reminder emails
+export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
+  try {
+    const { adminDb } = await import('@/lib/firebaseAdmin');
+    const { sendBudgetPaymentOverdueEmail } = await import('@/lib/emailService');
+    
+    console.log('🔍 Checking for overdue budget payments...');
+    
+    // Get all users
+    const usersSnapshot = await adminDb.collection('users').get();
+    let totalSent = 0;
+    
+    for (const userDoc of usersSnapshot.docs) {
+      try {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        if (!userData.email) {
+          console.log(`Skipping user ${userId} - no email address`);
+          continue;
+        }
+        
+        // Get all budget items for this user
+        const budgetItemsSnapshot = await adminDb
+          .collection(`users/${userId}/budgetItems`)
+          .get();
+        
+        if (budgetItemsSnapshot.empty) {
+          continue;
+        }
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Find overdue budget items
+        const overdueItems = [];
+        
+        for (const itemDoc of budgetItemsSnapshot.docs) {
+          const itemData = itemDoc.data();
+          
+          // Only check items that are not paid and have a due date
+          if (!itemData.isPaid && itemData.dueDate) {
+            const dueDate = itemData.dueDate.toDate ? itemData.dueDate.toDate() : new Date(itemData.dueDate);
+            dueDate.setHours(0, 0, 0, 0);
+            
+            if (dueDate < today) {
+              const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
+              
+              overdueItems.push({
+                id: itemDoc.id,
+                name: itemData.name,
+                amount: itemData.amount || 0,
+                dueDate: dueDate,
+                category: itemData.categoryId, // You might want to get the actual category name
+                daysOverdue: daysOverdue
+              });
+            }
+          }
+        }
+        
+        // Only send if there are overdue items
+        if (overdueItems.length > 0) {
+          await sendBudgetPaymentOverdueEmail(
+            userData.email,
+            userData.userName || userData.displayName,
+            overdueItems,
+            userId
+          );
+          
+          totalSent++;
+          console.log(`✅ Budget payment overdue reminder sent to: ${userData.email} (${overdueItems.length} overdue items)`);
+        }
+        
+      } catch (error) {
+        console.error(`❌ Failed to check overdue budget payments for user ${userDoc.id}:`, error);
+      }
+    }
+    
+    console.log(`📊 Budget payment overdue check completed: ${totalSent} emails sent`);
+    
+  } catch (error) {
+    console.error('Error checking overdue budget payments:', error);
+  }
+}
+
+// Send budget creation reminder emails (1 week after signup)
+export async function sendBudgetCreationReminders(): Promise<void> {
+  try {
+    const { adminDb } = await import('@/lib/firebaseAdmin');
+    const { sendBudgetCreationReminderEmail } = await import('@/lib/emailService');
+    
+    console.log('🔍 Checking for users who need budget creation reminders...');
+    
+    // Get users who signed up exactly 7 days ago
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setHours(0, 0, 0, 0);
+    
+    const oneWeekAgoEnd = new Date(oneWeekAgo);
+    oneWeekAgoEnd.setHours(23, 59, 59, 999);
+    
+    const usersSnapshot = await adminDb
+      .collection('users')
+      .where('createdAt', '>=', oneWeekAgo)
+      .where('createdAt', '<=', oneWeekAgoEnd)
+      .get();
+    
+    let totalSent = 0;
+    
+    for (const userDoc of usersSnapshot.docs) {
+      try {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        if (!userData.email) {
+          console.log(`Skipping user ${userId} - no email address`);
+          continue;
+        }
+        
+        // Check if user has any budget items
+        const budgetItemsSnapshot = await adminDb
+          .collection(`users/${userId}/budgetItems`)
+          .limit(1)
+          .get();
+        
+        // Only send reminder if user has no budget items
+        if (budgetItemsSnapshot.empty) {
+          await sendBudgetCreationReminderEmail(
+            userData.email,
+            userData.userName || userData.displayName,
+            userId
+          );
+          
+          totalSent++;
+          console.log(`✅ Budget creation reminder sent to: ${userData.email}`);
+        } else {
+          console.log(`Skipping user ${userData.email} - already has budget items`);
+        }
+        
+      } catch (error) {
+        console.error(`❌ Failed to check budget creation reminder for user ${userDoc.id}:`, error);
+      }
+    }
+    
+    console.log(`📊 Budget creation reminder check completed: ${totalSent} emails sent`);
+    
+  } catch (error) {
+    console.error('Error checking budget creation reminders:', error);
+  }
+}

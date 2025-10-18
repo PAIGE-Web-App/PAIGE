@@ -102,8 +102,7 @@ export async function POST(request: NextRequest) {
     const success = await sendWelcomeEmail(
       email,
       'Test User',
-      userData,
-      'test-user-id'
+      userData
     );
 
     if (success) {
