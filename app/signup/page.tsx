@@ -587,11 +587,15 @@ export default function SignUp() {
 
   // Enhanced onboarding is now handled in the dashboard after signup completion
 
-  // Show email verification required if needed (but not if coming from verification link)
-  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-  const isFromVerificationLink = urlParams.get('verified') === 'true';
+  // Show email verification required if needed (but not if coming from verification success)
+  const [isFromVerificationSuccess, setIsFromVerificationSuccess] = useState(false);
   
-  if (needsEmailVerification && !isFromVerificationLink) {
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    setIsFromVerificationSuccess(urlParams.get('verified') === 'true');
+  }, []);
+  
+  if (needsEmailVerification && !isFromVerificationSuccess) {
     return (
       <EmailVerificationRequired 
         onVerified={() => {
