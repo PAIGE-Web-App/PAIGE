@@ -262,80 +262,46 @@ export default function SignUp() {
     handleEmailVerified();
   }, [user, user?.emailVerified, step, showSuccessToast]);
 
-  // Handle verification parameters from URL (when Firebase redirects directly)
+  // Handle verification success from URL parameters
   useEffect(() => {
-    const handleVerificationFromURL = async () => {
+    const handleVerificationSuccess = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const verified = urlParams.get('verified');
-      const mode = urlParams.get('mode');
-      const oobCode = urlParams.get('oobCode');
       
-      console.log('🔍 URL verification check:', { verified, mode, oobCode, user: !!user, authLoading });
-      
-      if (verified === 'true' && mode === 'verifyEmail' && oobCode) {
-        console.log('🔗 Processing verification from URL parameters...');
+      if (verified === 'true' && user && user.emailVerified) {
+        console.log('✅ Email verification successful! Checking onboarding status...');
         
-        // Wait a moment for Firebase to process the verification
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Check if user is already onboarded
+        const userRef = doc(db, user.uid);
+        const userSnap = await getDoc(userRef);
         
-        // If user is not logged in, try to get the current user
-        let currentUser = user;
-        if (!currentUser && !authLoading) {
-          console.log('🔍 No user found, checking auth state...');
-          // Wait a bit more for auth to initialize
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          currentUser = auth.currentUser;
-        }
-        
-        if (currentUser) {
-          console.log('👤 User found, reloading to check verification status...');
-          await currentUser.reload();
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
           
-          if (currentUser.emailVerified) {
-            console.log('✅ Email verified via URL! Checking onboarding status...');
-            
-            // Check if user is already onboarded
-            const userRef = doc(db, currentUser.uid);
-            const userSnap = await getDoc(userRef);
-            
-            if (userSnap.exists()) {
-              const userData = userSnap.data();
-              
-              if (userData.onboarded === true) {
-                // User is already onboarded, redirect to dashboard
-                console.log('✅ User already onboarded, redirecting to dashboard');
-                showSuccessToast('Email verified successfully! Welcome back!');
-                window.location.href = '/dashboard';
-              } else {
-                // User needs to complete onboarding
-                console.log('✅ Email verified! Moving to step 2 for onboarding');
-                showSuccessToast('Email verified successfully! You can now continue with your account setup.');
-                setStep(2);
-              }
-            } else {
-              // New user, proceed to step 2
-              console.log('✅ Email verified! Moving to step 2 for new user');
-              showSuccessToast('Email verified successfully! You can now continue with your account setup.');
-              setStep(2);
-            }
+          if (userData.onboarded === true) {
+            // User is already onboarded, redirect to dashboard
+            console.log('✅ User already onboarded, redirecting to dashboard');
+            showSuccessToast('Email verified successfully! Welcome back!');
+            window.location.href = '/dashboard';
           } else {
-            console.log('❌ Email verification failed via URL');
-            showErrorToast('Email verification failed. Please try again.');
-            setStep(1);
+            // User needs to complete onboarding
+            console.log('✅ Email verified! Moving to step 2 for onboarding');
+            showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+            setStep(2);
           }
         } else {
-          console.log('❌ No user found for verification');
-          showErrorToast('Please sign in first, then try the verification link again.');
-          setStep(1);
+          // New user, proceed to step 2
+          console.log('✅ Email verified! Moving to step 2 for new user');
+          showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+          setStep(2);
         }
       }
     };
     
-    // Run this effect when auth loading is complete, regardless of user state
-    if (!authLoading) {
-      handleVerificationFromURL();
+    if (!authLoading && user) {
+      handleVerificationSuccess();
     }
-  }, [authLoading, user, showSuccessToast, showErrorToast]);
+  }, [authLoading, user, showSuccessToast]);
 
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -390,7 +356,7 @@ export default function SignUp() {
       if (result.user) {
         // Send email verification with proper redirect URL
         await sendEmailVerification(result.user, {
-          url: `${window.location.origin}/__/auth/action`,
+          url: `${window.location.origin}/signup?verified=true`,
           handleCodeInApp: false  // This forces Firebase to use the custom URL
         });
         
