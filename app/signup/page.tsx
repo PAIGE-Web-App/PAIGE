@@ -270,21 +270,32 @@ export default function SignUp() {
       const mode = urlParams.get('mode');
       const oobCode = urlParams.get('oobCode');
       
+      console.log('🔍 URL verification check:', { verified, mode, oobCode, user: !!user, authLoading });
+      
       if (verified === 'true' && mode === 'verifyEmail' && oobCode) {
         console.log('🔗 Processing verification from URL parameters...');
         
         // Wait a moment for Firebase to process the verification
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Reload the user to get updated emailVerified status
-        if (user) {
-          await user.reload();
+        // If user is not logged in, try to get the current user
+        let currentUser = user;
+        if (!currentUser && !authLoading) {
+          console.log('🔍 No user found, checking auth state...');
+          // Wait a bit more for auth to initialize
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          currentUser = auth.currentUser;
+        }
+        
+        if (currentUser) {
+          console.log('👤 User found, reloading to check verification status...');
+          await currentUser.reload();
           
-          if (user.emailVerified) {
+          if (currentUser.emailVerified) {
             console.log('✅ Email verified via URL! Checking onboarding status...');
             
             // Check if user is already onboarded
-            const userRef = doc(db, "users", user.uid);
+            const userRef = doc(db, currentUser.uid);
             const userSnap = await getDoc(userRef);
             
             if (userSnap.exists()) {
@@ -312,11 +323,16 @@ export default function SignUp() {
             showErrorToast('Email verification failed. Please try again.');
             setStep(1);
           }
+        } else {
+          console.log('❌ No user found for verification');
+          showErrorToast('Please sign in first, then try the verification link again.');
+          setStep(1);
         }
       }
     };
     
-    if (!authLoading && user) {
+    // Run this effect when auth loading is complete, regardless of user state
+    if (!authLoading) {
       handleVerificationFromURL();
     }
   }, [authLoading, user, showSuccessToast, showErrorToast]);
