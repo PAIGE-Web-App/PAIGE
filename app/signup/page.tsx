@@ -262,6 +262,65 @@ export default function SignUp() {
     handleEmailVerified();
   }, [user, user?.emailVerified, step, showSuccessToast]);
 
+  // Handle verification parameters from URL (when Firebase redirects directly)
+  useEffect(() => {
+    const handleVerificationFromURL = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verified = urlParams.get('verified');
+      const mode = urlParams.get('mode');
+      const oobCode = urlParams.get('oobCode');
+      
+      if (verified === 'true' && mode === 'verifyEmail' && oobCode) {
+        console.log('🔗 Processing verification from URL parameters...');
+        
+        // Wait a moment for Firebase to process the verification
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Reload the user to get updated emailVerified status
+        if (user) {
+          await user.reload();
+          
+          if (user.emailVerified) {
+            console.log('✅ Email verified via URL! Checking onboarding status...');
+            
+            // Check if user is already onboarded
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              
+              if (userData.onboarded === true) {
+                // User is already onboarded, redirect to dashboard
+                console.log('✅ User already onboarded, redirecting to dashboard');
+                showSuccessToast('Email verified successfully! Welcome back!');
+                window.location.href = '/dashboard';
+              } else {
+                // User needs to complete onboarding
+                console.log('✅ Email verified! Moving to step 2 for onboarding');
+                showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+                setStep(2);
+              }
+            } else {
+              // New user, proceed to step 2
+              console.log('✅ Email verified! Moving to step 2 for new user');
+              showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+              setStep(2);
+            }
+          } else {
+            console.log('❌ Email verification failed via URL');
+            showErrorToast('Email verification failed. Please try again.');
+            setStep(1);
+          }
+        }
+      }
+    };
+    
+    if (!authLoading && user) {
+      handleVerificationFromURL();
+    }
+  }, [authLoading, user, showSuccessToast, showErrorToast]);
+
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -315,7 +374,7 @@ export default function SignUp() {
       if (result.user) {
         // Send email verification with proper redirect URL
         await sendEmailVerification(result.user, {
-          url: `${window.location.origin}/signup?verified=true`,
+          url: `${window.location.origin}/__/auth/action`,
           handleCodeInApp: false  // This forces Firebase to use the custom URL
         });
         
