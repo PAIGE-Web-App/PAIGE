@@ -4,13 +4,11 @@ import { db, getUserCollectionRef } from "./firebase"; // Import getUserCollecti
 import type { Contact } from "@/types/contact";
 
 export const getAllContacts = async (userId: string) => {
-  // --- FIX: Use getUserCollectionRef for user-specific contacts ---
+  // Use getUserCollectionRef for user-specific contacts
   const contactsCollection = getUserCollectionRef<Contact>("contacts", userId);
-  // --- END FIX ---
 
-  // The where("userId", "==", userId) is now redundant due to the path,
-  // but keeping it adds an extra layer of data integrity.
-  const q = query(contactsCollection, where("userId", "==", userId));
+  // Path already filters by userId, no need for redundant where clause
+  const q = query(contactsCollection);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map((doc) => {
     const data = doc.data();
@@ -48,7 +46,7 @@ export const getAllVendors = async (userId: string) => {
   }
   
   const vendorsCollection = getUserCollectionRef<any>("vendors", userId);
-  const q = query(vendorsCollection, where("userId", "==", userId));
+  const q = query(vendorsCollection);
   const querySnapshot = await getDocs(q);
   const vendors = querySnapshot.docs.map((doc) => {
     const data = doc.data();

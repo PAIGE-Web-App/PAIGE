@@ -119,7 +119,7 @@ export function useBudgetOptimized() {
         const itemsQuery = query(
           getUserCollectionRef('budgetItems', user.uid),
           orderBy('createdAt', 'desc'),
-          limit(100)
+          limit(50) // Reduced from 100 to 50 for better performance
         );
         const itemsSnapshot = await getDocs(itemsQuery);
         const budgetItems: BudgetItem[] = itemsSnapshot.docs.map(doc => {

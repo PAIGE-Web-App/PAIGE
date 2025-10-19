@@ -516,7 +516,7 @@ export default function MessagesPage() {
 
       const q = query(
         contactsCollectionRef,
-        limit(100) // Limit initial load for better performance
+        limit(50) // Reduced from 100 to 50 for better performance
       );
 
       unsubscribeContacts = onSnapshot(q, (snapshot) => {

@@ -27,14 +27,11 @@ export const getAllCategories = async (userId: string): Promise<string[]> => {
       return Array.from(new Set([...defaultCategories])).sort((a, b) => a.localeCompare(b));
     }
 
-    // --- FIX: Use getUserCollectionRef for user-specific categories ---
+    // Use getUserCollectionRef for user-specific categories
     const categoriesRef = getUserCollectionRef('categories', userId);
-    // --- END FIX ---
 
-    // Query categories specific to the user OR default categories
-    // The where("userId", "==", userId) is now redundant because it's part of the path,
-    // but keeping it doesn't hurt and adds an extra layer of data integrity check if your documents also have a userId field.
-    const q = query(categoriesRef, where("userId", "==", userId));
+    // Path already filters by userId, no need for redundant where clause
+    const q = query(categoriesRef);
     const snapshot = await getDocs(q);
     const userCategories = snapshot.docs.map((doc) => {
       const data = doc.data() as { name?: string };

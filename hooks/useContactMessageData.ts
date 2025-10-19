@@ -183,76 +183,30 @@ export const useContactMessageData = (
       }
     });
 
-    // Set up real-time listeners only for contacts with recent activity
-    // This reduces the number of active listeners significantly
-    const now = Date.now();
-    const recentActivityThreshold = 24 * 60 * 60 * 1000; // 24 hours
-
-    contacts.forEach((contact) => {
-      const cached = messageDataCache.get(contact.id);
-      const hasRecentActivity = cached && 
-        cached.data.lastMessageTime && 
-        (now - cached.data.lastMessageTime.getTime()) < recentActivityThreshold;
-
-      // Only set up real-time listener for contacts with recent activity
-      if (hasRecentActivity) {
-        try {
-          const messagesRef = collection(db, `users/${userId}/contacts/${contact.id}/messages`);
-          const messagesQuery = query(
-            messagesRef,
-            orderBy("timestamp", "desc"),
-            limit(1)
-          );
-
-          const unsubscribe = onSnapshot(
-            messagesQuery,
-            (snapshot) => {
-              if (!isMountedRef.current) return;
-
-              if (snapshot.empty) {
-                const data = { unreadCount: 0 };
-                setContactMessageData(prev => {
-                  const newMap = new Map(prev);
-                  newMap.set(contact.id, data);
-                  return newMap;
-                });
-                messageDataCache.set(contact.id, { data, timestamp: Date.now() });
-                cleanupCache(); // Prevent memory leaks
-              } else {
-                const latestMessage = snapshot.docs[0].data() as Message;
-                const data = {
-                  lastMessageTime: formatMessageTime(latestMessage.timestamp),
-                  lastMessageSnippet: formatMessageSnippet(latestMessage, userId),
-                  unreadCount: latestMessage.isRead === false ? 1 : 0
-                };
-                
-                setContactMessageData(prev => {
-                  const newMap = new Map(prev);
-                  newMap.set(contact.id, data);
-                  return newMap;
-                });
-                messageDataCache.set(contact.id, { data, timestamp: Date.now() });
-                cleanupCache(); // Prevent memory leaks
-              }
-            },
-            (err) => {
-              if (isMountedRef.current) {
-                logger.error(`Error fetching messages for contact ${contact.id}:`, err);
-                setError(`Failed to load messages for ${contact.name}`);
-              }
-            }
-          );
-
-          unsubscribesRef.current.push(unsubscribe);
-        } catch (err) {
-          logger.error(`Error setting up listener for contact ${contact.id}:`, err);
-        }
+    // DISABLED: Real-time listeners for contact messages
+    // This was causing excessive Firestore reads (24k+ per day)
+    // Contact message data will still work via batch fetching above
+    // Users can refresh the page to get updated message data
+    
+    // Periodic refresh every 5 minutes to maintain some real-time feel
+    // This reduces reads from continuous listeners to periodic batch updates
+    const refreshInterval = setInterval(() => {
+      if (isMountedRef.current && userId && contacts.length > 0) {
+        const contactIds = contacts.map(contact => contact.id);
+        fetchContactMessageData(contactIds).then(dataMap => {
+          if (isMountedRef.current) {
+            setContactMessageData(dataMap);
+          }
+        }).catch(err => {
+          logger.error('Error in periodic refresh:', err);
+        });
       }
-    });
+    }, 5 * 60 * 1000); // 5 minutes
 
     // Cleanup function
     return () => {
       isMountedRef.current = false;
+      clearInterval(refreshInterval);
       unsubscribesRef.current.forEach(unsubscribe => unsubscribe());
     };
   }, [contacts, userId, fetchContactMessageData, formatMessageSnippet, formatMessageTime]);

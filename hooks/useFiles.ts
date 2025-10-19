@@ -39,7 +39,7 @@ export function useFiles() {
       const q = query(
         getUserCollectionRef('files', user.uid),
         orderBy('uploadedAt', 'desc'),
-        limit(100) // Limit for better performance
+        limit(50) // Reduced from 100 to 50 for better performance
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
