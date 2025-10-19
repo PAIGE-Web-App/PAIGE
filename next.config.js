@@ -6,20 +6,63 @@ const nextConfig = {
   // Optimize serverless function size for Vercel
   outputFileTracingRoot: __dirname,
   
-  // Exclude unnecessary files from serverless functions
-  outputFileTracing: true,
+  // Mark heavy packages as external (don't bundle into each function)
+  serverExternalPackages: [
+    '@pinecone-database/pinecone',
+    'sharp',
+    'canvas',
+    'firebase-admin',
+    '@sendgrid/mail',
+    'googleapis',
+    'pdfjs-dist',
+    '@google-cloud',
+    'twilio',
+    're2',
+    'ngrok',
+  ],
   
-  // Exclude large dependencies from serverless functions and enable optimizations
-  experimental: {
-    serverComponentsExternalPackages: [
-      '@pinecone-database/pinecone',
-      'sharp',
-      'canvas',
-      'firebase-admin',
-      '@sendgrid/mail',
+  // Exclude patterns from file tracing (reduces function size dramatically)
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-linux-x64-gnu',
+      'node_modules/@swc/core-linux-x64-musl',
+      'node_modules/@esbuild/darwin-x64',
+      'node_modules/@esbuild/linux-x64',
+      'node_modules/typescript',
+      'node_modules/@types',
+      'node_modules/eslint',
+      'node_modules/prettier',
+      'node_modules/webpack',
+      '.git',
+      '.github',
+      '.vscode',
+      'docs',
+      'scripts',
+      '*.md',
+      'public/*.md',
     ],
+    '/api/**': [
+      // Exclude client-side only dependencies from API routes
+      'node_modules/react-dom/client',
+      'node_modules/framer-motion',
+      'node_modules/@hello-pangea',
+      'node_modules/canvas-confetti',
+      'node_modules/react-easy-crop',
+      'node_modules/react-datepicker',
+      'node_modules/react-big-calendar',
+      'node_modules/rc-slider',
+      'node_modules/react-range',
+      'node_modules/react-window',
+      'node_modules/@tanstack/react-table',
+      'node_modules/@tanstack/react-virtual',
+    ],
+  },
+  
+  // Enable experimental features for better performance
+  experimental: {
+    // Tree-shake large icon libraries
     optimizeCss: true,
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
   },
   
   

@@ -1,4 +1,4 @@
-# Vercel Ignore - Reduce serverless function size
+# Vercel Ignore - Aggressively reduce serverless function size
 
 # Development files
 *.md
@@ -73,4 +73,24 @@ EMAIL_SETUP_GUIDE.md
 # Unnecessary assets
 public/*.md
 public/test-*
+
+# Large dev dependencies (force exclude)
+node_modules/typescript
+node_modules/@types
+node_modules/eslint
+node_modules/prettier
+node_modules/@swc/core-*
+node_modules/@esbuild/*
+node_modules/webpack
+
+# Unused platform binaries
+node_modules/@napi-rs/*-linux-*
+node_modules/@napi-rs/*-darwin-*
+node_modules/@img/*-linux-*
+node_modules/@img/*-darwin-*
+node_modules/sharp/vendor
+
+# Development tools
+node_modules/firebase-tools
+node_modules/ngrok
 
