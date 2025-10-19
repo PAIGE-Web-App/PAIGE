@@ -2,74 +2,79 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCustomToast } from '@/hooks/useCustomToast';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function AuthActionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<string | null>(null);
-  const [oobCode, setOobCode] = useState<string | null>(null);
+  const { user, loading } = useAuth();
+  const { showSuccessToast, showErrorToast } = useCustomToast();
+  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    const modeParam = searchParams.get('mode');
-    const oobCodeParam = searchParams.get('oobCode');
-    
-    setMode(modeParam);
-    setOobCode(oobCodeParam);
+    const handleAuthAction = async () => {
+      try {
+        const mode = searchParams.get('mode');
+        const oobCode = searchParams.get('oobCode');
+        const apiKey = searchParams.get('apiKey');
 
-    if (modeParam === 'resetPassword' && oobCodeParam) {
-      // Verify the password reset code
-      verifyPasswordResetCode(auth, oobCodeParam)
-        .then(() => {
-          // Code is valid, redirect to password reset page
-          router.push(`/reset-password?code=${oobCodeParam}`);
-        })
-        .catch((error) => {
-          console.error('Error verifying password reset code:', error);
-          setError('Invalid or expired password reset link. Please request a new one.');
-          setLoading(false);
-        });
-    } else {
-      setError('Invalid password reset link.');
-      setLoading(false);
+        console.log('Auth action params:', { mode, oobCode, apiKey });
+
+        if (mode === 'verifyEmail' && oobCode) {
+          // This is an email verification link
+          console.log('Processing email verification...');
+          
+          // Wait a moment for Firebase to process the verification
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Check if user is now verified
+          if (user && user.emailVerified) {
+            console.log('Email verified successfully!');
+            showSuccessToast('Email verified successfully! Welcome to Paige!');
+            
+            // Redirect to signup page with verification success
+            router.push('/signup?verified=true');
+          } else {
+            console.log('Email verification failed or user not found');
+            showErrorToast('Email verification failed. Please try again.');
+            router.push('/signup?step=1&verify=true');
+          }
+        } else {
+          console.log('Unknown auth action mode:', mode);
+          router.push('/signup');
+        }
+      } catch (error) {
+        console.error('Error processing auth action:', error);
+        showErrorToast('An error occurred. Please try again.');
+        router.push('/signup');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    if (!loading) {
+      handleAuthAction();
     }
-  }, [searchParams, router]);
+  }, [searchParams, user, loading, router, showSuccessToast, showErrorToast]);
 
-  if (loading) {
+  if (loading || isProcessing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F6F4]">
+      <div className="min-h-screen bg-[#F3F2F0] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A85C36] mx-auto mb-4"></div>
-          <p className="text-[#332B42] font-work-sans">Verifying your password reset link...</p>
+          <LoadingSpinner />
+          <p className="mt-4 text-gray-600">Processing verification...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F6F4]">
-        <div className="max-w-md mx-auto text-center p-6">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-[#332B42] mb-4 font-work-sans">Invalid Link</h1>
-            <p className="text-[#7A7A7A] mb-6 font-work-sans">{error}</p>
-            <button
-              onClick={() => router.push('/login')}
-              className="btn-primary w-full"
-            >
-              Back to Login
-            </button>
-          </div>
-        </div>
+  return (
+    <div className="min-h-screen bg-[#F3F2F0] flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-gray-600">Redirecting...</p>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

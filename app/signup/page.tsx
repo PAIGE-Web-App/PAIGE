@@ -316,7 +316,7 @@ export default function SignUp() {
         // Send email verification with proper redirect URL
         await sendEmailVerification(result.user, {
           url: `${window.location.origin}/signup?verified=true`,
-          handleCodeInApp: true
+          handleCodeInApp: false  // This forces Firebase to use the custom URL
         });
         
         // Get the ID token and set the session cookie
