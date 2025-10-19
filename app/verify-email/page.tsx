@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { applyActionCode } from 'firebase/auth';
 
 export default function VerifyEmail() {
   const router = useRouter();
@@ -20,25 +21,31 @@ export default function VerifyEmail() {
         const oobCode = searchParams.get('oobCode');
         
         if (mode === 'verifyEmail' && oobCode) {
-          console.log('🔗 Processing email verification...');
+          console.log('🔗 Processing email verification...', { mode, oobCode });
           
-          // Wait for auth to initialize
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Get current user
-          const currentUser = auth.currentUser;
-          if (!currentUser) {
-            console.log('❌ No user found');
-            setStatus('error');
-            showErrorToast('Please sign in first, then try the verification link again.');
-            setTimeout(() => router.push('/signup'), 3000);
-            return;
-          }
-          
-          // Reload user to get updated emailVerified status
-          await currentUser.reload();
-          
-          if (currentUser.emailVerified) {
+          try {
+            // Apply the verification code
+            await applyActionCode(auth, oobCode);
+            console.log('✅ Verification code applied successfully!');
+            
+            // Wait for auth to initialize
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Get current user
+            const currentUser = auth.currentUser;
+            console.log('👤 Current user:', currentUser ? currentUser.email : 'No user');
+            
+            if (!currentUser) {
+              console.log('❌ No user found after verification');
+              setStatus('error');
+              showErrorToast('Please sign in first, then try the verification link again.');
+              setTimeout(() => router.push('/signup'), 3000);
+              return;
+            }
+            
+            console.log('📧 Email verified after applyActionCode:', currentUser.emailVerified);
+            
+            if (currentUser.emailVerified) {
             console.log('✅ Email verified successfully!');
             setStatus('success');
             showSuccessToast('Email verified successfully!');
@@ -70,10 +77,16 @@ export default function VerifyEmail() {
                 router.push('/signup?step=2');
               }, 2000);
             }
-          } else {
-            console.log('❌ Email verification failed');
+            } else {
+              console.log('❌ Email verification failed - email still not verified');
+              setStatus('error');
+              showErrorToast('Email verification failed. Please try the verification link again.');
+              setTimeout(() => router.push('/signup'), 3000);
+            }
+          } catch (verificationError) {
+            console.error('❌ Verification error:', verificationError);
             setStatus('error');
-            showErrorToast('Email verification failed. Please try again.');
+            showErrorToast('Email verification failed. The link may be expired or invalid.');
             setTimeout(() => router.push('/signup'), 3000);
           }
         } else {
