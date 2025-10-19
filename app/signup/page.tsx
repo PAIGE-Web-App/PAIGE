@@ -202,9 +202,13 @@ export default function SignUp() {
     }
   }, [user, authLoading, onboarded]);
 
+  // Check if we're coming from email verification success
+  const urlParams = new URLSearchParams(window.location.search);
+  const isFromVerification = urlParams.get('verified') === 'true';
+  
   // SIMPLE LOGIC: Check if user needs email verification
   // Add safeguard: once we show verification screen, keep showing it until email is verified
-  const needsEmailVerification = user && !user.emailVerified && !authLoading;
+  const needsEmailVerification = user && !user.emailVerified && !authLoading && !isFromVerification;
   
   // Set verification screen state when needed - use immediate state update
   useEffect(() => {
@@ -301,6 +305,54 @@ export default function SignUp() {
     if (!authLoading && user) {
       handleVerificationSuccess();
     }
+  }, [authLoading, user, showSuccessToast]);
+
+  // Handle verification success when coming from email link (even if user not loaded yet)
+  useEffect(() => {
+    const handleVerificationFromLink = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verified = urlParams.get('verified');
+      const mode = urlParams.get('mode');
+      const oobCode = urlParams.get('oobCode');
+      
+      if (verified === 'true' && mode === 'verifyEmail' && oobCode) {
+        console.log('🔗 Processing verification from email link...');
+        
+        // Wait for auth to load
+        if (authLoading) {
+          console.log('⏳ Waiting for auth to load...');
+          return;
+        }
+        
+        // If no user yet, wait a bit more
+        if (!user) {
+          console.log('⏳ Waiting for user to load...');
+          setTimeout(() => {
+            if (auth.currentUser) {
+              console.log('👤 User found after wait, processing verification...');
+              // Reload user to get updated emailVerified status
+              auth.currentUser.reload().then(() => {
+                if (auth.currentUser?.emailVerified) {
+                  console.log('✅ Email verified! Moving to step 2');
+                  showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+                  setStep(2);
+                }
+              });
+            }
+          }, 1000);
+          return;
+        }
+        
+        // User is loaded, process verification
+        if (user.emailVerified) {
+          console.log('✅ Email verified! Moving to step 2');
+          showSuccessToast('Email verified successfully! You can now continue with your account setup.');
+          setStep(2);
+        }
+      }
+    };
+    
+    handleVerificationFromLink();
   }, [authLoading, user, showSuccessToast]);
 
 
