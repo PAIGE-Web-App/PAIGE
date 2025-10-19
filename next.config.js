@@ -39,9 +39,13 @@ const nextConfig = {
       'docs',
       'scripts',
       '*.md',
-      'public/*.md',
+      // Exclude entire public directory from serverless functions (served via CDN)
+      'public/**',
     ],
     '/api/**': [
+      // Exclude entire public directory from API routes
+      'public/**',
+      
       // Exclude client-side only dependencies from API routes
       'node_modules/react-dom/client',
       'node_modules/framer-motion',
@@ -55,6 +59,17 @@ const nextConfig = {
       'node_modules/react-window',
       'node_modules/@tanstack/react-table',
       'node_modules/@tanstack/react-virtual',
+      'node_modules/fuse.js',
+      'node_modules/browser-image-compression',
+      'node_modules/react-easy-crop',
+      'node_modules/use-places-autocomplete',
+      'node_modules/xlsx',
+      
+      // Exclude large locales and unused files
+      'node_modules/date-fns/locale',
+      'node_modules/googleapis/build/src/apis/!(calendar|gmail)',
+      'node_modules/pdfjs-dist/legacy',
+      'node_modules/firebase/!(app|auth|firestore)',
     ],
   },
   
