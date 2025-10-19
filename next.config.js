@@ -3,6 +3,25 @@ const nextConfig = {
   // Disable React Strict Mode in development to prevent double rendering and improve performance
   reactStrictMode: process.env.NODE_ENV === 'production',
   
+  // Optimize serverless function size for Vercel
+  outputFileTracingRoot: __dirname,
+  
+  // Exclude unnecessary files from serverless functions
+  outputFileTracing: true,
+  
+  // Exclude large dependencies from serverless functions and enable optimizations
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@pinecone-database/pinecone',
+      'sharp',
+      'canvas',
+      'firebase-admin',
+      '@sendgrid/mail',
+    ],
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  },
+  
   
   // Optimize images
   images: {
@@ -149,12 +168,6 @@ const nextConfig = {
     }
     
     return config;
-  },
-
-  // Enable experimental features for better performance
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
 
   // Add cache busting for better deployment reliability

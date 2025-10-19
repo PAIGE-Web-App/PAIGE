@@ -1,0 +1,76 @@
+# Vercel Ignore - Reduce serverless function size
+
+# Development files
+*.md
+*.MD
+CHANGELOG*
+README*
+CONTRIBUTING*
+LICENSE*
+.github/
+.vscode/
+.idea/
+
+# Documentation
+docs/
+documentation/
+guides/
+*.pdf
+
+# Test files
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
+__tests__/
+__mocks__/
+tests/
+test/
+coverage/
+
+# Scripts (not needed in production)
+scripts/
+*.sh
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD files
+.gitlab-ci.yml
+.travis.yml
+circle.yml
+appveyor.yml
+
+# Editor files
+.editorconfig
+.prettierrc*
+.eslintrc*
+.eslintignore
+
+# Environment examples
+.env.example
+.env.local.example
+.env.development
+.env.test
+
+# Build artifacts
+.next/cache/
+node_modules/.cache/
+
+# Optimization files
+PERFORMANCE_OPTIMIZATION_*.md
+EMAIL_SYSTEM_PROGRESS.md
+VERCEL_ENVIRONMENT_VARIABLES.md
+GMAIL_OAUTH_SETUP.md
+EMAIL_SETUP_GUIDE.md
+
+# Unnecessary assets
+public/*.md
+public/test-*
+
