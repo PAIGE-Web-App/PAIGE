@@ -30,9 +30,6 @@ import EmailVerificationRequired from '@/components/auth/EmailVerificationRequir
 declare const google: any;
 
 export default function SignUp() {
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  console.log('🎯 SIGNUP COMPONENT RENDERING #', renderCount.current);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -208,29 +205,17 @@ export default function SignUp() {
   // Set verification screen state when needed - use immediate state update
   useEffect(() => {
     if (needsEmailVerification && !showVerificationScreen) {
-      console.log('🔧 Setting showVerificationScreen to true');
       setShowVerificationScreen(true);
     } else if (user && user.emailVerified && showVerificationScreen) {
-      console.log('🔧 Setting showVerificationScreen to false');
       setShowVerificationScreen(false);
     }
   }, [needsEmailVerification, user, user?.emailVerified, showVerificationScreen]);
   
-  // DEBUG: Log the verification check
-  console.log('🔍 VERIFICATION CHECK:', {
-    user: !!user,
-    userEmail: user?.email,
-    emailVerified: user?.emailVerified,
-    authLoading,
-    needsEmailVerification
-  });
   
   // Handle email verification success - redirect based on onboarding status
   useEffect(() => {
     const handleEmailVerified = async () => {
       if (user && user.emailVerified && step === 1) {
-        console.log('✅ Email verified! Checking onboarding status...');
-        
         // Check if user is already onboarded
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
@@ -240,18 +225,15 @@ export default function SignUp() {
           
           if (userData.onboarded === true) {
             // User is already onboarded, redirect to dashboard
-            console.log('✅ User already onboarded, redirecting to dashboard');
             showSuccessToast('Email verified successfully! Welcome back!');
             window.location.href = '/dashboard';
           } else {
             // User needs to complete onboarding
-            console.log('✅ Email verified! Moving to step 2 for onboarding');
             showSuccessToast('Email verified successfully! You can now continue with your account setup.');
             setStep(2);
           }
         } else {
           // New user, proceed to step 2
-          console.log('✅ Email verified! Moving to step 2 for new user');
           showSuccessToast('Email verified successfully! You can now continue with your account setup.');
           setStep(2);
         }
@@ -267,7 +249,6 @@ export default function SignUp() {
     const step = urlParams.get('step');
     
     if (step === '2' && user && user.emailVerified) {
-      console.log('✅ Redirected from verification, moving to step 2');
       setStep(2);
     }
   }, [user]);
@@ -643,23 +624,11 @@ export default function SignUp() {
   // Show email verification required screen
   // Simple logic: if user exists and email is not verified, show the screen
   // SIMPLE LOGIC: Show verification screen if user exists but email not verified
-  console.log('🎯 RENDER DECISION:', {
-    needsEmailVerification,
-    showVerificationScreen,
-    user: !!user,
-    emailVerified: user?.emailVerified,
-    authLoading,
-    step
-  });
-  
   // Show verification screen if either condition is true
   if (showVerificationScreen || needsEmailVerification) {
-    console.log('✅ SHOWING VERIFICATION SCREEN');
     return (
       <EmailVerificationRequired 
         onVerified={async () => {
-          console.log('🔔 onVerified callback called - checking onboarding status');
-          
           if (user) {
             // Check if user is already onboarded
             const userRef = doc(db, "users", user.uid);
@@ -670,17 +639,14 @@ export default function SignUp() {
               
               if (userData.onboarded === true) {
                 // User is already onboarded, redirect to dashboard
-                console.log('✅ User already onboarded, redirecting to dashboard');
                 showSuccessToast('Email verified successfully! Welcome back!');
                 window.location.href = '/dashboard';
               } else {
                 // User needs to complete onboarding
-                console.log('✅ Email verified! Moving to step 2 for onboarding');
                 setStep(2);
               }
             } else {
               // New user, proceed to step 2
-              console.log('✅ Email verified! Moving to step 2 for new user');
               setStep(2);
             }
           }
@@ -688,8 +654,6 @@ export default function SignUp() {
       />
     );
   }
-
-  console.log('❌ SHOWING SIGNUP PAGE - step:', step);
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
       <GoogleMapsLoader />

@@ -11,9 +11,7 @@ interface EmailVerificationRequiredProps {
 }
 
 export default function EmailVerificationRequired({ onVerified }: EmailVerificationRequiredProps) {
-  console.log('📧 EmailVerificationRequired RENDERING');
   const { user } = useAuth();
-  console.log('📧 EmailVerificationRequired user:', user?.email, 'emailVerified:', user?.emailVerified);
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -51,7 +49,10 @@ export default function EmailVerificationRequired({ onVerified }: EmailVerificat
 
     try {
       setIsResending(true);
-      await sendEmailVerification(user);
+      await sendEmailVerification(user, {
+        url: `${window.location.origin}/verify-email`,
+        handleCodeInApp: false
+      });
       showSuccessToast('Verification email sent! Check your inbox.');
       setResendCooldown(60); // 60 second cooldown
     } catch (error: any) {
@@ -77,26 +78,20 @@ export default function EmailVerificationRequired({ onVerified }: EmailVerificat
 
     try {
       setIsChecking(true);
-      console.log('🔍 [MANUAL CHECK] Checking email verification status...');
       await reload(user);
-      console.log('🔍 [MANUAL CHECK] user.emailVerified:', user.emailVerified);
       if (user.emailVerified) {
-        console.log('✅ [MANUAL CHECK] Email verified! Calling onVerified callback');
         showSuccessToast('Email verified successfully!');
         onVerified?.();
       } else {
-        console.log('⏳ [MANUAL CHECK] Email not yet verified');
         showErrorToast('Email not yet verified. Please check your inbox and click the verification link.');
       }
     } catch (error) {
-      console.error('❌ [MANUAL CHECK] Error checking verification:', error);
+      console.error('Error checking verification:', error);
       showErrorToast('Failed to check verification status. Please try again.');
     } finally {
       setIsChecking(false);
     }
   };
-
-  console.log('🎨 EmailVerificationRequired: Rendering component with user:', user?.email);
   
   return (
     <div className="min-h-screen bg-[#F3F2F0] flex justify-center overflow-x-hidden">
