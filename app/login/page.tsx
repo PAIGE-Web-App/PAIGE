@@ -318,6 +318,13 @@ export default function Login() {
       setLoading(true);
       const result = await signInWithEmailAndPassword(auth, email, password);
       
+      // Check if email is verified
+      if (!result.user.emailVerified) {
+        setLoading(false);
+        router.push('/signup?step=1&verify=true');
+        return;
+      }
+      
       const idToken = await result.user.getIdToken();
       // Call sessionLogin to set the __session cookie
       const sessionRes = await fetch("/api/sessionLogin", {

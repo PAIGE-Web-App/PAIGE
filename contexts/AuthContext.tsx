@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [emailVerified, setEmailVerified] = useState(false);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [provider, setProvider] = useState<'google' | 'email' | null>(null);
+  
 
   // Track last operation timestamps to prevent loops
   const lastTokenRefreshRef = useRef<number>(0);
@@ -378,15 +379,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Google OAuth users are pre-verified, manual email users need verification
         const needsVerification = provider === 'email' && !emailVerified;
         setNeedsEmailVerification(needsVerification);
-        
-        console.log('Email verification status:', {
-          provider,
-          emailVerified,
-          needsVerification,
-          userEmail: user.email,
-          hasGoogleTokens: !!userData.googleTokens,
-          gmailConnected: !!userData.gmailConnected
-        });
       } else {
         // User document doesn't exist, default to email verification required
         setProvider('email');
@@ -436,31 +428,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Loading is now handled by LoadingProvider in layout.tsx
 
+  // Memoize the context value to ensure proper re-renders when state changes
+  const contextValue = useMemo(() => ({
+    user, 
+    loading, 
+    userName, 
+    profileImageUrl, 
+    setProfileImageUrl, 
+    profileImageLQIP, 
+    setProfileImageLQIP, 
+    updateUser,
+    userRole,
+    userType,
+    permissions,
+    subscription,
+    isAdmin,
+    canAccessAdmin,
+    refreshUserRole,
+    onboardingStatus,
+    checkOnboardingStatus,
+    emailVerified,
+    needsEmailVerification,
+    provider,
+    refreshAuthToken: refreshAuthTokenLocal,
+    validateSession: validateSessionLocal,
+  }), [
+    user, 
+    loading, 
+    userName, 
+    profileImageUrl, 
+    profileImageLQIP, 
+    userRole,
+    userType,
+    permissions,
+    subscription,
+    isAdmin,
+    canAccessAdmin,
+    onboardingStatus,
+    emailVerified,
+    needsEmailVerification, // 🎯 Key dependency
+    provider,
+    refreshAuthTokenLocal,
+    validateSessionLocal,
+    updateUser,
+    refreshUserRole,
+    checkOnboardingStatus,
+  ]);
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      userName, 
-      profileImageUrl, 
-      setProfileImageUrl, 
-      profileImageLQIP, 
-      setProfileImageLQIP, 
-      updateUser,
-      userRole,
-      userType,
-      permissions,
-      subscription,
-      isAdmin,
-      canAccessAdmin,
-      refreshUserRole,
-      onboardingStatus,
-      checkOnboardingStatus,
-      emailVerified,
-      needsEmailVerification,
-      provider,
-      refreshAuthToken: refreshAuthTokenLocal,
-      validateSession: validateSessionLocal,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
