@@ -578,13 +578,21 @@ export default function Login() {
       }
       
       // Check if user doc exists in Firestore BEFORE session login
-      const userDocRef = doc(db, "users", result.user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      
-      if (!userDocSnap.exists()) {
-        // User doesn't exist in Firestore, redirect to signup immediately
-        redirectTo('/signup?existing=1');
-        return;
+      let userDocSnap = null;
+      try {
+        const userDocRef = doc(db, "users", result.user.uid);
+        userDocSnap = await getDoc(userDocRef);
+        
+        if (!userDocSnap.exists()) {
+          // User doesn't exist in Firestore, redirect to signup immediately
+          redirectTo('/signup?existing=1');
+          return;
+        }
+      } catch (firestoreError) {
+        console.error('Error checking user document:', firestoreError);
+        // If Firestore fails due to IndexedDB issues, continue with login
+        // The session login will still work and create the user if needed
+        console.log('Continuing with login despite Firestore error...');
       }
       
       // Wait for Firebase auth to be fully ready before getting the token
@@ -616,7 +624,7 @@ export default function Login() {
         localStorage.setItem('lastGoogleUserId', result.user.uid);
         
         // Check onboarding status before redirecting
-        const userData = userDocSnap.data();
+        const userData = userDocSnap?.data();
         
         console.log('✅ Session login successful, redirecting based on onboarding status');
         

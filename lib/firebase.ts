@@ -66,10 +66,25 @@ console.warn = (...args) => {
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code === 'failed-precondition') {
     // Multiple tabs open, persistence can only be enabled in one tab at a time
-    // console.log('Firebase persistence failed: Multiple tabs open');
+    console.log('Firebase persistence failed: Multiple tabs open');
   } else if (err.code === 'unimplemented') {
     // Browser doesn't support persistence
-    // console.log('Firebase persistence not supported in this browser');
+    console.log('Firebase persistence not supported in this browser');
+  } else if (err.code === 'unavailable') {
+    // IndexedDB transaction failed - clear storage and retry
+    console.log('IndexedDB transaction failed, clearing storage...');
+    // Clear IndexedDB storage
+    if (typeof window !== 'undefined' && 'indexedDB' in window) {
+      try {
+        indexedDB.deleteDatabase('firebaseLocalStorageDb');
+        indexedDB.deleteDatabase('firebase-heartbeat-database');
+        console.log('IndexedDB storage cleared');
+      } catch (clearErr) {
+        console.log('Could not clear IndexedDB storage:', clearErr);
+      }
+    }
+  } else {
+    console.log('Firebase persistence error:', err.code, err.message);
   }
 }).finally(() => {
   // Restore original console.warn after Firebase initialization
