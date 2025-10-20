@@ -11,6 +11,7 @@ import { GmailAuthProvider } from "../contexts/GmailAuthContext";
 // Removed LoadingProvider - using progressive loading instead
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/react";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import SimpleNavWrapper from "../components/SimpleNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
@@ -112,6 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             
             <IdleTimeoutManager />
             <SpeedInsights />
+            <Analytics />
             <Toaster
               position="bottom-center"
               reverseOrder={false}
