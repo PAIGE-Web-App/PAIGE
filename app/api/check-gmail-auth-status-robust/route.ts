@@ -76,9 +76,9 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Check if gmail.modify scope is present
+    // Check if required scopes are present (gmail.readonly and gmail.send)
     const { GMAIL_SCOPES } = await import('@/lib/gmailScopes');
-    if (!scope?.includes(GMAIL_SCOPES.MODIFY)) {
+    if (!scope?.includes(GMAIL_SCOPES.READONLY) || !scope?.includes(GMAIL_SCOPES.SEND)) {
       return NextResponse.json({ 
         needsReauth: true, 
         message: 'Missing required Gmail permissions - re-authentication required',

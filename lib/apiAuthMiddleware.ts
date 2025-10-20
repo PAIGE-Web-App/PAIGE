@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { admin } from './firebaseAdmin';
+import { adminAuth } from './firebaseAdmin';
 
 export async function withAuth(
   request: NextRequest,
@@ -13,7 +13,7 @@ export async function withAuth(
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
-        decodedToken = await admin.auth().verifyIdToken(token);
+        decodedToken = await adminAuth.verifyIdToken(token);
       } catch (error) {
         console.error('Error verifying ID token:', error);
       }
@@ -24,7 +24,7 @@ export async function withAuth(
       const sessionCookie = request.cookies.get('__session')?.value;
       if (sessionCookie) {
         try {
-          decodedToken = await admin.auth().verifySessionCookie(sessionCookie);
+          decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
         } catch (error) {
           console.error('Error verifying session cookie:', error);
         }
@@ -58,7 +58,7 @@ export async function requireAuth(request: NextRequest) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
-        decodedToken = await admin.auth().verifyIdToken(token);
+        decodedToken = await adminAuth.verifyIdToken(token);
         return { success: true, user: decodedToken };
       } catch (error) {
         console.error('Error verifying ID token:', error);
@@ -70,7 +70,7 @@ export async function requireAuth(request: NextRequest) {
       const sessionCookie = request.cookies.get('__session')?.value;
       if (sessionCookie) {
         try {
-          decodedToken = await admin.auth().verifySessionCookie(sessionCookie);
+          decodedToken = await adminAuth.verifySessionCookie(sessionCookie);
           return { success: true, user: decodedToken };
         } catch (error) {
           console.error('Error verifying session cookie:', error);

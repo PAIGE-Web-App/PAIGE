@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { admin } from "@/lib/firebaseAdmin";
+import { adminAuth } from "@/lib/firebaseAdmin";
 
 export async function OPTIONS(req: Request) {
   return new NextResponse(null, {
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         console.log(`🔑 Creating session cookie with ${sessionDurationHours} hour duration`);
         
         try {
-          decodedToken = await admin.auth().createSessionCookie(idToken, { expiresIn });
+          decodedToken = await adminAuth.createSessionCookie(idToken, { expiresIn });
           console.log('✅ Session cookie created successfully');
         } catch (err) {
           console.error('❌ Failed to create session cookie:', err);

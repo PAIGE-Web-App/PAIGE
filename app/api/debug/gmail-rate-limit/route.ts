@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       timestamp: now.toISOString(),
       recommendations: [
         'Check if Gmail tokens are expired',
-        'Verify gmail.modify scope is present',
+        'Verify gmail.readonly and gmail.send scopes are present',
         'Check if daily email quota is exceeded',
         'Look for concurrent Gmail API calls',
         'Verify Gmail Watch API is not making excessive calls'

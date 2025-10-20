@@ -105,10 +105,10 @@ export function useGmailCredentialsCheck() {
         return false;
       }
 
-      // Check if gmail.modify scope is present (required for Gmail Watch API)
+      // Check if required scopes are present (gmail.readonly and gmail.send)
       const scope = data.userData.googleTokens.scope || '';
       const { GMAIL_SCOPES } = await import('@/lib/gmailScopes');
-      if (!scope.includes(GMAIL_SCOPES.MODIFY)) {
+      if (!scope.includes(GMAIL_SCOPES.READONLY) || !scope.includes(GMAIL_SCOPES.SEND)) {
         setCheckState({
           hasValidCredentials: false,
           needsReauth: true,

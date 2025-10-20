@@ -6,10 +6,9 @@
  */
 
 export const GMAIL_SCOPES = {
-  // Core Gmail scopes
+  // Core Gmail scopes (following least-privilege principle)
   READONLY: 'https://www.googleapis.com/auth/gmail.readonly',
   SEND: 'https://www.googleapis.com/auth/gmail.send',
-  MODIFY: 'https://www.googleapis.com/auth/gmail.modify',
   
   // Calendar scopes (used in some flows)
   CALENDAR: 'https://www.googleapis.com/auth/calendar',
@@ -19,12 +18,12 @@ export const GMAIL_SCOPES = {
 /**
  * Get the complete scope string for Gmail integration
  * This includes all necessary scopes for full Gmail functionality
+ * Note: gmail.readonly includes access for Watch API (push notifications)
  */
 export function getGmailScopeString(): string {
   return [
     GMAIL_SCOPES.READONLY,
     GMAIL_SCOPES.SEND,
-    GMAIL_SCOPES.MODIFY,
   ].join(' ');
 }
 
@@ -36,7 +35,6 @@ export function getGmailCalendarScopeString(): string {
   return [
     GMAIL_SCOPES.READONLY,
     GMAIL_SCOPES.SEND,
-    GMAIL_SCOPES.MODIFY,
     GMAIL_SCOPES.CALENDAR,
     GMAIL_SCOPES.CALENDAR_EVENTS,
   ].join(' ');
@@ -53,7 +51,6 @@ export function addGmailScopes(
 ): void {
   provider.addScope(GMAIL_SCOPES.READONLY);
   provider.addScope(GMAIL_SCOPES.SEND);
-  provider.addScope(GMAIL_SCOPES.MODIFY);
   
   if (includeCalendar) {
     provider.addScope(GMAIL_SCOPES.CALENDAR);
@@ -70,7 +67,6 @@ export function hasRequiredGmailScopes(scopeString: string): boolean {
   const requiredScopes = [
     GMAIL_SCOPES.READONLY,
     GMAIL_SCOPES.SEND,
-    GMAIL_SCOPES.MODIFY,
   ];
   
   return requiredScopes.every(scope => scopeString.includes(scope));
@@ -85,7 +81,6 @@ export function getMissingGmailScopes(scopeString: string): string[] {
   const requiredScopes = [
     GMAIL_SCOPES.READONLY,
     GMAIL_SCOPES.SEND,
-    GMAIL_SCOPES.MODIFY,
   ];
   
   return requiredScopes.filter(scope => !scopeString.includes(scope));

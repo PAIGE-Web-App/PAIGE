@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { admin } from '@/lib/firebaseAdmin';
+import { adminAuth } from '@/lib/firebaseAdmin';
 import { SessionInfo, SessionValidationResponse } from '@/types/auth';
 
 export async function POST(req: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Verify the token with Firebase Admin
     let decodedToken;
     try {
-      decodedToken = await admin.auth().verifyIdToken(token);
+      decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
       return NextResponse.json({
         valid: false,

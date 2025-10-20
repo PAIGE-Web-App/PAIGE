@@ -114,8 +114,8 @@ export async function POST(request: NextRequest) {
       
       // Verify the admin token with Firebase Admin and check user role
       try {
-        const { admin, adminDb } = await import('@/lib/firebaseAdmin');
-        const decodedToken = await admin.auth().verifyIdToken(adminToken);
+        const { adminAuth, adminDb } = await import('@/lib/firebaseAdmin');
+        const decodedToken = await adminAuth.verifyIdToken(adminToken);
         
         // Get user role from database
         const userRef = adminDb.collection('users').doc(decodedToken.uid);

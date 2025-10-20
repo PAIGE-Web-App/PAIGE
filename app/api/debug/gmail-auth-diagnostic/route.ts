@@ -108,9 +108,9 @@ export async function POST(req: NextRequest) {
 
     // Check scopes
     const { GMAIL_SCOPES } = await import('@/lib/gmailScopes');
-    const hasRequiredScopes = scope?.includes(GMAIL_SCOPES.MODIFY);
+    const hasRequiredScopes = scope?.includes(GMAIL_SCOPES.READONLY) && scope?.includes(GMAIL_SCOPES.SEND);
     if (!hasRequiredScopes) {
-      diagnostics.recommendations.push('Missing required Gmail scopes - re-authentication required');
+      diagnostics.recommendations.push('Missing required Gmail scopes (gmail.readonly and gmail.send) - re-authentication required');
       return NextResponse.json({ 
         success: true,
         diagnostics,
