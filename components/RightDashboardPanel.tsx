@@ -313,6 +313,7 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
       if (selectedListId) {
         q = query(
           todoItemsCollectionRef,
+          where('userId', '==', currentUser.uid),
           where('listId', '==', selectedListId),
           orderBy('orderIndex', 'asc'),
           orderBy('createdAt', 'asc'),
@@ -322,9 +323,10 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
         // All To-Do: fetch all tasks for the user
         q = query(
           todoItemsCollectionRef,
+          where('userId', '==', currentUser.uid),
           orderBy('orderIndex', 'asc'),
           orderBy('createdAt', 'asc'),
-          limit(100) // Reduced from 200 to 100 for better performance
+          limit(200) // Limit to 200 items for better performance
         );
       }
 

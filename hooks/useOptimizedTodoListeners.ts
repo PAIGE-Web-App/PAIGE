@@ -97,6 +97,7 @@ export function useOptimizedTodoListeners(selectedListId?: string | null): Optim
     // Listener for todo lists
     const listsQuery = query(
       getUserCollectionRef('todoLists', user.uid),
+      where('userId', '==', user.uid),
       orderBy('orderIndex', 'asc'),
       orderBy('createdAt', 'asc'),
       limit(MAX_LISTS)
@@ -123,6 +124,7 @@ export function useOptimizedTodoListeners(selectedListId?: string | null): Optim
     // Listener for all todo items (for counts and filtering)
     const itemsQuery = query(
       getUserCollectionRef('todoItems', user.uid),
+      where('userId', '==', user.uid),
       orderBy('orderIndex', 'asc'),
       orderBy('createdAt', 'asc'),
       limit(MAX_ITEMS)
