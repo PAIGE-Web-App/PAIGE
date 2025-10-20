@@ -587,8 +587,13 @@ export default function Login() {
         return;
       }
       
-      const idToken = await result.user.getIdToken();
+      // Wait for Firebase auth to be fully ready before getting the token
+      // This ensures the user object is properly initialized
+      await result.user.reload(); // Reload user to ensure fresh token
+      
       // Get ID token and call session login
+      const idToken = await result.user.getIdToken();
+      
       // POST the ID token to the next-firebase-auth-edge login API
       const res = await fetch("/api/sessionLogin", {
         method: "POST",
