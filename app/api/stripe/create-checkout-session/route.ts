@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { stripe, BILLING_CONFIG } from '@/lib/stripe';
 import { adminAuth } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
@@ -40,36 +40,27 @@ export async function POST(request: NextRequest) {
     console.log('🔗 Checkout redirect URLs:', { origin, baseUrl });
 
     if (type === 'subscription') {
-      // Handle subscription checkout
-      const subscriptionConfig = {
-        couple_premium: 'price_1SDWtTBHpYhRPcSucCjKgQe4',
-        couple_pro: 'price_1SDWtuBHpYhRPcSu5BP3GfjC',
-        planner_starter: 'price_1SDWuiBHpYhRPcSuMPEmnMsx',
-        planner_professional: 'price_1SDWv2BHpYhRPcSuQ72Bhvw1'
-      };
-
-      priceId = subscriptionConfig[tier as keyof typeof subscriptionConfig];
-      if (!priceId) {
+      // Handle subscription checkout - use centralized config
+      const config = BILLING_CONFIG.subscriptions[tier as keyof typeof BILLING_CONFIG.subscriptions];
+      
+      if (!config) {
         return NextResponse.json({ error: 'Invalid subscription tier' }, { status: 400 });
       }
+
+      priceId = config.priceId;
       
       successUrl = `${baseUrl}/settings?tab=plan&success=true&type=subscription`;
       cancelUrl = `${baseUrl}/settings?tab=plan&canceled=true`;
 
     } else if (type === 'credits') {
-      // Handle credit pack checkout
-      const creditPackConfig = {
-        credits_12: 'price_1SDWvgBHpYhRPcSujcZPci3S',
-        credits_25: 'price_1SDWw9BHpYhRPcSuloTonaNz',
-        credits_50: 'price_1SDWwSBHpYhRPcSugoilYdja',
-        credits_100: 'price_1SDWwlBHpYhRPcSu0ljB5vIm',
-        credits_200: 'price_1SDWx6BHpYhRPcSucW1003Sx'
-      };
-
-      priceId = creditPackConfig[pack as keyof typeof creditPackConfig];
-      if (!priceId) {
+      // Handle credit pack checkout - use centralized config
+      const config = BILLING_CONFIG.creditPacks[pack as keyof typeof BILLING_CONFIG.creditPacks];
+      
+      if (!config) {
         return NextResponse.json({ error: 'Invalid credit pack' }, { status: 400 });
       }
+
+      priceId = config.priceId;
 
       successUrl = `${baseUrl}/settings?tab=plan&success=true&type=credits`;
       cancelUrl = `${baseUrl}/settings?tab=plan&canceled=true`;
