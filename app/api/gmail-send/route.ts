@@ -107,6 +107,20 @@ export async function POST(req: NextRequest) {
     
   } catch (error: any) {
     console.error('❌ Gmail reply error:', error);
+    
+    // Handle Gmail auth errors
+    if (error.message?.includes('No access, refresh token') || 
+        error.message?.includes('invalid_grant') || 
+        error.message?.includes('invalid_token') ||
+        error.message?.includes('unauthorized')) {
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: error.message,
+        needsReauth: true 
+      }, { status: 401 });
+    }
+    
     return NextResponse.json({ 
       success: false, 
       error: error.message 

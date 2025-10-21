@@ -631,6 +631,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         if (!res.ok) {
           const text = await res.text();
           console.error('Gmail send API error:', res.status, text);
+          
+          // Check if it's a Gmail auth error (401)
+          if (res.status === 401) {
+            console.log('🚨 Gmail auth error detected, triggering banner...');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('gmail-auth-required', {
+                detail: { timestamp: Date.now(), source: 'gmail-send-failure' }
+              }));
+            }
+            showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
+            return; // Don't throw error, just return
+          }
+          
           throw new Error(text || `API error: ${res.status}`);
         }
         
