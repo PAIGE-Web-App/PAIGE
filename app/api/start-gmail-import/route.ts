@@ -3,6 +3,10 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 // MODIFIED: Removed all imports from 'firebase/firestore' as we will use Admin SDK methods
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin'; // Import admin to access admin.firestore.Timestamp
+import { SmartGmailAuth } from '@/utils/smartGmailAuth';
+import { GmailRateLimitHandler } from '@/utils/gmailRateLimitHandler';
+import { GmailQuotaService } from '@/utils/gmailQuotaService';
+import { GmailAuthErrorHandler } from '@/utils/gmailAuthErrorHandler';
 
 // Ensure these are correctly loaded from your .env.local file
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -66,7 +70,6 @@ export async function POST(req: Request) {
     }
 
     // OPTIMIZATION: Use SmartGmailAuth for intelligent authentication handling
-    const { SmartGmailAuth } = await import('@/utils/smartGmailAuth');
     const authResult = await SmartGmailAuth.getAuthenticatedGmailClient(userId);
 
     if (!authResult.success) {
@@ -161,9 +164,7 @@ export async function POST(req: Request) {
           checkForNewOnly: config?.checkForNewOnly
         });
         
-        // Import rate limit handler
-        const { GmailRateLimitHandler } = await import('@/utils/gmailRateLimitHandler');
-        
+        // Use rate limit handler
         const res = await GmailRateLimitHandler.executeWithRetry(async () => {
           return await gmail.users.messages.list({
             userId: 'me',
@@ -183,7 +184,6 @@ export async function POST(req: Request) {
         // Check import quota before processing messages
         const messageCount = messages?.length || 0;
         if (messageCount > 0) {
-          const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
           const quotaCheck = await GmailQuotaService.canImportMessages(userId, messageCount);
           
           if (!quotaCheck.allowed) {
@@ -478,7 +478,6 @@ export async function POST(req: Request) {
           
           // Update Gmail quota after successful import
           if (importedCount > 0) {
-            const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
             await GmailQuotaService.incrementMessagesImported(userId, importedCount);
             console.log(`✅ Incremented import quota for user ${userId} by ${importedCount} messages`);
           }
@@ -513,7 +512,6 @@ export async function POST(req: Request) {
         console.error(`Error importing Gmail messages for contact ${contactEmail}:`, contactImportError);
         
         // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
-        const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
         const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(
           contactImportError, 
           `Gmail import for ${contactEmail}`
