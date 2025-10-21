@@ -1112,6 +1112,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
 
       // Now proceed with the import
+      console.log('🚀 Starting Gmail import for:', {
+        userId: currentUser.uid,
+        contactEmail: selectedContact.email,
+        contactName: selectedContact.name,
+        config: config
+      });
+
       const response = await fetch('/api/start-gmail-import-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1123,11 +1130,28 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         }),
       });
 
+      console.log('📡 Gmail import response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error('Failed to import Gmail conversation');
+        const errorText = await response.text();
+        console.error('❌ Gmail import failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        throw new Error(`Failed to import Gmail conversation: ${errorData.message || errorData.error || response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('✅ Gmail import result:', result);
       
       // Mark the contact as imported
       const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);

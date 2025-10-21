@@ -2,19 +2,33 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    console.log('START: /api/start-gmail-import-enhanced route hit');
+    console.log('🔵 START: /api/start-gmail-import-enhanced route hit');
     
     const requestBody = await req.json();
     const { enableTodoScanning = false, storeSuggestionsMode = false, ...originalParams } = requestBody;
     
-    console.log('DEBUG: Todo scanning enabled:', enableTodoScanning);
-    console.log('DEBUG: Store suggestions mode:', storeSuggestionsMode);
+    console.log('🔵 Enhanced route - Request params:', {
+      userId: originalParams.userId,
+      contactsCount: originalParams.contacts?.length,
+      enableTodoScanning,
+      storeSuggestionsMode,
+      config: originalParams.config
+    });
     
     // Call the original Gmail import API (same foundation)
-    const originalResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/start-gmail-import`, {
+    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/start-gmail-import`;
+    console.log('🔵 Enhanced route - Calling original API:', apiUrl);
+    
+    const originalResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(originalParams)
+    });
+    
+    console.log('🔵 Enhanced route - Original API response:', {
+      status: originalResponse.status,
+      statusText: originalResponse.statusText,
+      ok: originalResponse.ok
     });
     
     if (!originalResponse.ok) {

@@ -15,19 +15,22 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI; // Your OAuth callb
 
 export async function POST(req: Request) {
   try {
-    console.log('START: /api/start-gmail-import route hit');
+    console.log('🟢 START: /api/start-gmail-import route hit');
     const adminDb = getAdminDb();
 
     if (!adminDb) {
-      console.error('CRITICAL ERROR: adminDb is undefined after getAdminDb() call in start-gmail-import/route.ts');
+      console.error('🔴 CRITICAL ERROR: adminDb is undefined after getAdminDb() call');
       return NextResponse.json({ success: false, message: 'Server configuration error: Firestore Admin DB not initialized correctly.' }, { status: 500 });
     }
-    console.log('DEBUG: adminDb is successfully obtained in start-gmail-import/route.ts:', !!adminDb); // Log if it's truthy
+    console.log('🟢 adminDb successfully obtained:', !!adminDb);
 
     const { userId, contacts: incomingContacts, config } = await req.json();
-    console.log('DEBUG: Received userId:', userId);
-    console.log('DEBUG: Received contacts:', incomingContacts);
-    console.log('DEBUG: Received config:', config);
+    console.log('🟢 Request params:', {
+      userId,
+      contactsCount: incomingContacts?.length,
+      contacts: incomingContacts?.map(c => ({ email: c.email, name: c.name })),
+      config
+    });
 
     // Helper function to check if message should be filtered out
     const shouldFilterMessage = (subject: string, body: string, filterWords: string[]): boolean => {
@@ -70,10 +73,22 @@ export async function POST(req: Request) {
     }
 
     // OPTIMIZATION: Use SmartGmailAuth for intelligent authentication handling
+    console.log('🟢 Checking Gmail authentication for user:', userId);
     const authResult = await SmartGmailAuth.getAuthenticatedGmailClient(userId);
+    console.log('🟢 Gmail auth result:', {
+      success: authResult.success,
+      needsReauth: authResult.needsReauth,
+      errorType: authResult.errorType,
+      message: authResult.message
+    });
 
     if (!authResult.success) {
-      console.error(`Gmail authentication failed for user: ${userId}`, authResult);
+      console.error('🔴 Gmail authentication failed:', {
+        userId,
+        errorType: authResult.errorType,
+        message: authResult.message,
+        needsReauth: authResult.needsReauth
+      });
       
       // Provide specific error messages based on error type
       let errorMessage = 'Gmail authentication required. Please re-authorize Gmail access.';
@@ -89,6 +104,8 @@ export async function POST(req: Request) {
         errorType: authResult.errorType
       }, { status: 401 });
     }
+
+    console.log('✅ Gmail authentication successful for user:', userId);
 
     const gmail = authResult.gmail!;
     console.log('DEBUG: Gmail API client initialized with smart authentication');
