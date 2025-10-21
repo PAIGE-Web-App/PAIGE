@@ -69,13 +69,23 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
       }, 0);
     };
 
+    const handleGmailAuthUpdated = (event: any) => {
+      console.log('Gmail auth updated event received:', event.detail);
+      console.log('Triggering Gmail auth check...');
+      
+      // Trigger a fresh Gmail auth check
+      checkGmailAuth(true);
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('gmail-auth-required', handleGmailAuthRequired);
+      window.addEventListener('gmail-auth-updated', handleGmailAuthUpdated);
       return () => {
         window.removeEventListener('gmail-auth-required', handleGmailAuthRequired);
+        window.removeEventListener('gmail-auth-updated', handleGmailAuthUpdated);
       };
     }
-  }, []);
+  }, [checkGmailAuth]);
 
   // DEBUG: Log when needsReauth changes
   useEffect(() => {

@@ -229,6 +229,11 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         }
         
         showSuccessToast("Google account connected successfully!");
+        
+        // Trigger Gmail auth check to update the Gmail auth context
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
+        }
       } else {
         console.error('❌ Google auth failed');
         showErrorToast("Failed to connect Google account. Please try again.");
