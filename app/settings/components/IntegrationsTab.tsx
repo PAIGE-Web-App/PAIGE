@@ -180,8 +180,8 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         if (accessToken) {
           // Store Gmail tokens in Firestore (matching API expected format)
           const gmailTokens = {
-            access_token: accessToken,
-            refresh_token: null, // Firebase popup doesn't provide refresh token
+            accessToken: accessToken,
+            refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
             scope: getGmailCalendarScopeString()
@@ -398,8 +398,8 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         if (accessToken) {
           // Store Gmail tokens in Firestore (matching API expected format)
           const gmailTokens = {
-            access_token: accessToken,
-            refresh_token: null, // Firebase popup doesn't provide refresh token
+            accessToken: accessToken,
+            refreshToken: null, // Firebase popup doesn't provide refresh token
             expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
             email: result.user.email, // Store Gmail account email
             scope: getGmailCalendarScopeString()

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Send SMS notification if enabled and phone number is available
     if (notificationPreferences.sms && phoneNumber && twilioClient) {
       try {
-        const smsBody = `📱 New message from ${contactName} in Paige:\n\n"${messageBody.substring(0, 100)}${messageBody.length > 100 ? '...' : ''}"\n\nReply at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://paige.app'}`;
+        const smsBody = `📱 New message from ${contactName} in Paige:\n\n"${messageBody.substring(0, 100)}${messageBody.length > 100 ? '...' : ''}"\n\nReply at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://weddingpaige.com/messages'}`;
         
         await twilioClient.messages.create({
           body: smsBody,

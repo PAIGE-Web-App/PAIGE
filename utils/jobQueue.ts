@@ -377,7 +377,7 @@ export const jobProcessors: JobProcessor[] = [
       });
       
       const mailOptions = {
-        from: from || process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
+        from: from || process.env.SENDGRID_FROM_EMAIL || 'notifications@weddingpaige.com',
         to,
         subject,
         text: body,

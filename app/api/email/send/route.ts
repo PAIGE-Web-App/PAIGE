@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
       throw new Error('No email service configured. Please set up SendGrid credentials.');
     }
 
-    const fromEmail = from || process.env.SENDGRID_FROM_EMAIL || process.env.GMAIL_USER || 'notifications@paige.app';
+    const fromEmail = from || process.env.SENDGRID_FROM_EMAIL || process.env.GMAIL_USER || 'notifications@weddingpaige.com';
     
     const mailOptions = {
       from: fromEmail,

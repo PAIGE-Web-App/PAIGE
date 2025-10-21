@@ -9,7 +9,7 @@ function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attach
 
 ---
 Sent via Paige - Your Wedding Planning Assistant
-View full conversation and manage your wedding planning: https://paige.app`;
+View full conversation and manage your wedding planning: https://weddingpaige.com/messages`;
 
   const bodyWithFooter = body + paigeFooter;
   
@@ -54,20 +54,11 @@ export async function POST(req: NextRequest) {
     // Get user's Gmail tokens from Firestore
     const userDoc = await adminDb.collection('users').doc(userId).get();
     if (!userDoc.exists) {
-      console.log('❌ User not found:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const userData = userDoc.data();
-    console.log('🔍 User data check:', {
-      hasGoogleTokens: !!userData?.googleTokens,
-      hasAccessToken: !!userData?.googleTokens?.access_token,
-      hasRefreshToken: !!userData?.googleTokens?.refresh_token,
-      hasEmail: !!userData?.googleTokens?.email
-    });
-    
     if (!userData?.googleTokens) {
-      console.log('❌ No Google tokens found for user:', userId);
       return NextResponse.json({ error: 'Gmail not connected' }, { status: 401 });
     }
     
@@ -116,20 +107,6 @@ export async function POST(req: NextRequest) {
     
   } catch (error: any) {
     console.error('❌ Gmail reply error:', error);
-    
-    // Handle Gmail auth errors
-    if (error.message?.includes('No access, refresh token') || 
-        error.message?.includes('invalid_grant') || 
-        error.message?.includes('invalid_token') ||
-        error.message?.includes('unauthorized')) {
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: error.message,
-        needsReauth: true 
-      }, { status: 401 });
-    }
-    
     return NextResponse.json({ 
       success: false, 
       error: error.message 

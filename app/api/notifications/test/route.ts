@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         const testMessage = "This is a test notification from Paige to verify your notification settings are working correctly! 🎉";
         
         const mailOptions = {
-          from: process.env.SENDGRID_FROM_EMAIL || 'notifications@paige.app',
+          from: process.env.SENDGRID_FROM_EMAIL || 'notifications@weddingpaige.com',
           to: userEmail,
           subject: 'Test Notification from Paige',
           text: `Hello ${userName},\n\n${testMessage}\n\nIf you received this email, your email notifications are working correctly!\n\nBest regards,\nThe Paige Team`,

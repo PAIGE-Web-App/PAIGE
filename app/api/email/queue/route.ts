@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         to,
         subject,
         body,
-        from: from || 'noreply@paige.app'
+        from: from || 'noreply@weddingpaige.com'
       },
       maxAttempts: 3,
       metadata: {
