@@ -30,8 +30,8 @@ export const getAllCategories = async (userId: string): Promise<string[]> => {
     // Use getUserCollectionRef for user-specific categories
     const categoriesRef = getUserCollectionRef('categories', userId);
 
-    // Path already filters by userId, no need for redundant where clause
-    const q = query(categoriesRef);
+    // Path already filters by userId, but where clause is required by Firestore security rules
+    const q = query(categoriesRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
     const userCategories = snapshot.docs.map((doc) => {
       const data = doc.data() as { name?: string };

@@ -884,7 +884,7 @@ export default function MessagesPage() {
     
     try {
       const contactsCollectionRef = getUserCollectionRef<Contact>("contacts", user.uid);
-      const contactsQuery = query(contactsCollectionRef);
+      const contactsQuery = query(contactsCollectionRef, where("userId", "==", user.uid));
       const contactsSnapshot = await getDocs(contactsQuery);
       const fetchedContacts = contactsSnapshot.docs.map(doc => doc.data() as Contact);
       setContacts(fetchedContacts);

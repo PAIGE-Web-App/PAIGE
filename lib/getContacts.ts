@@ -7,8 +7,8 @@ export const getAllContacts = async (userId: string) => {
   // Use getUserCollectionRef for user-specific contacts
   const contactsCollection = getUserCollectionRef<Contact>("contacts", userId);
 
-  // Path already filters by userId, no need for redundant where clause
-  const q = query(contactsCollection);
+  // Path already filters by userId, but where clause is required by Firestore security rules
+  const q = query(contactsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map((doc) => {
     const data = doc.data();
@@ -46,7 +46,7 @@ export const getAllVendors = async (userId: string) => {
   }
   
   const vendorsCollection = getUserCollectionRef<any>("vendors", userId);
-  const q = query(vendorsCollection);
+  const q = query(vendorsCollection, where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
   const vendors = querySnapshot.docs.map((doc) => {
     const data = doc.data();
