@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { GmailQuotaService } from '@/utils/gmailQuotaService';
+import { GmailAuthErrorHandler } from '@/utils/gmailAuthErrorHandler';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
     });
     
     // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
-    const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
+    // GmailAuthErrorHandler is now imported at the top
     const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(error, 'Gmail reply');
     
     // Handle rate limit errors
