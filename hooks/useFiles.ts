@@ -38,6 +38,7 @@ export function useFiles() {
     if (user) {
       const q = query(
         getUserCollectionRef('files', user.uid),
+        where('userId', '==', user.uid),
         orderBy('uploadedAt', 'desc'),
         limit(50) // Reduced from 100 to 50 for better performance
       );
