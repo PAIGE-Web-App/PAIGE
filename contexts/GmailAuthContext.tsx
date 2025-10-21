@@ -20,6 +20,7 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<number>(0);
   const isCheckingRef = useRef(false);
+  const checkGmailAuthRef = useRef<typeof checkGmailAuth | undefined>(undefined);
 
   const checkGmailAuth = useCallback(async (force = false) => {
     if (!user?.uid || isCheckingRef.current) return;
@@ -51,6 +52,11 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.uid, lastChecked]);
 
+  // Update the ref whenever checkGmailAuth changes
+  useEffect(() => {
+    checkGmailAuthRef.current = checkGmailAuth;
+  }, [checkGmailAuth]);
+
   const dismissBanner = useCallback(() => {
     setNeedsReauth(false);
   }, []);
@@ -74,7 +80,9 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Triggering Gmail auth check...');
       
       // Trigger a fresh Gmail auth check
-      checkGmailAuth(true);
+      if (user?.uid && !isCheckingRef.current && checkGmailAuthRef.current) {
+        checkGmailAuthRef.current(true);
+      }
     };
 
     if (typeof window !== 'undefined') {
@@ -85,7 +93,7 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
         window.removeEventListener('gmail-auth-updated', handleGmailAuthUpdated);
       };
     }
-  }, [checkGmailAuth]);
+  }, []);
 
   // DEBUG: Log when needsReauth changes
   useEffect(() => {
