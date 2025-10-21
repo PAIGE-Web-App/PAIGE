@@ -18,7 +18,8 @@ export async function POST(req: Request) {
     });
     
     // Call the original Gmail import API (same foundation)
-    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/start-gmail-import`;
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, ''); // Remove trailing slash
+    const apiUrl = `${baseUrl}/api/start-gmail-import`;
     console.log('🔵 Enhanced route - Calling original API:', apiUrl);
     
     const originalResponse = await fetch(apiUrl, {
