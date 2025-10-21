@@ -82,28 +82,34 @@ export async function POST(req: Request) {
       message: authResult.message
     });
 
-    if (!authResult.success) {
-      console.error('🔴 Gmail authentication failed:', {
-        userId,
-        errorType: authResult.errorType,
-        message: authResult.message,
-        needsReauth: authResult.needsReauth
-      });
-      
-      // Provide specific error messages based on error type
-      let errorMessage = 'Gmail authentication required. Please re-authorize Gmail access.';
-      if (authResult.errorType === 'missing_refresh_token') {
-        errorMessage = 'Gmail access token expired and cannot be refreshed. Please re-authorize Gmail access.';
-      } else if (authResult.errorType === 'invalid_tokens') {
-        errorMessage = 'Gmail tokens are invalid. Please re-authorize Gmail access.';
-      }
-      
-      return NextResponse.json({ 
-        success: false, 
-        message: errorMessage,
-        errorType: authResult.errorType
-      }, { status: 401 });
-    }
+           if (!authResult.success) {
+             console.error('🔴 Gmail authentication failed:', {
+               userId,
+               errorType: authResult.errorType,
+               message: authResult.message,
+               needsReauth: authResult.needsReauth
+             });
+             
+             // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner
+             const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(
+               new Error(authResult.message), 
+               `Gmail authentication for user ${userId}`
+             );
+             
+             // Provide specific error messages based on error type
+             let errorMessage = 'Gmail authentication required. Please re-authorize Gmail access.';
+             if (authResult.errorType === 'missing_refresh_token') {
+               errorMessage = 'Gmail access token expired and cannot be refreshed. Please re-authorize Gmail access.';
+             } else if (authResult.errorType === 'invalid_tokens') {
+               errorMessage = 'Gmail tokens are invalid. Please re-authorize Gmail access.';
+             }
+             
+             return NextResponse.json({ 
+               success: false, 
+               message: errorMessage,
+               errorType: authResult.errorType
+             }, { status: 401 });
+           }
 
     console.log('✅ Gmail authentication successful for user:', userId);
 
