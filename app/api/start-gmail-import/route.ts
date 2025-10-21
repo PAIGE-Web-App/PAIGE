@@ -185,7 +185,7 @@ export async function POST(req: Request) {
         
         console.log(`DEBUG: About to query Gmail with:`, {
           query: gmailQuery,
-          maxResults: config?.checkForNewOnly ? 10 : 15, // Reduced from 50 to 15 to stay within quota
+          maxResults: config?.checkForNewOnly ? 1 : 1, // Reduced to 1 to stay within quota
           checkForNewOnly: config?.checkForNewOnly
         });
         
@@ -194,7 +194,7 @@ export async function POST(req: Request) {
           return await gmail.users.messages.list({
             userId: 'me',
             q: gmailQuery,
-            maxResults: config?.checkForNewOnly ? 10 : 15, // Reduced from 50 to 15 to stay within quota
+            maxResults: config?.checkForNewOnly ? 1 : 1, // Reduced to 1 to stay within quota
           });
         });
 
