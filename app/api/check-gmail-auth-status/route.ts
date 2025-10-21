@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
+import { GMAIL_SCOPES } from '@/lib/gmailScopes';
 
 export async function POST(req: NextRequest) {
   try {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // Check if required scopes are present (gmail.readonly and gmail.send)
     const scope = userData?.googleTokens?.scope || '';
-    const { GMAIL_SCOPES } = await import('@/lib/gmailScopes');
+    // GMAIL_SCOPES is now imported at the top
     if (!scope.includes(GMAIL_SCOPES.READONLY) || !scope.includes(GMAIL_SCOPES.SEND)) {
       console.log('Gmail auth check: Missing required Gmail scopes for user:', userId);
       return NextResponse.json({ 

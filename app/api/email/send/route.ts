@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { shouldBlockEmail, FailedEmailTracker, validateEmail } from '@/utils/emailValidation';
+import { GmailQuotaService } from '@/utils/gmailQuotaService';
 
 // Create reusable transporter object using Gmail API OAuth
 const createGmailTransporter = async (userId: string) => {
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check Gmail quota if user is sending via Gmail
     if (userId) {
-      const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+      // GmailQuotaService is now imported at the top
       const quotaCheck = await GmailQuotaService.canSendEmail(userId);
       
       if (!quotaCheck.allowed) {
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
     
     // Increment Gmail quota counter if user is authenticated
     if (userId) {
-      const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
+      // GmailQuotaService is now imported at the top
       await GmailQuotaService.incrementEmailSent(userId);
     }
     
