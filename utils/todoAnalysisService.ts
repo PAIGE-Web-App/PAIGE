@@ -252,28 +252,32 @@ async function analyzeMessageForTodos(
 
     console.log(`🔍 Calling N8N webhook for analysis`);
     console.log(`🔍 Subject: "${subject}", Vendor: ${contact.name || contact.email}, Existing todos: ${existingTodos.length}`);
+    
+    const requestData = {
+      message_content: messageBody,
+      subject: subject,
+      vendor_category: contact.category || 'Unknown',
+      vendor_name: contact.name || contact.email || 'Unknown Vendor',
+      vendorName: contact.name || contact.email || 'Unknown Vendor',
+      existing_todos: existingTodos.map(todo => ({
+        id: todo.id,
+        name: todo.name,
+        note: todo.note,
+        category: todo.category,
+        deadline: todo.deadline,
+        isCompleted: todo.isCompleted || false
+      })),
+      wedding_context: weddingContext,
+      user_id: userId,
+      message_id: `gmail-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    console.log('🔍 N8N request data:', JSON.stringify(requestData, null, 2));
 
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message_content: messageBody,
-        subject: subject,
-        vendor_category: contact.category || 'Unknown',
-        vendor_name: contact.name || contact.email || 'Unknown Vendor',
-        vendorName: contact.name || contact.email || 'Unknown Vendor',
-        existing_todos: existingTodos.map(todo => ({
-          id: todo.id,
-          name: todo.name,
-          note: todo.note,
-          category: todo.category,
-          deadline: todo.deadline,
-          isCompleted: todo.isCompleted || false
-        })),
-        wedding_context: weddingContext,
-        user_id: userId,
-        message_id: `gmail-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      }),
+      body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {
@@ -344,10 +348,14 @@ async function analyzeMessageLocally(
       messageText.includes('flowers') ||
       messageText.includes('music') ||
       messageText.includes('dress') ||
-      messageText.includes('cake')
+      messageText.includes('cake') ||
+      messageText.includes('hi') || // Add more lenient keywords for testing
+      messageText.includes('hello') ||
+      messageText.includes('reply') ||
+      messageText.includes('logic')
     ) && (
-      // Additional check: message must be longer than 50 characters to avoid spam/auto-replies
-      messageBody.length > 50
+      // Additional check: message must be longer than 10 characters to avoid spam/auto-replies (reduced from 50)
+      messageBody.length > 10
     );
     
     if (!hasActionableContent) {
@@ -370,6 +378,20 @@ async function analyzeMessageLocally(
         sourceContact: contactName,
         sourceEmail: contact.email,
         confidenceScore: calculateConfidenceScore(messageText, action.name),
+      });
+    }
+    
+    // If no specific action items found, create a generic todo for basic messages
+    if (actionItems.length === 0 && hasActionableContent) {
+      newTodos.push({
+        name: `Follow up with ${contactName}`,
+        note: `Message from ${contactName}: "${subject}" - ${messageBody.substring(0, 100)}...`,
+        category: contact.category || 'vendor',
+        deadline: null,
+        sourceMessage: subject,
+        sourceContact: contactName,
+        sourceEmail: contact.email,
+        confidenceScore: 0.3, // Lower confidence for generic todos
       });
     }
     
