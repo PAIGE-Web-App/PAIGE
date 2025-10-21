@@ -82,20 +82,20 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     console.log('GmailAuthContext: needsReauth changed to:', needsReauth);
   }, [needsReauth]);
 
-  // DISABLED: Initial check was still causing excessive API calls on every user change
-  // useEffect(() => {
-  //   if (user?.uid) {
-  //     // Add a small delay to ensure user document is fully created
-  //     const timeoutId = setTimeout(async () => {
-  //       // Try to check Gmail auth once
-  //       await checkGmailAuth(true); // Force immediate check
-  //     }, 1000); // Reduced delay to 1 second
-  //     
-  //     return () => clearTimeout(timeoutId);
-  //   } else {
-  //     setNeedsReauth(false);
-  //   }
-  // }, [user?.uid, checkGmailAuth]);
+  // Re-enabled: Gmail auth check is needed for proper Gmail integration
+  useEffect(() => {
+    if (user?.uid) {
+      // Add a small delay to ensure user document is fully created
+      const timeoutId = setTimeout(async () => {
+        // Try to check Gmail auth once
+        await checkGmailAuth(true); // Force immediate check
+      }, 1000); // Reduced delay to 1 second
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      setNeedsReauth(false);
+    }
+  }, [user?.uid, checkGmailAuth]);
 
   // DISABLED: Periodic check was still causing excessive API calls
   // useEffect(() => {
