@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  console.log('🚀 Minimal gmail-reply API called');
   try {
+    console.log('🧪 Minimal Gmail Reply Route called');
+    
     const body = await req.json();
-    console.log('📧 Minimal request:', { body: Object.keys(body) });
+    console.log('🧪 Request body:', body);
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Minimal route working',
-      receivedKeys: Object.keys(body)
+      message: 'Minimal Gmail Reply Route working',
+      receivedData: body
     });
+    
   } catch (error: any) {
-    console.error('❌ Minimal route error:', error);
+    console.error('🧪 Minimal Gmail Reply Error:', error);
     return NextResponse.json({ 
       success: false, 
       error: error.message 
