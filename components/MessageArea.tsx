@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState, useReducer, useCallback, useMemo } 
 
 import { logger } from '@/utils/logger';
 import { v4 as uuidv4 } from "uuid";
+import VendorEmailQueue from '@/utils/vendorEmailQueue';
 import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, limit, doc, setDoc, updateDoc, deleteDoc, Timestamp, startAfter, getDocsFromCache, getDoc, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { Mail, Phone, FileUp, SmilePlus, WandSparkles, MoveRight, File, ArrowLeft, X, MoreHorizontal } from "lucide-react";
@@ -1500,7 +1501,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         let hasVerifiedEmails = false;
         if (!hasMessagingContactInfo) {
           try {
-            const VendorEmailQueue = (await import('@/utils/vendorEmailQueue')).default;
             const queue = VendorEmailQueue.getInstance();
             const verifiedEmailsData = await queue.queueRequest(selectedContact.placeId);
             hasVerifiedEmails = verifiedEmailsData.emails && 
