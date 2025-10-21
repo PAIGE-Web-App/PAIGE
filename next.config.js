@@ -220,13 +220,13 @@ const nextConfig = {
           },
         ],
       },
-      // API routes - short cache for dynamic data
+      // API routes - no cache to prevent 405 errors
       {
         source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=300, stale-while-revalidate=600',
+            value: 'no-cache, no-store, must-revalidate',
           },
         ],
       },
