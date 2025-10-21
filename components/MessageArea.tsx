@@ -1119,14 +1119,16 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         config: config
       });
 
-      // Call the original Gmail import API directly (enhanced route has issues with internal fetch)
-      const response = await fetch('/api/start-gmail-import', {
+      // Call the enhanced Gmail import API with todo analysis
+      const response = await fetch('/api/start-gmail-import-enhanced', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: currentUser.uid, 
+        body: JSON.stringify({
+          userId: currentUser.uid,
           contacts: [selectedContact],
-          config: config
+          config: config,
+          enableTodoScanning: true, // Enable AI todo analysis
+          storeSuggestionsMode: false // Return analysis in response
         }),
       });
 

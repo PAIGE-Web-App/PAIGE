@@ -17,46 +17,20 @@ export async function POST(req: Request) {
       config: originalParams.config
     });
     
-    // Call the original Gmail import API (same foundation)
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, ''); // Remove trailing slash
-    const apiUrl = `${baseUrl}/api/start-gmail-import`;
-    console.log('🔵 Enhanced route - Calling original API:', apiUrl);
+    // Import the Gmail import logic directly instead of fetching
+    console.log('🔵 Enhanced route - Running Gmail import directly...');
     
-    const originalResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(originalParams)
+    // Import the Gmail import function from the core module
+    const { performGmailImport } = await import('./start-gmail-import-core');
+    const originalResult = await performGmailImport(originalParams);
+    
+    console.log('🔵 Enhanced route - Gmail import result:', {
+      success: originalResult.success,
+      message: originalResult.message
     });
     
-    console.log('🔵 Enhanced route - Original API response:', {
-      status: originalResponse.status,
-      statusText: originalResponse.statusText,
-      ok: originalResponse.ok
-    });
-    
-    if (!originalResponse.ok) {
-      let errorData;
-      try {
-        errorData = await originalResponse.json();
-      } catch (jsonError) {
-        // If response is not JSON, return a generic error
-        errorData = { 
-          error: 'Request failed', 
-          message: `HTTP ${originalResponse.status}: ${originalResponse.statusText}` 
-        };
-      }
-      return NextResponse.json(errorData, { status: originalResponse.status });
-    }
-    
-    let originalResult;
-    try {
-      originalResult = await originalResponse.json();
-    } catch (jsonError) {
-      console.error('Error parsing original response JSON:', jsonError);
-      return NextResponse.json({ 
-        error: 'Invalid response format', 
-        message: 'The original API returned invalid JSON' 
-      }, { status: 500 });
+    if (!originalResult.success) {
+      return NextResponse.json(originalResult, { status: originalResult.status || 500 });
     }
     
     // If todo scanning is enabled, add analysis (optional feature)
