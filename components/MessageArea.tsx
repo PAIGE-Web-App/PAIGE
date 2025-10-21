@@ -566,6 +566,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             userId: currentUser.uid,
           }),
         });
+        
+        // Check if response is OK and has content before parsing JSON
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('Gmail reply API error:', res.status, text);
+          throw new Error(text || `API error: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (!data.success) {
           if (data.requiresReauth || data.needsReauth) {
@@ -617,6 +625,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             userId: currentUser.uid,
           }),
         });
+        
+        // Check if response is OK and has content before parsing JSON
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('Gmail send API error:', res.status, text);
+          throw new Error(text || `API error: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (!data.success) {
           if (data.requiresReauth || data.needsReauth) {
