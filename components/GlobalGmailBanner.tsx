@@ -96,6 +96,12 @@ export default function GlobalGmailBanner() {
       if (res.ok) {
         // Small delay to ensure tokens are stored
         await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Trigger Gmail auth check to update the Gmail auth context
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
+        }
+        
         // Dismiss the banner immediately without calling checkGmailAuth
         dismissBanner();
         // Show success toast
