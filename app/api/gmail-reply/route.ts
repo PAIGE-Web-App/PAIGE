@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { GmailQuotaService } from '@/utils/gmailQuotaService';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
@@ -119,7 +120,6 @@ export async function POST(req: NextRequest) {
     } = await req.json();
 
     // Check Gmail quota before sending
-    const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
     const quotaCheck = await GmailQuotaService.canSendEmail(userId);
     
     if (!quotaCheck.allowed) {
