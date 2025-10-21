@@ -108,6 +108,7 @@ async function getUserGmailTokens(userId) {
 
 // This is a scaffold for sending Gmail replies with attachments
 export async function POST(req: NextRequest) {
+  console.log('🚀 Gmail-reply API called');
   try {
     const {
       body,
@@ -118,6 +119,8 @@ export async function POST(req: NextRequest) {
       attachments, // [{ name: string, type: string, data: base64 }]
       userId,
     } = await req.json();
+    
+    console.log('📧 Gmail-reply request:', { to, subject, userId, hasAttachments: !!attachments });
 
     // Check Gmail quota before sending
     const quotaCheck = await GmailQuotaService.canSendEmail(userId);
@@ -236,7 +239,12 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({ success: true, gmailRes: gmailRes.data });
   } catch (error: any) {
-    console.error('Gmail reply error:', error);
+    console.error('❌ Gmail reply error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     
     // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
     const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
