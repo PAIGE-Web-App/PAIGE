@@ -4,7 +4,7 @@
  * Uses existing Firestore user document to avoid new collections/indexes
  */
 
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '../lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export interface GmailQuotas {
@@ -121,9 +121,9 @@ export class GmailQuotaService {
    */
   static async incrementEmailSent(userId: string): Promise<void> {
     try {
-      const userRef = adminDb.collection('users').doc(userId);
+      const userRef = getAdminDb().collection('users').doc(userId);
       
-      await adminDb.runTransaction(async (transaction) => {
+      await getAdminDb().runTransaction(async (transaction) => {
         const userDoc = await transaction.get(userRef);
         
         if (!userDoc.exists) {
@@ -158,9 +158,9 @@ export class GmailQuotaService {
    */
   static async incrementMessagesImported(userId: string, count: number = 1): Promise<void> {
     try {
-      const userRef = adminDb.collection('users').doc(userId);
+      const userRef = getAdminDb().collection('users').doc(userId);
       
-      await adminDb.runTransaction(async (transaction) => {
+      await getAdminDb().runTransaction(async (transaction) => {
         const userDoc = await transaction.get(userRef);
         
         if (!userDoc.exists) {
@@ -194,7 +194,7 @@ export class GmailQuotaService {
    * Get current quotas for a user
    */
   private static async getQuotas(userId: string): Promise<GmailQuotas> {
-    const userRef = adminDb.collection('users').doc(userId);
+    const userRef = getAdminDb().collection('users').doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -240,7 +240,7 @@ export class GmailQuotaService {
    * Reset email quota for a user
    */
   private static async resetEmailQuota(userId: string): Promise<void> {
-    const userRef = adminDb.collection('users').doc(userId);
+    const userRef = getAdminDb().collection('users').doc(userId);
     await userRef.update({
       'gmailQuotas.emailsSentToday': 0,
       'gmailQuotas.emailsSentResetAt': Timestamp.fromDate(this.getNextResetTime())
@@ -251,7 +251,7 @@ export class GmailQuotaService {
    * Reset import quota for a user
    */
   private static async resetImportQuota(userId: string): Promise<void> {
-    const userRef = adminDb.collection('users').doc(userId);
+    const userRef = getAdminDb().collection('users').doc(userId);
     await userRef.update({
       'gmailQuotas.messagesImportedToday': 0,
       'gmailQuotas.messagesImportedResetAt': Timestamp.fromDate(this.getNextResetTime())
@@ -263,7 +263,7 @@ export class GmailQuotaService {
    */
   static async resetAllQuotas(userId: string): Promise<void> {
     try {
-      const userRef = adminDb.collection('users').doc(userId);
+      const userRef = getAdminDb().collection('users').doc(userId);
       const nextReset = this.getNextResetTime();
       
       await userRef.update({
