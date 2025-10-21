@@ -549,17 +549,33 @@ export async function POST(req: Request) {
     // This can be done asynchronously to avoid blocking the import response
     if (config?.enableTodoScanning) {
       console.log('🟢 Triggering todo analysis after successful import...');
+      console.log('🟢 Analysis config:', { 
+        enableTodoScanning: config.enableTodoScanning,
+        userId,
+        contactsCount: incomingContacts?.length 
+      });
       
       // Run analysis in background (don't await to avoid blocking response)
       setImmediate(async () => {
         try {
+          console.log('🟢 Starting background todo analysis...');
           const { performTodoAnalysis } = await import('@/utils/todoAnalysisService');
           const analysisResult = await performTodoAnalysis(userId, incomingContacts);
-          console.log('🟢 Background todo analysis completed:', analysisResult);
+          console.log('🟢 Background todo analysis completed:', {
+            messagesAnalyzed: analysisResult.messagesAnalyzed,
+            newTodosSuggested: analysisResult.newTodosSuggested,
+            totalSuggestions: analysisResult.totalSuggestions
+          });
         } catch (analysisError) {
           console.error('🟡 Background todo analysis failed (non-critical):', analysisError);
+          console.error('🟡 Analysis error details:', {
+            message: analysisError.message,
+            stack: analysisError.stack
+          });
         }
       });
+    } else {
+      console.log('🟡 Todo analysis not enabled in config:', config);
     }
     
     return NextResponse.json({ 

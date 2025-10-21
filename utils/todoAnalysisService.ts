@@ -29,6 +29,9 @@ export async function performTodoAnalysis(
 ): Promise<TodoAnalysisResult> {
   try {
     console.log('🔍 Starting todo analysis for user:', userId);
+    console.log('🔍 Contacts to analyze:', contacts?.map(c => ({ id: c.id, name: c.name, email: c.email })));
+    console.log('🔍 Store suggestions mode:', storeSuggestionsMode);
+    
     const adminDb = getAdminDb();
     
     if (!adminDb) {
@@ -78,6 +81,13 @@ export async function performTodoAnalysis(
     const messages = allMessages.slice(0, 25);
 
     console.log(`🔍 Found ${messages.length} messages for analysis from ${contactsToAnalyze.length} contacts`);
+    console.log('🔍 Sample messages:', messages.slice(0, 3).map(m => ({ 
+      subject: m.subject, 
+      from: m.from, 
+      contactName: m.contactName,
+      hasBody: !!m.body,
+      bodyLength: m.body?.length || 0
+    })));
     
     // Get existing todos
     const todosSnapshot = await adminDb
