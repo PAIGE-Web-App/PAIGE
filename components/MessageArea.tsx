@@ -1185,15 +1185,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         }
       }));
 
-      // Show analysis loading modal immediately
-      setIsAnalyzingMessages(true);
-      setShowGmailTodoReview(true);
+      // Todo analysis now runs in background - no immediate modal needed
+      console.log('✅ Gmail import completed successfully');
+      console.log('🔄 Todo analysis running in background...');
       
-      // Show todo analysis review modal if there are results
-      if (result.todoAnalysis && result.todoAnalysis.analysisResults) {
-        setGmailTodoAnalysisResults(result.todoAnalysis.analysisResults);
-        setIsAnalyzingMessages(false);
-      }
+      // Show success message instead of analysis modal
+      showSuccessToast(`Successfully imported ${result.totalImportedMessages || 0} messages! Todo analysis running in background.`);
     } catch (error) {
       console.error('Error importing Gmail:', error);
       
@@ -1371,17 +1368,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     try {
       if (userInitiated) setIsCheckingGmail(true);
       
-      // Call the actual import API to fetch new messages
-      // Use storeSuggestionsMode for background checks, immediate modal for manual checks
-      const response = await fetch('/api/start-gmail-import-enhanced', {
+      // Call the main import API to fetch new messages
+      const response = await fetch('/api/start-gmail-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: currentUser.uid, 
           contacts: [selectedContact],
-          config: { checkForNewOnly: true }, // Flag to only check for new messages
-          enableTodoScanning: true,
-          storeSuggestionsMode: !userInitiated // Store in background, show modal when manual
+          config: { 
+            checkForNewOnly: true, // Flag to only check for new messages
+            enableTodoScanning: true // Enable background todo analysis
+          }
         }),
       });
       if (!response.ok) {
