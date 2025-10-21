@@ -62,15 +62,23 @@ export async function POST(req: Request) {
     // If todo scanning is enabled, add analysis (optional feature)
     if (enableTodoScanning && originalResult.success) {
       try {
-        console.log('Starting todo analysis for imported messages...');
+        console.log('🔵 Starting todo analysis for imported messages...');
         // Add a delay to ensure messages are fully committed to Firestore
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const todoAnalysis = await performTodoAnalysis(
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 5s to 2s
+        
+        // Add timeout to prevent hanging
+        const analysisPromise = performTodoAnalysis(
           requestBody.userId, 
           requestBody.contacts,
           storeSuggestionsMode
         );
-        console.log('Todo analysis completed:', todoAnalysis);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Todo analysis timeout after 30 seconds')), 30000)
+        );
+        
+        const todoAnalysis = await Promise.race([analysisPromise, timeoutPromise]);
+        console.log('🔵 Todo analysis completed:', todoAnalysis);
         
         // If storeSuggestionsMode is enabled, suggestions are already stored
         // Return success without the full analysis data
@@ -88,11 +96,15 @@ export async function POST(req: Request) {
           todoAnalysis: todoAnalysis
         }, { status: 200 });
       } catch (todoError) {
-        console.error('Todo analysis failed:', todoError);
+        console.error('🔴 Todo analysis failed:', todoError);
         // Don't fail the entire import if todo analysis fails
         return NextResponse.json({
           ...originalResult,
-          todoAnalysis: { error: 'Todo analysis failed', message: todoError.message }
+          todoAnalysis: { 
+            error: 'Todo analysis failed', 
+            message: todoError.message,
+            timeout: todoError.message.includes('timeout')
+          }
         }, { status: 200 });
       }
     }
