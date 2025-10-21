@@ -54,11 +54,20 @@ export async function POST(req: NextRequest) {
     // Get user's Gmail tokens from Firestore
     const userDoc = await adminDb.collection('users').doc(userId).get();
     if (!userDoc.exists) {
+      console.log('❌ User not found:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const userData = userDoc.data();
+    console.log('🔍 User data check:', {
+      hasGoogleTokens: !!userData?.googleTokens,
+      hasAccessToken: !!userData?.googleTokens?.access_token,
+      hasRefreshToken: !!userData?.googleTokens?.refresh_token,
+      hasEmail: !!userData?.googleTokens?.email
+    });
+    
     if (!userData?.googleTokens) {
+      console.log('❌ No Google tokens found for user:', userId);
       return NextResponse.json({ error: 'Gmail not connected' }, { status: 401 });
     }
     
