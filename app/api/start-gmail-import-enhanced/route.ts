@@ -60,7 +60,7 @@ export async function POST(req: Request) {
           return NextResponse.json({
             ...originalResult,
             todoSuggestionsStored: true,
-            suggestionsCount: todoAnalysis.totalSuggestions || 0
+            suggestionsCount: (todoAnalysis as any)?.totalSuggestions || 0
           }, { status: 200 });
         }
         

@@ -299,7 +299,7 @@ export async function performGmailImport(params: any) {
       success: true,
       message: `Gmail import completed. ${notFoundContacts.length > 0 ? `Some contacts had issues: ${notFoundContacts.map(c => c.name).join(', ')}` : 'All contacts processed successfully.'}`,
       notFoundContacts,
-      importedCount: importedCount
+      importedCount: 0 // Will be updated by individual contact processing
     };
 
   } catch (error: any) {
