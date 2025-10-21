@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     console.log('🔵 Enhanced route - Running Gmail import directly...');
     
     // Import the Gmail import function from the core module
-    const { performGmailImport } = await import('./start-gmail-import-core');
+    const { performGmailImport } = await import('../start-gmail-import/start-gmail-import-core');
     const originalResult = await performGmailImport(originalParams);
     
     console.log('🔵 Enhanced route - Gmail import result:', {
