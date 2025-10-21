@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -109,7 +111,6 @@ export async function POST(req: Request) {
 async function performTodoAnalysis(userId: string, contacts: any[], storeSuggestionsMode: boolean = false) {
   try {
     // Get recent messages for analysis
-    const { getAdminDb } = await import('@/lib/firebaseAdmin');
     const adminDb = getAdminDb();
     
     if (!adminDb) {
@@ -264,8 +265,6 @@ async function performTodoAnalysis(userId: string, contacts: any[], storeSuggest
     
     // If storeSuggestionsMode is enabled, save suggestions to each contact document
     if (storeSuggestionsMode && adminDb) {
-      const { default: admin } = await import('firebase-admin');
-      
       for (const [contactId, suggestions] of suggestionsPerContact.entries()) {
         const totalSuggestions = suggestions.newTodos.length + suggestions.todoUpdates.length + suggestions.completedTodos.length;
         
@@ -557,8 +556,6 @@ async function createSuggestedTodo(
   adminDb: any
 ) {
   try {
-    const { default: admin } = await import('firebase-admin');
-    
     const todoRef = await adminDb.collection(`users/${userId}/todos`).add({
       name: todoData.name,
       description: todoData.description || '',
@@ -588,8 +585,6 @@ async function updateExistingTodo(
   adminDb: any
 ) {
   try {
-    const { default: admin } = await import('firebase-admin');
-    
     const updateData: any = {};
     
     if (update.updates.note) updateData.note = update.updates.note;
@@ -613,8 +608,6 @@ async function markTodoCompleted(
   adminDb: any
 ) {
   try {
-    const { default: admin } = await import('firebase-admin');
-    
     await adminDb.collection(`users/${userId}/todos`).doc(completed.todoId).update({
       isCompleted: true,
       completedAt: admin.firestore.Timestamp.now(),
