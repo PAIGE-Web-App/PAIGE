@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb } from '../../../lib/firebaseAdmin';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
