@@ -1200,8 +1200,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           errorMessage.includes('Please re-authorize Gmail access') ||
           errorMessage.includes('invalid_grant') || 
           errorMessage.includes('invalid_token')) {
-        // The API endpoint should have already triggered the global banner via error handler
-        // No need to call checkGmailAuth here as it conflicts with our new system
+        // Trigger the Gmail auth banner manually from client-side
+        console.log('🚨 Gmail auth error detected, triggering banner...');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gmail-auth-required', {
+            detail: { timestamp: Date.now(), source: 'gmail-import-failure' }
+          }));
+        }
         showErrorToast('Gmail access expired. Please re-authenticate to import messages.');
       } else {
         showErrorToast('Failed to import Gmail messages');
