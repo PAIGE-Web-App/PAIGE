@@ -54,19 +54,9 @@ export function getAdminDb(): admin.firestore.Firestore {
   return admin.firestore();
 }
 
-// Lazy initialization - only initialize when these are accessed
-export const adminDb = new Proxy({} as admin.firestore.Firestore, {
-  get(target, prop) {
-    initializeAdminApp();
-    return admin.firestore()[prop as keyof admin.firestore.Firestore];
-  }
-});
+// Direct initialization - initialize immediately for better compatibility
+initializeAdminApp();
 
-export const adminAuth = new Proxy({} as admin.auth.Auth, {
-  get(target, prop) {
-    initializeAdminApp();
-    return admin.auth()[prop as keyof admin.auth.Auth];
-  }
-});
-
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth();
 export { admin };
