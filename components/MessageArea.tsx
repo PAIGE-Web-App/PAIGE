@@ -554,7 +554,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       // If replying to a Gmail message, send via Gmail API
       if (replyingToMessage && replyingToMessage.source === 'gmail') {
         const attachments = await filesToBase64(selectedFiles);
-        const res = await fetch('/api/gmail-reply', {
+        const res = await fetch('/api/gmail-send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -613,7 +613,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       
       if (!replyingToMessage && selectedChannel === 'Gmail') {
         const attachments = await filesToBase64(selectedFiles);
-        const res = await fetch('/api/gmail-reply', {
+        const res = await fetch('/api/gmail-send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
