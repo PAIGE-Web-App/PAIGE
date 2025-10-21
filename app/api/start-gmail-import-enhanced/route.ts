@@ -18,11 +18,29 @@ export async function POST(req: Request) {
     });
     
     if (!originalResponse.ok) {
-      const errorData = await originalResponse.json();
+      let errorData;
+      try {
+        errorData = await originalResponse.json();
+      } catch (jsonError) {
+        // If response is not JSON, return a generic error
+        errorData = { 
+          error: 'Request failed', 
+          message: `HTTP ${originalResponse.status}: ${originalResponse.statusText}` 
+        };
+      }
       return NextResponse.json(errorData, { status: originalResponse.status });
     }
     
-    const originalResult = await originalResponse.json();
+    let originalResult;
+    try {
+      originalResult = await originalResponse.json();
+    } catch (jsonError) {
+      console.error('Error parsing original response JSON:', jsonError);
+      return NextResponse.json({ 
+        error: 'Invalid response format', 
+        message: 'The original API returned invalid JSON' 
+      }, { status: 500 });
+    }
     
     // If todo scanning is enabled, add analysis (optional feature)
     if (enableTodoScanning && originalResult.success) {
