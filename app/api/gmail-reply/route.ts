@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Gmail not connected' }, { status: 401 });
     }
     
-    const { access_token, refresh_token, email } = userData.googleTokens;
+    const { access_token, refresh_token, email: userEmail } = userData.googleTokens;
     
     // Initialize Gmail API
     const oauth2Client = new google.auth.OAuth2(
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     // Build the email
     const email = buildMimeEmail({
       to,
-      from: email,
+      from: userEmail,
       subject,
       body,
       inReplyTo: messageId,
