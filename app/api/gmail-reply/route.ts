@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { adminDb } from '@/lib/firebaseAdmin';
-import { GmailQuotaService } from '@/utils/gmailQuotaService';
-import { GmailAuthErrorHandler } from '@/utils/gmailAuthErrorHandler';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
@@ -93,6 +90,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 }
 
 async function getUserGmailTokens(userId) {
+  const { adminDb } = await import('@/lib/firebaseAdmin');
   const userDoc = await adminDb.collection('users').doc(userId).get();
   if (!userDoc.exists) return null;
   const userData = userDoc.data();
@@ -124,6 +122,7 @@ export async function POST(req: NextRequest) {
     console.log('📧 Gmail-reply request:', { to, subject, userId, hasAttachments: !!attachments });
 
     // Check Gmail quota before sending
+    const { GmailQuotaService } = await import('@/utils/gmailQuotaService');
     const quotaCheck = await GmailQuotaService.canSendEmail(userId);
     
     if (!quotaCheck.allowed) {
@@ -169,6 +168,7 @@ export async function POST(req: NextRequest) {
         try {
           const { credentials } = await oAuth2Client.refreshAccessToken();
           oAuth2Client.setCredentials(credentials);
+          const { adminDb } = await import('@/lib/firebaseAdmin');
           await adminDb.collection('users').doc(userId).set({
             googleTokens: {
               accessToken: credentials.access_token,
@@ -236,7 +236,8 @@ export async function POST(req: NextRequest) {
     const gmailRes = await sendMessageWithRetry();
     
     // Increment Gmail quota counter after successful send
-    await GmailQuotaService.incrementEmailSent(userId);
+    const { GmailQuotaService: QuotaService } = await import('@/utils/gmailQuotaService');
+    await QuotaService.incrementEmailSent(userId);
     
     return NextResponse.json({ success: true, gmailRes: gmailRes.data });
   } catch (error: any) {
@@ -248,7 +249,7 @@ export async function POST(req: NextRequest) {
     });
     
     // OPTIMIZATION: Handle Gmail auth errors and trigger reauth banner if needed
-    // GmailAuthErrorHandler is now imported at the top
+    const { GmailAuthErrorHandler } = await import('@/utils/gmailAuthErrorHandler');
     const errorResult = GmailAuthErrorHandler.handleErrorAndTriggerBanner(error, 'Gmail reply');
     
     // Handle rate limit errors
