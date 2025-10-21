@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
@@ -90,7 +91,6 @@ View full conversation and manage your wedding planning at https://paige.app`;
 }
 
 async function getUserGmailTokens(userId) {
-  const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
   const userDoc = await adminDb.collection('users').doc(userId).get();
   if (!userDoc.exists) return null;
   const userData = userDoc.data();
@@ -165,7 +165,6 @@ export async function POST(req: NextRequest) {
         try {
           const { credentials } = await oAuth2Client.refreshAccessToken();
           oAuth2Client.setCredentials(credentials);
-          const adminDb = (await import('@/lib/firebaseAdmin')).adminDb;
           await adminDb.collection('users').doc(userId).set({
             googleTokens: {
               accessToken: credentials.access_token,
