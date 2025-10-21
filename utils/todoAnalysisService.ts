@@ -260,8 +260,8 @@ async function analyzeMessageForTodos(
         message_content: messageBody,
         subject: subject,
         vendor_category: contact.category || 'Unknown',
-        vendor_name: contact.name || contact.email,
-        vendorName: contact.name || contact.email,
+        vendor_name: contact.name || contact.email || 'Unknown Vendor',
+        vendorName: contact.name || contact.email || 'Unknown Vendor',
         existing_todos: existingTodos.map(todo => ({
           id: todo.id,
           name: todo.name,

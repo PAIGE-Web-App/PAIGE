@@ -121,6 +121,8 @@ export async function POST(req: Request) {
     const gmailUserEmail = userEmail ? userEmail.toLowerCase() : '';
     console.log('Using cached Gmail user email:', gmailUserEmail);
 
+    let totalImportedMessages = 0;
+
     for (const contact of incomingContacts) {
       console.log('PROCESSING CONTACT:', contact);
       const contactEmail = contact.email;
@@ -503,6 +505,7 @@ export async function POST(req: Request) {
           if (importedCount > 0) {
             await GmailQuotaService.incrementMessagesImported(userId, importedCount);
             console.log(`✅ Incremented import quota for user ${userId} by ${importedCount} messages`);
+            totalImportedMessages += importedCount;
           }
 
           // POST-IMPORT THREADING FIX: For any message with In-Reply-To and missing parentMessageId, try to set it now that all messages are present
@@ -587,6 +590,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       success: true, 
       message: 'Gmail import process completed.', 
+      totalImportedMessages,
       notFoundContacts,
       todoAnalysisTriggered: config?.enableTodoScanning || false
     }, { status: 200 });
