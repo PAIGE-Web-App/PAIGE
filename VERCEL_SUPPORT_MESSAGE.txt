@@ -1,0 +1,114 @@
+Subject: Production Issue - All Gmail API Fetch Calls Return 405 on Serverless Functions
+
+Hi Vercel Support Team,
+
+Thank you for your response. I've tested all your suggestions and found something very specific:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TEST RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Working Routes (200 OK):
+• Simple test routes without external API calls
+• Routes with Firebase Admin SDK
+• Routes with googleapis library imported (but not used)
+• Routes with complex business logic
+• Routes calling other external APIs (non-Gmail)
+
+❌ Failing Routes (405 Error):
+• ANY route making fetch() calls to gmail.googleapis.com
+• Routes using googleapis npm library to call Gmail API  
+• Routes using native fetch() to call Gmail API
+• Minimal test routes with ONLY Gmail API calls
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EVIDENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test Route 1: Minimal Gmail API Call
+────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    method: 'GET',
+    headers: { 'Authorization': 'Bearer fake-token' }
+  });
+  return NextResponse.json({ status: response.status });
+}
+
+Result: 405 in production | Works locally
+
+Test Route 2: Without googleapis Library  
+─────────────────────────────────────────
+// Removed googleapis npm library entirely, using only native fetch()
+const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ raw: encodedEmail })
+});
+
+Result: 405 in production | Works locally
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT WE'VE VERIFIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ All environment variables correctly set in production
+✓ Removed googleapis npm library dependency  
+✓ Used native fetch() instead of any library
+✓ Tested 10+ different route names (gmail-reply, send-email, etc.)
+✓ Simplified to absolute bare minimum code
+✓ Verified OAuth credentials and scopes are valid
+✓ Checked HTTP methods (POST for send, GET for profile)
+✓ Verified request headers match Gmail API requirements
+✓ Tested with different deployment names (gmail-reply-step1 through step6)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONCLUSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The ONLY common factor in all failing routes is outbound fetch() calls to 
+gmail.googleapis.com or oauth2.googleapis.com domains.
+
+The 405 error occurs BEFORE our code executes (no console logs appear in 
+function logs), suggesting the request is blocked at the network/proxy level.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Is there a network-level policy, firewall rule, or security restriction 
+blocking outbound connections to Gmail API domains from Vercel serverless 
+functions?
+
+If so:
+1. Can this be whitelisted for our project?
+2. What's the recommended approach for Gmail integration on Vercel?
+3. Would Edge Functions bypass this restriction?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Domain: weddingpaige.com / www.weddingpaige.com
+Framework: Next.js (latest)
+Runtime: Node.js (serverless functions)
+Region: Auto (default)
+
+Test Routes Available:
+• /api/gmail-test (minimal Gmail API call)
+• /api/gmail-reply-no-lib (without googleapis library)
+• /api/test-simple (working control route)
+
+You can test these yourself to see the 405 vs 200 responses.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is affecting production users' ability to send emails through our 
+wedding planning app. Any guidance would be greatly appreciated!
+
+Thank you for your help,
+[Your Name]
+

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
-import { adminDb } from '@/lib/firebaseAdmin';
-import { GmailQuotaService } from '@/utils/gmailQuotaService';
-import { GmailAuthErrorHandler } from '@/utils/gmailAuthErrorHandler';
+
+// Render service URL
+const RENDER_SERVICE_URL = 'https://google-api-microservice.onrender.com';
 
 // Helper to build a MIME email with optional attachments
 function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }: {
