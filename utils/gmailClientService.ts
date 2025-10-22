@@ -579,11 +579,30 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 
       // Process and save messages to Firestore
       const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+      const { collection, addDoc, Timestamp, query, where, getDocs } = await import('firebase/firestore');
+
+      // Get existing message IDs to avoid duplicates
+      const messagesRef = collection(db, `users/${userId}/contacts/${contactEmail}/messages`);
+      const existingMessagesQuery = query(messagesRef);
+      const existingMessagesSnapshot = await getDocs(existingMessagesQuery);
+      const existingMessageIds = new Set(
+        existingMessagesSnapshot.docs.map(doc => doc.data().id)
+      );
+
+      console.log(`📋 Found ${existingMessageIds.size} existing messages, checking for duplicates...`);
 
       let importedCount = 0;
+      let skippedCount = 0;
+      
       for (const message of validMessages) {
         try {
+          // Skip if message already exists
+          if (existingMessageIds.has(message.id)) {
+            console.log(`⏭️ Skipping duplicate message: ${message.id}`);
+            skippedCount++;
+            continue;
+          }
+
           // Extract message data
           const headers = message.payload.headers || [];
           const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
@@ -628,7 +647,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
         }
       }
 
-      console.log(`✅ Successfully imported ${importedCount} messages`);
+      console.log(`✅ Successfully imported ${importedCount} new messages (skipped ${skippedCount} duplicates)`);
 
       // Trigger todo analysis if enabled
       if (config.enableTodoScanning && importedCount > 0) {
