@@ -2,24 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('🚀 Gmail-reply-minimal API called');
+    console.log('🧪 Ultra-minimal Gmail reply test');
     
-    const { userId, to, subject, body } = await req.json();
+    const { userId } = await req.json();
     
-    console.log('📧 Gmail-reply-minimal request:', { userId, to, subject });
-    
-    // For now, just return success without actually sending
-    return NextResponse.json({
-      success: true,
-      message: 'Gmail reply processed (minimal version)',
-      data: { userId, to, subject }
+    if (!userId) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'User ID is required.' 
+      }, { status: 400 });
+    }
+
+    // Just return success without any Gmail operations
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Ultra-minimal Gmail reply route working',
+      userId 
     });
-    
+
   } catch (error: any) {
-    console.error('❌ Gmail reply minimal error:', error);
-    return NextResponse.json({
-      success: false,
-      message: error.message || 'An unexpected error occurred'
+    console.error('❌ Ultra-minimal Gmail reply error:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message 
     }, { status: 500 });
   }
 }
