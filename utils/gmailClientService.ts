@@ -473,6 +473,46 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       return false;
     }
   }
+
+  /**
+   * Check if there's Gmail history with a specific contact
+   */
+  public async checkGmailHistory(contactEmail: string, userId: string): Promise<{ hasHistory: boolean; error?: string }> {
+    try {
+      // Initialize with userId
+      await this.initialize(userId);
+      
+      if (!this.accessToken) {
+        return { hasHistory: false, error: 'Gmail not authenticated' };
+      }
+
+      // Use Gmail API to search for messages with this contact
+      const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=from:${contactEmail} OR to:${contactEmail}&maxResults=1`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { hasHistory: false, error: 'Gmail authentication expired' };
+        }
+        throw new Error(`Gmail API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const hasHistory = !!(data.messages && data.messages.length > 0);
+      
+      console.log(`🔍 Gmail history check for ${contactEmail}:`, { hasHistory, total: data.resultSizeEstimate });
+      
+      return { hasHistory };
+    } catch (error) {
+      console.error('❌ Error checking Gmail history:', error);
+      return { hasHistory: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
 }
 
 // Export singleton instance

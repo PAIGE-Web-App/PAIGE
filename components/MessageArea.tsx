@@ -1048,13 +1048,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       setImportedOnce(false);
       setCheckingGmail(true);
       try {
-        // Check if user has Gmail tokens and if there is Gmail history for this contact
-        const res = await fetch('/api/check-gmail-history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.uid, contactEmail: selectedContact.email }),
-        });
-        const data = await res.json();
+        // Use client-side Gmail service to check history
+        console.log('🔍 Checking Gmail history for contact:', selectedContact.email);
+        const historyResult = await gmailClientService.checkGmailHistory(selectedContact.email, currentUser.uid);
+        
+        if (historyResult.error) {
+          console.log('❌ Gmail history check failed:', historyResult.error);
+          // Don't show import button if there's an error
+          return;
+        }
+        
+        const data = { hasHistory: historyResult.hasHistory };
         
         // Check if this contact has been imported before
         const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
