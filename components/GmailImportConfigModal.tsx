@@ -12,10 +12,12 @@ interface GmailImportConfigModalProps {
 
 export interface ImportConfig {
   maxEmails: number;
+  maxResults?: number;
   filterWords: string[];
   dateRange: 'all' | 'last_week' | 'last_month' | 'last_3_months' | 'last_year' | 'custom';
   customStartDate?: string;
   customEndDate?: string;
+  enableTodoScanning?: boolean;
 }
 
 const GmailImportConfigModal: React.FC<GmailImportConfigModalProps> = ({ 

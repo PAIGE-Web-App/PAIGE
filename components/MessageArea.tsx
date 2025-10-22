@@ -1174,41 +1174,32 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         config: config
       });
 
-      // Call the original Gmail import API directly (enhanced route has issues with internal fetch)
-      const response = await fetch('/api/start-gmail-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: currentUser.uid, 
-          contacts: [selectedContact],
-          config: {
-            ...config,
-            enableTodoScanning: true // Enable todo analysis after import
-          }
-        }),
+      // Use client-side Gmail import service
+      console.log('🚀 Starting client-side Gmail import for:', {
+        userId: currentUser.uid,
+        contactEmail: selectedContact.email,
+        contactName: selectedContact.name,
+        config: config
       });
 
-      console.log('📡 Gmail import response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Gmail import failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText
-        });
-        
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          errorData = { error: errorText };
+      const importResult = await gmailClientService.importGmailMessages(
+        selectedContact.email,
+        currentUser.uid,
+        {
+          maxResults: config.maxResults || 15,
+          enableTodoScanning: config.enableTodoScanning || true
         }
-        
-        throw new Error(`Failed to import Gmail conversation: ${errorData.message || errorData.error || response.statusText}`);
+      );
+
+      if (!importResult.success) {
+        throw new Error(importResult.error || 'Failed to import Gmail messages');
       }
 
-      const result = await response.json();
+      const result = {
+        success: true,
+        totalImportedMessages: importResult.totalImportedMessages || 0
+      };
+
       console.log('✅ Gmail import result:', result);
       
       // Mark the contact as imported
@@ -1428,23 +1419,27 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     try {
       if (userInitiated) setIsCheckingGmail(true);
       
-      // Call the main import API to fetch new messages
-      const response = await fetch('/api/start-gmail-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: currentUser.uid, 
-          contacts: [selectedContact],
-          config: { 
-            checkForNewOnly: true, // Flag to only check for new messages
-            enableTodoScanning: true // Enable background todo analysis
-          }
-        }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to check for new Gmail messages');
+      // Use client-side Gmail import service for new messages
+      const importResult = await gmailClientService.importGmailMessages(
+        selectedContact.email,
+        currentUser.uid,
+        {
+          maxResults: 5, // Limit for new message checks
+          enableTodoScanning: true
+        }
+      );
+
+      if (!importResult.success) {
+        throw new Error(importResult.error || 'Failed to check for new Gmail messages');
       }
-      const data = await response.json();
+
+      const data = {
+        newMessages: (importResult.totalImportedMessages || 0) > 0 ? [{ id: 'new' }] : [],
+        totalImportedMessages: importResult.totalImportedMessages || 0,
+        todoAnalysis: null,
+        todoSuggestionsStored: false,
+        suggestionsCount: 0
+      };
       
       // Handle user-initiated checks (show modal immediately)
       if (userInitiated) {

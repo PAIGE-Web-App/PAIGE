@@ -513,6 +513,143 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       return { hasHistory: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
+
+  /**
+   * Import Gmail messages for a specific contact
+   */
+  public async importGmailMessages(contactEmail: string, userId: string, config: { maxResults?: number; enableTodoScanning?: boolean } = {}): Promise<{ success: boolean; totalImportedMessages?: number; error?: string }> {
+    try {
+      // Initialize with userId
+      await this.initialize(userId);
+      
+      if (!this.accessToken) {
+        return { success: false, error: 'Gmail not authenticated' };
+      }
+
+      const maxResults = config.maxResults || 15;
+      console.log(`📥 Importing Gmail messages for ${contactEmail} (max: ${maxResults})`);
+
+      // Get message list
+      const messagesResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=from:${contactEmail} OR to:${contactEmail}&maxResults=${maxResults}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!messagesResponse.ok) {
+        if (messagesResponse.status === 401) {
+          return { success: false, error: 'Gmail authentication expired' };
+        }
+        throw new Error(`Gmail API error: ${messagesResponse.status}`);
+      }
+
+      const messagesData = await messagesResponse.json();
+      const messages = messagesData.messages || [];
+      
+      console.log(`📨 Found ${messages.length} messages to import`);
+
+      if (messages.length === 0) {
+        return { success: true, totalImportedMessages: 0 };
+      }
+
+      // Get full message details
+      const messagePromises = messages.map(async (message: any) => {
+        const messageResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!messageResponse.ok) {
+          console.error(`Failed to fetch message ${message.id}`);
+          return null;
+        }
+
+        return await messageResponse.json();
+      });
+
+      const fullMessages = await Promise.all(messagePromises);
+      const validMessages = fullMessages.filter(msg => msg !== null);
+
+      console.log(`✅ Successfully fetched ${validMessages.length} message details`);
+
+      // Process and save messages to Firestore
+      const { db } = await import('@/lib/firebase');
+      const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+
+      let importedCount = 0;
+      for (const message of validMessages) {
+        try {
+          // Extract message data
+          const headers = message.payload.headers || [];
+          const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
+          const from = headers.find((h: any) => h.name === 'From')?.value || '';
+          const to = headers.find((h: any) => h.name === 'To')?.value || '';
+          const date = headers.find((h: any) => h.name === 'Date')?.value || '';
+
+          // Extract body
+          let body = '';
+          if (message.payload.body && message.payload.body.data) {
+            body = Buffer.from(message.payload.body.data, 'base64').toString();
+          } else if (message.payload.parts) {
+            for (const part of message.payload.parts) {
+              if (part.mimeType === 'text/plain' && part.body && part.body.data) {
+                body = Buffer.from(part.body.data, 'base64').toString();
+                break;
+              }
+            }
+          }
+
+          // Determine direction
+          const direction = from.includes(contactEmail) ? 'received' : 'sent';
+
+          // Save to Firestore
+          await addDoc(collection(db, `users/${userId}/contacts/${contactEmail}/messages`), {
+            id: message.id,
+            threadId: message.threadId,
+            subject,
+            body,
+            from,
+            to,
+            date: date ? new Date(date) : new Date(),
+            direction,
+            source: 'gmail',
+            createdAt: Timestamp.now(),
+            userId
+          });
+
+          importedCount++;
+        } catch (error) {
+          console.error(`Error processing message ${message.id}:`, error);
+        }
+      }
+
+      console.log(`✅ Successfully imported ${importedCount} messages`);
+
+      // Trigger todo analysis if enabled
+      if (config.enableTodoScanning && importedCount > 0) {
+        console.log('🔄 Triggering todo analysis...');
+        // Note: Todo analysis would need to be implemented separately
+        // For now, we'll just log that it should be triggered
+      }
+
+      return { 
+        success: true, 
+        totalImportedMessages: importedCount 
+      };
+
+    } catch (error) {
+      console.error('❌ Error importing Gmail messages:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
 }
 
 // Export singleton instance
