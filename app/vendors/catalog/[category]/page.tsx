@@ -22,30 +22,14 @@ import { deduplicatedRequest } from '@/utils/requestDeduplicator';
 import { vendorCacheService } from '@/utils/vendorCacheService';
 import { optimizedGooglePlaces } from '@/utils/optimizedGooglePlaces';
 
-const CATEGORIES = [
-  { value: 'florist', label: 'Florists', singular: 'Florist' },
-  { value: 'jewelry_store', label: 'Jewelers', singular: 'Jeweler' },
-  { value: 'bakery', label: 'Bakeries & Cakes', singular: 'Bakery' },
-  { value: 'restaurant', label: 'Reception Venues', singular: 'Reception Venue' },
-  { value: 'hair_care', label: 'Hair & Beauty', singular: 'Hair & Beauty' },
-  { value: 'photographer', label: 'Photographers', singular: 'Photographer' },
-  { value: 'videographer', label: 'Videographers', singular: 'Videographer' },
-  { value: 'clothing_store', label: 'Bridal Salons', singular: 'Bridal Salon' },
-  { value: 'beauty_salon', label: 'Beauty Salons', singular: 'Beauty Salon' },
-  { value: 'spa', label: 'Spas', singular: 'Spa' },
-  { value: 'dj', label: 'DJs', singular: 'DJ' },
-  { value: 'band', label: 'Bands', singular: 'Band' },
-  { value: 'wedding_planner', label: 'Wedding Planners', singular: 'Wedding Planner' },
-  { value: 'caterer', label: 'Catering', singular: 'Caterer' },
-  { value: 'car_rental', label: 'Car Rentals', singular: 'Car Rental' },
-  { value: 'travel_agency', label: 'Travel Agencies', singular: 'Travel Agency' },
-  { value: 'officiant', label: 'Officiants', singular: 'Officiant' },
-  { value: 'suit_rental', label: 'Suit & Tux Rentals', singular: 'Suit & Tux Rental' },
-  { value: 'makeup_artist', label: 'Makeup Artists', singular: 'Makeup Artist' },
-  { value: 'stationery', label: 'Stationery & Invitations', singular: 'Stationery' },
-  { value: 'rentals', label: 'Event Rentals', singular: 'Event Rental' },
-  { value: 'favors', label: 'Wedding Favors', singular: 'Wedding Favor' },
-];
+import { VENDOR_CATEGORIES } from '@/constants/vendorCategories';
+
+// Use the centralized categories from constants
+const CATEGORIES = VENDOR_CATEGORIES.map(cat => ({
+  value: cat.value,
+  label: cat.label,
+  singular: cat.singular
+}));
 
 
 
@@ -396,57 +380,43 @@ const VendorCategoryPage: React.FC = () => {
 
     setIsSearching(true);
     try {
-      // First, try searching within the cached vendors (fast, no API call)
-      const cachedVendors = await vendorCacheService.getVendors(category, location);
-      const cachedResults = filterVendorsBySearch(cachedVendors, term);
+      console.log(`🔍 Searching for specific venue: "${term}" in ${category}, ${location}`);
       
-      // If we found good results in cache, use them
-      if (cachedResults.length >= 3) {
-        setSearchResults(cachedResults);
-        return;
-      }
-      
-      // If cache results are insufficient, try API search with longer debounce
-      // Use a longer delay for API calls to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // For specific venue searches, always use API search to find the exact venue
+      // Don't rely on cached results for specific venue names
       const apiFilters = getApiFilters(apiFilterValues);
       const body = { 
         category, 
         location, 
-        searchTerm: term,
+        searchTerm: term, // This will trigger text search in Google Places API
         ...apiFilters 
       };
+      
+      console.log('🚀 API search request:', body);
       
       const data = await deduplicatedRequest.post('/api/google-places-optimized', body, {
         cache: true,
         cacheTTL: 5 * 60 * 1000 // 5 minutes cache for search results
       });
       
+      console.log('📊 API search response:', { 
+        resultsCount: data.results?.length || 0, 
+        hasError: !!data.error 
+      });
+      
       if (data.error) {
         console.error('API search error:', data.error);
-        // Fall back to cached results even if fewer
-        setSearchResults(cachedResults);
-      } else if (Array.isArray(data.results) && data.results.length > 0) {
-        setSearchResults(data.results);
-      } else if (Array.isArray(data.results) && data.results.length === 0) {
-        // No results found from API search
         setSearchResults([]);
+      } else if (Array.isArray(data.results) && data.results.length > 0) {
+        console.log(`✅ Found ${data.results.length} results for "${term}"`);
+        setSearchResults(data.results);
       } else {
-        // Fallback to cached results
-        setSearchResults(cachedResults);
+        console.log(`❌ No results found for "${term}"`);
+        setSearchResults([]);
       }
     } catch (error) {
       console.error('Error searching vendors:', error);
-      // Fall back to cached search
-      try {
-        const cachedVendors = await vendorCacheService.getVendors(category, location);
-        const cachedResults = filterVendorsBySearch(cachedVendors, term);
-        setSearchResults(cachedResults);
-      } catch (fallbackError) {
-        console.error('Fallback search failed:', fallbackError);
-        setSearchResults([]);
-      }
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
