@@ -25,12 +25,16 @@ export async function POST(req: NextRequest) {
       email: contactEmail
     }] : [];
 
+    console.log('🔍 Contact data for analysis:', contacts);
+
     // Run the analysis using the working system
     const analysisResult = await performTodoAnalysis(
       userId,
       contacts,
       true // Store suggestions
     );
+
+    console.log('🔍 Raw analysis result:', analysisResult);
 
     console.log('✅ Message analysis completed:', {
       messagesAnalyzed: analysisResult.messagesAnalyzed,
