@@ -34,9 +34,16 @@ export default function BulkContactModal({ vendors, isOpen, onClose }: BulkConta
       const details = await Promise.all(
         vendors.map(async (vendor) => {
           try {
-            const response = await fetch(`/api/google-place-details?placeId=${vendor.id}`);
-            const data = await response.json();
-            return data.status === 'OK' ? data.result : null;
+            // Use client-side Google Places API
+            const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+            const detailsResult = await googlePlacesClientService.getPlaceDetails(vendor.id);
+            
+            if (!detailsResult.success) {
+              console.error('Failed to fetch place details:', detailsResult.error);
+              return null;
+            }
+            
+            return detailsResult.place;
           } catch (error) {
             console.error('Error fetching vendor details:', error);
             return null;

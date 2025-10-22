@@ -139,9 +139,15 @@ export default function VendorContactModal({ vendor, isOpen, onClose }: VendorCo
   const fetchVendorDetails = async () => {
     setLoading(true);
     try {
-      // First fetch vendor details
-      const response = await fetch(`/api/google-place-details?placeId=${vendor.id}`);
-      const data = await response.json();
+      // First fetch vendor details using client-side Google Places API
+      const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+      const detailsResult = await googlePlacesClientService.getPlaceDetails(vendor.id);
+      
+      if (!detailsResult.success) {
+        throw new Error(detailsResult.error || 'Failed to fetch place details');
+      }
+      
+      const data = { status: 'OK', result: detailsResult.place };
       if (data.status === 'OK') {
         setVendorDetails(data.result);
       }

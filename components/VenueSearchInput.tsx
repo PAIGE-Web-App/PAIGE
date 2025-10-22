@@ -49,23 +49,20 @@ export default function VenueSearchInput({
       setIsLoading(true);
       
       try {
-        // Use our own venue search API with better control
-        const response = await fetch('/api/venue-suggestions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            searchTerm: inputValue,
-            weddingLocation: weddingLocation || 'United States',
-            maxResults: 8
-          })
+        // Use client-side Google Places API for venue search
+        const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+        const searchResult = await googlePlacesClientService.searchPlaces({
+          category: 'wedding_venue',
+          location: weddingLocation || 'United States',
+          searchTerm: inputValue,
+          maxResults: 8
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Venue search results:', data.venues);
-          setSuggestions(data.venues || []);
+        if (searchResult.success && searchResult.results) {
+          console.log('Venue search results:', searchResult.results);
+          setSuggestions(searchResult.results);
         } else {
-          console.error('Venue search failed:', response.status);
+          console.error('Venue search failed:', searchResult.error);
           setSuggestions([]);
         }
       } catch (error) {

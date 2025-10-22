@@ -213,6 +213,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     lastDoc: null,
     isInitialLoad: true 
   });
+  
+  // Message state for real-time display
+  const [messages, setMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
   const [selectedChannel, setSelectedChannel] = useState("Gmail");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [animatedDraft, setAnimatedDraft] = useState("");
@@ -250,7 +257,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     };
   }, [showMobileMenu]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // messagesEndRef already declared above
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -277,10 +284,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [importedOnce, setImportedOnce] = useState(false);
   
-  // Message state
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Message state (already declared above)
   
   const [gmailAccountMismatch, setGmailAccountMismatch] = useState<{
     hasMismatch: boolean;
@@ -347,29 +351,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
 
 
-  const handleDeleteMessage = async (message: Message) => {
-    if (!selectedContact || !currentUser) return;
-    
-    try {
-      // Remove from local state immediately for responsive UI
-      dispatch({ type: 'SET_MESSAGES', payload: state.messages.filter(m => m.id !== message.id) });
-      
-      // Delete from Firestore using the correct nested path
-      const messageRef = doc(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`, message.id);
-      await deleteDoc(messageRef);
-      
-      // Show success toast
-      showSuccessToast('Message removed successfully!');
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      
-      // Revert local state if deletion failed
-      dispatch({ type: 'SET_MESSAGES', payload: [...state.messages, message] });
-      
-      // Show error toast
-      showErrorToast('Failed to remove message. Please try again.');
-    }
-  };
+  // handleDeleteMessage already declared above
 
   // Auto-expand textarea as input changes
   useEffect(() => {
@@ -443,15 +425,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   }, [state.hasMore, state.loading, state.lastDoc, currentUser?.uid, selectedContact?.id]);
 
-  // Handle scroll to load more messages
-  const handleScroll = useCallback(() => {
-    if (!messagesEndRef.current) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = messagesEndRef.current;
-    if (scrollHeight - scrollTop - clientHeight < 100) { // Load more when within 100px of bottom
-      loadMoreMessages();
-    }
-  }, [loadMoreMessages]);
+  // handleScroll already declared above
 
   // Initial message load
   useEffect(() => {
@@ -1034,6 +1008,64 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   }, [currentUser?.uid]);
 
+  // Effect to fetch messages when a contact is selected
+  useEffect(() => {
+    if (!selectedContact?.id || !currentUser?.uid) {
+      setMessages([]);
+      return;
+    }
+
+    setMessagesLoading(true);
+    setIsInitialLoad(true);
+
+    // Set up real-time listener for messages
+    const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
+    const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const fetchedMessages: any[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedMessages.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+        });
+      });
+      
+      setMessages(fetchedMessages);
+      setMessagesLoading(false);
+      setIsInitialLoad(false);
+    }, (error) => {
+      console.error('Error fetching messages:', error);
+      setMessagesLoading(false);
+      setIsInitialLoad(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedContact?.id, currentUser?.uid]);
+
+  // Handle scroll to bottom
+  const handleScroll = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // Handle message deletion
+  const handleDeleteMessage = useCallback(async (message: any) => {
+    if (!selectedContact?.id || !currentUser?.uid) return;
+    
+    try {
+      const messageRef = doc(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`, message.id);
+      await deleteDoc(messageRef);
+      showSuccessToast('Message deleted successfully');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showErrorToast('Failed to delete message');
+    }
+  }, [selectedContact?.id, currentUser?.uid, showSuccessToast, showErrorToast]);
+
   // Check Gmail eligibility for selected contact
   useEffect(() => {
     let isMounted = true;
@@ -1568,9 +1600,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
     setVendorContactLoading(true);
     try {
-      // Fetch vendor details from Google Places API
-      const response = await fetch(`/api/google-place-details?placeId=${selectedContact.placeId}`);
-      const data = await response.json();
+      // Fetch vendor details using client-side Google Places API
+      const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+      const detailsResult = await googlePlacesClientService.getPlaceDetails(selectedContact.placeId);
+      
+      if (!detailsResult.success) {
+        console.error('Failed to fetch vendor details:', detailsResult.error);
+        setHasContactInfo(false);
+        return;
+      }
+      
+      const data = { status: 'OK', result: detailsResult.place };
       
       if (data.status === 'OK' && data.result) {
         // Cache the vendor details with timestamp and contact info

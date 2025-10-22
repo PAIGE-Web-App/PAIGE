@@ -300,21 +300,21 @@ const VendorSwipeInterface: React.FC<VendorSwipeInterfaceProps> = ({
         return vendor.images;
       }
 
-      // Otherwise, fetch images from Google Places API
-      const response = await fetch(`/api/google-place-details?place_id=${vendor.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.photos && data.photos.length > 0) {
-          const imageUrls = data.photos.map((photo: any) => 
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`
-          );
-          
-          setLoadedImages(prev => ({
-            ...prev,
-            [vendor.id]: imageUrls
-          }));
-          return imageUrls;
-        }
+      // Otherwise, fetch images using client-side Google Places API
+      const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+      const detailsResult = await googlePlacesClientService.getPlaceDetails(vendor.id);
+      
+      if (detailsResult.success && detailsResult.place?.photos && detailsResult.place.photos.length > 0) {
+        const data = { photos: detailsResult.place.photos };
+        const imageUrls = data.photos.map((photo: any) => 
+          `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`
+        );
+        
+        setLoadedImages(prev => ({
+          ...prev,
+          [vendor.id]: imageUrls
+        }));
+        return imageUrls;
       }
       
       // Fallback: return empty array

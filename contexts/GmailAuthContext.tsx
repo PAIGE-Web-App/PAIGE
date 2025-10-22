@@ -34,15 +34,12 @@ export function GmailAuthProvider({ children }: { children: React.ReactNode }) {
     setLastChecked(now);
     
     try {
-      const response = await fetch('/api/check-gmail-auth-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, force }),
-      });
+      // Use client-side Gmail auth check
+      const { gmailClientService } = await import('@/utils/gmailClientService');
+      const isAvailable = await gmailClientService.isGmailAvailable(user.uid);
       
-      const data = await response.json();
-      console.log('Gmail auth check result:', data);
-      setNeedsReauth(data.needsReauth || false);
+      console.log('Gmail auth check result:', { isAvailable });
+      setNeedsReauth(!isAvailable);
     } catch (error) {
       console.error('Error checking Gmail auth status:', error);
       // Don't show banner on network errors, only on actual auth failures

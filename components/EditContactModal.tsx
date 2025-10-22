@@ -168,9 +168,15 @@ export default function EditContactModal({
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       );
       
-      const fetchPromise = fetch(`/api/google-place-details?placeId=${placeId}`);
-      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
-      const data = await response.json();
+      // Use client-side Google Places API
+      const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+      const detailsResult = await googlePlacesClientService.getPlaceDetails(placeId);
+      
+      if (!detailsResult.success) {
+        throw new Error(detailsResult.error || 'Failed to fetch place details');
+      }
+      
+      const data = { status: 'OK', result: detailsResult.place };
       
       console.log('Vendor details response:', data);
       if (data.status === 'OK' && data.result) {

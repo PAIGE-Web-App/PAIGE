@@ -202,8 +202,15 @@ const VendorSearchField = React.memo(function VendorSearchField({
   const handleVendorSelect = async (vendor: any) => {
     // Fetch additional details including website
     try {
-      const response = await fetch(`/api/google-place-details?placeId=${vendor.place_id}`);
-      const details = await response.json();
+      // Use client-side Google Places API
+      const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
+      const detailsResult = await googlePlacesClientService.getPlaceDetails(vendor.place_id);
+      
+      if (!detailsResult.success) {
+        throw new Error(detailsResult.error || 'Failed to fetch place details');
+      }
+      
+      const details = { result: detailsResult.place };
       
       if (details.result) {
         // Merge the details with the vendor data
