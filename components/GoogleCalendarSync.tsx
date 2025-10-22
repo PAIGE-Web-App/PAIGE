@@ -4,6 +4,7 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { useGmailAuth } from '@/contexts/GmailAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { googleCalendarClientService } from '@/utils/googleCalendarClientService';
 
 interface GoogleCalendarSyncProps {
   userId: string;
@@ -54,6 +55,32 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
 
   const fetchCalendarStatus = async () => {
     try {
+      console.log('🔍 Fetching calendar status via client-side API...');
+      
+      // Try client-side Google Calendar API first (faster and more reliable)
+      const clientResult = await googleCalendarClientService.getCalendarStatus(userId);
+      
+      if (clientResult.success) {
+        console.log('✅ Client-side calendar status successful');
+        setCalendarStatus({
+          isLinked: clientResult.isLinked || false,
+          calendarId: clientResult.calendarId,
+          calendarName: clientResult.calendarName,
+          lastSyncAt: clientResult.lastSyncAt,
+          lastSyncCount: clientResult.lastSyncCount,
+          lastSyncErrors: clientResult.lastSyncErrors?.length || 0,
+          lastSyncFromAt: clientResult.lastSyncFromAt,
+          lastSyncFromCount: clientResult.lastSyncFromCount,
+          lastSyncFromErrors: clientResult.lastSyncFromErrors?.length || 0,
+          lastWebhookSyncAt: clientResult.lastWebhookSyncAt,
+          lastWebhookEventCount: clientResult.lastWebhookEventCount,
+        });
+        return;
+      }
+
+      console.log('⚠️ Client-side failed, falling back to server route...');
+      
+      // Fallback to server route
       const response = await fetch('/api/google-calendar/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,9 +90,10 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
       if (response.ok) {
         const data = await response.json();
         setCalendarStatus(data);
+        console.log('✅ Server route calendar status successful');
       }
     } catch (error) {
-      console.error('Error fetching calendar status:', error);
+      console.error('❌ Error fetching calendar status:', error);
     }
   };
 
@@ -78,21 +106,21 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
     setIsCreating(true);
     setShowCreateModal(false);
     try {
-      const response = await fetch('/api/google-calendar/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId,
-          calendarName: calendarNameInput || 'All Wedding To-Do\'s - From Paige'
-        }),
+      console.log('🚀 Creating Google Calendar via client-side API...');
+      
+      // Try client-side Google Calendar API first (faster and more reliable)
+      const clientResult = await googleCalendarClientService.createCalendarWithFallback({
+        userId,
+        calendarName: calendarNameInput || 'All Wedding To-Do\'s - From Paige'
       });
-      const data = await response.json();
-      if (data.success) {
-        showSuccessToast(data.message || 'Google Calendar linked successfully!');
+      
+      if (clientResult.success) {
+        console.log('✅ Client-side calendar creation successful');
+        showSuccessToast(clientResult.message || 'Google Calendar linked successfully!');
         setCalendarStatus({
           isLinked: true,
-          calendarId: data.calendarId,
-          calendarName: data.calendarName,
+          calendarId: clientResult.calendarId,
+          calendarName: clientResult.calendarName,
           lastSyncAt: new Date().toISOString(),
         });
         onSyncComplete?.();
@@ -101,10 +129,12 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         setExistingCalendarName('');
       } else {
         // Check if this is a Google authentication error
-        const errorMessage = data.message || '';
+        const errorMessage = clientResult.error || '';
         if (errorMessage.includes('Google authentication expired') || 
             errorMessage.includes('Google authentication required') ||
-            errorMessage.includes('invalid_grant')) {
+            errorMessage.includes('invalid_grant') ||
+            clientResult.errorType === 'auth_required' ||
+            clientResult.errorType === 'auth_expired') {
           // Trigger Gmail auth check to show the global banner
           checkGmailAuth(true); // Force check
           showErrorToast('Google authentication expired. Please re-authenticate to create Google Calendar.');
@@ -113,7 +143,7 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error creating calendar:', error);
+      console.error('❌ Error creating calendar:', error);
       
       // Check if this is a Google authentication error
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -141,36 +171,55 @@ const GoogleCalendarSync: React.FC<GoogleCalendarSyncProps> = ({
 
     setIsSyncingTo(true);
     try {
-      const response = await fetch('/api/google-calendar/sync-to-calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId,
-          todoItems
-        }),
+      console.log('🔄 Syncing todos to Google Calendar via client-side API...');
+      
+      // Try client-side Google Calendar API first (faster and more reliable)
+      const clientResult = await googleCalendarClientService.syncTodosToCalendar({
+        userId,
+        direction: 'to',
+        todos: todoItems
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        showSuccessToast(data.message);
+      
+      if (clientResult.success) {
+        console.log('✅ Client-side calendar sync successful');
+        showSuccessToast(clientResult.message || 'Todos synced to Google Calendar successfully!');
         await fetchCalendarStatus();
         onSyncComplete?.();
       } else {
-        // Check if this is a Google authentication error
-        const errorMessage = data.message || '';
-        if (errorMessage.includes('Google authentication expired') || 
-            errorMessage.includes('Google authentication required') ||
-            errorMessage.includes('invalid_grant')) {
-          // Trigger Gmail auth check to show the global banner
-          checkGmailAuth(true); // Force check
-          showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+        console.log('⚠️ Client-side failed, falling back to server route...');
+        
+        // Fallback to server route
+        const response = await fetch('/api/google-calendar/sync-to-calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId,
+            todoItems
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showSuccessToast(data.message);
+          await fetchCalendarStatus();
+          onSyncComplete?.();
         } else {
-          showErrorToast(errorMessage || 'Failed to sync to Google Calendar');
+          // Check if this is a Google authentication error
+          const errorMessage = data.message || '';
+          if (errorMessage.includes('Google authentication expired') || 
+              errorMessage.includes('Google authentication required') ||
+              errorMessage.includes('invalid_grant')) {
+            // Trigger Gmail auth check to show the global banner
+            checkGmailAuth(true); // Force check
+            showErrorToast('Google authentication expired. Please re-authenticate to sync with Google Calendar.');
+          } else {
+            showErrorToast(errorMessage || 'Failed to sync to Google Calendar');
+          }
         }
       }
     } catch (error) {
-      console.error('Error syncing to calendar:', error);
+      console.error('❌ Error syncing to calendar:', error);
       
       // Check if this is a Google authentication error
       const errorMessage = error instanceof Error ? error.message : String(error);

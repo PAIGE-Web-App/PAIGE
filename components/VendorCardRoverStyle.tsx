@@ -4,6 +4,7 @@ import VendorEmailBadge from './VendorEmailBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, Star, MapPin, Phone, Mail, Globe, Flag, MessageSquare } from 'lucide-react';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { googlePhotosClientService } from '@/utils/googlePhotosClientService';
 
 import { useFavoritesSimple } from '@/hooks/useFavoritesSimple';
 
@@ -70,23 +71,32 @@ const VendorCardRoverStyle = React.memo(({
         return;
       }
 
-      // Try to fetch images from Google Places API
+      // Try to fetch images from Google Places API via client-side service
       if (vendor.place_id) {
-        fetch(`/api/vendor-photos/${vendor.place_id}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.images && data.images.length > 0) {
-              setImgSrc(data.images[0]);
-              setImageLoading(false);
-            } else {
-              setImgSrc('/Venue.png');
-              setImageLoading(false);
-            }
-          })
-          .catch(() => {
+        console.log('🖼️ Fetching vendor photos via client-side API...', vendor.place_id);
+        
+        googlePhotosClientService.searchPhotosWithFallback({
+          placeId: vendor.place_id,
+          limit: 1,
+          maxWidth: 400,
+          maxHeight: 300
+        })
+        .then(result => {
+          if (result.success && result.images && result.images.length > 0) {
+            console.log('✅ Client-side photo fetch successful');
+            setImgSrc(result.images[0]);
+            setImageLoading(false);
+          } else {
+            console.log('⚠️ No photos found, using default image');
             setImgSrc('/Venue.png');
             setImageLoading(false);
-          });
+          }
+        })
+        .catch(error => {
+          console.error('❌ Photo fetch failed:', error);
+          setImgSrc('/Venue.png');
+          setImageLoading(false);
+        });
       } else {
         setImgSrc('/Venue.png');
         setImageLoading(false);
