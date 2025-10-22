@@ -45,48 +45,70 @@ export async function POST(req: NextRequest) {
 
     // Process each contact in batches to avoid memory issues
     for (const contactDoc of contactsSnapshot.docs) {
+      const contactData = contactDoc.data();
+      const contactEmail = contactData.email;
       const contactId = contactDoc.id;
+      
+      if (!contactEmail) continue;
 
-      // Query Gmail messages only (source === 'gmail')
-      // This preserves manually created messages
-      const gmailMessagesSnapshot = await adminDb
-        .collection(`users/${userId}/contacts/${contactId}/messages`)
-        .where('source', '==', 'gmail')
-        .get();
+      let contactDeleted = 0;
 
-      if (!gmailMessagesSnapshot.empty) {
-        affectedContacts++;
-        
-        // Delete in batches of 500 (Firestore limit)
-        const batchSize = 500;
-        const batches = [];
-        let currentBatch = adminDb.batch();
-        let operationCount = 0;
+      // Check both possible paths: contactId and contactEmail
+      const pathsToCheck = [
+        `users/${userId}/contacts/${contactId}/messages`, // Old format
+        `users/${userId}/contacts/${contactEmail}/messages` // New format
+      ];
 
-        gmailMessagesSnapshot.docs.forEach((doc) => {
-          currentBatch.delete(doc.ref);
-          operationCount++;
-          totalDeleted++;
+      for (const path of pathsToCheck) {
+        try {
+          // Query Gmail messages only (source === 'gmail')
+          // This preserves manually created messages
+          const gmailMessagesSnapshot = await adminDb
+            .collection(path)
+            .where('source', '==', 'gmail')
+            .get();
 
-          // When batch reaches 500, start a new one
-          if (operationCount === batchSize) {
-            batches.push(currentBatch);
-            currentBatch = adminDb.batch();
-            operationCount = 0;
+          if (!gmailMessagesSnapshot.empty) {
+            if (contactDeleted === 0) {
+              affectedContacts++;
+            }
+            
+            // Delete in batches of 500 (Firestore limit)
+            const batchSize = 500;
+            const batches = [];
+            let currentBatch = adminDb.batch();
+            let operationCount = 0;
+
+            gmailMessagesSnapshot.docs.forEach((doc) => {
+              currentBatch.delete(doc.ref);
+              operationCount++;
+              totalDeleted++;
+              contactDeleted++;
+
+              // When batch reaches 500, start a new one
+              if (operationCount === batchSize) {
+                batches.push(currentBatch);
+                currentBatch = adminDb.batch();
+                operationCount = 0;
+              }
+            });
+
+            // Add the last batch if it has operations
+            if (operationCount > 0) {
+              batches.push(currentBatch);
+            }
+
+            // Execute all batches
+            await Promise.all(batches.map((batch) => batch.commit()));
+
+            console.log(
+              `[GMAIL PURGE] Deleted ${gmailMessagesSnapshot.size} messages from path ${path}`
+            );
           }
-        });
-
-        // Add the last batch if it has operations
-        if (operationCount > 0) {
-          batches.push(currentBatch);
+        } catch (error) {
+          // Path might not exist, continue
+          console.log(`[GMAIL PURGE] Path ${path} does not exist or has no messages`);
         }
-
-        // Execute all batches
-        await Promise.all(batches.map((batch) => batch.commit()));
-
-        console.log(
-          `[GMAIL PURGE] Deleted ${gmailMessagesSnapshot.size} messages for contact ${contactId}`
-        );
       }
     }
 
@@ -162,15 +184,35 @@ export async function GET(req: NextRequest) {
 
     // Count Gmail messages for each contact
     for (const contactDoc of contactsSnapshot.docs) {
-      const contactId = contactDoc.id;
+      const contactData = contactDoc.data();
+      const contactEmail = contactData.email;
+      
+      if (!contactEmail) continue;
 
-      // Use count() aggregation for efficient counting (no data transfer)
-      const gmailMessagesQuery = adminDb
-        .collection(`users/${userId}/contacts/${contactId}/messages`)
-        .where('source', '==', 'gmail');
-
-      const snapshot = await gmailMessagesQuery.count().get();
-      const count = snapshot.data().count;
+      // Check both possible paths: contactId and contactEmail
+      let count = 0;
+      
+      // First check the contactId path (old format)
+      try {
+        const gmailMessagesQuery1 = adminDb
+          .collection(`users/${userId}/contacts/${contactDoc.id}/messages`)
+          .where('source', '==', 'gmail');
+        const snapshot1 = await gmailMessagesQuery1.count().get();
+        count += snapshot1.data().count;
+      } catch (error) {
+        // Path might not exist, continue
+      }
+      
+      // Then check the contactEmail path (new format)
+      try {
+        const gmailMessagesQuery2 = adminDb
+          .collection(`users/${userId}/contacts/${contactEmail}/messages`)
+          .where('source', '==', 'gmail');
+        const snapshot2 = await gmailMessagesQuery2.count().get();
+        count += snapshot2.data().count;
+      } catch (error) {
+        // Path might not exist, continue
+      }
 
       if (count > 0) {
         totalMessages += count;
