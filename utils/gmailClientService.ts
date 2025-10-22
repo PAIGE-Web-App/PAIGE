@@ -656,8 +656,28 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       // Trigger todo analysis if enabled
       if (config.enableTodoScanning && importedCount > 0) {
         console.log('🔄 Triggering todo analysis...');
-        // Note: Todo analysis would need to be implemented separately
-        // For now, we'll just log that it should be triggered
+        try {
+          // Call the server-side todo analysis API
+          const analysisResponse = await fetch('/api/scan-messages-for-todos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userId,
+              contactEmail: contactEmail,
+              triggerSource: 'gmail-import'
+            })
+          });
+          
+          if (analysisResponse.ok) {
+            const analysisResult = await analysisResponse.json();
+            console.log('✅ Todo analysis completed:', analysisResult);
+          } else {
+            console.warn('Todo analysis API call failed:', analysisResponse.status);
+          }
+        } catch (error) {
+          console.error('❌ Todo analysis failed:', error);
+          // Don't fail the import if analysis fails
+        }
       }
 
       return { 
