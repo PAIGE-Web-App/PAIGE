@@ -1028,49 +1028,44 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       return;
     }
 
-    console.log('🔍 MessageArea: Setting up message listener for contact:', selectedContact.id, 'user:', currentUser.uid);
-    setMessagesLoading(true);
-    setIsInitialLoad(true);
+       setMessagesLoading(true);
+       setIsInitialLoad(true);
 
-    // Set up real-time listener for messages
-    // Use the contact email as the document ID since that's how Gmail import saves messages
-    const contactEmail = selectedContact.email;
-    console.log('🔍 MessageArea: Using contact email for messages path:', contactEmail);
+       // Set up real-time listener for messages
+       // Use the contact email as the document ID since that's how Gmail import saves messages
+       const contactEmail = selectedContact.email;
     const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
     const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(50)); // Limit to 50 messages
 
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      console.log('🔍 MessageArea: Received snapshot with', snapshot.docs.length, 'messages');
-      const fetchedMessages: any[] = [];
-      const seenIds = new Set<string>();
-      
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const messageId = data.id || doc.id; // Use Gmail message ID if available, otherwise Firestore doc ID
-        
-        // Skip duplicates based on Gmail message ID
-        if (seenIds.has(messageId)) {
-          console.log('🔍 MessageArea: Skipping duplicate message:', messageId);
-          return;
-        }
-        
-        seenIds.add(messageId);
-        fetchedMessages.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        });
-      });
-      
-      console.log('🔍 MessageArea: Setting messages:', fetchedMessages.length, 'messages (after deduplication)');
-      setMessages(fetchedMessages);
-      setMessagesLoading(false);
-      setIsInitialLoad(false);
-    }, (error) => {
-      console.error('❌ MessageArea: Error fetching messages:', error);
-      setMessagesLoading(false);
-      setIsInitialLoad(false);
-    });
+         const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+           const fetchedMessages: any[] = [];
+           const seenIds = new Set<string>();
+           
+           snapshot.forEach((doc) => {
+             const data = doc.data();
+             const messageId = data.id || doc.id; // Use Gmail message ID if available, otherwise Firestore doc ID
+             
+             // Skip duplicates based on Gmail message ID
+             if (seenIds.has(messageId)) {
+               return;
+             }
+             
+             seenIds.add(messageId);
+             fetchedMessages.push({
+               id: doc.id,
+               ...data,
+               createdAt: data.createdAt?.toDate() || new Date(),
+             });
+           });
+           
+           setMessages(fetchedMessages);
+           setMessagesLoading(false);
+           setIsInitialLoad(false);
+         }, (error) => {
+           console.error('❌ MessageArea: Error fetching messages:', error);
+           setMessagesLoading(false);
+           setIsInitialLoad(false);
+         });
 
     return () => unsubscribe();
   }, [selectedContact?.id, currentUser?.uid]);

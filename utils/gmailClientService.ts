@@ -630,22 +630,29 @@ View full conversation and manage your wedding planning at https://weddingpaige.
           // Determine direction
           const direction = from.includes(contactEmail) ? 'received' : 'sent';
 
-          // Parse date more robustly
+          // Parse date more robustly - check multiple possible date fields
           let parsedDate: Date;
-          if (date) {
+          const dateValue = date || message.date || message.internalDate;
+          
+          if (dateValue) {
             try {
-              // Gmail API returns dates in RFC 2822 format
-              parsedDate = new Date(date);
+              // Handle both RFC 2822 format and Unix timestamp
+              if (typeof dateValue === 'number') {
+                parsedDate = new Date(dateValue);
+              } else {
+                parsedDate = new Date(dateValue);
+              }
               // Validate the parsed date
               if (isNaN(parsedDate.getTime())) {
-                console.warn('Invalid date from Gmail API:', date);
+                console.warn('Invalid date from Gmail API:', dateValue);
                 parsedDate = new Date();
               }
             } catch (error) {
-              console.warn('Error parsing date:', date, error);
+              console.warn('Error parsing date:', dateValue, error);
               parsedDate = new Date();
             }
           } else {
+            console.warn('No date found in Gmail message, using current time');
             parsedDate = new Date();
           }
 

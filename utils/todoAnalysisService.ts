@@ -52,16 +52,48 @@ export async function performTodoAnalysis(
     
     // Check each contact's message collection
     for (const contactId of contactsToAnalyze) {
-      const contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
-      if (!contactDoc.exists) continue;
+      // Try to find the contact by email first (since client-side import uses email as ID)
+      let contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
+      let contactData = contactDoc.exists ? contactDoc.data() : null;
       
-      const contactData = contactDoc.data();
+      // If not found by ID, try to find by email
+      if (!contactDoc.exists) {
+        const contactsSnapshot = await adminDb
+          .collection(`users/${userId}/contacts`)
+          .where('email', '==', contactId)
+          .limit(1)
+          .get();
+        
+        if (!contactsSnapshot.empty) {
+          contactDoc = contactsSnapshot.docs[0];
+          contactData = contactDoc.data();
+        }
+      }
       
-      const messagesSnapshot = await adminDb
-        .collection(`users/${userId}/contacts/${contactId}/messages`)
-        .orderBy('timestamp', 'desc')
-        .limit(10) // Only check last 10 messages per contact for efficiency
-        .get();
+      if (!contactData) continue;
+      
+      // Try both possible message paths: contactId and contactEmail
+      let messagesSnapshot;
+      try {
+        // First try the contactId path
+        messagesSnapshot = await adminDb
+          .collection(`users/${userId}/contacts/${contactId}/messages`)
+          .orderBy('timestamp', 'desc')
+          .limit(10)
+          .get();
+      } catch (error) {
+        // If that fails, try the contactEmail path
+        try {
+          messagesSnapshot = await adminDb
+            .collection(`users/${userId}/contacts/${contactData.email}/messages`)
+            .orderBy('timestamp', 'desc')
+            .limit(10)
+            .get();
+        } catch (error2) {
+          console.log(`No messages found for contact ${contactId}`);
+          continue;
+        }
+      }
       
       const contactMessages = messagesSnapshot.docs.map(doc => ({ 
         id: doc.id, 
