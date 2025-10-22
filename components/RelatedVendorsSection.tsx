@@ -10,6 +10,7 @@ import { enhanceVendorsWithImages } from '@/utils/vendorImageUtils';
 import VendorContactModal from '@/components/VendorContactModal';
 import { mapGoogleTypesToCategory } from '@/utils/vendorUtils';
 import { useEdgeConfig } from '@/hooks/useEdgeConfig';
+import { googlePlacesClientService } from '@/utils/googlePlacesClientService';
 
 // Fallback categories (used if Edge Config fails)
 const FALLBACK_CATEGORIES = [
@@ -111,13 +112,34 @@ const RelatedVendorsSection = React.memo(function RelatedVendorsSection({
         
 
         
-        // Use request deduplication to prevent duplicate API calls
-        const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
-        const data = await deduplicatedRequest.post('/api/google-places-optimized', {
-          category: apiCategory,
-          location,
-          maxResults: 10 // Fetch more to filter out current vendor and get best 3
-        });
+        // Try client-side Google Places API first (faster and more reliable)
+        console.log('🚀 Attempting client-side Google Places search...');
+        let data: any = null;
+        
+        try {
+          const clientResult = await googlePlacesClientService.searchPlaces({
+            category: apiCategory,
+            location,
+            maxResults: 10 // Fetch more to filter out current vendor and get best 3
+          });
+          
+          if (clientResult.success) {
+            console.log('✅ Client-side Google Places search successful');
+            data = { results: clientResult.results };
+          } else {
+            throw new Error(clientResult.error || 'Client-side Google Places search failed');
+          }
+        } catch (clientError) {
+          console.log('⚠️ Client-side Google Places failed, falling back to server route:', clientError);
+          
+          // Fallback to server route
+          const { deduplicatedRequest } = await import('@/utils/requestDeduplicator');
+          data = await deduplicatedRequest.post('/api/google-places-optimized', {
+            category: apiCategory,
+            location,
+            maxResults: 10 // Fetch more to filter out current vendor and get best 3
+          });
+        }
         
         if (data.results && Array.isArray(data.results)) {
           // Filter out current vendor and map to our format
