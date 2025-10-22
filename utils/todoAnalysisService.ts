@@ -78,7 +78,7 @@ export async function performTodoAnalysis(
         // First try the contactId path
         messagesSnapshot = await adminDb
           .collection(`users/${userId}/contacts/${contactId}/messages`)
-          .orderBy('timestamp', 'desc')
+          .orderBy('date', 'desc')
           .limit(10)
           .get();
       } catch (error) {
@@ -86,7 +86,7 @@ export async function performTodoAnalysis(
         try {
           messagesSnapshot = await adminDb
             .collection(`users/${userId}/contacts/${contactData.email}/messages`)
-            .orderBy('timestamp', 'desc')
+            .orderBy('date', 'desc')
             .limit(10)
             .get();
         } catch (error2) {
