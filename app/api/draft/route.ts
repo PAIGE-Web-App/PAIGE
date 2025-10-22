@@ -2,7 +2,7 @@
 import { OpenAI } from "openai";
 import { NextRequest, NextResponse } from "next/server";
 import { userContextBuilder } from "../../../utils/userContextBuilder";
-import { adminDb } from "../../../lib/firebaseAdmin";
+import { adminDb } from "@/lib/firebaseAdmin";
 import { withCreditValidation } from "../../../lib/creditMiddleware";
 // // import { ragService } from '@/lib/ragService';
 import { shouldUseRAG } from '@/lib/ragFeatureFlag';

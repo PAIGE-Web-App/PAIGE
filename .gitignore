@@ -78,3 +78,4 @@ logs/
 paige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
 paige-ai-db-firebase-adminsdk-fbsvc-4bc526de4d.json
 .env.local.backup
+backup_gmail_routes/

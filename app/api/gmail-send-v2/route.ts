@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { adminDb } from '../../../lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 // Helper to build a MIME email with optional attachments
-function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
+function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }: {
+  to: string;
+  from: string;
+  subject: string;
+  body: string;
+  inReplyTo?: string;
+  references?: string;
+  attachments?: Array<{ name: string; type: string; data: string }>;
+}) {
   // Add Paige footer to the email body
   const paigeFooter = `
 

@@ -4,7 +4,7 @@
  * Uses existing Firestore user document to avoid new collections/indexes
  */
 
-import { getAdminDb } from '../lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export interface GmailQuotas {

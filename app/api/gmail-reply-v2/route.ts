@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { adminDb } from '../../../lib/firebaseAdmin';
-import { GmailQuotaService } from '../../../utils/gmailQuotaService';
-import { GmailAuthErrorHandler } from '../../../utils/gmailAuthErrorHandler';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { GmailQuotaService } from '@/utils/gmailQuotaService';
+import { GmailAuthErrorHandler } from '@/utils/gmailAuthErrorHandler';
 
 // Helper to build a MIME email with optional attachments
-function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }) {
+function buildMimeEmail({ to, from, subject, body, inReplyTo, references, attachments }: {
+  to: string;
+  from: string;
+  subject: string;
+  body: string;
+  inReplyTo?: string;
+  references?: string;
+  attachments?: Array<{ name: string; type: string; data: string }>;
+}) {
   // Add Paige footer to the email body
   const paigeFooter = `
 
@@ -92,7 +100,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
   return headers.join('\r\n') + '\r\n\r\n' + messageParts.join('\r\n');
 }
 
-async function getUserGmailTokens(userId) {
+async function getUserGmailTokens(userId: string) {
   const userDoc = await adminDb.collection('users').doc(userId).get();
   if (!userDoc.exists) return null;
   const userData = userDoc.data();
