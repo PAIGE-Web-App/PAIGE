@@ -632,16 +632,36 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 
           // Parse date more robustly - check multiple possible date fields
           let parsedDate: Date;
-          const dateValue = date || message.date || message.internalDate;
+          
+          // Try different date sources in order of preference
+          let dateValue = date; // From headers
+          if (!dateValue) {
+            dateValue = message.date; // From message object
+          }
+          if (!dateValue) {
+            dateValue = message.internalDate; // From Gmail API internal date
+          }
+          
+          console.log('🔍 Date parsing debug:', {
+            headerDate: date,
+            messageDate: message.date,
+            internalDate: message.internalDate,
+            finalDateValue: dateValue
+          });
           
           if (dateValue) {
             try {
               // Handle both RFC 2822 format and Unix timestamp
               if (typeof dateValue === 'number') {
+                // Unix timestamp (milliseconds)
+                parsedDate = new Date(dateValue);
+              } else if (typeof dateValue === 'string') {
+                // RFC 2822 format or ISO string
                 parsedDate = new Date(dateValue);
               } else {
-                parsedDate = new Date(dateValue);
+                parsedDate = new Date();
               }
+              
               // Validate the parsed date
               if (isNaN(parsedDate.getTime())) {
                 console.warn('Invalid date from Gmail API:', dateValue);
