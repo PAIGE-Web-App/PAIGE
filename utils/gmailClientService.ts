@@ -590,6 +590,8 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       );
 
       console.log(`📋 Found ${existingMessageIds.size} existing messages, checking for duplicates...`);
+      console.log(`📋 Existing message IDs:`, Array.from(existingMessageIds).slice(0, 5)); // Show first 5 IDs
+      console.log(`📋 New message IDs to check:`, validMessages.slice(0, 5).map(m => m.id)); // Show first 5 new IDs
 
       let importedCount = 0;
       let skippedCount = 0;
@@ -602,6 +604,8 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             skippedCount++;
             continue;
           }
+
+          console.log(`✅ Processing new message: ${message.id}`);
 
           // Extract message data
           const headers = message.payload.headers || [];
