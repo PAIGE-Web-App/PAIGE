@@ -422,8 +422,8 @@ async function callAnalysisAPI(
     const n8nWebhookUrl = process.env.N8N_MESSAGE_ANALYSIS_WEBHOOK_URL;
     
     if (!n8nWebhookUrl) {
-      console.warn('N8N message analysis webhook URL not configured, skipping analysis');
-      return { newTodos: [], todoUpdates: [], completedTodos: [] };
+      console.warn('N8N message analysis webhook URL not configured, using local analysis fallback');
+      return await performLocalAnalysis(message, existingTodos, weddingContext, userId);
     }
 
     const response = await fetch(n8nWebhookUrl, {
@@ -575,6 +575,111 @@ async function completeTodo(completion: any, adminDb: any) {
     console.log(`Completed todo ${completion.todoId}`);
   } catch (error) {
     console.error('Error completing todo:', error);
+  }
+}
+
+async function performLocalAnalysis(
+  message: any,
+  existingTodos: any[],
+  weddingContext: any,
+  userId: string
+) {
+  try {
+    console.log('🔍 Performing local analysis for message:', message.id);
+    
+    const messageText = `${message.subject || ''} ${message.body || ''}`.toLowerCase();
+    const newTodos: any[] = [];
+    const todoUpdates: any[] = [];
+    const completedTodos: any[] = [];
+
+    // Look for completion indicators
+    const completionKeywords = [
+      'done with', 'completed', 'finished', 'accomplished', 'achieved',
+      'checked off', 'crossed off', 'marked complete', 'finished with'
+    ];
+
+    const hasCompletion = completionKeywords.some(keyword => 
+      messageText.includes(keyword)
+    );
+
+    if (hasCompletion) {
+      // Look for specific tasks that might be completed
+      const taskKeywords = [
+        'planning folder', 'cultural requirements', 'budget', 'guest list',
+        'venue', 'catering', 'flowers', 'music', 'photography', 'dress',
+        'invitations', 'decorations', 'timeline', 'seating chart'
+      ];
+
+      for (const keyword of taskKeywords) {
+        if (messageText.includes(keyword)) {
+          // Find matching existing todos
+          const matchingTodos = existingTodos.filter(todo => 
+            todo.name.toLowerCase().includes(keyword) || 
+            todo.note?.toLowerCase().includes(keyword)
+          );
+
+          for (const todo of matchingTodos) {
+            completedTodos.push({
+              todoId: todo.id,
+              completionReason: `Completed based on message: "${message.subject || 'No subject'}"`
+            });
+          }
+        }
+      }
+    }
+
+    // Look for new task indicators
+    const taskKeywords = [
+      'need to', 'should', 'must', 'have to', 'plan to', 'want to',
+      'schedule', 'book', 'reserve', 'order', 'buy', 'purchase',
+      'finalize', 'decide', 'choose', 'select', 'confirm'
+    ];
+
+    const hasNewTasks = taskKeywords.some(keyword => 
+      messageText.includes(keyword)
+    );
+
+    if (hasNewTasks) {
+      // Extract potential new tasks
+      const sentences = messageText.split(/[.!?]+/);
+      for (const sentence of sentences) {
+        if (sentence.trim().length > 10) {
+          // Look for actionable sentences
+          const actionWords = ['need', 'should', 'must', 'have to', 'plan', 'want', 'schedule', 'book', 'reserve', 'order', 'buy', 'finalize', 'decide', 'choose', 'select', 'confirm'];
+          const hasAction = actionWords.some(word => sentence.includes(word));
+          
+          if (hasAction) {
+            newTodos.push({
+              name: sentence.trim().charAt(0).toUpperCase() + sentence.trim().slice(1),
+              description: `Generated from message: "${message.subject || 'No subject'}"`,
+              category: 'general',
+              priority: 'medium'
+            });
+          }
+        }
+      }
+    }
+
+    // If no specific tasks found but message has content, create a generic todo
+    if (newTodos.length === 0 && completedTodos.length === 0 && messageText.length > 20) {
+      newTodos.push({
+        name: `Review message: "${message.subject || 'No subject'}"`,
+        description: `Follow up on: ${message.body?.substring(0, 100) || 'Message content'}...`,
+        category: 'general',
+        priority: 'low'
+      });
+    }
+
+    console.log(`🔍 Local analysis results: ${newTodos.length} new todos, ${completedTodos.length} completed todos`);
+    
+    return {
+      newTodos,
+      todoUpdates,
+      completedTodos
+    };
+  } catch (error) {
+    console.error('Error in local analysis:', error);
+    return { newTodos: [], todoUpdates: [], completedTodos: [] };
   }
 }
 
