@@ -1672,42 +1672,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   }, [selectedContact?.placeId, selectedContact?.email, selectedContact?.phone]); // Remove fetchVendorContactInfo dependency
 
-  // Effect to fetch messages when a contact is selected
-  useEffect(() => {
-    if (!selectedContact?.id || !currentUser?.uid) {
-      setMessages([]);
-      return;
-    }
-
-    setMessagesLoading(true);
-    setIsInitialLoad(true);
-
-    // Set up real-time listener for messages
-    const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
-    const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const fetchedMessages: Message[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        fetchedMessages.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as Message);
-      });
-      
-      setMessages(fetchedMessages);
-      setMessagesLoading(false);
-      setIsInitialLoad(false);
-    }, (error) => {
-      console.error('Error fetching messages:', error);
-      setMessagesLoading(false);
-      setIsInitialLoad(false);
-    });
-
-    return () => unsubscribe();
-  }, [selectedContact?.id, currentUser?.uid]);
 
   // Optimized debug effect - only log in development and reduce frequency
   useEffect(() => {
