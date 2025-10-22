@@ -676,16 +676,13 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       if (config.enableTodoScanning && importedCount > 0) {
         console.log('🔄 Triggering todo analysis...');
         try {
-          // Call the server-side todo analysis API
-          const analysisResponse = await fetch('/api/scan-messages-for-todos', {
+          // Call the working todo analysis API (use the same system as server-side import)
+          const analysisResponse = await fetch('/api/analyze-messages-for-todos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: userId,
-              contactId: contactEmail, // Use contactEmail as contactId since that's the path structure
-              scanType: 'recent_messages',
-              maxMessages: 20,
-              enableRAG: true
+              contactEmail: contactEmail
             })
           });
           
