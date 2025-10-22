@@ -1,0 +1,479 @@
+/**
+ * Client-Side Gmail API Service
+ * 
+ * This service handles all Gmail operations directly from the browser,
+ * bypassing Vercel's restrictions on server-side external API calls.
+ * 
+ * Benefits:
+ * - Faster performance (no server round-trip)
+ * - Better security (tokens never leave browser)
+ * - More reliable (no server dependencies)
+ * - Better error handling (direct Gmail API responses)
+ */
+
+interface GmailMessage {
+  to: string;
+  from: string;
+  subject: string;
+  body: string;
+  inReplyTo?: string;
+  references?: string;
+  attachments?: Array<{
+    name: string;
+    type: string;
+    data: string;
+  }>;
+}
+
+interface GmailResponse {
+  success: boolean;
+  messageId?: string;
+  threadId?: string;
+  error?: string;
+  errorType?: string;
+}
+
+export class GmailClientService {
+  private static instance: GmailClientService;
+  private accessToken: string | null = null;
+  private userEmail: string | null = null;
+
+  private constructor() {}
+
+  public static getInstance(): GmailClientService {
+    if (!GmailClientService.instance) {
+      GmailClientService.instance = new GmailClientService();
+    }
+    return GmailClientService.instance;
+  }
+
+  /**
+   * Initialize the service with user's Gmail access token
+   */
+  public async initialize(userId: string): Promise<boolean> {
+    try {
+      console.log('🔧 Initializing Gmail client service for user:', userId);
+      
+      // Get user's Gmail tokens from Firestore
+      const tokens = await this.getUserGmailTokens(userId);
+      
+      if (!tokens?.accessToken) {
+        console.error('❌ No Gmail access token found for user:', userId);
+        return false;
+      }
+
+      this.accessToken = tokens.accessToken;
+      this.userEmail = tokens.email;
+      
+      console.log('✅ Gmail client service initialized successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to initialize Gmail client service:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get user's Gmail tokens from Firestore
+   */
+  private async getUserGmailTokens(userId: string): Promise<{
+    accessToken: string;
+    refreshToken?: string;
+    expiryDate?: number;
+    email: string;
+  } | null> {
+    try {
+      // Import Firebase client SDK
+      const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+      const { getAuth } = await import('firebase/auth');
+      
+      const db = getFirestore();
+      const auth = getAuth();
+      
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (!userDoc.exists()) {
+        return null;
+      }
+
+      const userData = userDoc.data();
+      const { accessToken, refreshToken, expiryDate, email } = userData?.googleTokens || {};
+      
+      if (!accessToken) {
+        return null;
+      }
+
+      return {
+        accessToken,
+        refreshToken,
+        expiryDate,
+        email: email || userData?.googleEmail,
+      };
+    } catch (error) {
+      console.error('Error getting user Gmail tokens:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Refresh Gmail access token if needed
+   */
+  private async refreshTokenIfNeeded(userId: string): Promise<boolean> {
+    try {
+      const tokens = await this.getUserGmailTokens(userId);
+      if (!tokens) return false;
+
+      // Check if token needs refreshing
+      if (tokens.expiryDate && tokens.expiryDate < Date.now()) {
+        if (tokens.refreshToken) {
+          console.log('🔄 Refreshing Gmail access token...');
+          
+          const response = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+              client_secret: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET!,
+              refresh_token: tokens.refreshToken,
+              grant_type: 'refresh_token'
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Update token in Firestore
+            const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
+            const db = getFirestore();
+            
+            await updateDoc(doc(db, 'users', userId), {
+              'googleTokens.accessToken': data.access_token,
+              'googleTokens.expiryDate': Date.now() + (data.expires_in * 1000)
+            });
+
+            this.accessToken = data.access_token;
+            console.log('✅ Gmail access token refreshed successfully');
+            return true;
+          }
+        }
+        
+        console.error('❌ Failed to refresh Gmail token');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error refreshing Gmail token:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Build MIME email with optional attachments
+   */
+  private buildMimeEmail(message: GmailMessage): string {
+    const paigeFooter = `
+
+---
+Sent via Paige - Your Wedding Planning Assistant
+View full conversation and manage your wedding planning at https://weddingpaige.com/messages`;
+    
+    const htmlFooter = `
+<br><br>
+<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+<p style="color: #666; font-size: 12px; margin: 0;">
+  Sent via <strong>Paige</strong> - Your Wedding Planning Assistant<br>
+  <a href="https://weddingpaige.com/messages" style="color: #A85C36; text-decoration: none;">View full conversation and manage your wedding planning</a>
+</p>`;
+    
+    const bodyWithFooter = message.body + paigeFooter;
+    const htmlBody = message.body.replace(/\n/g, '<br>') + htmlFooter;
+    
+    let boundary = '----=_Part_' + Math.random().toString(36).substring(2, 15);
+    let headers = [
+      `To: ${message.to}`,
+      `From: ${message.from}`,
+      `Subject: ${message.subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ];
+    if (message.inReplyTo) headers.push(`In-Reply-To: <${message.inReplyTo}>`);
+    if (message.references) headers.push(`References: <${message.references}>`);
+
+    let messageParts = [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      bodyWithFooter,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      `<html><body>${htmlBody}</body></html>`,
+      '',
+    ];
+
+    if (message.attachments && message.attachments.length > 0) {
+      const mixedBoundary = '----=_Part_' + Math.random().toString(36).substring(2, 15);
+      const mixedHeaders = [
+        `To: ${message.to}`,
+        `From: ${message.from}`,
+        `Subject: ${message.subject}`,
+        'MIME-Version: 1.0',
+        `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+      ];
+      if (message.inReplyTo) mixedHeaders.push(`In-Reply-To: <${message.inReplyTo}>`);
+      if (message.references) mixedHeaders.push(`References: <${message.references}>`);
+
+      let mixedParts = [
+        `--${mixedBoundary}`,
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        '',
+        ...messageParts,
+        `--${boundary}--`,
+        '',
+      ];
+
+      for (const att of message.attachments) {
+        mixedParts.push(
+          `--${mixedBoundary}`,
+          `Content-Type: ${att.type}; name="${att.name}"`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${att.name}"`,
+          '',
+          att.data,
+          ''
+        );
+      }
+      mixedParts.push(`--${mixedBoundary}--`, '');
+      return mixedHeaders.join('\r\n') + '\r\n\r\n' + mixedParts.join('\r\n');
+    }
+
+    messageParts.push(`--${boundary}--`, '');
+    return headers.join('\r\n') + '\r\n\r\n' + messageParts.join('\r\n');
+  }
+
+  /**
+   * Send Gmail reply
+   */
+  public async sendReply(
+    userId: string,
+    messageData: {
+      to: string;
+      subject: string;
+      body: string;
+      threadId?: string;
+      messageId?: string;
+      attachments?: Array<{ name: string; type: string; data: string }>;
+    }
+  ): Promise<GmailResponse> {
+    try {
+      console.log('📧 Sending Gmail reply via client-side API');
+      
+      // Ensure service is initialized
+      if (!this.accessToken) {
+        const initialized = await this.initialize(userId);
+        if (!initialized) {
+          return {
+            success: false,
+            error: 'Gmail access token not found. Please re-authorize Gmail access.',
+            errorType: 'auth'
+          };
+        }
+      }
+
+      // Refresh token if needed
+      const tokenValid = await this.refreshTokenIfNeeded(userId);
+      if (!tokenValid) {
+        return {
+          success: false,
+          error: 'Gmail access expired. Please re-authorize.',
+          errorType: 'auth'
+        };
+      }
+
+      // Build MIME email
+      const rawEmail = this.buildMimeEmail({
+        to: messageData.to,
+        from: this.userEmail!,
+        subject: messageData.subject,
+        body: messageData.body,
+        inReplyTo: messageData.messageId,
+        references: messageData.threadId,
+        attachments: messageData.attachments,
+      });
+
+      // Encode email for Gmail API
+      const encodedEmail = btoa(rawEmail)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      // Send email using Gmail API
+      const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          raw: encodedEmail,
+          threadId: messageData.threadId || undefined
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Gmail API error:', errorData);
+        
+        return {
+          success: false,
+          error: `Gmail API error: ${errorData.error?.message || 'Unknown error'}`,
+          errorType: response.status === 401 ? 'auth' : 'api_error'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Gmail reply sent successfully:', result.id);
+
+      return {
+        success: true,
+        messageId: result.id,
+        threadId: result.threadId
+      };
+
+    } catch (error: any) {
+      console.error('❌ Gmail reply error:', error);
+      return {
+        success: false,
+        error: error.message || 'An unexpected error occurred during Gmail reply.',
+        errorType: 'network_error'
+      };
+    }
+  }
+
+  /**
+   * Send new Gmail message
+   */
+  public async sendNewMessage(
+    userId: string,
+    messageData: {
+      to: string;
+      subject: string;
+      body: string;
+      attachments?: Array<{ name: string; type: string; data: string }>;
+    }
+  ): Promise<GmailResponse> {
+    try {
+      console.log('📧 Sending new Gmail message via client-side API');
+      
+      // Ensure service is initialized
+      if (!this.accessToken) {
+        const initialized = await this.initialize(userId);
+        if (!initialized) {
+          return {
+            success: false,
+            error: 'Gmail access token not found. Please re-authorize Gmail access.',
+            errorType: 'auth'
+          };
+        }
+      }
+
+      // Refresh token if needed
+      const tokenValid = await this.refreshTokenIfNeeded(userId);
+      if (!tokenValid) {
+        return {
+          success: false,
+          error: 'Gmail access expired. Please re-authorize.',
+          errorType: 'auth'
+        };
+      }
+
+      // Build MIME email
+      const rawEmail = this.buildMimeEmail({
+        to: messageData.to,
+        from: this.userEmail!,
+        subject: messageData.subject,
+        body: messageData.body,
+        attachments: messageData.attachments,
+      });
+
+      // Encode email for Gmail API
+      const encodedEmail = btoa(rawEmail)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      // Send email using Gmail API
+      const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          raw: encodedEmail
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Gmail API error:', errorData);
+        
+        return {
+          success: false,
+          error: `Gmail API error: ${errorData.error?.message || 'Unknown error'}`,
+          errorType: response.status === 401 ? 'auth' : 'api_error'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Gmail message sent successfully:', result.id);
+
+      return {
+        success: true,
+        messageId: result.id,
+        threadId: result.threadId
+      };
+
+    } catch (error: any) {
+      console.error('❌ Gmail send error:', error);
+      return {
+        success: false,
+        error: error.message || 'An unexpected error occurred during Gmail send.',
+        errorType: 'network_error'
+      };
+    }
+  }
+
+  /**
+   * Check if Gmail is available and authenticated
+   */
+  public async isGmailAvailable(userId: string): Promise<boolean> {
+    try {
+      const initialized = await this.initialize(userId);
+      if (!initialized) return false;
+
+      // Test Gmail API access
+      const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`
+        }
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('❌ Gmail availability check failed:', error);
+      return false;
+    }
+  }
+}
+
+// Export singleton instance
+export const gmailClientService = GmailClientService.getInstance();

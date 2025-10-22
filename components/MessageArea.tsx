@@ -29,6 +29,7 @@ import { useUserProfileData } from "../hooks/useUserProfileData";
 import { useCredits } from "../contexts/CreditContext";
 import { useGmailAuth } from "../contexts/GmailAuthContext";
 import { dispatchGmailApiError } from '../utils/gmailApiErrorHandler';
+import { gmailClientService } from '../utils/gmailClientService';
 
 
 // Define interfaces for types needed in this component
@@ -554,130 +555,180 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       // If replying to a Gmail message, send via Gmail API
       if (replyingToMessage && replyingToMessage.source === 'gmail') {
         const attachments = await filesToBase64(selectedFiles);
-        const res = await fetch('/api/gmail-reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            body: input,
+        
+        try {
+          // Try client-side Gmail API first (faster and more reliable)
+          console.log('🚀 Attempting client-side Gmail reply...');
+          const clientResult = await gmailClientService.sendReply(currentUser.uid, {
             to: replyingToMessage.from,
             subject: replyingToMessage.subject,
+            body: input,
             threadId: replyingToMessage.threadId,
             messageId: replyingToMessage.messageIdHeader,
             attachments,
-            userId: currentUser.uid,
-          }),
-        });
-        
-        // Check if response is OK and has content before parsing JSON
-        if (!res.ok) {
-          const text = await res.text();
-          console.error('Gmail reply API error:', res.status, text);
-          throw new Error(text || `API error: ${res.status}`);
+          });
+          
+          if (clientResult.success) {
+            console.log('✅ Client-side Gmail reply successful');
+            showSuccessToast('Gmail reply sent!');
+            gmailMessageId = clientResult.messageId;
+            threadId = clientResult.threadId;
+          } else {
+            throw new Error(clientResult.error || 'Client-side Gmail reply failed');
+          }
+        } catch (clientError) {
+          console.log('⚠️ Client-side Gmail failed, falling back to server route:', clientError);
+          
+          // Fallback to server route
+          const res = await fetch('/api/gmail-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              body: input,
+              to: replyingToMessage.from,
+              subject: replyingToMessage.subject,
+              threadId: replyingToMessage.threadId,
+              messageId: replyingToMessage.messageIdHeader,
+              attachments,
+              userId: currentUser.uid,
+            }),
+          });
+          
+          // Check if response is OK and has content before parsing JSON
+          if (!res.ok) {
+            const text = await res.text();
+            console.error('Gmail reply API error:', res.status, text);
+            throw new Error(text || `API error: ${res.status}`);
+          }
+          
+          const data = await res.json();
+          if (!data.success) {
+            if (data.requiresReauth || data.needsReauth) {
+              // Dispatch Gmail API error to trigger global auth check
+              dispatchGmailApiError({
+                status: 401,
+                message: data.error || 'Gmail authentication required',
+                requiresReauth: true
+              });
+              showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
+              return; // Don't throw error, just return
+            }
+            
+            // Handle Gmail API rate limits gracefully
+            if (data.error && data.error.includes('User-rate limit exceeded')) {
+              showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
+              return; // Don't throw error, just return
+            }
+            
+            // Handle other Gmail API errors
+            if (data.error && data.error.includes('Quota exceeded')) {
+              showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
+              return; // Don't throw error, just return
+            }
+            
+            throw new Error(data.error || 'Failed to send Gmail reply');
+          }
+          showSuccessToast('Gmail reply sent!');
+          
+          // Extract Gmail message ID from response for local storage
+          gmailMessageId = data.gmailRes?.id;
+          threadId = data.gmailRes?.threadId;
         }
-        
-        const data = await res.json();
-        if (!data.success) {
-          if (data.requiresReauth || data.needsReauth) {
-            // Dispatch Gmail API error to trigger global auth check
-            dispatchGmailApiError({
-              status: 401,
-              message: data.error || 'Gmail authentication required',
-              requiresReauth: true
-            });
-            showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
-            return; // Don't throw error, just return
-          }
-          
-          // Handle Gmail API rate limits gracefully
-          if (data.error && data.error.includes('User-rate limit exceeded')) {
-            showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
-            return; // Don't throw error, just return
-          }
-          
-          // Handle other Gmail API errors
-          if (data.error && data.error.includes('Quota exceeded')) {
-            showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
-            return; // Don't throw error, just return
-          }
-          
-          throw new Error(data.error || 'Failed to send Gmail reply');
-        }
-        showSuccessToast('Gmail reply sent!');
-        
-        // Extract Gmail message ID from response for local storage
-        gmailMessageId = data.gmailRes?.id;
-        threadId = data.gmailRes?.threadId;
       }
       // If sending a new Gmail message (not a reply)
       let usedSubject = subject || input.split('\n')[0] || 'New Message';
       
       if (!replyingToMessage && selectedChannel === 'Gmail') {
         const attachments = await filesToBase64(selectedFiles);
-        const res = await fetch('/api/gmail-reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            body: input,
+        
+        try {
+          // Try client-side Gmail API first (faster and more reliable)
+          console.log('🚀 Attempting client-side Gmail send...');
+          const clientResult = await gmailClientService.sendNewMessage(currentUser.uid, {
             to: selectedContact.email,
             subject: usedSubject,
-            threadId: undefined,
-            messageId: undefined,
+            body: input,
             attachments,
-            userId: currentUser.uid,
-          }),
-        });
-        
-        // Check if response is OK and has content before parsing JSON
-        if (!res.ok) {
-          const text = await res.text();
-          console.error('Gmail send API error:', res.status, text);
-          throw new Error(text || `API error: ${res.status}`);
+          });
+          
+          if (clientResult.success) {
+            console.log('✅ Client-side Gmail send successful');
+            showSuccessToast('Gmail email sent!');
+            gmailMessageId = clientResult.messageId;
+            threadId = clientResult.threadId;
+          } else {
+            throw new Error(clientResult.error || 'Client-side Gmail send failed');
+          }
+        } catch (clientError) {
+          console.log('⚠️ Client-side Gmail failed, falling back to server route:', clientError);
+          
+          // Fallback to server route
+          const res = await fetch('/api/gmail-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              body: input,
+              to: selectedContact.email,
+              subject: usedSubject,
+              threadId: undefined,
+              messageId: undefined,
+              attachments,
+              userId: currentUser.uid,
+            }),
+          });
+          
+          // Check if response is OK and has content before parsing JSON
+          if (!res.ok) {
+            const text = await res.text();
+            console.error('Gmail send API error:', res.status, text);
+            throw new Error(text || `API error: ${res.status}`);
+          }
+          
+          const data = await res.json();
+          if (!data.success) {
+            if (data.requiresReauth || data.needsReauth) {
+              // Dispatch Gmail API error to trigger global auth check
+              dispatchGmailApiError({
+                status: 401,
+                message: data.error || 'Gmail authentication required',
+                requiresReauth: true
+              });
+              showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
+              return; // Don't throw error, just return
+            }
+            
+            // Handle Gmail authentication errors
+            if (data.requiresReauth || data.needsReauth) {
+              // Dispatch Gmail API error to trigger global auth check
+              dispatchGmailApiError({
+                status: 401,
+                message: data.error || 'Gmail authentication required',
+                requiresReauth: true
+              });
+              showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
+              return; // Don't throw error, just return
+            }
+            
+            // Handle Gmail API rate limits gracefully
+            if (data.error && data.error.includes('User-rate limit exceeded')) {
+              showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
+              return; // Don't throw error, just return
+            }
+            
+            // Handle other Gmail API errors
+            if (data.error && data.error.includes('Quota exceeded')) {
+              showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
+              return; // Don't throw error, just return
+            }
+            
+            throw new Error(data.error || 'Failed to send Gmail message');
+          }
+          showSuccessToast('Gmail email sent!');
+          
+          // Extract Gmail message ID from response for local storage
+          gmailMessageId = data.gmailRes?.id;
+          threadId = data.gmailRes?.threadId;
         }
-        
-        const data = await res.json();
-        if (!data.success) {
-          if (data.requiresReauth || data.needsReauth) {
-            // Dispatch Gmail API error to trigger global auth check
-            dispatchGmailApiError({
-              status: 401,
-              message: data.error || 'Gmail authentication required',
-              requiresReauth: true
-            });
-            showErrorToast('Gmail access expired. Please re-authenticate to send messages.');
-            return; // Don't throw error, just return
-          }
-          
-          // Handle Gmail authentication errors
-          if (data.requiresReauth || data.needsReauth) {
-            // Dispatch Gmail API error to trigger global auth check
-            dispatchGmailApiError({
-              status: 401,
-              message: data.error || 'Gmail authentication required',
-              requiresReauth: true
-            });
-            showErrorToast('Gmail access expired. Please re-authenticate to send replies.');
-            return; // Don't throw error, just return
-          }
-          
-          // Handle Gmail API rate limits gracefully
-          if (data.error && data.error.includes('User-rate limit exceeded')) {
-            showErrorToast('Gmail rate limit reached. Please wait a moment before sending another email.');
-            return; // Don't throw error, just return
-          }
-          
-          // Handle other Gmail API errors
-          if (data.error && data.error.includes('Quota exceeded')) {
-            showErrorToast('Gmail daily quota exceeded. Please try again tomorrow.');
-            return; // Don't throw error, just return
-          }
-          
-          throw new Error(data.error || 'Failed to send Gmail message');
-        }
-        showSuccessToast('Gmail email sent!');
-        
-        // Extract Gmail message ID from response for local storage
-        gmailMessageId = data.gmailRes?.id;
-        threadId = data.gmailRes?.threadId;
       }
       
       // Handle in-app messaging
