@@ -197,52 +197,98 @@ async function getMessagesToScan(
   adminDb: any
 ) {
   try {
-    let query = adminDb.collectionGroup('messages')
-      .where('userId', '==', userId);
+    // Get all contacts for the user to find messages
+    const contactsSnapshot = await adminDb
+      .collection(`users/${userId}/contacts`)
+      .get();
 
-    // Filter by contact if specified
-    if (contactId) {
-      query = query.where('contactId', '==', contactId);
+    if (contactsSnapshot.empty) {
+      return [];
     }
 
-    // Filter by specific message IDs if provided
-    if (messageIds && messageIds.length > 0) {
-      query = query.where(admin.firestore.FieldPath.documentId(), 'in', messageIds);
-    } else {
-      // Apply time-based filtering based on scan type
-      const now = new Date();
-      let timeFilter: Date;
+    let allMessages: any[] = [];
 
-      switch (scanType) {
-        case 'new_messages':
-          // Messages from last 24 hours
-          timeFilter = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case 'recent_messages':
-          // Messages from last 7 days
-          timeFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case 'all_messages':
-        default:
-          // All messages (with limit)
-          break;
+    // Check each contact for messages
+    for (const contactDoc of contactsSnapshot.docs) {
+      const contactData = contactDoc.data();
+      const contactEmail = contactData.email;
+      const contactDocId = contactDoc.id;
+      
+      if (!contactEmail) continue;
+
+      // Check if we should scan this specific contact
+      if (contactId && contactId !== contactEmail && contactId !== contactDocId) {
+        continue;
       }
 
-      if (timeFilter) {
-        query = query.where('timestamp', '>=', timeFilter);
+      // Check both possible message paths
+      const pathsToCheck = [
+        `users/${userId}/contacts/${contactDocId}/messages`, // Old format
+        `users/${userId}/contacts/${contactEmail}/messages` // New format
+      ];
+
+      for (const path of pathsToCheck) {
+        try {
+          let query = adminDb.collection(path);
+
+          // Filter by specific message IDs if provided
+          if (messageIds && messageIds.length > 0) {
+            query = query.where(admin.firestore.FieldPath.documentId(), 'in', messageIds);
+          } else {
+            // Apply time-based filtering based on scan type
+            const now = new Date();
+            let timeFilter: Date;
+
+            switch (scanType) {
+              case 'new_messages':
+                // Messages from last 24 hours
+                timeFilter = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                break;
+              case 'recent_messages':
+                // Messages from last 7 days
+                timeFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+              case 'all_messages':
+              default:
+                // All messages (with limit)
+                break;
+            }
+
+            if (timeFilter) {
+              // Try both timestamp and date fields
+              query = query.where('date', '>=', timeFilter);
+            }
+          }
+
+          // Order by date and limit
+          query = query
+            .orderBy('date', 'desc')
+            .limit(maxMessages);
+
+          const snapshot = await query.get();
+          const messages = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            contactId: contactEmail, // Use contactEmail as contactId for consistency
+            contactName: contactData.name || contactEmail
+          }));
+
+          allMessages = allMessages.concat(messages);
+        } catch (error) {
+          // Path might not exist, continue
+          console.log(`Path ${path} does not exist or has no messages`);
+        }
       }
     }
 
-    // Order by timestamp and limit
-    query = query
-      .orderBy('timestamp', 'desc')
-      .limit(maxMessages);
+    // Sort all messages by date and limit
+    allMessages.sort((a, b) => {
+      const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date || 0);
+      const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
 
-    const snapshot = await query.get();
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    return allMessages.slice(0, maxMessages);
   } catch (error) {
     console.error('Error fetching messages to scan:', error);
     return [];

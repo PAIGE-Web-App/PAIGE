@@ -630,6 +630,25 @@ View full conversation and manage your wedding planning at https://weddingpaige.
           // Determine direction
           const direction = from.includes(contactEmail) ? 'received' : 'sent';
 
+          // Parse date more robustly
+          let parsedDate: Date;
+          if (date) {
+            try {
+              // Gmail API returns dates in RFC 2822 format
+              parsedDate = new Date(date);
+              // Validate the parsed date
+              if (isNaN(parsedDate.getTime())) {
+                console.warn('Invalid date from Gmail API:', date);
+                parsedDate = new Date();
+              }
+            } catch (error) {
+              console.warn('Error parsing date:', date, error);
+              parsedDate = new Date();
+            }
+          } else {
+            parsedDate = new Date();
+          }
+
           // Save to Firestore
           await addDoc(collection(db, `users/${userId}/contacts/${contactEmail}/messages`), {
             id: message.id,
@@ -638,7 +657,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             body,
             from,
             to,
-            date: date ? new Date(date) : new Date(),
+            date: parsedDate,
             direction,
             source: 'gmail',
             createdAt: Timestamp.now(),
@@ -663,8 +682,10 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: userId,
-              contactEmail: contactEmail,
-              triggerSource: 'gmail-import'
+              contactId: contactEmail, // Use contactEmail as contactId since that's the path structure
+              scanType: 'recent_messages',
+              maxMessages: 20,
+              enableRAG: true
             })
           });
           
