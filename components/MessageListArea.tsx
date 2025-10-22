@@ -63,6 +63,13 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   setIsEditing,
   onGenerateAITodoList,
 }) => {
+  // Debug logging
+  console.log('🔍 MessageListArea: Received props:', {
+    messagesCount: messages?.length || 0,
+    loading,
+    isInitialLoad,
+    messages: messages?.slice(0, 2) // Show first 2 messages for debugging
+  });
   // Removed excessive logging to reduce console spam
 
   // Helper function to strip quoted text and signatures

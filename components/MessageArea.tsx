@@ -1011,18 +1011,24 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   // Effect to fetch messages when a contact is selected
   useEffect(() => {
     if (!selectedContact?.id || !currentUser?.uid) {
+      console.log('🔍 MessageArea: No contact or user, clearing messages');
       setMessages([]);
       return;
     }
 
+    console.log('🔍 MessageArea: Setting up message listener for contact:', selectedContact.id, 'user:', currentUser.uid);
     setMessagesLoading(true);
     setIsInitialLoad(true);
 
     // Set up real-time listener for messages
-    const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`);
+    // Use the contact email as the document ID since that's how Gmail import saves messages
+    const contactEmail = selectedContact.email;
+    console.log('🔍 MessageArea: Using contact email for messages path:', contactEmail);
+    const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
     const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      console.log('🔍 MessageArea: Received snapshot with', snapshot.docs.length, 'messages');
       const fetchedMessages: any[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
@@ -1033,11 +1039,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         });
       });
       
+      console.log('🔍 MessageArea: Setting messages:', fetchedMessages.length, 'messages');
       setMessages(fetchedMessages);
       setMessagesLoading(false);
       setIsInitialLoad(false);
     }, (error) => {
-      console.error('Error fetching messages:', error);
+      console.error('❌ MessageArea: Error fetching messages:', error);
       setMessagesLoading(false);
       setIsInitialLoad(false);
     });
@@ -1054,17 +1061,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Handle message deletion
   const handleDeleteMessage = useCallback(async (message: any) => {
-    if (!selectedContact?.id || !currentUser?.uid) return;
+    if (!selectedContact?.email || !currentUser?.uid) return;
     
     try {
-      const messageRef = doc(db, `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`, message.id);
+      const messageRef = doc(db, `users/${currentUser.uid}/contacts/${selectedContact.email}/messages`, message.id);
       await deleteDoc(messageRef);
       showSuccessToast('Message deleted successfully');
     } catch (error) {
       console.error('Error deleting message:', error);
       showErrorToast('Failed to delete message');
     }
-  }, [selectedContact?.id, currentUser?.uid, showSuccessToast, showErrorToast]);
+  }, [selectedContact?.email, currentUser?.uid, showSuccessToast, showErrorToast]);
 
   // Check Gmail eligibility for selected contact
   useEffect(() => {
