@@ -57,31 +57,43 @@ interface MessageAreaProps {
 }
 
 const getRelativeDate = (dateInput: Date | string): string => {
-    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    try {
+        const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date provided to getRelativeDate:', dateInput);
+            return 'Unknown Date';
+        }
+        
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
 
-    const isToday =
-        date.getDate() === today.getDate() &&
-        date.getMonth() === today.getMonth() &&
-        date.getFullYear() === today.getFullYear();
+        const isToday =
+            date.getDate() === today.getDate() &&
+            date.getMonth() === today.getMonth() &&
+            date.getFullYear() === today.getFullYear();
 
-    const isYesterday =
-        date.getDate() === yesterday.getDate() &&
-        date.getMonth() === yesterday.getMonth() &&
-        date.getFullYear() === yesterday.getFullYear();
+        const isYesterday =
+            date.getDate() === yesterday.getDate() &&
+            date.getMonth() === yesterday.getMonth() &&
+            date.getFullYear() === yesterday.getFullYear();
 
-    if (isToday) {
-        return "Today";
-    } else if (isYesterday) {
-        return "Yesterday";
-    } else {
-        return date.toLocaleDateString("en-US", {
-            month: "numeric",
-            day: "numeric",
-            year: "2-digit",
-        });
+        if (isToday) {
+            return "Today";
+        } else if (isYesterday) {
+            return "Yesterday";
+        } else {
+            return date.toLocaleDateString("en-US", {
+                month: "numeric",
+                day: "numeric",
+                year: "2-digit",
+            });
+        }
+    } catch (error) {
+        console.error('Error in getRelativeDate:', error, 'Input:', dateInput);
+        return 'Unknown Date';
     }
 };
 
@@ -1025,13 +1037,24 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     const contactEmail = selectedContact.email;
     console.log('🔍 MessageArea: Using contact email for messages path:', contactEmail);
     const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
-    const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'));
+    const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(50)); // Limit to 50 messages
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
       console.log('🔍 MessageArea: Received snapshot with', snapshot.docs.length, 'messages');
       const fetchedMessages: any[] = [];
+      const seenIds = new Set<string>();
+      
       snapshot.forEach((doc) => {
         const data = doc.data();
+        const messageId = data.id || doc.id; // Use Gmail message ID if available, otherwise Firestore doc ID
+        
+        // Skip duplicates based on Gmail message ID
+        if (seenIds.has(messageId)) {
+          console.log('🔍 MessageArea: Skipping duplicate message:', messageId);
+          return;
+        }
+        
+        seenIds.add(messageId);
         fetchedMessages.push({
           id: doc.id,
           ...data,
@@ -1039,7 +1062,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         });
       });
       
-      console.log('🔍 MessageArea: Setting messages:', fetchedMessages.length, 'messages');
+      console.log('🔍 MessageArea: Setting messages:', fetchedMessages.length, 'messages (after deduplication)');
       setMessages(fetchedMessages);
       setMessagesLoading(false);
       setIsInitialLoad(false);
@@ -1165,29 +1188,35 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const currentGmailAccount = userData?.googleTokens?.email;
       
       if (currentGmailAccount) {
-        const mismatchCheck = await fetch('/api/check-gmail-account-mismatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: currentUser.uid, 
-            contactId: selectedContact.id, 
-            currentGmailAccount 
-          }),
-        });
-        
-        if (mismatchCheck.ok) {
-          const mismatchData = await mismatchCheck.json();
-          if (mismatchData.hasAccountMismatch) {
-            const confirmed = window.confirm(
-              `This contact has messages from a different Gmail account (${mismatchData.existingGmailAccount}). ` +
-              `Importing will replace those messages with messages from your current account (${currentGmailAccount}). ` +
-              `Do you want to continue?`
-            );
-            if (!confirmed) {
-              setIsImportingGmail(false);
-              return;
+        try {
+          const mismatchCheck = await fetch('/api/check-gmail-account-mismatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              userId: currentUser.uid, 
+              contactId: selectedContact.id, 
+              currentGmailAccount 
+            }),
+          });
+          
+          if (mismatchCheck.ok) {
+            const mismatchData = await mismatchCheck.json();
+            if (mismatchData.hasAccountMismatch) {
+              const confirmed = window.confirm(
+                `This contact has messages from a different Gmail account (${mismatchData.existingGmailAccount}). ` +
+                `Importing will replace those messages with messages from your current account (${currentGmailAccount}). ` +
+                `Do you want to continue?`
+              );
+              if (!confirmed) {
+                setIsImportingGmail(false);
+                return;
+              }
             }
+          } else {
+            console.warn('Gmail account mismatch check failed, proceeding with import');
           }
+        } catch (error) {
+          console.warn('Gmail account mismatch check error, proceeding with import:', error);
         }
       }
       
