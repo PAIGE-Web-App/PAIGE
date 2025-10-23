@@ -48,22 +48,27 @@ export default function VenueSearchInput({
     // Set venue metadata
     if (setVenueMetadata) {
       console.log('🔵 [VenueSearch] Fetching place details for:', place_id);
-      // Use our batcher for place details
-      googlePlacesBatcher.getPlaceDetails(place_id)
-        .then((result) => {
-          console.log('🔵 [VenueSearch] Place details result:', result);
-          if (result && result.success && result.data) {
-            console.log('🔵 [VenueSearch] Got metadata:', result.data);
-            setVenueMetadata(result.data);
+      
+      // Use Google Maps JavaScript API directly
+      if (typeof window !== 'undefined' && window.google && window.google.maps) {
+        const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+        
+        service.getDetails({
+          placeId: place_id,
+          fields: ['name', 'formatted_address', 'geometry', 'place_id', 'photos', 'url', 'vicinity', 'rating', 'user_ratings_total', 'price_level', 'types']
+        }, (place, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+            console.log('🔵 [VenueSearch] Got metadata:', place);
+            setVenueMetadata(place);
           } else {
-            console.log('🔵 [VenueSearch] No metadata result');
+            console.log('🔵 [VenueSearch] No metadata result, status:', status);
             setVenueMetadata(null);
           }
-        })
-        .catch((error) => {
-          console.error('🔴 [VenueSearch] Error fetching place details:', error);
-          setVenueMetadata(null);
         });
+      } else {
+        console.error('🔴 [VenueSearch] Google Maps API not available');
+        setVenueMetadata(null);
+      }
     }
   };
 
