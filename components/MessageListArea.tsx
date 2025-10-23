@@ -563,11 +563,11 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
 
   // Auto-mark messages as read when contact is selected
   const markMessagesAsRead = async () => {
-    if (!selectedContact || !currentUser?.email) return;
+    if (!selectedContact || !user?.uid) return;
     
     try {
-      // Get all unread received messages for this contact
-      const messagesRef = collection(db, `users/${selectedContact.userId || 'unknown'}/contacts/${selectedContact.id}/messages`);
+      // Get all unread received messages for this contact using the correct path
+      const messagesRef = collection(db, `users/${user.uid}/contacts/${selectedContact.email}/messages`);
       const q = query(
         messagesRef,
         where('isRead', '==', false),
@@ -584,7 +584,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
         });
         
         await batch.commit();
-
+        console.log('✅ Marked messages as read for contact:', selectedContact.email);
       }
     } catch (error) {
       console.error('❌ Error marking messages as read:', error);
@@ -1087,6 +1087,25 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                               >
                                 <Reply className="w-4 h-4" />
                               </button>
+                              
+                              {/* Mark as Read Button - Only show for unread received messages */}
+                              {!isSent && !msg.isRead && (
+                                <button
+                                  className="text-xs text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-150"
+                                  onClick={async () => {
+                                    try {
+                                      const messageRef = doc(db, `users/${user?.uid}/contacts/${selectedContact?.email}/messages`, msg.id);
+                                      await updateDoc(messageRef, { isRead: true });
+                                      console.log('✅ Message marked as read');
+                                    } catch (error) {
+                                      console.error('❌ Error marking message as read:', error);
+                                    }
+                                  }}
+                                  title="Mark as read"
+                                >
+                                  ✓
+                                </button>
+                              )}
                               
                               {/* AI Analysis Button - Only show for Gmail messages */}
                               {selectedContact && msg.source === 'gmail' && (
