@@ -208,9 +208,10 @@ export async function performTodoAnalysis(
         const todosWithIds = analysisResult.newTodos.map(todo => ({
           ...todo,
           id: `todo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          sourceMessage: message.subject,
+          sourceMessage: message.subject || 'Unknown Subject',
           sourceContact: message.contactEmail || message.from || 'unknown',
-          sourceMessageId: message.id
+          sourceEmail: message.contactEmail || message.from || 'unknown',
+          sourceMessageId: message.id || 'unknown'
         }));
         
         allNewTodos = allNewTodos.concat(todosWithIds);
@@ -241,17 +242,44 @@ export async function performTodoAnalysis(
         const totalSuggestions = suggestions.newTodos.length + suggestions.todoUpdates.length + suggestions.completedTodos.length;
         
         if (totalSuggestions > 0) {
-          await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update({
-            pendingTodoSuggestions: {
-              count: suggestions.newTodos.length,
-              suggestions: suggestions.newTodos,
-              todoUpdates: suggestions.todoUpdates,
-              completedTodos: suggestions.completedTodos,
-              lastAnalyzedAt: admin.firestore.Timestamp.now(),
-              status: 'pending'
+          try {
+            // Check if contact document exists first
+            const contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
+            
+            if (contactDoc.exists) {
+              // Update existing contact document
+              await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update({
+                pendingTodoSuggestions: {
+                  count: suggestions.newTodos.length,
+                  suggestions: suggestions.newTodos,
+                  todoUpdates: suggestions.todoUpdates,
+                  completedTodos: suggestions.completedTodos,
+                  lastAnalyzedAt: admin.firestore.Timestamp.now(),
+                  status: 'pending'
+                }
+              });
+              console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
+            } else {
+              // Create contact document if it doesn't exist
+              await adminDb.collection(`users/${userId}/contacts`).doc(contactId).set({
+                email: contactId,
+                name: contactId,
+                category: 'vendor',
+                pendingTodoSuggestions: {
+                  count: suggestions.newTodos.length,
+                  suggestions: suggestions.newTodos,
+                  todoUpdates: suggestions.todoUpdates,
+                  completedTodos: suggestions.completedTodos,
+                  lastAnalyzedAt: admin.firestore.Timestamp.now(),
+                  status: 'pending'
+                }
+              });
+              console.log(`[TODO SUGGESTIONS] Created contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
             }
-          });
-          console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
+          } catch (error) {
+            console.error(`Failed to store suggestions for contact ${contactId}:`, error);
+            // Don't fail the entire analysis if we can't store suggestions
+          }
         }
       }
     }
@@ -418,12 +446,12 @@ async function analyzeMessageLocally(
     for (const action of actionItems) {
       newTodos.push({
         name: action.name,
-        note: action.description, // Use 'note' field to match TodoItem structure
-        category: action.category,
+        note: action.description || '', // Use 'note' field to match TodoItem structure
+        category: action.category || 'general',
         deadline: action.dueDate ? new Date(action.dueDate) : null,
-        sourceMessage: subject,
+        sourceMessage: subject || 'Unknown Subject',
         sourceContact: contactName,
-        sourceEmail: contact.email,
+        sourceEmail: contact.email || contactName,
         confidenceScore: calculateConfidenceScore(messageText, action.name),
       });
     }
@@ -435,9 +463,9 @@ async function analyzeMessageLocally(
         note: `Message from ${contactName}: "${subject}" - ${messageBody.substring(0, 100)}...`,
         category: contact.category || 'vendor',
         deadline: null,
-        sourceMessage: subject,
+        sourceMessage: subject || 'Unknown Subject',
         sourceContact: contactName,
-        sourceEmail: contact.email,
+        sourceEmail: contact.email || contactName,
         confidenceScore: 0.3, // Lower confidence for generic todos
       });
     }
