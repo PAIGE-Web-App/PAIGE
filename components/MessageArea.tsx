@@ -1299,6 +1299,27 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       
       // Show success message instead of analysis modal
       showSuccessToast(`Successfully imported ${result.totalImportedMessages || 0} messages! Todo analysis running in background.`);
+      
+      // Simple check for suggestions after a short delay
+      setTimeout(async () => {
+        try {
+          const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+          const contactSnap = await getDoc(contactRef);
+          
+          if (contactSnap.exists()) {
+            const contactData = contactSnap.data();
+            const suggestions = contactData?.pendingTodoSuggestions;
+            
+            if (suggestions && suggestions.suggestions && suggestions.suggestions.length > 0) {
+              console.log('✅ Found suggestions after import, showing banner');
+              setPendingSuggestions(suggestions);
+              setShowTodoSuggestionsBanner(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for suggestions after import:', error);
+        }
+      }, 2000); // Wait 2 seconds for analysis to complete
     } catch (error) {
       console.error('Error importing Gmail:', error);
       
@@ -1542,7 +1563,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
-  // Check for pending todo suggestions when contact changes
+  // Simple approach: Check for suggestions after import
   useEffect(() => {
     if (!currentUser?.uid || !selectedContact?.id) {
       setShowTodoSuggestionsBanner(false);
@@ -1550,39 +1571,31 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       return;
     }
 
-    // Set up real-time listener for contact document changes
-    const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
-    
-    const unsubscribe = onSnapshot(contactRef, (contactSnap) => {
-      if (contactSnap.exists()) {
-        const contactData = contactSnap.data();
-        const suggestions = contactData?.pendingTodoSuggestions;
+    // Just check once when contact changes - no complex real-time listeners
+    const checkForSuggestions = async () => {
+      try {
+        const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+        const contactSnap = await getDoc(contactRef);
         
-        console.log('🔍 Contact data:', {
-          hasSuggestions: !!suggestions,
-          status: suggestions?.status,
-          count: suggestions?.count,
-          suggestionsLength: suggestions?.suggestions?.length
-        });
-        
-        if (suggestions && suggestions.status === 'pending' && suggestions.count > 0) {
-          console.log('✅ Showing todo suggestions banner');
-          setPendingSuggestions(suggestions);
-          setShowTodoSuggestionsBanner(true);
-        } else {
-          console.log('❌ Hiding todo suggestions banner');
-          setShowTodoSuggestionsBanner(false);
-          setPendingSuggestions(null);
+        if (contactSnap.exists()) {
+          const contactData = contactSnap.data();
+          const suggestions = contactData?.pendingTodoSuggestions;
+          
+          if (suggestions && suggestions.suggestions && suggestions.suggestions.length > 0) {
+            console.log('✅ Found suggestions, showing banner');
+            setPendingSuggestions(suggestions);
+            setShowTodoSuggestionsBanner(true);
+          } else {
+            setShowTodoSuggestionsBanner(false);
+            setPendingSuggestions(null);
+          }
         }
-      } else {
-        setShowTodoSuggestionsBanner(false);
-        setPendingSuggestions(null);
+      } catch (error) {
+        console.error('Error checking for suggestions:', error);
       }
-    }, (error) => {
-      console.error('Error listening to contact document:', error);
-    });
+    };
 
-    return () => unsubscribe();
+    checkForSuggestions();
   }, [selectedContact?.id, currentUser?.uid]);
 
   useEffect(() => {
