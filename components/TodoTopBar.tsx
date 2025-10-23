@@ -29,6 +29,8 @@ interface TodoTopBarProps {
   mobileViewMode?: 'lists' | 'items';
   onMobileBackToLists?: () => void;
   hasTodoLists: boolean;
+  onDeleteAllItems?: () => Promise<void>;
+  allTodoCount?: number;
 }
 
 const TodoTopBar: React.FC<TodoTopBarProps> = ({
@@ -55,12 +57,15 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
   mobileViewMode,
   onMobileBackToLists,
   hasTodoLists,
+  onDeleteAllItems,
+  allTodoCount,
 }) => {
   const [showDropdown, setShowDropdown] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const [showFilters, setShowFilters] = React.useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = React.useState(false);
 
   React.useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -190,6 +195,18 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
                         Delete List
                       </button>
                     )}
+                    {!selectedList && onDeleteAllItems && allTodoCount && allTodoCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setShowDeleteAllModal(true);
+                          setShowDropdown(false);
+                        }}
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 whitespace-nowrap"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2 text-[#D63030]" />
+                        Delete All Items
+                      </button>
+                    )}
                     {!showCompletedItems && (
                       <button
                         onClick={() => {
@@ -299,6 +316,20 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
                     <div className="h-6 border-l border-[#D6D3D1] mx-2" />
                   </>
                 )}
+              </>
+            )}
+            {!selectedList && onDeleteAllItems && allTodoCount && allTodoCount > 0 && (
+              <>
+                <button
+                  onClick={() => setShowDeleteAllModal(true)}
+                  className="p-1 hover:bg-[#FDEAEA] rounded-[5px]"
+                  title="Delete All Items"
+                  aria-label="Delete All Items"
+                >
+                  <Trash2 className="w-4 h-4 text-[#D63030]" />
+                </button>
+                {/* Vertical divider */}
+                <div className="h-6 border-l border-[#D6D3D1] mx-2" />
               </>
             )}
           </div>
@@ -425,6 +456,77 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
           ))}
         </div>
       )}
+
+      {/* Delete All Items Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteAllModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50"
+            onClick={() => setShowDeleteAllModal(false)}
+          >
+            <motion.div
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="bg-white rounded-[5px] shadow-xl max-w-md w-full p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </div>
+                  <h5 className="h5">Delete All Items</h5>
+                </div>
+                <button
+                  onClick={() => setShowDeleteAllModal(false)}
+                  className="text-[#7A7A7A] hover:text-[#332B42] p-1 rounded-full"
+                  title="Close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 text-left font-work mb-4">
+                  Are you sure you want to delete all {allTodoCount} to-do items? This action cannot be undone.
+                </p>
+                <div className="bg-red-50 border border-red-200 rounded-[5px] p-3">
+                  <p className="text-sm text-red-800 font-work">
+                    <strong>Warning:</strong> This will permanently delete all your to-do items across all lists.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteAllModal(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-[5px] border border-[#AB9C95] text-[#332B42] hover:bg-[#F3F2F0] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (onDeleteAllItems) {
+                      await onDeleteAllItems();
+                    }
+                    setShowDeleteAllModal(false);
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-[5px] bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Delete All Items
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

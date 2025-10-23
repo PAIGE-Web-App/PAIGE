@@ -8,10 +8,13 @@ import dynamic from "next/dynamic";
 // Firebase imports
 import { useAuth } from '@/hooks/useAuth';
 import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
+import { db } from '@/lib/firebase';
+import { writeBatch, doc } from 'firebase/firestore';
 
 // UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
+import GlobalGmailBanner from '@/components/GlobalGmailBanner';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import TodoDeadlineGenerationProgress from '@/components/TodoDeadlineGenerationProgress';
 
@@ -85,7 +88,7 @@ export default function TodoPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { showSuccessToast, showInfoToast } = useCustomToast();
+  const { showSuccessToast, showInfoToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
 
   // Use shared user profile data hook
@@ -574,13 +577,45 @@ export default function TodoPage() {
     }
   };
 
+  // Delete all todo items
+  const handleDeleteAllItems = async () => {
+    if (!user) return;
+
+    try {
+      // Get all todo items
+      const allItems = todoItems.todoItems;
+      if (allItems.length === 0) return;
+
+      // Delete all items in batches
+      const batch = writeBatch(db);
+      const batchSize = 500; // Firestore batch limit
+      
+      for (let i = 0; i < allItems.length; i += batchSize) {
+        const batchItems = allItems.slice(i, i + batchSize);
+        batchItems.forEach(item => {
+          const itemRef = doc(db, `users/${user.uid}/todoItems`, item.id);
+          batch.delete(itemRef);
+        });
+        await batch.commit();
+      }
+
+      showSuccessToast(`Deleted all ${allItems.length} to-do items!`);
+    } catch (error: any) {
+      console.error('Error deleting all items:', error);
+      showErrorToast('Failed to delete all items.');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-linen">
       <WeddingBanner />
       
-      <div className="app-content-container flex-1 overflow-hidden">
-        <div className="flex h-full gap-4 lg:flex-row flex-col">
-          <main className="unified-container">
+      {/* Global Gmail Banner - positioned after WeddingBanner */}
+      <GlobalGmailBanner />
+      
+      <div className="app-content-container flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="dashboard-layout">
+          <main className="dashboard-main">
             <TodoSidebar
               todoLists={todoLists.todoLists}
               selectedList={todoLists.selectedList}
@@ -609,6 +644,7 @@ export default function TodoPage() {
               onMoveTodoItem={todoItems.handleMoveTodoItem}
               mobileViewMode={mobileViewMode}
               onMobileListSelect={handleMobileListSelect}
+              onDeleteAllItems={handleDeleteAllItems}
             />
 
             <div className={`unified-main-content mobile-${mobileViewMode}-view`}>
@@ -638,6 +674,8 @@ export default function TodoPage() {
                   mobileViewMode={mobileViewMode}
                   onMobileBackToLists={handleMobileBackToLists}
                   hasTodoLists={todoLists.todoLists.length > 0}
+                  onDeleteAllItems={handleDeleteAllItems}
+                  allTodoCount={todoItems.allTodoCount}
             />
 
                 <AnimatePresence>
@@ -728,17 +766,15 @@ export default function TodoPage() {
                       todoLists={todoLists.todoLists}
                       allCategories={todoItems.allCategories}
                       googleCalendarSyncComponent={
-                        !todoLists.selectedList ? (
-                          <GoogleCalendarSync
-                            userId={user?.uid || ''}
-                            todoItems={viewOptions.filteredTodoItems}
-                            selectedListId={null}
-                            onSyncComplete={() => {
-                              todoItems.todoItems = [...todoItems.todoItems];
-                            }}
-                            compact
-                          />
-                        ) : null
+                        <GoogleCalendarSync
+                          userId={user?.uid || ''}
+                          todoItems={viewOptions.filteredTodoItems}
+                          selectedListId={todoLists.selectedList?.id || null}
+                          onSyncComplete={() => {
+                            todoItems.todoItems = [...todoItems.todoItems];
+                          }}
+                          compact
+                        />
                       }
                     />
                   )}

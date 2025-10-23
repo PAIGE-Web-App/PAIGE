@@ -15,6 +15,7 @@ import { Analytics } from "@vercel/analytics/react";
 import AuthenticatedNavWrapper from "../components/AuthenticatedNavWrapper";
 import SimpleNavWrapper from "../components/SimpleNavWrapper";
 import IdleTimeoutManager from "../components/IdleTimeoutManager";
+import GlobalGmailBanner from "../components/GlobalGmailBanner";
 import { usePathname } from 'next/navigation';
 import GlobalErrorBoundary from '../components/GlobalErrorBoundary';
 import HydrationErrorBoundary from '../components/HydrationErrorBoundary';
@@ -107,6 +108,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     )}
                   </>
                 )}
+                
                 </GmailAuthProvider>
               </MoodBoardsProvider>
             </CreditProvider>

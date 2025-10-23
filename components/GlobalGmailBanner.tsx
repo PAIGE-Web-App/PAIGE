@@ -8,13 +8,26 @@ import { useCustomToast } from '@/hooks/useCustomToast';
 import { addGmailScopes } from '@/lib/gmailScopes';
 
 export default function GlobalGmailBanner() {
-  const { needsReauth, isLoading, checkGmailAuth, dismissBanner } = useGmailAuth();
+  const { needsReauth, isLoading, checkGmailAuth, dismissBanner, setNeedsReauth } = useGmailAuth();
   const { showSuccessToast, showErrorToast } = useCustomToast();
   const [showLearnMoreModal, setShowLearnMoreModal] = useState(false);
   const [isReauthLoading, setIsReauthLoading] = useState(false);
 
   // DEBUG: Log when component renders
   console.log('GlobalGmailBanner render: needsReauth =', needsReauth);
+
+  // DEBUG: Add manual trigger for testing
+  React.useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'g' && e.ctrlKey && e.shiftKey) {
+        console.log('🚨 Manual banner trigger (Ctrl+Shift+G)');
+        setNeedsReauth(true);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [setNeedsReauth]);
 
   const handleReauth = async () => {
     if (isReauthLoading) return; // Prevent multiple simultaneous reauth attempts
@@ -117,6 +130,7 @@ export default function GlobalGmailBanner() {
       setIsReauthLoading(false);
     }
   };
+
 
   if (!needsReauth) return null;
 

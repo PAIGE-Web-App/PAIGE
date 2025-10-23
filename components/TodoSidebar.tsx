@@ -34,6 +34,9 @@ interface TodoSidebarProps {
   // Mobile view mode props
   mobileViewMode?: 'lists' | 'items';
   onMobileListSelect?: (listId: string) => void;
+  
+  // Delete all functionality
+  onDeleteAllItems?: () => Promise<void>;
 }
 
 const TodoSidebar: React.FC<TodoSidebarProps> = ({
@@ -61,6 +64,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
   onMoveTodoItem,
   mobileViewMode = 'lists',
   onMobileListSelect,
+  onDeleteAllItems,
 }) => {
   const [showAddListModal, setShowAddListModal] = React.useState(false);
   const [creationStep, setCreationStep] = useState<'choose' | 'manual' | 'import' | 'ai'>('choose');
@@ -285,6 +289,7 @@ const TodoSidebar: React.FC<TodoSidebarProps> = ({
         onClose={handleOnboardingClose}
         onSubmit={handleAddListWithTasks}
       />
+      
     </aside>
   );
 };

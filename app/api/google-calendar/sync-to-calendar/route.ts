@@ -44,7 +44,11 @@ export async function POST(req: Request) {
 
     if (!accessToken) {
       console.log('[google-calendar/sync-to-calendar] Missing Google access token for user:', userId);
-      return NextResponse.json({ success: false, message: 'Google authentication required.' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Google authentication required.',
+        requiresReauth: true 
+      }, { status: 401 });
     }
 
     if (!calendarId) {
@@ -76,8 +80,24 @@ export async function POST(req: Request) {
         console.log('[google-calendar/sync-to-calendar] Access token refreshed successfully');
       } catch (refreshError) {
         console.error('[google-calendar/sync-to-calendar] Error refreshing token:', refreshError);
-        return NextResponse.json({ success: false, message: 'Failed to refresh Google authentication.' }, { status: 401 });
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Google authentication expired. Please re-authenticate.',
+          requiresReauth: true 
+        }, { status: 401 });
       }
+    }
+
+    // Test the token with a simple API call first
+    try {
+      await oauth2Client.getAccessToken();
+    } catch (tokenError) {
+      console.error('[google-calendar/sync-to-calendar] Token validation failed:', tokenError);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Google authentication expired. Please re-authenticate.',
+        requiresReauth: true 
+      }, { status: 401 });
     }
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
@@ -148,6 +168,16 @@ export async function POST(req: Request) {
       } catch (error) {
         console.error('[google-calendar/sync-to-calendar] Error syncing todo:', todoItem.id, error);
         errorCount++;
+        
+        // Check if this is an authentication error
+        if (error instanceof Error && error.message.includes('Invalid Credentials')) {
+          console.log('[google-calendar/sync-to-calendar] Authentication error detected, stopping sync');
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Google authentication expired. Please re-authenticate.',
+            requiresReauth: true 
+          }, { status: 401 });
+        }
       }
     }
 
@@ -174,8 +204,12 @@ export async function POST(req: Request) {
     
     // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes('invalid_grant')) {
-        return NextResponse.json({ success: false, message: 'Google authentication expired. Please re-authenticate.' }, { status: 401 });
+      if (error.message.includes('invalid_grant') || error.message.includes('Invalid Credentials')) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Google authentication expired. Please re-authenticate.',
+          requiresReauth: true 
+        }, { status: 401 });
       }
       if (error.message.includes('quota')) {
         return NextResponse.json({ success: false, message: 'Google API quota exceeded.' }, { status: 429 });

@@ -13,13 +13,20 @@ import DropdownMenu from './DropdownMenu';
 const locales = {
   'en-US': enUS,
 };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales,
-});
+
+// Initialize localizer with proper error handling
+let localizer: any = null;
+try {
+  localizer = dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+    getDay,
+    locales,
+  });
+} catch (error) {
+  console.error('Failed to initialize dateFnsLocalizer:', error);
+}
 
 interface TaskEvent extends RBCEvent {
   id: string;
@@ -60,6 +67,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   googleCalendarSyncComponent,
 }) => {
   if (!todoItems) return null;
+  
+  // Safety check for localizer
+  if (!localizer) {
+    console.error('Calendar localizer not initialized');
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-gray-500">Calendar not available</p>
+          <p className="text-sm text-gray-400">Please refresh the page</p>
+        </div>
+      </div>
+    );
+  }
 
   // Memoized event processing function
   const processEvent = useMemo(() => {
@@ -304,7 +324,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }, [view, setContextMenu]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white" style={{ position: 'relative' }}>
+    <div className="flex flex-col h-full min-h-0 bg-white" style={{ position: 'relative', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
       {/* Remove default react-big-calendar event borders/backgrounds */}
       <style>{`
         .rbc-event, .rbc-day-slot .rbc-background-event {
@@ -318,9 +338,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           .rbc-calendar {
             width: 100% !important;
             min-width: 100% !important;
+            max-width: 100% !important;
             height: 100% !important;
             min-height: 100% !important;
-            max-width: 100vw !important;
+            overflow-x: auto !important;
           }
           
           .rbc-month-view {
@@ -358,11 +379,43 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .rbc-calendar {
           height: 100% !important;
           min-height: 100% !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          overflow-x: auto !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Force calendar to respect parent container width */
+        .rbc-calendar .rbc-month-view {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 100% !important;
         }
         
         .rbc-month-view {
           height: 100% !important;
           min-height: 100% !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          overflow-x: auto !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Force calendar cells to respect container width */
+        .rbc-month-view .rbc-date {
+          width: calc(100% / 7) !important;
+          max-width: calc(100% / 7) !important;
+          min-width: 0 !important;
+          overflow: hidden !important;
+          box-sizing: border-box !important;
+        }
+        
+        /* Force calendar rows to respect container width */
+        .rbc-month-view .rbc-row {
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow: hidden !important;
+          box-sizing: border-box !important;
         }
         
         /* Fix event styling in week and day views */
@@ -582,7 +635,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             events={visibleEvents.filter(e => e && e.title)}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: '100%', minWidth: '100%' }}
+            style={{ height: '100%', width: '100%' }}
             components={{ toolbar: () => null, event: EventComponent }}
             popup={!isMobile}
             onSelectEvent={onEventClick}

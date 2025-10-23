@@ -44,7 +44,11 @@ export async function POST(req: Request) {
 
     if (!accessToken) {
       console.log('[google-calendar/sync-from-calendar] Missing Google access token for user:', userId);
-      return NextResponse.json({ success: false, message: 'Google authentication required.' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Google authentication required.',
+        requiresReauth: true 
+      }, { status: 401 });
     }
 
     if (!calendarId) {
@@ -76,7 +80,11 @@ export async function POST(req: Request) {
         console.log('[google-calendar/sync-from-calendar] Access token refreshed successfully');
       } catch (refreshError) {
         console.error('[google-calendar/sync-from-calendar] Error refreshing token:', refreshError);
-        return NextResponse.json({ success: false, message: 'Failed to refresh Google authentication.' }, { status: 401 });
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Failed to refresh Google authentication.',
+          requiresReauth: true 
+        }, { status: 401 });
       }
     }
 
@@ -109,10 +117,41 @@ export async function POST(req: Request) {
 
     for (const event of events) {
       try {
-        // Skip events that don't have Paige metadata
+        // Check if this is a Paige-synced event or a manually entered event
         const paigeTodoId = event.extendedProperties?.private?.paigeTodoId;
+        
         if (!paigeTodoId) {
-          console.log('[google-calendar/sync-from-calendar] Skipping non-Paige event:', event.id);
+          // This is a manually entered event in Google Calendar - create a new todo item
+          console.log('[google-calendar/sync-from-calendar] Processing manually entered event:', event.id);
+          
+          const start = event.start?.dateTime || event.start?.date;
+          const end = event.end?.dateTime || event.end?.date;
+          
+          if (!start) {
+            console.log('[google-calendar/sync-from-calendar] Skipping event without start time:', event.id);
+            continue;
+          }
+
+          const todoData = {
+            name: event.summary || 'Untitled Task',
+            note: event.description || '',
+            deadline: admin.firestore.Timestamp.fromDate(new Date(start)),
+            endDate: end ? admin.firestore.Timestamp.fromDate(new Date(end)) : null,
+            category: 'Uncategorized',
+            isCompleted: false,
+            listId: 'all', // Add to "All Items" list
+            userId: userId,
+            createdAt: admin.firestore.Timestamp.now(),
+            updatedAt: admin.firestore.Timestamp.now(),
+            orderIndex: Date.now(),
+          };
+
+          // Create new todo item with a generated ID
+          const newTodoRef = todoItemsRef.doc();
+          await newTodoRef.set(todoData);
+          
+          console.log('[google-calendar/sync-from-calendar] Created todo from manually entered event:', newTodoRef.id);
+          importedCount++;
           continue;
         }
 
@@ -187,7 +226,11 @@ export async function POST(req: Request) {
     // Handle specific error types
     if (error instanceof Error) {
       if (error.message.includes('invalid_grant')) {
-        return NextResponse.json({ success: false, message: 'Google authentication expired. Please re-authenticate.' }, { status: 401 });
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Google authentication expired. Please re-authenticate.',
+          requiresReauth: true 
+        }, { status: 401 });
       }
       if (error.message.includes('quota')) {
         return NextResponse.json({ success: false, message: 'Google API quota exceeded.' }, { status: 429 });
