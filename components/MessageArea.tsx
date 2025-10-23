@@ -1034,7 +1034,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
        // Use the contact email as the document ID since that's how Gmail import saves messages
        const contactEmail = selectedContact.email;
     const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
-    const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(50)); // Limit to 50 messages
+    const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'), limit(50)); // Limit to 50 messages - oldest first
 
          const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
            const fetchedMessages: any[] = [];

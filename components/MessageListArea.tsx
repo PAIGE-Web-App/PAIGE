@@ -936,7 +936,14 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
             let lastDate: string | null = null;
             const messageGroups: { date: string; messages: Message[] }[] = [];
 
-            messages.forEach((msg) => {
+            // Sort messages by date to ensure chronological order (oldest to newest)
+            const sortedMessages = [...messages].sort((a, b) => {
+              const dateA = a.date ? new Date(a.date) : new Date(a.timestamp);
+              const dateB = b.date ? new Date(b.date) : new Date(b.timestamp);
+              return dateA.getTime() - dateB.getTime();
+            });
+
+            sortedMessages.forEach((msg) => {
               const dateValue = msg.date ? msg.date.toString() : msg.timestamp;
               const messageDate = getRelativeDate(dateValue);
               if (messageDate !== lastDate) {
