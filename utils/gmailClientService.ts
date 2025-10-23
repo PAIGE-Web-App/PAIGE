@@ -589,9 +589,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
         existingMessagesSnapshot.docs.map(doc => doc.data().id)
       );
 
-      console.log(`📋 Found ${existingMessageIds.size} existing messages, checking for duplicates...`);
-      console.log(`📋 Existing message IDs:`, Array.from(existingMessageIds).slice(0, 5)); // Show first 5 IDs
-      console.log(`📋 New message IDs to check:`, validMessages.slice(0, 5).map(m => m.id)); // Show first 5 new IDs
+      // Debug logging removed to reduce console spam
 
       let importedCount = 0;
       let skippedCount = 0;
@@ -605,7 +603,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             continue;
           }
 
-          console.log(`✅ Processing new message: ${message.id}`);
+          // Processing message silently
 
           // Extract message data
           const headers = message.payload.headers || [];
@@ -642,14 +640,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             dateValue = message.internalDate; // From Gmail API internal date
           }
           
-          console.log('🔍 Date parsing debug for message', message.id, ':', {
-            headerDate: date,
-            messageDate: message.date,
-            internalDate: message.internalDate,
-            finalDateValue: dateValue,
-            messageId: message.id
-          });
-          console.log('🔍 Full message object:', JSON.stringify(message, null, 2));
+          // Debug logging removed to reduce console spam
           
           if (dateValue) {
             try {

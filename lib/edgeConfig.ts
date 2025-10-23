@@ -22,7 +22,6 @@ try {
 export async function getEdgeConfig<T = any>(key: string, fallback: T): Promise<T> {
   try {
     if (!edgeConfig) {
-      console.log(`Edge Config not available, using fallback for key: ${key}`);
       return fallback;
     }
 

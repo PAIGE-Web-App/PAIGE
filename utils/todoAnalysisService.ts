@@ -123,7 +123,7 @@ export async function performTodoAnalysis(
     
     // Get existing todos
     const todosSnapshot = await adminDb
-      .collection(`users/${userId}/todos`)
+      .collection(`users/${userId}/todoItems`)
       .get();
     
     const existingTodos = todosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
