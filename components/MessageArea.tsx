@@ -1574,8 +1574,18 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           setShowTodoSuggestionsBanner(true);
         } else {
           console.log('❌ Hiding todo suggestions banner');
-          setShowTodoSuggestionsBanner(false);
-          setPendingSuggestions(null);
+          // TEMPORARY: Force show banner for testing
+          if (suggestions && suggestions.count > 0) {
+            console.log('🧪 TESTING: Forcing banner to show with existing suggestions');
+            setPendingSuggestions({
+              ...suggestions,
+              status: 'pending'
+            });
+            setShowTodoSuggestionsBanner(true);
+          } else {
+            setShowTodoSuggestionsBanner(false);
+            setPendingSuggestions(null);
+          }
         }
       } else {
         console.log('❌ Contact document does not exist');
