@@ -131,33 +131,10 @@ export class GmailClientService {
         if (tokens.refreshToken) {
           console.log('🔄 Refreshing Gmail access token...');
           
-          const response = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-              client_secret: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET!,
-              refresh_token: tokens.refreshToken,
-              grant_type: 'refresh_token'
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Update token in Firestore
-            const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
-            const db = getFirestore();
-            
-            await updateDoc(doc(db, 'users', userId), {
-              'googleTokens.accessToken': data.access_token,
-              'googleTokens.expiryDate': Date.now() + (data.expires_in * 1000)
-            });
-
-            this.accessToken = data.access_token;
-            console.log('✅ Gmail access token refreshed successfully');
-            return true;
-          }
+          // Note: Client-side token refresh is not possible without exposing client secret
+          // For now, we'll return false to trigger re-authentication
+          console.warn('⚠️ Token refresh not available on client-side, user needs to re-authenticate');
+          return false;
         }
         
         console.error('❌ Failed to refresh Gmail token');

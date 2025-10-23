@@ -260,21 +260,44 @@ export async function performTodoAnalysis(
               });
               console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
             } else {
-              // Create contact document if it doesn't exist
-              await adminDb.collection(`users/${userId}/contacts`).doc(contactId).set({
-                email: contactId,
-                name: contactId,
-                category: 'vendor',
-                pendingTodoSuggestions: {
-                  count: suggestions.newTodos.length,
-                  suggestions: suggestions.newTodos,
-                  todoUpdates: suggestions.todoUpdates,
-                  completedTodos: suggestions.completedTodos,
-                  lastAnalyzedAt: admin.firestore.Timestamp.now(),
-                  status: 'pending'
-                }
-              });
-              console.log(`[TODO SUGGESTIONS] Created contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
+              // Check if a contact with this email already exists (different document ID)
+              const existingContactQuery = await adminDb
+                .collection(`users/${userId}/contacts`)
+                .where('email', '==', contactId)
+                .limit(1)
+                .get();
+              
+              if (!existingContactQuery.empty) {
+                // Update the existing contact document instead of creating a duplicate
+                const existingContactDoc = existingContactQuery.docs[0];
+                await existingContactDoc.ref.update({
+                  pendingTodoSuggestions: {
+                    count: suggestions.newTodos.length,
+                    suggestions: suggestions.newTodos,
+                    todoUpdates: suggestions.todoUpdates,
+                    completedTodos: suggestions.completedTodos,
+                    lastAnalyzedAt: admin.firestore.Timestamp.now(),
+                    status: 'pending'
+                  }
+                });
+                console.log(`[TODO SUGGESTIONS] Updated existing contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
+              } else {
+                // Create contact document if it doesn't exist
+                await adminDb.collection(`users/${userId}/contacts`).doc(contactId).set({
+                  email: contactId,
+                  name: contactId,
+                  category: 'vendor',
+                  pendingTodoSuggestions: {
+                    count: suggestions.newTodos.length,
+                    suggestions: suggestions.newTodos,
+                    todoUpdates: suggestions.todoUpdates,
+                    completedTodos: suggestions.completedTodos,
+                    lastAnalyzedAt: admin.firestore.Timestamp.now(),
+                    status: 'pending'
+                  }
+                });
+                console.log(`[TODO SUGGESTIONS] Created contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
+              }
             }
           } catch (error) {
             console.error(`Failed to store suggestions for contact ${contactId}:`, error);
