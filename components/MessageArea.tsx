@@ -56,8 +56,14 @@ interface MessageAreaProps {
   onMobileBackToContacts?: () => void;
 }
 
-const getRelativeDate = (dateInput: Date | string): string => {
+const getRelativeDate = (dateInput: Date | string | undefined): string => {
     try {
+        // Handle undefined or null input
+        if (!dateInput) {
+            console.warn('No date provided to getRelativeDate:', dateInput);
+            return 'Unknown Date';
+        }
+        
         const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
         
         // Check if date is valid
@@ -1040,6 +1046,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                id: doc.id,
                ...data,
                createdAt: data.createdAt?.toDate() || new Date(),
+               // Convert Firestore Timestamp to JavaScript Date for the date field
+               date: data.date?.toDate ? data.date.toDate() : (data.date instanceof Date ? data.date : new Date(data.date || Date.now())),
              });
            });
            
