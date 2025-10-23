@@ -1518,6 +1518,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     try {
       if (userInitiated) setIsCheckingGmail(true);
       
+      console.log('🔍 [Gmail Check] Starting manual Gmail check for contact:', selectedContact.email);
+      console.log('🔍 [Gmail Check] User ID:', currentUser.uid);
+      
       // Use client-side Gmail import service for new messages
       const importResult = await gmailClientService.importGmailMessages(
         selectedContact.email,
@@ -1527,6 +1530,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           enableTodoScanning: true
         }
       );
+
+      console.log('🔍 [Gmail Check] Import result:', importResult);
 
       if (!importResult.success) {
         throw new Error(importResult.error || 'Failed to check for new Gmail messages');
@@ -1539,6 +1544,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         todoSuggestionsStored: false,
         suggestionsCount: 0
       };
+      
+      console.log('🔍 [Gmail Check] Processed data:', data);
       
       // Handle user-initiated checks (show modal immediately)
       if (userInitiated) {
@@ -1558,7 +1565,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         console.log('[AUTO-CHECK] Background check complete:', data.todoSuggestionsStored ? `${data.suggestionsCount} suggestions stored` : 'no suggestions');
       }
     } catch (error) {
-      console.error('Error checking for new Gmail messages:', error);
+      console.error('❌ [Gmail Check] Error checking for new Gmail messages:', error);
       
       if (userInitiated) {
         // Check if this is a Gmail authentication error
