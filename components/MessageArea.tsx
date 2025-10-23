@@ -1571,7 +1571,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
   };
 
-  // Simple approach: Check for suggestions after import
+  // Only check for suggestions when a new import has just completed
+  // This prevents the banner from showing on every contact change
   useEffect(() => {
     if (!currentUser?.uid || !selectedContact?.id) {
       setShowTodoSuggestionsBanner(false);
@@ -1579,7 +1580,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       return;
     }
 
-    // Just check once when contact changes - no complex real-time listeners
+    // Only check for suggestions if we just imported Gmail messages
+    // This is controlled by the import process, not contact changes
     const checkForSuggestions = async () => {
       try {
         const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
@@ -1589,8 +1591,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           const contactData = contactSnap.data();
           const suggestions = contactData?.pendingTodoSuggestions;
           
-          if (suggestions && suggestions.suggestions && suggestions.suggestions.length > 0) {
-            console.log('✅ Found suggestions, showing banner');
+          // Only show banner if suggestions exist AND they haven't been reviewed yet
+          if (suggestions && 
+              suggestions.suggestions && 
+              suggestions.suggestions.length > 0 &&
+              suggestions.status !== 'reviewed' &&
+              suggestions.status !== 'dismissed') {
+            console.log('✅ Found new suggestions after import, showing banner');
             setPendingSuggestions(suggestions);
             setShowTodoSuggestionsBanner(true);
           } else {
@@ -1603,8 +1610,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
     };
 
-    checkForSuggestions();
-  }, [selectedContact?.id, currentUser?.uid]);
+    // Only check for suggestions if we just completed an import
+    // This will be triggered by the import process, not contact changes
+    if (importedOnce) {
+      checkForSuggestions();
+    }
+  }, [importedOnce, selectedContact?.id, currentUser?.uid]);
 
   useEffect(() => {
     if (showGmailImport && importedOnce && selectedContact && currentUser) {

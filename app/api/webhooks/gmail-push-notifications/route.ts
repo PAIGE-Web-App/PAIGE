@@ -260,8 +260,9 @@ export async function POST(req: NextRequest) {
             messageIdHeader: message.payload?.headers?.find(h => h.name === 'Message-ID')?.value || null,
           };
 
-          // Save to the messages subcollection that the UI listens to
-          await adminDb.collection(`users/${userId}/contacts/${contactDoc.id}/messages`)
+          // Save to the messages subcollection using contact email as the path
+          // This matches the path that the UI listens to for message fetching
+          await adminDb.collection(`users/${userId}/contacts/${fromEmail}/messages`)
             .doc(messageId)
             .set(messageData);
 
@@ -302,6 +303,35 @@ export async function POST(req: NextRequest) {
       }, { merge: true });
 
       console.log('Gmail Push Notification: Successfully processed', processedCount, 'messages for user:', userId);
+
+      // Trigger todo analysis for the processed messages
+      if (processedCount > 0) {
+        try {
+          console.log('Gmail Push Notification: Triggering todo analysis for processed messages');
+          
+          // Call the analyze-messages-for-todos API to process the new messages
+          const analysisResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-messages-for-todos`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: userId,
+              contactEmail: null, // Will analyze all contacts with new messages
+              triggerSource: 'gmail-push-notification'
+            }),
+          });
+
+          if (analysisResponse.ok) {
+            const analysisResult = await analysisResponse.json();
+            console.log('Gmail Push Notification: Todo analysis completed:', analysisResult);
+          } else {
+            console.error('Gmail Push Notification: Todo analysis failed:', analysisResponse.status);
+          }
+        } catch (analysisError) {
+          console.error('Gmail Push Notification: Error triggering todo analysis:', analysisError);
+        }
+      }
 
       return NextResponse.json({ 
         success: true, 
