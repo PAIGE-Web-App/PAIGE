@@ -52,43 +52,54 @@ export async function performTodoAnalysis(
     
     // Check each contact's message collection
     for (const contactId of contactsToAnalyze) {
-      // Try to find the contact by email first (since client-side import uses email as ID)
-      let contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
-      let contactData = contactDoc.exists ? contactDoc.data() : null;
-      
-      // If not found by ID, try to find by email
-      if (!contactDoc.exists) {
-        const contactsSnapshot = await adminDb
-          .collection(`users/${userId}/contacts`)
-          .where('email', '==', contactId)
-          .limit(1)
-          .get();
-        
-        if (!contactsSnapshot.empty) {
-          contactDoc = contactsSnapshot.docs[0];
-          contactData = contactDoc.data();
-        }
-      }
-      
-      if (!contactData) continue;
-      
-      // Try both possible message paths: contactId and contactEmail
+      // For client-side Gmail import, contactId is actually the email
+      // Try to find messages directly using the contactId (which is the email)
       let messagesSnapshot;
+      let contactData = null;
+      
       try {
-        // First try the contactId path
+        // First try the direct path (contactId is email for client-side import)
         messagesSnapshot = await adminDb
           .collection(`users/${userId}/contacts/${contactId}/messages`)
           .orderBy('date', 'desc')
           .limit(10)
           .get();
+        
+        // If we found messages, try to get contact data
+        if (!messagesSnapshot.empty) {
+          try {
+            const contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
+            if (contactDoc.exists) {
+              contactData = contactDoc.data();
+            }
+          } catch (error) {
+            // Contact document might not exist, that's okay
+            contactData = { email: contactId, name: contactId };
+          }
+        }
       } catch (error) {
-        // If that fails, try the contactEmail path
+        // If direct path fails, try to find contact by email
         try {
-          messagesSnapshot = await adminDb
-            .collection(`users/${userId}/contacts/${contactData.email}/messages`)
-            .orderBy('date', 'desc')
-            .limit(10)
+          const contactsSnapshot = await adminDb
+            .collection(`users/${userId}/contacts`)
+            .where('email', '==', contactId)
+            .limit(1)
             .get();
+          
+          if (!contactsSnapshot.empty) {
+            const contactDoc = contactsSnapshot.docs[0];
+            contactData = contactDoc.data();
+            
+            // Try the contact document ID path
+            messagesSnapshot = await adminDb
+              .collection(`users/${userId}/contacts/${contactDoc.id}/messages`)
+              .orderBy('date', 'desc')
+              .limit(10)
+              .get();
+          } else {
+            console.log(`No contact found for ${contactId}`);
+            continue;
+          }
         } catch (error2) {
           console.log(`No messages found for contact ${contactId}`);
           continue;
@@ -108,8 +119,12 @@ export async function performTodoAnalysis(
       allMessages = allMessages.concat(contactMessages);
     }
     
-    // Sort by timestamp and limit to 25 most recent
-    allMessages.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+    // Sort by date and limit to 25 most recent
+    allMessages.sort((a, b) => {
+      const dateA = a.date?.seconds || a.date?.getTime?.() || 0;
+      const dateB = b.date?.seconds || b.date?.getTime?.() || 0;
+      return dateB - dateA;
+    });
     const messages = allMessages.slice(0, 25);
 
     console.log(`🔍 Found ${messages.length} messages for analysis from ${contactsToAnalyze.length} contacts`);
