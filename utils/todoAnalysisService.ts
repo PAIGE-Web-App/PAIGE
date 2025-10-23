@@ -249,14 +249,12 @@ export async function performTodoAnalysis(
             if (contactDoc.exists) {
               // Update existing contact document - always set status to 'pending' for new suggestions
               const updateData = {
-                pendingTodoSuggestions: {
-                  count: suggestions.newTodos.length,
-                  suggestions: suggestions.newTodos,
-                  todoUpdates: suggestions.todoUpdates,
-                  completedTodos: suggestions.completedTodos,
-                  lastAnalyzedAt: admin.firestore.Timestamp.now(),
-                  status: 'pending' // Always set to pending for new suggestions
-                }
+                'pendingTodoSuggestions.count': suggestions.newTodos.length,
+                'pendingTodoSuggestions.suggestions': suggestions.newTodos,
+                'pendingTodoSuggestions.todoUpdates': suggestions.todoUpdates,
+                'pendingTodoSuggestions.completedTodos': suggestions.completedTodos,
+                'pendingTodoSuggestions.lastAnalyzedAt': admin.firestore.Timestamp.now(),
+                'pendingTodoSuggestions.status': 'pending' // Always set to pending for new suggestions
               };
               
               await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update(updateData);
@@ -272,14 +270,12 @@ export async function performTodoAnalysis(
                 // Update the existing contact document instead of creating a duplicate
                 const existingContactDoc = existingContactQuery.docs[0];
                 const updateData = {
-                  pendingTodoSuggestions: {
-                    count: suggestions.newTodos.length,
-                    suggestions: suggestions.newTodos,
-                    todoUpdates: suggestions.todoUpdates,
-                    completedTodos: suggestions.completedTodos,
-                    lastAnalyzedAt: admin.firestore.Timestamp.now(),
-                    status: 'pending' // Always set to pending for new suggestions
-                  }
+                  'pendingTodoSuggestions.count': suggestions.newTodos.length,
+                  'pendingTodoSuggestions.suggestions': suggestions.newTodos,
+                  'pendingTodoSuggestions.todoUpdates': suggestions.todoUpdates,
+                  'pendingTodoSuggestions.completedTodos': suggestions.completedTodos,
+                  'pendingTodoSuggestions.lastAnalyzedAt': admin.firestore.Timestamp.now(),
+                  'pendingTodoSuggestions.status': 'pending' // Always set to pending for new suggestions
                 };
                 
                 await existingContactDoc.ref.update(updateData);
