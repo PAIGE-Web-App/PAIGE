@@ -765,6 +765,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
       
       const path = `users/${currentUser.uid}/contacts/${contactEmail}/messages`;
+      console.log('💾 [MessageArea] Saving message to Firestore path:', path);
+      
       const optimisticId = `optimistic-${Date.now()}`;
       const optimisticMessage: Message = {
         id: optimisticId,
@@ -783,6 +785,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...(threadId && { threadId }),
         ...(selectedChannel === 'InApp' && { inAppMessageId: `inapp-${Date.now()}` }),
       };
+      
+      console.log('💾 [MessageArea] Optimistic message created:', optimisticMessage);
+      
       // Add optimistic message to local state immediately
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       
@@ -793,9 +798,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         createdAt: Timestamp.now(), // Add createdAt field for consistency
         date: Timestamp.now(), // Add date field for consistency
       };
+      
+      console.log('💾 [MessageArea] Message data to save:', messageData);
+      
       const messagesRef = collection(db, path);
       const docRef = await addDoc(messagesRef, messageData);
+      console.log('💾 [MessageArea] Message saved to Firestore with ID:', docRef.id);
+      
       await updateDoc(docRef, { id: docRef.id });
+      console.log('💾 [MessageArea] Message ID updated in Firestore');
       setInput('');
       setSubject('');
       setSelectedFiles([]);
@@ -1040,6 +1051,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
          const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
            console.log('🔵 [MessageArea] Firestore listener triggered. Changes:', snapshot.docChanges().length);
+           console.log('🔵 [MessageArea] Total documents in snapshot:', snapshot.size);
            snapshot.docChanges().forEach(change => {
              console.log(`  Change Type: ${change.type}, Doc ID: ${change.doc.id}, Data:`, change.doc.data());
            });
@@ -1051,8 +1063,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
              const data = doc.data();
              const messageId = data.id || doc.id; // Use Gmail message ID if available, otherwise Firestore doc ID
              
+             console.log('🔵 [MessageArea] Processing message:', {
+               docId: doc.id,
+               messageId: messageId,
+               direction: data.direction,
+               source: data.source,
+               subject: data.subject?.substring(0, 50) + '...'
+             });
+             
              // Skip duplicates based on Gmail message ID
              if (seenIds.has(messageId)) {
+               console.log('🔵 [MessageArea] Skipping duplicate message:', messageId);
                return;
              }
              
@@ -1067,6 +1088,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
            });
            
            console.log('🔵 [MessageArea] Fetched messages (after deduplication):', fetchedMessages.length);
+           console.log('🔵 [MessageArea] Message sources:', fetchedMessages.map(m => ({ id: m.id, source: m.source, direction: m.direction })));
            setMessages(fetchedMessages);
            setMessagesLoading(false);
            setIsInitialLoad(false);

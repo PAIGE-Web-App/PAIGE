@@ -648,7 +648,18 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 
 
           // Save to Firestore
-          await addDoc(collection(db, `users/${userId}/contacts/${contactEmail}/messages`), {
+          const messagePath = `users/${userId}/contacts/${contactEmail}/messages`;
+          console.log('💾 [GmailClientService] Saving message to Firestore path:', messagePath);
+          console.log('💾 [GmailClientService] Message data:', {
+            id: message.id,
+            subject,
+            from,
+            to,
+            direction,
+            source: 'gmail'
+          });
+          
+          await addDoc(collection(db, messagePath), {
             id: message.id,
             threadId: message.threadId,
             subject,
@@ -662,6 +673,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             userId
           });
 
+          console.log('💾 [GmailClientService] Message saved successfully:', message.id);
           importedCount++;
         } catch (error) {
           console.error(`Error processing message ${message.id}:`, error);
