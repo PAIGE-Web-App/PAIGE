@@ -238,12 +238,8 @@ export async function performTodoAnalysis(
     
     // If storeSuggestionsMode is enabled, save suggestions to each contact document
     if (storeSuggestionsMode && adminDb) {
-      console.log(`[TODO SUGGESTIONS] Processing ${suggestionsPerContact.size} contacts for suggestion storage`);
-      
       for (const [contactId, suggestions] of suggestionsPerContact.entries()) {
         const totalSuggestions = suggestions.newTodos.length + suggestions.todoUpdates.length + suggestions.completedTodos.length;
-        
-        console.log(`[TODO SUGGESTIONS] Contact ${contactId}: ${suggestions.newTodos.length} new todos, ${suggestions.todoUpdates.length} updates, ${suggestions.completedTodos.length} completions`);
         
         if (totalSuggestions > 0) {
           try {
@@ -263,9 +259,7 @@ export async function performTodoAnalysis(
                 }
               };
               
-              console.log(`[TODO SUGGESTIONS] Updating contact ${contactId} with:`, updateData);
               await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update(updateData);
-              console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
             } else {
               // Check if a contact with this email already exists (different document ID)
               const existingContactQuery = await adminDb
@@ -288,9 +282,7 @@ export async function performTodoAnalysis(
                   }
                 };
                 
-                console.log(`[TODO SUGGESTIONS] Updating existing contact document ${existingContactDoc.id} with:`, updateData);
                 await existingContactDoc.ref.update(updateData);
-                console.log(`[TODO SUGGESTIONS] Updated existing contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
               } else {
                 // Create contact document if it doesn't exist
                 await adminDb.collection(`users/${userId}/contacts`).doc(contactId).set({
@@ -306,7 +298,6 @@ export async function performTodoAnalysis(
                     status: 'pending'
                   }
                 });
-                console.log(`[TODO SUGGESTIONS] Created contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
               }
             }
           } catch (error) {
@@ -467,16 +458,11 @@ async function analyzeMessageLocally(
     );
     
     if (!hasActionableContent) {
-      console.log(`🔍 No actionable content found in message: ${subject} (length: ${messageBody.length})`);
       return { newTodos, todoUpdates, completedTodos };
     }
     
-    console.log(`🔍 Found actionable content in message: ${subject}`);
-    console.log(`🔍 Message text sample: ${messageText.substring(0, 100)}...`);
-    
     // Extract specific action items from the message
     const actionItems = extractActionItems(messageText, subject, contactName);
-    console.log(`🔍 Extracted ${actionItems.length} action items from message: ${subject}`);
     
     for (const action of actionItems) {
       newTodos.push({
@@ -503,7 +489,6 @@ async function analyzeMessageLocally(
       messageText.includes('invoice') || 
       messageText.includes('$')
     )) {
-      console.log(`🔍 Creating generic todo for message: ${subject}`);
       newTodos.push({
         name: `Follow up with ${contactName}`,
         note: `Message from ${contactName}: "${subject}" - ${messageBody.substring(0, 100)}...`,
@@ -514,8 +499,6 @@ async function analyzeMessageLocally(
         sourceEmail: contact.email || contactName,
         confidenceScore: 0.3, // Lower confidence for generic todos
       });
-    } else {
-      console.log(`🔍 No generic todo created for message: ${subject} (actionItems: ${actionItems.length}, hasActionableContent: ${hasActionableContent})`);
     }
     
     return {

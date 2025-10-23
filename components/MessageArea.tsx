@@ -1552,43 +1552,20 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
     // Set up real-time listener for contact document changes
     const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
-    console.log('🔍 Setting up real-time listener for contact:', selectedContact.id);
     
     const unsubscribe = onSnapshot(contactRef, (contactSnap) => {
-      console.log('🔍 Contact document updated:', contactSnap.exists());
-      
       if (contactSnap.exists()) {
         const contactData = contactSnap.data();
         const suggestions = contactData?.pendingTodoSuggestions;
         
-        console.log('🔍 Contact data:', {
-          hasSuggestions: !!suggestions,
-          status: suggestions?.status,
-          count: suggestions?.count,
-          suggestionsLength: suggestions?.suggestions?.length
-        });
-        
         if (suggestions && suggestions.status === 'pending' && suggestions.count > 0) {
-          console.log('✅ Showing todo suggestions banner');
           setPendingSuggestions(suggestions);
           setShowTodoSuggestionsBanner(true);
         } else {
-          console.log('❌ Hiding todo suggestions banner');
-          // TEMPORARY: Force show banner for testing
-          if (suggestions && suggestions.count > 0) {
-            console.log('🧪 TESTING: Forcing banner to show with existing suggestions');
-            setPendingSuggestions({
-              ...suggestions,
-              status: 'pending'
-            });
-            setShowTodoSuggestionsBanner(true);
-          } else {
-            setShowTodoSuggestionsBanner(false);
-            setPendingSuggestions(null);
-          }
+          setShowTodoSuggestionsBanner(false);
+          setPendingSuggestions(null);
         }
       } else {
-        console.log('❌ Contact document does not exist');
         setShowTodoSuggestionsBanner(false);
         setPendingSuggestions(null);
       }
