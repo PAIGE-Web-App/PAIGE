@@ -63,14 +63,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
   setIsEditing,
   onGenerateAITodoList,
 }) => {
-  // Debug logging
-  console.log('🔍 MessageListArea: Received props:', {
-    messagesCount: messages?.length || 0,
-    loading,
-    isInitialLoad,
-    messages: messages?.slice(0, 2) // Show first 2 messages for debugging
-  });
-  // Removed excessive logging to reduce console spam
+  // Debug logging removed to reduce console spam
 
   // Helper function to strip quoted text and signatures
   const stripQuotedText = (text: string): string => {
@@ -944,7 +937,8 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
             const messageGroups: { date: string; messages: Message[] }[] = [];
 
             messages.forEach((msg) => {
-              const messageDate = getRelativeDate(msg.date || msg.timestamp);
+              const dateValue = msg.date ? msg.date.toString() : msg.timestamp;
+              const messageDate = getRelativeDate(dateValue);
               if (messageDate !== lastDate) {
                 lastDate = messageDate;
                 messageGroups.push({ date: messageDate, messages: [msg] });

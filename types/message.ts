@@ -22,6 +22,8 @@ export interface Message {
   contactId?: string;
   createdAt?: Date;
   fullBody?: string;
+  // Gmail import date field
+  date?: Date;
 }
 
 // Simple message interface for basic messaging (used in app/page.tsx)
