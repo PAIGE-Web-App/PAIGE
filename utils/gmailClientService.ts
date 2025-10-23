@@ -647,7 +647,8 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             messageDate: message.date,
             internalDate: message.internalDate,
             finalDateValue: dateValue,
-            messageId: message.id
+            messageId: message.id,
+            fullMessage: JSON.stringify(message, null, 2)
           });
           
           if (dateValue) {

@@ -981,32 +981,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     }
     
     try {
-      const response = await fetch('/api/check-gmail-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.uid, contactEmail: 'test@example.com' }),
-      });
+      // Use client-side Gmail service instead of server-side API
+      const { gmailClientService } = await import('@/utils/gmailClientService');
+      const isAvailable = await gmailClientService.isGmailAvailable(currentUser.uid);
       
-      if (!response.ok) {
-        // Check for authentication-related errors in both 401 and 500 responses
-        if (response.status === 401 || response.status === 500) {
-          try {
-            const data = await response.json();
-            if (data.message?.includes('Google authentication required') || 
-                data.message?.includes('Failed to refresh Google authentication') ||
-                data.message?.includes('Google authentication expired') ||
-                data.message?.includes('invalid_grant') ||
-                data.message?.includes('Token has been expired') ||
-                data.message?.includes('An error occurred while checking Gmail history')) {
-              // Gmail reauth banner now handled globally
-            }
-          } catch (parseError) {
-            // If we can't parse the response, silently handle it
-          }
-        }
+      if (!isAvailable) {
+        console.log('🔐 Gmail not available, triggering banner');
+        window.dispatchEvent(new CustomEvent('gmail-auth-required'));
+        return;
       }
     } catch (error) {
-      // Silently handle Gmail API errors - they're not critical for todo functionality
+      console.error('Error checking Gmail auth status:', error);
     } finally {
       // Update cache regardless of success/failure
       sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: now }));
