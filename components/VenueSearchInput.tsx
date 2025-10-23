@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { debounce, googlePlacesBatcher } from '@/utils/requestBatcher';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface VenueSearchInputProps {
@@ -22,72 +23,97 @@ export default function VenueSearchInput({
 }: VenueSearchInputProps) {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const autocompleteService = useRef<any>(null);
+  const sessionToken = useRef<any>(null);
+
+  // Initialize Google Places Autocomplete service
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
+      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+      sessionToken.current = new window.google.maps.places.AutocompleteSessionToken();
+    }
+  }, []);
+
+  const handleSelect = (suggestion: any) => () => {
+    console.log('🔵 [VenueSearch] handleSelect called with:', suggestion.description);
+    
+    // Update the input value immediately
+    onChange(suggestion.description);
+    
+    // Clear suggestions immediately
+    setSuggestions([]);
+    
+    const { place_id, types } = suggestion;
+
+    // Set venue metadata
+    if (setVenueMetadata) {
+      console.log('🔵 [VenueSearch] Fetching place details for:', place_id);
+      // Use our batcher for place details
+      googlePlacesBatcher.getPlaceDetails(place_id)
+        .then((result) => {
+          console.log('🔵 [VenueSearch] Place details result:', result);
+          if (result && result.success && result.data) {
+            console.log('🔵 [VenueSearch] Got metadata:', result.data);
+            setVenueMetadata(result.data);
+          } else {
+            console.log('🔵 [VenueSearch] No metadata result');
+            setVenueMetadata(null);
+          }
+        })
+        .catch((error) => {
+          console.error('🔴 [VenueSearch] Error fetching place details:', error);
+          setVenueMetadata(null);
+        });
+    }
+  };
+
+  // Create debounced search function
+  const debouncedSearch = debounce((inputValue: string) => {
+    if (!autocompleteService.current || inputValue.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // For venue searches, include location in the search query itself
+    let searchInput = inputValue;
+    if (weddingLocation) {
+      // For venue searches, include the wedding location in the search
+      searchInput = `${inputValue} wedding venue ${weddingLocation}`;
+    } else {
+      searchInput = `${inputValue} wedding venue`;
+    }
+
+    const request: any = {
+      input: searchInput,
+      types: ['establishment'],
+      sessionToken: sessionToken.current,
+    };
+
+    autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+      setIsLoading(false);
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+        setSuggestions(predictions);
+      } else {
+        setSuggestions([]);
+      }
+    });
+  }, 300);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     onChange(inputValue);
     
-    // Clear previous timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
     // Clear suggestions if input is empty
     if (!inputValue.trim()) {
       setSuggestions([]);
       return;
     }
 
-    // Debounce the API call
-    debounceTimer.current = setTimeout(async () => {
-      if (inputValue.length < 2) {
-        setSuggestions([]);
-        return;
-      }
-
-      setIsLoading(true);
-      
-      try {
-        // Use client-side Google Places API for venue search
-        const { googlePlacesClientService } = await import('@/utils/googlePlacesClientService');
-        const searchResult = await googlePlacesClientService.searchPlaces({
-          category: 'wedding_venue',
-          location: weddingLocation || 'United States',
-          searchTerm: inputValue,
-          maxResults: 8
-        });
-
-        if (searchResult.success && searchResult.results) {
-          console.log('Venue search results:', searchResult.results);
-          setSuggestions(searchResult.results);
-        } else {
-          console.error('Venue search failed:', searchResult.error);
-          setSuggestions([]);
-        }
-      } catch (error) {
-        console.error('Venue search error:', error);
-        setSuggestions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300);
+    // Use debounced search
+    debouncedSearch(inputValue);
   };
-
-  const handleSelect = (venue: any) => () => {
-    onChange(venue.name);
-    setSuggestions([]);
-    setVenueMetadata(venue);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, []);
 
   return (
     <div className="relative">
@@ -101,27 +127,24 @@ export default function VenueSearchInput({
       
       {suggestions.length > 0 && !disabled && (
         <ul className="absolute z-10 bg-white border border-[#AB9C95] rounded mt-1 w-full max-h-48 overflow-y-auto shadow-lg">
-          {suggestions.map((venue) => (
+          {suggestions.map((suggestion) => (
             <li
-              key={venue.place_id}
+              key={suggestion.place_id}
               className="px-3 py-2 cursor-pointer hover:bg-[#F3F2F0] text-sm"
-              onClick={handleSelect(venue)}
+              onClick={handleSelect(suggestion)}
             >
-              <div className="font-medium">{venue.name}</div>
-              <div className="text-xs text-gray-500">{venue.formatted_address}</div>
-              {venue.rating && (
-                <div className="text-xs text-gray-400">
-                  ⭐ {venue.rating} ({venue.user_ratings_total} reviews)
-                </div>
-              )}
+              <div className="font-medium">{suggestion.description}</div>
+              <div className="text-xs text-gray-500">
+                {suggestion.types?.includes('establishment') ? 'Venue' : 'Location'}
+              </div>
             </li>
           ))}
         </ul>
       )}
       
       {isLoading && (
-        <div className="absolute right-3 top-0 bottom-0 flex items-center">
-          <div className="h-5 w-5 border-[2.5px] border-[#A85C36] border-t-transparent rounded-full animate-spin"></div>
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <LoadingSpinner size="sm" />
         </div>
       )}
       
