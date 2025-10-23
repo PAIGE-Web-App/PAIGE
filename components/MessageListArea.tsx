@@ -944,7 +944,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
             const messageGroups: { date: string; messages: Message[] }[] = [];
 
             messages.forEach((msg) => {
-              const messageDate = getRelativeDate(msg.timestamp);
+              const messageDate = getRelativeDate(msg.date || msg.timestamp);
               if (messageDate !== lastDate) {
                 lastDate = messageDate;
                 messageGroups.push({ date: messageDate, messages: [msg] });
@@ -1049,7 +1049,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                                 </>
                               ) : (
                                 'Manual'
-                              )} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              )} • {new Date(msg.date || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <div className="flex items-center gap-1">
                               {msg.source === 'gmail' && msg.gmailMessageId && (
