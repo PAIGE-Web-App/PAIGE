@@ -1544,35 +1544,35 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Check for pending todo suggestions when contact changes
   useEffect(() => {
-    const checkPendingSuggestions = async () => {
-      if (!currentUser?.uid || !selectedContact?.id) {
+    if (!currentUser?.uid || !selectedContact?.id) {
+      setShowTodoSuggestionsBanner(false);
+      setPendingSuggestions(null);
+      return;
+    }
+
+    // Set up real-time listener for contact document changes
+    const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
+    const unsubscribe = onSnapshot(contactRef, (contactSnap) => {
+      if (contactSnap.exists()) {
+        const contactData = contactSnap.data();
+        const suggestions = contactData?.pendingTodoSuggestions;
+        
+        if (suggestions && suggestions.status === 'pending' && suggestions.count > 0) {
+          setPendingSuggestions(suggestions);
+          setShowTodoSuggestionsBanner(true);
+        } else {
+          setShowTodoSuggestionsBanner(false);
+          setPendingSuggestions(null);
+        }
+      } else {
         setShowTodoSuggestionsBanner(false);
         setPendingSuggestions(null);
-        return;
       }
-      
-      try {
-        const contactRef = doc(db, `users/${currentUser.uid}/contacts`, selectedContact.id);
-        const contactSnap = await getDoc(contactRef);
-        
-        if (contactSnap.exists()) {
-          const contactData = contactSnap.data();
-          const suggestions = contactData?.pendingTodoSuggestions;
-          
-          if (suggestions && suggestions.status === 'pending' && suggestions.count > 0) {
-            setPendingSuggestions(suggestions);
-            setShowTodoSuggestionsBanner(true);
-          } else {
-            setShowTodoSuggestionsBanner(false);
-            setPendingSuggestions(null);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking pending suggestions:', error);
-      }
-    };
-    
-    checkPendingSuggestions();
+    }, (error) => {
+      console.error('Error listening to contact document:', error);
+    });
+
+    return () => unsubscribe();
   }, [selectedContact?.id, currentUser?.uid]);
 
   useEffect(() => {
@@ -2031,7 +2031,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           {showTodoSuggestionsBanner && pendingSuggestions && (
             <div className="mt-0">
               <div 
-                className="px-4 py-3 rounded-lg border flex items-start gap-3"
+                className="px-4 py-3 border flex items-start gap-3"
                 style={{ 
                   backgroundColor: '#f8f5ff',
                   borderColor: '#805d93'

@@ -479,8 +479,18 @@ async function analyzeMessageLocally(
       });
     }
     
-    // If no specific action items found, create a generic todo for basic messages
-    if (actionItems.length === 0 && hasActionableContent) {
+    // Only create generic todos for messages with very specific actionable content
+    // Don't create generic todos for every message to avoid duplicates
+    if (actionItems.length === 0 && hasActionableContent && (
+      messageText.includes('please') || 
+      messageText.includes('need to') || 
+      messageText.includes('deadline') || 
+      messageText.includes('due by') || 
+      messageText.includes('confirm') || 
+      messageText.includes('payment') || 
+      messageText.includes('invoice') || 
+      messageText.includes('$')
+    )) {
       newTodos.push({
         name: `Follow up with ${contactName}`,
         note: `Message from ${contactName}: "${subject}" - ${messageBody.substring(0, 100)}...`,
