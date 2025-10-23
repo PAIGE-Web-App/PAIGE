@@ -341,23 +341,19 @@ async function analyzeMessageForTodos(
   userId: string
 ) {
   try {
-    // Use the N8N workflow for proper AI analysis
-    const n8nWebhookUrl = process.env.N8N_MESSAGE_ANALYSIS_WEBHOOK_URL;
+    // Use the local MessageAnalysisEngine for proper AI analysis
+    const { MessageAnalysisEngine } = await import('./messageAnalysisEngine');
+    const engine = MessageAnalysisEngine.getInstance();
     
-    if (!n8nWebhookUrl) {
-      console.warn('N8N message analysis webhook URL not configured, using local analysis');
-      return await analyzeMessageLocally(messageBody, subject, contact, existingTodos, weddingContext, userId);
-    }
-
-    console.log(`🔍 Calling N8N webhook for analysis`);
-    console.log(`🔍 Subject: "${subject}", Vendor: ${contact.name || contact.email}, Existing todos: ${existingTodos.length}`);
+    console.log(`🔍 Using local AI analysis for: "${subject}" from ${contact.name || contact.email}`);
     
-    const requestData = {
-      message_content: messageBody,
-      subject: subject,
-      vendor_category: contact.category || 'Unknown',
-      vendor_name: contact.name || contact.email || 'Unknown Vendor',
-      existing_todos: existingTodos.map(todo => ({
+    const analysisResult = await engine.analyzeMessage({
+      messageContent: messageBody,
+      vendorName: contact.name || contact.email || 'Unknown Vendor',
+      vendorCategory: contact.category || 'Unknown',
+      contactId: contact.email || 'unknown',
+      userId: userId,
+      existingTodos: existingTodos.map(todo => ({
         id: todo.id,
         name: todo.name,
         note: todo.note,
@@ -365,44 +361,36 @@ async function analyzeMessageForTodos(
         deadline: todo.deadline,
         isCompleted: todo.isCompleted || false
       })),
-      wedding_context: weddingContext,
-      user_id: userId,
-      message_id: `gmail-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-    
-    console.log('🔍 N8N request data:', JSON.stringify(requestData, null, 2));
-
-    const response = await fetch(n8nWebhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestData),
+      weddingContext: weddingContext ? {
+        weddingDate: weddingContext.weddingDate ? new Date(weddingContext.weddingDate) : undefined,
+        weddingLocation: weddingContext.weddingLocation,
+        guestCount: weddingContext.guestCount,
+        maxBudget: weddingContext.maxBudget,
+        vibe: weddingContext.vibe ? [weddingContext.vibe] : undefined
+      } : undefined
     });
 
-    if (!response.ok) {
-      throw new Error(`N8N Message Analysis failed: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
+    // Transform MessageAnalysisEngine response to match expected format
+    const transformedAnalysis = {
+      newTodos: analysisResult.newTodos?.map((todo: any) => ({
+        name: todo.name,
+        note: todo.note || todo.description || '',
+        category: todo.category || 'other',
+        deadline: todo.deadline ? new Date(todo.deadline) : null,
+        sourceMessage: subject || 'Unknown Subject',
+        sourceContact: contact.name || contact.email || 'Unknown',
+        sourceEmail: contact.email || contact.name || 'Unknown',
+        confidenceScore: todo.confidenceScore || 0.8
+      })) || [],
+      todoUpdates: analysisResult.todoUpdates || [],
+      completedTodos: analysisResult.completedTodos || []
+    };
     
-    if (result.success && result.analysis) {
-      // Transform N8N response to match TodoItem structure
-      const transformedAnalysis = {
-        newTodos: result.analysis.newTodos?.map((todo: any) => ({
-          name: todo.name,
-          note: todo.description || todo.notes,
-          category: todo.category,
-          deadline: todo.dueDate ? new Date(todo.dueDate) : null,
-        })) || [],
-        todoUpdates: result.analysis.todoUpdates || [],
-        completedTodos: result.analysis.completedTodos || []
-      };
-      return transformedAnalysis;
-    } else {
-      console.warn('N8N analysis returned unsuccessful result, using local analysis:', result);
-      return await analyzeMessageLocally(messageBody, subject, contact, existingTodos, weddingContext, userId);
-    }
+    console.log(`🔍 AI analysis completed: ${transformedAnalysis.newTodos.length} new todos found`);
+    return transformedAnalysis;
+    
   } catch (error) {
-    console.error('N8N Message analysis error, using local analysis:', error);
+    console.error('Local AI analysis error, using fallback:', error);
     return await analyzeMessageLocally(messageBody, subject, contact, existingTodos, weddingContext, userId);
   }
 }

@@ -1,0 +1,346 @@
+{
+  "name": "PAIGE Message Analysis Workflow - Fixed",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "paige-rag/analyze-message",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-message-analysis",
+      "name": "Message Analysis Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "paige-rag-analyze-message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validate-message-content",
+              "leftValue": "={{ $json.message_content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            },
+            {
+              "id": "validate-user-id",
+              "leftValue": "={{ $json.user_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Message Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preprocess message content for analysis\nconst message = $input.first().json;\nconst content = message.message_content;\nconst subject = message.subject || '';\nconst vendorCategory = message.vendor_category || 'Unknown';\nconst vendorName = message.vendor_name || 'Unknown';\n\n// Clean and structure message content\nfunction preprocessMessage(content, subject, vendorCategory, vendorName) {\n  let processed = content;\n  \n  // Remove email headers and signatures\n  processed = processed.replace(/^From:.*$/gm, '');\n  processed = processed.replace(/^To:.*$/gm, '');\n  processed = processed.replace(/^Subject:.*$/gm, '');\n  processed = processed.replace(/^Date:.*$/gm, '');\n  processed = processed.replace(/^Sent:.*$/gm, '');\n  processed = processed.replace(/^Received:.*$/gm, '');\n  \n  // Remove common email signatures\n  processed = processed.replace(/\\n\\n--\\s*\\n.*$/s, '');\n  processed = processed.replace(/\\n\\nBest regards.*$/s, '');\n  processed = processed.replace(/\\n\\nSincerely.*$/s, '');\n  processed = processed.replace(/\\n\\nThanks.*$/s, '');\n  \n  // Remove excessive whitespace\n  processed = processed.replace(/\\s+/g, ' ');\n  \n  // Extract key information\n  const extractedInfo = {\n    subject: subject.trim(),\n    body: processed.trim(),\n    vendorCategory: vendorCategory,\n    vendorName: vendorName,\n    messageType: detectMessageType(subject, processed),\n    urgency: detectUrgency(subject, processed),\n    containsDeadlines: containsDeadlines(processed),\n    containsQuestions: containsQuestions(processed),\n    containsActionItems: containsActionItems(processed)\n  };\n  \n  return extractedInfo;\n}\n\n// Detect message type\nfunction detectMessageType(subject, content) {\n  const subjectLower = subject.toLowerCase();\n  const contentLower = content.toLowerCase();\n  \n  if (subjectLower.includes('contract') || contentLower.includes('contract')) {\n    return 'contract';\n  } else if (subjectLower.includes('invoice') || contentLower.includes('invoice')) {\n    return 'invoice';\n  } else if (subjectLower.includes('proposal') || contentLower.includes('proposal')) {\n    return 'proposal';\n  } else if (subjectLower.includes('quote') || contentLower.includes('quote')) {\n    return 'quote';\n  } else if (subjectLower.includes('meeting') || contentLower.includes('meeting')) {\n    return 'meeting';\n  } else if (subjectLower.includes('follow up') || contentLower.includes('follow up')) {\n    return 'follow_up';\n  } else {\n    return 'general';\n  }\n}\n\n// Detect urgency level\nfunction detectUrgency(subject, content) {\n  const subjectLower = subject.toLowerCase();\n  const contentLower = content.toLowerCase();\n  \n  const urgentKeywords = ['urgent', 'asap', 'immediately', 'deadline', 'due', 'expires'];\n  const highKeywords = ['important', 'priority', 'soon', 'quickly'];\n  \n  if (urgentKeywords.some(keyword => \n    subjectLower.includes(keyword) || contentLower.includes(keyword)\n  )) {\n    return 'urgent';\n  } else if (highKeywords.some(keyword => \n    subjectLower.includes(keyword) || contentLower.includes(keyword)\n  )) {\n    return 'high';\n  } else {\n    return 'medium';\n  }\n}\n\n// Check for deadlines\nfunction containsDeadlines(content) {\n  const deadlinePatterns = [\n    /\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})\\b/g,\n    /\\b(\\d{1,2}-\\d{1,2}-\\d{2,4})\\b/g,\n    /\\b(\\d{1,2}\\.\\d{1,2}\\.\\d{2,4})\\b/g,\n    /\\b(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{1,2},?\\s+\\d{2,4}\\b/gi,\n    /\\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+\\d{1,2},?\\s+\\d{2,4}\\b/gi,\n    /\\b(by|before|until|due)\\s+(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})\\b/gi,\n    /\\b(by|before|until|due)\\s+(\\d{1,2}-\\d{1,2}-\\d{2,4})\\b/gi\n  ];\n  \n  return deadlinePatterns.some(pattern => pattern.test(content));\n}\n\n// Check for questions\nfunction containsQuestions(content) {\n  const questionPatterns = [\n    /\\?/g,\n    /\\b(what|when|where|who|why|how|can|could|would|should|do|does|did|is|are|was|were)\\b/gi\n  ];\n  \n  return questionPatterns.some(pattern => pattern.test(content));\n}\n\n// Check for action items\nfunction containsActionItems(content) {\n  const actionPatterns = [\n    /\\b(please|need to|must|should|will|going to|plan to|intend to)\\b/gi,\n    /\\b(action|task|todo|item|requirement|requirement)\\b/gi,\n    /\\b(confirm|approve|review|send|submit|complete|finish)\\b/gi\n  ];\n  \n  return actionPatterns.some(pattern => pattern.test(content));\n}\n\n// Main execution\ntry {\n  const processedMessage = preprocessMessage(content, subject, vendorCategory, vendorName);\n  \n  return {\n    json: {\n      ...message,\n      processed_message: processedMessage,\n      analysis_metadata: {\n        processed_at: new Date().toISOString(),\n        content_length: processedMessage.body.length,\n        has_subject: !!processedMessage.subject,\n        message_type: processedMessage.messageType,\n        urgency: processedMessage.urgency,\n        contains_deadlines: processedMessage.containsDeadlines,\n        contains_questions: processedMessage.containsQuestions,\n        contains_action_items: processedMessage.containsActionItems\n      }\n    }\n  };\n  \n} catch (error) {\n  console.error('Message preprocessing error:', error);\n  \n  // Fallback to basic processing\n  return {\n    json: {\n      ...message,\n      processed_message: {\n        subject: subject.trim(),\n        body: content.trim(),\n        vendorCategory: vendorCategory,\n        vendorName: vendorName,\n        messageType: 'general',\n        urgency: 'medium',\n        containsDeadlines: false,\n        containsQuestions: false,\n        containsActionItems: false\n      },\n      analysis_metadata: {\n        processed_at: new Date().toISOString(),\n        content_length: content.length,\n        has_subject: !!subject,\n        message_type: 'general',\n        urgency: 'medium',\n        contains_deadlines: false,\n        contains_questions: false,\n        contains_action_items: false,\n        error: 'Fallback processing used'\n      }\n    }\n  };\n}"
+      },
+      "id": "preprocess-message",
+      "name": "Preprocess Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.processed_message.subject + ' ' + $json.processed_message.body }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-embeddings",
+      "name": "Create Message Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pinecone.io/v1/vectors/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "pineconeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vector",
+              "value": "={{ $json.data[0].embedding }}"
+            },
+            {
+              "name": "topK",
+              "value": "5"
+            },
+            {
+              "name": "includeMetadata",
+              "value": "true"
+            },
+            {
+              "name": "filter",
+              "value": "={{ { user_id: { $eq: $('Preprocess Message').item.json.user_id } } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "query-pinecone",
+      "name": "Query Pinecone for Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build context from Pinecone results and message data\nconst message = $('Preprocess Message').item.json;\nconst pineconeResults = $('Query Pinecone for Context').item.json;\nconst existingTodos = message.existing_todos || [];\nconst weddingContext = message.wedding_context || {};\n\n// Extract relevant context from Pinecone results\nfunction buildContextFromPinecone(pineconeResults) {\n  if (!pineconeResults.matches || pineconeResults.matches.length === 0) {\n    return '';\n  }\n  \n  const relevantContexts = pineconeResults.matches\n    .filter(match => match.score > 0.7) // Only high-confidence matches\n    .map(match => {\n      const metadata = match.metadata || {};\n      return {\n        content: metadata.content || '',\n        source: metadata.source || 'unknown',\n        document_type: metadata.document_type || 'unknown',\n        score: match.score\n      };\n    })\n    .sort((a, b) => b.score - a.score) // Sort by relevance\n    .slice(0, 3); // Take top 3 most relevant\n  \n  if (relevantContexts.length === 0) {\n    return '';\n  }\n  \n  let context = 'Relevant context from knowledge base:\\n';\n  relevantContexts.forEach((ctx, index) => {\n    context += `\\n${index + 1}. From ${ctx.source} (${ctx.document_type}):\\n`;\n    context += `${ctx.content.substring(0, 500)}...\\n`;\n  });\n  \n  return context;\n}\n\n// Build existing todos context\nfunction buildTodosContext(existingTodos) {\n  if (!existingTodos || existingTodos.length === 0) {\n    return 'No existing todos found.';\n  }\n  \n  let context = 'Existing todos for reference:\\n';\n  existingTodos.forEach((todo, index) => {\n    context += `\\n${index + 1}. ${todo.name}`;\n    if (todo.category) context += ` (Category: ${todo.category})`;\n    if (todo.deadline) context += ` (Deadline: ${todo.deadline})`;\n    if (todo.note) context += ` (Note: ${todo.note})`;\n    context += ` (Status: ${todo.isCompleted ? 'Completed' : 'Pending'})`;\n  });\n  \n  return context;\n}\n\n// Build wedding context\nfunction buildWeddingContext(weddingContext) {\n  if (!weddingContext || Object.keys(weddingContext).length === 0) {\n    return 'No wedding context available.';\n  }\n  \n  let context = 'Wedding context:\\n';\n  if (weddingContext.weddingDate) context += `- Wedding Date: ${weddingContext.weddingDate}\\n`;\n  if (weddingContext.weddingLocation) context += `- Location: ${weddingContext.weddingLocation}\\n`;\n  if (weddingContext.guestCount) context += `- Guest Count: ${weddingContext.guestCount}\\n`;\n  if (weddingContext.maxBudget) context += `- Budget: $${weddingContext.maxBudget}\\n`;\n  if (weddingContext.vibe) context += `- Vibe: ${weddingContext.vibe}\\n`;\n  \n  return context;\n}\n\n// Main execution\ntry {\n  const ragContext = buildContextFromPinecone(pineconeResults);\n  const todosContext = buildTodosContext(existingTodos);\n  const weddingContextStr = buildWeddingContext(weddingContext);\n  \n  const analysisContext = {\n    message: message.processed_message,\n    rag_context: ragContext,\n    todos_context: todosContext,\n    wedding_context: weddingContextStr,\n    analysis_metadata: message.analysis_metadata\n  };\n  \n  return {\n    json: {\n      ...message,\n      analysis_context: analysisContext,\n      context_metadata: {\n        rag_matches_found: pineconeResults.matches?.length || 0,\n        high_confidence_matches: pineconeResults.matches?.filter(m => m.score > 0.7).length || 0,\n        existing_todos_count: existingTodos.length,\n        wedding_context_available: Object.keys(weddingContext).length > 0\n      }\n    }\n  };\n  \n} catch (error) {\n  console.error('Context building error:', error);\n  \n  // Fallback context\n  return {\n    json: {\n      ...message,\n      analysis_context: {\n        message: message.processed_message,\n        rag_context: '',\n        todos_context: 'No context available due to error',\n        wedding_context: 'No context available due to error',\n        analysis_metadata: message.analysis_metadata\n      },\n      context_metadata: {\n        rag_matches_found: 0,\n        high_confidence_matches: 0,\n        existing_todos_count: 0,\n        wedding_context_available: false,\n        error: 'Context building failed'\n      }\n    }\n  };\n}"
+      },
+      "id": "build-context",
+      "name": "Build Analysis Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4o-mini"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\n  \"role\": \"system\",\n  \"content\": \"You are an AI assistant specialized in analyzing wedding planning messages to detect actionable items and prepare them for integration with a todo management system.\\n\\nYour task is to analyze the provided message and return a JSON response with the following structure:\\n{\\n  \\\"newTodos\\\": [\\n    {\\n      \\\"name\\\": \\\"Brief description of the action item\\\",\\n      \\\"description\\\": \\\"More detailed description\\\",\\n      \\\"priority\\\": \\\"high|medium|low\\\",\\n      \\\"category\\\": \\\"vendor|payment|timeline|logistics|other\\\",\\n      \\\"dueDate\\\": \\\"YYYY-MM-DD or null\\\",\\n      \\\"estimatedTime\\\": \\\"X hours or null\\\",\\n      \\\"dependencies\\\": [\\\"list of other action items this depends on\\\"],\\n      \\\"notes\\\": \\\"Additional context or notes\\\",\\n      \\\"sourceText\\\": \\\"Exact text from message that triggered this todo\\\"\\n    }\\n  ],\\n  \\\"todoUpdates\\\": [\\n    {\\n      \\\"todoId\\\": \\\"ID of existing todo to update\\\",\\n      \\\"updates\\\": {\\n        \\\"note\\\": \\\"Updated note\\\",\\n        \\\"deadline\\\": \\\"Updated deadline\\\",\\n        \\\"category\\\": \\\"Updated category\\\",\\n        \\\"isCompleted\\\": true/false\\n      },\\n      \\\"sourceText\\\": \\\"Exact text from message that triggered this update\\\"\\n    }\\n  ],\\n  \\\"completedTodos\\\": [\\n    {\\n      \\\"todoId\\\": \\\"ID of existing todo to mark as completed\\\",\\n      \\\"completionReason\\\": \\\"Reason for completion\\\",\\n      \\\"sourceText\\\": \\\"Exact text from message that indicates completion\\\"\\n    }\\n  ],\\n  \\\"sentiment\\\": \\\"positive|neutral|negative\\\",\\n  \\\"urgency\\\": \\\"high|medium|low\\\",\\n  \\\"requiresResponse\\\": true/false,\\n  \\\"suggestedResponse\\\": \\\"Suggested response text or null\\\",\\n  \\\"keyPoints\\\": [\\\"list of key points from the message\\\"],\\n  \\\"nextSteps\\\": [\\\"suggested next steps\\\"]\\n}\\n\\nFocus on extracting concrete, actionable items that can be turned into to-do items. Be specific about deadlines, requirements, and dependencies. Consider the wedding context and existing todos when making suggestions.\"\n}, {\n  \"role\": \"user\",\n  \"content\": \"Message to analyze:\\n\\nSubject: {{ $json.analysis_context.message.subject }}\\n\\nBody: {{ $json.analysis_context.message.body }}\\n\\nVendor: {{ $json.analysis_context.message.vendorName }} ({{ $json.analysis_context.message.vendorCategory }})\\n\\n{{ $json.analysis_context.rag_context }}\\n\\n{{ $json.analysis_context.todos_context }}\\n\\n{{ $json.analysis_context.wedding_context }}\\n\\nMessage Type: {{ $json.analysis_context.message.messageType }}\\nUrgency: {{ $json.analysis_context.message.urgency }}\\nContains Deadlines: {{ $json.analysis_context.message.containsDeadlines }}\\nContains Questions: {{ $json.analysis_context.message.containsQuestions }}\\nContains Action Items: {{ $json.analysis_context.message.containsActionItems }}\"\n}]"
+            },
+            {
+              "name": "temperature",
+              "value": "0.3"
+            },
+            {
+              "name": "max_tokens",
+              "value": "2000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "analyze-with-ai",
+      "name": "Analyze with AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and validate AI analysis results\nconst aiResponse = $('Analyze with AI').item.json;\nconst originalMessage = $('Build Analysis Context').item.json;\n\n// Extract the content from the AI response\nlet analysisResult;\ntry {\n  const content = aiResponse.choices[0].message.content;\n  \n  // Try to parse as JSON\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    analysisResult = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('No JSON found in AI response');\n  }\n} catch (parseError) {\n  console.error('Failed to parse AI response:', parseError);\n  \n  // Fallback analysis\n  analysisResult = {\n    newTodos: [],\n    todoUpdates: [],\n    completedTodos: [],\n    sentiment: 'neutral',\n    urgency: 'medium',\n    requiresResponse: false,\n    suggestedResponse: null,\n    keyPoints: [originalMessage.analysis_context.message.body.substring(0, 100) + '...'],\n    nextSteps: ['Review message manually']\n  };\n}\n\n// Validate and clean the analysis result\nfunction validateAnalysisResult(result) {\n  const validated = {\n    newTodos: result.newTodos || [],\n    todoUpdates: result.todoUpdates || [],\n    completedTodos: result.completedTodos || [],\n    sentiment: result.sentiment || 'neutral',\n    urgency: result.urgency || 'medium',\n    requiresResponse: result.requiresResponse || false,\n    suggestedResponse: result.suggestedResponse || null,\n    keyPoints: result.keyPoints || [],\n    nextSteps: result.nextSteps || []\n  };\n  \n  // Validate new todos\n  validated.newTodos = validated.newTodos.filter(todo => \n    todo.name && todo.name.trim().length > 0\n  ).map(todo => ({\n    name: todo.name.trim(),\n    description: todo.description || '',\n    priority: ['high', 'medium', 'low'].includes(todo.priority) ? todo.priority : 'medium',\n    category: ['vendor', 'payment', 'timeline', 'logistics', 'other'].includes(todo.category) ? todo.category : 'other',\n    dueDate: todo.dueDate || null,\n    estimatedTime: todo.estimatedTime || null,\n    dependencies: Array.isArray(todo.dependencies) ? todo.dependencies : [],\n    notes: todo.notes || '',\n    sourceText: todo.sourceText || ''\n  }));\n  \n  // Validate todo updates\n  validated.todoUpdates = validated.todoUpdates.filter(update => \n    update.todoId && update.updates\n  ).map(update => ({\n    todoId: update.todoId,\n    updates: {\n      note: update.updates.note || null,\n      deadline: update.updates.deadline || null,\n      category: update.updates.category || null,\n      isCompleted: update.updates.isCompleted || false\n    },\n    sourceText: update.sourceText || ''\n  }));\n  \n  // Validate completed todos\n  validated.completedTodos = validated.completedTodos.filter(completion => \n    completion.todoId && completion.completionReason\n  ).map(completion => ({\n    todoId: completion.todoId,\n    completionReason: completion.completionReason.trim(),\n    sourceText: completion.sourceText || ''\n  }));\n  \n  return validated;\n}\n\n// Main execution\ntry {\n  const validatedResult = validateAnalysisResult(analysisResult);\n  \n  return {\n    json: {\n      success: true,\n      analysis: validatedResult,\n      metadata: {\n        processed_at: new Date().toISOString(),\n        message_id: originalMessage.message_id || 'unknown',\n        user_id: originalMessage.user_id,\n        vendor_name: originalMessage.analysis_context.message.vendorName,\n        vendor_category: originalMessage.analysis_context.message.vendorCategory,\n        message_type: originalMessage.analysis_context.message.messageType,\n        urgency: originalMessage.analysis_context.message.urgency,\n        rag_matches_used: originalMessage.context_metadata.rag_matches_found,\n        existing_todos_considered: originalMessage.context_metadata.existing_todos_count,\n        wedding_context_available: originalMessage.context_metadata.wedding_context_available\n      }\n    }\n  };\n  \n} catch (error) {\n  console.error('Analysis result processing error:', error);\n  \n  return {\n    json: {\n      success: false,\n      error: 'Analysis result processing failed',\n      details: error.message,\n      analysis: {\n        newTodos: [],\n        todoUpdates: [],\n        completedTodos: [],\n        sentiment: 'neutral',\n        urgency: 'medium',\n        requiresResponse: false,\n        suggestedResponse: null,\n        keyPoints: [],\n        nextSteps: []\n      },\n      metadata: {\n        processed_at: new Date().toISOString(),\n        error: true\n      }\n    }\n  };\n}"
+      },
+      "id": "process-results",
+      "name": "Process Analysis Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Invalid message content or user ID', details: 'Message content and user ID are required' } }}",
+        "responseCode": 400,
+        "options": {}
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 500]
+    }
+  ],
+  "connections": {
+    "Message Analysis Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Message Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Message Input": {
+      "main": [
+        [
+          {
+            "node": "Preprocess Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preprocess Message": {
+      "main": [
+        [
+          {
+            "node": "Create Message Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Message Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Query Pinecone for Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Pinecone for Context": {
+      "main": [
+        [
+          {
+            "node": "Build Analysis Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Analysis Context": {
+      "main": [
+        [
+          {
+            "node": "Analyze with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with AI": {
+      "main": [
+        [
+          {
+            "node": "Process Analysis Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Analysis Results": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "paige-rag",
+      "name": "PAIGE RAG"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
