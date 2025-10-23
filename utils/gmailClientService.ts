@@ -642,14 +642,14 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             dateValue = message.internalDate; // From Gmail API internal date
           }
           
-          console.log('🔍 Date parsing debug:', {
+          console.log('🔍 Date parsing debug for message', message.id, ':', {
             headerDate: date,
             messageDate: message.date,
             internalDate: message.internalDate,
             finalDateValue: dateValue,
-            messageId: message.id,
-            fullMessage: JSON.stringify(message, null, 2)
+            messageId: message.id
           });
+          console.log('🔍 Full message object:', JSON.stringify(message, null, 2));
           
           if (dateValue) {
             try {
