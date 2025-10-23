@@ -248,7 +248,7 @@ export async function performTodoAnalysis(
             
             if (contactDoc.exists) {
               // Update existing contact document
-              await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update({
+              const updateData = {
                 pendingTodoSuggestions: {
                   count: suggestions.newTodos.length,
                   suggestions: suggestions.newTodos,
@@ -257,7 +257,10 @@ export async function performTodoAnalysis(
                   lastAnalyzedAt: admin.firestore.Timestamp.now(),
                   status: 'pending'
                 }
-              });
+              };
+              
+              console.log(`[TODO SUGGESTIONS] Updating contact ${contactId} with:`, updateData);
+              await adminDb.collection(`users/${userId}/contacts`).doc(contactId).update(updateData);
               console.log(`[TODO SUGGESTIONS] Stored ${totalSuggestions} suggestions for contact ${contactId}`);
             } else {
               // Check if a contact with this email already exists (different document ID)
@@ -270,7 +273,7 @@ export async function performTodoAnalysis(
               if (!existingContactQuery.empty) {
                 // Update the existing contact document instead of creating a duplicate
                 const existingContactDoc = existingContactQuery.docs[0];
-                await existingContactDoc.ref.update({
+                const updateData = {
                   pendingTodoSuggestions: {
                     count: suggestions.newTodos.length,
                     suggestions: suggestions.newTodos,
@@ -279,7 +282,10 @@ export async function performTodoAnalysis(
                     lastAnalyzedAt: admin.firestore.Timestamp.now(),
                     status: 'pending'
                   }
-                });
+                };
+                
+                console.log(`[TODO SUGGESTIONS] Updating existing contact document ${existingContactDoc.id} with:`, updateData);
+                await existingContactDoc.ref.update(updateData);
                 console.log(`[TODO SUGGESTIONS] Updated existing contact document and stored ${totalSuggestions} suggestions for contact ${contactId}`);
               } else {
                 // Create contact document if it doesn't exist
