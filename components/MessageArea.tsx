@@ -1639,6 +1639,27 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedContact?.id]);
 
+  // Auto-poll for new Gmail messages every 2 minutes when on messages page
+  useEffect(() => {
+    if (!currentUser?.uid || !selectedContact?.email) return;
+
+    console.log('🔄 Setting up auto-polling for new Gmail messages every 2 minutes');
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log('🔄 Auto-polling: Checking for new Gmail messages...');
+        await handleCheckNewGmail(false); // false = not user initiated
+      } catch (error) {
+        console.error('🔄 Auto-polling error:', error);
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+
+    return () => {
+      console.log('🔄 Clearing auto-polling interval');
+      clearInterval(pollInterval);
+    };
+  }, [currentUser?.uid, selectedContact?.email]);
+
   // Optimized vendor contact information fetching with better caching
   const fetchVendorContactInfo = useCallback(async () => {
     logger.perf('Checking vendor contact info', { 
