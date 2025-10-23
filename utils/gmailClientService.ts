@@ -579,7 +579,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 
       // Process and save messages to Firestore
       const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, Timestamp, query, where, getDocs, doc, setDoc } = await import('firebase/firestore');
+      const { collection, addDoc, Timestamp, query, where, getDocs, doc, setDoc, getDoc } = await import('firebase/firestore');
 
       // Get existing message IDs to avoid duplicates
       const messagesRef = collection(db, `users/${userId}/contacts/${contactEmail}/messages`);
@@ -646,7 +646,8 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             headerDate: date,
             messageDate: message.date,
             internalDate: message.internalDate,
-            finalDateValue: dateValue
+            finalDateValue: dateValue,
+            messageId: message.id
           });
           
           if (dateValue) {
@@ -676,20 +677,27 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             parsedDate = new Date();
           }
 
-          // Ensure contact exists first
+          // Check if contact exists first, only create if it doesn't
           const contactRef = doc(db, `users/${userId}/contacts`, contactEmail);
-          await setDoc(contactRef, {
-            id: contactEmail,
-            name: contactEmail,
-            email: contactEmail,
-            userId: userId,
-            category: 'Vendor',
-            avatarColor: '#364257',
-            orderIndex: -new Date().getTime(),
-            isVendorContact: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
+          const contactDoc = await getDoc(contactRef);
+          
+          if (!contactDoc.exists()) {
+            console.log(`Creating new contact for ${contactEmail}`);
+            await setDoc(contactRef, {
+              id: contactEmail,
+              name: contactEmail,
+              email: contactEmail,
+              userId: userId,
+              category: 'Vendor',
+              avatarColor: '#364257',
+              orderIndex: -new Date().getTime(),
+              isVendorContact: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          } else {
+            console.log(`Contact ${contactEmail} already exists, skipping creation`);
+          }
 
           // Save to Firestore
           await addDoc(collection(db, `users/${userId}/contacts/${contactEmail}/messages`), {
