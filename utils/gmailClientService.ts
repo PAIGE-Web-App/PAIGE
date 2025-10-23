@@ -579,7 +579,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
 
       // Process and save messages to Firestore
       const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, Timestamp, query, where, getDocs } = await import('firebase/firestore');
+      const { collection, addDoc, Timestamp, query, where, getDocs, doc, setDoc } = await import('firebase/firestore');
 
       // Get existing message IDs to avoid duplicates
       const messagesRef = collection(db, `users/${userId}/contacts/${contactEmail}/messages`);
@@ -675,6 +675,21 @@ View full conversation and manage your wedding planning at https://weddingpaige.
             console.warn('No date found in Gmail message, using current time');
             parsedDate = new Date();
           }
+
+          // Ensure contact exists first
+          const contactRef = doc(db, `users/${userId}/contacts`, contactEmail);
+          await setDoc(contactRef, {
+            id: contactEmail,
+            name: contactEmail,
+            email: contactEmail,
+            userId: userId,
+            category: 'Vendor',
+            avatarColor: '#364257',
+            orderIndex: -new Date().getTime(),
+            isVendorContact: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
 
           // Save to Firestore
           await addDoc(collection(db, `users/${userId}/contacts/${contactEmail}/messages`), {
