@@ -954,6 +954,15 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
               }
             });
 
+            // Sort messages within each date group by time (oldest to newest)
+            messageGroups.forEach(group => {
+              group.messages.sort((a, b) => {
+                const dateA = a.date ? new Date(a.date) : new Date(a.timestamp);
+                const dateB = b.date ? new Date(b.date) : new Date(b.timestamp);
+                return dateA.getTime() - dateB.getTime();
+              });
+            });
+
             return messageGroups.map((group, index) => (
               <div key={index}>
                 <div className="flex items-center justify-center my-4">
