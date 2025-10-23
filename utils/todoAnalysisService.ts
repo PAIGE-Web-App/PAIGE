@@ -355,10 +355,8 @@ async function analyzeMessageForTodos(
       userId: userId,
       existingTodos: existingTodos.map(todo => ({
         id: todo.id,
-        name: todo.name,
-        note: todo.note,
+        title: todo.name,
         category: todo.category,
-        deadline: todo.deadline,
         isCompleted: todo.isCompleted || false
       })),
       weddingContext: weddingContext ? {
