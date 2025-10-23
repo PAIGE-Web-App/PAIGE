@@ -238,8 +238,12 @@ export async function performTodoAnalysis(
     
     // If storeSuggestionsMode is enabled, save suggestions to each contact document
     if (storeSuggestionsMode && adminDb) {
+      console.log(`[TODO SUGGESTIONS] Processing ${suggestionsPerContact.size} contacts for suggestion storage`);
+      
       for (const [contactId, suggestions] of suggestionsPerContact.entries()) {
         const totalSuggestions = suggestions.newTodos.length + suggestions.todoUpdates.length + suggestions.completedTodos.length;
+        
+        console.log(`[TODO SUGGESTIONS] Contact ${contactId}: ${suggestions.newTodos.length} new todos, ${suggestions.todoUpdates.length} updates, ${suggestions.completedTodos.length} completions`);
         
         if (totalSuggestions > 0) {
           try {
@@ -468,9 +472,11 @@ async function analyzeMessageLocally(
     }
     
     console.log(`🔍 Found actionable content in message: ${subject}`);
+    console.log(`🔍 Message text sample: ${messageText.substring(0, 100)}...`);
     
     // Extract specific action items from the message
     const actionItems = extractActionItems(messageText, subject, contactName);
+    console.log(`🔍 Extracted ${actionItems.length} action items from message: ${subject}`);
     
     for (const action of actionItems) {
       newTodos.push({
@@ -497,6 +503,7 @@ async function analyzeMessageLocally(
       messageText.includes('invoice') || 
       messageText.includes('$')
     )) {
+      console.log(`🔍 Creating generic todo for message: ${subject}`);
       newTodos.push({
         name: `Follow up with ${contactName}`,
         note: `Message from ${contactName}: "${subject}" - ${messageBody.substring(0, 100)}...`,
@@ -507,6 +514,8 @@ async function analyzeMessageLocally(
         sourceEmail: contact.email || contactName,
         confidenceScore: 0.3, // Lower confidence for generic todos
       });
+    } else {
+      console.log(`🔍 No generic todo created for message: ${subject} (actionItems: ${actionItems.length}, hasActionableContent: ${hasActionableContent})`);
     }
     
     return {
