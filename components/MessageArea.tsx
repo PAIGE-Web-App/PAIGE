@@ -758,7 +758,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       }
       
       // Always save to Firestore for local display
-      const path = `users/${currentUser.uid}/contacts/${selectedContact.id}/messages`;
+      // Use contact email as the path to match the fetching logic
+      const contactEmail = selectedContact.email;
+      if (!contactEmail) {
+        throw new Error('Contact email is required to save messages');
+      }
+      
+      const path = `users/${currentUser.uid}/contacts/${contactEmail}/messages`;
       const optimisticId = `optimistic-${Date.now()}`;
       const optimisticMessage: Message = {
         id: optimisticId,
@@ -782,6 +788,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...optimisticMessage,
         id: '',
         timestamp: Timestamp.now(),
+        createdAt: Timestamp.now(), // Add createdAt field for consistency
+        date: Timestamp.now(), // Add date field for consistency
       };
       const messagesRef = collection(db, path);
       const docRef = await addDoc(messagesRef, messageData);
