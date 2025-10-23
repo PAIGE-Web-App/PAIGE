@@ -1096,6 +1096,10 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                                     try {
                                       const messageRef = doc(db, `users/${user?.uid}/contacts/${selectedContact?.email}/messages`, msg.id);
                                       await updateDoc(messageRef, { isRead: true });
+                                      
+                                      // Update the local message state to reflect the change immediately
+                                      msg.isRead = true;
+                                      
                                       console.log('✅ Message marked as read');
                                     } catch (error) {
                                       console.error('❌ Error marking message as read:', error);

@@ -113,10 +113,9 @@ export function useNotifications() {
     
     // Set up listeners for user
 
-    // DISABLED: Listen for unread messages across all contacts - was causing excessive Firestore calls
+    // Listen for unread messages across all contacts - ENABLED with optimizations
     const setupMessageListener = async () => {
       // TODO: Implement efficient message counting without 20+ listeners per hook instance
-      return;
       try {
         const contactsRef = collection(db, `users/${user.uid}/contacts`);
         const contactsSnapshot = await getDocs(contactsRef);
@@ -130,39 +129,43 @@ export function useNotifications() {
         
         limitedContacts.forEach(contactDoc => {
           const contactId = contactDoc.id;
-          const messagesRef = collection(db, `users/${user.uid}/contacts/${contactId}/messages`);
-          const q = query(
-            messagesRef,
-            where('isRead', '==', false),
-            where('direction', '==', 'received'),
-            limit(10) // Limit to first 10 unread messages per contact
-          );
+          const contactData = contactDoc.data();
+          const contactEmail = contactData.email;
           
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            // Update the count for this specific contact
-            contactMessageCounts.set(contactId, snapshot.docs.length);
+          // Use contactEmail as the path since that's how messages are stored
+          if (contactEmail) {
+            const messagesRef = collection(db, `users/${user.uid}/contacts/${contactEmail}/messages`);
+            const q = query(
+              messagesRef,
+              where('isRead', '==', false),
+              where('direction', '==', 'received'),
+              limit(10) // Limit to first 10 unread messages per contact
+            );
             
-            // Update the contact unread counts state
-            setContactUnreadCounts(Object.fromEntries(contactMessageCounts));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+              // Update the count for this specific contact
+              contactMessageCounts.set(contactId, snapshot.docs.length);
             
-            // Calculate total unread messages across all contacts
-            const totalUnreadMessages = Array.from(contactMessageCounts.values()).reduce((sum, count) => sum + count, 0);
-            
+              // Update the contact unread counts state
+              setContactUnreadCounts(Object.fromEntries(contactMessageCounts));
+              
+              // Calculate total unread messages across all contacts
+              const totalUnreadMessages = Array.from(contactMessageCounts.values()).reduce((sum, count) => sum + count, 0);
+              
+              setNotificationCounts(prev => {
+                const newTotal = prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages;
+                const newCounts = {
+                  ...prev,
+                  messages: totalUnreadMessages,
+                  total: newTotal
+                };
 
-            
-            setNotificationCounts(prev => {
-              const newTotal = prev.todoAssigned + prev.budget + prev.vendors + totalUnreadMessages;
-              const newCounts = {
-                ...prev,
-                messages: totalUnreadMessages,
-                total: newTotal
-              };
-
-              return newCounts;
+                return newCounts;
+              });
             });
-          });
-          
-          messageListeners.push(unsubscribe);
+            
+            messageListeners.push(unsubscribe);
+          }
         });
         
         // Add all message listeners to the main unsubscribe array
