@@ -59,7 +59,9 @@ export default function VenueSearchInput({
         }, (place, status) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
             console.log('🔵 [VenueSearch] Got metadata:', place);
+            console.log('🔵 [VenueSearch] Calling setVenueMetadata with:', place);
             setVenueMetadata(place);
+            console.log('🔵 [VenueSearch] setVenueMetadata called successfully');
           } else {
             console.log('🔵 [VenueSearch] No metadata result, status:', status);
             setVenueMetadata(null);

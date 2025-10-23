@@ -1171,6 +1171,13 @@ export default function SignUp() {
                     />
                   </div>
                 )}
+                {/* Debug: Show selectedVenueMetadata status */}
+                {(() => {
+                  console.log('🔍 [SIGNUP DEBUG] selectedVenueMetadata:', selectedVenueMetadata);
+                  console.log('🔍 [SIGNUP DEBUG] hasVenue:', hasVenue);
+                  console.log('🔍 [SIGNUP DEBUG] venueSearchQuery:', venueSearchQuery);
+                  return null;
+                })()}
               </div>
             )}
         </>
