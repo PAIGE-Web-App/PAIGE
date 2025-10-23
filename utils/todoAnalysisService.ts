@@ -247,7 +247,7 @@ export async function performTodoAnalysis(
             const contactDoc = await adminDb.collection(`users/${userId}/contacts`).doc(contactId).get();
             
             if (contactDoc.exists) {
-              // Update existing contact document
+              // Update existing contact document - always set status to 'pending' for new suggestions
               const updateData = {
                 pendingTodoSuggestions: {
                   count: suggestions.newTodos.length,
@@ -255,7 +255,7 @@ export async function performTodoAnalysis(
                   todoUpdates: suggestions.todoUpdates,
                   completedTodos: suggestions.completedTodos,
                   lastAnalyzedAt: admin.firestore.Timestamp.now(),
-                  status: 'pending'
+                  status: 'pending' // Always set to pending for new suggestions
                 }
               };
               
@@ -280,7 +280,7 @@ export async function performTodoAnalysis(
                     todoUpdates: suggestions.todoUpdates,
                     completedTodos: suggestions.completedTodos,
                     lastAnalyzedAt: admin.firestore.Timestamp.now(),
-                    status: 'pending'
+                    status: 'pending' // Always set to pending for new suggestions
                   }
                 };
                 
