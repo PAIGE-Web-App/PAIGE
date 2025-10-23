@@ -84,14 +84,9 @@ export default function PlacesAutocompleteInput({ value, onChange, setVenueMetad
             setVenueMetadata(null);
           });
       } else {
-        console.log('🔵 [PlacesAutocomplete] Not a venue type, but still calling setVenueMetadata with description');
-        // For non-venue types, create a mock metadata object with the description
-        const mockMetadata = {
-          name: suggestion.description,
-          formatted_address: suggestion.description
-        };
-        console.log('🔵 [PlacesAutocomplete] Calling setVenueMetadata with mock metadata:', mockMetadata);
-        setVenueMetadata(mockMetadata);
+        console.log('🔵 [PlacesAutocomplete] Not a venue type, clearing venue metadata');
+        // For non-venue types, clear the venue metadata
+        setVenueMetadata(null);
       }
     }
   };
