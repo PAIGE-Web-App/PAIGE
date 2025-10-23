@@ -783,7 +783,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...(threadId && { threadId }),
         ...(selectedChannel === 'InApp' && { inAppMessageId: `inapp-${Date.now()}` }),
       };
-      dispatch({ type: 'SET_MESSAGES', payload: [...(state.messages || []), optimisticMessage] });
+      // Add optimistic message to local state immediately
+      setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+      
       const messageData = {
         ...optimisticMessage,
         id: '',
@@ -1037,6 +1039,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'), limit(50)); // Limit to 50 messages - oldest first
 
          const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+           console.log('🔵 [MessageArea] Firestore listener triggered. Changes:', snapshot.docChanges().length);
+           snapshot.docChanges().forEach(change => {
+             console.log(`  Change Type: ${change.type}, Doc ID: ${change.doc.id}, Data:`, change.doc.data());
+           });
+
            const fetchedMessages: any[] = [];
            const seenIds = new Set<string>();
            
@@ -1059,6 +1066,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
              });
            });
            
+           console.log('🔵 [MessageArea] Fetched messages (after deduplication):', fetchedMessages.length);
            setMessages(fetchedMessages);
            setMessagesLoading(false);
            setIsInitialLoad(false);
