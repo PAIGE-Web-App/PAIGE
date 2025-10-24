@@ -395,19 +395,26 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
         })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ OAuth initiate failed:', { status: response.status, body: errorText });
+        throw new Error(`OAuth initiate failed: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('📥 OAuth initiate response:', data);
       
       if (data.success && data.authUrl) {
         // Redirect to Google OAuth consent screen
         window.location.href = data.authUrl;
       } else {
-        throw new Error('Failed to get OAuth URL');
+        throw new Error(data.error || 'Failed to get OAuth URL');
       }
       
       return; // Function ends here, redirect happens
     } catch (error: any) {
       console.error('❌ Google reauth error:', error);
-      showErrorToast("Failed to re-authorize Google account. Please try again.");
+      showErrorToast(`Failed to re-authorize Google account: ${error.message}`);
     } finally {
       setLoading(false);
     }

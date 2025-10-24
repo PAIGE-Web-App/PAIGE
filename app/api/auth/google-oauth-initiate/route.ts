@@ -52,7 +52,14 @@ export async function POST(req: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error('❌ Missing Google OAuth credentials');
+      console.error('❌ Available env vars:', {
+        hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+        hasNextPublicGoogleClientId: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+        nodeEnv: process.env.NODE_ENV
+      });
       return NextResponse.json({ 
+        success: false,
         error: 'Server configuration error: Missing Google credentials' 
       }, { status: 500 });
     }
