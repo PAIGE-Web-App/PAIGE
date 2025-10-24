@@ -1462,7 +1462,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   const createSuggestedTodo = async (todoData: any, message: any, userId: string) => {
     try {
-      const todoRef = await addDoc(collection(db, `users/${userId}/todos`), {
+      const todoRef = await addDoc(collection(db, `users/${userId}/todoItems`), {
         name: todoData.name,
         description: todoData.description || '',
         priority: todoData.priority || 'medium',
