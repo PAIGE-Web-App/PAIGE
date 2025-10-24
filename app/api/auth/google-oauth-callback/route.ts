@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 
 // Force this to be a dynamic route to access environment variables
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const getGoogleCredentials = () => {
   // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
