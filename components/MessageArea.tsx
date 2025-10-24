@@ -1465,13 +1465,18 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       const todoRef = await addDoc(collection(db, `users/${userId}/todoItems`), {
         name: todoData.name,
         description: todoData.description || '',
+        note: todoData.note || '',
         priority: todoData.priority || 'medium',
         category: todoData.category || 'other',
+        deadline: todoData.deadline || null,
         dueDate: todoData.dueDate || null,
         estimatedTime: todoData.estimatedTime || null,
         notes: todoData.notes || '',
         isCompleted: false,
         createdAt: Timestamp.now(),
+        userId: userId, // Add userId for queries
+        listId: null, // null means "All To-Do Items" / uncategorized
+        orderIndex: Date.now(), // Use timestamp for ordering
         source: 'gmail_analysis',
         sourceMessageId: message.id,
         sourceContact: message.sourceContact || 'unknown'

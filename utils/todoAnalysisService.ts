@@ -260,8 +260,26 @@ export async function performTodoAnalysis(
         });
         
         allNewTodos = allNewTodos.concat(uniqueNewTodos);
-        allTodoUpdates = allTodoUpdates.concat(analysisResult.todoUpdates);
-        allCompletedTodos = allCompletedTodos.concat(analysisResult.completedTodos);
+        
+        // Enrich todoUpdates with existing todo names
+        const enrichedUpdates = analysisResult.todoUpdates.map(update => {
+          const existingTodo = existingTodos.find(t => t.id === update.todoId) as any;
+          return {
+            ...update,
+            existingTodoName: existingTodo?.name || `Todo ID: ${update.todoId}`
+          };
+        });
+        allTodoUpdates = allTodoUpdates.concat(enrichedUpdates);
+        
+        // Enrich completedTodos with existing todo names
+        const enrichedCompletions = analysisResult.completedTodos.map(completed => {
+          const existingTodo = existingTodos.find(t => t.id === completed.todoId) as any;
+          return {
+            ...completed,
+            existingTodoName: existingTodo?.name || `Todo ID: ${completed.todoId}`
+          };
+        });
+        allCompletedTodos = allCompletedTodos.concat(enrichedCompletions);
         
         // Group by contact for storage mode
         if (storeSuggestionsMode && message.contactId) {
