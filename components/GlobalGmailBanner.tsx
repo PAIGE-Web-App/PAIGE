@@ -16,6 +16,26 @@ export default function GlobalGmailBanner() {
   // DEBUG: Log when component renders
   console.log('GlobalGmailBanner render: needsReauth =', needsReauth);
 
+  // Handle OAuth callback success
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthStatus = urlParams.get('oauth');
+    
+    if (oauthStatus === 'reauth_success') {
+      console.log('✅ OAuth reauth successful, dismissing banner');
+      dismissBanner();
+      showSuccessToast('Gmail integration re-enabled with permanent access!');
+      
+      // Trigger Gmail auth check to update context
+      window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [dismissBanner, showSuccessToast]);
+
   // DEBUG: Add manual trigger for testing
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -34,7 +54,37 @@ export default function GlobalGmailBanner() {
     setIsReauthLoading(true);
     
     try {
-      // Import Firebase auth dynamically to avoid SSR issues
+      // Get current user ID from auth context
+      const { auth } = await import('@/lib/firebase');
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Use OAuth flow to get refresh tokens
+      const response = await fetch('/api/auth/google-oauth-initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          returnUrl: window.location.pathname + '?oauth=reauth_success'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.authUrl) {
+        // Redirect to Google OAuth consent screen
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get OAuth URL');
+      }
+      
+      return; // Function ends here, redirect happens
+      
+      // OLD POPUP CODE BELOW - Keeping as commented fallback
+      /*
       const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
       const { auth } = await import('@/lib/firebase');
       
@@ -50,83 +100,11 @@ export default function GlobalGmailBanner() {
       });
       
       const result = await signInWithPopup(auth, provider);
-      
-      // Store Gmail tokens from the popup
-      try {
-        const { GoogleAuthProvider } = await import('firebase/auth');
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
-        
-        if (accessToken) {
-          // Import Firestore functions
-          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('@/lib/firebase');
-          
-          // Construct the scope string from the scopes we requested
-          const { getGmailCalendarScopeString } = await import('@/lib/gmailScopes');
-          const requestedScopes = getGmailCalendarScopeString();
-          
-          console.log('Gmail reauth: Using scopes:', requestedScopes);
-          
-          // Store Gmail tokens in Firestore (matching API expected format)
-          const gmailTokens = {
-            accessToken: accessToken,
-            refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now (Google's standard token expiry)
-            email: result.user.email, // Store Gmail account email
-            scope: requestedScopes // Use the scopes we requested
-          };
-          
-          // Check if user exists before updating
-          const userDocRef = doc(db, "users", result.user.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            // Update user document with Gmail tokens
-            await updateDoc(userDocRef, {
-              googleTokens: gmailTokens,
-              gmailConnected: true,
-            });
-          }
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('gmailConnected', 'true');
-          }
-        }
-      } catch (tokenError) {
-        console.error('❌ Error storing Gmail tokens:', tokenError);
-      }
-      
-      // Get ID token and call session login
-      const idToken = await result.user.getIdToken();
-      const res = await fetch("/api/sessionLogin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-        credentials: "include",
-      });
-      
-      if (res.ok) {
-        // Small delay to ensure tokens are stored
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Trigger Gmail auth check to update the Gmail auth context
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
-        }
-        
-        // Dismiss the banner immediately without calling checkGmailAuth
-        dismissBanner();
-        // Show success toast
-        showSuccessToast('Gmail integration re-enabled');
-      } else {
-        console.error('❌ Gmail reauth failed');
-        showErrorToast('Failed to re-enable Gmail integration');
-      }
+      // ... rest of popup code
+      */
     } catch (error: any) {
       console.error('❌ Gmail reauth error:', error);
       showErrorToast('Failed to re-enable Gmail integration');
-    } finally {
       setIsReauthLoading(false);
     }
   };

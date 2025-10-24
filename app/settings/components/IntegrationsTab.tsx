@@ -39,6 +39,44 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
   } | null>(null);
   const [loadingGmailWatch, setLoadingGmailWatch] = useState(false);
 
+  // Handle OAuth callback success/error messages
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthStatus = urlParams.get('oauth');
+    
+    if (oauthStatus === 'success') {
+      showSuccessToast('Google account connected successfully with permanent access!');
+      // Refresh Gmail auth context
+      window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+      
+      // Refresh the page data
+      const fetchGoogleIntegration = async () => {
+        if (!user?.uid) return;
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const userData = userDoc.data();
+          if (userData?.googleTokens) {
+            setGoogleConnected(true);
+            setGoogleEmail(userData.googleTokens.email || "");
+          }
+        } catch (error) {
+          console.error('Error refreshing integration status:', error);
+        }
+      };
+      fetchGoogleIntegration();
+    } else if (oauthStatus === 'error') {
+      showErrorToast('Failed to connect Google account. Please try again.');
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+    } else if (oauthStatus === 'cancelled') {
+      showErrorToast('Google connection cancelled.');
+      window.history.replaceState({}, '', '/settings?tab=integrations');
+    }
+  }, [user?.uid, showSuccessToast, showErrorToast]);
+
   // Fetch Gmail data stats when Gmail is connected
   useEffect(() => {
     const fetchGmailStats = async () => {
@@ -149,6 +187,42 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     fetchGoogleIntegration();
   }, [user?.uid]);
 
+  // New OAuth flow (gets refresh tokens!)
+  const handleConnectGoogleOAuth = async () => {
+    if (!user?.uid) {
+      showErrorToast("Could not find user. Please try logging in again.");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Call initiate endpoint to get OAuth URL
+      const response = await fetch('/api/auth/google-oauth-initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          returnUrl: '/settings?tab=integrations&oauth=success'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.authUrl) {
+        // Redirect to Google OAuth consent screen
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('Failed to get OAuth URL');
+      }
+    } catch (error) {
+      console.error('❌ OAuth initiate error:', error);
+      showErrorToast("Failed to start Google connection. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  // Original popup flow (fallback, no refresh tokens)
   const handleConnectGoogle = async () => {
     if (!user?.uid) {
       showErrorToast("Could not find user. Please try logging in again.");
@@ -158,90 +232,12 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     try {
       setLoading(true);
       
-      // Import Firebase auth dynamically to avoid SSR issues
-      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-      const { auth } = await import('@/lib/firebase');
+      // Use OAuth flow to get refresh tokens
+      await handleConnectGoogleOAuth();
       
-      const provider = new GoogleAuthProvider();
-      addGmailScopes(provider, true); // Include calendar scopes
-      // Force account selection
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
-      
-      const result = await signInWithPopup(auth, provider);
-      
-      // Store Gmail tokens from the popup
-      try {
-        const { GoogleAuthProvider } = await import('firebase/auth');
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
-        
-        if (accessToken) {
-          // Store Gmail tokens in Firestore (matching API expected format)
-          const gmailTokens = {
-            accessToken: accessToken,
-            refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
-            email: result.user.email, // Store Gmail account email
-            scope: getGmailCalendarScopeString()
-          };
-          
-          // Check if user exists before updating
-          const userDocRef = doc(db, "users", user.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            // Update user document with Gmail tokens
-            await updateDoc(userDocRef, {
-              googleTokens: gmailTokens,
-              gmailConnected: true,
-            });
-          }
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('gmailConnected', 'true');
-          }
-        }
-      } catch (tokenError) {
-        console.error('❌ Error storing Gmail tokens:', tokenError);
-      }
-      
-      // Get ID token and call session login
-      const idToken = await result.user.getIdToken();
-      const res = await fetch("/api/sessionLogin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-        credentials: "include",
-      });
-      
-      if (res.ok) {
-        // Update local state
-        setGoogleConnected(true);
-        setGoogleEmail(result.user.email || "");
-        
-        // Refresh the integration status
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        if (userData?.googleTokens) {
-          setGoogleEmail(userData.googleTokens.email || userData.googleEmail || "");
-        }
-        
-        showSuccessToast("Google account connected successfully!");
-        
-        // Trigger Gmail auth check to update the Gmail auth context
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
-        }
-      } else {
-        console.error('❌ Google auth failed');
-        showErrorToast("Failed to connect Google account. Please try again.");
-      }
     } catch (error: any) {
       console.error('❌ Google auth error:', error);
       showErrorToast("Failed to connect Google account. Please try again.");
-    } finally {
       setLoading(false);
     }
   };

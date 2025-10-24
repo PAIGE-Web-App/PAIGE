@@ -49,6 +49,7 @@ export class GmailClientService {
 
   /**
    * Initialize the service with user's Gmail access token
+   * Automatically refreshes token if expired and refresh token is available
    */
   public async initialize(userId: string): Promise<boolean> {
     try {
@@ -60,6 +61,36 @@ export class GmailClientService {
       if (!tokens?.accessToken) {
         console.error('❌ No Gmail access token found for user:', userId);
         return false;
+      }
+
+      // Check if token is expired or expiring soon (5 minute buffer)
+      const isExpired = tokens.expiryDate && tokens.expiryDate < Date.now() + (5 * 60 * 1000);
+      
+      if (isExpired && tokens.refreshToken) {
+        console.log('⏰ Access token expired, attempting refresh...');
+        
+        // Call server-side refresh endpoint
+        try {
+          const refreshResponse = await fetch('/api/auth/google-refresh-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            if (refreshData.success && refreshData.accessToken) {
+              console.log('✅ Token refreshed successfully');
+              this.accessToken = refreshData.accessToken;
+              this.userEmail = refreshData.email || tokens.email;
+              return true;
+            }
+          }
+          
+          console.warn('⚠️ Token refresh failed, using existing token');
+        } catch (refreshError) {
+          console.error('❌ Token refresh error:', refreshError);
+        }
       }
 
       this.accessToken = tokens.accessToken;
