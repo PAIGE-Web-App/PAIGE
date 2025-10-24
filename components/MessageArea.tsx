@@ -1039,6 +1039,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // Effect to fetch messages when a contact is selected
   useEffect(() => {
+    console.log('🔍 [MessageArea] useEffect triggered:', {
+      contactId: selectedContact?.id,
+      contactEmail: selectedContact?.email,
+      userId: currentUser?.uid
+    });
+    
     if (!selectedContact?.id || !currentUser?.uid) {
       console.log('🔍 MessageArea: No contact or user, clearing messages');
       setMessages([]);
@@ -1060,7 +1066,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
          return;
        }
        
-    const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
+    const messagePath = `users/${currentUser.uid}/contacts/${contactEmail}/messages`;
+    console.log('🔍 [MessageArea] Setting up listener for path:', messagePath);
+    
+    const messagesRef = collection(db, messagePath);
     const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'), limit(50)); // Limit to 50 messages - oldest first
 
          const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -1099,8 +1108,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
            setIsInitialLoad(false);
          });
 
-    return () => unsubscribe();
-  }, [selectedContact?.id, currentUser?.uid]);
+    return () => {
+      console.log('🔍 [MessageArea] Cleaning up listener for:', contactEmail);
+      unsubscribe();
+    };
+  }, [selectedContact?.id, selectedContact?.email, currentUser?.uid]);
 
   // Handle scroll to bottom
   const handleScroll = useCallback(() => {
