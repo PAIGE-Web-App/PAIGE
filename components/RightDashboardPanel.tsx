@@ -282,13 +282,23 @@ const RightDashboardPanel: React.FC<RightDashboardPanelProps> = ({ currentUser, 
 
       unsubscribeAllTodoItems = onSnapshot(qAll, (snapshot) => {
         const counts = new Map<string, number>();
+        let allItemsCount = 0; // Track total count for "All To-Do Items"
+        
         snapshot.docs.forEach(docSnap => {
           const data = docSnap.data();
           const listId = data.listId;
+          
+          // Count all items (including those with listId: null)
+          allItemsCount++;
+          
+          // Also count per-list
           if (listId) {
             counts.set(listId, (counts.get(listId) || 0) + 1);
           }
         });
+        
+        // Store the "All To-Do Items" count with a special key
+        counts.set('__all__', allItemsCount);
         setListTaskCounts(counts);
       }, (error) => {
         console.error('Error fetching all To-Do items for counts:', error);

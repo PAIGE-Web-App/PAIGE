@@ -425,8 +425,8 @@ const ToDoPanel = ({
                     <span className="truncate flex-1 mr-2">{list.name}</span>
                     <BadgeCount count={
                       list.id === null 
-                        ? getFilteredItems(filteredTodoItems.incompleteTasks).length + getFilteredItems(filteredTodoItems.completedTasks).length
-                        : getFilteredItems(filteredTodoItems.incompleteTasks.filter((todo: any) => todo.listId === list.id)).length + getFilteredItems(filteredTodoItems.completedTasks.filter((todo: any) => todo.listId === list.id)).length
+                        ? (listTaskCounts?.get('__all__') || 0) // Use real-time count from Firestore
+                        : (listTaskCounts?.get(list.id) || 0) // Use real-time count from Firestore
                     } />
                   </button>
                 ))}
