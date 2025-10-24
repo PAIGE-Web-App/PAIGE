@@ -63,7 +63,7 @@ export default function GlobalGmailBanner() {
       }
 
       // Use OAuth flow to get refresh tokens
-      const response = await fetch('/api/auth/google-oauth-initiate', {
+      const response = await fetch('/api/oauth/google-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

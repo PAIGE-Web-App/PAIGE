@@ -16,7 +16,7 @@ const getGoogleCredentials = () => {
   return {
     clientId,
     clientSecret,
-    redirectUri: `${baseUrl}/api/auth/google-oauth-callback`
+    redirectUri: `${baseUrl}/api/oauth/google-callback`
   };
 };
 

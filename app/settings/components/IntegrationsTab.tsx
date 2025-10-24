@@ -386,7 +386,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       setLoading(true);
       
       // Use OAuth flow to get refresh tokens (same as initial connection)
-      const response = await fetch('/api/auth/google-oauth-initiate', {
+      const response = await fetch('/api/oauth/google-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

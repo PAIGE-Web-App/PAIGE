@@ -71,7 +71,7 @@ export class GmailClientService {
         
         // Call server-side refresh endpoint
         try {
-          const refreshResponse = await fetch('/api/auth/google-refresh-token', {
+           const refreshResponse = await fetch('/api/oauth/google-refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
