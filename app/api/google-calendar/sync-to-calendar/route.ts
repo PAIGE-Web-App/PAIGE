@@ -1,11 +1,7 @@
-import { google } from 'googleapis';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
+import { createEvent, updateEvent, listEvents } from '@/lib/googleCalendarHttp';
 
 export async function POST(req: Request) {
   try {
@@ -25,11 +21,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Missing userId or todoItems.' }, { status: 400 });
     }
 
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
-      console.error('[google-calendar/sync-to-calendar] Missing Google OAuth environment variables');
-      return NextResponse.json({ success: false, message: 'Server configuration error: missing Google OAuth credentials.' }, { status: 500 });
-    }
-
     const userDocRef = adminDb.collection('users').doc(userId);
     const userDocSnap = await userDocRef.get();
     
@@ -39,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const userData = userDocSnap.data();
-    const { accessToken, refreshToken } = userData?.googleTokens || {};
+    const { accessToken } = userData?.googleTokens || {};
     const { calendarId } = userData?.googleCalendar || {};
 
     if (!accessToken) {
@@ -56,55 +47,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'No Google Calendar linked. Please create a calendar first.' }, { status: 400 });
     }
 
-    const oauth2Client = new google.auth.OAuth2(
-      GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET,
-      GOOGLE_REDIRECT_URI
-    );
-
-    oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
-
-    // Check if token needs refresh
-    const tokenExpiry = oauth2Client.credentials.expiry_date;
-    if (tokenExpiry && tokenExpiry < Date.now()) {
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        await userDocRef.set({
-          googleTokens: {
-            accessToken: credentials.access_token,
-            refreshToken: credentials.refresh_token || refreshToken,
-            expiryDate: credentials.expiry_date,
-          },
-        }, { merge: true });
-        console.log('[google-calendar/sync-to-calendar] Access token refreshed successfully');
-      } catch (refreshError) {
-        console.error('[google-calendar/sync-to-calendar] Error refreshing token:', refreshError);
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Google authentication expired. Please re-authenticate.',
-          requiresReauth: true 
-        }, { status: 401 });
-      }
-    }
-
-    // Test the token with a simple API call first
-    try {
-      await oauth2Client.getAccessToken();
-    } catch (tokenError) {
-      console.error('[google-calendar/sync-to-calendar] Token validation failed:', tokenError);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Google authentication expired. Please re-authenticate.',
-        requiresReauth: true 
-      }, { status: 401 });
-    }
-
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-    // Clear existing events for this list (optional - you might want to keep them)
-    // For now, we'll just add/update events
-    
     let syncedCount = 0;
     let errorCount = 0;
 
@@ -116,20 +58,17 @@ export async function POST(req: Request) {
         }
 
         const startDate = new Date(todoItem.deadline);
-        const endDate = todoItem.endDate ? new Date(todoItem.endDate) : new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour default
+        const endDate = todoItem.endDate ? new Date(todoItem.endDate) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
         const event = {
           summary: todoItem.name,
           description: `${todoItem.note || ''}${todoItem.note ? '\n' : ''}List: ${todoItem.listName || 'All Items'}${todoItem.category ? ` | Category: ${todoItem.category}` : ''}`,
           start: {
             dateTime: startDate.toISOString(),
-            timeZone: 'UTC',
           },
           end: {
             dateTime: endDate.toISOString(),
-            timeZone: 'UTC',
           },
-          colorId: '1', // Blue color
           extendedProperties: {
             private: {
               paigeTodoId: todoItem.id,
@@ -141,36 +80,28 @@ export async function POST(req: Request) {
         };
 
         // Check if event already exists
-        const existingEvents = await calendar.events.list({
-          calendarId: calendarId,
-          privateExtendedProperty: [`paigeTodoId=${todoItem.id}`],
+        const existingEvents = await listEvents(accessToken, calendarId, {
+          privateExtendedProperty: `paigeTodoId=${todoItem.id}`
         });
 
-        if (existingEvents.data.items && existingEvents.data.items.length > 0) {
+        if (existingEvents.length > 0) {
           // Update existing event
-          const existingEvent = existingEvents.data.items[0];
-          await calendar.events.update({
-            calendarId: calendarId,
-            eventId: existingEvent.id!,
-            requestBody: event,
-          });
+          const existingEvent = existingEvents[0];
+          await updateEvent(accessToken, calendarId, existingEvent.id!, event);
           console.log('[google-calendar/sync-to-calendar] Updated event for todo:', todoItem.id);
         } else {
           // Create new event
-          await calendar.events.insert({
-            calendarId: calendarId,
-            requestBody: event,
-          });
+          await createEvent(accessToken, calendarId, event);
           console.log('[google-calendar/sync-to-calendar] Created event for todo:', todoItem.id);
         }
 
         syncedCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error('[google-calendar/sync-to-calendar] Error syncing todo:', todoItem.id, error);
         errorCount++;
         
         // Check if this is an authentication error
-        if (error instanceof Error && error.message.includes('Invalid Credentials')) {
+        if (error.message?.includes('401') || error.message?.includes('Invalid Credentials')) {
           console.log('[google-calendar/sync-to-calendar] Authentication error detected, stopping sync');
           return NextResponse.json({ 
             success: false, 
@@ -203,19 +134,17 @@ export async function POST(req: Request) {
     console.error('[google-calendar/sync-to-calendar] ERROR:', error);
     
     // Handle specific error types
-    if (error instanceof Error) {
-      if (error.message.includes('invalid_grant') || error.message.includes('Invalid Credentials')) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Google authentication expired. Please re-authenticate.',
-          requiresReauth: true 
-        }, { status: 401 });
-      }
-      if (error.message.includes('quota')) {
-        return NextResponse.json({ success: false, message: 'Google API quota exceeded.' }, { status: 429 });
-      }
+    if (error.message?.includes('invalid_grant') || error.message?.includes('Invalid Credentials') || error.message?.includes('401')) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Google authentication expired. Please re-authenticate.',
+        requiresReauth: true 
+      }, { status: 401 });
+    }
+    if (error.message?.includes('quota')) {
+      return NextResponse.json({ success: false, message: 'Google API quota exceeded.' }, { status: 429 });
     }
 
     return NextResponse.json({ success: false, message: 'An error occurred while syncing to Google Calendar.' }, { status: 500 });
   }
-} 
+}

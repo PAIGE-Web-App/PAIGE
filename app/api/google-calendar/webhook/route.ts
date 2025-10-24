@@ -1,11 +1,6 @@
-import { google } from 'googleapis';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 
 export async function POST(req: Request) {
   try {
