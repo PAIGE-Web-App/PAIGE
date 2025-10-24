@@ -260,8 +260,7 @@ export default function LandingPage() {
                 <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
               <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work lg:text-xl">
-                Created to minimize stress and maximize celebration.<br />
-                Easily manage your to-dos, vendor communication, budgets and more with AI.
+                Paige is an AI wedding-planning web app that helps couples plan their wedding by generating and tracking to-dos, budgets, timelines, and vendor outreach - all in one place.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                 <Link href="/signup" className="btn-primary no-underline px-8 py-3 text-center whitespace-nowrap">

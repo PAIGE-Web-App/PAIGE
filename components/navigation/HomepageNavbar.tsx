@@ -32,6 +32,8 @@ const HomepageNavbar: React.FC<HomepageNavbarProps> = ({ isLoggedIn = false }) =
             <a href="#how" className="text-[#332B42] hover:text-[#332B42] no-underline">How It Works</a>
             <a href="#faq" className="text-[#332B42] hover:text-[#332B42] no-underline">FAQ</a>
             <a href="#pricing" className="text-[#332B42] hover:text-[#332B42] no-underline">Pricing</a>
+            <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+            <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="btn-primaryinverse no-underline w-24 text-center whitespace-nowrap">
@@ -58,6 +60,8 @@ const HomepageNavbar: React.FC<HomepageNavbarProps> = ({ isLoggedIn = false }) =
               <a href="#how" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">How It Works</a>
               <a href="#faq" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">FAQ</a>
               <a href="#pricing" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">Pricing</a>
+              <Link href="/privacy" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">Privacy</Link>
+              <Link href="/terms" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">Terms</Link>
               <div className="flex flex-col gap-2 pt-2">
                 <Link href="/login" className="block px-3 py-2 text-base font-medium text-[#332B42] hover:text-[#332B42]">Login</Link>
                 <Link href="/signup" className="block px-3 py-2 text-base font-medium text-white bg-[#A85C36] rounded-lg hover:bg-[#8B4A2A]">Start for Free</Link>
