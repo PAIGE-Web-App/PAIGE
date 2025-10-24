@@ -2,11 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getGmailCalendarScopeString } from '@/lib/gmailScopes';
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL 
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google-oauth-callback`
-  : 'http://localhost:3000/api/auth/google-oauth-callback';
+// Force this to be a dynamic route to access environment variables
+export const dynamic = 'force-dynamic';
+
+const getGoogleCredentials = () => {
+  // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  
+  console.log('🔍 Environment check:', {
+    hasClientId: !!clientId,
+    hasClientSecret: !!clientSecret,
+    hasAppUrl: !!appUrl,
+    clientIdLength: clientId?.length,
+    clientSecretLength: clientSecret?.length
+  });
+  
+  return {
+    clientId,
+    clientSecret,
+    redirectUri: appUrl 
+      ? `${appUrl}/api/auth/google-oauth-callback`
+      : 'http://localhost:3000/api/auth/google-oauth-callback'
+  };
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,20 +42,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    // Get credentials dynamically
+    const { clientId, clientSecret, redirectUri } = getGoogleCredentials();
+
+    if (!clientId || !clientSecret) {
       console.error('❌ Missing Google OAuth credentials');
       return NextResponse.json({ 
         error: 'Server configuration error: Missing Google credentials' 
       }, { status: 500 });
     }
 
-    console.log('🔧 Creating OAuth2 client with redirect URI:', GOOGLE_REDIRECT_URI);
+    console.log('🔧 Creating OAuth2 client with redirect URI:', redirectUri);
 
     // Create OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
-      GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET,
-      GOOGLE_REDIRECT_URI
+      clientId,
+      clientSecret,
+      redirectUri
     );
 
     // Encode state with userId and returnUrl
