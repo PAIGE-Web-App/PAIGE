@@ -34,6 +34,14 @@ const getGoogleCredentials = () => {
   };
 };
 
+// Handle GET requests (for testing/verification)
+export async function GET() {
+  return NextResponse.json({ 
+    error: 'This endpoint only accepts POST requests',
+    usage: 'Send a POST request with { userId, returnUrl } in the body'
+  }, { status: 405 });
+}
+
 export async function POST(req: NextRequest) {
   try {
     console.log('🔗 OAuth initiate endpoint called');
