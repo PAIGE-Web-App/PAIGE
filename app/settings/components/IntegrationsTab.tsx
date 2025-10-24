@@ -46,8 +46,12 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     const urlParams = new URLSearchParams(window.location.search);
     const oauthStatus = urlParams.get('oauth');
     
-    if (oauthStatus === 'success') {
-      showSuccessToast('Google account connected successfully with permanent access!');
+    if (oauthStatus === 'success' || oauthStatus === 'reauth_success') {
+      const message = oauthStatus === 'reauth_success' 
+        ? 'Google account re-authorized successfully with permanent access!'
+        : 'Google account connected successfully with permanent access!';
+      showSuccessToast(message);
+      
       // Refresh Gmail auth context
       window.dispatchEvent(new CustomEvent('gmail-auth-updated'));
       // Clean up URL
@@ -62,6 +66,17 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
           if (userData?.googleTokens) {
             setGoogleConnected(true);
             setGoogleEmail(userData.googleTokens.email || "");
+          }
+          
+          // Also refresh calendar status
+          const calResponse = await fetch('/api/google-calendar/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid }),
+          });
+          if (calResponse.ok) {
+            const calData = await calResponse.json();
+            setCalendarStatus(calData);
           }
         } catch (error) {
           console.error('Error refreshing integration status:', error);
@@ -370,99 +385,26 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
     try {
       setLoading(true);
       
-      // Import Firebase auth dynamically to avoid SSR issues
-      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-      const { auth } = await import('@/lib/firebase');
-      
-      const provider = new GoogleAuthProvider();
-      // Request all scopes for full re-authorization in settings
-      addGmailScopes(provider, true); // Include calendar scopes
-      provider.addScope('https://www.googleapis.com/auth/calendar.events');
-      // Force account selection and consent to show scope selection
-      provider.setCustomParameters({
-        prompt: 'select_account consent'
+      // Use OAuth flow to get refresh tokens (same as initial connection)
+      const response = await fetch('/api/auth/google-oauth-initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          returnUrl: '/settings?tab=integrations&oauth=reauth_success'
+        })
       });
+
+      const data = await response.json();
       
-      const result = await signInWithPopup(auth, provider);
-      
-      // Store Gmail tokens from the popup
-      try {
-        const { GoogleAuthProvider } = await import('firebase/auth');
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
-        
-        if (accessToken) {
-          // Store Gmail tokens in Firestore (matching API expected format)
-          const gmailTokens = {
-            accessToken: accessToken,
-            refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
-            email: result.user.email, // Store Gmail account email
-            scope: getGmailCalendarScopeString()
-          };
-          
-          // Check if user exists before updating
-          const userDocRef = doc(db, "users", user.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            // Update user document with Gmail tokens
-            await updateDoc(userDocRef, {
-              googleTokens: gmailTokens,
-              gmailConnected: true,
-            });
-          }
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('gmailConnected', 'true');
-          }
-        }
-      } catch (tokenError) {
-        console.error('❌ Error storing Gmail tokens:', tokenError);
-      }
-      
-      // Get ID token and call session login
-      const idToken = await result.user.getIdToken();
-      const res = await fetch("/api/sessionLogin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-        credentials: "include",
-      });
-      
-      if (res.ok) {
-        // Update local state
-        setGoogleConnected(true);
-        setGoogleEmail(result.user.email || "");
-        
-        // Refresh the integration status
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        if (userData?.googleTokens) {
-          setGoogleEmail(userData.googleTokens.email || userData.googleEmail || "");
-        }
-        
-        // Automatically set up Gmail Watch for push notifications
-        try {
-          const watchResponse = await fetch('/api/gmail/setup-watch-optimized', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.uid }),
-          });
-          
-          if (watchResponse.ok) {
-            showSuccessToast("Google account re-authorized and Gmail push notifications enabled!");
-          } else {
-            showSuccessToast("Google account re-authorized successfully!");
-          }
-        } catch (watchError) {
-          console.error('Failed to setup Gmail Watch after reauth:', watchError);
-          showSuccessToast("Google account re-authorized successfully!");
-        }
+      if (data.success && data.authUrl) {
+        // Redirect to Google OAuth consent screen
+        window.location.href = data.authUrl;
       } else {
-        console.error('❌ Google reauth failed');
-        showErrorToast("Failed to re-authorize Google account. Please try again.");
+        throw new Error('Failed to get OAuth URL');
       }
+      
+      return; // Function ends here, redirect happens
     } catch (error: any) {
       console.error('❌ Google reauth error:', error);
       showErrorToast("Failed to re-authorize Google account. Please try again.");
