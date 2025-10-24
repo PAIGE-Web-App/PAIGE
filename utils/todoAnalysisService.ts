@@ -244,7 +244,22 @@ export async function performTodoAnalysis(
           sourceMessageId: message.id || 'unknown'
         }));
         
-        allNewTodos = allNewTodos.concat(todosWithIds);
+        // Deduplicate newTodos before adding (check by name + source)
+        const existingTodoKeys = new Set(
+          allNewTodos.map(t => `${t.name}-${t.sourceContact}`.toLowerCase())
+        );
+        
+        const uniqueNewTodos = todosWithIds.filter(todo => {
+          const key = `${todo.name}-${todo.sourceContact}`.toLowerCase();
+          if (existingTodoKeys.has(key)) {
+            console.log(`⚠️ Skipping duplicate todo: ${todo.name}`);
+            return false;
+          }
+          existingTodoKeys.add(key);
+          return true;
+        });
+        
+        allNewTodos = allNewTodos.concat(uniqueNewTodos);
         allTodoUpdates = allTodoUpdates.concat(analysisResult.todoUpdates);
         allCompletedTodos = allCompletedTodos.concat(analysisResult.completedTodos);
         
