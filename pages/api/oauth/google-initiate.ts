@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { google } from 'googleapis';
 import { getGmailCalendarScopeString } from '@/lib/gmailScopes';
 
 const getGoogleCredentials = () => {
-  // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   
-  // Determine base URL based on environment
   const isDev = process.env.NODE_ENV === 'development';
   const baseUrl = isDev 
     ? 'http://localhost:3000' 
@@ -30,29 +28,30 @@ const getGoogleCredentials = () => {
   };
 };
 
-// Handle GET requests (for testing/verification)
-export async function GET() {
-  return NextResponse.json({ 
-    error: 'This endpoint only accepts POST requests',
-    usage: 'Send a POST request with { userId, returnUrl } in the body'
-  }, { status: 405 });
-}
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'GET') {
+    return res.status(405).json({ 
+      error: 'This endpoint only accepts POST requests',
+      usage: 'Send a POST request with { userId, returnUrl } in the body'
+    });
+  }
 
-export async function POST(req: NextRequest) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
     console.log('🔗 OAuth initiate endpoint called');
     
-    const body = await req.json();
-    const { userId, returnUrl = '/settings?oauth=success' } = body;
+    const { userId, returnUrl = '/settings?oauth=success' } = req.body;
 
     console.log('📝 OAuth request:', { userId, returnUrl });
 
     if (!userId) {
       console.error('❌ No userId provided');
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+      return res.status(400).json({ error: 'User ID required' });
     }
 
-    // Get credentials dynamically
     const { clientId, clientSecret, redirectUri } = getGoogleCredentials();
 
     if (!clientId || !clientSecret) {
@@ -63,41 +62,37 @@ export async function POST(req: NextRequest) {
         hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
         nodeEnv: process.env.NODE_ENV
       });
-      return NextResponse.json({ 
+      return res.status(500).json({ 
         success: false,
         error: 'Server configuration error: Missing Google credentials' 
-      }, { status: 500 });
+      });
     }
 
     console.log('🔧 Creating OAuth2 client with redirect URI:', redirectUri);
 
-    // Create OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
       redirectUri
     );
 
-    // Encode state with userId and returnUrl
     const state = Buffer.from(JSON.stringify({ userId, returnUrl })).toString('base64');
 
-    // Get all required scopes (Gmail + Calendar)
     const scopes = getGmailCalendarScopeString().split(' ');
     console.log('📋 Requesting scopes:', scopes);
 
-    // Generate authorization URL
     const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline', // Request refresh token
+      access_type: 'offline',
       scope: scopes,
       state: state,
-      prompt: 'consent', // Force consent screen to ensure refresh token is returned
+      prompt: 'consent',
       include_granted_scopes: true
     });
 
     console.log('✅ Generated OAuth URL for user:', userId);
     console.log('🔗 Auth URL:', authUrl);
 
-    return NextResponse.json({ 
+    return res.status(200).json({ 
       success: true, 
       authUrl 
     });
@@ -108,10 +103,9 @@ export async function POST(req: NextRequest) {
       message: error.message,
       stack: error.stack
     });
-    return NextResponse.json({ 
+    return res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to initiate OAuth flow' 
-    }, { status: 500 });
+    });
   }
 }
-
