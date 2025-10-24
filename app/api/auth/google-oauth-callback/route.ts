@@ -9,10 +9,12 @@ const getGoogleCredentials = () => {
   // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   
-  // Remove trailing slash from appUrl if present
-  const baseUrl = appUrl?.replace(/\/$/, '') || 'http://localhost:3000';
+  // Determine base URL based on environment
+  const isDev = process.env.NODE_ENV === 'development';
+  const baseUrl = isDev 
+    ? 'http://localhost:3000' 
+    : (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://weddingpaige.com');
   
   return {
     clientId,
@@ -22,20 +24,29 @@ const getGoogleCredentials = () => {
 };
 
 export async function GET(req: NextRequest) {
+  console.log('🎯 OAuth callback route called');
+  console.log('🔗 Callback URL:', req.url);
+  
   try {
     const searchParams = req.nextUrl.searchParams;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
+    console.log('📝 Callback params:', {
+      hasCode: !!code,
+      hasState: !!state,
+      error: error
+    });
+
     // Handle user cancellation
     if (error === 'access_denied') {
-      console.log('User cancelled OAuth flow');
+      console.log('❌ User cancelled OAuth flow');
       return NextResponse.redirect(new URL('/settings?oauth=cancelled', req.url));
     }
 
     if (!code) {
-      console.error('No authorization code received');
+      console.error('❌ No authorization code received');
       return NextResponse.redirect(new URL('/settings?oauth=error', req.url));
     }
 
@@ -116,9 +127,11 @@ export async function GET(req: NextRequest) {
     // Redirect back to the return URL with success
     return NextResponse.redirect(new URL(returnUrl, req.url));
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ OAuth callback error:', error);
-    return NextResponse.redirect(new URL('/settings?oauth=error', req.url));
+    console.error('❌ Error stack:', error?.stack);
+    console.error('❌ Error message:', error?.message);
+    return NextResponse.redirect(new URL(`/settings?oauth=error&details=${encodeURIComponent(error?.message || 'Unknown error')}`, req.url));
   }
 }
 

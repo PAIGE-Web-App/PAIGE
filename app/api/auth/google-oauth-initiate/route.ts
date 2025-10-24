@@ -9,18 +9,22 @@ const getGoogleCredentials = () => {
   // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  
+  // Determine base URL based on environment
+  const isDev = process.env.NODE_ENV === 'development';
+  const baseUrl = isDev 
+    ? 'http://localhost:3000' 
+    : (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://weddingpaige.com');
   
   console.log('🔍 Environment check:', {
     hasClientId: !!clientId,
     hasClientSecret: !!clientSecret,
-    hasAppUrl: !!appUrl,
+    nodeEnv: process.env.NODE_ENV,
+    isDev,
+    baseUrl,
     clientIdLength: clientId?.length,
     clientSecretLength: clientSecret?.length
   });
-  
-  // Remove trailing slash from appUrl if present
-  const baseUrl = appUrl?.replace(/\/$/, '') || 'http://localhost:3000';
   
   return {
     clientId,
