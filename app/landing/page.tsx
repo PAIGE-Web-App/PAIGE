@@ -211,6 +211,8 @@ export default function LandingPage() {
             <a href="#how" className="text-[#332B42] hover:text-[#332B42] no-underline">How It Works</a>
             <a href="#faq" className="text-[#332B42] hover:text-[#332B42] no-underline">FAQ</a>
             <a href="#pricing" className="text-[#332B42] hover:text-[#332B42] no-underline">Pricing</a>
+            <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
+            <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="btn-primaryinverse no-underline w-24 text-center whitespace-nowrap">
@@ -236,6 +238,8 @@ export default function LandingPage() {
               <a href="#how" className="py-2 no-underline">How It Works</a>
               <a href="#faq" className="py-2 no-underline">FAQ</a>
               <a href="#pricing" className="py-2 no-underline">Pricing</a>
+              <Link href="/privacy" className="py-2 no-underline">Privacy</Link>
+              <Link href="/terms" className="py-2 no-underline">Terms</Link>
               <div className="flex gap-3 pt-2">
                 <Link href="/login" className="btn-primaryinverse flex-1 text-center no-underline">
                   Sign in
@@ -259,7 +263,7 @@ export default function LandingPage() {
               <h1 className="font-playfair text-4xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
                 <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
-              <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work lg:text-xl">
+              <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work text-base lg:text-lg">
                 Paige is an AI wedding-planning web app that helps couples plan their wedding by generating and tracking to-dos, budgets, timelines, and vendor outreach - all in one place.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
