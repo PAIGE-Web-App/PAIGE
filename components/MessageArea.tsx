@@ -785,20 +785,32 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         ...(selectedChannel === 'InApp' && { inAppMessageId: `inapp-${Date.now()}` }),
       };
       
-      // Add optimistic message to local state immediately
-      setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+      // Save to Firestore first to get the document ID
+      const messagesRef = collection(db, path);
       
+      // Create message data without the optimistic ID
       const messageData = {
-        ...optimisticMessage,
-        id: '',
+        subject: replyingToMessage ? replyingToMessage.subject : (subject || input.split('\n')[0] || 'New Message'),
+        body: input,
         timestamp: Timestamp.now(),
-        createdAt: Timestamp.now(), // Add createdAt field for consistency
-        date: Timestamp.now(), // Add date field for consistency
+        from: userEmail,
+        to: selectedContact.email || '',
+        source: (replyingToMessage && replyingToMessage.source === 'gmail') || selectedChannel === 'Gmail' ? 'gmail' : 'inapp',
+        isRead: true,
+        userId: currentUser.uid,
+        ...(replyingToMessage && { parentMessageId: replyingToMessage.id }),
+        direction: 'sent',
+        ...(selectedFiles.length > 0 && { attachments: selectedFiles.map(f => ({ name: f.name })) }),
+        ...(gmailMessageId && { gmailMessageId }),
+        ...(threadId && { threadId }),
+        ...(selectedChannel === 'InApp' && { inAppMessageId: `inapp-${Date.now()}` }),
+        createdAt: Timestamp.now(),
+        date: Timestamp.now(),
       };
       
-      const messagesRef = collection(db, path);
       const docRef = await addDoc(messagesRef, messageData);
       
+      // Update with the Firestore document ID
       await updateDoc(docRef, { id: docRef.id });
       setInput('');
       setSubject('');
