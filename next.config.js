@@ -165,7 +165,6 @@ const nextConfig = {
       
       // Exclude large locales and unused files
       'node_modules/date-fns/locale',
-      'node_modules/googleapis/build/src/apis/!(calendar|gmail)',
       'node_modules/pdfjs-dist/legacy',
       'node_modules/firebase/!(app|auth|firestore)',
     ],
