@@ -1051,10 +1051,21 @@ const MessageArea: React.FC<MessageAreaProps> = ({
        // Set up real-time listener for messages
        // Use the contact email as the document ID since that's how Gmail import saves messages
        const contactEmail = selectedContact.email;
+       
+       if (!contactEmail) {
+         console.warn('⚠️ No email for contact:', selectedContact.name);
+         setMessages([]);
+         setMessagesLoading(false);
+         setIsInitialLoad(false);
+         return;
+       }
+       
     const messagesRef = collection(db, `users/${currentUser.uid}/contacts/${contactEmail}/messages`);
     const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'), limit(50)); // Limit to 50 messages - oldest first
 
          const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+           console.log(`📬 Messages received for ${contactEmail}:`, snapshot.size);
+           
            const fetchedMessages: any[] = [];
            const seenIds = new Set<string>();
            
@@ -1064,6 +1075,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
              
              // Skip duplicates based on Gmail message ID
              if (seenIds.has(messageId)) {
+               console.log('⚠️ Skipping duplicate message:', messageId);
                return;
              }
              
@@ -1077,6 +1089,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
              });
            });
            
+           console.log(`✅ Displaying ${fetchedMessages.length} messages for ${contactEmail}`);
            setMessages(fetchedMessages);
            setMessagesLoading(false);
            setIsInitialLoad(false);
