@@ -213,7 +213,7 @@ export default function IntegrationsTab({ user, onGoogleAction }: IntegrationsTa
       setLoading(true);
       
       // Call initiate endpoint to get OAuth URL
-      const response = await fetch('/api/auth/google-oauth-initiate', {
+      const response = await fetch('/api/oauth/google-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
