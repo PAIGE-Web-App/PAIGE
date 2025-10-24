@@ -72,7 +72,7 @@ export default function GlobalGmailBanner() {
           const gmailTokens = {
             accessToken: accessToken,
             refreshToken: null, // Firebase popup doesn't provide refresh token
-            expiryDate: Date.now() + 24 * 3600 * 1000, // 24 hours from now
+            expiryDate: Date.now() + 3600 * 1000, // 1 hour from now (Google's standard token expiry)
             email: result.user.email, // Store Gmail account email
             scope: requestedScopes // Use the scopes we requested
           };
