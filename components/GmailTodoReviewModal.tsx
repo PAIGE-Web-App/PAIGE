@@ -234,7 +234,7 @@ export default function GmailTodoReviewModal({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleTodoToggle(todoId)}
-                            className="mt-1 w-4 h-4 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93]"
+                            className="mt-1 w-3.5 h-3.5 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93] flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1">
                             <UnifiedTodoItem
@@ -299,18 +299,42 @@ export default function GmailTodoReviewModal({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleUpdateToggle(update.todoId)}
-                            className="mt-1 w-4 h-4 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93]"
+                            className="mt-1 w-3.5 h-3.5 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93] flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1">
-                            <div className="font-medium text-[#332B42] mb-1">Update Todo: {update.todoId}</div>
-                            <div className="text-sm text-gray-600">
-                              {Object.entries(update.updates).map(([key, value]) => (
-                                <div key={key} className="flex gap-2">
-                                  <span className="font-medium">{key}:</span>
-                                  <span>{String(value)}</span>
-                                </div>
-                              ))}
+                            <div className="font-semibold text-[#332B42] mb-2 flex items-center gap-2">
+                              <span>{update.existingTodoName || `Todo ID: ${update.todoId}`}</span>
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Will update</span>
                             </div>
+                            
+                            {/* Show what will be updated */}
+                            <div className="space-y-2 text-sm">
+                              {update.updates.note && (
+                                <div className="flex items-start gap-2">
+                                  <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                  <div className="text-gray-600">{update.updates.note}</div>
+                                </div>
+                              )}
+                              
+                              {update.updates.deadline && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-gray-400" />
+                                  <div className="text-gray-600">{new Date(update.updates.deadline).toLocaleDateString()}</div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Reference/Confidence */}
+                            {update.confidenceScore && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-gray-500">Reference</span>
+                                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                                    {Math.round(update.confidenceScore * 100)}% confidence
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -336,13 +360,31 @@ export default function GmailTodoReviewModal({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleCompletionToggle(completed.todoId)}
-                            className="mt-1 w-4 h-4 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93]"
+                            className="mt-1 w-3.5 h-3.5 text-[#805d93] border-gray-300 rounded focus:ring-[#805d93] flex-shrink-0 cursor-pointer"
                           />
                           <div className="flex-1">
-                            <div className="font-medium text-[#332B42] mb-1">Complete Todo: {completed.todoId}</div>
-                            <div className="text-sm text-gray-600">
-                              Reason: {completed.completionReason}
+                            <div className="font-semibold text-[#332B42] mb-2 flex items-center gap-2">
+                              <span>{completed.existingTodoName || `Todo ID: ${completed.todoId}`}</span>
+                              <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Will complete</span>
                             </div>
+                            
+                            {/* Completion reason */}
+                            <div className="flex items-start gap-2 text-sm">
+                              <CheckCircle className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <div className="text-gray-600">{completed.completionReason}</div>
+                            </div>
+                            
+                            {/* Reference/Confidence */}
+                            {completed.confidenceScore && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-gray-500">Reference</span>
+                                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                                    {Math.round(completed.confidenceScore * 100)}% confidence
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -361,28 +403,28 @@ export default function GmailTodoReviewModal({
 
             {/* Fixed Footer */}
             <div className="border-t border-[#E0DBD7] p-4 md:p-6 flex-shrink-0">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
                   {totalSelected} item{totalSelected !== 1 ? 's' : ''} selected
                 </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={onClose}
-                  className="btn-primaryinverse"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={totalSelected === 0}
-                  className={`btn-primary flex items-center gap-2 ${
-                    totalSelected === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  Apply {totalSelected} Change{totalSelected !== 1 ? 's' : ''}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={onClose}
+                    className="btn-primaryinverse"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={totalSelected === 0}
+                    className={`btn-primary flex items-center gap-2 ${
+                      totalSelected === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Apply {totalSelected} Change{totalSelected !== 1 ? 's' : ''}
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>

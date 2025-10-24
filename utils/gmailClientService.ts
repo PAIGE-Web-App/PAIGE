@@ -741,7 +741,7 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       if (config.enableTodoScanning && importedCount > 0) {
         console.log('🔄 Triggering todo analysis...');
         try {
-          // Call the working todo analysis API (use the same system as server-side import)
+          // Use analyze-messages-for-todos which stores suggestions for preview in modal
           const analysisResponse = await fetch('/api/analyze-messages-for-todos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

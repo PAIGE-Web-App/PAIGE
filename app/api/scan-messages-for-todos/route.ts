@@ -391,7 +391,9 @@ async function analyzeMessageForTodos(
 async function getRAGContext(message: any, userId: string) {
   try {
     // Query RAG system for relevant context
-    const response = await fetch('/api/rag/process-query', {
+    // Use full URL for server-side fetch
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/rag/process-query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -426,23 +428,29 @@ async function callAnalysisAPI(
       return await performLocalAnalysis(message, existingTodos, weddingContext, userId);
     }
 
+    // Ensure all required fields are provided for N8N webhook
+    const vendorName = message.contactName || message.from || message.contactEmail || 'Unknown Vendor';
+    const vendorCategory = message.contactCategory || message.category || 'Unknown';
+    
+    console.log(`📤 Calling N8N webhook for message: "${message.subject}" from ${vendorName}`);
+    
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message_content: message.body || '',
-        subject: message.subject || '',
-        vendor_category: message.contactCategory || 'Unknown',
-        vendor_name: message.contactName || message.from,
+        subject: message.subject || 'No subject',
+        vendor_category: vendorCategory,
+        vendor_name: vendorName,
         existing_todos: existingTodos.map(todo => ({
           id: todo.id,
           name: todo.name,
-          note: todo.note,
-          category: todo.category,
+          note: todo.note || '',
+          category: todo.category || 'general',
           deadline: todo.deadline,
           isCompleted: todo.isCompleted || false
         })),
-        wedding_context: weddingContext,
+        wedding_context: weddingContext || {},
         user_id: userId,
         message_id: message.id || `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       }),
@@ -454,15 +462,25 @@ async function callAnalysisAPI(
 
     const result = await response.json();
     
+    console.log(`📥 N8N webhook response:`, {
+      success: result.success,
+      hasAnalysis: !!result.analysis,
+      error: result.error,
+      newTodosCount: result.analysis?.newTodos?.length || 0
+    });
+    
     if (result.success && result.analysis) {
+      console.log(`✅ N8N analysis successful: ${result.analysis.newTodos?.length || 0} new todos`);
       return result.analysis;
     } else {
-      console.warn('N8N analysis returned unsuccessful result:', result);
-      return { newTodos: [], todoUpdates: [], completedTodos: [] };
+      console.warn('⚠️ N8N analysis returned unsuccessful result:', result);
+      console.warn('⚠️ Falling back to local analysis');
+      return await performLocalAnalysis(message, existingTodos, weddingContext, userId);
     }
-  } catch (error) {
-    console.error('N8N Message analysis error:', error);
-    return { newTodos: [], todoUpdates: [], completedTodos: [] };
+  } catch (error: any) {
+    console.error('❌ N8N Message analysis error:', error.message);
+    console.warn('⚠️ Falling back to local analysis');
+    return await performLocalAnalysis(message, existingTodos, weddingContext, userId);
   }
 }
 
@@ -585,100 +603,109 @@ async function performLocalAnalysis(
   userId: string
 ) {
   try {
-    console.log('🔍 Performing local analysis for message:', message.id);
+    console.log('🔍 Performing AI-powered local analysis for message:', message.subject);
     
-    const messageText = `${message.subject || ''} ${message.body || ''}`.toLowerCase();
-    const newTodos: any[] = [];
-    const todoUpdates: any[] = [];
-    const completedTodos: any[] = [];
+    // Use OpenAI for smart analysis
+    const { default: OpenAI } = await import('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    // Build context about existing todos
+    const existingTodosContext = existingTodos.length > 0 
+      ? `\n\nEXISTING TODO ITEMS:\n${existingTodos.map(todo => 
+          `- ${todo.name}${todo.note ? ` (${todo.note})` : ''}${todo.deadline ? ` [Due: ${todo.deadline}]` : ''} ${todo.isCompleted ? '[COMPLETED]' : '[PENDING]'}`
+        ).join('\n')}`
+      : '\n\nNo existing todo items yet.';
+    
+    // Build wedding context
+    const weddingCtx = weddingContext ? `\n\nWEDDING CONTEXT:\n- Date: ${weddingContext.weddingDate || 'Not set'}\n- Location: ${weddingContext.weddingLocation || 'Not set'}\n- Guest Count: ${weddingContext.guestCount || 'Not set'}\n- Budget: ${weddingContext.maxBudget || 'Not set'}` : '';
+    
+    const prompt = `You are analyzing an email message for a wedding planning app. Extract actionable todo items, identify updates to existing todos, and detect completed tasks.
 
-    // Look for completion indicators
-    const completionKeywords = [
-      'done with', 'completed', 'finished', 'accomplished', 'achieved',
-      'checked off', 'crossed off', 'marked complete', 'finished with'
-    ];
+EMAIL:
+Subject: ${message.subject || 'No subject'}
+From: ${message.contactName || 'Unknown'}
+Category: ${message.contactCategory || 'Unknown'}
+Body: ${message.body || 'No content'}
+${existingTodosContext}${weddingCtx}
 
-    const hasCompletion = completionKeywords.some(keyword => 
-      messageText.includes(keyword)
-    );
+INSTRUCTIONS:
+1. Identify NEW actionable todo items that should be created
+2. Identify if any EXISTING todos should be UPDATED with new information
+3. Identify if any EXISTING todos have been COMPLETED based on the message
+4. Be specific and actionable - avoid generic todos like "Review message"
+5. Only suggest todos if there are clear action items
 
-    if (hasCompletion) {
-      // Look for specific tasks that might be completed
-      const taskKeywords = [
-        'planning folder', 'cultural requirements', 'budget', 'guest list',
-        'venue', 'catering', 'flowers', 'music', 'photography', 'dress',
-        'invitations', 'decorations', 'timeline', 'seating chart'
-      ];
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "newTodos": [{"name": "string", "note": "string", "category": "string", "deadline": "YYYY-MM-DD or null", "priority": "low|medium|high"}],
+  "todoUpdates": [{"todoId": "existing_todo_id", "updates": {"note": "string", "deadline": "YYYY-MM-DD"}}],
+  "completedTodos": [{"todoId": "existing_todo_id", "completionReason": "string"}]
+}`;
 
-      for (const keyword of taskKeywords) {
-        if (messageText.includes(keyword)) {
-          // Find matching existing todos
-          const matchingTodos = existingTodos.filter(todo => 
-            todo.name.toLowerCase().includes(keyword) || 
-            todo.note?.toLowerCase().includes(keyword)
-          );
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a wedding planning assistant. Extract actionable todos from emails. Be specific and practical. Return ONLY valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 1500,
+    });
 
-          for (const todo of matchingTodos) {
-            completedTodos.push({
-              todoId: todo.id,
-              completionReason: `Completed based on message: "${message.subject || 'No subject'}"`
-            });
-          }
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // Parse the JSON response
+    let analysis;
+    try {
+      // Try to parse directly
+      analysis = JSON.parse(response);
+    } catch (parseError) {
+      // Try to extract JSON from markdown blocks
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/```\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[1]);
+      } else {
+        // Try to find any JSON object
+        const jsonObjectMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+          analysis = JSON.parse(jsonObjectMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in OpenAI response');
         }
       }
     }
 
-    // Look for new task indicators
-    const taskKeywords = [
-      'need to', 'should', 'must', 'have to', 'plan to', 'want to',
-      'schedule', 'book', 'reserve', 'order', 'buy', 'purchase',
-      'finalize', 'decide', 'choose', 'select', 'confirm'
-    ];
-
-    const hasNewTasks = taskKeywords.some(keyword => 
-      messageText.includes(keyword)
-    );
-
-    if (hasNewTasks) {
-      // Extract potential new tasks
-      const sentences = messageText.split(/[.!?]+/);
-      for (const sentence of sentences) {
-        if (sentence.trim().length > 10) {
-          // Look for actionable sentences
-          const actionWords = ['need', 'should', 'must', 'have to', 'plan', 'want', 'schedule', 'book', 'reserve', 'order', 'buy', 'finalize', 'decide', 'choose', 'select', 'confirm'];
-          const hasAction = actionWords.some(word => sentence.includes(word));
-          
-          if (hasAction) {
-            newTodos.push({
-              name: sentence.trim().charAt(0).toUpperCase() + sentence.trim().slice(1),
-              description: `Generated from message: "${message.subject || 'No subject'}"`,
-              category: 'general',
-              priority: 'medium'
-            });
-          }
-        }
-      }
-    }
-
-    // If no specific tasks found but message has content, create a generic todo
-    if (newTodos.length === 0 && completedTodos.length === 0 && messageText.length > 20) {
-      newTodos.push({
-        name: `Review message: "${message.subject || 'No subject'}"`,
-        description: `Follow up on: ${message.body?.substring(0, 100) || 'Message content'}...`,
-        category: 'general',
-        priority: 'low'
-      });
-    }
-
-    console.log(`🔍 Local analysis results: ${newTodos.length} new todos, ${completedTodos.length} completed todos`);
+    console.log(`✅ AI local analysis results: ${analysis.newTodos?.length || 0} new todos, ${analysis.todoUpdates?.length || 0} updates, ${analysis.completedTodos?.length || 0} completed`);
     
     return {
-      newTodos,
-      todoUpdates,
-      completedTodos
+      newTodos: analysis.newTodos || [],
+      todoUpdates: analysis.todoUpdates || [],
+      completedTodos: analysis.completedTodos || []
     };
   } catch (error) {
-    console.error('Error in local analysis:', error);
+    console.error('❌ AI local analysis error:', error);
+    
+    // Ultra-simple fallback - only create a todo if the message is clearly actionable
+    const messageText = `${message.subject || ''} ${message.body || ''}`.toLowerCase();
+    const actionKeywords = ['need to', 'please', 'can you', 'should', 'must', 'deadline', 'by when', 'confirm', 'send', 'provide'];
+    const hasAction = actionKeywords.some(keyword => messageText.includes(keyword));
+    
+    if (hasAction && message.subject && message.subject.length > 5) {
+      return {
+        newTodos: [{
+          name: `Follow up: ${message.subject}`,
+          description: message.body?.substring(0, 200) || '',
+          category: message.contactCategory || 'general',
+          priority: 'medium'
+        }],
+        todoUpdates: [],
+        completedTodos: []
+      };
+    }
+    
     return { newTodos: [], todoUpdates: [], completedTodos: [] };
   }
 }

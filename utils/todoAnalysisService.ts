@@ -133,8 +133,26 @@ export async function performTodoAnalysis(
       from: m.from, 
       contactName: m.contactName,
       hasBody: !!m.body,
-      bodyLength: m.body?.length || 0
+      bodyLength: m.body?.length || 0,
+      direction: m.direction
     })));
+    
+    if (messages.length === 0) {
+      console.warn('⚠️ No messages found to analyze!');
+      return {
+        messagesAnalyzed: 0,
+        newTodosSuggested: 0,
+        todosUpdated: 0,
+        todosCompleted: 0,
+        totalSuggestions: 0,
+        analysisResults: {
+          newTodos: [],
+          todoUpdates: [],
+          completedTodos: [],
+          messagesAnalyzed: 0
+        }
+      };
+    }
     
     // Get existing todos
     const todosSnapshot = await adminDb
@@ -178,7 +196,13 @@ export async function performTodoAnalysis(
       // Process batch in parallel
       const batchPromises = batch.map(async (message) => {
         try {
-          console.log(`🔍 Analyzing message: "${message.subject}" from ${message.contactEmail}`);
+          console.log(`🔍 Analyzing message: "${message.subject}" from ${message.contactEmail}`, {
+            bodyLength: message.body?.length || 0,
+            hasBody: !!message.body,
+            direction: message.direction,
+            source: message.source
+          });
+          
           const analysisResult = await analyzeMessageForTodos(
             message.body || '',
             message.subject || '',
@@ -191,6 +215,12 @@ export async function performTodoAnalysis(
             weddingContext,
             userId
           );
+          
+          console.log(`✅ Analysis result for "${message.subject}":`, {
+            newTodos: analysisResult.newTodos?.length || 0,
+            todoUpdates: analysisResult.todoUpdates?.length || 0,
+            completedTodos: analysisResult.completedTodos?.length || 0
+          });
 
           return { message, analysisResult };
         } catch (analysisError) {
@@ -337,54 +367,103 @@ async function analyzeMessageForTodos(
   userId: string
 ) {
   try {
-    // Use the local MessageAnalysisEngine for proper AI analysis
-    const { MessageAnalysisEngine } = await import('./messageAnalysisEngine');
-    const engine = MessageAnalysisEngine.getInstance();
+    console.log(`🔍 Using OpenAI for direct AI analysis: "${subject}" from ${contact.name || contact.email}`);
     
-    console.log(`🔍 Using local AI analysis for: "${subject}" from ${contact.name || contact.email}`);
+    // Use OpenAI directly for smart analysis
+    const { default: OpenAI } = await import('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const analysisResult = await engine.analyzeMessage({
-      messageContent: messageBody,
-      vendorName: contact.name || contact.email || 'Unknown Vendor',
-      vendorCategory: contact.category || 'Unknown',
-      contactId: contact.email || 'unknown',
-      userId: userId,
-      existingTodos: existingTodos.map(todo => ({
-        id: todo.id,
-        title: todo.name,
-        category: todo.category,
-        isCompleted: todo.isCompleted || false
-      })),
-      weddingContext: weddingContext ? {
-        weddingDate: weddingContext.weddingDate ? new Date(weddingContext.weddingDate) : undefined,
-        weddingLocation: weddingContext.weddingLocation,
-        guestCount: weddingContext.guestCount,
-        maxBudget: weddingContext.maxBudget,
-        vibe: weddingContext.vibe ? [weddingContext.vibe] : undefined
-      } : undefined
+    // Build context about existing todos
+    const existingTodosContext = existingTodos.length > 0 
+      ? `\n\nEXISTING TODO ITEMS:\n${existingTodos.map(todo => 
+          `- ID: ${todo.id} | ${todo.name}${todo.note ? ` (${todo.note})` : ''}${todo.deadline ? ` [Due: ${todo.deadline}]` : ''} ${todo.isCompleted ? '[COMPLETED]' : '[PENDING]'}`
+        ).join('\n')}`
+      : '\n\nNo existing todo items yet.';
+    
+    // Build wedding context
+    const weddingCtx = weddingContext ? `\n\nWEDDING CONTEXT:\n- Date: ${weddingContext.weddingDate || 'Not set'}\n- Location: ${weddingContext.weddingLocation || 'Not set'}\n- Guest Count: ${weddingContext.guestCount || 'Not set'}\n- Budget: ${weddingContext.maxBudget || 'Not set'}` : '';
+    
+    const prompt = `You are analyzing an email message for a wedding planning app. Extract actionable todo items, identify updates to existing todos, and detect completed tasks.
+
+EMAIL:
+Subject: ${subject || 'No subject'}
+From: ${contact.name || contact.email || 'Unknown'}
+Category: ${contact.category || 'Unknown'}
+Body: ${messageBody || 'No content'}
+${existingTodosContext}${weddingCtx}
+
+INSTRUCTIONS:
+1. Identify NEW actionable todo items that should be created
+2. Identify if any EXISTING todos should be UPDATED with new information (provide the exact todo ID)
+3. Identify if any EXISTING todos have been COMPLETED based on the message (provide the exact todo ID)
+4. Be specific and actionable - avoid generic todos like "Review message"
+5. Only suggest todos if there are clear action items
+6. For updates/completions, you MUST provide the exact ID from the existing todos list
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "newTodos": [{"name": "string", "note": "string", "category": "string", "deadline": "YYYY-MM-DD or null", "priority": "low|medium|high"}],
+  "todoUpdates": [{"todoId": "exact_existing_todo_id", "updates": {"note": "string", "deadline": "YYYY-MM-DD"}}],
+  "completedTodos": [{"todoId": "exact_existing_todo_id", "completionReason": "string"}]
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a wedding planning assistant. Extract actionable todos from emails. Be specific and practical. Return ONLY valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 1500,
     });
 
-    // Transform MessageAnalysisEngine response to match expected format
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // Parse the JSON response
+    let analysis;
+    try {
+      // Try to parse directly
+      analysis = JSON.parse(response);
+    } catch (parseError) {
+      // Try to extract JSON from markdown blocks
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/```\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[1]);
+      } else {
+        // Try to find any JSON object
+        const jsonObjectMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+          analysis = JSON.parse(jsonObjectMatch[0]);
+        } else {
+          throw new Error('No valid JSON found in OpenAI response');
+        }
+      }
+    }
+
+    // Transform to expected format
     const transformedAnalysis = {
-      newTodos: analysisResult.newTodos?.map((todo: any) => ({
+      newTodos: (analysis.newTodos || []).map((todo: any) => ({
         name: todo.name,
-        note: todo.note || todo.description || '',
+        note: todo.note || '',
         category: todo.category || 'other',
         deadline: todo.deadline ? new Date(todo.deadline) : null,
         sourceMessage: subject || 'Unknown Subject',
         sourceContact: contact.name || contact.email || 'Unknown',
         sourceEmail: contact.email || contact.name || 'Unknown',
-        confidenceScore: todo.confidenceScore || 0.8
-      })) || [],
-      todoUpdates: analysisResult.todoUpdates || [],
-      completedTodos: analysisResult.completedTodos || []
+        confidenceScore: 0.8
+      })),
+      todoUpdates: analysis.todoUpdates || [],
+      completedTodos: analysis.completedTodos || []
     };
     
-    console.log(`🔍 AI analysis completed: ${transformedAnalysis.newTodos.length} new todos found`);
+    console.log(`✅ OpenAI analysis completed: ${transformedAnalysis.newTodos.length} new todos, ${transformedAnalysis.todoUpdates.length} updates, ${transformedAnalysis.completedTodos.length} completed`);
     return transformedAnalysis;
     
   } catch (error) {
-    console.error('Local AI analysis error, using fallback:', error);
+    console.error('❌ OpenAI analysis error, using fallback:', error);
     return await analyzeMessageLocally(messageBody, subject, contact, existingTodos, weddingContext, userId);
   }
 }
