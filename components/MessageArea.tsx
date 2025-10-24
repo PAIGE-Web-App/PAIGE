@@ -808,10 +808,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         date: Timestamp.now(),
       };
       
-      const docRef = await addDoc(messagesRef, messageData);
+      // Add message with a temporary ID first to get the doc reference
+      const tempDocRef = doc(messagesRef);
       
-      // Update with the Firestore document ID
-      await updateDoc(docRef, { id: docRef.id });
+      // Save with the document ID included to prevent duplicate detection issues
+      await setDoc(tempDocRef, {
+        ...messageData,
+        id: tempDocRef.id
+      });
       setInput('');
       setSubject('');
       setSelectedFiles([]);
@@ -1490,7 +1494,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       
       updateData.updatedAt = Timestamp.now();
 
-      await updateDoc(doc(db, `users/${userId}/todos`, update.todoId), updateData);
+      await updateDoc(doc(db, `users/${userId}/todoItems`, update.todoId), updateData);
     } catch (error) {
       console.error('Error updating todo:', error);
       throw error;
@@ -1499,7 +1503,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   const markTodoCompleted = async (completed: any, userId: string) => {
     try {
-      await updateDoc(doc(db, `users/${userId}/todos`, completed.todoId), {
+      await updateDoc(doc(db, `users/${userId}/todoItems`, completed.todoId), {
         isCompleted: true,
         completedAt: Timestamp.now(),
         completionReason: completed.completionReason
