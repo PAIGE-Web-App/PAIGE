@@ -10,12 +10,26 @@ const GOOGLE_REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('🔗 OAuth initiate endpoint called');
+    
     const body = await req.json();
     const { userId, returnUrl = '/settings?oauth=success' } = body;
 
+    console.log('📝 OAuth request:', { userId, returnUrl });
+
     if (!userId) {
+      console.error('❌ No userId provided');
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      console.error('❌ Missing Google OAuth credentials');
+      return NextResponse.json({ 
+        error: 'Server configuration error: Missing Google credentials' 
+      }, { status: 500 });
+    }
+
+    console.log('🔧 Creating OAuth2 client with redirect URI:', GOOGLE_REDIRECT_URI);
 
     // Create OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
@@ -29,6 +43,7 @@ export async function POST(req: NextRequest) {
 
     // Get all required scopes (Gmail + Calendar)
     const scopes = getGmailCalendarScopeString().split(' ');
+    console.log('📋 Requesting scopes:', scopes);
 
     // Generate authorization URL
     const authUrl = oauth2Client.generateAuthUrl({
@@ -39,17 +54,23 @@ export async function POST(req: NextRequest) {
       include_granted_scopes: true
     });
 
-    console.log('🔗 Generated OAuth URL for user:', userId);
+    console.log('✅ Generated OAuth URL for user:', userId);
+    console.log('🔗 Auth URL:', authUrl);
 
     return NextResponse.json({ 
       success: true, 
       authUrl 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ OAuth initiate error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
     return NextResponse.json({ 
-      error: 'Failed to initiate OAuth flow' 
+      success: false,
+      error: error.message || 'Failed to initiate OAuth flow' 
     }, { status: 500 });
   }
 }
