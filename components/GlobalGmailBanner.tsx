@@ -39,8 +39,8 @@ export default function GlobalGmailBanner() {
       const { auth } = await import('@/lib/firebase');
       
       const provider = new GoogleAuthProvider();
-      // Only request Gmail scopes for Gmail re-authentication
-      addGmailScopes(provider);
+      // Request all scopes (Gmail + Calendar) for full re-authentication
+      addGmailScopes(provider, true); // Include calendar scopes
       
       // Force consent screen with proper parameters (avoiding conflict)
       provider.setCustomParameters({
