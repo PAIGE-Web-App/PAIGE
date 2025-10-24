@@ -99,28 +99,38 @@ import MessagesSkeleton from '../../components/skeletons/MessagesSkeleton';
 import { removeUndefinedFields } from '@/utils/arrayUtils';
 import { parseLocalDateTime } from '@/utils/dateUtils';
 
-// Add triggerGmailImport function
+// Add triggerGmailImport function (using client-side service)
 const triggerGmailImport = async (userId: string, contacts: Contact[]) => {
   try {
-    const response = await fetch('/api/start-gmail-import', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        contacts,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to start Gmail import');
+    // Use client-side Gmail import (no server-side googleapis needed!)
+    const { gmailClientService } = await import('@/utils/gmailClientService');
+    
+    // Initialize the service
+    const initialized = await gmailClientService.initialize(userId);
+    if (!initialized) {
+      throw new Error('Failed to initialize Gmail service');
     }
 
-    // Gmail import started successfully - no need to log in production
-    return data;
+    // Import messages for each contact
+    let totalImported = 0;
+    for (const contact of contacts) {
+      if (!contact.email) continue;
+      
+      try {
+        const result = await gmailClientService.importGmailMessages(contact.email, userId, {
+          maxResults: 10,
+          dateRange: 'last_month'
+        });
+        
+        if (result.success) {
+          totalImported += result.totalImportedMessages || 0;
+        }
+      } catch (error) {
+        console.error(`Failed to import for ${contact.email}:`, error);
+      }
+    }
+
+    return { success: true, totalImported };
   } catch (error) {
     console.error('Error starting Gmail import:', error);
     throw error;
