@@ -11,12 +11,13 @@ const getGoogleCredentials = () => {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   
+  // Remove trailing slash from appUrl if present
+  const baseUrl = appUrl?.replace(/\/$/, '') || 'http://localhost:3000';
+  
   return {
     clientId,
     clientSecret,
-    redirectUri: appUrl 
-      ? `${appUrl}/api/auth/google-oauth-callback`
-      : 'http://localhost:3000/api/auth/google-oauth-callback'
+    redirectUri: `${baseUrl}/api/auth/google-oauth-callback`
   };
 };
 

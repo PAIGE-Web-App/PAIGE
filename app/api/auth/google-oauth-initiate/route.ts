@@ -19,12 +19,13 @@ const getGoogleCredentials = () => {
     clientSecretLength: clientSecret?.length
   });
   
+  // Remove trailing slash from appUrl if present
+  const baseUrl = appUrl?.replace(/\/$/, '') || 'http://localhost:3000';
+  
   return {
     clientId,
     clientSecret,
-    redirectUri: appUrl 
-      ? `${appUrl}/api/auth/google-oauth-callback`
-      : 'http://localhost:3000/api/auth/google-oauth-callback'
+    redirectUri: `${baseUrl}/api/auth/google-oauth-callback`
   };
 };
 
