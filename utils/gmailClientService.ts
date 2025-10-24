@@ -494,7 +494,18 @@ View full conversation and manage your wedding planning at https://weddingpaige.
   /**
    * Import Gmail messages for a specific contact
    */
-  public async importGmailMessages(contactEmail: string, userId: string, config: { maxResults?: number; enableTodoScanning?: boolean } = {}): Promise<{ success: boolean; totalImportedMessages?: number; error?: string }> {
+  public async importGmailMessages(
+    contactEmail: string, 
+    userId: string, 
+    config: { 
+      maxResults?: number; 
+      enableTodoScanning?: boolean;
+      dateRange?: 'all' | 'last_week' | 'last_month' | 'last_3_months' | 'last_year' | 'custom';
+      customStartDate?: string;
+      customEndDate?: string;
+      filterWords?: string[];
+    } = {}
+  ): Promise<{ success: boolean; totalImportedMessages?: number; error?: string }> {
     try {
       // Initialize with userId
       await this.initialize(userId);
@@ -506,8 +517,61 @@ View full conversation and manage your wedding planning at https://weddingpaige.
       const maxResults = config.maxResults || 15;
       console.log(`📥 Importing Gmail messages for ${contactEmail} (max: ${maxResults})`);
 
+      // Build Gmail search query with filters
+      let searchQuery = `from:${contactEmail} OR to:${contactEmail}`;
+      
+      // Add date range filter
+      if (config.dateRange && config.dateRange !== 'all') {
+        const now = new Date();
+        let afterDate: Date;
+        
+        switch (config.dateRange) {
+          case 'last_week':
+            afterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case 'last_month':
+            afterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+          case 'last_3_months':
+            afterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            break;
+          case 'last_year':
+            afterDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+            break;
+          case 'custom':
+            if (config.customStartDate) {
+              afterDate = new Date(config.customStartDate);
+            } else {
+              afterDate = new Date(0); // Beginning of time if no custom date
+            }
+            break;
+          default:
+            afterDate = new Date(0);
+        }
+        
+        // Format date as YYYY/MM/DD for Gmail API
+        const afterDateStr = `${afterDate.getFullYear()}/${(afterDate.getMonth() + 1).toString().padStart(2, '0')}/${afterDate.getDate().toString().padStart(2, '0')}`;
+        searchQuery += ` after:${afterDateStr}`;
+        
+        // Add before date for custom range
+        if (config.dateRange === 'custom' && config.customEndDate) {
+          const beforeDate = new Date(config.customEndDate);
+          const beforeDateStr = `${beforeDate.getFullYear()}/${(beforeDate.getMonth() + 1).toString().padStart(2, '0')}/${beforeDate.getDate().toString().padStart(2, '0')}`;
+          searchQuery += ` before:${beforeDateStr}`;
+        }
+      }
+      
+      // Add filter words (exclude emails containing these words)
+      if (config.filterWords && config.filterWords.length > 0) {
+        config.filterWords.forEach(word => {
+          searchQuery += ` -"${word}"`;
+        });
+      }
+      
+      console.log(`🔍 Gmail search query: ${searchQuery}`);
+
       // Get message list
-      const messagesResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=from:${contactEmail} OR to:${contactEmail}&maxResults=${maxResults}`, {
+      const messagesResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=${maxResults}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,

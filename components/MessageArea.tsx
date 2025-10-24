@@ -1287,8 +1287,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         selectedContact.email,
         currentUser.uid,
         {
-          maxResults: config.maxResults || 15,
-          enableTodoScanning: config.enableTodoScanning || true
+          maxResults: config.maxEmails || config.maxResults || 50,
+          enableTodoScanning: config.enableTodoScanning || true,
+          dateRange: config.dateRange || 'last_week',
+          customStartDate: config.customStartDate,
+          customEndDate: config.customEndDate,
+          filterWords: config.filterWords || []
         }
       );
 
