@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 import { google } from 'googleapis';
 
-// Force this to be a dynamic route to access environment variables
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 const getGoogleCredentials = () => {
   // Use server-side env vars (no NEXT_PUBLIC_ prefix needed for API routes)
   const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
