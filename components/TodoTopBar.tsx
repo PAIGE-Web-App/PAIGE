@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, List as ListIcon, Search, X as LucideX, Copy, Trash2, ListFilter, RefreshCw, ArrowLeft, MoreHorizontal, X } from 'lucide-react';
+import { Calendar as CalendarIcon, List as ListIcon, Search, X as LucideX, Copy, Trash2, ListFilter, RefreshCw, ArrowLeft, MoreHorizontal, X, MessageCircle, Sparkles } from 'lucide-react';
 import DropdownMenu from './DropdownMenu';
 import { AnimatePresence, motion } from 'framer-motion';
 import SearchBar from '@/components/SearchBar';
@@ -31,6 +31,9 @@ interface TodoTopBarProps {
   hasTodoLists: boolean;
   onDeleteAllItems?: () => Promise<void>;
   allTodoCount?: number;
+  // Paige Chat
+  showPaigeChat?: boolean;
+  onTogglePaigeChat?: () => void;
 }
 
 const TodoTopBar: React.FC<TodoTopBarProps> = ({
@@ -59,6 +62,8 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
   hasTodoLists,
   onDeleteAllItems,
   allTodoCount,
+  showPaigeChat,
+  onTogglePaigeChat,
 }) => {
   const [showDropdown, setShowDropdown] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -389,6 +394,26 @@ const TodoTopBar: React.FC<TodoTopBarProps> = ({
               <CalendarIcon size={18} stroke={viewMode === 'calendar' ? '#A85C36' : '#364257'} />
             </button>
           </div>
+
+          {/* Paige AI Chat Toggle */}
+          {onTogglePaigeChat && (
+            <button
+              onClick={onTogglePaigeChat}
+              className={`ml-2 flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
+                showPaigeChat 
+                  ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg' 
+                  : 'bg-white border border-gray-300 text-gray-600 hover:bg-purple-50 hover:border-purple-300'
+              }`}
+              title={showPaigeChat ? 'Hide Paige Assistant' : 'Show Paige Assistant'}
+            >
+              {showPaigeChat ? (
+                <Sparkles size={18} />
+              ) : (
+                <MessageCircle size={18} />
+              )}
+            </button>
+          )}
+
           {/* Only show the New To-do button if not viewing Completed To-Do Items and there are todo lists */}
           {!showCompletedItems && hasTodoLists && (
             <button className="btn-primary ml-2" onClick={handleOpenAddTodo}>

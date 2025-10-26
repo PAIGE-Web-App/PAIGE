@@ -645,6 +645,11 @@ h6 {
   @apply lg:flex-row;
 }
 
+/* Smooth transitions for layout changes */
+.dashboard-layout {
+  transition: all 0.3s ease-in-out;
+}
+
 /* Mobile: Remove border and border radius for edge-to-edge design */
 @media (max-width: 639px) {
   .dashboard-main {

@@ -15,8 +15,12 @@
     "migrate-email-verification": "tsx scripts/migrate-email-verification.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.53",
+    "@floating-ui/dom": "^1.7.4",
+    "@floating-ui/react": "^0.27.16",
     "@hello-pangea/dnd": "^18.0.1",
     "@pinecone-database/pinecone": "^2.2.2",
+    "@radix-ui/react-popover": "^1.1.15",
     "@sendgrid/mail": "^8.1.5",
     "@stripe/stripe-js": "^8.0.0",
     "@tanstack/react-table": "^8.21.3",
@@ -24,6 +28,7 @@
     "@vercel/analytics": "^1.5.0",
     "@vercel/edge-config": "^1.4.0",
     "@vercel/speed-insights": "^1.2.0",
+    "ai": "^5.0.79",
     "browser-image-compression": "^2.0.2",
     "canvas-confetti": "^1.9.3",
     "critters": "^0.0.23",
@@ -53,6 +58,7 @@
     "react-dom": "latest",
     "react-easy-crop": "^5.4.2",
     "react-hot-toast": "^2.5.2",
+    "react-intersection-observer": "^9.16.0",
     "react-range": "^1.10.0",
     "react-window": "^1.8.11",
     "redis": "^5.6.0",
@@ -62,7 +68,8 @@
     "twilio": "^5.7.3",
     "use-places-autocomplete": "^4.0.1",
     "uuid": "^11.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",

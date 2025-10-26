@@ -81,6 +81,8 @@ import { useMobileTodoState } from "../../hooks/useMobileTodoState";
 import { useGlobalCompletionToasts } from "../../hooks/useGlobalCompletionToasts";
 import { CreditServiceClient } from "@/lib/creditServiceClient";
 import { creditEventEmitter } from "@/utils/creditEventEmitter";
+import PaigeContextualAssistant from "@/components/PaigeContextualAssistant";
+import { isPaigeChatEnabled } from "@/hooks/usePaigeChat";
 
 const STARTER_TIER_MAX_LISTS = 3;
 
@@ -90,9 +92,13 @@ export default function TodoPage() {
   const searchParams = useSearchParams();
   const { showSuccessToast, showInfoToast, showErrorToast } = useCustomToast();
   const { showCompletionToast } = useGlobalCompletionToasts();
+  
+  // Paige AI Assistant (contextual + inline chat)
+  const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
+
 
   // Use shared user profile data hook
-  const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
+  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation } = useUserProfileData();
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
@@ -111,6 +117,66 @@ export default function TodoPage() {
   const mobileState = useMobileTodoState();
   const [mobileViewMode, setMobileViewMode] = React.useState<'lists' | 'items'>('lists');
   const [mobileInitialized, setMobileInitialized] = React.useState(false);
+
+  // Paige contextual data is now handled directly in the component props
+  
+  // Listen for Paige's todo manipulation events
+  React.useEffect(() => {
+    const handlePaigeAddDeadline = (event: CustomEvent) => {
+      const { todoId, deadline } = event.detail;
+      console.log('Paige adding deadline:', { todoId, deadline });
+      
+      // Find and update the todo with the new deadline
+      const todoToUpdate = todoItems.allTodoItems?.find(todo => todo.id === todoId);
+      if (todoToUpdate) {
+        // Use your existing deadline update logic - pass string format YYYY-MM-DD
+        console.log('📅 Setting deadline:', deadline, 'for todo:', todoId);
+        todoItems.handleUpdateTodoDeadline(todoId, deadline);
+      }
+    };
+
+    const handlePaigeReorderTodos = (event: CustomEvent) => {
+      const { newOrder } = event.detail;
+      console.log('Paige reordering todos:', newOrder);
+      
+      // Implement reordering logic here
+      // This would need to update the orderIndex of each todo
+      // For now, just log it
+    };
+
+    const handlePaigeCompleteTodo = (event: CustomEvent) => {
+      const { todoId } = event.detail;
+      console.log('Paige completing todo:', todoId);
+      
+      // Use your existing completion logic
+      todoItems.handleToggleTodoCompletion(todoId);
+    };
+
+    const handlePaigeUpdateTodo = (event: CustomEvent) => {
+      const { todoId, updates } = event.detail;
+      console.log('Paige updating todo:', { todoId, updates });
+      
+      // Use your existing update logic - need to update specific fields
+      if (updates.name) todoItems.handleUpdateTodoName(todoId, updates.name);
+      if (updates.category) todoItems.handleUpdateTodoCategory(todoId, updates.category);
+      if (updates.deadline) todoItems.handleUpdateTodoDeadline(todoId, updates.deadline);
+      if (updates.note) todoItems.handleUpdateTodoNote(todoId, updates.note);
+    };
+
+    // Add event listeners
+    window.addEventListener('paige-add-deadline', handlePaigeAddDeadline as EventListener);
+    window.addEventListener('paige-reorder-todos', handlePaigeReorderTodos as EventListener);
+    window.addEventListener('paige-complete-todo', handlePaigeCompleteTodo as EventListener);
+    window.addEventListener('paige-update-todo', handlePaigeUpdateTodo as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('paige-add-deadline', handlePaigeAddDeadline as EventListener);
+      window.removeEventListener('paige-reorder-todos', handlePaigeReorderTodos as EventListener);
+      window.removeEventListener('paige-complete-todo', handlePaigeCompleteTodo as EventListener);
+      window.removeEventListener('paige-update-todo', handlePaigeUpdateTodo as EventListener);
+    };
+  }, [todoItems]);
 
   // Mobile initialization - restore persistent state
   React.useEffect(() => {
@@ -676,7 +742,10 @@ export default function TodoPage() {
                   hasTodoLists={todoLists.todoLists.length > 0}
                   onDeleteAllItems={handleDeleteAllItems}
                   allTodoCount={todoItems.allTodoCount}
+                  showPaigeChat={false}
+                  onTogglePaigeChat={undefined}
             />
+
 
                 <AnimatePresence>
                   {todoLists.showListLimitBanner && todoLists.todoLists.length >= STARTER_TIER_MAX_LISTS && (
@@ -809,8 +878,36 @@ export default function TodoPage() {
               handleDeleteTodo={todoItems.handleDeleteTodoItem}
             />
           )}
+
         </div>
       </div>
+
+      {/* Paige Contextual Assistant */}
+      {isPaigeEnabled && (
+        <div className="fixed bottom-12 right-12 max-w-sm z-30">
+          <PaigeContextualAssistant
+            context="todo"
+            currentData={{
+              overdueTasks: todoItems.allTodoItems?.filter(todo => 
+                !todo.isCompleted && todo.deadline && new Date(todo.deadline) < new Date()
+              ).length || 0,
+              upcomingDeadlines: todoItems.allTodoItems?.filter(todo => 
+                !todo.isCompleted && todo.deadline && 
+                new Date(todo.deadline) > new Date() && 
+                new Date(todo.deadline) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+              ).length || 0,
+              completedTasks: todoItems.allTodoItems?.filter(todo => todo.isCompleted).length || 0,
+              totalTasks: todoItems.allTodoItems?.length || 0,
+              daysUntilWedding: daysLeft,
+              selectedList: todoLists.selectedList?.name || 'All To-Do Items',
+              selectedListId: todoLists.selectedList?.id || null,
+              weddingLocation: weddingLocation || undefined,
+              todoItems: todoItems.allTodoItems || []
+            }}
+          />
+        </div>
+      )}
+
 
       {/* MODALS */}
       {todoItems.showMoveTaskModal && todoItems.taskToMove && (
