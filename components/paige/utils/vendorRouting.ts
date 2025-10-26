@@ -129,13 +129,8 @@ export function getSmartVendorRoute(
     };
   }
 
-  // Timeline-related (not vendor-specific)
-  if (name.includes('timeline') || name.includes('schedule')) {
-    return {
-      label: 'View Timeline',
-      url: '/timeline'
-    };
-  }
+  // Note: Timeline page is for day-of timeline, not planning suggestions
+  // So we don't route timeline-related todos there
 
   // No match found
   return null;

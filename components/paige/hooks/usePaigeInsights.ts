@@ -110,7 +110,7 @@ export function usePaigeInsights({
               : 'Add a deadline to stay on track with this important task.',
             action: smartAction ? {
               label: smartAction.label,
-              url: smartAction.url
+              onClick: () => window.location.href = smartAction.url
             } : {
               label: hasDeadline ? 'View task' : 'Add deadline',
               onClick: () => {
@@ -201,15 +201,16 @@ export function usePaigeInsights({
 
         // Priority 8: Final stretch advice
         if (currentData?.daysUntilWedding && currentData.daysUntilWedding < 60 && currentData.totalTasks > 0 && incompleteTodos.length <= 8) {
+          const days = currentData.daysUntilWedding;
+          const timeDescription = days <= 30 
+            ? `${days} day${days === 1 ? '' : 's'} to go!`
+            : `less than 2 months to go!`;
+          
           insights.push({
             id: 'final-stretch',
             type: 'tip',
-            title: 'Final stretch - 60 days to go!',
-            description: 'Focus on vendor confirmations and final details. Create a day-of timeline.',
-            action: {
-              label: 'View timeline page',
-              onClick: () => window.location.href = '/timeline'
-            },
+            title: `Final stretch - ${timeDescription}`,
+            description: 'Focus on vendor confirmations and final details. You\'re almost there!',
             dismissible: true
           });
         }
