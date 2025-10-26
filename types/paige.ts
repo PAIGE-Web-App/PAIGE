@@ -27,6 +27,7 @@ export interface PaigeTodoItem {
 }
 
 export interface PaigeCurrentData {
+  // Todo context
   overdueTasks?: number;
   upcomingDeadlines?: number;
   completedTasks?: number;
@@ -36,6 +37,44 @@ export interface PaigeCurrentData {
   selectedListId?: string | null; // Track list ID for filtering
   weddingLocation?: string; // User's wedding location
   todoItems?: PaigeTodoItem[];
+  
+  // Dashboard context
+  hasBudget?: boolean;
+  completedThisWeek?: number;
+  
+  // Budget context
+  totalBudget?: number;
+  allocated?: number;
+  spent?: number;
+  categoryCount?: number;
+  categories?: Array<{
+    name: string;
+    allocatedAmount: number;
+    spentAmount: number;
+    items?: Array<{
+      name: string;
+      projectedAmount: number;
+      spentAmount: number;
+      dueDate?: any;
+      isPaid?: boolean;
+      vendor?: string;
+    }>;
+  }>;
+  budgetItems?: Array<{
+    name: string;
+    categoryName: string;
+    projectedAmount: number;
+    spentAmount: number;
+    dueDate?: any;
+    isPaid?: boolean;
+    vendor?: string;
+  }>;
+  categoryBudgets?: {
+    photography?: number;
+    venue?: number;
+    catering?: number;
+    // Add more as needed
+  };
 }
 
 export interface PaigeContextualAssistantProps {

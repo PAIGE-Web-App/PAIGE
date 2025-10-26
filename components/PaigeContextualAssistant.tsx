@@ -161,7 +161,7 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
       <div className="p-3">
         {/* Show multiple insights if available and suggestions are shown */}
         {showSuggestions && currentInsights.length > 0 && (
-          <div className="space-y-3 mb-3">
+          <div className="max-h-96 overflow-y-auto space-y-3 mb-3">
             {currentInsights.map((insight, index) => (
               <PaigeInsightCard
                 key={insight.id}

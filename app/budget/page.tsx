@@ -9,6 +9,10 @@ import dynamic from "next/dynamic";
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 
+// Paige AI Assistant
+import PaigeContextualAssistant from '@/components/PaigeContextualAssistant';
+import { isPaigeChatEnabled } from '@/hooks/usePaigeChat';
+
 // UI component imports
 import Banner from '@/components/Banner';
 import WeddingBanner from '@/components/WeddingBanner';
@@ -108,10 +112,13 @@ export default function BudgetPage() {
   const router = useRouter();
 
   // Use shared user profile data hook
-  const { userName, daysLeft, profileLoading, weddingDate } = useUserProfileData();
+  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation } = useUserProfileData();
 
   // Use custom hooks for budget functionality
   const budget = useBudget();
+  
+  // Paige AI Assistant
+  const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
@@ -778,6 +785,37 @@ export default function BudgetPage() {
           }}
           maxBudget={budget.userMaxBudget}
         />
+      )}
+
+      {/* Paige Contextual Assistant */}
+      {isPaigeEnabled && (
+        <div className="fixed bottom-12 right-12 max-w-sm z-30">
+          <PaigeContextualAssistant
+            context="budget"
+            currentData={{
+              totalBudget: budget.userMaxBudget || 0,
+              allocated: budget.budgetCategories.reduce((sum, cat) => sum + cat.allocatedAmount, 0),
+              spent: budget.budgetCategories.reduce((sum, cat) => sum + cat.spentAmount, 0),
+              categoryCount: budget.budgetCategories.length,
+              categories: budget.budgetCategories.map(cat => ({
+                name: cat.name,
+                allocatedAmount: cat.allocatedAmount,
+                spentAmount: cat.spentAmount
+              })),
+              budgetItems: budget.budgetItems?.map(item => ({
+                name: item.name || '',
+                categoryName: budget.budgetCategories.find(cat => cat.id === item.categoryId)?.name || '',
+                projectedAmount: item.amount || 0,
+                spentAmount: item.amountSpent || 0,
+                dueDate: item.dueDate,
+                isPaid: item.isPaid || false,
+                vendor: item.vendorName || undefined
+              })) || [],
+              daysUntilWedding: daysLeft || undefined,
+              weddingLocation: weddingLocation || undefined,
+            }}
+          />
+        </div>
       )}
 
       {/* Mobile Navigation is handled by VerticalNavWrapper */}

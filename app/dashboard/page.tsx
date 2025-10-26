@@ -31,11 +31,16 @@ import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWed
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
 import { DashboardDataProvider } from "../../contexts/DashboardDataContext";
+import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
+import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
 
 
 export default function Dashboard() {
   const { user, userName, loading } = useAuth();
   const router = useRouter();
+  
+  // Paige AI Assistant
+  const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
@@ -794,6 +799,37 @@ export default function Dashboard() {
       vibe={userData?.vibe || []}
       additionalContext={typeof window !== 'undefined' ? localStorage.getItem('paige_ai_generation_context') || '' : ''}
     />
+
+      {/* Paige Contextual Assistant */}
+      {isPaigeEnabled && userData && (
+        <div className="fixed bottom-12 right-12 max-w-sm z-30">
+          <PaigeContextualAssistant
+            context="dashboard"
+            currentData={{
+              daysUntilWedding: (() => {
+                if (!userData.weddingDate) return undefined;
+                try {
+                  let dateToUse = userData.weddingDate;
+                  if (typeof dateToUse === 'object' && 'toDate' in dateToUse) {
+                    dateToUse = dateToUse.toDate();
+                  } else if (typeof dateToUse === 'object' && 'seconds' in dateToUse) {
+                    dateToUse = new Date(dateToUse.seconds * 1000);
+                  }
+                  const days = Math.ceil((new Date(dateToUse).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                  return days > 0 ? days : undefined;
+                } catch {
+                  return undefined;
+                }
+              })(),
+              hasBudget: progressData?.hasBudget || false,
+              totalTasks: progressData?.totalTasks || 0,
+              completedTasks: progressData?.completedTasks || 0,
+              overdueTasks: progressData?.overdueTasks || 0,
+              upcomingDeadlines: progressData?.upcomingDeadlines || 0,
+            }}
+          />
+        </div>
+      )}
 
       </DashboardDataProvider>
     </ClientOnly>
