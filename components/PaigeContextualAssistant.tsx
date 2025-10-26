@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Lightbulb, CheckCircle, AlertTriangle, Clock, Sparkles, X, MessageCircle, Send, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,7 +42,7 @@ interface PaigeContextualAssistantProps {
   className?: string;
 }
 
-const InsightIcon: React.FC<{ type: PaigeInsight['type'] }> = ({ type }) => {
+const InsightIcon: React.FC<{ type: PaigeInsight['type'] }> = React.memo(({ type }) => {
   switch (type) {
     case 'urgent': return <AlertTriangle className="w-4 h-4 text-red-500" />;
     case 'tip': return <Lightbulb className="w-4 h-4 text-blue-500" />;
@@ -51,9 +51,11 @@ const InsightIcon: React.FC<{ type: PaigeInsight['type'] }> = ({ type }) => {
     case 'reminder': return <Clock className="w-4 h-4 text-orange-500" />;
     default: return <Lightbulb className="w-4 h-4 text-gray-500" />;
   }
-};
+});
+InsightIcon.displayName = 'InsightIcon';
 
-export default function PaigeContextualAssistant({ 
+// Memoized component to prevent unnecessary re-renders
+const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({ 
   context = 'todo', 
   currentData,
   className = ""
@@ -73,6 +75,41 @@ export default function PaigeContextualAssistant({
   const [isLoading, setIsLoading] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Memoize expensive todo computations to prevent re-calculations
+  const todoComputations = useMemo(() => {
+    const allTodoItems = currentData?.todoItems || [];
+    const selectedList = currentData?.selectedList;
+    const selectedListId = currentData?.selectedListId;
+    const isSpecificList = selectedList && selectedList !== 'All To-Do Items' && selectedList !== 'Completed To-Do Items';
+    
+    // Filter todos based on selected list
+    let relevantTodos = allTodoItems;
+    if (isSpecificList && selectedListId) {
+      relevantTodos = allTodoItems.filter(todo => todo.listId === selectedListId);
+    }
+    
+    const incompleteTodos = relevantTodos.filter(todo => !todo.isCompleted);
+    const todosWithoutDeadlines = incompleteTodos.filter(todo => !todo.deadline);
+    const totalTodos = incompleteTodos.length;
+    
+    return {
+      allTodoItems,
+      selectedList,
+      selectedListId,
+      isSpecificList,
+      relevantTodos,
+      incompleteTodos,
+      todosWithoutDeadlines,
+      totalTodos,
+      daysUntilWedding: currentData?.daysUntilWedding || 365
+    };
+  }, [
+    currentData?.todoItems,
+    currentData?.selectedList,
+    currentData?.selectedListId,
+    currentData?.daysUntilWedding
+  ]);
+
   // Generate one actionable insight based on current page and data
   useEffect(() => {
     if (!user?.uid) return;
@@ -81,29 +118,17 @@ export default function PaigeContextualAssistant({
       const insights: PaigeInsight[] = [];
 
       if (context === 'todo') {
-        const allTodoItems = currentData?.todoItems || [];
-        const selectedList = currentData?.selectedList;
-        const selectedListId = currentData?.selectedListId;
-        
-        // Filter todos based on selected list
-        let relevantTodos = allTodoItems;
-        const isSpecificList = selectedList && selectedList !== 'All To-Do Items' && selectedList !== 'Completed To-Do Items';
-        
-        if (isSpecificList && selectedListId) {
-          // Filter by the actual Firestore document ID
-          relevantTodos = allTodoItems.filter(todo => todo.listId === selectedListId);
-          
-          console.log('🔍 Paige filtering for list:', selectedList, '(ID:', selectedListId, ')');
-          console.log('📋 Filtered todos:', relevantTodos.length, 'out of', allTodoItems.length);
-          if (relevantTodos.length > 0) {
-            console.log('🎯 Found todos:', relevantTodos.map(t => t.name).join(', '));
-          }
-        }
-        
-        const incompleteTodos = relevantTodos.filter(todo => !todo.isCompleted);
-        const todosWithoutDeadlines = incompleteTodos.filter(todo => !todo.deadline);
-        const daysUntilWedding = currentData?.daysUntilWedding || 365;
-        const totalTodos = incompleteTodos.length;
+        const {
+          allTodoItems,
+          selectedList,
+          selectedListId,
+          isSpecificList,
+          relevantTodos,
+          incompleteTodos,
+          todosWithoutDeadlines,
+          daysUntilWedding,
+          totalTodos
+        } = todoComputations;
 
         // Priority 1: Urgent overdue tasks
         if (currentData?.overdueTasks > 0) {
@@ -577,7 +602,20 @@ export default function PaigeContextualAssistant({
     };
 
     generateSmartInsights();
-  }, [context, currentData, currentData?.selectedList, user?.uid, dismissedInsights]);
+  }, [
+    // Only re-run when these specific values change (not entire currentData object)
+    context,
+    todoComputations,
+    currentData?.overdueTasks,
+    currentData?.upcomingDeadlines,
+    currentData?.completedTasks,
+    currentData?.totalTasks,
+    currentData?.weddingLocation,
+    user?.uid,
+    dismissedInsights
+    // Note: handleAddDeadlines is used inside insight actions but doesn't need to be a dependency
+    // because it's defined as a stable useCallback and the actions are created fresh each time
+  ]);
 
   // Auto-scroll chat to bottom when messages change
   useEffect(() => {
@@ -586,12 +624,13 @@ export default function PaigeContextualAssistant({
     }
   }, [chatMessages]);
 
-  const dismissInsight = (insightId: string) => {
+  // Memoized dismiss function to prevent re-renders
+  const dismissInsight = useCallback((insightId: string) => {
     setDismissedInsights(prev => new Set([...prev, insightId]));
-  };
+  }, []);
 
-  // Format chat messages for better display
-  const formatChatMessage = (content: string) => {
+  // Memoized format function for chat messages
+  const formatChatMessage = useCallback((content: string) => {
     return content
       // Format numbered lists
       .replace(/(\d+\.\s\*\*[^*]+\*\*[^]*?)(?=\d+\.\s\*\*|\n\n|$)/g, '<div class="mb-2">$1</div>')
@@ -601,10 +640,10 @@ export default function PaigeContextualAssistant({
       .replace(/\n/g, '<br>')
       // Format emojis to be slightly larger
       .replace(/([\u{1F300}-\u{1F9FF}])/gu, '<span class="text-sm">$1</span>');
-  };
+  }, []);
 
-  // Handle adding deadlines with action button
-  const handleAddDeadlines = (todosWithoutDeadlines: any[], daysUntilWedding: number) => {
+  // Memoized handle add deadlines function
+  const handleAddDeadlines = useCallback((todosWithoutDeadlines: any[], daysUntilWedding: number) => {
     setChatMessages(prev => [...prev, {
       role: 'assistant',
       content: `Perfect! I'll add smart deadlines to your tasks. Here's what I'm setting:\n\n${todosWithoutDeadlines.map((todo, index) => {
@@ -628,10 +667,10 @@ export default function PaigeContextualAssistant({
         return `• **${todo.name}** - ${deadline.toLocaleDateString()}`;
       }).join('\n')}\n\nDeadlines added! This should help keep you organized and reduce stress. 📅✨`
     }]);
-  };
+  }, []);
 
-  // Handle local commands without API calls
-  const handleLocalCommands = async (message: string): Promise<boolean> => {
+  // Memoized handle local commands function
+  const handleLocalCommands = useCallback(async (message: string): Promise<boolean> => {
     const lowerMessage = message.toLowerCase();
     const incompleteTodos = currentData?.todoItems?.filter(todo => !todo.isCompleted) || [];
     const todosWithoutDeadlines = incompleteTodos.filter(todo => !todo.deadline);
@@ -691,9 +730,10 @@ export default function PaigeContextualAssistant({
     }
 
     return false; // Not a local command, proceed with API
-  };
+  }, [currentData?.todoItems, currentData?.daysUntilWedding]);
 
-  const handleSendMessage = async () => {
+  // Memoized handle send message function
+  const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim() || isLoading) return;
 
     const userMessage = { role: 'user' as const, content: chatInput.trim() };
@@ -752,10 +792,10 @@ export default function PaigeContextualAssistant({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [chatInput, isLoading, handleLocalCommands, chatMessages, context, currentData]);
 
-  // Handle todo actions from AI responses
-  const handleTodoAction = async (action: any) => {
+  // Memoized handle todo action function
+  const handleTodoAction = useCallback(async (action: any) => {
     try {
       switch (action.type) {
         case 'reorder':
@@ -789,7 +829,7 @@ export default function PaigeContextualAssistant({
     } catch (error) {
       console.error('Error handling todo action:', error);
     }
-  };
+  }, []);
 
        // Show minimized floating button
        if (!user?.uid || !isVisible) {
@@ -1013,4 +1053,21 @@ export default function PaigeContextualAssistant({
       </div>
     </motion.div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison function - only re-render if these specific values change
+  return (
+    prevProps.context === nextProps.context &&
+    prevProps.className === nextProps.className &&
+    prevProps.currentData?.selectedListId === nextProps.currentData?.selectedListId &&
+    prevProps.currentData?.todoItems?.length === nextProps.currentData?.todoItems?.length &&
+    prevProps.currentData?.daysUntilWedding === nextProps.currentData?.daysUntilWedding &&
+    prevProps.currentData?.overdueTasks === nextProps.currentData?.overdueTasks &&
+    prevProps.currentData?.upcomingDeadlines === nextProps.currentData?.upcomingDeadlines &&
+    prevProps.currentData?.weddingLocation === nextProps.currentData?.weddingLocation
+  );
+});
+
+// Display name for React DevTools
+PaigeContextualAssistant.displayName = 'PaigeContextualAssistant';
+
+export default PaigeContextualAssistant;
