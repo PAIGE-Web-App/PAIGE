@@ -36,10 +36,16 @@ export async function GET(request: NextRequest) {
       .orderBy('joinedAt', 'desc')
       .get();
 
-    const waitlist = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const waitlist = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        email: data.email,
+        joinedAt: data.joinedAt?.toDate ? data.joinedAt.toDate().toISOString() : new Date(data.joinedAt).toISOString(),
+        status: data.status,
+        source: data.source
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -60,27 +60,12 @@ export default function AdminWaitlistPage() {
   const exportToCSV = () => {
     const csv = [
       ['Email', 'Joined At', 'Status', 'Source'],
-      ...waitlist.map(entry => {
-        let dateStr = 'N/A';
-        try {
-          if (entry.joinedAt?.toDate) {
-            dateStr = entry.joinedAt.toDate().toLocaleString();
-          } else if (entry.joinedAt?.seconds) {
-            dateStr = new Date(entry.joinedAt.seconds * 1000).toLocaleString();
-          } else if (entry.joinedAt) {
-            dateStr = new Date(entry.joinedAt).toLocaleString();
-          }
-        } catch {
-          dateStr = 'Invalid Date';
-        }
-        
-        return [
-          entry.email,
-          dateStr,
-          entry.status,
-          entry.source
-        ];
-      })
+      ...waitlist.map(entry => [
+        entry.email,
+        new Date(entry.joinedAt).toLocaleString(),
+        entry.status,
+        entry.source
+      ])
     ].map(row => row.join(',')).join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -171,20 +156,7 @@ export default function AdminWaitlistPage() {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span className="font-work text-sm text-gray-600">
-                            {(() => {
-                              try {
-                                if (entry.joinedAt?.toDate) {
-                                  return entry.joinedAt.toDate().toLocaleDateString();
-                                } else if (entry.joinedAt?.seconds) {
-                                  return new Date(entry.joinedAt.seconds * 1000).toLocaleDateString();
-                                } else if (entry.joinedAt) {
-                                  return new Date(entry.joinedAt).toLocaleDateString();
-                                }
-                                return 'N/A';
-                              } catch {
-                                return 'Invalid Date';
-                              }
-                            })()}
+                            {new Date(entry.joinedAt).toLocaleDateString()}
                           </span>
                         </div>
                       </td>
