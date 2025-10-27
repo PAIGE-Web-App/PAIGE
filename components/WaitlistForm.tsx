@@ -16,6 +16,25 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+  const [source, setSource] = useState<string>('direct');
+
+  // Capture UTM source on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const utmSource = params.get('utm_source');
+      const utmMedium = params.get('utm_medium');
+      const utmCampaign = params.get('utm_campaign');
+      
+      // Build source string from UTM parameters
+      if (utmSource) {
+        let sourceStr = utmSource;
+        if (utmMedium) sourceStr += `-${utmMedium}`;
+        if (utmCampaign) sourceStr += `-${utmCampaign}`;
+        setSource(sourceStr);
+      }
+    }
+  }, []);
 
   // Fetch waitlist count on mount
   useEffect(() => {
@@ -54,7 +73,7 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
       const response = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name: name || undefined })
+        body: JSON.stringify({ email, source })
       });
 
       const data = await response.json();

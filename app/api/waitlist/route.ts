@@ -4,7 +4,7 @@ import { sendWaitlistConfirmationEmail } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name } = await request.json();
+    const { email, name, source } = await request.json();
 
     if (!email) {
       return NextResponse.json(
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       email: email.toLowerCase(),
       joinedAt: new Date(),
       status: 'pending',
-      source: 'landing-page'
+      source: source || 'direct' // UTM source or 'direct' if none
     });
 
     // Send confirmation email via SendGrid

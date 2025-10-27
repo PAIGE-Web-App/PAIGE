@@ -99,17 +99,17 @@ export default function AdminWaitlistPage() {
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-sm border border-[#AB9C95] overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 text-white">
+          <div className="bg-white border-b border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-playfair font-semibold mb-2">Paige AI Waitlist</h1>
-                <p className="text-purple-100 font-work text-sm">
-                  <span className="font-semibold text-xl">{count}</span> people waiting for early access
+                <h1 className="text-2xl font-playfair font-semibold mb-2 text-[#332B42]">Paige AI Waitlist</h1>
+                <p className="text-gray-600 font-work text-sm">
+                  <span className="font-semibold text-xl text-[#A85C36]">{count}</span> people waiting for early access
                 </p>
               </div>
               <button
                 onClick={exportToCSV}
-                className="flex items-center gap-2 bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors font-work font-medium"
+                className="flex items-center gap-2 bg-[#A85C36] text-white px-4 py-2 rounded-lg hover:bg-[#784528] transition-colors font-work font-medium"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
