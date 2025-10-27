@@ -247,6 +247,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = ({
             {budgetItems.map((item, index) => (
               <div
                 key={item.id}
+                data-item-name={item.name}
                 className={`border-b border-[#E0DBD7] last:border-b-0 hover:bg-[#F8F6F4] transition-colors group cursor-pointer ${
                   index % 2 === 0 ? 'bg-white' : 'bg-[#FAF9F8]'
                 } ${newlyAddedItems.has(item.id!) ? 'bg-green-100' : ''}`}

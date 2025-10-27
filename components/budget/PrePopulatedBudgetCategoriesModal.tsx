@@ -34,6 +34,7 @@ interface PrePopulatedBudgetCategoriesModalProps {
   onClose: () => void;
   onAddCategories: (categories: Array<{name: string; amount: number; color?: string; items?: Array<{name: string; amount: number; notes?: string; dueDate?: Date}>}>) => void;
   onShowAIAssistant?: () => void;
+  onAddCategory?: () => void;
   maxBudget?: number;
 }
 
@@ -144,9 +145,14 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
   onClose,
   onAddCategories,
   onShowAIAssistant,
+  onAddCategory,
   maxBudget
 }) => {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'suggestions' | 'custom'>('suggestions');
+  const [customCategories, setCustomCategories] = useState<Array<{name: string; amount: string; id: string}>>([
+    { name: '', amount: '', id: '1' }
+  ]);
 
   // Reset selections when modal opens
   useEffect(() => {
@@ -166,18 +172,35 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
   };
 
   const handleAddSelected = () => {
-    const categoriesToAdd = PRE_POPULATED_CATEGORIES.filter(cat => 
-      selectedCategories.has(cat.name)
-    ).map(cat => ({
-      name: cat.name,
-      amount: cat.suggestedAmount,
-      color: getCategoryColor(cat.name),
-      items: cat.items
-    }));
+    if (activeTab === 'suggestions') {
+      // Add selected common categories
+      const categoriesToAdd = PRE_POPULATED_CATEGORIES.filter(cat => 
+        selectedCategories.has(cat.name)
+      ).map(cat => ({
+        name: cat.name,
+        amount: cat.suggestedAmount,
+        color: getCategoryColor(cat.name),
+        items: cat.items
+      }));
 
-    if (categoriesToAdd.length > 0) {
-      onAddCategories(categoriesToAdd);
-      onClose();
+      if (categoriesToAdd.length > 0) {
+        onAddCategories(categoriesToAdd);
+        onClose();
+      }
+    } else {
+      // Add custom categories
+      const validCustomCategories = customCategories
+        .filter(cat => cat.name.trim() && cat.amount && parseFloat(cat.amount) > 0)
+        .map(cat => ({
+          name: cat.name.trim(),
+          amount: parseFloat(cat.amount),
+          color: '#696969' // Default gray color for custom categories
+        }));
+
+      if (validCustomCategories.length > 0) {
+        onAddCategories(validCustomCategories);
+        onClose();
+      }
     }
   };
 
@@ -192,10 +215,18 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
   };
 
 
-  const totalSelected = selectedCategories.size;
-  const totalAmount = PRE_POPULATED_CATEGORIES
-    .filter(cat => selectedCategories.has(cat.name))
-    .reduce((sum, cat) => sum + cat.suggestedAmount, 0);
+  // Calculate totals based on active tab
+  const totalSelected = activeTab === 'suggestions' 
+    ? selectedCategories.size 
+    : customCategories.filter(cat => cat.name.trim() && cat.amount && parseFloat(cat.amount) > 0).length;
+    
+  const totalAmount = activeTab === 'suggestions'
+    ? PRE_POPULATED_CATEGORIES
+        .filter(cat => selectedCategories.has(cat.name))
+        .reduce((sum, cat) => sum + cat.suggestedAmount, 0)
+    : customCategories
+        .filter(cat => cat.name.trim() && cat.amount && parseFloat(cat.amount) > 0)
+        .reduce((sum, cat) => sum + parseFloat(cat.amount), 0);
 
   return (
     <AnimatePresence>
@@ -260,38 +291,65 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                   </div>
                 </div>
 
-                {/* Separator Line */}
-                <div className="border-b border-gray-300 mb-4"></div>
+                {/* Tabs - Matching Signup Flow */}
+                <div className="flex mb-4 border-b border-[#E0D6D0]">
+                  <button
+                    onClick={() => setActiveTab('suggestions')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${
+                      activeTab === 'suggestions'
+                        ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]'
+                        : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'
+                    }`}
+                    style={{ borderRadius: '8px 8px 0 0' }}
+                  >
+                    <span className="text-base">✨</span>
+                    <span className="whitespace-nowrap">Suggestions</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('custom')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-2 py-1 text-xs font-work-sans font-medium border-b-2 transition-colors duration-150 focus:outline-none whitespace-nowrap ${
+                      activeTab === 'custom'
+                        ? 'border-[#A85C36] text-[#A85C36] bg-[#F8F5F2]'
+                        : 'border-transparent text-[#332B42] bg-transparent hover:bg-[#F3F2F0]'
+                    }`}
+                    style={{ borderRadius: '8px 8px 0 0' }}
+                  >
+                    <span className="text-base">✏️</span>
+                    <span className="whitespace-nowrap">Add Your Own</span>
+                  </button>
+                </div>
 
-                <p className="text-sm text-gray-600 text-left mb-4">
-                  Select budget categories below to get started quickly. You can adjust amounts later.
-                </p>
+                {/* Suggestions Tab Content */}
+                {activeTab === 'suggestions' && (
+                  <>
+                    <p className="text-sm text-gray-600 text-left mb-4">
+                      Select budget categories below to get started quickly. You can adjust amounts later.
+                    </p>
                 
-                {/* Info Banner - Full Width */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-blue-800 font-medium">
-                    💡 These are estimated costs based on average wedding expenses. Adjust amounts as needed.
-                  </p>
-                </div>
+                    {/* Info Banner - Full Width */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-blue-800 font-medium">
+                        💡 These are estimated costs based on average wedding expenses. Adjust amounts as needed.
+                      </p>
+                    </div>
 
-                {/* Select All Row */}
-                <div className="flex justify-start mb-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="select-all"
-                      checked={selectedCategories.size === PRE_POPULATED_CATEGORIES.length}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 text-[#A85C36] bg-gray-100 border-gray-300 rounded focus:ring-[#A85C36] focus:ring-2"
-                    />
-                    <label htmlFor="select-all" className="text-sm text-gray-700 cursor-pointer">
-                      Select All
-                    </label>
-                  </div>
-                </div>
-              </div>
+                    {/* Select All Row */}
+                    <div className="flex justify-start mb-4">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="select-all"
+                          checked={selectedCategories.size === PRE_POPULATED_CATEGORIES.length}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-[#A85C36] bg-gray-100 border-gray-300 rounded focus:ring-[#A85C36] focus:ring-2"
+                        />
+                        <label htmlFor="select-all" className="text-sm text-gray-700 cursor-pointer">
+                          Select All
+                        </label>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
                 {PRE_POPULATED_CATEGORIES.map((category) => (
                   <div
                     key={category.name}
@@ -325,8 +383,82 @@ const PrePopulatedBudgetCategoriesModal: React.FC<PrePopulatedBudgetCategoriesMo
                     </div>
                   </div>
                 ))}
-              </div>
+                    </div>
+                  </>
+                )}
 
+                {/* Custom Tab Content */}
+                {activeTab === 'custom' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600 text-left mb-4">
+                      Add multiple custom categories with your own names and budgets.
+                    </p>
+
+                    {/* Custom Category Inputs - Matching Signup Flow */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {customCategories.map((category, index) => (
+                        <div key={category.id} className="flex gap-3 items-start">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={category.name}
+                              onChange={(e) => {
+                                const newCategories = [...customCategories];
+                                newCategories[index].name = e.target.value;
+                                setCustomCategories(newCategories);
+                              }}
+                              placeholder="Category name (e.g., Gratuities & Tips)"
+                              className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                              autoComplete="off"
+                            />
+                          </div>
+                          <div className="w-32">
+                            <input
+                              type="number"
+                              value={category.amount}
+                              onChange={(e) => {
+                                const newCategories = [...customCategories];
+                                newCategories[index].amount = e.target.value;
+                                setCustomCategories(newCategories);
+                              }}
+                              placeholder="Amount"
+                              className="w-full px-3 py-2 border rounded-[5px] border-[#AB9C95] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#A85C36]"
+                              autoComplete="off"
+                              min="0"
+                              step="1"
+                            />
+                          </div>
+                          {customCategories.length > 1 && (
+                            <button
+                              onClick={() => {
+                                setCustomCategories(customCategories.filter(c => c.id !== category.id));
+                              }}
+                              className="p-2 text-red-500 hover:text-red-700 transition-colors"
+                              title="Remove category"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add Another Category Button */}
+                    <button
+                      onClick={() => {
+                        setCustomCategories([
+                          ...customCategories,
+                          { name: '', amount: '', id: Date.now().toString() }
+                        ]);
+                      }}
+                      className="w-full px-4 py-2 text-sm border-2 border-dashed border-gray-300 rounded-[5px] text-gray-600 hover:border-[#A85C36] hover:text-[#A85C36] transition-colors"
+                    >
+                      + Add Another Category
+                    </button>
+                  </div>
+                )}
+
+              </div>
             </div>
 
             {/* Fixed Footer */}

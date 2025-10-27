@@ -34,6 +34,7 @@ const BudgetCategoryItem: React.FC<BudgetCategoryItemProps> = memo(({
   return (
     <div
       onClick={() => onSelect(category)}
+      data-category-name={category.name}
       className={`p-3 mb-3 rounded-[5px] border cursor-pointer transition-all duration-300 ease-in-out ${
         isSelected 
           ? 'bg-[#EBE3DD] border-[#A85C36]' 

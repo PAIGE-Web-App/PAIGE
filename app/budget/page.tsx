@@ -270,6 +270,23 @@ export default function BudgetPage() {
     }
   }, [budget.budgetCategories, selectedCategory]);
 
+  // Listen for Paige's add category event
+  React.useEffect(() => {
+    const handlePaigeAddCategory = (event: CustomEvent) => {
+      const { name, allocatedAmount, color } = event.detail;
+      console.log('💜 Paige adding category:', { name, allocatedAmount, color });
+      
+      // Use the budget hook's add category function
+      budget.handleAddCategory(name, allocatedAmount, color);
+    };
+
+    window.addEventListener('paige-add-budget-category', handlePaigeAddCategory as EventListener);
+    
+    return () => {
+      window.removeEventListener('paige-add-budget-category', handlePaigeAddCategory as EventListener);
+    };
+  }, [budget]);
+
   // Mobile navigation is now handled by VerticalNavWrapper
 
   // Handle linking vendor to budget item
@@ -783,6 +800,7 @@ export default function BudgetPage() {
             setShowQuickStartModal(false);
             setShowCreateBudgetModal(true);
           }}
+          onAddCategory={handleAddCategory}
           maxBudget={budget.userMaxBudget}
         />
       )}

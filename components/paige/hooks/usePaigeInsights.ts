@@ -662,28 +662,28 @@ export function usePaigeInsights({
           // Suggest vendor browsing for this category
           const vendorSuggestion = getVendorSuggestionForCategory(largestUnspentCategory.name, currentData?.weddingLocation);
           
-          if (vendorSuggestion) {
-            insights.push({
-              id: 'budget-category-focus',
-              type: 'suggestion',
-              title: `${largestUnspentCategory.name}: $${largestUnspentCategory.allocatedAmount.toLocaleString()} (${categoryPercent}%)`,
-              description: `Your largest budget allocation. ${vendorSuggestion.description}`,
-              action: {
-                label: vendorSuggestion.label,
-                onClick: () => window.location.href = vendorSuggestion.url
-              },
-              dismissible: true
-            });
-          } else {
-            // Generic suggestion if no vendor match
-            insights.push({
-              id: 'budget-category-focus',
-              type: 'tip',
-              title: `Focus on ${largestUnspentCategory.name} (${categoryPercent}%)`,
-              description: `This is your largest budget allocation at $${largestUnspentCategory.allocatedAmount.toLocaleString()}.`,
-              dismissible: true
-            });
-          }
+          insights.push({
+            id: 'budget-category-focus',
+            type: 'suggestion',
+            title: `${largestUnspentCategory.name}: $${largestUnspentCategory.allocatedAmount.toLocaleString()} (${categoryPercent}%)`,
+            description: vendorSuggestion 
+              ? `Your largest budget allocation. ${vendorSuggestion.description}`
+              : `This is your largest budget allocation at $${largestUnspentCategory.allocatedAmount.toLocaleString()}.`,
+            action: {
+              label: 'View Category',
+              onClick: () => {
+                // Find and click the category in the sidebar to switch to it
+                const categoryButtons = document.querySelectorAll('[data-category-name]');
+                for (const button of categoryButtons) {
+                  if (button.textContent?.includes(largestUnspentCategory.name)) {
+                    (button as HTMLElement).click();
+                    break;
+                  }
+                }
+              }
+            },
+            dismissible: true
+          });
         }
 
         // Priority 9: Categories with high allocation but no spending yet
@@ -749,13 +749,36 @@ export function usePaigeInsights({
             title: `${payment.name} due ${daysUntilDue <= 7 ? 'in ' + daysUntilDue + ' days' : 'soon'}`,
             description: `$${(payment.projectedAmount || 0).toLocaleString()} payment${payment.vendor ? ` to ${payment.vendor}` : ''} in ${payment.categoryName}.`,
             action: {
-              label: `View ${payment.categoryName}`,
+              label: 'View Item',
               onClick: () => {
-                // Find and click the category in the sidebar to switch to it
+                // Step 1: Find and click the category in the sidebar to switch to it
                 const categoryButtons = document.querySelectorAll('[data-category-name]');
                 for (const button of categoryButtons) {
                   if (button.textContent?.includes(payment.categoryName)) {
                     (button as HTMLElement).click();
+                    
+                    // Step 2: After switching category, highlight the specific item in green
+                    setTimeout(() => {
+                      // Find the item row by name
+                      const itemRows = document.querySelectorAll('[data-item-name]');
+                      for (const row of itemRows) {
+                        if (row.getAttribute('data-item-name') === payment.name) {
+                          // Flash green highlight effect (same as todo items)
+                          row.classList.add('bg-green-100');
+                          row.classList.add('transition-colors');
+                          row.classList.add('duration-300');
+                          
+                          // Scroll to the item
+                          row.scrollIntoView({ behavior: 'auto', block: 'center' });
+                          
+                          // Remove flash after animation (same timing as todos: 1.2s)
+                          setTimeout(() => {
+                            row.classList.remove('bg-green-100');
+                          }, 1200);
+                          break;
+                        }
+                      }
+                    }, 300); // Wait for category to load
                     break;
                   }
                 }
@@ -805,6 +828,157 @@ export function usePaigeInsights({
                 }
               }
             },
+            dismissible: true
+          });
+        }
+
+        // Priority 13: Items without payment deadlines
+        const itemsWithoutDueDates = budgetItems.filter(item => !item.dueDate && !item.isPaid);
+        
+        if (itemsWithoutDueDates.length >= 3) {
+          insights.push({
+            id: 'budget-add-deadlines',
+            type: 'suggestion',
+            title: `${itemsWithoutDueDates.length} items need payment deadlines`,
+            description: 'Add smart deadlines based on industry standards and your wedding timeline.',
+            action: {
+              label: 'Add Deadlines',
+              onClick: () => {
+                // Open chat with deadline suggestions
+                const chatButton = document.querySelector('[title="Chat with Paige"]') as HTMLElement;
+                if (chatButton) {
+                  chatButton.click();
+                  // Will be handled by chat logic
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 14: Category over-allocation (>45% of budget)
+        const oversizedCategories = categories.filter(cat => 
+          totalBudget > 0 && (cat.allocatedAmount / totalBudget) > 0.45
+        );
+
+        if (oversizedCategories.length > 0) {
+          const cat = oversizedCategories[0]; // Show the largest one
+          const percent = Math.round((cat.allocatedAmount / totalBudget) * 100);
+          
+          insights.push({
+            id: 'budget-category-oversized',
+            type: 'urgent',
+            title: `${cat.name} is ${percent}% of budget`,
+            description: 'Industry average: 35-40%. Consider rebalancing to leave room for other important vendors.',
+            action: {
+              label: 'View Category',
+              onClick: () => {
+                const categoryButton = document.querySelector(`[data-category-name="${cat.name}"]`) as HTMLElement;
+                if (categoryButton) categoryButton.click();
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 15: Missing gratuity category
+        const hasGratuityCategory = categories.some(cat => 
+          cat.name.toLowerCase().includes('gratuity') || 
+          cat.name.toLowerCase().includes('tip') ||
+          cat.name.toLowerCase().includes('service')
+        );
+
+        if (!hasGratuityCategory && totalBudget > 10000 && allocated > 5000) {
+          const estimatedGratuities = Math.round(allocated * 0.15); // 15% of vendor costs
+          
+          insights.push({
+            id: 'budget-missing-gratuities',
+            type: 'urgent',
+            title: 'Missing gratuity budget',
+            description: `Vendor gratuities typically run 15-20% (~$${estimatedGratuities.toLocaleString()}). Add this to avoid last-minute surprises.`,
+            action: {
+              label: 'Add Gratuity Category',
+              onClick: () => {
+                // Dispatch custom event for budget page to handle
+                window.dispatchEvent(new CustomEvent('paige-add-budget-category', {
+                  detail: {
+                    name: 'Gratuities & Tips',
+                    allocatedAmount: estimatedGratuities,
+                    color: '#FF6B6B'
+                  }
+                }));
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 16: Heavy payment month (multiple payments same date/month)
+        const paymentsByMonth = budgetItems
+          .filter(item => item.dueDate && !item.isPaid)
+          .reduce((acc, item) => {
+            try {
+              let dueDate = item.dueDate;
+              if (typeof dueDate === 'object' && 'toDate' in dueDate) {
+                dueDate = dueDate.toDate();
+              } else if (typeof dueDate === 'object' && 'seconds' in dueDate) {
+                dueDate = new Date(dueDate.seconds * 1000);
+              }
+              const monthKey = `${new Date(dueDate).getFullYear()}-${new Date(dueDate).getMonth()}`;
+              if (!acc[monthKey]) {
+                acc[monthKey] = { items: [], total: 0, monthName: new Date(dueDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+              }
+              acc[monthKey].items.push(item);
+              acc[monthKey].total += item.projectedAmount || 0;
+            } catch (e) {
+              // Skip invalid dates
+            }
+            return acc;
+          }, {} as Record<string, { items: any[], total: number, monthName: string }>);
+
+        // Find month with highest payment concentration
+        const heaviestMonth = Object.entries(paymentsByMonth)
+          .filter(([_, data]) => data.items.length >= 3 || data.total > totalBudget * 0.25)
+          .sort((a, b) => b[1].total - a[1].total)[0];
+
+        if (heaviestMonth) {
+          const [monthKey, monthData] = heaviestMonth;
+          const monthPercent = Math.round((monthData.total / totalBudget) * 100);
+          
+          insights.push({
+            id: 'budget-heavy-month',
+            type: 'reminder',
+            title: `Heavy spending in ${monthData.monthName}`,
+            description: `$${monthData.total.toLocaleString()} due (${monthPercent}% of budget, ${monthData.items.length} payments). Plan your cashflow.`,
+            action: {
+              label: 'View Payments',
+              onClick: () => {
+                // Scroll to first item in this month
+                const firstItem = monthData.items[0];
+                const categoryButton = document.querySelector(`[data-category-name="${firstItem.categoryName}"]`) as HTMLElement;
+                if (categoryButton) categoryButton.click();
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 17: Tax awareness (informational, not a category)
+        const hasTaxCategory = categories.some(cat => 
+          cat.name.toLowerCase().includes('tax') ||
+          cat.name.toLowerCase().includes('fee')
+        );
+
+        if (!hasTaxCategory && totalBudget > 10000 && allocated > 5000) {
+          // Estimate 8% sales tax on taxable items (venue, catering, rentals, etc.)
+          const estimatedTax = Math.round(allocated * 0.08);
+          
+          insights.push({
+            id: 'budget-tax-awareness',
+            type: 'tip',
+            title: 'Budget for tax & service fees',
+            description: `Estimated tax: ~$${estimatedTax.toLocaleString()} (8%). Ask vendors if quotes include tax. If not, increase category budgets accordingly.`,
+            // No action button - tax should be built into item amounts, not a separate category
             dismissible: true
           });
         }
