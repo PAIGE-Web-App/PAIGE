@@ -202,12 +202,13 @@ export const AgentDataProvider: React.FC<AgentDataProviderProps> = ({ children, 
 
       // ✨ Fetch timeline data (full mode only)
       if (mode === 'full') {
-        const timelineQuery = query(collection(db, 'users', user.uid, 'timeline'));
+        const timelineQuery = query(collection(db, 'users', user.uid, 'timelines')); // ✅ Fixed: 'timelines' not 'timeline'
         const timelineSnapshot = await getDocs(timelineQuery);
         const timeline = timelineSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
+        console.log('📅 AgentDataProvider fetched:', timeline.length, 'timelines');
         setTimelineData(timeline);
       }
 

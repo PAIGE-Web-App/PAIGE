@@ -862,7 +862,11 @@ function DashboardContent() {
               spent: dashboardContext.budgetData?.totalSpent || 0,
               allocated: dashboardContext.budgetData?.totalAllocated || 0,
               // Timeline data from AgentDataProvider
-              timelineData: agentData.timelineData || [],
+              timelineData: (() => {
+                const timelines = agentData.timelineData || [];
+                console.log('📅 Dashboard timeline data:', timelines.length, 'timelines found');
+                return timelines;
+              })(),
             }}
           />
         </div>
