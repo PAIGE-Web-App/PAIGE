@@ -444,11 +444,6 @@ export function usePaigeInsights({
         // Priority 2.5: Timeline review/creation (approaching wedding date)
         // Check if user has actual timeline data from AgentDataProvider
         const hasTimeline = currentData?.timelineData && currentData.timelineData.length > 0;
-        console.log('🔍 Dashboard timeline check:', { 
-          hasTimelineData: !!currentData?.timelineData, 
-          timelineCount: currentData?.timelineData?.length || 0,
-          hasTimeline 
-        });
         
         if (daysUntilWedding && daysUntilWedding <= 60 && !hasTimeline) {
           // No timeline created, suggest creating one
@@ -1532,6 +1527,7 @@ export function usePaigeInsights({
     currentData?.totalTasks,
     currentData?.weddingLocation,
     currentData?.daysUntilWedding,
+    currentData?.timelineData?.length, // ✅ Re-generate when timeline data loads
     userId,
     dismissedInsights,
     handleAddDeadlines

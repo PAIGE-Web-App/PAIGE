@@ -208,7 +208,6 @@ export const AgentDataProvider: React.FC<AgentDataProviderProps> = ({ children, 
           id: doc.id,
           ...doc.data()
         }));
-        console.log('📅 AgentDataProvider fetched:', timeline.length, 'timelines');
         setTimelineData(timeline);
       }
 
