@@ -30,7 +30,7 @@ import {
 import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWeddingInfoSidebar";
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
-import { useDashboardData } from "../../contexts/AgentDataContext"; // ✨ Now uses global provider
+import { useDashboardData, useAgentData } from "../../contexts/AgentDataContext"; // ✨ Now uses global provider
 import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
 import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
 
@@ -41,6 +41,7 @@ function DashboardContent() {
   
   // Consume real-time data from DashboardDataProvider
   const dashboardContext = useDashboardData();
+  const agentData = useAgentData(); // ✨ For timeline data
   
   // Paige AI Assistant
   const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
@@ -860,6 +861,8 @@ function DashboardContent() {
               totalBudget: dashboardContext.budgetData?.maxBudget || dashboardContext.userData?.maxBudget || 0,
               spent: dashboardContext.budgetData?.totalSpent || 0,
               allocated: dashboardContext.budgetData?.totalAllocated || 0,
+              // Timeline data from AgentDataProvider
+              timelineData: agentData.timelineData || [],
             }}
           />
         </div>

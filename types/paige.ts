@@ -78,7 +78,8 @@ export interface PaigeCurrentData {
   };
   
   // Timeline context
-  timeline?: any[]; // Timeline events
+  timeline?: any[]; // Timeline events (current page)
+  timelineData?: any[]; // All timeline documents from AgentDataProvider
   timelineName?: string;
   ceremonyTime?: string;
   guestCount?: number;

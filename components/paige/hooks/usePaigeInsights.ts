@@ -442,13 +442,11 @@ export function usePaigeInsights({
         }
 
         // Priority 2.5: Timeline review/creation (approaching wedding date)
-        // Check if user has timeline data from AgentDataProvider
-        const timelineEventCount = currentData?.todoItems?.filter((t: any) => 
-          t.category === 'Timeline' || t.name?.toLowerCase().includes('timeline')
-        ).length || 0;
+        // Check if user has actual timeline data from AgentDataProvider
+        const hasTimeline = currentData?.timelineData && currentData.timelineData.length > 0;
         
-        if (daysUntilWedding && daysUntilWedding <= 60 && timelineEventCount === 0) {
-          // No timeline-related tasks, suggest creating timeline
+        if (daysUntilWedding && daysUntilWedding <= 60 && !hasTimeline) {
+          // No timeline created, suggest creating one
           insights.push({
             id: 'dashboard-create-timeline',
             type: 'urgent',
@@ -460,7 +458,7 @@ export function usePaigeInsights({
             },
             dismissible: true
           });
-        } else if (daysUntilWedding && daysUntilWedding <= 30 && timelineEventCount > 0) {
+        } else if (daysUntilWedding && daysUntilWedding <= 30 && hasTimeline) {
           // Has timeline, suggest reviewing
           insights.push({
             id: 'dashboard-review-timeline',
