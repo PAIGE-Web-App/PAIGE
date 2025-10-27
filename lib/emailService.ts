@@ -405,6 +405,68 @@ export const sendWelcomeEmail = async (
   return await sendEmail(emailContent);
 };
 
+// ==================== WAITLIST EMAIL ====================
+
+export const sendWaitlistConfirmationEmail = async (
+  toEmail: string
+): Promise<boolean> => {
+  const emailContent: EmailContent = {
+    to: toEmail,
+    subject: "You're on the Paige AI waitlist! 🎉",
+    text: `Thank you for joining the Paige AI waitlist! We're excited to bring you the most intelligent wedding planning assistant ever created.\n\nYou'll be among the first to know when Paige AI launches. We'll send you exclusive early access as soon as it's ready.\n\nIn the meantime, if you have questions or ideas, just reply to this email — we read every message!\n\nHappy planning,\nThe Paige Team`,
+    html: `
+      <div style="background-color: #F8F6F4; padding: 20px; min-height: 100vh; font-family: 'Work Sans', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #D6D3D1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          
+          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: #ffffff;">
+            <a href="https://weddingpaige.com" style="display: inline-block;">
+              <img src="https://weddingpaige.com/PaigeFinal.png" alt="Paige AI" style="width: 80px; height: auto;" />
+            </a>
+          </div>
+          
+          <div style="padding: 0 30px 30px 30px; background-color: #ffffff;">
+            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; font-family: 'Playfair Display', Arial, sans-serif; letter-spacing: 0.5px; text-align: center; color: #332B42;">You're on the waitlist! 🎉</h1>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              Thank you for joining the Paige AI waitlist! We're excited to bring you the most intelligent wedding planning assistant ever created.
+            </p>
+            
+            <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #A85C36; margin: 0 0 15px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 16px;">What happens next?</h3>
+              <p style="margin: 0; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6;">
+                You'll be among the first to know when Paige AI launches. We'll send you exclusive early access as soon as it's ready.
+              </p>
+            </div>
+            
+            <p style="font-size: 16px; color: #332B42; line-height: 1.6; margin-bottom: 20px; font-family: 'Work Sans', Arial, sans-serif;">
+              In the meantime, if you have questions or ideas, just reply to this email — we read every message!
+            </p>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px; font-family: 'Work Sans', Arial, sans-serif;">
+              Happy planning,<br>
+              <strong>The Paige Team</strong>
+            </p>
+            
+            <p style="font-size: 12px; color: #999; margin-top: 20px; font-family: 'Work Sans', Arial, sans-serif; text-align: center;">
+              P.S. Know someone planning a wedding? Share Paige with them!
+            </p>
+          </div>
+          
+          <div style="background-color: #f8f6f4; padding: 20px; text-align: center;">
+            <a href="https://weddingpaige.com" style="display: inline-block; margin-bottom: 10px;">
+              <img src="https://weddingpaige.com/PaigeFav.png" alt="Paige" style="width: 32px; height: auto;" />
+            </a>
+            <p style="margin: 0; font-size: 12px; color: #7A7A7A; font-family: 'Work Sans', Arial, sans-serif;">
+              This email was sent from Paige - your wedding planning assistant
+            </p>
+          </div>
+        </div>
+      </div>
+    `
+  };
+  return await sendEmail(emailContent);
+};
+
 // ==================== TODO EMAILS ====================
 
 export const sendTaskAssignmentEmail = async (

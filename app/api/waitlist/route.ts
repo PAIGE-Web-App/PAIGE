@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { sendEmailWithValidation } from '@/utils/emailValidation';
+import { sendWaitlistConfirmationEmail } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     // Add to waitlist
     await adminDb.collection('waitlist').add({
       email: email.toLowerCase(),
-      name: name || null,
       joinedAt: new Date(),
       status: 'pending',
       source: 'landing-page'
@@ -47,29 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation email via SendGrid
     try {
-      const subject = 'You\'re on the Paige AI waitlist! 🎉';
-      const body = `
-        Hi${name ? ` ${name}` : ''},
-
-        Thank you for joining the Paige AI waitlist! We're excited to bring you the most intelligent wedding planning assistant ever created.
-
-        **What happens next?**
-        You'll be among the first to know when Paige AI launches. We'll send you exclusive early access as soon as it's ready.
-
-        In the meantime, if you have questions or ideas, just reply to this email — we read every message!
-
-        Happy planning,
-        The Paige Team
-
-        ---
-        P.S. Know someone planning a wedding? Share the love by forwarding this email!
-      `;
-
-      await sendEmailWithValidation(
-        email,
-        subject,
-        body
-      );
+      await sendWaitlistConfirmationEmail(email);
     } catch (emailError) {
       // Log but don't fail the waitlist signup if email fails
       console.error('Failed to send waitlist confirmation email:', emailError);
