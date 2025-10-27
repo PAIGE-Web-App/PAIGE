@@ -148,18 +148,18 @@ export function usePaigeContext(pageData: any) {
 
 /**
  * Feature flag check for Paige chat
+ * Now enabled for ALL authenticated users!
  */
 export function isPaigeChatEnabled(userId?: string): boolean {
-  // Check environment variables
+  // Check environment variables for global enable
   const isGloballyEnabled = process.env.NEXT_PUBLIC_ENABLE_INTELLIGENT_AGENT === 'true';
   
   if (!isGloballyEnabled) return false;
   
-  // Check if user is in test group
+  // If globally enabled and user is authenticated, enable for everyone
   if (userId) {
-    const testUsers = process.env.NEXT_PUBLIC_AGENT_TEST_USERS?.split(',') || [];
-    return testUsers.includes(userId);
+    return true; // ✅ Now enabled for ALL users!
   }
   
-  return false;
+  return false; // Still requires authentication
 }
