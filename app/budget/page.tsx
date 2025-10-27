@@ -103,6 +103,7 @@ const LinkVendorModal = dynamic(() => import('@/components/LinkVendorModal'), {
 
 // Custom hooks
 import { useUserProfileData } from "@/hooks/useUserProfileData";
+import { useAgentData } from "@/contexts/AgentDataContext"; // ✨ NEW
 import { useBudget } from "@/hooks/useBudget";
 import toast from "react-hot-toast";
 import type { BudgetItem, BudgetCategory } from "@/types/budget";
@@ -113,6 +114,9 @@ export default function BudgetPage() {
 
   // Use shared user profile data hook
   const { userName, daysLeft, profileLoading, weddingDate, weddingLocation } = useUserProfileData();
+
+  // ✨ Use global agent data for cross-agent intelligence
+  const agentData = useAgentData();
 
   // Use custom hooks for budget functionality
   const budget = useBudget();
@@ -831,8 +835,8 @@ export default function BudgetPage() {
               })) || [],
               daysUntilWedding: daysLeft || undefined,
               weddingLocation: weddingLocation || undefined,
-              // Cross-agent data: Todo info for budget-todo sync
-              totalTasks: 0, // Budget page doesn't load todos - using 0 to indicate unknown
+              // ✨ Cross-agent data: Todo info from AgentDataProvider (real data!)
+              totalTasks: agentData.todoData?.length || 0,
               hasBudget: budget.budgetCategories.length > 0
             }}
           />

@@ -54,20 +54,140 @@ export function usePaigeChatLogic({
   }, []);
 
   // Handle local commands without API calls
-  const handleLocalCommands = useCallback(async (message: string): Promise<boolean> => {
+  const handleLocalCommands = useCallback(async (message: string, latestCurrentData = currentData): Promise<boolean> => {
     const lowerMessage = message.toLowerCase();
-    const selectedListId = currentData?.selectedListId;
-    const selectedListName = currentData?.selectedList || 'All To-Do Items';
+    
+    // ✨ Timeline context - vendor contact commands
+    if (context === 'timeline') {
+      const timeline = latestCurrentData?.timeline || [];
+      const contacts = latestCurrentData?.contacts || [];
+      
+      // Handle "show me my vendor contacts"
+      if (lowerMessage.includes('show') && lowerMessage.includes('contact')) {
+        // ✅ Wait for contacts to load if they're not available yet
+        if (contacts.length === 0) {
+          // Check again after a brief delay in case they're still loading
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const retriedContacts = currentData?.contacts || [];
+          
+          if (retriedContacts.length === 0) {
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `You don't have any saved contacts yet. Add vendors from the /messages page to easily assign them to timeline events! 📇`
+            }]);
+            return true;
+          }
+          
+          // Use retried contacts
+          const contactList = retriedContacts.map((c: any, i: number) => 
+            `${i + 1}. **${c.name}**${c.email ? ` - ${c.email}` : ''}${c.phone ? ` (${c.phone})` : ''}`
+          ).join('\n');
+          
+          setChatMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `Here are your ${retriedContacts.length} saved vendor contacts:\n\n${contactList}\n\nWhich contact would you like to add to your timeline events? Just say the number or name! 📞`
+          }]);
+          return true;
+        }
+        
+        // Show list of contacts
+        const contactList = contacts.map((c: any, i: number) => 
+          `${i + 1}. **${c.name}**${c.email ? ` - ${c.email}` : ''}${c.phone ? ` (${c.phone})` : ''}`
+        ).join('\n');
+        
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Here are your ${contacts.length} saved vendor contacts:\n\n${contactList}\n\nWhich contact would you like to add to your timeline events? Just say the number or name! 📞`
+        }]);
+        return true;
+      }
+      
+      // Handle selecting a contact by number or name
+      // Matches: "1", "Dave Yoon", "add Dave Yoon", "use that contact", "yes", "that one", etc.
+      const contactMatch = message.match(/^(\d+)$/) || 
+                          lowerMessage.match(/(?:add|use)\s+(.+?)(?:\s+to|$)/) ||
+                          (lowerMessage.includes('yes') || lowerMessage.includes('sure') || lowerMessage.includes('that')) ? [null, contacts[0]?.name] : null;
+      
+      if (contactMatch && contacts.length > 0) {
+        let selectedContact: any = null;
+        
+        if (message.match(/^\d+$/)) {
+          // User said a number
+          const index = parseInt(message) - 1;
+          if (index >= 0 && index < contacts.length) {
+            selectedContact = contacts[index];
+          }
+        } else if (contactMatch[1]) {
+          // User said a name (extract from "add [name]" or "use [name]", or default to first contact for "yes/that")
+          const nameQuery = contactMatch[1]?.toLowerCase().trim();
+          selectedContact = contacts.find((c: any) => c.name?.toLowerCase().includes(nameQuery));
+        } else {
+          // Default to first contact for "yes", "sure", "that", etc.
+          selectedContact = contacts[0];
+        }
+        
+        if (selectedContact) {
+          // Check if user wants ALL events or just those missing contacts
+          const wantsAllEvents = lowerMessage.includes('all of them') || lowerMessage.includes('all events') || lowerMessage.includes('everything');
+          
+          let eventsToUpdate = [];
+          if (wantsAllEvents) {
+            // User wants to add to ALL timeline events
+            eventsToUpdate = timeline;
+          } else {
+            // Only events missing vendor contacts
+            eventsToUpdate = timeline.filter((e: any) => !e.vendorContact || e.vendorContact.trim() === '');
+          }
+          
+          const eventIds = eventsToUpdate.map((e: any) => e.id);
+          
+          if (eventIds.length > 0) {
+            const vendorContact = `${selectedContact.name}${selectedContact.email ? ` - ${selectedContact.email}` : ''}`;
+            
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `Perfect! I'll add ${selectedContact.name} to ${eventIds.length} timeline events. ✅`
+            }]);
+            
+            // Dispatch bulk update event
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('paige-bulk-update-contacts', {
+                detail: { 
+                  vendorName: selectedContact.name,
+                  vendorContact,
+                  eventIds 
+                }
+              }));
+            }, 100);
+            
+            return true;
+          } else {
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `All events already have vendor contacts! 🎉`
+            }]);
+            return true;
+          }
+        }
+      }
+      
+      // Let API handle other timeline commands
+      return false;
+    }
+    
+    // Todo context commands
+    const selectedListId = latestCurrentData?.selectedListId;
+    const selectedListName = latestCurrentData?.selectedList || 'All To-Do Items';
     
     // Filter todos based on selected list context
-    let relevantTodos = currentData?.todoItems || [];
+    let relevantTodos = latestCurrentData?.todoItems || [];
     if (selectedListId && selectedListId !== 'all' && selectedListId !== 'completed') {
       relevantTodos = relevantTodos.filter(todo => todo.listId === selectedListId);
     }
     
     const incompleteTodos = relevantTodos.filter(todo => !todo.isCompleted);
     const todosWithoutDeadlines = incompleteTodos.filter(todo => !todo.deadline);
-    const daysUntilWedding = currentData?.daysUntilWedding || 365;
+    const daysUntilWedding = latestCurrentData?.daysUntilWedding || 365;
 
     // Handle "add deadlines" command
     if (lowerMessage.includes('add deadline') || lowerMessage === 'sure' || lowerMessage === 'yes') {
@@ -82,7 +202,6 @@ export function usePaigeChatLogic({
             
             // Trigger the deadline addition
             setTimeout(() => {
-              console.log('🎯 Paige dispatching deadline event:', { todoId: todo.id, deadline: deadline.toISOString().split('T')[0] });
               window.dispatchEvent(new CustomEvent('paige-add-deadline', { 
                 detail: { 
                   todoId: todo.id, 
@@ -152,7 +271,7 @@ export function usePaigeChatLogic({
 
     // Don't handle "suggest to-dos" locally - let API handle it for better context
     return false; // Not a local command, proceed with API
-  }, [currentData?.todoItems, currentData?.daysUntilWedding, currentData?.selectedListId, currentData?.selectedList]);
+  }, [context, currentData]);
 
   // Memoized handle send message function
   const handleSendMessage = useCallback(async () => {
@@ -178,7 +297,7 @@ export function usePaigeChatLogic({
           message: userMessage.content,
           context: {
             page: context,
-            data: currentData,
+            data: currentData, // ✅ Use current data (always latest)
             conversationHistory: chatMessages.slice(-6), // Send last 6 messages for context
             capabilities: {
               canManipulateTodos: true,
@@ -274,7 +393,7 @@ export function usePaigeChatLogic({
     } finally {
       setIsLoading(false);
     }
-  }, [chatInput, isLoading, handleLocalCommands, chatMessages, context, currentData, handleTodoAction]);
+  }, [chatInput, isLoading, handleLocalCommands, chatMessages, context, currentData, handleTodoAction]); // ✅ Include currentData
 
   return {
     chatMessages,

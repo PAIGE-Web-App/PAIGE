@@ -72,6 +72,7 @@ const GoogleCalendarSync = dynamic(() => import('../../components/GoogleCalendar
 
 // Custom hooks
 import { useUserProfileData } from "../../hooks/useUserProfileData";
+import { useAgentData } from "../../contexts/AgentDataContext"; // ✨ NEW
 import { useTodoLists } from "../../hooks/useTodoLists";
 import { useTodoItems } from "../../hooks/useTodoItems";
 import { useTodoViewOptions } from "../../hooks/useTodoViewOptions";
@@ -98,7 +99,10 @@ export default function TodoPage() {
 
 
   // Use shared user profile data hook
-  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation, budget } = useUserProfileData();
+  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation } = useUserProfileData();
+  
+  // ✨ Use global agent data for cross-agent intelligence
+  const agentData = useAgentData();
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
@@ -943,9 +947,9 @@ export default function TodoPage() {
               selectedListId: todoLists.selectedList?.id || null,
               weddingLocation: weddingLocation || undefined,
               todoItems: todoItems.allTodoItems || [],
-              // Cross-agent data: Budget info for smarter vendor suggestions
-              hasBudget: budget && typeof budget === 'string' ? (parseInt(budget.replace(/[^0-9]/g, '')) > 0) : false,
-              totalBudget: budget && typeof budget === 'string' ? parseInt(budget.replace(/[^0-9]/g, '')) : 0
+              // ✨ Cross-agent data: Budget info from AgentDataProvider (no manual parsing!)
+              hasBudget: agentData.budgetCategories?.length > 0 || false,
+              totalBudget: agentData.userData?.maxBudget || agentData.budgetData?.maxBudget || 0
             }}
           />
         </div>

@@ -972,7 +972,7 @@ const MessageListArea: React.FC<MessageListAreaProps> = ({
                   </span>
                   <div className="w-1/3 border-t border-[#AB9C95]"></div>
                 </div>
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence>
                   {group.messages.map((msg, msgIdx) => {
                     // Find parent message if this is a reply
                     let parentMsg: Message | undefined = undefined;

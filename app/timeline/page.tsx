@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,9 @@ import { useUserProfileData } from '@/hooks/useUserProfileData';
 import { useTodoItems } from '@/hooks/useTodoItems';
 import { useCredits } from '@/hooks/useCredits';
 import { useCustomToast } from '@/hooks/useCustomToast';
+import { useAgentData } from '@/contexts/AgentDataContext'; // ✨ Multi-agent data
+import PaigeContextualAssistant from '@/components/PaigeContextualAssistant'; // ✨ Timeline agent
+import { isPaigeChatEnabled } from '@/hooks/usePaigeChat'; // ✨ Feature flag
 import { WeddingTimeline, WeddingTimelineEvent } from '@/types/timeline';
 import TimelineSidebar from '@/components/timeline/TimelineSidebar';
 import TimelineTopBar from '@/components/timeline/TimelineTopBar';
@@ -32,10 +35,14 @@ const parseDate = (date: any): Date => {
 
 export default function TimelinePage() {
   const { user } = useAuth();
-  const { weddingDate, weddingLocation, guestCount } = useUserProfileData();
+  const { weddingDate, weddingLocation, guestCount, daysLeft } = useUserProfileData();
   const { allTodoItems } = useTodoItems(null);
   const { credits, useCredits: deductCredits, getRemainingCredits } = useCredits();
   const { showSuccessToast, showErrorToast } = useCustomToast();
+  
+  // ✨ Multi-agent data for Timeline intelligence
+  const agentData = useAgentData();
+  const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
 
   // Timeline state
   const [timelines, setTimelines] = useState<WeddingTimeline[]>([]);
@@ -62,12 +69,32 @@ export default function TimelinePage() {
       setShowTemplatesModal(true);
     };
 
+    // ✨ Paige timeline event handlers
+    const handlePaigeBulkUpdateContacts = async (event: CustomEvent) => {
+      const { vendorName, vendorContact, eventIds } = event.detail;
+      
+      if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) return;
+      
+      try {
+        for (const eventId of eventIds) {
+          await handleEventUpdateRef.current(eventId, {
+            vendorName: vendorName || '',
+            vendorContact: vendorContact || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error updating event contacts:', error);
+      }
+    };
+
     window.addEventListener('openTimelineTemplatesModal', handleOpenTemplatesModal);
+    window.addEventListener('paige-bulk-update-contacts', handlePaigeBulkUpdateContacts as EventListener);
     
     return () => {
       window.removeEventListener('openTimelineTemplatesModal', handleOpenTemplatesModal);
+      window.removeEventListener('paige-bulk-update-contacts', handlePaigeBulkUpdateContacts as EventListener);
     };
-  }, []);
+  }, []); // ✅ No dependencies - uses ref instead
 
   // Auto-show templates modal when no timelines exist (like todo page)
   useEffect(() => {
@@ -584,6 +611,9 @@ export default function TimelinePage() {
     }
   };
 
+  // Create ref for handleEventUpdate (defined below) to avoid stale closure
+  const handleEventUpdateRef = useRef<typeof handleEventUpdate | null>(null);
+
   // Update event status
   const handleEventUpdate = async (eventId: string, updates: Partial<WeddingTimelineEvent>) => {
     if (!selectedTimeline) return;
@@ -694,6 +724,11 @@ export default function TimelinePage() {
       ));
     }
   };
+
+  // Sync ref with latest handleEventUpdate
+  useEffect(() => {
+    handleEventUpdateRef.current = handleEventUpdate;
+  }, [handleEventUpdate]);
 
   if (isLoading) {
     return <TimelinePageSkeleton />;
@@ -862,6 +897,37 @@ export default function TimelinePage() {
         onSelectTemplate={handleTemplateSelection}
         onCreateWithAI={handleGenerateTimeline}
       />
+
+      {/* ✨ Paige Timeline Agent */}
+      {isPaigeEnabled && selectedTimeline && (
+        <div className="fixed bottom-12 right-12 max-w-sm z-30">
+          <PaigeContextualAssistant
+              context="timeline"
+              currentData={{
+                // Timeline data
+                timeline: selectedTimeline.events || [],
+                timelineName: selectedTimeline.name,
+                ceremonyTime: selectedTimeline.events?.find((e: any) => 
+                  e.title?.toLowerCase().includes('ceremony')
+                )?.startTime?.toISOString() || undefined,
+                
+                // Cross-agent data from AgentDataProvider
+                todoItems: agentData.todoData || [],
+                totalTasks: agentData.todoData?.length || 0,
+                hasBudget: agentData.budgetCategories?.length > 0 || false,
+                budgetCategories: agentData.budgetCategories || [],
+                budgetItems: agentData.budgetItems || [],
+                totalBudget: agentData.userData?.maxBudget || 0,
+                contacts: agentData.contactsData || [], // ✨ NEW: Vendor contacts
+                
+                // Wedding context
+                daysUntilWedding: daysLeft,
+                weddingLocation: weddingLocation || undefined,
+                guestCount: guestCount || undefined
+              }}
+            />
+        </div>
+      )}
     </div>
   );
 }

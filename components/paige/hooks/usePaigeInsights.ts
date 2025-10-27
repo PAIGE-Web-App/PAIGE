@@ -441,6 +441,40 @@ export function usePaigeInsights({
           });
         }
 
+        // Priority 2.5: Timeline review/creation (approaching wedding date)
+        // Check if user has timeline data from AgentDataProvider
+        const timelineEventCount = currentData?.todoItems?.filter((t: any) => 
+          t.category === 'Timeline' || t.name?.toLowerCase().includes('timeline')
+        ).length || 0;
+        
+        if (daysUntilWedding && daysUntilWedding <= 60 && timelineEventCount === 0) {
+          // No timeline-related tasks, suggest creating timeline
+          insights.push({
+            id: 'dashboard-create-timeline',
+            type: 'urgent',
+            title: 'Create your day-of timeline',
+            description: `With ${daysUntilWedding} days left, coordinate vendors, timing, and your wedding flow.`,
+            action: {
+              label: 'Create timeline',
+              onClick: () => window.location.href = '/timeline'
+            },
+            dismissible: true
+          });
+        } else if (daysUntilWedding && daysUntilWedding <= 30 && timelineEventCount > 0) {
+          // Has timeline, suggest reviewing
+          insights.push({
+            id: 'dashboard-review-timeline',
+            type: 'reminder',
+            title: 'Review your day-of timeline',
+            description: `${daysUntilWedding} days left! Confirm vendor arrival times and event flow.`,
+            action: {
+              label: 'Review timeline',
+              onClick: () => window.location.href = '/timeline'
+            },
+            dismissible: true
+          });
+        }
+
         // Priority 3: Upcoming deadlines
         if (upcomingDeadlines > 0) {
           insights.push({
@@ -1186,6 +1220,293 @@ export function usePaigeInsights({
               action: {
                 label: 'View to-dos',
                 onClick: () => window.location.href = '/todo'
+              },
+              dismissible: true
+            });
+          }
+        }
+      }
+
+      // ✨ Timeline context - day-of coordination & cross-agent sync
+      if (context === 'timeline') {
+        const timeline = currentData?.timeline || [];
+        const todoItems = currentData?.todoItems || [];
+        const budgetCategories = currentData?.budgetCategories || [];
+        const budgetItems = currentData?.budgetItems || [];
+        const ceremonyTime = currentData?.ceremonyTime;
+        const daysUntilWedding = currentData?.daysUntilWedding || 365;
+
+        // Debug: Log timeline data to understand structure
+        const vendorEventCheck = timeline.map((e: any) => ({
+          title: e.title,
+          hasVendorName: !!e.vendorName,
+          hasContact: !!(e.vendorContact && e.vendorContact.trim()),
+          isVendorKeyword: (e.title?.toLowerCase() || '').includes('photo') || 
+                          (e.title?.toLowerCase() || '').includes('makeup') ||
+                          (e.title?.toLowerCase() || '').includes('hair')
+        }));
+
+        // Priority 1: Missing buffer time between consecutive events
+        if (timeline.length >= 2) {
+          const sortedEvents = [...timeline].sort((a: any, b: any) => {
+            const aTime = a.startTime?.toDate ? a.startTime.toDate() : new Date(a.startTime);
+            const bTime = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
+            return aTime.getTime() - bTime.getTime();
+          });
+
+          let eventsNeedingBuffers: any[] = [];
+          for (let i = 0; i < sortedEvents.length - 1; i++) {
+            const currentEvent = sortedEvents[i];
+            const nextEvent = sortedEvents[i + 1];
+            
+            const currentEnd = currentEvent.endTime?.toDate ? currentEvent.endTime.toDate() : new Date(currentEvent.endTime);
+            const nextStart = nextEvent.startTime?.toDate ? nextEvent.startTime.toDate() : new Date(nextEvent.startTime);
+            const gap = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60); // minutes
+            
+            if (gap < 15 && !currentEvent.title?.toLowerCase().includes('buffer')) {
+              eventsNeedingBuffers.push({ current: currentEvent.title, next: nextEvent.title });
+            }
+          }
+
+          if (eventsNeedingBuffers.length > 0) {
+            insights.push({
+              id: 'timeline-missing-buffers',
+              type: 'urgent',
+              title: `${eventsNeedingBuffers.length} event${eventsNeedingBuffers.length > 1 ? 's need' : ' needs'} buffer time`,
+              description: `Add 15-30min between ${eventsNeedingBuffers[0].current} and ${eventsNeedingBuffers[0].next} to prevent delays.`,
+              action: {
+                label: 'Add buffers',
+                onClick: () => {
+                  if (openChatWithMessage) {
+                    openChatWithMessage('Add buffer time between tight events');
+                  }
+                }
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Priority 2: Events missing vendor contacts
+        const eventsWithoutContacts = timeline.filter((event: any) => {
+          const title = event.title?.toLowerCase() || '';
+          const missingContact = !event.vendorContact || event.vendorContact.trim() === '';
+          
+          // Check if this is a vendor-related event (should have contact info)
+          const isVendorEvent = 
+            title.includes('photo') || title.includes('video') || title.includes('videographer') ||
+            title.includes('dj') || title.includes('music') || title.includes('band') ||
+            title.includes('floral') || title.includes('flower') || title.includes('florist') ||
+            title.includes('catering') || title.includes('caterer') || title.includes('food') ||
+            title.includes('makeup') || title.includes('hair') || title.includes('beauty') ||
+            title.includes('transport') || title.includes('driver') ||
+            title.includes('coordinator') || title.includes('planner') ||
+            title.includes('officiant') || title.includes('minister') ||
+            event.vendorName; // OR if vendorName is explicitly set
+          
+          return isVendorEvent && missingContact;
+        });
+
+        if (eventsWithoutContacts.length > 0) {
+          // Check if user has contacts in /messages
+          const userContacts = currentData?.contacts || [];
+          const hasContacts = userContacts.length > 0;
+          
+          insights.push({
+            id: 'timeline-missing-contacts',
+            type: 'reminder',
+            title: `${eventsWithoutContacts.length} event${eventsWithoutContacts.length > 1 ? 's' : ''} missing vendor contact`,
+            description: hasContacts 
+              ? `Add vendor contacts from your ${userContacts.length} saved contact${userContacts.length > 1 ? 's' : ''}.`
+              : `Add contact info for ${eventsWithoutContacts[0].title} so they know when to arrive.`,
+            action: {
+              label: hasContacts ? 'Select contact' : 'Add contacts',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage(hasContacts 
+                    ? 'Show me my vendor contacts'
+                    : 'Help me add vendor contacts to timeline events');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 3: Missing vendors on timeline (cross-agent with budget)
+        const vendorBudgetCategories = budgetCategories.filter(cat => {
+          const name = cat.name?.toLowerCase() || '';
+          return name.includes('photo') || name.includes('video') || name.includes('music') || 
+                 name.includes('dj') || name.includes('band') || name.includes('floral') ||
+                 name.includes('entertainment') || name.includes('catering');
+        });
+
+        const timelineEventNames = timeline.map((event: any) => event.title?.toLowerCase() || '');
+        
+        // Check each vendor category individually to provide specific insights
+        vendorBudgetCategories.forEach(cat => {
+          const catName = cat.name?.toLowerCase() || '';
+          const isOnTimeline = timelineEventNames.some(eventName => 
+            eventName.includes(catName) || 
+            (catName.includes('photo') && eventName.includes('photo')) ||
+            (catName.includes('music') && (eventName.includes('music') || eventName.includes('dj'))) ||
+            (catName.includes('entertainment') && (eventName.includes('music') || eventName.includes('dj') || eventName.includes('band'))) ||
+            (catName.includes('floral') && (eventName.includes('floral') || eventName.includes('flower')))
+          );
+          
+          if (!isOnTimeline) {
+            insights.push({
+              id: `timeline-missing-vendor-${cat.id || cat.name}`,
+              type: 'urgent',
+              title: `${cat.name} not on timeline`,
+              description: `You budgeted $${cat.allocatedAmount?.toLocaleString() || 0} but they're not scheduled.`,
+              action: {
+                label: 'View budget item',
+                onClick: () => {
+                  // Navigate to budget page and highlight this category
+                  window.location.href = '/budget';
+                  setTimeout(() => {
+                    const categoryButton = document.querySelector(`[data-category-name="${cat.name}"]`) as HTMLElement;
+                    if (categoryButton) categoryButton.click();
+                  }, 500);
+                }
+              },
+              dismissible: true
+            });
+          }
+        });
+
+        // Priority 4: Incomplete vendor todos (cross-agent with todos)
+        const vendorTodos = todoItems.filter((todo: any) => {
+          if (todo.isCompleted) return false;
+          const name = todo.name?.toLowerCase() || '';
+          return name.includes('book') || name.includes('confirm') || name.includes('vendor');
+        });
+
+        if (vendorTodos.length > 0 && daysUntilWedding < 60) {
+          insights.push({
+            id: 'timeline-incomplete-vendor-todos',
+            type: 'reminder',
+            title: `${vendorTodos.length} vendor task${vendorTodos.length > 1 ? 's' : ''} incomplete`,
+            description: `Confirm vendors before finalizing your timeline. ${daysUntilWedding} days left!`,
+            action: {
+              label: 'View tasks',
+              onClick: () => window.location.href = '/todo'
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 5: Empty timeline
+        if (timeline.length === 0) {
+          insights.push({
+            id: 'timeline-empty',
+            type: 'tip',
+            title: 'Start your day-of timeline',
+            description: 'Add events like ceremony, cocktail hour, and reception to coordinate your big day.',
+            action: {
+              label: 'Get suggestions',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage('Suggest events for my timeline');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 6: Timeline complete
+        if (timeline.length >= 5 && daysUntilWedding < 30) {
+          insights.push({
+            id: 'timeline-ready',
+            type: 'celebration',
+            title: 'Your timeline is ready! 🎉',
+            description: `${timeline.length} events scheduled. Share with your wedding party and vendors.`,
+            dismissible: true
+          });
+        }
+
+        // Priority 7: Ceremony event not found
+        const hasCeremonyEvent = timeline.some((event: any) => 
+          event.title?.toLowerCase().includes('ceremony')
+        );
+        
+        if (!hasCeremonyEvent && daysUntilWedding < 90 && timeline.length > 0) {
+          insights.push({
+            id: 'timeline-ceremony-event',
+            type: 'tip',
+            title: 'Add your ceremony event',
+            description: 'The ceremony is the most important event! Add it to coordinate the entire day.',
+            action: {
+              label: 'Add ceremony',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage('Help me add ceremony to my timeline');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 8: Event descriptions missing
+        const eventsWithoutDescriptions = timeline.filter((event: any) => 
+          !event.description || event.description.trim() === ''
+        );
+
+        if (eventsWithoutDescriptions.length > 2) {
+          insights.push({
+            id: 'timeline-missing-descriptions',
+            type: 'tip',
+            title: `${eventsWithoutDescriptions.length} events need details`,
+            description: 'Add descriptions to help vendors and wedding party know what to expect.',
+            action: {
+              label: 'Add details',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage('Help me add descriptions to my timeline events');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 9: Timing conflicts (events overlapping)
+        if (timeline.length >= 2) {
+          const sortedEvents = [...timeline].sort((a: any, b: any) => {
+            const aTime = a.startTime?.toDate ? a.startTime.toDate() : new Date(a.startTime);
+            const bTime = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
+            return aTime.getTime() - bTime.getTime();
+          });
+
+          let conflicts: any[] = [];
+          for (let i = 0; i < sortedEvents.length - 1; i++) {
+            const currentEvent = sortedEvents[i];
+            const nextEvent = sortedEvents[i + 1];
+            
+            const currentEnd = currentEvent.endTime?.toDate ? currentEvent.endTime.toDate() : new Date(currentEvent.endTime);
+            const nextStart = nextEvent.startTime?.toDate ? nextEvent.startTime.toDate() : new Date(nextEvent.startTime);
+            
+            if (currentEnd > nextStart) {
+              conflicts.push({ event1: currentEvent.title, event2: nextEvent.title });
+            }
+          }
+
+          if (conflicts.length > 0) {
+            insights.push({
+              id: 'timeline-conflicts',
+              type: 'urgent',
+              title: `${conflicts.length} timing conflict${conflicts.length > 1 ? 's' : ''}!`,
+              description: `${conflicts[0].event1} overlaps with ${conflicts[0].event2}. Adjust timing.`,
+              action: {
+                label: 'Fix conflicts',
+                onClick: () => {
+                  if (openChatWithMessage) {
+                    openChatWithMessage('Check for timing conflicts in my timeline');
+                  }
+                }
               },
               dismissible: true
             });

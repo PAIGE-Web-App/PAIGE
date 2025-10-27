@@ -69,16 +69,24 @@ export interface PaigeCurrentData {
     isPaid?: boolean;
     vendor?: string;
   }>;
+  budgetCategories?: any[]; // Full budget categories from AgentDataProvider
   categoryBudgets?: {
     photography?: number;
     venue?: number;
     catering?: number;
     // Add more as needed
   };
+  
+  // Timeline context
+  timeline?: any[]; // Timeline events
+  timelineName?: string;
+  ceremonyTime?: string;
+  guestCount?: number;
+  contacts?: any[]; // ✨ NEW: User contacts for vendor info
 }
 
 export interface PaigeContextualAssistantProps {
-  context?: 'todo' | 'dashboard' | 'vendors' | 'budget' | 'messages';
+  context?: 'todo' | 'dashboard' | 'vendors' | 'budget' | 'messages' | 'timeline'; // ✨ Added timeline
   currentData?: PaigeCurrentData;
   className?: string;
 }
@@ -104,7 +112,7 @@ export interface PaigeTodoComputations {
   daysUntilWedding: number;
 }
 
-export type PaigeContext = 'todo' | 'dashboard' | 'vendors' | 'budget' | 'messages';
+export type PaigeContext = 'todo' | 'dashboard' | 'vendors' | 'budget' | 'messages' | 'timeline'; // ✨ Added timeline
 
 export type PaigeInsightType = PaigeInsight['type'];
 

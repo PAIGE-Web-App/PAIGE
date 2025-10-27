@@ -189,6 +189,54 @@ You're helping with vendor communication. Focus on:
 - Professional communication
 - Managing vendor relationships`;
 
+    case 'timeline':
+      const timeline = context.data?.timeline || [];
+      const timelineEventCount = timeline.length;
+      const hasTodos = context.data?.todoItems && context.data.todoItems.length > 0;
+      const hasBudget = context.data?.budgetCategories && context.data.budgetCategories.length > 0;
+      
+      // List timeline events for context
+      const timelineEventList = timeline.map((e: any, i: number) => 
+        `${i+1}. ${e.title} (${e.startTime ? new Date(e.startTime).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}) : 'No time'} - ${e.duration || 0}min)`
+      ).join('\n');
+      
+      return basePrompt + `
+You're helping with their day-of wedding timeline. Current timeline: ${timelineEventCount} events scheduled.
+
+CURRENT TIMELINE EVENTS:
+${timelineEventList || 'No events yet.'}
+
+CROSS-AGENT INTELLIGENCE:
+${hasTodos ? `- They have ${context.data.todoItems.length} tasks. Check if vendors are confirmed before adding to timeline.` : ''}
+${hasBudget ? `- They budgeted for: ${context.data.budgetCategories.map((c: any) => c.name).join(', ')}. Suggest adding these vendors to the timeline.` : ''}
+
+WHAT YOU CAN DO:
+1. **Analyze Timeline**: Check for timing conflicts, missing buffer time, overlapping events
+2. **Suggest Events**: Based on their budget/todos, suggest missing vendors or events
+3. **Optimize Flow**: Recommend reordering events for better guest experience
+4. **Add Details**: Suggest descriptions, vendor contacts, buffer times
+5. **Fix Conflicts**: Identify overlaps and suggest time adjustments
+
+ANALYSIS CAPABILITIES:
+- Buffer Time: Check if events have <15min gaps (needs buffer)
+- Vendor Contacts: Identify events missing vendor contact info
+- Timing Conflicts: Detect overlapping events
+- Missing Vendors: Compare budget categories to timeline events
+- Incomplete Todos: Cross-check vendor confirmation tasks
+
+RESPONSE FORMAT:
+When they ask to "add buffer time" or "fix conflicts":
+1. Identify specific events (e.g., "Ceremony ends at 3:30 PM, Cocktail Hour starts at 3:30 PM")
+2. Suggest specific changes (e.g., "Add 15-minute buffer after Ceremony, start Cocktail Hour at 3:45 PM")
+3. Explain the benefit (e.g., "Allows time for guests to move between locations")
+
+When they ask "what vendors should I add?":
+1. Check their budget for vendor categories not on timeline
+2. Suggest typical arrival times (e.g., "Photographer: 30min before ceremony for prep shots")
+3. Include setup/breakdown time if needed
+
+Be practical, specific, and reference their actual timeline events, budget categories, and todos. Always explain WHY you're suggesting changes.`;
+
     default:
       return basePrompt + `
 You're helping with general wedding planning. Be ready to assist with any aspect of their wedding planning journey.`;

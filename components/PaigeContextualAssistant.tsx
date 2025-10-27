@@ -310,6 +310,28 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
                     )}
                   </>
                 )}
+                {context === 'timeline' && (
+                  <>
+                    <button
+                      onClick={() => setChatInput('Check for timing conflicts')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Check conflicts
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Suggest vendor arrival times')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Vendor timing
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Optimize my timeline flow')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Optimize flow
+                    </button>
+                  </>
+                )}
               </div>
             )}
 

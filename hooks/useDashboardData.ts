@@ -1,4 +1,4 @@
-import { useDashboardData as useDashboardDataContext } from '@/contexts/DashboardDataContext';
+import { useDashboardData as useDashboardDataContext } from '@/contexts/AgentDataContext'; // ✨ Updated path
 
 /**
  * Custom hook that provides optimized dashboard data

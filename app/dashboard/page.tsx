@@ -30,7 +30,7 @@ import {
 import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWeddingInfoSidebar";
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
-import { DashboardDataProvider, useDashboardData } from "../../contexts/DashboardDataContext";
+import { useDashboardData } from "../../contexts/AgentDataContext"; // ✨ Now uses global provider
 import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
 import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
 
@@ -869,11 +869,7 @@ function DashboardContent() {
   );
 }
 
-// Main Dashboard component with provider wrapper
+// Main Dashboard component (now uses global AgentDataProvider)
 export default function Dashboard() {
-  return (
-    <DashboardDataProvider>
-      <DashboardContent />
-    </DashboardDataProvider>
-  );
+  return <DashboardContent />;
 }
