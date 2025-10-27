@@ -106,8 +106,8 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
       {/* Waitlist counter + bonus credits */}
       {waitlistCount !== null && (
         <div className="mb-4 text-center space-y-1">
-          <p className="font-work text-sm text-[#5A4A42]">
-            <span className="font-bold text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
+          <p className="font-work text-base font-semibold text-[#5A4A42]">
+            <span className="text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
           </p>
           <p className="font-work text-sm text-[#5A4A42]">
             Join for early access + <span className="font-semibold text-[#A85C36]">20 bonus credits</span> 🎁
