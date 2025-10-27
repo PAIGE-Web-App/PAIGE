@@ -105,31 +105,39 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
   return (
     <div className={`w-full max-w-md mx-auto ${className}`}>
       {/* Waitlist counter + bonus credits */}
-      {waitlistCount !== null && (
-        <div className="mb-4 text-center space-y-1">
-          <p className="font-work text-base font-semibold text-[#5A4A42]">
-            <span className="text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
-          </p>
-          <div className="flex items-center justify-center gap-1">
-            <p className="font-work text-sm text-[#5A4A42]">
-              Join for early access + <span className="font-semibold text-[#A85C36]">50 bonus credits</span> 🎁
-            </p>
-            <OptimizedTooltip
-              content={
-                <div className="text-left">
-                  <p className="font-semibold mb-1">What are AI credits?</p>
-                  <p>Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
-                </div>
-              }
-              position="top"
-              maxWidth="max-w-xs"
-              tooltipClassName="whitespace-normal"
-            >
-              <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors cursor-help" />
-            </OptimizedTooltip>
+      <div className="mb-4 text-center space-y-1">
+        {waitlistCount === null ? (
+          // Loading skeleton
+          <div className="animate-pulse space-y-1">
+            <div className="h-6 bg-gray-200 rounded w-64 mx-auto"></div>
+            <div className="h-5 bg-gray-200 rounded w-56 mx-auto"></div>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <p className="font-work text-base font-semibold text-[#5A4A42]">
+              <span className="text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
+            </p>
+            <div className="flex items-center justify-center gap-1">
+              <p className="font-work text-sm text-[#5A4A42]">
+                Join for early access + <span className="font-semibold text-[#A85C36]">50 bonus credits</span> 🎁
+              </p>
+              <OptimizedTooltip
+                content={
+                  <div className="text-left">
+                    <p className="font-semibold mb-1">What are AI credits?</p>
+                    <p>Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
+                  </div>
+                }
+                position="top"
+                maxWidth="max-w-xs"
+                tooltipClassName="whitespace-normal"
+              >
+                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors cursor-help" />
+              </OptimizedTooltip>
+            </div>
+          </>
+        )}
+      </div>
       
       <AnimatePresence mode="wait">
         {status === 'success' ? (
