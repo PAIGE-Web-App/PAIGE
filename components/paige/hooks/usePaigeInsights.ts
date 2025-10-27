@@ -379,8 +379,8 @@ export function usePaigeInsights({
           });
         }
 
-        // Priority 2: Final countdown (< 30 days)
-        if (daysUntilWedding <= 30) {
+        // Priority 2: Final countdown (≤ 45 days) - NON-DISMISSIBLE
+        if (daysUntilWedding && daysUntilWedding <= 45) {
           insights.push({
             id: 'dashboard-countdown',
             type: 'urgent',
@@ -390,7 +390,7 @@ export function usePaigeInsights({
               label: 'View priority tasks',
               onClick: () => window.location.href = '/todo'
             },
-            dismissible: true
+            dismissible: false // Always show in final 45 days!
           });
         }
 
@@ -442,15 +442,29 @@ export function usePaigeInsights({
           }
         }
 
-        // Priority 6: Wedding planning milestones
-        if (daysUntilWedding > 30 && daysUntilWedding <= 90 && totalTasks > 0) {
+        // Priority 6: Timeline-based milestones (dynamic) - only for 45+ days
+        if (daysUntilWedding > 45 && daysUntilWedding <= 90) {
+          // 45-90 days (1.5-3 months)
           insights.push({
             id: 'dashboard-milestone',
             type: 'tip',
-            title: '3 months to go - key planning time!',
-            description: 'Focus on finalizing vendors and confirming details.',
+            title: '2-3 months to go - finalize your plans!',
+            description: 'Focus on finalizing vendors, confirming details, and booking remaining services.',
             action: {
               label: 'Check vendors',
+              onClick: () => window.location.href = '/vendors'
+            },
+            dismissible: true
+          });
+        } else if (daysUntilWedding > 90 && daysUntilWedding <= 180) {
+          // 3-6 months out
+          insights.push({
+            id: 'dashboard-6months',
+            type: 'tip',
+            title: '3-6 months out - build your foundation',
+            description: 'Focus on booking key vendors and establishing your budget.',
+            action: {
+              label: 'View vendors',
               onClick: () => window.location.href = '/vendors'
             },
             dismissible: true
@@ -470,6 +484,131 @@ export function usePaigeInsights({
             },
             dismissible: true
           });
+        }
+
+        // Priority 8: Completed tasks this week (celebration)
+        const completedThisWeek = currentData?.completedThisWeek || 0;
+        if (completedThisWeek > 0) {
+          insights.push({
+            id: 'dashboard-weekly-progress',
+            type: 'celebration',
+            title: `${completedThisWeek} task${completedThisWeek > 1 ? 's' : ''} completed this week!`,
+            description: 'You\'re making great progress. Keep up the momentum!',
+            action: {
+              label: 'View progress',
+              onClick: () => window.location.href = '/todo'
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 9: Budget + Todo sync suggestion
+        if (currentData?.hasBudget && totalTasks > 0 && completedTasks < totalTasks) {
+          const progress = Math.round((completedTasks / totalTasks) * 100);
+          if (progress < 30) {
+            insights.push({
+              id: 'dashboard-sync-planning',
+              type: 'tip',
+              title: 'Sync your planning',
+              description: 'Review your budget alongside your to-dos to ensure you\'re on track financially.',
+              action: {
+                label: 'View budget',
+                onClick: () => window.location.href = '/budget'
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Priority 10: No budget but has tasks (missing planning element)
+        if (!currentData?.hasBudget && totalTasks > 5) {
+          insights.push({
+            id: 'dashboard-missing-budget',
+            type: 'reminder',
+            title: 'You have tasks but no budget',
+            description: `With ${totalTasks} tasks planned, create a budget to track your spending.`,
+            action: {
+              label: 'Create budget',
+              onClick: () => window.location.href = '/budget'
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 11: Has budget but no tasks (missing planning element)
+        if (currentData?.hasBudget && totalTasks === 0) {
+          insights.push({
+            id: 'dashboard-missing-tasks',
+            type: 'reminder',
+            title: 'You have a budget but no tasks',
+            description: 'Create to-do items to organize your planning timeline.',
+            action: {
+              label: 'Create tasks',
+              onClick: () => window.location.href = '/todo'
+            },
+            dismissible: true
+          });
+        }
+
+        // === FROM BUDGET AGENT (SURFACED ON DASHBOARD) ===
+        // Pull critical budget insights to show on dashboard
+        
+        // Budget Agent Insight: Budget exceeded
+        if (currentData?.hasBudget) {
+          const totalBudget = currentData?.totalBudget || 0;
+          const spent = currentData?.spent || 0;
+          if (totalBudget > 0 && spent > totalBudget) {
+            const overAmount = spent - totalBudget;
+            insights.push({
+              id: 'dashboard-budget-exceeded',
+              type: 'urgent',
+              title: `Budget exceeded by $${overAmount.toLocaleString()}!`,
+              description: 'Review your spending and adjust categories.',
+              action: {
+                label: 'Review budget',
+                onClick: () => window.location.href = '/budget'
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Budget Agent Insight: Overspending warning (80%+)
+        if (currentData?.hasBudget) {
+          const totalBudget = currentData?.totalBudget || 0;
+          const spent = currentData?.spent || 0;
+          const spendingPercent = totalBudget > 0 ? Math.round((spent / totalBudget) * 100) : 0;
+          if (spendingPercent >= 80 && spendingPercent < 100) {
+            insights.push({
+              id: 'dashboard-budget-warning',
+              type: 'reminder',
+              title: `${spendingPercent}% of budget spent`,
+              description: 'You\'re approaching your budget limit. Review remaining expenses.',
+              action: {
+                label: 'View budget',
+                onClick: () => window.location.href = '/budget'
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Budget Agent Insight: $0 spent (no activity)
+        if (currentData?.hasBudget && daysUntilWedding < 90) {
+          const spent = currentData?.spent || 0;
+          if (spent === 0) {
+            insights.push({
+              id: 'dashboard-no-spending',
+              type: 'tip',
+              title: '$0 spent with less than 3 months to go',
+              description: 'Start booking vendors and making deposits to secure your wedding.',
+              action: {
+                label: 'Browse vendors',
+                onClick: () => window.location.href = '/vendors'
+              },
+              dismissible: true
+            });
+          }
         }
 
       }

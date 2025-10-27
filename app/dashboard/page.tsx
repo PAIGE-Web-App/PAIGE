@@ -30,14 +30,17 @@ import {
 import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWeddingInfoSidebar";
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
-import { DashboardDataProvider } from "../../contexts/DashboardDataContext";
+import { DashboardDataProvider, useDashboardData } from "../../contexts/DashboardDataContext";
 import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
 import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
 
-
-export default function Dashboard() {
+// Inner component that consumes DashboardDataProvider
+function DashboardContent() {
   const { user, userName, loading } = useAuth();
   const router = useRouter();
+  
+  // Consume real-time data from DashboardDataProvider
+  const dashboardContext = useDashboardData();
   
   // Paige AI Assistant
   const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
@@ -545,7 +548,6 @@ export default function Dashboard() {
 
   return (
     <ClientOnly>
-      <DashboardDataProvider>
       <style jsx global>{`
         html, body {
           overflow-x: hidden;
@@ -800,13 +802,14 @@ export default function Dashboard() {
       additionalContext={typeof window !== 'undefined' ? localStorage.getItem('paige_ai_generation_context') || '' : ''}
     />
 
-      {/* Paige Contextual Assistant */}
-      {isPaigeEnabled && userData && (
+      {/* Paige Contextual Assistant - Using Real Dashboard Data */}
+      {isPaigeEnabled && dashboardContext.userData && (
         <div className="fixed bottom-12 right-12 max-w-sm z-30">
           <PaigeContextualAssistant
             context="dashboard"
             currentData={{
               daysUntilWedding: (() => {
+                const userData = dashboardContext.userData;
                 if (!userData.weddingDate) return undefined;
                 try {
                   let dateToUse = userData.weddingDate;
@@ -821,17 +824,56 @@ export default function Dashboard() {
                   return undefined;
                 }
               })(),
-              hasBudget: progressData?.hasBudget || false,
-              totalTasks: progressData?.totalTasks || 0,
-              completedTasks: progressData?.completedTasks || 0,
-              overdueTasks: progressData?.overdueTasks || 0,
-              upcomingDeadlines: progressData?.upcomingDeadlines || 0,
+              hasBudget: dashboardContext.progressData?.hasBudget || false,
+              totalTasks: dashboardContext.todoData?.length || 0,
+              completedTasks: dashboardContext.todoData?.filter((t: any) => t.isCompleted || t.completed).length || 0,
+              overdueTasks: (() => {
+                const now = new Date();
+                return dashboardContext.todoData?.filter((t: any) => {
+                  if (t.isCompleted || t.completed) return false;
+                  if (!t.deadline) return false;
+                  const deadline = t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline);
+                  return deadline < now;
+                }).length || 0;
+              })(),
+              upcomingDeadlines: (() => {
+                const now = new Date();
+                const nextWeek = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+                return dashboardContext.todoData?.filter((t: any) => {
+                  if (t.isCompleted || t.completed) return false;
+                  if (!t.deadline) return false;
+                  const deadline = t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline);
+                  return deadline >= now && deadline <= nextWeek;
+                }).length || 0;
+              })(),
+              completedThisWeek: (() => {
+                const now = new Date();
+                const weekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                return dashboardContext.todoData?.filter((t: any) => {
+                  if (!(t.isCompleted || t.completed)) return false;
+                  if (!t.deadline) return false;
+                  const deadline = t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline);
+                  return deadline >= weekAgo && deadline <= now;
+                }).length || 0;
+              })(),
+              // Budget data for multi-agent insights
+              totalBudget: dashboardContext.budgetData?.maxBudget || dashboardContext.userData?.maxBudget || 0,
+              spent: dashboardContext.budgetData?.totalSpent || 0,
+              allocated: dashboardContext.budgetData?.totalAllocated || 0,
             }}
           />
         </div>
       )}
 
-      </DashboardDataProvider>
     </ClientOnly>
+  );
+}
+
+// Main Dashboard component with provider wrapper
+export default function Dashboard() {
+  return (
+    <DashboardDataProvider>
+      <DashboardContent />
+    </DashboardDataProvider>
   );
 }
