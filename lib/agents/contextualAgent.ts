@@ -20,17 +20,20 @@ const contextSchema = z.object({
   }).optional(),
 });
 
+// Define insight action schema separately to avoid deep nesting issues with zod
+const insightActionSchema = z.object({
+  label: z.string(),
+  action: z.string(),
+  primary: z.boolean().optional(),
+});
+
 // Define insight types with more flexible schema
 const insightSchema = z.object({
   type: z.enum(['urgent', 'opportunity', 'recommendation', 'optimization']),
   title: z.string(),
   description: z.string(),
   actionable: z.boolean().optional(),
-  actions: z.array(z.object({
-    label: z.string(),
-    action: z.string(),
-    primary: z.boolean().optional(),
-  })).optional(),
+  actions: z.array(insightActionSchema).optional(),
   priority: z.enum(['high', 'medium', 'low']).optional(),
   context: z.string().optional(), // Which page/context this applies to
 });
