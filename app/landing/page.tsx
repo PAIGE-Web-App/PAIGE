@@ -31,6 +31,7 @@ import {
 import Link from "next/link";
 import HomepageNavbar from '@/components/navigation/HomepageNavbar';
 import HomepageFooter from '@/components/navigation/HomepageFooter';
+import WaitlistForm from '@/components/WaitlistForm';
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
@@ -183,7 +184,7 @@ export default function LandingPage() {
 
   return (
     <div className="bg-linen text-[#332B42] antialiased">
-      {/* Mobile sticky CTA */}
+      {/* Mobile sticky CTA - Temporarily hidden for waitlist phase
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t-[0.5px] border-[rgb(236,233,231)] bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70 lg:hidden">
         <div className="px-4 mx-auto py-3 flex items-center gap-3 max-w-7xl">
           <Link href="/signup" className="btn-primary flex-1 text-center no-underline">
@@ -194,6 +195,7 @@ export default function LandingPage() {
           </Link>
         </div>
       </div>
+      */}
 
       {/* NAVBAR */}
       <div className="sticky top-0 z-30 pt-4 px-4">
@@ -214,6 +216,7 @@ export default function LandingPage() {
             <Link href="/privacy" className="text-[#332B42] hover:text-[#332B42] no-underline">Privacy</Link>
             <Link href="/terms" className="text-[#332B42] hover:text-[#332B42] no-underline">Terms</Link>
           </nav>
+          {/* Temporarily hidden for waitlist phase
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="btn-primaryinverse no-underline w-24 text-center whitespace-nowrap">
               Login
@@ -222,6 +225,7 @@ export default function LandingPage() {
               Start for Free
             </Link>
           </div>
+          */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-gray-100" 
@@ -240,6 +244,7 @@ export default function LandingPage() {
               <a href="#pricing" className="py-2 no-underline">Pricing</a>
               <Link href="/privacy" className="py-2 no-underline">Privacy</Link>
               <Link href="/terms" className="py-2 no-underline">Terms</Link>
+              {/* Temporarily hidden for waitlist phase
               <div className="flex gap-3 pt-2">
                 <Link href="/login" className="btn-primaryinverse flex-1 text-center no-underline">
                   Sign in
@@ -248,6 +253,7 @@ export default function LandingPage() {
                   Start Free
                 </Link>
               </div>
+              */}
             </div>
           </div>
         )}
@@ -264,17 +270,17 @@ export default function LandingPage() {
                 <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
               <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work text-base lg:text-lg">
-                Paige is an AI wedding-planning web app that helps couples plan their wedding by generating and tracking to-dos, budgets, timelines, and vendor outreach - all in one place.
+                Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication—all in one beautiful app. Join the waitlist to be among the first to experience Paige AI.
               </p>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-                <Link href="/signup" className="btn-primary no-underline px-8 py-3 text-center whitespace-nowrap">
-                  Start Free Trial
-                </Link>
-                <Link href="/login" className="btn-primaryinverse no-underline px-8 py-3 text-center whitespace-nowrap">
-                  Get A Demo
-                </Link>
+              
+              {/* Waitlist Form */}
+              <div className="mt-10">
+                <WaitlistForm variant="hero" />
               </div>
-              <p className="mt-4 text-sm text-[#5A4A42]">No credit card needed • Cancel anytime</p>
+              
+              <p className="mt-4 text-sm text-[#5A4A42] font-work">
+                Join the waitlist to be notified when Paige AI launches
+              </p>
             </div>
           </div>
 
