@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface WaitlistFormProps {
@@ -17,6 +17,7 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
   const [errorMessage, setErrorMessage] = useState('');
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [source, setSource] = useState<string>('direct');
+  const [showCreditsInfo, setShowCreditsInfo] = useState(false);
 
   // Capture UTM source on mount
   useEffect(() => {
@@ -109,9 +110,44 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
           <p className="font-work text-base font-semibold text-[#5A4A42]">
             <span className="text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
           </p>
-          <p className="font-work text-sm text-[#5A4A42]">
-            Join for early access + <span className="font-semibold text-[#A85C36]">20 bonus credits</span> 🎁
-          </p>
+          <div className="flex items-center justify-center gap-1">
+            <p className="font-work text-sm text-[#5A4A42]">
+              Join for early access + <span className="font-semibold text-[#A85C36]">50 bonus credits</span> 🎁
+            </p>
+            <div className="relative">
+              <button
+                type="button"
+                onMouseEnter={() => setShowCreditsInfo(true)}
+                onMouseLeave={() => setShowCreditsInfo(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Credits information"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+              
+              {/* Popover */}
+              <AnimatePresence>
+                {showCreditsInfo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50"
+                  >
+                    <div className="text-xs font-work text-gray-700 leading-relaxed">
+                      <p className="font-semibold text-[#A85C36] mb-1">What are AI credits?</p>
+                      <p>Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
+                    </div>
+                    {/* Arrow pointing down at icon */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                      <div className="w-2 h-2 bg-white border-r border-b border-gray-200 rotate-45"></div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
       )}
       

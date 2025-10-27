@@ -437,7 +437,7 @@ export const sendWaitlistConfirmationEmail = async (
                 You'll be among the first to know when Paige AI launches. We'll send you exclusive early access as soon as it's ready.
               </p>
               <p style="margin: 0; color: #A85C36; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6; font-weight: 600;">
-                🎁 As a thank you, you'll receive 20 bonus credits when you sign up!
+                🎁 As a thank you, you'll receive 50 bonus credits when you sign up!
               </p>
             </div>
             
