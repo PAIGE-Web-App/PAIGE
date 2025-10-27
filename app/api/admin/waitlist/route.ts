@@ -24,11 +24,9 @@ export async function GET(request: NextRequest) {
 
     const userId = decodedToken.uid;
     
-    // Check if user has admin privileges
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+    // Check if user is the app owner (your user ID)
+    const ADMIN_USER_ID = 'saFckG3oMpV6ZSVjJYdNNiM9qT62';
+    if (userId !== ADMIN_USER_ID) {
       return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 

@@ -279,7 +279,7 @@ export default function LandingPage() {
               </div>
               
               <p className="mt-4 text-sm text-[#5A4A42] font-work">
-                Join the waitlist to be notified when Paige AI launches
+                Join the waitlist for early access + <span className="font-semibold text-[#A85C36]">20 bonus credits</span> 🎁
               </p>
             </div>
           </div>

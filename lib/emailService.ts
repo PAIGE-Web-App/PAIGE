@@ -433,8 +433,11 @@ export const sendWaitlistConfirmationEmail = async (
             
             <div style="background-color: #f8f6f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #A85C36; margin: 0 0 15px 0; font-family: 'Work Sans', Arial, sans-serif; font-size: 16px;">What happens next?</h3>
-              <p style="margin: 0; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6;">
+              <p style="margin: 0 0 10px 0; color: #332B42; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6;">
                 You'll be among the first to know when Paige AI launches. We'll send you exclusive early access as soon as it's ready.
+              </p>
+              <p style="margin: 0; color: #A85C36; font-family: 'Work Sans', Arial, sans-serif; line-height: 1.6; font-weight: 600;">
+                🎁 As a thank you, you'll receive 20 bonus credits when you sign up!
               </p>
             </div>
             
