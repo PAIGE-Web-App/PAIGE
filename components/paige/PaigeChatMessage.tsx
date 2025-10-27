@@ -31,7 +31,7 @@ const PaigeChatMessage: React.FC<PaigeChatMessageProps> = React.memo(({
       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+        className={`max-w-[85%] rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
           message.role === 'user'
             ? 'bg-purple-500 text-white'
             : 'bg-gray-100 text-gray-900'
@@ -51,7 +51,7 @@ const PaigeChatMessage: React.FC<PaigeChatMessageProps> = React.memo(({
               <button
                 key={actionIndex}
                 onClick={action.onClick}
-                className="px-3 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors"
+                className="px-3 py-1 bg-purple-500 text-white text-[13px] rounded hover:bg-purple-600 transition-colors"
                 aria-label={action.label}
               >
                 {action.label}

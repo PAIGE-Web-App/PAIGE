@@ -80,6 +80,7 @@ export interface UsePaigeInsightsProps {
   todoComputations: PaigeTodoComputations;
   userId?: string;
   handleAddDeadlines: (todos: any[], daysUntilWedding: number) => void;
+  openChatWithMessage?: (message: string) => void;
 }
 
 export interface UsePaigeInsightsReturn {
@@ -93,7 +94,8 @@ export function usePaigeInsights({
   currentData,
   todoComputations,
   userId,
-  handleAddDeadlines
+  handleAddDeadlines,
+  openChatWithMessage
 }: UsePaigeInsightsProps): UsePaigeInsightsReturn {
   const [currentInsights, setCurrentInsights] = useState<PaigeInsight[]>([]);
   const [dismissedInsights, setDismissedInsights] = useState<Set<string>>(new Set());
@@ -281,7 +283,28 @@ export function usePaigeInsights({
           });
         }
 
-        // Priority 9: Celebrate good progress
+        // Priority 9: Suggest more todos for small/specific lists
+        if (isSpecificList && incompleteTodos.length > 0 && incompleteTodos.length <= 3) {
+          const listName = currentData?.selectedList || 'this list';
+          insights.push({
+            id: 'suggest-more-todos',
+            type: 'tip',
+            title: `Want more tasks for "${listName}"?`,
+            description: `You have ${incompleteTodos.length} task${incompleteTodos.length > 1 ? 's' : ''}. I can suggest related tasks to help you stay organized.`,
+            action: {
+              label: 'Suggest to-dos',
+              onClick: () => {
+                // Use callback to open chat and auto-send
+                if (openChatWithMessage) {
+                  openChatWithMessage('Suggest more to-do items for this list');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 10: Celebrate good progress
         if (currentData?.completedTasks && currentData?.totalTasks && currentData.completedTasks > 0) {
           const progress = Math.round((currentData.completedTasks / currentData.totalTasks) * 100);
           if (progress >= 50) {
@@ -296,6 +319,30 @@ export function usePaigeInsights({
                   const addButton = document.querySelector('[data-action="add-todo"]') as HTMLElement;
                   if (addButton) addButton.click();
                 }
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Priority 10.5: Cross-agent - Budget sync (if budget available)
+        if (currentData?.hasBudget && currentData?.totalBudget && currentData.totalBudget > 0) {
+          const budget = currentData.totalBudget;
+          const highBudgetTodo = incompleteTodos.find(todo => {
+            if (!todo.name) return false;
+            const name = todo.name.toLowerCase();
+            return name.includes('venue') || name.includes('catering') || name.includes('photo') || name.includes('floral');
+          });
+          
+          if (highBudgetTodo) {
+            insights.push({
+              id: 'todo-budget-sync',
+              type: 'tip',
+              title: 'Sync with your budget',
+              description: `${highBudgetTodo.name} is a major expense. Have you allocated budget for this?`,
+              action: {
+                label: 'Check budget',
+                onClick: () => window.location.href = '/budget'
               },
               dismissible: true
             });
@@ -1120,6 +1167,29 @@ export function usePaigeInsights({
             // No action button - tax should be built into item amounts, not a separate category
             dismissible: true
           });
+        }
+
+        // Priority 18: Cross-agent - Budget-Todo sync (if todos available)
+        if (currentData?.totalTasks !== undefined && currentData.totalTasks > 0) {
+          const unassignedBudgetCategories = categories.filter(cat => {
+            if (!cat.name) return false;
+            const name = cat.name.toLowerCase();
+            return (name.includes('venue') || name.includes('photography') || name.includes('floral') || name.includes('entertainment')) && cat.spentAmount === 0;
+          });
+
+          if (unassignedBudgetCategories.length > 0) {
+            insights.push({
+              id: 'budget-todo-sync',
+              type: 'tip',
+              title: `${unassignedBudgetCategories.length} major categories not yet booked`,
+              description: `Do you have corresponding tasks to book these vendors? Make sure your to-do list matches your budget categories.`,
+              action: {
+                label: 'View to-dos',
+                onClick: () => window.location.href = '/todo'
+              },
+              dismissible: true
+            });
+          }
         }
       }
 

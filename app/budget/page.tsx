@@ -831,6 +831,9 @@ export default function BudgetPage() {
               })) || [],
               daysUntilWedding: daysLeft || undefined,
               weddingLocation: weddingLocation || undefined,
+              // Cross-agent data: Todo info for budget-todo sync
+              totalTasks: 0, // Budget page doesn't load todos - using 0 to indicate unknown
+              hasBudget: budget.budgetCategories.length > 0
             }}
           />
         </div>

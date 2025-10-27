@@ -99,21 +99,66 @@ CURRENT PAGE CONTEXT:`;
 
   switch (context.page) {
     case 'todo':
+      const selectedList = context.data?.selectedList || 'All To-Do Items';
+      const selectedListId = context.data?.selectedListId;
+      const allTodos = context.data?.todoItems || [];
+      
+      // Filter to current list if specific list is selected
+      let relevantTodos = allTodos;
+      if (selectedListId && selectedListId !== 'all' && selectedListId !== 'completed') {
+        relevantTodos = allTodos.filter((t: any) => t.listId === selectedListId);
+      }
+      
+      const todoNames = relevantTodos.map((t: any) => t.name).join(', ');
+      
       return basePrompt + `
-You're helping with their todo list. Focus on:
-- Task prioritization based on wedding timeline
-- Breaking down large tasks into smaller ones
-- Deadline suggestions
-- Organization and workflow optimization
-- Celebrating completed tasks
+You're helping with their todo list. Current list: "${selectedList}"
+
+CURRENT TASKS IN "${selectedList}":
+${relevantTodos.length > 0 ? relevantTodos.map((t: any, i: number) => `${i + 1}. ${t.name}${t.category ? ` (${t.category})` : ''}`).join('\n') : 'No tasks yet'}
+
+WHEN SUGGESTING NEW TODO ITEMS:
+1. ANALYZE EXISTING TASKS: Look at what they already have in "${selectedList}"
+2. SUGGEST RELATED TASKS: Based on the theme/category of existing tasks
+3. BE SPECIFIC: If they have "Research Wedding Bands", suggest:
+   - "Schedule jewelry consultation"
+   - "Compare band prices at 3+ jewelers"
+   - "Select band style and materials"
+   - "Order custom wedding bands"
+   - NOT generic tasks like "Book venue" or "Send invitations"
+4. MATCH THE LIST THEME: If "${selectedList}" is focused on jewelry/bands, suggest jewelry-related tasks
+5. COMPLEMENTARY TASKS: Suggest tasks that naturally follow or support existing ones
+6. LIMIT TO 3-5 TASKS: Don't overwhelm with too many suggestions
+
+IMPORTANT FOR TODO SUGGESTIONS:
+After listing suggested tasks, you MUST end your response with this EXACT format:
+---SUGGESTED_TODOS---
+TaskName1||Category
+TaskName2||Category
+TaskName3||Category
+---END_TODOS---
+
+Example:
+"Here are 5 tasks for your 'qq' list:
+1. Schedule jewelry consultation
+2. Compare band prices at 3+ jewelers
+3. Select band style and materials
+
+---SUGGESTED_TODOS---
+Schedule jewelry consultation||Wedding
+Compare band prices at 3+ jewelers||Wedding
+Select band style and materials||Wedding
+---END_TODOS---"
+
+This allows the system to parse and create these tasks with one click!
 
 VENDOR-RELATED TODOS:
-When discussing vendor-related tasks (jewelry, photography, venues, etc.) and they ask for "suggestions":
-- Assume they want vendor recommendations, NOT task management tips
+When discussing vendor-related tasks and they ask for "vendor suggestions":
 - Guide them to browse the /vendors page with the appropriate category
-- Or suggest: "I can help you find jewelers! Click 'Browse Jewelers' above to see vendors in your area, or I can suggest what to look for in a great jeweler."
+- Or suggest what to look for in vendors
 
-Current todos: ${JSON.stringify(context.data?.todoItems || [], null, 2)}`;
+Focus on task organization, prioritization, and suggesting CONTEXTUAL tasks that relate to what's already in "${selectedList}".`;
+
 
     case 'budget':
       return basePrompt + `

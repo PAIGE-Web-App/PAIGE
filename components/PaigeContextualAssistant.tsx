@@ -94,7 +94,17 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
     currentData,
     todoComputations,
     userId: user?.uid,
-    handleAddDeadlines
+    handleAddDeadlines,
+    // Pass chat controls for insight actions that need to open chat
+    openChatWithMessage: (message: string) => {
+      setIsChatOpen(true);
+      setShowSuggestions(false);
+      setChatInput(message);
+      // Auto-send after state updates
+      setTimeout(() => {
+        handleSendMessage();
+      }, 100);
+    }
   });
 
   // Show minimized floating button
@@ -112,7 +122,9 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`bg-white rounded-lg shadow-lg border border-gray-200 font-work ${className}`}
-      style={{ width: isChatOpen ? '420px' : '360px' }}
+      style={{ 
+        width: '360px' // Fixed width - no resizing
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">
@@ -162,14 +174,19 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
       <div className="p-3">
         {/* Show multiple insights if available and suggestions are shown */}
         {showSuggestions && currentInsights.length > 0 && (
-          <div className="max-h-96 overflow-y-auto space-y-3 mb-3">
+          <div className="max-h-96 overflow-y-auto mb-3">
             {currentInsights.map((insight, index) => (
-              <PaigeInsightCard
-                key={insight.id}
-                insight={insight}
-                index={index}
-                onDismiss={dismissInsight}
-              />
+              <div key={insight.id}>
+                <PaigeInsightCard
+                  insight={insight}
+                  index={index}
+                  onDismiss={dismissInsight}
+                />
+                {/* Divider between suggestions (except last) */}
+                {index < currentInsights.length - 1 && (
+                  <div className="border-b border-gray-100 my-4" />
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -183,9 +200,9 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
             className="space-y-3"
           >
             {/* Chat Messages */}
-            <div className="max-h-80 overflow-y-auto space-y-2">
+            <div className={`overflow-y-auto space-y-2 ${chatMessages.length === 0 ? 'min-h-60' : 'max-h-80'}`}>
               {chatMessages.length === 0 && (
-                <div className="text-xs text-gray-500 text-center py-2">
+                <div className="text-[13px] text-gray-500 text-center py-8">
                   Hi! Ask me anything about your wedding planning! 💜
                 </div>
               )}
@@ -212,6 +229,90 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
               )}
             </div>
 
+            {/* Contextual Quick Actions - Only show when no messages */}
+            {chatMessages.length === 0 && (
+              <div className="flex flex-wrap gap-2 mb-2 justify-end">
+                {context === 'todo' && (
+                  <>
+                    <button
+                      onClick={() => setChatInput('Suggest more to-do items for this list')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Suggest to-dos
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Add deadlines to my tasks')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Add deadlines
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Help me prioritize my tasks')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Prioritize tasks
+                    </button>
+                  </>
+                )}
+                {context === 'budget' && (
+                  <>
+                    <button
+                      onClick={() => setChatInput('Review my budget allocation')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Review budget
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Am I overspending anywhere?')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      Check spending
+                    </button>
+                  </>
+                )}
+                {context === 'dashboard' && (
+                  <>
+                    <button
+                      onClick={() => setChatInput('What should I focus on today?')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      What's next?
+                    </button>
+                    <button
+                      onClick={() => setChatInput('Show my overall progress')}
+                      className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                    >
+                      My progress
+                    </button>
+                    {(!currentData?.hasBudget && currentData?.totalTasks > 0) && (
+                      <button
+                        onClick={() => window.location.href = '/budget'}
+                        className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                      >
+                        Create budget
+                      </button>
+                    )}
+                    {(currentData?.totalTasks === 0 && currentData?.hasBudget) && (
+                      <button
+                        onClick={() => window.location.href = '/todo'}
+                        className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                      >
+                        Create to-dos
+                      </button>
+                    )}
+                    {(currentData?.totalTasks > 0 && currentData?.hasBudget) && (
+                      <button
+                        onClick={() => setChatInput('Help me sync my budget and to-do list')}
+                        className="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded-full hover:bg-purple-100 transition-colors border border-purple-200"
+                      >
+                        Sync planning
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Chat Input */}
             <div className="flex space-x-2">
               <input
@@ -220,15 +321,16 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Ask Paige..."
-                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="flex-1 px-2 py-1.5 text-[13px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim() || isLoading}
-                className="px-2 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50 text-xs"
+                className="px-2 py-1.5 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
+                aria-label="Send message"
               >
-                <Send className="w-3 h-3" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
           </motion.div>

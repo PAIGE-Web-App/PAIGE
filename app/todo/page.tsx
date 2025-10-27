@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import { useAuth } from '@/hooks/useAuth';
 import { useQuickStartCompletion } from '@/hooks/useQuickStartCompletion';
 import { db } from '@/lib/firebase';
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, updateDoc, collection, setDoc, Timestamp } from 'firebase/firestore';
 
 // UI component imports - keep essential ones for initial load
 import Banner from '@/components/Banner';
@@ -98,7 +98,7 @@ export default function TodoPage() {
 
 
   // Use shared user profile data hook
-  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation } = useUserProfileData();
+  const { userName, daysLeft, profileLoading, weddingDate, weddingLocation, budget } = useUserProfileData();
   
   // Track Quick Start Guide completion
   useQuickStartCompletion();
@@ -135,13 +135,24 @@ export default function TodoPage() {
       }
     };
 
-    const handlePaigeReorderTodos = (event: CustomEvent) => {
+    const handlePaigeReorderTodos = async (event: CustomEvent) => {
       const { newOrder } = event.detail;
-      console.log('Paige reordering todos:', newOrder);
+      console.log('🔄 Paige reordering todos:', newOrder);
       
-      // Implement reordering logic here
-      // This would need to update the orderIndex of each todo
-      // For now, just log it
+      if (!newOrder || !Array.isArray(newOrder) || !user) return;
+      
+      try {
+        // Update orderIndex for each todo based on new order
+        const updatePromises = newOrder.map((todoId: string, index: number) => {
+          const todoRef = doc(db, 'users', user.uid, 'todoItems', todoId);
+          return updateDoc(todoRef, { orderIndex: index });
+        });
+        
+        await Promise.all(updatePromises);
+        console.log('✅ Todos reordered successfully');
+      } catch (error) {
+        console.error('❌ Error reordering todos:', error);
+      }
     };
 
     const handlePaigeCompleteTodo = (event: CustomEvent) => {
@@ -163,11 +174,39 @@ export default function TodoPage() {
       if (updates.note) todoItems.handleUpdateTodoNote(todoId, updates.note);
     };
 
+    const handlePaigeCreateTodos = async (event: CustomEvent) => {
+      const { todos, listId, listName } = event.detail;
+      console.log('🎯 Paige creating todos:', { todos, listId, listName });
+      
+      if (!todos || !Array.isArray(todos) || todos.length === 0 || !user) return;
+      
+      try {
+        // Create each todo directly in Firestore with the specific listId
+        for (const todo of todos) {
+          const todoRef = doc(collection(db, 'users', user.uid, 'todoItems'));
+          await setDoc(todoRef, {
+            name: todo.name,
+            category: todo.category || 'Wedding',
+            listId: listId || null,
+            isCompleted: false,
+            userId: user.uid,
+            createdAt: Timestamp.now(),
+            orderIndex: Date.now() // Use timestamp for unique ordering
+          });
+        }
+        
+        console.log(`✅ Created ${todos.length} todos in "${listName}"`);
+      } catch (error) {
+        console.error('❌ Error creating todos:', error);
+      }
+    };
+
     // Add event listeners
     window.addEventListener('paige-add-deadline', handlePaigeAddDeadline as EventListener);
     window.addEventListener('paige-reorder-todos', handlePaigeReorderTodos as EventListener);
     window.addEventListener('paige-complete-todo', handlePaigeCompleteTodo as EventListener);
     window.addEventListener('paige-update-todo', handlePaigeUpdateTodo as EventListener);
+    window.addEventListener('paige-create-todos', handlePaigeCreateTodos as EventListener);
 
     // Cleanup
     return () => {
@@ -175,6 +214,7 @@ export default function TodoPage() {
       window.removeEventListener('paige-reorder-todos', handlePaigeReorderTodos as EventListener);
       window.removeEventListener('paige-complete-todo', handlePaigeCompleteTodo as EventListener);
       window.removeEventListener('paige-update-todo', handlePaigeUpdateTodo as EventListener);
+      window.removeEventListener('paige-create-todos', handlePaigeCreateTodos as EventListener);
     };
   }, [todoItems]);
 
@@ -902,7 +942,10 @@ export default function TodoPage() {
               selectedList: todoLists.selectedList?.name || 'All To-Do Items',
               selectedListId: todoLists.selectedList?.id || null,
               weddingLocation: weddingLocation || undefined,
-              todoItems: todoItems.allTodoItems || []
+              todoItems: todoItems.allTodoItems || [],
+              // Cross-agent data: Budget info for smarter vendor suggestions
+              hasBudget: budget && typeof budget === 'string' ? (parseInt(budget.replace(/[^0-9]/g, '')) > 0) : false,
+              totalBudget: budget && typeof budget === 'string' ? parseInt(budget.replace(/[^0-9]/g, '')) : 0
             }}
           />
         </div>
