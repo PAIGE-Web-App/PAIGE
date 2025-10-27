@@ -49,6 +49,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/pcirclealt.png" type="image/png" />
         <link rel="apple-touch-icon" href="/pcirclealt.png" />
         
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-0TXSBJMJPG"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-0TXSBJMJPG');
+          `}
+        </Script>
+        
         {/* Prevent white screen flash */}
         <style jsx global>{`
           html, body {
