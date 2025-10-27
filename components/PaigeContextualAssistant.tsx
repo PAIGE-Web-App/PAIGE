@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { MessageCircle, Send, Zap, X } from 'lucide-react';
+import { MessageCircle, Send, Zap, X, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PaigeContextualAssistantProps } from '@/types/paige';
 
@@ -117,10 +117,11 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs">✨</span>
-          </div>
+          <Sparkles className="w-4 h-4 text-purple-500" />
           <h3 className="text-sm font-semibold text-gray-800">Paige</h3>
+          <span className="px-2 text-[10px] font-medium bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-full">
+            New
+          </span>
         </div>
         <div className="flex items-center space-x-1">
           <button

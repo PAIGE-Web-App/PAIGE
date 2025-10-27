@@ -44,10 +44,10 @@ const PaigeInsightCard: React.FC<PaigeInsightCardProps> = React.memo(({
       <div className="flex items-start space-x-2">
         <InsightIcon type={insight.type} />
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm text-gray-900 mb-1">
+          <h4 className="text-xs font-medium text-gray-800 mb-1 font-work">
             {insight.title}
           </h4>
-          <p className="text-xs text-gray-600 mb-2">
+          <p className="text-xs text-gray-600 mb-2 font-work">
             {insight.description}
           </p>
           {insight.action && (
