@@ -83,6 +83,14 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
         setStatus('success');
         setEmail('');
         setName('');
+        
+        // Track successful waitlist signup in Google Analytics
+        if (typeof window !== 'undefined' && (window as any).gtag) {
+          (window as any).gtag('event', 'waitlist_signup_confirmation', {
+            method: source || 'direct',
+            timestamp: new Date().toISOString()
+          });
+        }
       } else if (response.status === 409) {
         setStatus('duplicate');
         setErrorMessage('Email already on waitlist');
