@@ -3,6 +3,9 @@ const nextConfig = {
   // Disable React Strict Mode in development to prevent double rendering and improve performance
   reactStrictMode: process.env.NODE_ENV === 'production',
   
+  // Security: Remove X-Powered-By header to prevent server fingerprinting
+  poweredByHeader: false,
+  
   // Optimize serverless function size for Vercel
   outputFileTracingRoot: __dirname,
   
@@ -197,6 +200,10 @@ const nextConfig = {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
           },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
         ],
       },
       // Images - medium cache
@@ -249,13 +256,29 @@ const nextConfig = {
           },
         ],
       },
-      // Default for other pages - short cache
+      // Default for other pages - short cache + security headers
       {
         source: '/(.*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=60, stale-while-revalidate=300',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
           },
         ],
       },
