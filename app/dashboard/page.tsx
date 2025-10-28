@@ -30,6 +30,7 @@ import {
 import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWeddingInfoSidebar";
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
+import DashboardBudgetMetrics from "../../components/dashboard/DashboardBudgetMetrics";
 import { useDashboardData, useAgentData } from "../../contexts/AgentDataContext"; // ✨ Now uses global provider
 import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
 import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
@@ -624,6 +625,16 @@ function DashboardContent() {
               </button>
             </div>
           </div>
+
+          {/* Budget Metrics - Show if user has a budget */}
+          {agentData?.budgetData?.maxBudget > 0 && (
+            <DashboardBudgetMetrics
+              maxBudget={agentData.budgetData.maxBudget}
+              totalSpent={agentData.budgetData.totalSpent || 0}
+              projectedSpend={agentData.budgetData.totalAllocated || 0}
+              isLoading={agentData.loading}
+            />
+          )}
 
           {/* Conditional Dashboard Blocks */}
           <OptimizedConditionalDashboardBlocks />
