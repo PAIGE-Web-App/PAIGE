@@ -119,13 +119,9 @@ export default function AccountTab({
     try {
       setResetPasswordLoading(true);
       
-      // Configure action code settings to use our custom reset page
-      const actionCodeSettings = {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: false,
-      };
-      
-      await sendPasswordResetEmail(getAuth(), email, actionCodeSettings);
+      // Use Firebase's default password reset (no custom actionCodeSettings needed)
+      // The reset link will use Firebase's default handler which redirects to our app
+      await sendPasswordResetEmail(getAuth(), email);
       showSuccessToast("Password reset email sent!");
     } catch (err: any) {
       console.error("Password reset error:", err);
