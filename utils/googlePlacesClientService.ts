@@ -60,10 +60,11 @@ export class GooglePlacesClientService {
       console.log('🔧 Initializing Google Places client service...');
       
       // Get API key from environment (client-side)
-      this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || null;
+      // Use GOOGLE_MAPS_API_KEY as it's the same key for both Maps and Places APIs
+      this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null;
       
       if (!this.apiKey) {
-        console.error('❌ No Google Places API key found');
+        console.error('❌ No Google Maps API key found');
         return false;
       }
 

@@ -31,6 +31,7 @@ import OptimizedWeddingInfoSidebar from "../../components/dashboard/OptimizedWed
 import OptimizedConditionalDashboardBlocks from "../../components/dashboard/OptimizedConditionalDashboardBlocks";
 import OptimizedQuickGuideCards from "../../components/dashboard/OptimizedQuickGuideCards";
 import DashboardBudgetMetrics from "../../components/dashboard/DashboardBudgetMetrics";
+import DashboardRecentlyViewedVendors from "../../components/dashboard/DashboardRecentlyViewedVendors";
 import { useDashboardData, useAgentData } from "../../contexts/AgentDataContext"; // ✨ Now uses global provider
 import PaigeContextualAssistant from "../../components/PaigeContextualAssistant";
 import { isPaigeChatEnabled } from "../../hooks/usePaigeChat";
@@ -638,6 +639,9 @@ function DashboardContent() {
 
           {/* Conditional Dashboard Blocks */}
           <OptimizedConditionalDashboardBlocks />
+
+          {/* Recently Viewed Vendors */}
+          <DashboardRecentlyViewedVendors />
           
           {/* Quick Guide Cards Section */}
           <OptimizedQuickGuideCards 

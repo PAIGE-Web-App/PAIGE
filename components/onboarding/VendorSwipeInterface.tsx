@@ -307,7 +307,7 @@ const VendorSwipeInterface: React.FC<VendorSwipeInterfaceProps> = ({
       if (detailsResult.success && detailsResult.place?.photos && detailsResult.place.photos.length > 0) {
         const data = { photos: detailsResult.place.photos };
         const imageUrls = data.photos.map((photo: any) => 
-          `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`
+          `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo.photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
         );
         
         setLoadedImages(prev => ({
