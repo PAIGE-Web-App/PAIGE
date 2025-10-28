@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebaseAdmin";
 
+// Whitelist of allowed origins for CORS
+const ALLOWED_ORIGINS = [
+  'https://weddingpaige.com',
+  'https://www.weddingpaige.com',
+  'http://localhost:3000', // Development only
+];
+
 export async function OPTIONS(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': req.headers.get('origin') || 'http://localhost:3000',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
@@ -57,9 +67,12 @@ export async function POST(req: Request) {
         const cookieValue = `__session=${decodedToken}; ${cookieOptions}`;
         response.headers.append("Set-Cookie", cookieValue);
         
-        // Add CORS headers to allow cookies
+        // Add CORS headers to allow cookies (whitelist only allowed origins)
+        const origin = req.headers.get('origin') || '';
+        const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+        
         response.headers.set('Access-Control-Allow-Credentials', 'true');
-        response.headers.set('Access-Control-Allow-Origin', req.headers.get('origin') || 'http://localhost:3000');
+        response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
         response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         
