@@ -563,12 +563,14 @@ function DashboardContent() {
         @media (max-width: 768px) {
           html, body {
             height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
           }
           .mobile-scroll-container {
             height: 100vh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            position: relative;
           }
         }
         /* Desktop: Normal scrolling */
@@ -596,18 +598,18 @@ function DashboardContent() {
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-black/50 z-0"></div>
             <div className="relative z-10 max-w-1/2">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <h5 className="text-white">
                   Let Paige Create Your Wedding Plan
                 </h5>
                 <span
-                  className="inline-flex items-center text-[10px] lg:text-xs font-medium rounded-full px-2 lg:px-2 py-0 lg:py-0.5 border"
+                  className="inline-flex items-center text-[10px] lg:text-xs font-medium rounded-full px-2 lg:px-2 py-0 lg:py-0.5 border shrink-0"
                   style={{ backgroundColor: 'white', borderColor: 'white', color: '#805d93' }}
                 >
                   New
                 </span>
               </div>
-                <p className="text-white text-sm mb-6 w-1/2 font-work">
+                <p className="text-white text-sm mb-6 w-full lg:w-1/2 font-work">
                   Get personalized todos, budget, and vendor recommendations based on your wedding details.
                 </p>
               <button
@@ -805,7 +807,6 @@ function DashboardContent() {
 
       {/* Paige Contextual Assistant - Using Real Dashboard Data */}
       {isPaigeEnabled && dashboardContext.userData && (
-        <div className="fixed bottom-12 right-12 max-w-sm z-30">
           <PaigeContextualAssistant
             context="dashboard"
             currentData={{
@@ -865,7 +866,6 @@ function DashboardContent() {
               timelineData: agentData.timelineData || [],
             }}
           />
-        </div>
       )}
 
     </ClientOnly>

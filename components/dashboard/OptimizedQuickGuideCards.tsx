@@ -91,6 +91,11 @@ export default function OptimizedQuickGuideCards({ onOpenWelcomeModal }: Optimiz
     setActiveModal(null);
   };
 
+  // Hide Quick Start Guide if 100% complete
+  if (progressPercentage === 100) {
+    return null;
+  }
+
   // Show loading state while data is being fetched
   if (loading) {
     return (

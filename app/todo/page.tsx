@@ -928,7 +928,6 @@ export default function TodoPage() {
 
       {/* Paige Contextual Assistant */}
       {isPaigeEnabled && (
-        <div className="fixed bottom-12 right-12 max-w-sm z-30">
           <PaigeContextualAssistant
             context="todo"
             currentData={{
@@ -952,7 +951,6 @@ export default function TodoPage() {
               totalBudget: agentData.userData?.maxBudget || agentData.budgetData?.maxBudget || 0
             }}
           />
-        </div>
       )}
 
 

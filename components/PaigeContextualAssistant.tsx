@@ -29,7 +29,13 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
   className = ""
 }: PaigeContextualAssistantProps) {
   const { user } = useAuth();
-  const [isVisible, setIsVisible] = useState(true);
+  // Default to collapsed on mobile, expanded on desktop
+  const [isVisible, setIsVisible] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024; // lg breakpoint
+    }
+    return true;
+  });
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -121,10 +127,7 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white rounded-lg shadow-lg border border-gray-200 font-work ${className}`}
-      style={{ 
-        width: '360px' // Fixed width - no resizing
-      }}
+      className={`fixed bottom-24 left-4 right-4 lg:bottom-12 lg:right-12 lg:left-auto z-30 bg-white rounded-lg shadow-lg border border-gray-200 font-work lg:w-[360px] ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">

@@ -811,7 +811,6 @@ export default function BudgetPage() {
 
       {/* Paige Contextual Assistant */}
       {isPaigeEnabled && (
-        <div className="fixed bottom-12 right-12 max-w-sm z-30">
           <PaigeContextualAssistant
             context="budget"
             currentData={{
@@ -840,7 +839,6 @@ export default function BudgetPage() {
               hasBudget: budget.budgetCategories.length > 0
             }}
           />
-        </div>
       )}
 
       {/* Mobile Navigation is handled by VerticalNavWrapper */}
