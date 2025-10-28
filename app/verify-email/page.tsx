@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import { applyActionCode } from 'firebase/auth';
@@ -50,8 +50,15 @@ export default function VerifyEmail() {
             setStatus('success');
             showSuccessToast('Email verified successfully!');
             
-            // Check if user is already onboarded
+            // ✅ CRITICAL FIX: Update Firestore to sync emailVerified status
             const userRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userRef, {
+              emailVerified: true,
+              verifiedAt: new Date().toISOString()
+            });
+            console.log('✅ Updated Firestore: emailVerified = true');
+            
+            // Check if user is already onboarded
             const userSnap = await getDoc(userRef);
             
             if (userSnap.exists()) {

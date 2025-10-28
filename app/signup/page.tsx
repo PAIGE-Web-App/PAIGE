@@ -216,8 +216,15 @@ export default function SignUp() {
   useEffect(() => {
     const handleEmailVerified = async () => {
       if (user && user.emailVerified && step === 1) {
-        // Check if user is already onboarded
+        // ✅ CRITICAL FIX: Update Firestore to sync emailVerified status
         const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+          emailVerified: true,
+          verifiedAt: new Date().toISOString()
+        });
+        console.log('✅ Updated Firestore: emailVerified = true');
+        
+        // Check if user is already onboarded
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
