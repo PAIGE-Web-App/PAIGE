@@ -118,7 +118,14 @@ export default function AccountTab({
 
     try {
       setResetPasswordLoading(true);
-      await sendPasswordResetEmail(getAuth(), email);
+      
+      // Configure action code settings to use our custom reset page
+      const actionCodeSettings = {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false,
+      };
+      
+      await sendPasswordResetEmail(getAuth(), email, actionCodeSettings);
       showSuccessToast("Password reset email sent!");
     } catch (err: any) {
       console.error("Password reset error:", err);
@@ -261,30 +268,6 @@ export default function AccountTab({
               />
               {userNameError && <p className="text-red-500 text-xs mt-1">{userNameError}</p>}
           </div>
-          {!isGoogleUser && (
-            <div className="mb-4">
-              <label className="block text-xs font-work-sans text-[#332B42] mb-1">Password</label>
-              <button
-                className="text-xs text-[#A85C36] underline hover:opacity-80 mt-1 text-left"
-                type="button"
-                onClick={async () => {
-                  if (!email) {
-                    showErrorToast("No email found for this account.");
-                    return;
-                  }
-                  try {
-                    const auth = getAuth();
-                    await sendPasswordResetEmail(auth, email);
-                    showSuccessToast(`Password reset email sent to ${email}`);
-                  } catch (err) {
-                    showErrorToast("Failed to send password reset email.");
-                  }
-                }}
-              >
-                Reset Password
-              </button>
-            </div>
-          )}
         </div>
           
         {/* Collaboration Banner */}

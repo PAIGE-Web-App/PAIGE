@@ -17,13 +17,19 @@ export default function ResetPasswordPage() {
   const [code, setCode] = useState<string | null>(null);
 
   useEffect(() => {
+    // Firebase password reset uses 'oobCode' parameter
+    const oobCode = searchParams.get('oobCode');
     const codeParam = searchParams.get('code');
-    if (!codeParam) {
+    
+    const resetCode = oobCode || codeParam;
+    
+    if (!resetCode) {
+      showErrorToast('Invalid verification link');
       router.push('/login');
       return;
     }
-    setCode(codeParam);
-  }, [searchParams, router]);
+    setCode(resetCode);
+  }, [searchParams, router, showErrorToast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
