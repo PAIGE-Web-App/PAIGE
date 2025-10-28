@@ -270,7 +270,7 @@ export default function LandingPage() {
                 <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
               <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work text-sm lg:text-base">
-                Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication all in one place. Join the waitlist to be among the first to experience Paige AI.
+                Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication all in one place. <span className="hidden sm:inline">Join the waitlist to be among the first to experience Paige AI.</span>
               </p>
               
               {/* Waitlist Form */}
