@@ -133,7 +133,7 @@ const OptimizedConditionalDashboardBlocks: React.FC<OptimizedConditionalDashboar
           
           <div className="space-y-2">
             {todoData && todoData.length > 0 ? (
-              todoData.map((todo, index) => {
+              todoData.slice(0, 3).map((todo, index) => {
                 // Format the due date
                 const deadline = todo.deadline?.toDate ? todo.deadline.toDate() : new Date(todo.deadline);
                 const formattedDate = deadline.toLocaleDateString('en-US', { 
