@@ -226,8 +226,9 @@ export async function sendMissedDeadlineReminders(): Promise<void> {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Find overdue todos
-        const overdueTodos = [];
+        // Find overdue todos (filter to only those not already notified for this due date)
+        const overdueTodos: Array<any> = [];
+        const overdueTodoRefs: Array<{ ref: FirebaseFirestore.DocumentReference; deadlineIso: string }> = [];
         
         for (const todoDoc of todoItemsSnapshot.docs) {
           const todoData = todoDoc.data();
@@ -238,6 +239,12 @@ export async function sendMissedDeadlineReminders(): Promise<void> {
             
             if (deadlineDate < today) {
               const daysOverdue = Math.floor((today.getTime() - deadlineDate.getTime()) / (1000 * 3600 * 24));
+              const notifications = (todoData as any).notifications || {};
+              const deadlineIso = deadlineDate.toISOString().slice(0, 10);
+              // Skip if we've already sent for this specific deadline snapshot
+              if (notifications?.missedDeadlineSnapshot === deadlineIso) {
+                continue;
+              }
               
               // Get todo list name
               let listName = '';
@@ -256,6 +263,7 @@ export async function sendMissedDeadlineReminders(): Promise<void> {
                 listName: listName,
                 daysOverdue: daysOverdue
               });
+              overdueTodoRefs.push({ ref: todoDoc.ref, deadlineIso });
             }
           }
         }
@@ -271,6 +279,18 @@ export async function sendMissedDeadlineReminders(): Promise<void> {
           
           totalSent++;
           console.log(`✅ Missed deadline reminder sent to: ${userData.email} (${overdueTodos.length} overdue tasks)`);
+
+          // Mark todos as notified for this snapshot
+          const batch = adminDb.batch();
+          overdueTodoRefs.forEach(({ ref, deadlineIso }) => {
+            batch.set(ref, {
+              notifications: {
+                missedDeadlineSentAt: new Date().toISOString(),
+                missedDeadlineSnapshot: deadlineIso
+              }
+            }, { merge: true });
+          });
+          await batch.commit();
         }
         
       } catch (error) {
@@ -319,8 +339,9 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Find overdue budget items
-        const overdueItems = [];
+        // Find overdue budget items (only those not already notified for this due date)
+        const overdueItems: Array<any> = [];
+        const overdueItemRefs: Array<{ ref: FirebaseFirestore.DocumentReference; dueIso: string }> = [];
         
         for (const itemDoc of budgetItemsSnapshot.docs) {
           const itemData = itemDoc.data();
@@ -332,6 +353,11 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
             
             if (dueDate < today) {
               const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
+              const notifications = (itemData as any).notifications || {};
+              const dueIso = dueDate.toISOString().slice(0, 10);
+              if (notifications?.overduePaymentSnapshot === dueIso) {
+                continue;
+              }
               
               overdueItems.push({
                 id: itemDoc.id,
@@ -341,6 +367,7 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
                 category: itemData.categoryId, // You might want to get the actual category name
                 daysOverdue: daysOverdue
               });
+              overdueItemRefs.push({ ref: itemDoc.ref, dueIso });
             }
           }
         }
@@ -356,6 +383,18 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
           
           totalSent++;
           console.log(`✅ Budget payment overdue reminder sent to: ${userData.email} (${overdueItems.length} overdue items)`);
+
+          // Mark items as notified for this due date snapshot
+          const batch = adminDb.batch();
+          overdueItemRefs.forEach(({ ref, dueIso }) => {
+            batch.set(ref, {
+              notifications: {
+                overduePaymentSentAt: new Date().toISOString(),
+                overduePaymentSnapshot: dueIso
+              }
+            }, { merge: true });
+          });
+          await batch.commit();
         }
         
       } catch (error) {
