@@ -32,6 +32,7 @@ import Link from "next/link";
 import HomepageNavbar from '@/components/navigation/HomepageNavbar';
 import HomepageFooter from '@/components/navigation/HomepageFooter';
 import WaitlistForm from '@/components/WaitlistForm';
+import JasperBackground from '@/components/landing/JasperBackground';
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
@@ -262,15 +263,18 @@ export default function LandingPage() {
 
       {/* HERO - JASPER-STYLE LAYOUT */}
       <section className="relative overflow-hidden bg-linen -mt-20 pt-20 h-screen flex flex-col overflow-x-hidden">
+        {/* Wedding Background Pattern - Full Viewport Width */}
+        <JasperBackground />
         <div className="px-4 lg:px-8 mx-auto max-w-7xl flex-1 flex flex-col">
           {/* Top Section - Text Content */}
           <div className="py-8 lg:py-12 flex-shrink-0">
             <div className="text-center">
-              <h1 className="font-playfair text-4xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
+              <h1 className="font-playfair text-3xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
                 <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
               </h1>
-              <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work text-sm lg:text-base">
-                Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication all in one place. <span className="hidden sm:inline">Join the waitlist to be among the first to experience Paige AI.</span>
+              <p className="mt-6 max-w-2xl mx-auto text-[#5A4A42] font-work text-sm lg:text-base">
+                <span className="sm:hidden">Plan your wedding with AI-powered tools all in one place.</span>
+                <span className="hidden sm:inline">Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication all in one place. Join the waitlist to be among the first to experience Paige AI.</span>
               </p>
               
               {/* Waitlist Form */}
@@ -284,17 +288,21 @@ export default function LandingPage() {
           <div className="relative flex-1 flex items-center">
             <div className="relative w-full h-full">
               {/* Main Image - Full Width and Height */}
-              <div className="relative w-full h-full overflow-hidden">
+              <div className="relative w-full h-full overflow-hidden z-[2]">
                 <img 
                   src="/finalhero.png" 
                   alt="Wedding planning dashboard" 
                   className="w-full h-full object-cover"
+                  style={{ mixBlendMode: 'normal' }}
                 />
                 
                 {/* Animated Demo Cards - Top Left */}
-                <div className="absolute left-1/2 transform -translate-x-1/2 top-1/2 lg:left-4 lg:top-8 lg:transform-none">
+                <div className="absolute left-1/2 transform -translate-x-1/2 top-[40%] lg:left-4 lg:top-4 lg:transform-none z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
-                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">Budget</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
+                      <DollarSign className="w-4 h-4 text-[#A85C36]" />
+                      <span>Budget</span>
+                    </div>
                     <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (
@@ -334,9 +342,12 @@ export default function LandingPage() {
                 </div>
 
                 {/* Animated Demo Cards - Right Side */}
-                <div className="absolute right-16 top-16 hidden lg:block">
+                <div className="absolute right-16 top-16 lg:top-12 hidden lg:block z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
-                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">Vendor Email</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
+                      <MessageSquare className="w-4 h-4 text-[#A85C36]" />
+                      <span>Vendor Email</span>
+                    </div>
                     <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (
@@ -373,9 +384,12 @@ export default function LandingPage() {
                 </div>
 
                 {/* Animated Demo Cards - Under Vendor Email */}
-                <div className="absolute right-2 top-64 hidden lg:block">
+                <div className="absolute right-2 top-64 lg:top-52 hidden lg:block z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
-                    <div className="text-sm font-semibold text-[#5A4A42] mb-2">To‑Dos</div>
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
+                      <ClipboardList className="w-4 h-4 text-[#A85C36]" />
+                      <span>To‑Dos</span>
+                    </div>
                     <div className="h-16 flex items-center">
                       <AnimatePresence mode="wait">
                         {isLoading ? (

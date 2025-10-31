@@ -132,12 +132,12 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
               <OptimizedTooltip
                 content={
                   <div className="text-left">
-                    <p className="font-semibold mb-1">What are AI credits?</p>
-                    <p>Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
+                    <p className="font-semibold mb-1 text-xs sm:text-sm">What are AI credits?</p>
+                    <p className="text-xs sm:text-sm leading-normal">Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
                   </div>
                 }
                 position="top"
-                maxWidth="max-w-xs"
+                maxWidth="w-[85vw] sm:max-w-xs"
                 tooltipClassName="whitespace-normal"
               >
                 <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors cursor-help" />

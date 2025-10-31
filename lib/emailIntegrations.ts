@@ -355,7 +355,11 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
               const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
               const notifications = (itemData as any).notifications || {};
               const dueIso = dueDate.toISOString().slice(0, 10);
-              if (notifications?.overduePaymentSnapshot === dueIso) {
+              
+              // Check if we've already sent a reminder for this due date
+              // Skip if snapshot exists and matches the due date
+              if (notifications?.overduePaymentSnapshot === dueIso && notifications?.overduePaymentSentAt) {
+                console.log(`⏭️ Skipping ${itemData.name} - already notified for due date ${dueIso}`);
                 continue;
               }
               
@@ -385,16 +389,16 @@ export async function sendBudgetPaymentOverdueReminders(): Promise<void> {
           console.log(`✅ Budget payment overdue reminder sent to: ${userData.email} (${overdueItems.length} overdue items)`);
 
           // Mark items as notified for this due date snapshot
+          // Use update() instead of set() with merge to ensure proper nested object update
           const batch = adminDb.batch();
           overdueItemRefs.forEach(({ ref, dueIso }) => {
-            batch.set(ref, {
-              notifications: {
-                overduePaymentSentAt: new Date().toISOString(),
-                overduePaymentSnapshot: dueIso
-              }
-            }, { merge: true });
+            batch.update(ref, {
+              'notifications.overduePaymentSentAt': new Date().toISOString(),
+              'notifications.overduePaymentSnapshot': dueIso
+            });
           });
           await batch.commit();
+          console.log(`✅ Marked ${overdueItemRefs.length} budget items as notified`);
         }
         
       } catch (error) {
