@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import OptimizedTooltip from '@/components/ui/OptimizedTooltip';
 
 interface WaitlistFormProps {
-  variant?: 'hero' | 'inline';
+  variant?: 'hero' | 'inline' | 'cta';
   className?: string;
 }
 
@@ -109,6 +109,7 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
   };
 
   const isHero = variant === 'hero';
+  const isCta = variant === 'cta';
 
   return (
     <div className={`w-full max-w-md mx-auto ${className}`}>
@@ -117,32 +118,14 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
         {waitlistCount === null ? (
           // Loading skeleton
           <div className="animate-pulse space-y-1">
-            <div className="h-6 bg-gray-200 rounded w-64 mx-auto"></div>
-            <div className="h-5 bg-gray-200 rounded w-56 mx-auto"></div>
+            <div className={`h-6 rounded w-64 mx-auto ${isCta ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+            <div className={`h-5 rounded w-56 mx-auto ${isCta ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
           </div>
         ) : (
           <>
-            <p className="font-work text-base font-semibold text-[#5A4A42]">
+            <p className={`font-work text-base font-semibold ${isCta ? 'text-gray-200' : 'text-[#5A4A42]'}`}>
               <span className="text-[#A85C36]">{waitlistCount}+</span> people are already on the waitlist
             </p>
-            <div className="flex items-center justify-center gap-1">
-              <p className="font-work text-sm text-[#5A4A42]">
-                Join for early access + <span className="font-semibold text-[#A85C36]">50 bonus credits</span> 🎁
-              </p>
-              <OptimizedTooltip
-                content={
-                  <div className="text-left">
-                    <p className="font-semibold mb-1 text-xs sm:text-sm">What are AI credits?</p>
-                    <p className="text-xs sm:text-sm leading-normal">Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
-                  </div>
-                }
-                position="top"
-                maxWidth="w-[85vw] sm:max-w-xs"
-                tooltipClassName="whitespace-normal"
-              >
-                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors cursor-help" />
-              </OptimizedTooltip>
-            </div>
           </>
         )}
       </div>
@@ -185,7 +168,7 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
                 type="submit"
                 disabled={isSubmitting}
                 className={`${
-                  isHero
+                  isHero || isCta
                     ? 'bg-[#A85C36] hover:bg-[#784528] text-white font-work px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
                     : 'btn-primary'
                 }`}
@@ -215,9 +198,24 @@ export default function WaitlistForm({ variant = 'hero', className = '' }: Waitl
               </motion.div>
             ) : null}
 
-            <p className="text-xs text-[#5A4A42] font-work text-center">
-              No spam. Unsubscribe anytime.
-            </p>
+            <div className="flex items-center justify-center gap-1">
+              <p className={`text-xs font-work text-center ${isCta ? 'text-gray-300' : 'text-[#5A4A42]'}`}>
+                Join for early access + <span className="font-semibold text-[#A85C36]">50 bonus credits</span> 🎁
+              </p>
+              <OptimizedTooltip
+                content={
+                  <div className="text-left">
+                    <p className="font-semibold mb-1 text-xs sm:text-sm">What are AI credits?</p>
+                    <p className="text-xs sm:text-sm leading-normal">Credits power AI features like generating budgets, to-dos, drafting messages, and more. Free Plan gets 15 credits daily!</p>
+                  </div>
+                }
+                position="top"
+                maxWidth="w-[85vw] sm:max-w-xs"
+                tooltipClassName="whitespace-normal"
+              >
+                <Info className={`w-3 h-3 ${isCta ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'} transition-colors cursor-help`} />
+              </OptimizedTooltip>
+            </div>
           </motion.form>
         )}
       </AnimatePresence>

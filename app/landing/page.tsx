@@ -26,7 +26,10 @@ import {
   Wand2,
   Menu,
   X,
-  Armchair
+  Armchair,
+  XCircle,
+  Mail,
+  Target
 } from "lucide-react";
 import Link from "next/link";
 import HomepageNavbar from '@/components/navigation/HomepageNavbar';
@@ -203,10 +206,14 @@ export default function LandingPage() {
         <header className="mx-auto max-w-7xl rounded-2xl bg-white/80 backdrop-blur border-[0.25px] border-[rgb(236,233,231)] mx-8">
           <div className="px-4 flex h-16 items-center justify-between">
           <Link href="#" className="flex items-center no-underline">
-            <img 
+            <motion.img 
               src="/PaigeFinal.png" 
               alt="Paige" 
               className="h-[32px] w-auto max-w-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              loading="lazy"
             />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm">
@@ -269,12 +276,13 @@ export default function LandingPage() {
           {/* Top Section - Text Content */}
           <div className="py-8 lg:py-12 flex-shrink-0">
             <div className="text-center">
-              <h1 className="font-playfair text-3xl leading-tight tracking-tight sm:text-5xl lg:text-6xl font-semibold text-[#332B42]">
-                <span className="block sm:inline">Your AI-Powered</span> <span className="text-[#A85C36]">Wedding Planner</span>
+              <h1 className="font-playfair text-2xl leading-tight tracking-tight sm:text-4xl lg:text-5xl font-semibold text-[#332B42]">
+                Your Wedding Planning Partner That<br />
+                <span className="text-[#A85C36]">Stays on Track and On Budget</span>
               </h1>
-              <p className="mt-6 max-w-2xl mx-auto text-[#5A4A42] font-work text-sm lg:text-base">
-                <span className="sm:hidden">Plan your wedding with AI-powered tools all in one place.</span>
-                <span className="hidden sm:inline">Plan your wedding with AI-powered to-do lists, budget tracking, timelines, and vendor communication all in one place. Join the waitlist to be among the first to experience Paige AI.</span>
+              <p className="mt-6 max-w-3xl mx-auto text-[#5A4A42] font-work text-sm lg:text-base">
+                <span className="sm:hidden">Planning your wedding shouldn't feel overwhelming. Paige is your personal AI-powered planner that helps you manage vendor communication, track your budget, organize to-dos, build seating charts, and plan your big day.</span>
+                <span className="hidden sm:inline">Planning your wedding shouldn't feel overwhelming. Paige is your personal AI-powered planner that helps you manage vendor communication, track your budget, organize to-dos, build seating charts, and plan your big day.</span>
               </p>
               
               {/* Waitlist Form */}
@@ -289,15 +297,19 @@ export default function LandingPage() {
             <div className="relative w-full h-full">
               {/* Main Image - Full Width and Height */}
               <div className="relative w-full h-full overflow-hidden z-[2]">
-                <img 
+                <motion.img 
                   src="/finalhero.png" 
                   alt="Wedding planning dashboard" 
                   className="w-full h-full object-cover"
                   style={{ mixBlendMode: 'normal' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6 }}
+                  loading="eager"
                 />
                 
                 {/* Animated Demo Cards - Top Left */}
-                <div className="absolute left-1/2 transform -translate-x-1/2 top-[40%] lg:left-4 lg:top-4 lg:transform-none z-[3]">
+                <div className="absolute left-1/2 transform -translate-x-1/2 top-[30%] lg:left-4 lg:top-2 lg:transform-none z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
                       <DollarSign className="w-4 h-4 text-[#A85C36]" />
@@ -342,7 +354,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Animated Demo Cards - Right Side */}
-                <div className="absolute right-16 top-16 lg:top-12 hidden lg:block z-[3]">
+                <div className="absolute right-16 top-16 lg:top-8 hidden lg:block z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
                       <MessageSquare className="w-4 h-4 text-[#A85C36]" />
@@ -384,7 +396,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Animated Demo Cards - Under Vendor Email */}
-                <div className="absolute right-2 top-64 lg:top-52 hidden lg:block z-[3]">
+                <div className="absolute right-2 top-64 lg:top-44 hidden lg:block z-[3]">
                   <div className="bg-white rounded-xl p-4 shadow-lg w-80">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#5A4A42] mb-2">
                       <ClipboardList className="w-4 h-4 text-[#A85C36]" />
@@ -426,6 +438,171 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY WE BUILT PAIGE */}
+      <section className="bg-white">
+        <div className="px-4 lg:px-8 mx-auto py-12 lg:py-16 max-w-7xl">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
+            {/* Left Column - Founder Photo */}
+            <div>
+              <motion.img 
+                src="/founders-photo.jpg" 
+                alt="Paige founders" 
+                className="w-full aspect-[5/4] rounded-2xl shadow-lg object-cover"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.6 }}
+                loading="lazy"
+              />
+            </div>
+            {/* Right Column - Text Content */}
+            <div className="text-center lg:text-left">
+              <h2 className="h5 font-semibold">Built From the Chaos of Our Own Wedding</h2>
+              <p className="mt-4 text-[#5A4A42] font-work">
+                We created Paige because we lived it - endless vendor emails, missed tasks, and a growing sense of "are we behind?" Traditional planning tools gave us lists but no real guidance. So we built something better: an assistant that thinks alongside you.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* HOW PAIGE HELPS YOU PLAN SMARTER, NOT HARDER */}
+      <section className="bg-[rgb(247,246,245)]">
+        <div className="px-4 lg:px-8 mx-auto py-12 lg:py-16 max-w-7xl">
+          <div className="mx-auto max-w-2xl text-center mb-12">
+            <h2 className="h5 font-semibold">How Paige Helps You Plan Smarter, Not Harder</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
+              <ClipboardList className="w-8 h-8 text-[#A85C36] mx-auto mb-4" />
+              <h3 className="text-sm font-semibold font-work mb-2">Smart To-Dos That Adapt</h3>
+              <p className="text-[#5A4A42] font-work text-sm">Paige creates a personalized wedding plan based on your timeline, size, and vision - and updates as things change.</p>
+            </div>
+            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
+              <DollarSign className="w-8 h-8 text-[#A85C36] mx-auto mb-4" />
+              <h3 className="text-sm font-semibold font-work mb-2">Budgeting That's Actually Useful</h3>
+              <p className="text-[#5A4A42] font-work text-sm">Enter your budget and priorities. Paige allocates costs intelligently and alerts you when you're off track.</p>
+            </div>
+            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
+              <Mail className="w-8 h-8 text-[#A85C36] mx-auto mb-4" />
+              <h3 className="text-sm font-semibold font-work mb-2">Gmail-Integrated Vendor Outreach</h3>
+              <p className="text-[#5A4A42] font-work text-sm">Draft and track vendor emails with ease. Paige keeps tabs on quotes, responses, and next steps - all through your inbox.</p>
+            </div>
+            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
+              <Target className="w-8 h-8 text-[#A85C36] mx-auto mb-4" />
+              <h3 className="text-sm font-semibold font-work mb-2">Visual Planning Tools</h3>
+              <p className="text-[#5A4A42] font-work text-sm">Use our drag-and-drop seating chart, timeline planner, and mood board creator to bring your day to life.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY PAIGE IS DIFFERENT */}
+      <section className="bg-white">
+        <div className="px-4 lg:px-8 mx-auto py-12 lg:py-16 max-w-7xl">
+          <div className="mx-auto max-w-3xl text-center mb-12">
+            <h2 className="h5 font-semibold">Not Just Another Vendor Directory</h2>
+          </div>
+          <div className="mx-auto max-w-4xl">
+            <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-[rgb(247,246,245)] overflow-hidden">
+              <div className="grid grid-cols-2 gap-0">
+                {/* Header Row */}
+                <div className="bg-white p-6 font-semibold font-work border-r-[0.5px] border-b-[0.5px] border-[rgb(236,233,231)]">
+                  Paige
+                </div>
+                <div className="bg-white p-6 font-semibold font-work border-b-[0.5px] border-[rgb(236,233,231)]">
+                  Other Platforms
+                </div>
+                {/* Row 1 */}
+                <div className="p-6 border-r-[0.5px] border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-[#A85C36] flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Smart, adaptive to-do lists</span>
+                  </div>
+                </div>
+                <div className="p-6 border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Static checklists</span>
+                  </div>
+                </div>
+                {/* Row 2 */}
+                <div className="p-6 border-r-[0.5px] border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-[#A85C36] flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Built-in Gmail support</span>
+                  </div>
+                </div>
+                <div className="p-6 border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Limited vendor messaging</span>
+                  </div>
+                </div>
+                {/* Row 3 */}
+                <div className="p-6 border-r-[0.5px] border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-[#A85C36] flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Budget, tasks, and vendors linked together</span>
+                  </div>
+                </div>
+                <div className="p-6 border-b-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Tools don't talk to each other</span>
+                  </div>
+                </div>
+                {/* Row 4 */}
+                <div className="p-6 border-r-[0.5px] border-[rgb(236,233,231)]">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-[#A85C36] flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">Multi-agent AI system does the heavy lifting</span>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <span className="font-work text-[#5A4A42]">One-size-fits-all interface</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COMING SOON FOR PLANNERS TOO */}
+      <section className="bg-[rgb(247,246,245)]">
+        <div className="px-4 lg:px-8 mx-auto py-12 lg:py-16 max-w-7xl">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
+            {/* Left Column - Text Content */}
+            <div className="text-center lg:text-left order-2 lg:order-1">
+              <h2 className="h5 font-semibold">Wedding Planners, We See You</h2>
+              <p className="mt-4 text-[#5A4A42] font-work">
+                We're also building a companion experience for wedding planners - designed to make client and vendor collaboration seamless. From shared timelines to multi-wedding dashboards, we're listening and iterating with planners like you.
+              </p>
+              <p className="mt-4 text-[#5A4A42] font-work">
+                <span className="font-semibold">Are you a planner? </span>
+                <a href="mailto:hello@weddingpage.com" className="text-[#A85C36] hover:underline">Sign up to help shape this.</a>
+              </p>
+            </div>
+            {/* Right Column - Planner Image */}
+            <div className="order-1 lg:order-2">
+              <motion.img 
+                src="/wp.png" 
+                alt="Wedding planners" 
+                className="w-full aspect-[5/4] rounded-2xl shadow-lg object-cover"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.6 }}
+                loading="lazy"
+              />
             </div>
           </div>
         </div>
@@ -513,10 +690,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/messages.png" 
                     alt="Paige Messages" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -526,10 +708,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/TodoSC.png" 
                     alt="Paige To-Dos" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -539,10 +726,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/BudgetTooling.png" 
                     alt="Paige Budget" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -554,10 +746,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/Moods.png" 
                     alt="Paige Mood Boards" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -568,10 +765,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/Seats.png" 
                     alt="Paige Seating Charts" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -582,10 +784,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-2 shadow-lg shadow-black/10">
                 <div className="aspect-video">
-                  <img 
+                  <motion.img 
                     src="/FileManager.png" 
                     alt="Paige File Management" 
                     className="w-full h-full object-cover rounded-lg"
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -629,10 +836,15 @@ export default function LandingPage() {
             {/* Right Column - Collaboration Image */}
             <div className="flex justify-center lg:justify-end">
               <div className="w-full max-w-lg h-80 rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white shadow-lg shadow-black/5 overflow-hidden">
-                <img 
+                <motion.img 
                   src="/plannerfin.png" 
                   alt="Paige Collaboration Features" 
                   className="w-full h-full object-cover"
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.6 }}
+                  loading="lazy"
                 />
               </div>
             </div>
@@ -641,7 +853,7 @@ export default function LandingPage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" className="bg-[rgb(247,246,245)]">
+      <section id="how" className="bg-[rgb(247,246,245)] hidden">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="h5 font-semibold">How Paige Works</h2>
@@ -656,7 +868,7 @@ export default function LandingPage() {
             <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
               <div className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#A85C36] text-white text-sm font-semibold font-work">2</div>
               <h3 className="text-sm font-semibold font-work">Let Paige handle the details</h3>
-              <p className="mt-1 text-[#5A4A42] font-work">Budgets, timelines, vendor emails, and reminders—auto‑organized.</p>
+              <p className="mt-1 text-[#5A4A42] font-work">Budgets, timelines, vendor emails, and reminders - auto-organized.</p>
             </div>
             <div className="rounded-2xl border-[0.5px] border-[rgb(236,233,231)] bg-white p-6 text-center shadow-lg shadow-black/5">
               <div className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#A85C36] text-white text-sm font-semibold font-work">3</div>
@@ -802,18 +1014,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
+      {/* JOIN THE WAITLIST */}
       <section className="bg-[rgb(31,28,26)]">
         <div className="px-4 lg:px-8 mx-auto py-16 max-w-7xl">
           <div className="mx-auto max-w-3xl text-center text-white">
-            <h2 className="font-playfair text-3xl text-white font-semibold">Ready to plan with less stress?</h2>
-            <p className="mt-2 text-gray-200 font-work">Join couples using Paige to turn wedding chaos into calm.</p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <Link href="/signup" className="btn-white-outline no-underline px-6">
-                Start Free Trial
-              </Link>
+            <h2 className="font-playfair text-3xl text-white font-semibold">Be One of the First to Try Paige</h2>
+            <p className="mt-4 text-gray-200 font-work">
+              We're rolling out access to couples now. Sign up to join our waitlist - early users get bonus AI credits and help shape the future of wedding planning.
+            </p>
+            <div className="mt-8">
+              <WaitlistForm variant="cta" />
             </div>
-            <p className="mt-3 text-xs text-gray-300">Small team, fast updates, human support.</p>
+            <p className="mt-4 text-xs text-gray-300">Small team, fast updates, human support.</p>
           </div>
         </div>
       </section>
@@ -823,10 +1035,15 @@ export default function LandingPage() {
         <div className="px-4 lg:px-8 mx-auto py-6 max-w-7xl">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex items-center">
-              <img 
+              <motion.img 
                 src="/PaigeFinal.png" 
                 alt="Paige" 
                 className="h-[32px] w-auto max-w-none"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5 }}
+                loading="lazy"
               />
             </div>
             <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
