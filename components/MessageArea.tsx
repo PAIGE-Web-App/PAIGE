@@ -30,6 +30,7 @@ import { useCredits } from "../contexts/CreditContext";
 import { useGmailAuth } from "../contexts/GmailAuthContext";
 import { dispatchGmailApiError } from '../utils/gmailApiErrorHandler';
 import { gmailClientService } from '../utils/gmailClientService';
+import DraftContextModal from './DraftContextModal';
 
 
 // Define interfaces for types needed in this component
@@ -243,6 +244,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [animatedDraft, setAnimatedDraft] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasAIGeneratedDraft, setHasAIGeneratedDraft] = useState(false);
+  const [lastUsedCommPrefs, setLastUsedCommPrefs] = useState<{
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  } | null>(null);
+  const [regenerationAction, setRegenerationAction] = useState<string | undefined>(undefined);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
@@ -292,7 +300,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     hasVenue, 
     guestCount, 
     maxBudget, 
-    vibe 
+    vibe,
+    communicationPreferences
   } = useUserProfileData();
 
   const [pendingDraft, setPendingDraft] = useState<string | null>(null); // For AI draft
@@ -526,6 +535,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   const [showGmailTodoReview, setShowGmailTodoReview] = useState(false);
   const [gmailTodoAnalysisResults, setGmailTodoAnalysisResults] = useState<any>(null);
   const [isAnalyzingMessages, setIsAnalyzingMessages] = useState(false);
+  const [showDraftContextModal, setShowDraftContextModal] = useState(false);
   
   // Todo suggestions banner state
   const [showTodoSuggestionsBanner, setShowTodoSuggestionsBanner] = useState(false);
@@ -838,9 +848,15 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     setSelectedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-  };
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setInput(newValue);
+    // Clear AI generated flag if user manually edits
+    if (hasAIGeneratedDraft && newValue !== input) {
+      setHasAIGeneratedDraft(false);
+      setLastUsedCommPrefs(null);
+    }
+  }, [hasAIGeneratedDraft, input]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -854,7 +870,39 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     setInput(input + emoji);
   };
 
-  const handleGenerateDraft = useCallback(async () => {
+  // Show the draft context modal instead of directly generating
+  const handleGenerateDraft = useCallback(() => {
+    if (!selectedContact || isGeneratingRef.current) {
+      return; // Use ref to prevent multiple simultaneous executions
+    }
+    setShowDraftContextModal(true);
+  }, [selectedContact]);
+
+  // Handle regeneration from preferences bar
+  const handleRegenerateDraft = useCallback(async (commPrefs: {
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  }, action?: string) => {
+    setRegenerationAction(action);
+    // Include current message content for regeneration context
+    const currentMessage = input || animatedDraft;
+    await handleGenerateDraftWithContext("", commPrefs, action, currentMessage);
+  }, [selectedContact, currentUser?.uid, generateDraft, userName, subject, communicationPreferences, profileUserName, partnerName, weddingDate, weddingLocation, hasVenue, guestCount, maxBudget, vibe, refreshCredits, input, animatedDraft]);
+
+  // Actually generate the draft with additional context
+  const handleGenerateDraftWithContext = useCallback(async (additionalContext: string = "", commPrefs?: {
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  }, action?: string, currentMessage?: string) => {
+    console.log('[MessageArea] handleGenerateDraftWithContext called with:', {
+      additionalContext,
+      hasCommPrefs: !!commPrefs,
+      action,
+      hasCurrentMessage: !!currentMessage
+    });
+    
     if (!selectedContact || isGeneratingRef.current) {
       return; // Use ref to prevent multiple simultaneous executions
     }
@@ -862,13 +910,14 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     try {
       isGeneratingRef.current = true;
       setIsGenerating(true);
+      setShowDraftContextModal(false); // Close modal
       
       // If replying to a message, generate a contextual response
       let draft;
       if (replyingToMessage) {
         // For replies, we need to call the draft API directly with reply context
         // Use actual user profile data for reply draft personalization
-        const userProfileData = {
+        const userProfileData: any = {
           userName: profileUserName || userName,
           partnerName,
           weddingDate,
@@ -878,6 +927,26 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           maxBudget,
           vibe: vibe || []
         };
+        
+        // Use provided preferences or fall back to saved preferences (hook always initializes with defaults)
+        userProfileData.communicationPreferences = commPrefs || {
+          generalTone: communicationPreferences?.generalTone ?? 'friendly',
+          negotiationStyle: communicationPreferences?.negotiationStyle ?? 'collaborative',
+          formalityLevel: communicationPreferences?.formalityLevel ?? 'professional'
+        };
+        
+        // Include additional context if provided
+        if (additionalContext && additionalContext.trim()) {
+          userProfileData.additionalContext = additionalContext.trim();
+        } else {
+          console.log('[MessageArea] Reply path - No additional context provided:', additionalContext);
+        }
+        
+        console.log('[MessageArea] Reply path - Calling API with userProfileData:', {
+          hasAdditionalContext: !!userProfileData.additionalContext,
+          additionalContext: userProfileData.additionalContext,
+          hasCommPrefs: !!userProfileData.communicationPreferences
+        });
         
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (currentUser?.uid) {
@@ -916,7 +985,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       } else {
         // Generate a new message draft with enhanced context
         // Use actual user profile data for AI draft personalization
-        const userProfileData = {
+        // Build user profile data for AI draft personalization
+        const userProfileData: any = {
           userName: profileUserName || userName,
           partnerName,
           weddingDate,
@@ -926,7 +996,94 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           maxBudget,
           vibe: vibe || []
         };
-        draft = await generateDraft();
+        
+        // Use provided preferences or fall back to saved preferences (hook always initializes with defaults)
+        const finalCommPrefs = commPrefs || {
+          generalTone: communicationPreferences?.generalTone ?? 'friendly',
+          negotiationStyle: communicationPreferences?.negotiationStyle ?? 'collaborative',
+          formalityLevel: communicationPreferences?.formalityLevel ?? 'professional'
+        };
+        userProfileData.communicationPreferences = finalCommPrefs;
+        
+        // Store preferences for regeneration bar
+        setLastUsedCommPrefs(finalCommPrefs);
+        
+        // Include additional context if provided
+        let finalAdditionalContext = additionalContext ? additionalContext.trim() : '';
+        if (action) {
+          // Map action to additional context
+          const actionMap: Record<string, string> = {
+            'shorter': 'Make this message shorter and more concise.',
+            'longer': 'Expand this message with more detail and context.',
+            'more-formal': 'Make this message more formal and professional.',
+            'more-casual': 'Make this message more casual and relaxed.',
+            'schedule-meeting': 'Add a request to schedule a meeting or call.'
+          };
+          const actionContext = actionMap[action] || '';
+          finalAdditionalContext = finalAdditionalContext 
+            ? `${finalAdditionalContext} ${actionContext}` 
+            : actionContext;
+        }
+        // ALWAYS set additionalContext if it exists, even if empty string (to preserve it)
+        // CRITICAL: Use the actual value, not the trimmed version if it's empty
+        if (finalAdditionalContext) {
+          userProfileData.additionalContext = finalAdditionalContext;
+        } else if (additionalContext && additionalContext.trim()) {
+          userProfileData.additionalContext = additionalContext.trim();
+        } else {
+          console.log('[MessageArea] No additional context to set. additionalContext param:', additionalContext, 'finalAdditionalContext:', finalAdditionalContext);
+        }
+        
+        // VERIFY it's actually set
+        console.log('[MessageArea] VERIFY userProfileData.additionalContext after setting:', userProfileData.additionalContext);
+        
+        // If regenerating, pass the current message as context so AI can modify it
+        // Also mark it as a regeneration request
+        const messagesForRegeneration = currentMessage && currentMessage.trim() ? [currentMessage] : [];
+        if (currentMessage && currentMessage.trim()) {
+          // Add regeneration flag to userData so API knows to modify existing draft
+          userProfileData.isRegeneration = true;
+          userProfileData.originalDraft = currentMessage;
+        }
+        console.log('[MessageArea] Calling generateDraft with userProfileData:', {
+          hasAdditionalContext: !!userProfileData.additionalContext,
+          additionalContext: userProfileData.additionalContext,
+          hasCommPrefs: !!userProfileData.communicationPreferences,
+          userProfileDataKeys: Object.keys(userProfileData),
+          userProfileDataFull: JSON.parse(JSON.stringify(userProfileData))
+        });
+        
+        // Create a clean copy - build object explicitly to ensure additionalContext is preserved
+        const cleanUserProfileData: any = {
+          userName: userProfileData.userName,
+          partnerName: userProfileData.partnerName,
+          weddingDate: userProfileData.weddingDate ? (userProfileData.weddingDate instanceof Date ? userProfileData.weddingDate.toISOString() : userProfileData.weddingDate) : undefined,
+          weddingLocation: userProfileData.weddingLocation,
+          hasVenue: userProfileData.hasVenue,
+          guestCount: userProfileData.guestCount,
+          maxBudget: userProfileData.maxBudget,
+          vibe: userProfileData.vibe || [],
+          communicationPreferences: userProfileData.communicationPreferences,
+          // CRITICAL: Explicitly include message-level properties (these are NOT user-level)
+          ...(userProfileData.hasOwnProperty('additionalContext') && { additionalContext: userProfileData.additionalContext }),
+          ...(userProfileData.hasOwnProperty('isRegeneration') && { isRegeneration: userProfileData.isRegeneration }),
+          ...(userProfileData.hasOwnProperty('originalDraft') && { originalDraft: userProfileData.originalDraft })
+        };
+        
+        console.log('[MessageArea] Clean userProfileData:', {
+          hasAdditionalContext: !!cleanUserProfileData.additionalContext,
+          additionalContext: cleanUserProfileData.additionalContext,
+          keys: Object.keys(cleanUserProfileData),
+          fullObject: JSON.parse(JSON.stringify(cleanUserProfileData))
+        });
+        
+        // Triple-check: Log right before passing to generateDraft
+        console.log('[MessageArea] RIGHT BEFORE generateDraft call - cleanUserProfileData.additionalContext:', cleanUserProfileData.additionalContext);
+        console.log('[MessageArea] ALL KEYS in cleanUserProfileData:', Object.keys(cleanUserProfileData));
+        console.log('[MessageArea] FULL cleanUserProfileData object:', JSON.stringify(cleanUserProfileData, null, 2));
+        console.log('[MessageArea] generateDraft function type:', typeof generateDraft);
+        
+        draft = await generateDraft(selectedContact, messagesForRegeneration, currentUser?.uid, cleanUserProfileData);
         
         // Refresh credits after successful new draft generation (with delay to ensure server commit)
         try {
@@ -981,22 +1138,35 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             if (currentWordIndex <= words.length) {
               const currentText = words.slice(0, currentWordIndex).join(' ');
               setAnimatedDraft(currentText + (currentWordIndex < words.length ? ' ' : ''));
+              
+              // Auto-scroll textarea to bottom as content is typed
+              if (textareaRef.current) {
+                textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+              }
+              
               currentWordIndex++;
             } else {
               clearInterval(typeInterval);
               setInput(newBody);
               setIsAnimating(false);
+              setHasAIGeneratedDraft(true);
+              setRegenerationAction(undefined); // Clear action after regeneration
+              
+              // Final scroll to bottom
+              if (textareaRef.current) {
+                textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+              }
             }
           }, 5); // 5ms per word = ~200 words per second!
       }
     } catch (error) {
-      console.error('[handleGenerateDraft] Error generating draft:', error);
+      console.error('[handleGenerateDraftWithContext] Error generating draft:', error);
       showErrorToast('Failed to generate draft');
     } finally {
       isGeneratingRef.current = false;
       setIsGenerating(false);
     }
-  }, [selectedContact?.id, replyingToMessage?.id, currentUser?.uid, generateDraft, userName, subject]);
+  }, [selectedContact?.id, replyingToMessage?.id, currentUser?.uid, generateDraft, userName, subject, communicationPreferences, profileUserName, partnerName, weddingDate, weddingLocation, hasVenue, guestCount, maxBudget, vibe, refreshCredits]);
 
   // Removed temporary onSnapshot test to reduce unnecessary Firestore reads
 
@@ -2239,6 +2409,11 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             clearReply={clearReply}
             subject={subject}
             setSubject={setSubject}
+            hasAIGeneratedDraft={hasAIGeneratedDraft}
+            lastUsedCommPrefs={lastUsedCommPrefs}
+            onRegenerateDraft={handleRegenerateDraft}
+            onOpenAdditionalContext={() => setShowDraftContextModal(true)}
+            isRegenerating={isGenerating}
           />
         )}
       </div>
@@ -2284,6 +2459,17 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           analysisResults={gmailTodoAnalysisResults}
           isAnalyzing={isAnalyzingMessages}
         />
+
+        {/* Draft Context Modal */}
+    <DraftContextModal
+      isOpen={showDraftContextModal}
+      onClose={() => setShowDraftContextModal(false)}
+      onGenerate={handleGenerateDraftWithContext}
+      isGenerating={isGenerating}
+      contactName={selectedContact?.name}
+      isReply={!!replyingToMessage}
+      currentMessage={input || animatedDraft}
+    />
 
     </div>
   );

@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { MessageCircle, Send, Zap, X, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -91,6 +91,17 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
     handleTodoAction
   });
 
+  // Memoize openChatWithMessage to prevent infinite loops
+  const openChatWithMessage = useCallback((message: string) => {
+    setIsChatOpen(true);
+    setShowSuggestions(false);
+    setChatInput(message);
+    // Auto-send after state updates
+    setTimeout(() => {
+      handleSendMessage();
+    }, 100);
+  }, [setChatInput, handleSendMessage]);
+
   // Extract insights generation
   const {
     currentInsights,
@@ -101,16 +112,7 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
     todoComputations,
     userId: user?.uid,
     handleAddDeadlines,
-    // Pass chat controls for insight actions that need to open chat
-    openChatWithMessage: (message: string) => {
-      setIsChatOpen(true);
-      setShowSuggestions(false);
-      setChatInput(message);
-      // Auto-send after state updates
-      setTimeout(() => {
-        handleSendMessage();
-      }, 100);
-    }
+    openChatWithMessage
   });
 
   // Show minimized floating button
@@ -380,12 +382,20 @@ const PaigeContextualAssistant = React.memo(function PaigeContextualAssistant({
   return (
     prevProps.context === nextProps.context &&
     prevProps.className === nextProps.className &&
+    // Todo context
     prevProps.currentData?.selectedListId === nextProps.currentData?.selectedListId &&
     prevProps.currentData?.todoItems?.length === nextProps.currentData?.todoItems?.length &&
+    // Messages context ✨
+    prevProps.currentData?.selectedContact?.id === nextProps.currentData?.selectedContact?.id &&
+    prevProps.currentData?.totalContacts === nextProps.currentData?.totalContacts &&
+    // Shared context
     prevProps.currentData?.daysUntilWedding === nextProps.currentData?.daysUntilWedding &&
     prevProps.currentData?.overdueTasks === nextProps.currentData?.overdueTasks &&
     prevProps.currentData?.upcomingDeadlines === nextProps.currentData?.upcomingDeadlines &&
-    prevProps.currentData?.weddingLocation === nextProps.currentData?.weddingLocation
+    prevProps.currentData?.weddingLocation === nextProps.currentData?.weddingLocation &&
+    prevProps.currentData?.todoItems?.length === nextProps.currentData?.todoItems?.length &&
+    prevProps.currentData?.budgetItems?.length === nextProps.currentData?.budgetItems?.length &&
+    prevProps.currentData?.timelineData?.length === nextProps.currentData?.timelineData?.length
   );
 });
 

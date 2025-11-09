@@ -43,7 +43,8 @@ const VibePreviewModal = memo(function VibePreviewModal({
     hasVenue, 
     guestCount, 
     maxBudget, 
-    vibe 
+    vibe,
+    communicationPreferences
   } = useUserProfileData();
   const { todoItems: todos } = useTodoItems(null); // Pass null for selectedList to get all todos
   const { favorites } = useFavoritesSimple();
@@ -96,7 +97,8 @@ const VibePreviewModal = memo(function VibePreviewModal({
         hasVenue,
         guestCount,
         maxBudget,
-        vibe: vibe || []
+        vibe: vibe || [],
+        communicationPreferences: communicationPreferences || null
       };
 
       console.log('Sending draft request with:', {

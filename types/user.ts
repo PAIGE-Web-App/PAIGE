@@ -163,3 +163,11 @@ export interface AdminUser {
   isLinked?: boolean;
   hasPlanner?: boolean;
 }
+
+// Communication Preferences Interface
+export interface CommunicationPreferences {
+  generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+  negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+  formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  updatedAt?: Date | { seconds: number; nanoseconds: number };
+}

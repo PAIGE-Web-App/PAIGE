@@ -39,6 +39,10 @@ const IntegrationsTab = dynamic(() => import("./components/IntegrationsTab"), {
   loading: () => <SettingsTabSkeleton />
 });
 
+const CommunicationTab = dynamic(() => import("./components/CommunicationTab"), {
+  loading: () => <SettingsTabSkeleton />
+});
+
 const NotificationsTab = dynamic(() => import("./components/NotificationsTab"), {
   loading: () => <NotificationsTabSkeleton />
 });
@@ -68,6 +72,17 @@ export default function ProfilePage() {
   const [showFlagReview, setShowFlagReview] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const pendingTabKeyRef = useRef<string | null>(null);
+
+  // Update active tab when URL changes (e.g., from navigation)
+  useEffect(() => {
+    const tabFromUrl = searchParams?.get('tab');
+    if (tabFromUrl) {
+      const tabKey = TABS.find(tab => tab.key === tabFromUrl)?.key;
+      if (tabKey && tabKey !== activeTab) {
+        setActiveTab(tabKey);
+      }
+    }
+  }, [searchParams, activeTab]);
 
   useEffect(() => {
     if (searchParams?.get('highlight') === 'weddingDate' && activeTab === 'wedding') {
@@ -281,6 +296,7 @@ export default function ProfilePage() {
               onGoogleAction={handleGoogleAction}
             />
           )}
+          {activeTab === "communication" && <CommunicationTab />}
           {activeTab === "notifications" && <NotificationsTab />}
           <UnsavedChangesModal
             isOpen={showUnsavedModal}

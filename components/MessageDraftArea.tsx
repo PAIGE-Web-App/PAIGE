@@ -2,6 +2,7 @@ import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { FileUp, SmilePlus, WandSparkles, MoveRight, X, Reply, MessageSquareText, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGmailAuth } from '@/contexts/GmailAuthContext';
+import DraftPreferencesBar from './DraftPreferencesBar';
 
 interface MessageDraftAreaProps {
   selectedChannel: string;
@@ -32,6 +33,19 @@ interface MessageDraftAreaProps {
   clearReply?: () => void;
   subject: string;
   setSubject: (subject: string) => void;
+  hasAIGeneratedDraft?: boolean;
+  lastUsedCommPrefs?: {
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  } | null;
+  onRegenerateDraft?: (commPrefs: {
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  }, action?: string) => void;
+  onOpenAdditionalContext?: () => void;
+  isRegenerating?: boolean;
 }
 
 const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
@@ -62,6 +76,11 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
   clearReply,
   subject,
   setSubject,
+      hasAIGeneratedDraft = false,
+      lastUsedCommPrefs = null,
+      onRegenerateDraft,
+      onOpenAdditionalContext,
+      isRegenerating = false
 }) => {
   // Get Gmail auth status (no additional API calls - uses existing banner logic)
   const { needsReauth } = useGmailAuth();
@@ -72,9 +91,15 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
 
   useLayoutEffect(() => {
     if (subjectInputRef.current && subjectMeasureRef.current) {
-      const minWidth = 200; // Increased from 120 to accommodate placeholder text
+      const minWidth = 200;
       const measured = subjectMeasureRef.current.offsetWidth;
-      subjectInputRef.current.style.width = Math.max(minWidth, measured + 8) + "px";
+      // Add extra padding to ensure text doesn't get cut off
+      const newWidth = Math.max(minWidth, measured + 20) + "px";
+      subjectInputRef.current.style.width = newWidth;
+      // Also ensure the container doesn't clip
+      if (subjectInputRef.current.parentElement) {
+        subjectInputRef.current.parentElement.style.minWidth = newWidth;
+      }
     }
   }, [subject]);
 
@@ -170,7 +195,7 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
         </div>
         {/* Subject input for Gmail */}
         {selectedChannel === "Gmail" && !replyingToMessage && (
-          <div className="mb-4 relative">
+          <div className="mb-4 relative overflow-visible">
             <input
               ref={subjectInputRef}
               type="text"
@@ -178,13 +203,13 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
               onChange={e => setSubject(e.target.value)}
               placeholder="Enter email subject"
               className="border-0 border-b border-[#AB9C95] px-0 py-2 text-sm bg-transparent text-[#332B42] focus:outline-none focus:ring-0 focus:border-[#A85C36] font-work"
-              style={{ borderRadius: 0, minWidth: 200, width: 200, display: 'inline-block', transition: 'width 0.2s' }}
+              style={{ borderRadius: 0, minWidth: 200, display: 'inline-block', transition: 'width 0.2s', overflow: 'visible' }}
             />
             {/* Hidden span for measuring text width */}
             <span
               ref={subjectMeasureRef}
               className="invisible absolute left-0 top-0 whitespace-pre text-sm font-normal"
-              style={{ padding: 0, margin: 0 }}
+              style={{ padding: 0, margin: 0, fontFamily: 'inherit' }}
             >
               {subject || 'Enter email subject'}
             </span>
@@ -227,6 +252,17 @@ const MessageDraftArea: React.FC<MessageDraftAreaProps> = ({
           )}
         </div>
       </div>
+      
+      {/* Draft Preferences Bar - shown when AI draft is generated */}
+      {hasAIGeneratedDraft && lastUsedCommPrefs && onRegenerateDraft && (
+        <DraftPreferencesBar
+          communicationPreferences={lastUsedCommPrefs}
+          onRegenerate={onRegenerateDraft}
+          onOpenAdditionalContext={onOpenAdditionalContext}
+          isRegenerating={isRegenerating}
+        />
+      )}
+      
       {/* Second row: All action buttons in one row, px-3, left/right aligned */}
       <div className="flex items-center justify-between py-3 px-3 border-t border-[#AB9C95] w-full" style={{ borderTopWidth: "0.5px" }}>
         <div className="flex items-center gap-4">

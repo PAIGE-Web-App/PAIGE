@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { userContextBuilder, UserContext, ContextOptions } from '../utils/userContextBuilder';
 
@@ -7,6 +7,15 @@ export function useUserContext(options: ContextOptions = {}) {
   const [context, setContext] = useState<UserContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoize options to prevent infinite loops
+  const memoizedOptions = useMemo(() => options, [
+    options.includeTodos,
+    options.includeVendors,
+    options.maxTodoItems,
+    options.maxVendorItems,
+    options.forceRefresh
+  ]);
 
   const buildContext = useCallback(async (forceRefresh = false) => {
     if (!user?.uid) {
@@ -21,7 +30,7 @@ export function useUserContext(options: ContextOptions = {}) {
     try {
       const userContext = await userContextBuilder.buildUserContext(
         user.uid, 
-        { ...options, forceRefresh }
+        { ...memoizedOptions, forceRefresh }
       );
       setContext(userContext);
     } catch (err) {
@@ -31,7 +40,7 @@ export function useUserContext(options: ContextOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, options]);
+  }, [user?.uid, memoizedOptions]);
 
   // Build context on mount and when dependencies change
   useEffect(() => {

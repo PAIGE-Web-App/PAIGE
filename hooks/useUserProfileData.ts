@@ -46,6 +46,17 @@ export function useUserProfileData() {
     inApp: false
   });
 
+  // Communication preferences
+  const [communicationPreferences, setCommunicationPreferences] = useState<{
+    generalTone: 'friendly' | 'professional' | 'casual' | 'formal';
+    negotiationStyle: 'assertive' | 'collaborative' | 'diplomatic' | 'direct';
+    formalityLevel: 'very-casual' | 'casual' | 'professional' | 'very-formal';
+  }>({
+    generalTone: 'friendly',
+    negotiationStyle: 'collaborative',
+    formalityLevel: 'professional'
+  });
+
   const [reloadCount, setReloadCount] = useState(0);
   const reload = () => setReloadCount((c) => c + 1);
 
@@ -89,6 +100,22 @@ export function useUserProfileData() {
             push: data.notificationPreferences?.push || false,
             inApp: data.notificationPreferences?.inApp || false
           });
+
+          // Communication preferences - always set defaults if not found
+          if (data.communicationPreferences) {
+            setCommunicationPreferences({
+              generalTone: data.communicationPreferences.generalTone || 'friendly',
+              negotiationStyle: data.communicationPreferences.negotiationStyle || 'collaborative',
+              formalityLevel: data.communicationPreferences.formalityLevel || 'professional'
+            });
+          } else {
+            // Keep defaults if not found in Firestore
+            setCommunicationPreferences({
+              generalTone: 'friendly',
+              negotiationStyle: 'collaborative',
+              formalityLevel: 'professional'
+            });
+          }
 
           // Only set wedding date if it exists AND is not undecided
           if (data.weddingDate?.seconds && !data.weddingDateUndecided) {
@@ -144,6 +171,8 @@ export function useUserProfileData() {
     imagePreview,
     phoneNumber,
     notificationPreferences,
+    communicationPreferences,
+    setCommunicationPreferences,
     reload
   };
 } 

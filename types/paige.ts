@@ -84,6 +84,24 @@ export interface PaigeCurrentData {
   ceremonyTime?: string;
   guestCount?: number;
   contacts?: any[]; // ✨ NEW: User contacts for vendor info
+  
+  // Messages context
+  totalContacts?: number;
+  selectedContact?: {
+    id: string;
+    name: string;
+    email: string;
+    category: string;
+  } | null;
+  unreadMessages?: number;
+  recentMessages?: Array<{
+    id: string;
+    subject: string;
+    body: string;
+    from: string;
+    date: any;
+    direction: 'sent' | 'received';
+  }>;
 }
 
 export interface PaigeContextualAssistantProps {

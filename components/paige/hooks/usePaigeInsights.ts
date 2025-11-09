@@ -110,6 +110,8 @@ export function usePaigeInsights({
     if (!userId) return;
 
     const generateSmartInsights = () => {
+      // Early return if dismissedInsights is still being initialized
+      if (!dismissedInsights) return;
       const insights: PaigeInsight[] = [];
 
       if (context === 'todo') {
@@ -1512,25 +1514,167 @@ export function usePaigeInsights({
         }
       }
 
+      // ✨ MESSAGES CONTEXT - Smart message scanning and cross-agent intelligence
+      if (context === 'messages') {
+        const totalContacts = currentData?.totalContacts || 0;
+        const selectedContact = currentData?.selectedContact;
+        const todoItems = currentData?.todoItems || [];
+        const budgetItems = currentData?.budgetItems || [];
+        const timelineData = currentData?.timelineData || [];
+        const daysUntilWedding = currentData?.daysUntilWedding || 365;
+
+        // Priority 1: Suggest scanning selected conversation for updates
+        if (selectedContact && totalContacts > 0) {
+          insights.push({
+            id: 'messages-scan-conversation',
+            type: 'suggestion',
+            title: `Scan conversation with ${selectedContact.name}`,
+            description: 'Check this conversation for todo updates, budget changes, or timeline adjustments.',
+            action: {
+              label: 'Scan messages',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage(`Scan my conversation with ${selectedContact.name} for updates to todos, budget, or timeline`);
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 2: Suggest scanning all messages for missed updates
+        if (totalContacts > 0 && !selectedContact) {
+          insights.push({
+            id: 'messages-scan-all',
+            type: 'tip',
+            title: 'Scan all messages for updates',
+            description: `Review ${totalContacts} contact${totalContacts > 1 ? 's' : ''} to find todo updates, budget changes, and timeline adjustments.`,
+            action: {
+              label: 'Scan all messages',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage('Scan all my messages for updates to todos, budget, and timeline');
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 3: Cross-agent - Messages that might update todos
+        if (todoItems.length > 0 && selectedContact) {
+          const incompleteTodos = todoItems.filter((todo: any) => !todo.isCompleted);
+          if (incompleteTodos.length > 0) {
+            insights.push({
+              id: 'messages-todo-updates',
+              type: 'reminder',
+              title: `${incompleteTodos.length} incomplete todo${incompleteTodos.length > 1 ? 's' : ''} may have updates`,
+              description: `Check messages from ${selectedContact.name} for status updates, deadlines, or completion notifications.`,
+              action: {
+                label: 'Check for updates',
+                onClick: () => {
+                  if (openChatWithMessage) {
+                    openChatWithMessage(`Check messages from ${selectedContact.name} for updates to my incomplete todos`);
+                  }
+                }
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Priority 4: Cross-agent - Messages that might update budget
+        if (budgetItems.length > 0 && selectedContact) {
+          const unpaidItems = budgetItems.filter((item: any) => !item.isPaid);
+          if (unpaidItems.length > 0) {
+            insights.push({
+              id: 'messages-budget-updates',
+              type: 'reminder',
+              title: `${unpaidItems.length} unpaid budget item${unpaidItems.length > 1 ? 's' : ''}`,
+              description: `Check if ${selectedContact.name} sent payment confirmations or invoices.`,
+              action: {
+                label: 'Check payments',
+                onClick: () => {
+                  if (openChatWithMessage) {
+                    openChatWithMessage(`Check messages from ${selectedContact.name} for payment confirmations or invoices`);
+                  }
+                }
+              },
+              dismissible: true
+            });
+          }
+        }
+
+        // Priority 5: Cross-agent - Messages that might update timeline
+        if (timelineData.length > 0 && selectedContact && daysUntilWedding < 90) {
+          insights.push({
+            id: 'messages-timeline-updates',
+            type: 'urgent',
+            title: 'Timeline may need updates',
+            description: `${daysUntilWedding} days until wedding - check vendor messages for schedule changes or arrival times.`,
+            action: {
+              label: 'Check timeline',
+              onClick: () => {
+                if (openChatWithMessage) {
+                  openChatWithMessage(`Check messages from ${selectedContact.name} for timeline updates or schedule changes`);
+                }
+              }
+            },
+            dismissible: true
+          });
+        }
+
+        // Priority 6: No contacts yet
+        if (totalContacts === 0) {
+          insights.push({
+            id: 'messages-no-contacts',
+            type: 'tip',
+            title: 'Add your first contact',
+            description: 'Add vendor contacts to start tracking messages and extracting todo items automatically.',
+            action: {
+              label: 'Add contact',
+              onClick: () => {
+                // Trigger add contact modal - this would need to be passed as a prop or handled differently
+                const addButton = document.querySelector('[data-action="add-contact"]') as HTMLElement;
+                if (addButton) addButton.click();
+              }
+            },
+            dismissible: true
+          });
+        }
+      }
+
       // Filter out dismissed insights and set the array
       const visibleInsights = insights.filter(insight => !dismissedInsights.has(insight.id));
       setCurrentInsights(visibleInsights);
     };
 
     generateSmartInsights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     context,
-    todoComputations,
+    userId,
+    dismissedInsights.size, // ✅ Use size instead of Set reference
+    // Only include primitive values and lengths to avoid object reference changes
+    todoComputations?.allTodoItems?.length,
+    todoComputations?.incompleteTodos?.length,
+    todoComputations?.todosWithoutDeadlines?.length,
+    todoComputations?.totalTodos,
+    todoComputations?.daysUntilWedding,
     currentData?.overdueTasks,
     currentData?.upcomingDeadlines,
     currentData?.completedTasks,
     currentData?.totalTasks,
     currentData?.weddingLocation,
     currentData?.daysUntilWedding,
-    currentData?.timelineData?.length, // ✅ Re-generate when timeline data loads
-    userId,
-    dismissedInsights,
-    handleAddDeadlines
+    currentData?.timelineData?.length,
+    currentData?.totalContacts,
+    currentData?.selectedContact?.id,
+    currentData?.selectedContact?.name,
+    currentData?.todoItems?.length,
+    currentData?.budgetItems?.length,
+    // Note: handleAddDeadlines and openChatWithMessage are stable callbacks
+    // but we don't include them in deps to avoid re-running on every render
   ]);
 
   return {

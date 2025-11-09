@@ -123,11 +123,13 @@ const MessagesPanel = ({
             input={input}
             setInput={setInput}
             draftLoading={draftLoading}
-            generateDraft={() => {
+            generateDraft={(contact, messages, userId, userData) => {
               if (!selectedContact) {
                 return Promise.resolve("");
               }
-              return generateDraftMessage(selectedContact, [], currentUser?.uid, {
+              // Pass through the userData from MessageArea (which includes additionalContext)
+              // Only use fallback defaults if userData is not provided
+              const finalUserData = userData || {
                 userName: profileUserName || userName,
                 partnerName,
                 weddingDate,
@@ -136,7 +138,8 @@ const MessagesPanel = ({
                 guestCount,
                 maxBudget,
                 vibe: vibe || []
-              });
+              };
+              return generateDraftMessage(contact || selectedContact, messages || [], userId || currentUser?.uid, finalUserData);
             }}
             selectedFiles={selectedFiles}
             setSelectedFiles={setSelectedFiles}

@@ -8,6 +8,7 @@ export const TABS = [
   { key: "plan", label: "Plan & Billing" },
   { key: "credits", label: "Credits" },
   { key: "integrations", label: "Integrations" },
+  { key: "communication", label: "Communication" },
   { key: "notifications", label: "Notifications" },
 ];
 

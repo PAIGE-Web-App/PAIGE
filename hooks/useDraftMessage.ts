@@ -14,10 +14,26 @@ export function useDraftMessage() {
         headers["x-user-id"] = userId;
       }
       
+      // Ensure communicationPreferences always has defaults, but preserve ALL other fields including additionalContext
+      // CRITICAL: additionalContext is message-level, not user-level, but must be preserved
+      const finalUserData = userData ? {
+        ...userData, // Spread everything first to preserve additionalContext, isRegeneration, originalDraft, etc.
+        communicationPreferences: userData.communicationPreferences || {
+          generalTone: 'friendly',
+          negotiationStyle: 'collaborative',
+          formalityLevel: 'professional'
+        },
+        vibe: userData.vibe || [], // Ensure vibe is always an array
+        // CRITICAL: Explicitly preserve message-level properties that might be lost
+        ...(userData.additionalContext !== undefined && { additionalContext: userData.additionalContext }),
+        ...(userData.isRegeneration !== undefined && { isRegeneration: userData.isRegeneration }),
+        ...(userData.originalDraft !== undefined && { originalDraft: userData.originalDraft })
+      } : undefined;
+      
       const res = await fetch("/api/draft", {
         method: "POST",
         headers,
-        body: JSON.stringify({ contact, messages, userData }), // Remove userId from body since it's in headers
+        body: JSON.stringify({ contact, messages, userData: finalUserData }), // Remove userId from body since it's in headers
       });
       
       let data;

@@ -38,6 +38,9 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import type { TodoItem } from '../../types/todo';
 import { COUPLE_SUBSCRIPTION_CREDITS } from "../../types/credits";
 import { useCredits } from "../../contexts/CreditContext";
+import { useAgentData } from "../../contexts/AgentDataContext";
+import PaigeContextualAssistant from "@/components/PaigeContextualAssistant";
+import { isPaigeChatEnabled } from "@/hooks/usePaigeChat";
 
 // Component that uses credits for the modal
 function NotEnoughCreditsModalWrapper({ 
@@ -184,6 +187,10 @@ export default function MessagesPage() {
   
   // Use the shared todo lists hook
   const todoListsHook = useTodoLists();
+  
+  // ✨ Paige AI Agent
+  const isPaigeEnabled = isPaigeChatEnabled(user?.uid);
+  const agentData = useAgentData();
   const { handleAddList } = todoListsHook;
   
   
@@ -1275,6 +1282,39 @@ export default function MessagesPage() {
                 }}
               />
             </Suspense>
+          )}
+          
+          {/* ✨ Paige Messages Agent */}
+          {isPaigeEnabled && (
+            <PaigeContextualAssistant
+              context="messages"
+              currentData={{
+                // Messages context
+                totalContacts: contacts.length,
+                selectedContact: selectedContact ? {
+                  id: selectedContact.id,
+                  name: selectedContact.name,
+                  email: selectedContact.email || '',
+                  category: selectedContact.category || 'general'
+                } : null,
+                
+                // Cross-agent data from AgentDataProvider
+                todoItems: agentData.todoData || [],
+                totalTasks: agentData.todoData?.length || 0,
+                hasBudget: agentData.budgetCategories?.length > 0 || false,
+                budgetCategories: agentData.budgetCategories || [],
+                budgetItems: agentData.budgetItems || [],
+                totalBudget: agentData.userData?.maxBudget || 0,
+                contacts: agentData.contactsData || [],
+                timelineData: agentData.timelineData || [],
+                
+                // Wedding context
+                weddingLocation: agentData.userData?.weddingLocation || undefined,
+                daysUntilWedding: agentData.userData?.weddingDate 
+                  ? Math.ceil((new Date(agentData.userData.weddingDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                  : undefined
+              }}
+            />
           )}
       </div>
   );

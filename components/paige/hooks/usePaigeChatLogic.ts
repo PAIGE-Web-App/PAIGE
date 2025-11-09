@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { PaigeChatMessage, PaigeCurrentData, PaigeContext } from '@/types/paige';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface UsePaigeChatLogicProps {
   context: PaigeContext;
@@ -28,6 +29,7 @@ export function usePaigeChatLogic({
   currentData,
   handleTodoAction
 }: UsePaigeChatLogicProps): UsePaigeChatLogicReturn {
+  const { user } = useAuth();
   const [chatMessages, setChatMessages] = useState<PaigeChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -172,6 +174,96 @@ export function usePaigeChatLogic({
       }
       
       // Let API handle other timeline commands
+      return false;
+    }
+
+    // ✨ MESSAGES CONTEXT - Message scanning commands
+    if (context === 'messages') {
+      const selectedContact = latestCurrentData?.selectedContact;
+      const totalContacts = latestCurrentData?.totalContacts || 0;
+
+      // Handle "scan" or "analyze" commands
+      if ((lowerMessage.includes('scan') || lowerMessage.includes('analyze') || lowerMessage.includes('check')) && 
+          (lowerMessage.includes('message') || lowerMessage.includes('conversation') || lowerMessage.includes('contact'))) {
+        
+        const isScanAll = lowerMessage.includes('all') || (!selectedContact && totalContacts > 0);
+        const contactName = selectedContact?.name || 'your contacts';
+        
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: isScanAll 
+            ? `Scanning all messages from ${totalContacts} contact${totalContacts > 1 ? 's' : ''} for todo updates, budget changes, and timeline adjustments... 🔍`
+            : `Scanning conversation with ${contactName} for updates to todos, budget, or timeline... 🔍`
+        }]);
+
+        // Call the scan messages API
+        setTimeout(async () => {
+          try {
+            const response = await fetch('/api/scan-messages-for-todos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user?.uid || '',
+                contactEmail: selectedContact?.email || null,
+                scanType: isScanAll ? 'all_messages' : 'recent_messages'
+              })
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              console.log('📊 Scan API response:', result);
+              
+              // API returns: todosSuggested, todosUpdated, todosCompleted
+              const { todosSuggested = 0, todosUpdated = 0, todosCompleted = 0, messagesScanned = 0, errors = [] } = result;
+              
+              let summary = `✅ Scan complete! Analyzed ${messagesScanned} message${messagesScanned !== 1 ? 's' : ''}.\n\n`;
+              
+              const findings: string[] = [];
+              if (todosSuggested > 0) {
+                findings.push(`• ${todosSuggested} new todo suggestion${todosSuggested > 1 ? 's' : ''}`);
+              }
+              if (todosUpdated > 0) {
+                findings.push(`• ${todosUpdated} todo update${todosUpdated > 1 ? 's' : ''}`);
+              }
+              if (todosCompleted > 0) {
+                findings.push(`• ${todosCompleted} completed todo${todosCompleted > 1 ? 's' : ''}`);
+              }
+              
+              if (findings.length > 0) {
+                summary += `Found:\n${findings.join('\n')}`;
+              } else {
+                summary += `No updates found in ${contactName}'s messages right now. This could mean everything is up to date, or the messages don't contain actionable items.`;
+              }
+              
+              if (errors.length > 0) {
+                summary += `\n\n⚠️ Note: ${errors.length} message${errors.length > 1 ? 's' : ''} couldn't be analyzed.`;
+              }
+
+              setChatMessages(prev => [...prev, {
+                role: 'assistant',
+                content: summary
+              }]);
+            } else {
+              const errorData = await response.json().catch(() => ({}));
+              console.error('❌ Scan API error:', response.status, errorData);
+              setChatMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `Scan completed, but there was an issue analyzing messages. ${errorData?.error || 'Try again or check the message analysis feature directly.'}`
+              }]);
+            }
+          } catch (error) {
+            console.error('Scan error:', error);
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: 'Sorry, I had trouble scanning messages. Try again or use the message analysis feature directly.'
+            }]);
+          }
+        }, 500);
+
+        return true;
+      }
+
+      // Let API handle other message commands
       return false;
     }
     
