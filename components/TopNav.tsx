@@ -55,6 +55,7 @@ export default function TopNav() {
     { name: "To-do Lists", href: "/todo" },
     { name: "Budget", href: "/budget" },
     { name: "Vendors", href: "/vendors" },
+    { name: "Jewelry Store", href: "/jewelry" },
     { name: "Seating Charts", href: "/seating-charts" },
     { name: "Timeline", href: "/timeline" },
     { name: "Files", href: "/files" },

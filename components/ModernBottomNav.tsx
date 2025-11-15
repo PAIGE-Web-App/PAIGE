@@ -14,7 +14,8 @@ import {
   LogOut,
   User as UserIcon,
   MessageSquare,
-  Calendar
+  Calendar,
+  Gem
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { signOut } from 'firebase/auth';
@@ -50,6 +51,7 @@ export default function ModernBottomNav({ className = '' }: ModernBottomNavProps
   const userProfileItems: NavItem[] = [
     { name: 'Timelines', href: '/timeline', icon: Calendar },
     { name: 'Mood Boards', href: '/moodboards', icon: Heart },
+    { name: 'Jewelry Store', href: '/jewelry', icon: Gem },
     { name: 'Seating Charts', href: '/seating-charts', icon: Armchair },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Files', href: '/files', icon: FileText },

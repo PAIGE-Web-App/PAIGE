@@ -14,7 +14,8 @@ import {
   Sparkles,
   Armchair,
   MessageSquare,
-  Calendar
+  Calendar,
+  Gem
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +52,7 @@ export default function VerticalNav() {
     { name: "Seating Charts", href: "/seating-charts", icon: Armchair },
     { name: "Files", href: "/files", icon: FileText },
     { name: "Mood Boards", href: "/moodboards", icon: Heart },
+    { name: "Jewelry Store", href: "/jewelry", icon: Gem },
   ];
 
   const userMenuItems = [

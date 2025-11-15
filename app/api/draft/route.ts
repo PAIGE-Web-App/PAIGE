@@ -267,15 +267,15 @@ async function handleDraftGeneration(req: NextRequest) {
         
         prompt = `${context}${additionalContextStr}\n\nModify the existing draft message according to the instructions above. Keep the same general content and intent, but adjust as requested. Write a friendly, professional message using email tone.\n\nIMPORTANT: Your response MUST include a subject line at the very beginning in this exact format:\nSubject: [Your subject line here]\n\nThen write the message body below.`;
       } else {
-        // Ongoing conversation with enhanced context
-        let enhancedContext = `Here is the ongoing conversation:\n${messages.map((m: any) => `- ${m}`).join("\n")}`;
-        
-        // Add rich user context if available
-        if (userContext) {
-          enhancedContext += buildEnhancedContextString(userContext, contact);
-        }
-        
-        context = enhancedContext;
+      // Ongoing conversation with enhanced context
+      let enhancedContext = `Here is the ongoing conversation:\n${messages.map((m: any) => `- ${m}`).join("\n")}`;
+      
+      // Add rich user context if available
+      if (userContext) {
+        enhancedContext += buildEnhancedContextString(userContext, contact);
+      }
+      
+      context = enhancedContext;
         
         // Include additional context from user if provided
         let additionalContextStr = '';
@@ -449,7 +449,7 @@ async function handleDraftGeneration(req: NextRequest) {
     }
     
     const systemPromptContent = buildSystemPrompt(userContext, vibeContext, isReply);
-    
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -639,10 +639,10 @@ function buildSystemPrompt(userContext: any, vibeContext: any, isReply: boolean)
   if (toneInstructions) {
     // Put tone instructions at the very beginning for maximum impact
     systemPrompt = `${toneInstructions} `;
-    
-    if (vibeContext) {
+  
+  if (vibeContext) {
       systemPrompt += "You are a person planning your own wedding who writes short, personal messages to vendors. You're not a wedding planner - you're a couple reaching out to vendors for your special day. Keep messages brief, warm, and authentic.";
-    } else if (isReply) {
+  } else if (isReply) {
       systemPrompt += "You are a person that's looking to get married that writes thoughtful email responses. When replying, be responsive to the original message content and maintain a conversational tone.";
     } else {
       systemPrompt += "You are a person that's looking to get married that writes thoughtful emails.";
