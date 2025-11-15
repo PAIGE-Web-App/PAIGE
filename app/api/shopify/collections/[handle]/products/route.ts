@@ -32,14 +32,14 @@ export async function GET(
     // First, get the collection to find its ID
     let collectionId: number | null = null;
 
-    // Try smart collections
+    // Try smart collections with caching (5 minutes)
     let url = `https://${shopDomain}/admin/api/2024-01/smart_collections.json?handle=${handle}`;
     let response = await fetch(url, {
       headers: {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
-      cache: 'no-store'
+      next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (response.ok) {
@@ -50,7 +50,7 @@ export async function GET(
       }
     }
 
-    // If not found, try custom collections
+    // If not found, try custom collections with caching
     if (!collectionId) {
       url = `https://${shopDomain}/admin/api/2024-01/custom_collections.json?handle=${handle}`;
       response = await fetch(url, {
@@ -58,7 +58,7 @@ export async function GET(
           'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
           'Content-Type': 'application/json',
         },
-        cache: 'no-store'
+        next: { revalidate: 300 }, // Cache for 5 minutes
       });
 
       if (response.ok) {
@@ -74,13 +74,14 @@ export async function GET(
       return NextResponse.json({ error: 'Collection not found' }, { status: 404 });
     }
 
-    // Fetch products in this collection
+    // Fetch products in this collection with caching (5 minutes)
     const productsUrl = `https://${shopDomain}/admin/api/2024-01/products.json?collection_id=${collectionId}&limit=250&status=active`;
     const productsResponse = await fetch(productsUrl, {
       headers: {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (!productsResponse.ok) {

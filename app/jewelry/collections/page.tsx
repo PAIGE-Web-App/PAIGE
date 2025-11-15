@@ -7,6 +7,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import CollectionsPageSkeleton from '@/components/jewelry/CollectionsPageSkeleton';
 import { useCustomToast } from '@/hooks/useCustomToast';
 import WeddingBanner from '@/components/WeddingBanner';
+import useSWR from 'swr';
 
 interface ShopifyCollection {
   id: number;
@@ -22,28 +23,46 @@ export default function CollectionsPage() {
   const router = useRouter();
   const { showErrorToast } = useCustomToast();
 
+  // SWR fetcher function
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch collections');
+    }
+    const data = await response.json();
+    return data.collections || [];
+  };
+
+  // Use SWR for request deduplication and caching
+  const { data: collectionsData, error, isLoading } = useSWR<ShopifyCollection[]>(
+    '/api/shopify/collections',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000, // Dedupe requests within 60 seconds
+    }
+  );
+
+  // Update collections state when SWR data changes
   useEffect(() => {
-    fetchCollections();
-  }, []);
+    if (collectionsData) {
+      setCollections(collectionsData);
+    }
+  }, [collectionsData]);
 
-  const fetchCollections = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/shopify/collections');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch collections');
-      }
+  // Update loading state
+  useEffect(() => {
+    setLoading(isLoading);
+  }, [isLoading]);
 
-      const data = await response.json();
-      setCollections(data.collections || []);
-    } catch (error) {
+  // Handle errors
+  useEffect(() => {
+    if (error) {
       console.error('Error fetching collections:', error);
       showErrorToast('Failed to load collections. Please try again later.');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error, showErrorToast]);
 
   const handleCollectionClick = (handle: string) => {
     router.push(`/jewelry/collections/${handle}`);

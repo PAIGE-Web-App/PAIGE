@@ -43,12 +43,13 @@ export async function GET(req: NextRequest) {
       url += `&collection_id=${collectionId}`;
     }
 
-    // Fetch products from Shopify
+    // Fetch products from Shopify with caching (5 minutes)
     const response = await fetch(url, {
       headers: {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (!response.ok) {

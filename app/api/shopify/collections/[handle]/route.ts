@@ -25,14 +25,14 @@ export async function GET(
 
     const { handle } = await params;
 
-    // Try smart collections first
+    // Try smart collections first with caching (15 minutes)
     let url = `https://${shopDomain}/admin/api/2024-01/smart_collections.json?handle=${handle}`;
     let response = await fetch(url, {
       headers: {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
-      cache: 'no-store'
+      next: { revalidate: 900 }, // Cache for 15 minutes
     });
 
     let collection = null;
@@ -42,7 +42,7 @@ export async function GET(
       collection = data.smart_collections?.[0];
     }
 
-    // If not found in smart collections, try custom collections
+    // If not found in smart collections, try custom collections with caching
     if (!collection) {
       url = `https://${shopDomain}/admin/api/2024-01/custom_collections.json?handle=${handle}`;
       response = await fetch(url, {
@@ -50,7 +50,7 @@ export async function GET(
           'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
           'Content-Type': 'application/json',
         },
-        cache: 'no-store'
+        next: { revalidate: 900 }, // Cache for 15 minutes
       });
 
       if (response.ok) {

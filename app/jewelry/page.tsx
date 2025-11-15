@@ -10,6 +10,8 @@ import SectionHeaderBar from '@/components/SectionHeaderBar';
 import JewelryFilters from '@/components/jewelry/JewelryFilters';
 import { useRouter } from 'next/navigation';
 import WeddingBanner from '@/components/WeddingBanner';
+import useSWR from 'swr';
+import { throttle } from '@/utils/arrayUtils';
 
 interface ShopifyProduct {
   id: number;
@@ -139,34 +141,52 @@ export default function JewelryStorePage() {
   
   const { showErrorToast } = useCustomToast();
 
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/shopify/products?limit=250');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
-
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      showErrorToast('Failed to load jewelry. Please try again later.');
-    } finally {
-      setLoading(false);
+  // SWR fetcher function
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch products');
     }
+    const data = await response.json();
+    return data.products || [];
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  // Use SWR for request deduplication and caching
+  const { data: productsData, error, isLoading } = useSWR<ShopifyProduct[]>(
+    '/api/shopify/products?limit=250',
+    fetcher,
+    {
+      revalidateOnFocus: false, // Don't refetch on window focus
+      revalidateOnReconnect: false, // Don't refetch on reconnect
+      dedupingInterval: 60000, // Dedupe requests within 60 seconds
+    }
+  );
 
-  // Parallax scroll effect
+  // Update products state when SWR data changes
   useEffect(() => {
-    const handleScroll = () => {
+    if (productsData) {
+      setProducts(productsData);
+    }
+  }, [productsData]);
+
+  // Update loading state
+  useEffect(() => {
+    setLoading(isLoading);
+  }, [isLoading]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      console.error('Error fetching products:', error);
+      showErrorToast('Failed to load jewelry. Please try again later.');
+    }
+  }, [error, showErrorToast]);
+
+  // Parallax scroll effect with throttling (16ms = ~60fps)
+  useEffect(() => {
+    const handleScroll = throttle(() => {
       setScrollY(window.scrollY);
-    };
+    }, 16);
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);

@@ -9,6 +9,7 @@ import CollectionDetailPageSkeleton from '@/components/jewelry/CollectionDetailP
 import { useCustomToast } from '@/hooks/useCustomToast';
 import CollectionFilters from '@/components/jewelry/CollectionFilters';
 import WeddingBanner from '@/components/WeddingBanner';
+import useSWR from 'swr';
 
 interface ShopifyProduct {
   id: number;
@@ -140,12 +141,78 @@ export default function CollectionDetailPage() {
   const [selectedMetals, setSelectedMetals] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (handle) {
-      fetchCollection();
-      fetchProducts();
+  // SWR fetcher functions
+  const collectionFetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch collection');
     }
-  }, [handle]);
+    const data = await response.json();
+    return data.collection;
+  };
+
+  const productsFetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch products');
+    }
+    const data = await response.json();
+    return data.products || [];
+  };
+
+  // Use SWR for request deduplication and caching
+  const { data: collectionData, error: collectionError } = useSWR<ShopifyCollection>(
+    handle ? `/api/shopify/collections/${handle}` : null,
+    collectionFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000,
+    }
+  );
+
+  const { data: productsData, error: productsError, isLoading: productsLoading } = useSWR<ShopifyProduct[]>(
+    handle ? `/api/shopify/collections/${handle}/products` : null,
+    productsFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000,
+    }
+  );
+
+  // Update state when SWR data changes
+  useEffect(() => {
+    if (collectionData) {
+      setCollection(collectionData);
+    }
+  }, [collectionData]);
+
+  useEffect(() => {
+    if (productsData) {
+      setProducts(productsData);
+    }
+  }, [productsData]);
+
+  // Update loading state
+  useEffect(() => {
+    setLoading(productsLoading);
+  }, [productsLoading]);
+
+  // Handle errors
+  useEffect(() => {
+    if (collectionError) {
+      console.error('Error fetching collection:', collectionError);
+      showErrorToast('Failed to load collection. Please try again later.');
+    }
+  }, [collectionError, showErrorToast]);
+
+  useEffect(() => {
+    if (productsError) {
+      console.error('Error fetching products:', productsError);
+      showErrorToast('Failed to load products. Please try again later.');
+    }
+  }, [productsError, showErrorToast]);
 
   // Update price range when products load
   useEffect(() => {
@@ -159,41 +226,6 @@ export default function CollectionDetailPage() {
       }
     }
   }, [products]);
-
-  const fetchCollection = async () => {
-    try {
-      const response = await fetch(`/api/shopify/collections/${handle}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch collection');
-      }
-
-      const data = await response.json();
-      setCollection(data.collection);
-    } catch (error) {
-      console.error('Error fetching collection:', error);
-      showErrorToast('Failed to load collection. Please try again later.');
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/shopify/collections/${handle}/products`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
-
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      showErrorToast('Failed to load products. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Apply all filters - matching remicity.com collection page logic
   const filteredProducts = useMemo(() => {

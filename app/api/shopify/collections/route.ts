@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 900 }, // Cache for 15 minutes (collections change less frequently)
     });
 
     if (!response.ok) {
@@ -61,6 +62,7 @@ export async function GET(req: NextRequest) {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 900 }, // Cache for 15 minutes
     });
 
     let customCollections: any[] = [];

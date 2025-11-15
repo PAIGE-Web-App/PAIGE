@@ -8,6 +8,7 @@ import ProductDetailPageSkeleton from '@/components/jewelry/ProductDetailPageSke
 import { useCustomToast } from '@/hooks/useCustomToast';
 import SectionHeaderBar from '@/components/SectionHeaderBar';
 import WeddingBanner from '@/components/WeddingBanner';
+import useSWR from 'swr';
 
 interface ShopifyProduct {
   id: number;
@@ -45,33 +46,49 @@ export default function ProductDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
 
-  useEffect(() => {
-    if (handle) {
-      fetchProduct();
+  // SWR fetcher function
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch product');
     }
-  }, [handle]);
+    const data = await response.json();
+    return data.product;
+  };
 
-  const fetchProduct = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/shopify/products/${handle}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch product');
-      }
+  // Use SWR for request deduplication and caching
+  const { data: productData, error, isLoading } = useSWR<ShopifyProduct>(
+    handle ? `/api/shopify/products/${handle}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000, // Dedupe requests within 60 seconds
+    }
+  );
 
-      const data = await response.json();
-      setProduct(data.product);
-      if (data.product.variants && data.product.variants.length > 0) {
-        setSelectedVariant(data.product.variants[0]);
+  // Update product state when SWR data changes
+  useEffect(() => {
+    if (productData) {
+      setProduct(productData);
+      if (productData.variants && productData.variants.length > 0) {
+        setSelectedVariant(productData.variants[0]);
       }
-    } catch (error) {
+    }
+  }, [productData]);
+
+  // Update loading state
+  useEffect(() => {
+    setLoading(isLoading);
+  }, [isLoading]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
       console.error('Error fetching product:', error);
       showErrorToast('Failed to load product. Please try again later.');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error, showErrorToast]);
 
   const images = product?.images && product.images.length > 0 
     ? product.images 

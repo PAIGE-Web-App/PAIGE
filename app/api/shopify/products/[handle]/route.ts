@@ -27,12 +27,13 @@ export async function GET(
 
     const { handle } = await params;
 
-    // Fetch all products and find by handle
+    // Fetch all products and find by handle with caching (5 minutes)
     const response = await fetch(`${adminApiUrl}?limit=250&status=active`, {
       headers: {
         'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
         'Content-Type': 'application/json',
       },
+      next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (!response.ok) {
