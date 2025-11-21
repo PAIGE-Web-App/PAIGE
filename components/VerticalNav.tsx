@@ -15,12 +15,14 @@ import {
   Armchair,
   MessageSquare,
   Calendar,
-  Gem
+  Gem,
+  MoreHorizontal
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { handleLogout } from '../utils/logout';
 import { useNotifications, NotificationCounts } from '../hooks/useNotifications';
+import { useViewportHeight } from '../hooks/useViewportHeight';
 import NotificationPopover from './NotificationPopover';
 import NotificationBadge from './NotificationBadge';
 import VerticalNavCreditDisplay from './VerticalNavCreditDisplay';
@@ -35,32 +37,60 @@ interface NavItem {
 export default function VerticalNav() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { user, profileImageUrl, profileImageLQIP } = useAuth();
   const { notificationCounts, markNotificationAsRead } = useNotifications();
+  const { height: viewportHeight, isShort } = useViewportHeight();
 
-  const navItems: NavItem[] = [
+  // Core navigation items (always shown when space allows)
+  const coreNavItems: NavItem[] = [
     { name: "Messages", href: "/messages", icon: MessageSquare, notificationKey: "messages" },
     { name: "To-do Lists", href: "/todo", icon: ClipboardList, notificationKey: "todo" },
     { name: "Timelines", href: "/timeline", icon: Calendar },
     { name: "Budget", href: "/budget", icon: DollarSign, notificationKey: "budget" },
     { name: "Vendors", href: "/vendors", icon: Users, notificationKey: "vendors" },
     { name: "Seating Charts", href: "/seating-charts", icon: Armchair },
+  ];
+
+  // Secondary navigation items (shown in "More" menu when space is limited)
+  const secondaryNavItems: NavItem[] = [
     { name: "Files", href: "/files", icon: FileText },
     { name: "Mood Boards", href: "/moodboards", icon: Heart },
     { name: "Jewelry Store", href: "/jewelry", icon: Gem },
   ];
+
+  // Calculate available space for nav items
+  // Logo area: ~64px (32px logo + 32px margin)
+  // Bottom section: ~160px (credits ~80px + profile ~40px + margins)
+  // Notifications: ~56px (40px button + 16px margin)
+  // Each nav item: ~56px (40px button + 16px spacing)
+  const LOGO_HEIGHT = 64;
+  const BOTTOM_SECTION_HEIGHT = 160;
+  const NOTIFICATIONS_HEIGHT = 56;
+  const ITEM_HEIGHT = 56;
+  const availableHeight = viewportHeight - LOGO_HEIGHT - BOTTOM_SECTION_HEIGHT - NOTIFICATIONS_HEIGHT;
+  const maxVisibleItems = Math.floor(availableHeight / ITEM_HEIGHT);
+  
+  // Show responsive mode when viewport is short OR when we can't fit all core items
+  const useResponsiveMode = isShort || maxVisibleItems < coreNavItems.length;
+  
+  // In responsive mode, show core items that fit, then "More" menu
+  const visibleCoreItems = useResponsiveMode 
+    ? coreNavItems.slice(0, Math.max(1, maxVisibleItems - 1)) // Reserve space for "More" button
+    : coreNavItems;
 
   const userMenuItems = [
     { name: "Settings", href: "/settings", icon: Settings },
     { name: "Logout", href: "#", icon: LogOut, onClick: () => handleLogout(router) },
   ];
 
-  // Handle click outside for user menu and notifications
+  // Handle click outside for user menu, notifications, and more menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -69,9 +99,12 @@ export default function VerticalNav() {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
       }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
     };
 
-    if (showUserMenu || showNotifications) {
+    if (showUserMenu || showNotifications || showMoreMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -80,7 +113,7 @@ export default function VerticalNav() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUserMenu, showNotifications]);
+  }, [showUserMenu, showNotifications, showMoreMenu]);
 
   const isActive = (href: string) => {
     if (href === '/') {
@@ -109,7 +142,138 @@ export default function VerticalNav() {
 
         {/* Main Navigation Items */}
         <div className="flex flex-col items-center space-y-6">
-          {navItems.map((item) => {
+          {/* Core Navigation Items */}
+          {visibleCoreItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            const notificationCount = getNotificationCount(item.notificationKey);
+            
+            return (
+              <div key={item.name} className="relative group">
+                <a
+                  href={item.href}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group-hover:bg-[#F3F2F0] ${
+                    active 
+                      ? 'bg-[#EBE3DD] text-[#A85C36]' 
+                      : 'text-[#364257] hover:text-[#A85C36]'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  {notificationCount > 0 && (
+                    <div className={`absolute -top-1 -right-1 w-5 h-4 rounded-full flex items-center justify-center px-1 ${
+                      item.notificationKey === 'todo' ? 'bg-blue-500' : 'bg-red-500'
+                    }`}>
+                      <span className="text-[10px] text-white font-medium">
+                        {notificationCount > 9 ? '9+' : notificationCount}
+                      </span>
+                    </div>
+                  )}
+                </a>
+                
+                {/* Hover Tooltip */}
+                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                  {item.name}
+                  {notificationCount > 0 && (
+                    <span className="ml-1 text-gray-300">
+                      ({notificationCount})
+                    </span>
+                  )}
+                  {/* Tooltip arrow */}
+                  <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* "More" Menu Button (shown in responsive mode) */}
+          {useResponsiveMode && (
+            <div className="relative group" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group-hover:bg-[#F3F2F0] ${
+                  showMoreMenu 
+                    ? 'bg-[#EBE3DD] text-[#A85C36]' 
+                    : 'text-[#364257] hover:text-[#A85C36]'
+                }`}
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+
+              {/* More Menu Popover */}
+              {showMoreMenu && (
+                <div
+                  className="absolute left-full ml-2 top-0 bg-white border border-[#AB9C95] rounded-[5px] shadow-lg z-50 py-1 min-w-[160px]"
+                >
+                  {/* Secondary nav items */}
+                  {secondaryNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    const notificationCount = getNotificationCount(item.notificationKey);
+                    
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setShowMoreMenu(false)}
+                        className={`block px-3 py-2 text-sm flex items-center gap-2 no-underline transition-colors ${
+                          active
+                            ? 'bg-[#EBE3DD] text-[#A85C36]'
+                            : 'text-[#332B42] hover:bg-[#F8F6F4] hover:text-[#A85C36]'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                        {notificationCount > 0 && (
+                          <span className="ml-auto text-xs text-gray-500">
+                            {notificationCount > 9 ? '9+' : notificationCount}
+                          </span>
+                        )}
+                      </a>
+                    );
+                  })}
+
+                  {/* Show remaining core items if any */}
+                  {coreNavItems.slice(visibleCoreItems.length).map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    const notificationCount = getNotificationCount(item.notificationKey);
+                    
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setShowMoreMenu(false)}
+                        className={`block px-3 py-2 text-sm flex items-center gap-2 no-underline transition-colors ${
+                          active
+                            ? 'bg-[#EBE3DD] text-[#A85C36]'
+                            : 'text-[#332B42] hover:bg-[#F8F6F4] hover:text-[#A85C36]'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                        {notificationCount > 0 && (
+                          <span className="ml-auto text-xs text-gray-500">
+                            {notificationCount > 9 ? '9+' : notificationCount}
+                          </span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Hover Tooltip for More Menu */}
+              {!showMoreMenu && (
+                <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-[#332B42] text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                  More
+                  <div className="absolute right-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-[#332B42] border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show secondary items directly when not in responsive mode */}
+          {!useResponsiveMode && secondaryNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             const notificationCount = getNotificationCount(item.notificationKey);
